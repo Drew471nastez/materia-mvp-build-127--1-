@@ -259,16 +259,6 @@ export function MobileWebHeader() {
     router.refresh()
   }, [router])
 
-  // A department picked in the search panel goes to the results page, the same
-  // as one picked in the menu beside it. It used to push `/?category=…` — the
-  // home page carrying a filter, with no title, no count and no filter bar.
-  const onSelectCategory = useCallback(
-    (id: string) => {
-      router.push(id === "all" ? "/" : categoryPath(id))
-    },
-    [router],
-  )
-
   // Back to the top level on the way out. Without this, reopening the menu
   // lands wherever you left it — a drawer that opens on "Femei · Pantofi"
   // because you pressed Femei once, yesterday.
@@ -672,7 +662,6 @@ export function MobileWebHeader() {
       <MobileSearchOverlay
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
-        onSelectCategory={onSelectCategory}
         initialQuery=""
       />
     </>

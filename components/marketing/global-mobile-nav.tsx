@@ -220,7 +220,6 @@ export function GlobalMobileNav() {
       <MobileSearchOverlay
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
-        onSelectCategory={onCategory}
         initialQuery=""
       />
     </>

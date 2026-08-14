@@ -913,19 +913,33 @@ export function PlatformHeaderClient() {
    * drawer, and a third here, and only the third had nothing to show for it.
    *
    * `categoryPath` rather than a string, so this cannot drift from the menus
-   * that already use it. "Toate" is the absence of a department rather than one
-   * of them, and it goes home: /shop with no path is a results page for the
-   * whole catalogue, which is a heading and a count over the feed somebody was
-   * already looking at.
+   * that already use it.
+   *
+   * AND "TOATE" GOES TO /shop, NOT HOME. It used to be the one pill in the row
+   * that left the results page: five of the six took you somewhere with a
+   * heading, a count, a trail and seven filters, and the sixth dropped you on
+   * the home feed — an endless column with no count and nothing to filter by.
+   * "Toate" is the absence of a DEPARTMENT, not the absence of the page, and
+   * `/shop` with no path is exactly that: the whole catalogue, with the same
+   * apparatus as every other pill in the row. `categoryPath(null)` is already
+   * "/shop", so there is no second spelling of it here.
    */
   const onCategoryClick = (cat: string) => {
-    navigateToExploreCategory(cat === "all" ? "/" : categoryPath(cat))
+    navigateToExploreCategory(categoryPath(cat === "all" ? null : cat))
   }
 
   // "/" is the marketplace, so it gets the category bar. It was excluded here
   // (and again in the two guards below), which is why storelib.com had no
   // category strip while storelib.com/explore did — the same page, minus its
   // navigation.
+  //
+  // NOT ON /shop, though every pill in it now goes there. That page has a sticky
+  // refine bar of its own pinned to `--platform-header-h`, which is exactly
+  // where this bar sits — and this one is z-35 to the refine bar's z-30, so the
+  // categories would paint over the filters every time somebody scrolled UP,
+  // which is the gesture people make in order to reach the filters. The results
+  // page carries its own department rail instead, in its own scroll flow — see
+  // components/explore/category-results.tsx.
   const showCategories =
     pathname === "/" || pathname.startsWith("/explore") || pathname === "/wishlist"
   const isDiscoverProductContext = pathname.startsWith("/p/") && isDiscoverMode(pathname, searchParams)
@@ -1619,12 +1633,6 @@ export function PlatformHeaderClient() {
               anchorTo={searchBoxRef}
               query={query}
               onQueryChange={setQuery}
-              // The marketplace, not the legacy /explore browse page — the ids
-              // are departments now and only the feed knows what they mean.
-              onSelectCategory={(id) => {
-                setSearchModalOpen(false)
-                router.push(id === "all" ? "/" : `/?category=${encodeURIComponent(id)}`)
-              }}
             />
           </div>
 

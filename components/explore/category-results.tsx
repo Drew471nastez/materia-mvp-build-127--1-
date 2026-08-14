@@ -8,7 +8,7 @@ import { ProductCard } from "@/components/explore/product-card"
 import { WishlistProvider } from "@/components/explore/wishlist-context"
 import { MobileFilterSheet, MobileSortSheet } from "@/components/explore/mobile-filter-sheet"
 import { SmartLink } from "@/components/smart-link"
-import { DEPARTMENT_NAV, categoryPath } from "@/lib/marketplace/department-nav"
+import { DEPARTMENT_NAV, DEPARTMENT_RAIL, categoryPath } from "@/lib/marketplace/department-nav"
 import { groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
 import {
   EMPTY_FILTERS,
@@ -325,6 +325,50 @@ export function CategoryResults({
             )}
           </nav>
         )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            THE DEPARTMENTS, ON THE PAGE THEY ALL LEAD TO
+            ═══════════════════════════════════════════════════════════════
+
+            Every way of picking a department — the header's bar, the phone's
+            drawer, the search panel's browse — lands here. And until this, the
+            moment you arrived the row you pressed it in was gone: the site's
+            category bar is not drawn on /shop, so moving from Femei to Bărbați
+            meant going back first. A rail whose destination does not show the
+            rail is a rail you can use exactly once.
+
+            NOT the site's bar borrowed onto this page. That one is `sticky` at
+            `--platform-header-h` and z-35, and the refine bar below is sticky at
+            the same offset and z-30 — so it would paint over the filters every
+            time somebody scrolled UP, which is the gesture people make in order
+            to reach the filters. This is in the page's own flow: it scrolls away
+            with the heading, which is right for something you use on arrival.
+
+            Toate is first and goes to /shop with no path, which is the whole
+            catalogue with this page's own apparatus over it rather than the home
+            feed — same as the bar's own Toate. */}
+        <nav aria-label="Departamente" className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide sm:mx-0 sm:px-0">
+          {DEPARTMENT_RAIL.map((d) => {
+            const on = d.id === "all" ? !departmentId : d.id === departmentId
+            const Icon = d.icon
+            return (
+              <SmartLink
+                key={d.id}
+                href={categoryPath(d.id === "all" ? null : d.id)}
+                aria-current={on ? "page" : undefined}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13.5px] font-medium transition-[color,border-color,background-color,transform] duration-150 ease-out active:scale-[0.96]",
+                  on
+                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400",
+                )}
+              >
+                <Icon className="h-[15px] w-[15px]" strokeWidth={1.9} />
+                {d.label}
+              </SmartLink>
+            )
+          })}
+        </nav>
 
         <h1 className="text-[26px] font-bold tracking-[-0.025em] text-neutral-900 sm:text-[32px]">{title}</h1>
         {/* `aria-live="polite"` is what makes a faceted search usable without
