@@ -704,32 +704,53 @@ export function CategoryResults({
                  sentence, on a page whose one useful action is one level up.
                  The rail above has Toate highlighted, but the rail is six
                  screens away by the time you have read this. */
-              <>
-                <p className="mt-1.5 text-[14.5px] text-neutral-500">
-                  Nu există anunțuri în {subLabel?.toLowerCase()} deocamdată.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => go(view, { sub: null })}
-                  className="mt-5 inline-flex h-11 items-center rounded-lg bg-neutral-900 px-6 text-[15px] font-semibold text-white"
-                >
-                  Vezi tot din {group?.label ?? dept?.label ?? "categorie"}
-                </button>
-              </>
+              <p className="mt-1.5 text-[14.5px] text-neutral-500">
+                Nu există anunțuri în {subLabel?.toLowerCase()} deocamdată.
+              </p>
             ) : (
               <p className="mt-1.5 text-[14.5px] text-neutral-500">
                 {active > 0 ? "Încearcă să elimini câteva filtre." : "Încearcă alt termen sau altă categorie."}
               </p>
             )}
 
-            {active > 0 && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="mt-5 inline-flex h-11 items-center rounded-lg bg-neutral-900 px-6 text-[15px] font-semibold text-white"
-              >
-                Șterge filtrele
-              </button>
+            {/* ONE ROW, WITH AIR IN IT. These were two siblings each carrying
+                its own `mt-5` and nothing between them, so on the one page that
+                draws both — an empty leaf that also has filters on it — they met
+                edge to edge and read as a single black slab split by a hairline.
+                A flex row with a gap is the fix; `justify-center` because the
+                whole block is centred and `flex-wrap` because two 200px buttons
+                do not fit side by side on a phone. */}
+            {(viewSub || active > 0) && (
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+                {viewSub && (
+                  <button
+                    type="button"
+                    onClick={() => go(view, { sub: null })}
+                    className="inline-flex h-11 items-center rounded-lg bg-neutral-900 px-6 text-[15px] font-semibold text-white transition-transform duration-150 ease-out active:scale-[0.97]"
+                  >
+                    Vezi tot din {group?.label ?? dept?.label ?? "categorie"}
+                  </button>
+                )}
+                {active > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className={cn(
+                      "inline-flex h-11 items-center rounded-lg px-6 text-[15px] font-semibold transition-[background-color,border-color,transform] duration-150 ease-out active:scale-[0.97]",
+                      // TWO BLACK BUTTONS SIDE BY SIDE IS TWO PRIMARY ACTIONS,
+                      // which is none. Widening to the whole group is the one
+                      // more likely to be what somebody wants, so it keeps the
+                      // fill and this becomes the quiet one — but only when both
+                      // are drawn. On its own it is still the primary thing.
+                      viewSub
+                        ? "border border-neutral-300 bg-white text-neutral-900 hover:border-neutral-400"
+                        : "bg-neutral-900 text-white",
+                    )}
+                  >
+                    Șterge filtrele
+                  </button>
+                )}
+              </div>
             )}
           </div>
         ) : (
@@ -1204,12 +1225,23 @@ function FacetList({
                 key={o.value}
                 type="button"
                 onClick={() => onPick(o.value)}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[14px] text-neutral-700 transition-colors duration-150 hover:bg-neutral-50 active:bg-neutral-100"
+                // A ZERO IS SHOWN AND CANNOT BE PRESSED. The options are a
+                // vocabulary now, so hiding the empty ones would make a category
+                // with twelve sizes look like one with three — see
+                // `facetsWithVocabulary`. Ticked ones stay live whatever their
+                // count, or you could apply a filter and not be able to undo it.
+                disabled={o.count === 0 && !on}
+                className={cn(
+                  "flex w-full items-center gap-2.5 px-3 py-2 text-left text-[14px] transition-colors duration-150",
+                  o.count === 0 && !on
+                    ? "cursor-not-allowed text-neutral-300"
+                    : "text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100",
+                )}
               >
                 <span
                   className={cn(
                     "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] border transition-colors duration-150",
-                    on ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300",
+                    on ? "border-neutral-900 bg-neutral-900 text-white" : o.count === 0 ? "border-neutral-200" : "border-neutral-300",
                   )}
                 >
                   {on && <Check className="h-[12px] w-[12px]" strokeWidth={3.4} />}

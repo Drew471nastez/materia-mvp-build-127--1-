@@ -1,4 +1,12 @@
-import { COLOURS, CONDITIONS, categoryShortLabel, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
+import {
+  COLOURS,
+  CONDITIONS,
+  categoryShortLabel,
+  conditionsFor,
+  fieldsFor,
+  groupsForDepartment,
+  sizesFor,
+} from "@/lib/marketplace/listing-taxonomy"
 
 /**
  * ===========================================================================
@@ -367,6 +375,85 @@ export function paramsFromFilters(
   if (extra?.sort && extra.sort !== "new") p.set("sort", extra.sort)
   if (extra?.page && extra.page > 1) p.set("page", String(extra.page))
   return p
+}
+
+/**
+ * ===========================================================================
+ *  THE OPTIONS COME FROM THE TAXONOMY. THE NUMBERS COME FROM THE DATA.
+ * ===========================================================================
+ *
+ * Every facet was derived from whatever happened to be listed, and that has one
+ * consequence which looks like the feature working and is actually the feature
+ * missing: a category with nothing in it has NO FILTERS AT ALL. Open Femei ›
+ * Încălțăminte › Pantofi cu toc on a young catalogue and the page offers
+ * Categorie, Preț and a checkbox — no Mărime, no Culoare, no Stare — because
+ * there is nothing to derive them from. The filters vanish exactly when
+ * somebody most needs to see what this category can even be narrowed by.
+ *
+ * Three of the five are CLOSED VOCABULARIES that the sell form already owns:
+ *
+ *   Mărime   `sizesFor(group)` — 36-46 for shoes, XS-XXL and waists for
+ *            clothing, ages for children's. In the grid's own order, which is
+ *            the other half of this: sorting sizes by how many listings have
+ *            them puts 42 before 36 and makes the list unreadable.
+ *   Culoare  the palette, in the palette's order.
+ *   Stare    the five-rung ladder, in the ladder's order, worded for what is
+ *            being sold — see `conditionsFor`.
+ *
+ * Brand stays derived, and that is not an oversight: it is free text somebody
+ * typed into the sell form, so there is no list to offer. A brand facet with no
+ * brands in it is genuinely empty and is not drawn.
+ *
+ * AND THE CATEGORY DECIDES WHICH FILTERS EXIST AT ALL. `fieldsFor` is the same
+ * table the sell form asks — a bag has no size, a lipstick has neither size nor
+ * era — so Divertisment does not offer a Mărime pill that no listing in it could
+ * ever answer. That is what "adapted to the category" has to mean; the
+ * alternative is every category offering every filter and most of them being
+ * dead.
+ *
+ * ---------------------------------------------------------------------------
+ * A ZERO IS SHOWN AND CANNOT BE PRESSED
+ * ---------------------------------------------------------------------------
+ * Hiding zero-count options is right while the list is derived, because then a
+ * missing option means "nobody has one". Once the list is a vocabulary, hiding
+ * is a lie of omission: it makes a category with three sizes look like a
+ * category with three sizes rather than one with twelve, three of which are in
+ * stock. So they are drawn, greyed, and inert — you can see the shape of the
+ * catalogue without being able to walk into an empty room.
+ */
+export function facetsWithVocabulary(
+  counted: { groups: Facet[]; brands: Facet[]; sizes: Facet[]; colours: Facet[]; conditions: Facet[] },
+  groupId: string | null | undefined,
+) {
+  /** The vocabulary in ITS order, wearing the counts that were measured. */
+  const merge = (vocab: { id: string; label: string }[], measured: Facet[]): Facet[] => {
+    const by = new Map(measured.map((m) => [m.value.trim().toLowerCase(), m]))
+    const out: Facet[] = vocab.map((o) => ({
+      value: o.id,
+      label: o.label,
+      count: by.get(o.id.trim().toLowerCase())?.count ?? 0,
+    }))
+    // Anything the data has that the vocabulary does not — a size typed before
+    // the grid existed, a colour from an older palette. Kept rather than
+    // dropped: a listing that carries it can still be reached, and a filter
+    // that cannot reach a published listing is worse than an untidy list.
+    const known = new Set(vocab.map((o) => o.id.trim().toLowerCase()))
+    for (const m of measured) if (!known.has(m.value.trim().toLowerCase())) out.push(m)
+    return out
+  }
+
+  const fields = fieldsFor(groupId)
+  // No group means no field table to consult — a search, or the whole
+  // catalogue — and there the honest answer is "everything is possible here".
+  const has = (f: "brand" | "size" | "colour") => !groupId || fields.includes(f)
+
+  return {
+    groups: counted.groups,
+    brands: has("brand") ? counted.brands : [],
+    sizes: has("size") ? merge(sizesFor(groupId), counted.sizes) : [],
+    colours: has("colour") ? merge(COLOURS, counted.colours) : [],
+    conditions: merge(conditionsFor(groupId), counted.conditions),
+  }
 }
 
 /**

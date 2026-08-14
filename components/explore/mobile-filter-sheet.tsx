@@ -11,6 +11,7 @@ import {
   colourHex,
   countActiveFilters,
   facetsWithCounts,
+  facetsWithVocabulary,
   orderFacetOptions,
   type Facet,
   type FeedFilters,
@@ -164,7 +165,16 @@ export function MobileFilterSheet({
    * Counted from the pool as it ARRIVES, not from the filtered result, for the
    * same reason — see the note at the top of this file.
    */
-  const derived = useMemo(() => facetsWithCounts(pool, departmentId, draft), [pool, departmentId, draft])
+  /**
+   * AND THE OPTIONS ARE THE CATEGORY'S VOCABULARY, not only what is listed.
+   * Sizes in the grid's order, the colour palette, the condition ladder — and
+   * no Mărime level at all in a category that has no sizes. See
+   * `facetsWithVocabulary`.
+   */
+  const derived = useMemo(
+    () => facetsWithVocabulary(facetsWithCounts(pool, departmentId, draft), draft.group),
+    [pool, departmentId, draft],
+  )
   const facets = givenFacets ?? derived
   /**
    * The count is only shown where it can be TRUE.
@@ -494,7 +504,14 @@ function OptionLevel({
             key={o.value}
             type="button"
             onClick={() => onPick(o.value)}
-            className="flex w-full items-center gap-3 border-b border-neutral-100 px-4 py-3.5 text-left active:bg-neutral-50"
+            // Drawn, greyed and inert — see `facetsWithVocabulary`. A ticked
+            // option stays live whatever its count, or a filter could be applied
+            // and then impossible to undo from the level that set it.
+            disabled={o.count === 0 && !on}
+            className={cn(
+              "flex w-full items-center gap-3 border-b border-neutral-100 px-4 py-3.5 text-left",
+              o.count === 0 && !on ? "cursor-not-allowed opacity-40" : "active:bg-neutral-50",
+            )}
           >
             {hex && (
               <span
