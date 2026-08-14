@@ -16,6 +16,7 @@ import {
   colourHex,
   countActiveFilters,
   paramsFromFilters,
+  type DropSuggestion,
   type Facet,
   type FeedFilters,
   type FeedSort,
@@ -67,6 +68,7 @@ export function CategoryResults({
   products,
   total,
   exactTotal = true,
+  escapes = [],
   page,
   sort,
   filters,
@@ -81,6 +83,8 @@ export function CategoryResults({
   /** False when the on-sale filter had to be applied after the fetch — see the
    *  fallback in the page. A number that is only nearly right is not printed. */
   exactTotal?: boolean
+  /** Which single filter to drop when nothing matched — see dropSuggestions. */
+  escapes?: DropSuggestion[]
   page: number
   sort: FeedSort
   filters: FeedFilters
@@ -203,7 +207,17 @@ export function CategoryResults({
         )}
 
         <h1 className="text-[26px] font-bold tracking-[-0.025em] text-neutral-900 sm:text-[32px]">{title}</h1>
-        <p className="mt-1 flex items-center gap-2 text-[14px] font-medium text-neutral-500">
+        {/* `aria-live="polite"` is what makes a faceted search usable without
+            sight. Everything here changes the RESULTS, and the only thing that
+            reports that is a number in the corner — press three filters with a
+            screen reader and nothing at all is spoken, so there is no way to
+            tell a filter that narrowed the page from one that did nothing.
+            Polite rather than assertive: it waits for the current sentence to
+            finish instead of interrupting whatever was being read. */}
+        <p
+          aria-live="polite"
+          className="mt-1 flex items-center gap-2 text-[14px] font-medium text-neutral-500"
+        >
           {/* `exactTotal` is false only on a database that has not run the
               is_on_sale migration, where the filter is applied to the page
               rather than to the query. A number that is only nearly right is
@@ -248,7 +262,30 @@ export function CategoryResults({
           </div>
         )}
 
-        <div className="mt-4 border-t border-neutral-200 pt-4">
+        {/* ═══════════════════════════════════════════════════════════════
+            THE REFINE BAR FOLLOWS YOU DOWN THE PAGE
+            ═══════════════════════════════════════════════════════════
+
+            Ninety listings is about six screenfuls. With the controls at the
+            top, deciding at listing sixty that these are all too expensive
+            means scrolling six screens back, changing one number, and being
+            returned to the top anyway — so the cheap move is to give up rather
+            than to refine, which is the opposite of what a filter is for.
+
+            Pinned under whatever header this platform is showing.
+            `--web-header-h` and `--platform-header-h` are mutually exclusive —
+            each is zero while the other's header is on screen — so their SUM is
+            the right offset on every one of them without anybody coordinating.
+            The same arithmetic `.profile-pinned` uses.
+
+            z-30, under the header's z-40: it slides UNDER the chrome rather
+            than over it, which is the rule this app applies to every sticky
+            surface. And an opaque background, because a bar you can read the
+            listings through is a bar that reads as a rendering fault. */}
+        <div
+          className="sticky z-30 -mx-4 mt-4 border-t border-neutral-200 bg-white px-4 pt-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+          style={{ top: "calc(var(--web-header-h, 0px) + var(--platform-header-h, 0px))" }}
+        >
           {/* ── The phone's two buttons. Seven dropdown pills wrap to three lines
                  above the first listing at 375px, so the phone gets the sheet it
                  already has and the desktop gets the pills. Both write the same
@@ -382,6 +419,10 @@ export function CategoryResults({
               </button>
             </div>
           )}
+          {/* The bar's own bottom edge. Inside the sticky box, so the listings
+              scroll under a bar that has a floor rather than under one whose
+              contents simply stop. */}
+          <div className="h-3" />
         </div>
 
         {/* ── THE GRID. Five across at its widest, which is the width the card was
@@ -394,9 +435,39 @@ export function CategoryResults({
         {products.length === 0 ? (
           <div className="py-24 text-center">
             <p className="text-[17px] font-semibold text-neutral-900">Niciun rezultat</p>
-            <p className="mt-1.5 text-[14.5px] text-neutral-500">
-              {active > 0 ? "Încearcă să elimini câteva filtre." : "Încearcă alt termen sau altă categorie."}
-            </p>
+
+            {/* ONE FILTER TO DROP, AND WHAT IT GIVES BACK.
+                "Try removing some filters" offers to undo everything, when the
+                person has usually got four things right and one thing wrong.
+                The arithmetic behind these numbers is done on the rows already
+                fetched for the facet counts, so it costs nothing and it is
+                exact — and a filter whose removal still leaves zero is not
+                offered at all, because that is a second dead end. */}
+            {escapes.length > 0 ? (
+              <>
+                <p className="mt-1.5 text-[14.5px] text-neutral-500">
+                  Încearcă fără unul dintre filtre:
+                </p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  {escapes.slice(0, 3).map((e) => (
+                    <button
+                      key={e.key}
+                      type="button"
+                      onClick={() => go(withoutFilter(filters, e.key))}
+                      className="inline-flex h-11 items-center gap-2 rounded-lg border border-neutral-300 px-4 text-[14.5px] font-medium text-neutral-900 hover:border-neutral-400"
+                    >
+                      Fără {e.label}
+                      <span className="text-[13px] font-semibold text-neutral-500">{e.count}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="mt-1.5 text-[14.5px] text-neutral-500">
+                {active > 0 ? "Încearcă să elimini câteva filtre." : "Încearcă alt termen sau altă categorie."}
+              </p>
+            )}
+
             {active > 0 && (
               <button
                 type="button"
@@ -676,6 +747,16 @@ function Pager({ page, pages, onGo }: { page: number; pages: number; onGo: (n: n
       </button>
     </nav>
   )
+}
+
+/** The inverse of one drop suggestion — see `escapes`. */
+function withoutFilter(f: FeedFilters, key: DropSuggestion["key"]): FeedFilters {
+  if (key === "price") return { ...f, minPrice: null, maxPrice: null }
+  if (key === "onSale") return { ...f, onSale: false }
+  if (key === "brands" || key === "sizes" || key === "colours" || key === "conditions") {
+    return { ...f, [key]: [] }
+  }
+  return f
 }
 
 type Chip = { key: string; label: string; remove: (f: FeedFilters) => FeedFilters }

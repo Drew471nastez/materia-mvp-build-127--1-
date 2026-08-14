@@ -404,3 +404,66 @@ export function facetsWithCounts(rows: any[], departmentId: string | null | unde
     conditions: facetsFrom(others("conditions"), departmentId).conditions,
   }
 }
+
+/**
+ * ===========================================================================
+ *  WHAT TO DROP WHEN NOTHING MATCHES
+ * ===========================================================================
+ *
+ * "Niciun rezultat" with a "Șterge filtrele" button is the honest answer and
+ * the least useful one: it offers to undo everything, when the person has
+ * usually got four things right and one thing wrong. Every marketplace that has
+ * thought about this — Vinted, eBay, Zalando — answers the empty page with
+ * arithmetic instead: WHICH filter is the one costing you the results, and how
+ * many you get back by dropping it.
+ *
+ * That arithmetic is free here. The facet query already fetched the attribute
+ * rows for this scope, so "how many if I drop the size" is the same array
+ * filtered with the size cleared — no extra request, and the answer is exact
+ * wherever the row cap has not bitten.
+ *
+ * ONLY SUGGESTIONS THAT ACTUALLY HELP. A filter whose removal still leaves zero
+ * is not the problem and offering it is a second dead end; those are dropped
+ * rather than listed with a 0 beside them. Sorted by what they give back, so
+ * the first one is the best single undo.
+ *
+ * The price band counts as ONE suggestion even though it is two numbers, for
+ * the same reason it counts once on the filter badge: it is one decision
+ * somebody made.
+ */
+export type DropSuggestion = { key: keyof FeedFilters | "price"; label: string; count: number }
+
+export function dropSuggestions(rows: any[], f: FeedFilters, labels: {
+  brands: Facet[]
+  sizes: Facet[]
+  colours: Facet[]
+  conditions: Facet[]
+}): DropSuggestion[] {
+  if (rows.length === 0) return []
+  const nameOf = (opts: Facet[], v: string) =>
+    opts.find((o) => o.value.toLowerCase() === v.toLowerCase())?.label ?? v
+
+  const out: DropSuggestion[] = []
+  const consider = (key: DropSuggestion["key"], label: string, without: FeedFilters) => {
+    const count = applyFeedFilters(rows, without).length
+    if (count > 0) out.push({ key, label, count })
+  }
+
+  const lists: [("brands" | "sizes" | "colours" | "conditions"), Facet[], string][] = [
+    ["brands", labels.brands, "brandul"],
+    ["sizes", labels.sizes, "mărimea"],
+    ["colours", labels.colours, "culoarea"],
+    ["conditions", labels.conditions, "starea"],
+  ]
+  for (const [key, opts, word] of lists) {
+    if (f[key].length === 0) continue
+    const named = f[key].length === 1 ? `${word} ${nameOf(opts, f[key][0])}` : word
+    consider(key, named, { ...f, [key]: [] })
+  }
+  if (f.minPrice != null || f.maxPrice != null) {
+    consider("price", "filtrul de preț", { ...f, minPrice: null, maxPrice: null })
+  }
+  if (f.onSale) consider("onSale", "„La reducere”", { ...f, onSale: false })
+
+  return out.sort((a, b) => b.count - a.count)
+}
