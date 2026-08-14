@@ -2809,6 +2809,38 @@ check(
 )
 
 check(
+  "the +N badge measures two counts this device actually saw, and never lies upward",
+  (() => {
+    // The reference rows lead with "+5", and the number is most of why a saved
+    // search gets reopened. Ours is device-local — the same honesty the recents
+    // themselves have: the results page stores the exact count it PRINTED
+    // (seen), the panel counts the query again on open, the badge is the
+    // difference. Both ends of the subtraction are numbers this device saw.
+    const store = code("lib/hooks/use-recent-searches.ts")
+    const ui = code("components/explore/category-results.tsx")
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    return (
+      /export function markRecentSearchSeen\(query: string, total: number\)/.test(store) &&
+      // Written by the page WITHOUT bumping the row — seeing your results again
+      // is not a new search — and only from the exact count: the on-sale
+      // fallback's approximation is not a baseline to measure against.
+      /if \(query && exactTotal\) markRecentSearchSeen\(query, total\)/.test(ui) &&
+      // COUNTED, NOT FETCHED: head+exact over the same strict-tier filter the
+      // results page runs, so the badge can never exceed what pressing the row
+      // would show. Cached, and only for entries WITH a baseline — a request
+      // whose answer cannot be shown is a request for nothing.
+      /select\("id", \{ count: "exact", head: true \}\)/.test(overlay) &&
+      /textFilterGroups\(\["title", "description", "brand"\], tokens, "all"\)/.test(overlay) &&
+      /\.filter\(\(r\) => r\.seen != null\)/.test(overlay) &&
+      /Date\.now\(\) - hit\.at < COUNT_TTL_MS/.test(overlay) &&
+      // Positive only: a search that SHRANK is not news anybody acts on.
+      /delta > 0 \? <span className="mr-1\.5 font-semibold text-\[#6d28d9\]">\+\{delta\}<\/span> : null/.test(overlay)
+    )
+  })(),
+  "        components/explore/mobile-search-overlay.tsx, lib/hooks/use-recent-searches.ts",
+)
+
+check(
   "three recent searches, not four",
   (() => {
     // A recent-searches list is a shortcut, not a history: past about three the

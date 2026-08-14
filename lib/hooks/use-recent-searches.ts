@@ -48,6 +48,16 @@ export interface RecentSearch {
    * "Niciun filtru", which is information, not filler.
    */
   sum?: string
+  /**
+   * How many results this search had WHEN ITS PAGE WAS LAST SEEN — the exact
+   * count the results page printed, written by the page itself. It is the
+   * baseline the "+N" badge is measured against: the search panel counts the
+   * query again on open, and the difference is what arrived since the last
+   * visit. Absent means the results page was never reached for this query, and
+   * with no baseline there is no badge — a "+N" against a number nobody saw
+   * would be a claim about nothing.
+   */
+  seen?: number
 }
 
 const EMPTY: readonly RecentSearch[] = Object.freeze([])
@@ -162,6 +172,25 @@ export function addRecentSearch(query: string, category?: string, sum?: string) 
   ]
 
   write(next.slice(0, MAX_ENTRIES))
+}
+
+/**
+ * Record the exact result count the results page just showed for this query,
+ * without bumping the entry — seeing your results again is not a new search.
+ * This is the "+N" badge's baseline; writing it is also what CLEARS the badge,
+ * because once the page is seen, seen === current and the difference is zero.
+ */
+export function markRecentSearchSeen(query: string, total: number) {
+  if (typeof window === "undefined" || !Number.isFinite(total) || total < 0) return
+  const key = normalise(query)
+  const current = getSnapshot()
+  let changed = false
+  const next = current.map((entry) => {
+    if (normalise(entry.q) !== key || entry.seen === total) return entry
+    changed = true
+    return { ...entry, seen: total }
+  })
+  if (changed) write(next)
 }
 
 /**
