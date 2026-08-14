@@ -2609,6 +2609,59 @@ check(
 )
 
 check(
+  "nothing sits between the count and the filter bar except the subcategories",
+  (() => {
+    // TRAIL → TITLE → COUNT → SUBCATEGORIES → FILTERS → GRID. Depop's order and
+    // Vinted's, and what this page settled into after two rails above the title
+    // were removed for saying what the filter row already says:
+    //
+    //   THE DEPARTMENT RAIL was added to answer a real problem — the site's
+    //   category bar is not drawn on /shop, so arriving from it lost the row you
+    //   pressed. Then the Categorie pill grew into the whole taxonomy and
+    //   answered the same problem properly, and nobody went back for the first
+    //   fix. Six pills reaching a strict subset of what a pill one row below
+    //   reaches is the same navigation twice.
+    //
+    //   THE POPULAR-BRANDS RAIL was a fair trade while Brand was an
+    //   unsearchable forty-row scroller. It is searchable now, with what you
+    //   have already picked at the top, so the rail became a worse copy of the
+    //   pill directly beneath it.
+    //
+    // Three stacked rows of chrome between a nineteen-result count and the first
+    // listing is how a page ends up looking busy while doing less.
+    const ui = code("components/explore/category-results.tsx")
+    const body = ui.slice(ui.indexOf("<WishlistProvider>"), ui.indexOf("<MobileFilterSheet"))
+    const order = [
+      'aria-label="Breadcrumb"',
+      "<h1 ",
+      'aria-live="polite"',
+      "{leaves.length > 1 &&",
+      // `code()` strips comments, so every anchor here has to be real code.
+      'className="sticky z-30 -mx-4',
+      "products.length === 0 ?",
+    ]
+    let at = -1
+    const inOrder = order.every((needle) => {
+      const i = body.indexOf(needle, at + 1)
+      if (i < 0) return false
+      at = i
+      return true
+    })
+    return (
+      inOrder &&
+      // Neither rail comes back.
+      !/aria-label="Departamente"/.test(ui) &&
+      !/Branduri populare/.test(ui) &&
+      !/DEPARTMENT_RAIL/.test(ui) &&
+      // And the subcategory row that DOES belong there is the taxonomy's leaves,
+      // which is the row Depop draws under its own title.
+      /const leaves = useMemo\(/.test(ui)
+    )
+  })(),
+  "        components/explore/category-results.tsx",
+)
+
+check(
   "three recent searches, not four",
   (() => {
     // A recent-searches list is a shortcut, not a history: past about three the

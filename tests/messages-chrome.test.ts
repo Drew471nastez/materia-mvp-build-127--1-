@@ -1585,19 +1585,21 @@ check(
       /navigateToExploreCategory\(categoryPath\(cat === "all" \? null : cat\)\)/.test(
         code("components/platform/platform-header-client.tsx"),
       ) &&
-      // AND THE DESTINATION CARRIES A RAIL OF ITS OWN. A rail whose destination
-      // does not show the rail is one you can use exactly once — press Femei and
-      // the row you pressed it in is gone, so Bărbați means going back first.
+      // AND THE DESTINATION CAN REACH THE OTHER DEPARTMENTS. A way in whose
+      // destination has no way onward is one you can use exactly once — press
+      // Femei and Bărbați means going back first.
       //
-      // The page draws its own rather than the site's bar being shown on /shop:
-      // that bar is sticky at `--platform-header-h` and z-35, and the results
-      // page's refine bar is sticky at the same offset and z-30, so it would
-      // paint over the filters every time somebody scrolled UP — which is the
-      // gesture people make in order to reach the filters.
-      /DEPARTMENT_RAIL\.map\(\(d\) => \{/.test(code("components/explore/category-results.tsx")) &&
-      /href=\{categoryPath\(d\.id === "all" \? null : d\.id\)\}/.test(
-        code("components/explore/category-results.tsx"),
-      ) &&
+      // It is the Categorie PILL that answers this, not a second rail. A rail
+      // was tried: six pills above the title reaching a strict subset of what
+      // the pill below the title reaches, which is the same navigation twice and
+      // a full row of chrome for the copy. The pill is always present and goes
+      // all the way down — departments, groups, leaves — so it covers the rail's
+      // whole job and three levels more. Neither is the site's bar borrowed onto
+      // /shop: that one is sticky at `--platform-header-h` and z-35 against the
+      // refine bar's z-30, so it would paint over the filters on every scroll up.
+      /<CategoryMenu/.test(code("components/explore/category-results.tsx")) &&
+      /DEPARTMENT_NAV\.map\(\(d\) => \(/.test(code("components/explore/category-results.tsx")) &&
+      !/aria-label="Departamente"/.test(code("components/explore/category-results.tsx")) &&
       !/pathname\.startsWith\("\/shop"\)/.test(code("components/platform/platform-header-client.tsx")) &&
       // The panel no longer hands a department id back to whoever opened it —
       // five callers each had their own idea of what pressing Femei meant. It
