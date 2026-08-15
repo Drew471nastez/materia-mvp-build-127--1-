@@ -1,5 +1,7 @@
 "use client"
 
+import { usePathname } from "next/navigation"
+
 import { cn } from "@/lib/utils"
 
 /**
@@ -39,16 +41,26 @@ export function MessagesSplit({
   list,
   /** The conversation, or the placeholder that stands in for one. */
   children,
-  /**
-   * Which of the two the phone is showing. `list` on /messages, `detail` in a
-   * conversation. On a wide screen it changes nothing — both are up.
-   */
-  primary,
 }: {
   list: React.ReactNode
   children: React.ReactNode
-  primary: "list" | "detail"
 }) {
+  /**
+   * WHICH OF THE TWO THE PHONE IS SHOWING — read from the path, not passed in.
+   *
+   * It was a prop, and a prop is a reason for the thing that renders this to
+   * re-render per conversation. This shell lives in the messages LAYOUT now
+   * precisely so that it does not: a layout that re-rendered per id would
+   * remount the column under it and bring back the flashing this was moved to
+   * fix (see app/(marketing)/messages/layout.tsx). The pathname is the same
+   * fact, from a source that costs nothing.
+   *
+   * `/messages` exactly is the list; anything deeper is a conversation. On a
+   * wide screen it changes nothing at all — both panes are up.
+   */
+  const pathname = usePathname() ?? "/messages"
+  const primary: "list" | "detail" = pathname === "/messages" || pathname === "/messages/" ? "list" : "detail"
+
   return (
     <div
       data-app-screen

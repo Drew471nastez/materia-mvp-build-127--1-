@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { usePathname } from "next/navigation"
 import { BadgeCheck, Bell, Bookmark, MessageSquare, Search } from "lucide-react"
 
 import { useLocale } from "@/components/locale-provider"
@@ -85,14 +86,23 @@ function stamp(iso: string, locale: string): string {
 
 export function DesktopConversationList({
   initialConversations,
-  activeId = null,
   viewerId,
 }: {
   initialConversations: Row[] | null
-  /** The conversation open in the pane beside this, so its row can say so. */
-  activeId?: string | null
   viewerId?: string | null
 }) {
+  /**
+   * WHICH ROW IS OPEN, from the path rather than from a prop.
+   *
+   * A prop would have to come from something that re-renders per conversation,
+   * and this list lives in the messages layout precisely so that nothing does —
+   * a re-render there remounts the whole column, which is the image-flashing
+   * bug it was moved to fix. `usePathname` gives the same id with no round trip
+   * and no remount: the active row simply repaints.
+   */
+  const pathname = usePathname()
+  const activeId = pathname?.startsWith("/messages/") ? pathname.slice("/messages/".length).split("/")[0] || null : null
+
   const { formatPrice, language } = useLocale()
   const wide = useWideViewport()
   const [rows, setRows] = useState<Row[] | null>(initialConversations)

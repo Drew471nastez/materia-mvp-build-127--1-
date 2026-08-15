@@ -1,13 +1,7 @@
 import type { Metadata } from "next"
 
-import { MessagesInbox } from "@/components/messages/inbox"
 import { MessagesEmptyState } from "@/components/messages/empty-state"
-import { MessagesSplit } from "@/components/messages/split-shell"
-import {
-  DesktopConversationList,
-  NoConversationSelected,
-} from "@/components/messages/desktop-conversation-list"
-import { listConversations, optionalAdminClient, type InboxConversation } from "@/lib/messages/list"
+import { NoConversationSelected } from "@/components/messages/desktop-conversation-list"
 import { createClient } from "@/lib/supabase/server"
 
 /**
@@ -39,27 +33,15 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 }
 
-export default async function MessagesPage({
-  searchParams,
-}: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>
-}) {
-  // `?tab=notificari` is where a tapped social-activity push lands — see
-  // lib/push/tap-target.ts. Resolved here rather than in the client so the
-  // right tab is in the first paint; anything other than that one value is the
-  // conversations list, which is the default and the safe answer for a URL
-  // somebody typed.
-  const params = (await searchParams) ?? {}
-  const rawTab = Array.isArray(params.tab) ? params.tab[0] : params.tab
-  const initialTab = rawTab === "notificari" || rawTab === "notifications" ? "notifications" : "messages"
-
+export default async function MessagesPage() {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   // Signed out is a whole screen, not a state the inbox has to boot up to
-  // discover. Rendered here, it is on the page in the first response.
+  // discover. Rendered here, it is on the page in the first response — and the
+  // layout draws no column around it, so this owns the width.
   if (!user) {
     return (
       <MessagesEmptyState
@@ -71,59 +53,17 @@ export default async function MessagesPage({
     )
   }
 
-  // `asCaller` is the session client and RLS is what limits it to this
-  // person's threads; `asAdmin` only decorates rows that read has already
-  // approved. Naming them at the call site is deliberate — rendering the inbox
-  // on the server must not widen what a caller can see, and this is the line
-  // where that could quietly stop being true.
-  let initialConversations: InboxConversation[] | null = null
-  try {
-    initialConversations = await listConversations({
-      asCaller: supabase,
-      asAdmin: optionalAdminClient(),
-      userId: user.id,
-    })
-  } catch {
-    // The one case where the client's own fetch is still the better answer: it
-    // will retry, and its skeleton is the honest thing to show meanwhile. Null
-    // rather than an empty array, because an inbox that failed to load and an
-    // inbox with nothing in it must not look the same.
-    initialConversations = null
-  }
-
-  // A nonce, not a timestamp — the conversation route made the same mistake and
-  // it is documented in full in lib/render-key.ts. In short: the client used to
-  // compare this against its own clock to decide whether the payload had come
-  // out of the router cache, and on a phone whose clock runs behind the server
-  // that comparison says "fresh" about rows that are minutes old. Which is
-  // exactly the conversation that is missing from the list until you reload.
-  // BOTH SHAPES, and CSS picks. On a phone the inbox is the screen; from 768px
-  // up it is the left column of a split, with a conversation open beside it.
-  // Rendering both and letting the media query decide is what stops the desktop
-  // view from appearing a frame after the phone one — and only the visible one
-  // makes requests. See components/messages/split-shell.tsx.
-  const renderKey = crypto.randomUUID()
-  return (
-    <MessagesSplit
-      primary="list"
-      list={
-        <>
-          <div className="flex min-h-0 flex-1 flex-col md:hidden">
-            <MessagesInbox
-              initialConversations={initialConversations}
-              renderKey={renderKey}
-              viewerId={user.id}
-              initialTab={initialTab}
-              dormantWhenWide
-            />
-          </div>
-          <div className="hidden min-h-0 flex-1 flex-col md:flex">
-            <DesktopConversationList initialConversations={initialConversations} viewerId={user.id} />
-          </div>
-        </>
-      }
-    >
-      <NoConversationSelected />
-    </MessagesSplit>
-  )
+  /**
+   * THE RIGHT-HAND PANE, AND NOTHING ELSE.
+   *
+   * The inbox itself — both shapes of it — is the messages LAYOUT's now, so it
+   * is mounted once for the whole visit instead of once per page. This page
+   * used to render its own copy, which meant walking from the inbox into a
+   * conversation and back rebuilt the column every time. See
+   * app/(marketing)/messages/layout.tsx.
+   *
+   * On a phone this is hidden (the list is the screen); from 768px up it is the
+   * placeholder beside the column.
+   */
+  return <NoConversationSelected />
 }

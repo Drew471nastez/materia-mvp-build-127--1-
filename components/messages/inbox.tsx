@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { BadgeCheck, Bell } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { ConversationRow } from "@/components/messages/conversation-row"
@@ -182,7 +182,29 @@ export function MessagesInbox({
     consumeNavHint()
   }, [])
 
-  const [tab, setTab] = useState<"messages" | "notifications">(initialTab)
+  /**
+   * `?tab=notificari` is where a tapped social-activity push lands (see
+   * lib/push/tap-target.ts) — a digest that says "8 aprecieri" and then opens
+   * the conversation list has not answered the thing the person tapped it to
+   * find out.
+   *
+   * READ HERE, not handed down. It used to arrive as a prop resolved from the
+   * page's `searchParams`, and the inbox now lives in the messages LAYOUT,
+   * which has no searchParams by design — a layout that re-rendered per URL is
+   * exactly the remount this move was made to stop. `useSearchParams` is
+   * available during the server render of a client component too, so the right
+   * tab is still in the first paint rather than snapping over after hydration.
+   *
+   * `useState(() => …)` so it is the INITIAL tab and not a controlling one:
+   * pressing the other tab must not be undone by a URL that still says
+   * notificari.
+   */
+  const search = useSearchParams()
+  const [tab, setTab] = useState<"messages" | "notifications">(() => {
+    const raw = search?.get("tab")
+    if (raw === "notificari" || raw === "notifications") return "notifications"
+    return initialTab
+  })
   // No entrance on the lists behind this switcher, in either direction.
   //
   // There used to be a 180ms fade on the incoming one. The intent was to soften
