@@ -262,6 +262,13 @@ begin
   -- They stay unread (read_at null), which is what puts the purple count on
   -- the row and gives a person a reason to open it.
   --
+  -- NO DASH IN THE COPY. The third line read "Scrie-ne direct aici — îți
+  -- răspundem", and the em-dash is a punctuation mark this product does not use
+  -- in the sentences it shows people. It is also the one line that invited a
+  -- reply into a thread that has no composer behind it (lib/system-account.ts
+  -- says the same), so the rewrite drops the invitation and the dash together
+  -- and points at the help centre, which is somewhere that can actually answer.
+  --
   -- Only threads with nothing in them are filled, so a re-run never repeats
   -- itself and never lands on top of a conversation someone has replied to.
   insert into public.messages (conversation_id, sender_id, kind, body, created_at)
@@ -270,12 +277,25 @@ begin
     cross join (values
       (1, 'Bine ai venit pe Storelib! 💜 Ne bucurăm că ești aici.'),
       (2, 'Pe canalul ăsta îți trimitem noutăți despre aplicație și sfaturi care te ajută să vinzi mai repede: fotografii clare la lumină naturală, un titlu care spune marca și mărimea, și un preț pe care l-ai plăti și tu.'),
-      (3, 'Ai o întrebare sau ceva nu merge? Scrie-ne direct aici — îți răspundem.')
+      (3, 'Ai o întrebare? Găsești răspunsurile și formularul de contact în Centrul de ajutor.')
     ) as m(ord, body)
    where c.kind = 'system'
      and c.seller_id = v_id
      and not exists (select 1 from public.messages x where x.conversation_id = c.id);
   get diagnostics v_msgs = row_count;
+
+  -- AND THE ACCOUNTS ALREADY SEEDED WITH THE OLD LINE ARE CORRECTED IN PLACE.
+  -- The insert above only fills empty threads, so it can never touch a message
+  -- somebody has already received — every account seeded before this edit still
+  -- carries the em-dash line. This rewrites exactly that one body wherever it is
+  -- still the untouched original, keyed on the full old text so it cannot catch
+  -- a reply or an edited message. Matched narrowly on purpose: a blanket
+  -- replace of "—" across every message would rewrite what users wrote to each
+  -- other, and this table is theirs, not ours.
+  update public.messages
+     set body = 'Ai o întrebare? Găsești răspunsurile și formularul de contact în Centrul de ajutor.'
+   where sender_id = v_id
+     and body = 'Ai o întrebare sau ceva nu merge? Scrie-ne direct aici — îți răspundem.';
 
   update public.conversations c
      set last_message_at = greatest(c.last_message_at, (
