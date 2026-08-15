@@ -99,13 +99,35 @@ check(
 )
 
 check(
-  "the welcome note no longer invites a reply it cannot take",
+  "the welcome note no longer invites a reply it cannot take — in BOTH places it is written",
   (() => {
+    // The copy lives twice: lib/system-account.ts creates the thread lazily, and
+    // supabase/migrations/20260805_storelib_seed.sql seeds it in bulk. They had
+    // drifted — the lazy path dropped the "scrie-ne direct aici" invitation
+    // (the thread has no composer) while the seed still sent it. A guard on one
+    // and not the other is a guard that watches the door nobody used: the
+    // screenshot that started this was the SEED's text.
     const sys = code("lib/system-account.ts")
-    return !/scrie-ne direct aici/.test(sys) && /Centrul de ajutor/.test(sys)
+    const seed = read("supabase/migrations/20260805_storelib_seed.sql")
+    // The message VALUES only — comments in the seed keep their em-dashes, and
+    // they are not shown to anyone.
+    const messageLines = (seed.match(/\(\d, '[^']*'\)/g) ?? []).join("\n")
+    return (
+      !/scrie-ne direct aici/i.test(sys) &&
+      /Centrul de ajutor/.test(sys) &&
+      !/scrie-ne direct aici/i.test(messageLines) &&
+      /Centrul de ajutor/.test(messageLines) &&
+      // NO EM-DASH in the sentences shown to people. It is a mark this product
+      // does not use, and it was the specific thing on screen.
+      !/—/.test(messageLines) &&
+      // And the accounts already sent the old line are corrected in place on the
+      // next seed run — the insert only fills empty threads, so without this the
+      // fix would reach nobody who already has the message.
+      /update public\.messages\s+set body =/i.test(seed) &&
+      /where sender_id = v_id\s+and body = 'Ai o întrebare sau ceva nu merge\?/i.test(seed)
+    )
   })(),
-  "        lib/system-account.ts — copy asking for something the screen no\n" +
-    "        longer offers is the worst of both.",
+  "        lib/system-account.ts, supabase/migrations/20260805_storelib_seed.sql",
 )
 
 // ---------------------------------------------------------------------------
