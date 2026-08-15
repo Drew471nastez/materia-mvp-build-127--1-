@@ -119,14 +119,14 @@ export async function generateMetadata({ params, searchParams }: { params: Param
   // and as a shared link than "Haine · Femei" does for a page of dresses.
   const subLabel = groupLabel?.items.find((i) => i.id === safeTerm(sp.get("sub") || ""))?.label ?? null
   const title = q
-    ? `„${q}” — Storelib`
+    ? `„${q}” | Storelib`
     : subLabel && groupLabel
-      ? `${subLabel} · ${dept?.label} second-hand — Storelib`
+      ? `${subLabel} · ${dept?.label} second-hand | Storelib`
       : groupLabel
-      ? `${categoryShortLabel(groupLabel)} · ${dept?.label} second-hand — Storelib`
+      ? `${categoryShortLabel(groupLabel)} · ${dept?.label} second-hand | Storelib`
       : dept
-        ? `${dept.label} second-hand — Storelib`
-        : "Toate anunțurile — Storelib"
+        ? `${dept.label} second-hand | Storelib`
+        : "Toate anunțurile | Storelib"
   /**
    * ═════════════════════════════════════════════════════════════════════════
    *  THE THIRTY-SEVEN PAGES WORTH INDEXING, AND NOT ONE MORE

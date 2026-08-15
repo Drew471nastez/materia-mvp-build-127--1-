@@ -65,7 +65,7 @@ export async function memberMetadata(username: string): Promise<Metadata> {
 
   const name = profile.display_name || profile.username || "Membru"
   return {
-    title: `${name} (@${profile.username}) — Storelib`,
+    title: `${name} (@${profile.username}) | Storelib`,
     description: `Vezi articolele scoase la vânzare de ${name} pe Storelib.`,
     alternates: { canonical: `https://storelib.com/member/${profile.username}` },
   }
