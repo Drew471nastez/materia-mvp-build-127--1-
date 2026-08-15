@@ -2,10 +2,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 
 import { MessageThread } from "@/components/messages/thread"
-import { MessagesSplit } from "@/components/messages/split-shell"
-import { DesktopConversationList } from "@/components/messages/desktop-conversation-list"
 import { readThread } from "@/lib/messages/thread"
-import { listConversations, optionalAdminClient, type InboxConversation } from "@/lib/messages/list"
 import { createClient } from "@/lib/supabase/server"
 
 /**
@@ -49,24 +46,17 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   } = await supabase.auth.getUser()
   if (!user) redirect(`/login?next=${encodeURIComponent(`/messages/${id}`)}`)
 
-  // A malformed id is not a thread that failed to load, and asking Postgres to
-  // compare it against a uuid column would only raise. It is simply not found.
-  // The conversation AND the list it sits in, in parallel.
-  //
-  // From 768px up this route draws a split: the same left column /messages
-  // does, with this thread open beside it. Fetching the list here rather than
-  // letting the sidebar ask for it after mount is the difference between the
-  // column being there when the page paints and it appearing a round trip
-  // later — which on the screen you move around inside all day is the whole of
-  // whether the app feels assembled. On a phone the column is not drawn and
-  // this is one extra query on an already-dynamic route.
+  /**
+   * ONLY THE CONVERSATION. The left column is the messages LAYOUT's, fetched
+   * once for the whole visit — this page used to fetch it too, and rendering a
+   * second list here is what made switching conversations rebuild the column
+   * from scratch and flash every avatar in it. See
+   * app/(marketing)/messages/layout.tsx.
+   *
+   * A malformed id is not a thread that failed to load, and asking Postgres to
+   * compare it against a uuid column would only raise. It is simply not found.
+   */
   let initial = null
-  let conversations: InboxConversation[] | null = null
-  const readList = listConversations({
-    asCaller: supabase,
-    asAdmin: optionalAdminClient(),
-    userId: user.id,
-  }).catch(() => null)
   if (UUID_RE.test(id)) {
     try {
       // `asCaller` is the session client and RLS is what limits it to this
@@ -80,8 +70,6 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
       initial = null
     }
   }
-  conversations = await readList
-
   // A NONCE, not a timestamp.
   //
   // This used to hand down `renderedAt={Date.now()}` and the client worked out
@@ -100,12 +88,5 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   // re-uses a cached payload without re-running this component, so a nonce the
   // client has already seen can only have arrived from the cache. See
   // `fromCache` in components/messages/thread.tsx.
-  return (
-    <MessagesSplit
-      primary="detail"
-      list={<DesktopConversationList initialConversations={conversations} activeId={id} viewerId={user.id} />}
-    >
-      <MessageThread id={id} initial={initial} renderKey={crypto.randomUUID()} />
-    </MessagesSplit>
-  )
+  return <MessageThread id={id} initial={initial} renderKey={crypto.randomUUID()} />
 }
