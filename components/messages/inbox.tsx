@@ -1009,7 +1009,7 @@ function MessagesList({
       <MessagesEmptyState
         className="min-h-[40svh] flex-1"
         title="Niciun mesaj încă"
-        body="Scrie-i unui vânzător sau fă o ofertă la un articol — conversația apare aici."
+        body="Scrie-i unui vânzător sau fă o ofertă la un articol. Conversația apare aici."
         cta={{ href: "/", label: "Descoperă anunțuri" }}
       />
     )
