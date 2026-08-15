@@ -107,7 +107,11 @@ check(
     // (the thread has no composer) while the seed still sent it. A guard on one
     // and not the other is a guard that watches the door nobody used: the
     // screenshot that started this was the SEED's text.
-    const sys = code("lib/system-account.ts")
+    const sysFull = code("lib/system-account.ts")
+    // The SHIPPED welcome copy only — OFFICIAL_COPY_FIXES below it holds the old
+    // sentence deliberately, as the key it rewrites, so the whole file is not a
+    // fair thing to test "no invitation" against.
+    const sys = sysFull.slice(sysFull.indexOf("const WELCOME_RO"), sysFull.indexOf("OFFICIAL_COPY_FIXES"))
     const seed = read("supabase/migrations/20260805_storelib_seed.sql")
     // The message VALUES only — comments in the seed keep their em-dashes, and
     // they are not shown to anyone.
@@ -128,6 +132,32 @@ check(
     )
   })(),
   "        lib/system-account.ts, supabase/migrations/20260805_storelib_seed.sql",
+)
+
+check(
+  "and the old line is corrected at READ time, so no database paste is needed",
+  (() => {
+    // The welcome messages are DATABASE ROWS. Editing the seed and adding a
+    // corrective UPDATE fixes them only where an operator re-runs the SQL —
+    // nobody should paste SQL for a punctuation change. So the official
+    // account's own copy is rewritten as it is read: the thread AND the inbox
+    // preview pass system-sender bodies through normalizeOfficialBody, keyed on
+    // the whole old sentence so it can never touch a person's message.
+    const sysAcc = code("lib/system-account.ts")
+    const thread = code("lib/messages/thread.ts")
+    const list = code("lib/messages/list.ts")
+    return (
+      /export function normalizeOfficialBody/.test(sysAcc) &&
+      // Keyed on the exact old sentence — a blanket em-dash strip would rewrite
+      // whatever an em-dash meant in a message somebody else wrote.
+      /Scrie-ne direct aici — îți răspundem\./.test(sysAcc) &&
+      // Applied ONLY to messages the official account sent, on both surfaces.
+      /m\.sender_id === systemId && m\.kind === "text"\) m\.body = normalizeOfficialBody/.test(thread) &&
+      /lm\.sender_id === systemId && lm\.kind === "text"/.test(list) &&
+      /normalizeOfficialBody\(lm\.body\)/.test(list)
+    )
+  })(),
+  "        lib/system-account.ts, lib/messages/thread.ts, lib/messages/list.ts",
 )
 
 // ---------------------------------------------------------------------------

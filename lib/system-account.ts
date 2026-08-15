@@ -47,6 +47,46 @@ const WELCOME_RO = [
   "Ai o întrebare? Găsești răspunsurile și formularul de contact în Centrul de ajutor.",
 ].join("\n\n")
 
+/**
+ * ===========================================================================
+ *  OLD OFFICIAL COPY, CORRECTED WHERE IT IS READ
+ * ===========================================================================
+ *
+ * The welcome messages are rows in the database, seeded once. Editing the seed
+ * and adding a corrective UPDATE fixes them only where an operator re-runs the
+ * SQL — and nobody should have to paste SQL for a punctuation change. So the
+ * copy is also corrected at READ time: the official account's own messages pass
+ * through here on their way out of the thread reader, and the em-dash line the
+ * old seed sent becomes the current one.
+ *
+ * This is only ever applied to messages whose sender IS the official account —
+ * see `readThread`. It rewrites Storelib's own words, never a person's; a user
+ * who typed an em-dash to another user keeps every character of it, because
+ * their messages are theirs.
+ *
+ * Keyed on the whole old sentence, not a blanket em-dash strip, so it can only
+ * ever replace the exact string it was written for. When every seeded database
+ * has been re-run this map can go, but it costs one cheap `.replace` per
+ * official message and there is no harm in leaving it.
+ */
+const OFFICIAL_COPY_FIXES: ReadonlyArray<readonly [string, string]> = [
+  [
+    "Ai o întrebare sau ceva nu merge? Scrie-ne direct aici — îți răspundem.",
+    "Ai o întrebare? Găsești răspunsurile și formularul de contact în Centrul de ajutor.",
+  ],
+]
+
+/** Correct a body sent by the official account. A no-op for anything already
+ *  current, and for every string it was not written for. */
+export function normalizeOfficialBody(body: string | null | undefined): string | null {
+  if (!body) return body ?? null
+  let out = body
+  for (const [oldText, newText] of OFFICIAL_COPY_FIXES) {
+    if (out.includes(oldText)) out = out.split(oldText).join(newText)
+  }
+  return out
+}
+
 export type OfficialProfile = {
   id: string
   display_name: string | null

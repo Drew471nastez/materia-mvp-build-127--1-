@@ -11,6 +11,7 @@ import {
   getSystemUserId,
   STORELIB_AVATAR_URL,
   isOfficialProfile,
+  normalizeOfficialBody,
   type OfficialProfile,
 } from "@/lib/system-account"
 
@@ -331,7 +332,16 @@ export async function listConversations({
       // screen it opens show the same face. See STORELIB_AVATAR_URL.
       other: other && official && !other.avatar_url ? { ...other, avatar_url: STORELIB_AVATAR_URL } : other,
       official,
-      lastMessage: last.get(c.id) ?? null,
+      // The preview is corrected on the way out too, so the inbox row and the
+      // thread it opens agree. Only when the last message came from the official
+      // account — a person's preview is untouched. See normalizeOfficialBody.
+      lastMessage: (() => {
+        const lm = last.get(c.id) ?? null
+        if (lm && systemId && lm.sender_id === systemId && lm.kind === "text") {
+          return { ...lm, body: normalizeOfficialBody(lm.body) }
+        }
+        return lm
+      })(),
       unread: unread.get(c.id) ?? 0,
     }
   })
