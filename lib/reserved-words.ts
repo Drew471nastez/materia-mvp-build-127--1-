@@ -1,3 +1,5 @@
+import { scoreHandle } from "@/lib/security/spam-signals"
+
 // Reserved words that cannot be used as usernames/slugs
 export const RESERVED_WORDS = [
   // Brand names
@@ -109,6 +111,28 @@ export function isValidUsername(username: string): { valid: boolean; error?: str
 
   // Cannot be a reserved word
   if (isReservedWord(username)) {
+    return { valid: false, error: "This username is not available" }
+  }
+
+  /**
+   * Cannot be a link-farm handle.
+   *
+   * This is the choke point every path that sets a username already goes
+   * through — the settings forms, the buyer settings, PATCH /api/profile and
+   * the availability endpoint — so the gate goes here rather than being
+   * repeated at four call sites where one of them would eventually be forgotten.
+   *
+   * The error is the same "not available" the reserved list returns, and that
+   * is deliberate. Naming the token that tripped would hand a spammer a tuning
+   * loop: rename, resubmit, read which word to drop. A real person hitting this
+   * by accident is vanishingly unlikely — the threshold needs a combination of
+   * signals, not one unlucky word — and they are told the same thing they would
+   * be told if the handle were simply taken, which is actionable enough.
+   *
+   * See lib/security/spam-signals.ts for what is being scored and why the
+   * weights are set where they are.
+   */
+  if (scoreHandle(username).blocked) {
     return { valid: false, error: "This username is not available" }
   }
 

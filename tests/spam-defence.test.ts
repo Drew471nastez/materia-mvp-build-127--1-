@@ -1,0 +1,334 @@
+/**
+ * ===========================================================================
+ *  THE LINK FARM STAYS OUT, AND REAL SELLERS STAY IN
+ * ===========================================================================
+ *
+ * Three hundred and sixty accounts registered on Storelib in three same-day
+ * batches in August 2026, published nothing, and collected an indexable
+ * storefront each. This suite is what keeps the fix for that from rotting.
+ *
+ * It guards three separate things, and they fail for different reasons:
+ *
+ *   1. DETECTION — the fourteen handles actually observed are refused, and a
+ *      list of legitimate handles is not. The second half is the important
+ *      half. A false positive costs Storelib a seller; a false negative costs
+ *      a spammer nine seconds.
+ *
+ *   2. ENFORCEMENT — the gate is wired into isValidUsername, which is the one
+ *      choke point every username-setting path already goes through. A gate
+ *      nobody calls is decoration.
+ *
+ *   3. CONTAINMENT — the sitemap only lists storefronts that have published
+ *      something, and the storefront's robots tag and structured data follow
+ *      the same rule. This is the half that removes the incentive, so it is
+ *      the half most worth a source-level guard: it is a few easily-reverted
+ *      lines in two files, and reverting either one quietly reopens the door.
+ *
+ * Run with:  npm run test:push
+ */
+
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+
+import {
+  scoreHandle,
+  scoreSignup,
+  handleSignature,
+  deservesIndexing,
+  isDisposableEmail,
+  BLOCK_SCORE,
+  REVIEW_SCORE,
+} from "../lib/security/spam-signals"
+import { isValidUsername } from "../lib/reserved-words"
+import { stripComments } from "./_source"
+
+let passed = 0
+let failed = 0
+const failures: string[] = []
+
+function check(name: string, ok: boolean, detail?: string) {
+  if (ok) {
+    passed++
+    console.log(`  ok    ${name}`)
+  } else {
+    failed++
+    failures.push(name)
+    console.log(`  FAIL  ${name}${detail ? `\n${detail}` : ""}`)
+  }
+}
+
+const root = process.cwd()
+const read = (p: string) => readFileSync(join(root, p), "utf8")
+
+console.log("\nThe link farm stays out, and real sellers stay in\n")
+
+/**
+ * ---------------------------------------------------------------------------
+ * 1. DETECTION
+ * ---------------------------------------------------------------------------
+ * The observed batch, copied from the admin list exactly as it appeared —
+ * including the two that were shouted in capitals, because case folding is part
+ * of what is being tested.
+ */
+const OBSERVED_FARM = [
+  "powerokebos999",
+  "okebos999autojp2026",
+  "powerdompethoki",
+  "powersanur999",
+  "dompethokiautojp2026",
+  "powerputon888",
+  "sanur999autojp2026",
+  "JUNKRAYA999",
+  "JUNKBETON888",
+  "beton888autojp2026",
+  "sendbeton888",
+  "puton888asix",
+  "suaka999asix",
+  "beton999asix",
+]
+
+const missed = OBSERVED_FARM.filter((h) => !scoreHandle(h).blocked)
+check(
+  `all ${OBSERVED_FARM.length} observed farm handles are refused`,
+  missed.length === 0,
+  missed.length ? `        got through: ${missed.join(", ")}` : undefined,
+)
+
+/**
+ * The other half, and the one that matters more.
+ *
+ * Storelib is a Romanian marketplace and some of the farm's vocabulary is
+ * ordinary Romanian: "beton" is concrete and, colloquially, "brilliant";
+ * "depozit" is a warehouse. A naive substring blocklist refuses betonarie and
+ * casa-betonului on day one, and nobody finds out until a seller gives up.
+ *
+ * Also pinned here: a bare lucky number, a bare farm affix, and a bare digit
+ * sandwich. Each is a signal the scorer uses, and NONE of them may block on its
+ * own — that property is the entire safety margin of this design, so it is
+ * asserted rather than assumed.
+ */
+const MUST_PASS = [
+  // Ordinary handles
+  "andrewrullz",
+  "mariapopescu",
+  "ana-maria",
+  "alexandra88",
+  "hokusai",
+  "jp-morgan",
+  "vipstore",
+  // Romanian words that collide with the farm's weak vocabulary
+  "betonarie",
+  "betonstar",
+  "casa-betonului",
+  "depozitul-meu",
+  // A single weak signal, alone, must never be enough
+  "sneakers999",
+  "gabi999",
+  "powerfit",
+  "power999",
+  "junk-food",
+  "sendcloud",
+  "raya-store",
+  "slotenmaker",
+  "user1234name",
+  "jordan23air",
+  "air4life",
+  "maria2026",
+]
+
+const falsePositives = MUST_PASS.filter((h) => scoreHandle(h).blocked)
+check(
+  `none of the ${MUST_PASS.length} legitimate handles is refused`,
+  falsePositives.length === 0,
+  falsePositives.length ? `        wrongly refused: ${falsePositives.join(", ")}` : undefined,
+)
+
+check(
+  "no single signal can block on its own",
+  ["sneakers999", "powerfit", "junkyard", "user1234name", "betonarie"].every((h) => scoreHandle(h).score < BLOCK_SCORE),
+)
+
+check("the review line sits below the refusal line", REVIEW_SCORE < BLOCK_SCORE)
+
+check(
+  "case and separators do not change the verdict",
+  scoreHandle("JUNKBETON888").blocked &&
+    scoreHandle("junk-beton-888").blocked &&
+    scoreHandle("junkbeton888").blocked,
+)
+
+check(
+  "an empty or tiny handle scores nothing rather than throwing",
+  scoreHandle("").score === 0 && scoreHandle(null).score === 0 && scoreHandle("ab").score === 0,
+)
+
+/**
+ * The cohort signature is what still works after they rename. Two handles from
+ * the same generator must reduce to the same skeleton, and a handle that is
+ * shaped differently must not.
+ */
+check(
+  "handles from one generated batch share a signature",
+  handleSignature("powersanur999") === handleSignature("powerputon888") &&
+    handleSignature("puton888asix") === handleSignature("suaka999asix") &&
+    handleSignature("puton888asix") !== handleSignature("powersanur999"),
+)
+
+check(
+  "disposable email domains are caught, including one subdomain deep",
+  isDisposableEmail("x@mailinator.com") &&
+    isDisposableEmail("x@mail.yopmail.com") &&
+    !isDisposableEmail("maria@gmail.com") &&
+    !isDisposableEmail("contact@magazinul-meu.ro"),
+)
+
+check(
+  "a disposable domain adds weight, never refuses on its own, and does not flood the queue",
+  (() => {
+    // Three points: enough to push an already-suspicious handle over the line,
+    // never enough to refuse an ordinary one, and deliberately BELOW the review
+    // line — surfacing every temp-mail signup for a human to look at would bury
+    // the batch this queue exists to find.
+    const clean = scoreSignup({ handle: "mariapopescu", email: "maria@mailinator.com" })
+    const suspicious = scoreSignup({ handle: "betonstar", email: "x@mailinator.com" })
+    const withTierOne = scoreSignup({ handle: "gacorstore", email: "x@mailinator.com" })
+    return (
+      clean.score === 3 && !clean.blocked && !clean.review && !suspicious.blocked && withTierOne.blocked
+    )
+  })(),
+)
+
+check(
+  "plus-tagged addresses are not penalised",
+  scoreSignup({ handle: "mariapopescu", email: "maria+storelib@gmail.com" }).score === 0,
+)
+
+/**
+ * ---------------------------------------------------------------------------
+ * 2. ENFORCEMENT
+ * ---------------------------------------------------------------------------
+ * isValidUsername is the choke point: the settings forms, the buyer settings,
+ * PATCH /api/profile and the availability endpoint all call it. If the gate is
+ * not in there, it is not anywhere.
+ */
+check(
+  "isValidUsername refuses farm handles",
+  OBSERVED_FARM.every((h) => !isValidUsername(h.toLowerCase()).valid),
+)
+
+check(
+  "isValidUsername still accepts ordinary handles",
+  MUST_PASS.filter((h) => h.length >= 3).every((h) => isValidUsername(h).valid),
+)
+
+check(
+  "the refusal does not name the token that tripped it",
+  (() => {
+    // Naming it would hand a spammer a tuning loop: rename, resubmit, read
+    // which word to drop. It must read the same as an unavailable handle.
+    const err = isValidUsername("powerokebos999").error ?? ""
+    return err === "This username is not available" && !/okebos|power|999/i.test(err)
+  })(),
+)
+
+/**
+ * ---------------------------------------------------------------------------
+ * 3. CONTAINMENT — the half that removes the incentive
+ * ---------------------------------------------------------------------------
+ */
+check(
+  "deservesIndexing requires a published product",
+  !deservesIndexing({ publishedProducts: 0, handle: "mariapopescu" }) &&
+    deservesIndexing({ publishedProducts: 1, handle: "mariapopescu" }),
+)
+
+check(
+  "a farm handle is refused indexing even if it publishes something",
+  !deservesIndexing({ publishedProducts: 5, handle: "powerokebos999" }),
+)
+
+const sitemap = stripComments(read("app/sitemap.ts"))
+check(
+  "the sitemap gates storefronts on published products",
+  sitemap.includes("deservesIndexing") &&
+    /status.*published/s.test(sitemap) &&
+    // The old unconditional query listed every profile that had a username.
+    // That exact shape must not come back.
+    !/\.from\("profiles"\)[\s\S]{0,160}\.not\("username", "is", null\)[\s\S]{0,80}\.limit\(5000\)/.test(sitemap),
+  "        app/sitemap.ts",
+)
+
+const storefront = stripComments(read("app/(marketing)/u/[username]/page.tsx"))
+check(
+  "the storefront's robots tag follows the same rule",
+  storefront.includes("deservesIndexing") &&
+    storefront.includes("index: false") &&
+    storefront.includes("follow: false") &&
+    // The unconditional `robots: { index: true ... }` is what a link farm was
+    // buying. It must never be reachable without the indexable check.
+    !/robots:\s*\{\s*index:\s*true/.test(storefront),
+  "        app/(marketing)/u/[username]/page.tsx",
+)
+
+check(
+  "structured data is withheld from storefronts that are not indexable",
+  (() => {
+    // Both JSON-LD render sites — the published-config branch and the default
+    // one — must sit behind the gate. One of the two being guarded is the
+    // failure mode this catches, because it looks fixed from either end.
+    const guarded = storefront.match(/\{indexable && \(/g)?.length ?? 0
+    const scripts = storefront.match(/application\/ld\+json/g)?.length ?? 0
+    return guarded >= 2 && scripts === 4
+  })(),
+  "        expected both ld+json pairs behind {indexable && …}",
+)
+
+/**
+ * The signup form's two bot tells. Both are verified server-side, but the form
+ * is what collects them, and a honeypot that is visible or tabbable is worse
+ * than none — it blocks real people.
+ */
+const signup = stripComments(read("app/(auth)/signup/page.tsx"))
+check(
+  "the signup form carries a honeypot and a fill timer",
+  signup.includes('name="website"') &&
+    signup.includes("elapsedMs") &&
+    signup.includes("/api/auth/signup-guard"),
+  "        app/(auth)/signup/page.tsx",
+)
+
+check(
+  "the honeypot is hidden from people and from assistive technology",
+  (() => {
+    const i = signup.indexOf('name="website"')
+    if (i < 0) return false
+    const field = signup.slice(Math.max(0, i - 200), i + 400)
+    return (
+      field.includes("tabIndex={-1}") &&
+      field.includes('aria-hidden="true"') &&
+      field.includes('autoComplete="off"') &&
+      // Off-screen rather than display:none — the better bots skip the latter.
+      field.includes("-9999px")
+    )
+  })(),
+  "        app/(auth)/signup/page.tsx",
+)
+
+const guard = stripComments(read("app/api/auth/signup-guard/route.ts"))
+check(
+  "the guard fails open and never stores a raw IP",
+  guard.includes("allow: true") &&
+    guard.includes("hashIp") &&
+    guard.includes("createHash") &&
+    // ip_hash is the only column it writes an address into. A plain `ip:` field
+    // would mean storing personal data this never needs.
+    !/\bip:\s*clientIp/.test(guard),
+  "        app/api/auth/signup-guard/route.ts",
+)
+
+console.log(`\n${passed} passed, ${failed} failed\n`)
+if (failed > 0) {
+  console.log("Failed:")
+  for (const f of failures) console.log(`  · ${f}`)
+  process.exit(1)
+}

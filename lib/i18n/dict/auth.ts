@@ -49,6 +49,12 @@ export const authDict: Record<"ro" | "en", Record<string, string>> = {
     "auth.err_password_min6": "Parola trebuie să aibă cel puțin 6 caractere",
     "auth.err_generic": "A apărut o eroare",
     "auth.err_email_registered": "Acest email este deja înregistrat. Te rugăm să te autentifici sau să continui cu Google.",
+    // Signup refused by the abuse guard. Deliberately vague: a message that
+    // named the reason would tell a spam script which input to change. A real
+    // person who somehow lands here has a way forward, which is what matters.
+    "auth.err_signup_unavailable": "Nu putem crea un cont cu aceste date. Încearcă altă adresă de email sau scrie-ne la Centrul de ajutor.",
+    "auth.err_email_not_accepted": "Această adresă de email nu poate fi folosită. Te rugăm să folosești adresa ta obișnuită.",
+    "auth.err_too_many_signups": "Prea multe conturi create de aici. Te rugăm să încerci din nou mai târziu.",
     // Request password reset
     "auth.reset_email_sent_to": "Tocmai am trimis un email pentru resetarea parolei către",
     "auth.reset_instructions": "Introdu emailul sau numele de utilizator și îți vom trimite un email pentru resetarea parolei.",
@@ -184,6 +190,9 @@ export const authDict: Record<"ro" | "en", Record<string, string>> = {
     "auth.err_password_min6": "Password must be at least 6 characters",
     "auth.err_generic": "An error occurred",
     "auth.err_email_registered": "This email is already registered. Please log in or continue with Google.",
+    "auth.err_signup_unavailable": "We can't create an account with these details. Try a different email address, or contact us in the Help Centre.",
+    "auth.err_email_not_accepted": "This email address can't be used. Please use your regular address.",
+    "auth.err_too_many_signups": "Too many accounts have been created from here. Please try again later.",
     // Request password reset
     "auth.reset_email_sent_to": "We just sent an email to reset your password to",
     "auth.reset_instructions": "Enter your email or username and we'll send you an email to reset your password.",

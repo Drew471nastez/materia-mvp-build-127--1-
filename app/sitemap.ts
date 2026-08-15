@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { VALID_CATEGORY_IDS } from "@/lib/marketplace/categories"
 import { DEPARTMENT_NAV, categoryPath } from "@/lib/marketplace/department-nav"
+import { deservesIndexing } from "@/lib/security/spam-signals"
 
 export const dynamic = "force-dynamic"
 
@@ -144,21 +145,79 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   } catch {}
 
-  // Seller storefronts (profiles with a username)
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  SELLER STOREFRONTS — ONLY THE ONES THAT SELL SOMETHING
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * This block used to list every profile that had a username, and that is how
+   * a link farm found Storelib. Three hundred and sixty accounts signed up in
+   * same-day batches, published nothing, and collected exactly what they came
+   * for: an indexable URL on an authoritative domain, submitted to Google by
+   * this file, for free, within a day of registering.
+   *
+   * The fix is not a better blocklist — that is an arms race and the farm gets
+   * the last move. The fix is that SEO surface is EARNED BY PUBLISHING. An
+   * account with nothing for sale has no storefront worth crawling; that is
+   * true of a spammer and equally true of the real seller who signed up in
+   * March and never finished, whose empty page was a thin-content liability in
+   * the index anyway.
+   *
+   * So the rule is one line and it has no exceptions: at least one published
+   * product, or you are not in the sitemap. lib/security/spam-signals.ts holds
+   * it as `deservesIndexing`, and app/(marketing)/u/[username]/page.tsx reads
+   * the same rule for its robots tag — the two must never disagree, or a page
+   * says index-me while the sitemap says it does not exist.
+   *
+   * A seller crosses the line the moment they publish. Nothing to re-run: the
+   * sitemap is force-dynamic and rebuilt per request.
+   */
   try {
-    const { data: sellers } = await supabase
-      .from("profiles")
-      .select("username, updated_at")
-      .not("username", "is", null)
-      .limit(5000)
+    // Who has published something. products.creator_id points at creators.id,
+    // and it is creators.user_id that matches profiles.id — two hops, both
+    // needed, and neither is joinable in PostgREST without an FK alias that
+    // this schema does not declare.
+    const { data: publishedRows } = await supabase
+      .from("products")
+      .select("creator_id")
+      .eq("status", "published")
+      .limit(20000)
 
-    for (const seller of sellers || []) {
-      routes.push({
-        url: `${BASE}/u/${seller.username}`,
-        lastModified: new Date(seller.updated_at),
-        changeFrequency: "weekly",
-        priority: 0.6,
-      })
+    const publishingCreatorIds = [
+      ...new Set((publishedRows || []).map((p: { creator_id: string | null }) => p.creator_id).filter(Boolean)),
+    ] as string[]
+
+    if (publishingCreatorIds.length) {
+      const { data: creators } = await supabase
+        .from("creators")
+        .select("user_id")
+        .in("id", publishingCreatorIds)
+
+      const publishingUserIds = [
+        ...new Set((creators || []).map((c: { user_id: string | null }) => c.user_id).filter(Boolean)),
+      ] as string[]
+
+      // Chunked: `.in()` builds a query string, and twenty thousand ids in one
+      // would exceed what the server will accept as a URL.
+      for (let i = 0; i < publishingUserIds.length; i += 500) {
+        const { data: sellers } = await supabase
+          .from("profiles")
+          .select("username, updated_at")
+          .in("id", publishingUserIds.slice(i, i + 500))
+          .not("username", "is", null)
+
+        for (const seller of sellers || []) {
+          // The spam verdict is checked as well as the publication gate, so a
+          // farm that files one decoy listing to buy its way in still does not.
+          if (!deservesIndexing({ publishedProducts: 1, handle: seller.username })) continue
+          routes.push({
+            url: `${BASE}/u/${seller.username}`,
+            lastModified: new Date(seller.updated_at),
+            changeFrequency: "weekly",
+            priority: 0.6,
+          })
+        }
+      }
     }
   } catch {}
 

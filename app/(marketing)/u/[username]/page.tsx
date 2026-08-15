@@ -15,6 +15,7 @@ import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
+import { deservesIndexing } from "@/lib/security/spam-signals"
 
 export const dynamic = "force-dynamic"
 
@@ -118,7 +119,50 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     alternates: {
       canonical: `https://storelib.com/u/${username}`,
     },
-    robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } },
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     *  INDEXING IS EARNED BY PUBLISHING SOMETHING
+     * ═══════════════════════════════════════════════════════════════════════
+     *
+     * This was `index: true` for everybody, and that is what a link farm bought
+     * three hundred and sixty accounts to get. Signing up minted an indexable
+     * page on an authoritative domain, with a canonical, structured data and a
+     * subdomain, in the time it takes to fill in an email field. Nobody
+     * published a product, because products were never the point.
+     *
+     * An empty storefront now says noindex, and says nofollow with it — the
+     * follow half is not an afterthought, it is the actual currency. A farm
+     * puts its links in the store description and the bio; nofollow is what
+     * stops this page passing authority to them even if a crawler arrives via
+     * some route the sitemap does not control.
+     *
+     * This costs a genuine seller nothing. An account with nothing for sale has
+     * no page worth ranking, and Google treats a thin empty profile as a
+     * liability across the whole domain rather than as a neutral. They are
+     * indexed the moment they publish, on the next crawl, with no action from
+     * anybody — the page is force-dynamic and this is recomputed per request.
+     *
+     * app/sitemap.ts applies the identical rule via the same `deservesIndexing`
+     * helper. If these two ever disagree, the sitemap is advertising a page
+     * that tells crawlers to go away, which is worse than either alone.
+     */
+    ...(await (async () => {
+      let publishedProducts = 0
+      if (creator) {
+        const { count } = await supabase
+          .from("products")
+          .select("id", { count: "exact", head: true })
+          .eq("creator_id", creator.id)
+          .eq("status", "published")
+        publishedProducts = count ?? 0
+      }
+      const indexable = deservesIndexing({ publishedProducts, handle: username })
+      return {
+        robots: indexable
+          ? { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } }
+          : { index: false, follow: false, googleBot: { index: false, follow: false } },
+      }
+    })()),
     ...(faviconUrl && {
       icons: {
         icon: faviconUrl,
@@ -227,6 +271,19 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   if (productsError) {
     console.error("[v0] Products query error:", productsError)
   }
+
+  /**
+   * The same gate generateMetadata applies, computed once here for the body.
+   *
+   * Structured data is not decoration: ProfilePage and BreadcrumbList are what
+   * make a page eligible for rich results and what tell Google this URL
+   * describes a real entity worth showing. Emitting them for an account that
+   * has published nothing is asserting something untrue, and for the link farm
+   * it was half the prize. An empty storefront still renders — the person who
+   * owns it sees their page exactly as before — it just stops claiming to be a
+   * search result.
+   */
+  const indexable = deservesIndexing({ publishedProducts: products?.length ?? 0, handle: username })
 
   const publishedConfig = await getPublishedConfig(creator.id, "shop")
 
@@ -453,14 +510,18 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
     return (
       <>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(profilePageJsonLd) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-        />
+        {indexable && (
+          <>
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{ __html: JSON.stringify(profilePageJsonLd) }}
+            />
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+            />
+          </>
+        )}
         <div
           className="min-h-screen overflow-x-hidden"
           style={{
@@ -560,14 +621,18 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(defaultProfilePageJsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(defaultBreadcrumbJsonLd) }}
-      />
+      {indexable && (
+        <>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(defaultProfilePageJsonLd) }}
+          />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(defaultBreadcrumbJsonLd) }}
+          />
+        </>
+      )}
       <div className="min-h-screen bg-background overflow-x-hidden">
         <DynamicFavicon avatarUrl={profile.avatar_url} />
         <BackLabelSetter label={profile.display_name || username} />

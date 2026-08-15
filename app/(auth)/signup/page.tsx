@@ -38,6 +38,24 @@ function SignUpFormContent() {
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
   const { loading: authGateLoading, nativeAuthInProgress } = useAuthGate()
   const redirectTimeoutRef = useRef<number | null>(null)
+  /**
+   * ---------------------------------------------------------------------------
+   * THE TWO BOT TELLS THIS FORM CARRIES
+   * ---------------------------------------------------------------------------
+   * `honeypot` backs a field no human can see or tab into (rendered below).
+   * Automated form-fillers fill every input they find, because that is what
+   * makes them work everywhere; a person leaves it empty because they never
+   * knew it existed.
+   *
+   * `mountedAt` is when this form appeared. The elapsed time goes to the guard,
+   * which refuses submissions faster than a human hand. Both are checked
+   * SERVER-SIDE in /api/auth/signup-guard — doing it here as well would only
+   * tell a script which check it failed.
+   *
+   * See lib/security/spam-signals.ts for why any of this exists.
+   */
+  const [honeypot, setHoneypot] = useState("")
+  const mountedAt = useRef<number>(Date.now())
   // Prevent elastic / rubber-band body scroll in the native WebView.
   // No-op in a regular browser — does not affect desktop behaviour.
   useNativeScrollLock()
@@ -187,6 +205,43 @@ function SignUpFormContent() {
       setError(t("auth.err_password_min6"))
       setIsLoading(false)
       return
+    }
+
+    /**
+     * The abuse guard, before an auth user exists to have to clean up.
+     *
+     * It fails open by contract — every error path inside it returns allow —
+     * and it is wrapped here too, because a signup form that breaks when a
+     * fetch does is a far worse outcome than a spammer getting through. The
+     * containment layer is what actually removes their reason for coming; see
+     * app/sitemap.ts and lib/security/spam-signals.ts.
+     */
+    try {
+      const guard = await fetch("/api/auth/signup-guard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          website: honeypot,
+          elapsedMs: Date.now() - mountedAt.current,
+        }),
+      })
+      if (guard.ok) {
+        const verdict = await guard.json()
+        if (verdict?.allow === false) {
+          setError(
+            verdict.reason === "email_not_accepted"
+              ? t("auth.err_email_not_accepted")
+              : verdict.reason === "too_many_signups"
+                ? t("auth.err_too_many_signups")
+                : t("auth.err_signup_unavailable"),
+          )
+          setIsLoading(false)
+          return
+        }
+      }
+    } catch {
+      // Unreachable guard means no guard, not a broken signup.
     }
 
     try {
@@ -437,6 +492,32 @@ function SignUpFormContent() {
                 className="h-12 rounded-lg border-neutral-200 bg-neutral-50 px-4 text-[15px] placeholder:text-neutral-400 focus:border-neutral-300 focus:bg-white focus:ring-0"
               />
             </div>
+
+            {/*
+              The honeypot.
+
+              Named "website" because that is a field a form-filler expects to
+              find and expects to fill. Positioned off-screen rather than
+              display:none — a display:none input is the oldest honeypot on the
+              web and the better bots skip them, while an off-screen one still
+              reads as a real field to anything walking the DOM.
+
+              aria-hidden and tabIndex={-1} keep it away from screen readers and
+              out of the tab order, so no human ever meets it. autoComplete off
+              keeps a browser's own autofill from filling it in and locking a
+              real person out of signing up, which is the one way this could
+              misfire.
+            */}
+            <input
+              type="text"
+              name="website"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+            />
 
             {showPasswordField && (
               <div className="space-y-2">
