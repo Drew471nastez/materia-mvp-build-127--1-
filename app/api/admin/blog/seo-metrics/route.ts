@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
+import { scoreSignup, handleSignature, deservesIndexing } from "@/lib/security/spam-signals"
 
 export async function DELETE(req: NextRequest) {
   if (!(await isAdminAuthenticated())) {
@@ -115,9 +116,15 @@ export async function GET(req: NextRequest) {
 
   // Map creator_id → product count (ALL products, not just published)
   const countByCreatorId: Record<string, number> = {}
+  // And separately, PUBLISHED only — which is the number that decides whether a
+  // storefront gets indexable surface at all. See lib/security/spam-signals.ts.
+  const publishedByCreatorId: Record<string, number> = {}
   for (const product of productCounts ?? []) {
     if (product.creator_id) {
       countByCreatorId[product.creator_id] = (countByCreatorId[product.creator_id] ?? 0) + 1
+      if (product.status === "published") {
+        publishedByCreatorId[product.creator_id] = (publishedByCreatorId[product.creator_id] ?? 0) + 1
+      }
     }
   }
 
@@ -137,10 +144,39 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  THE REVIEW QUEUE
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * This list was where the link farm became visible: three hundred and sixty
+   * storefronts, every one with zero published products, in three same-day
+   * batches. It showed them and gave no way to tell them apart from the real
+   * sellers who simply had not finished setting up.
+   *
+   * Three fields fix that, and each answers a different question.
+   *
+   *   spam_score / spam_reasons — what lib/security/spam-signals.ts made of the
+   *     handle. Six or more is what the signup gate now refuses outright.
+   *
+   *   indexable — whether this account gets a sitemap row, a robots index tag
+   *     and structured data. It is the same `deservesIndexing` call the sitemap
+   *     and the storefront make, so this column cannot drift from what crawlers
+   *     actually see; it is the honest answer to "is this account still worth
+   *     anything to a spammer", and for all 360 it is now no.
+   *
+   *   signature — the handle with its letters collapsed to `a` and its digit
+   *     runs to `#`. Sorting by it makes the batches stand up on their own,
+   *     including batches whose vocabulary this codebase has never heard of.
+   *     That is the column that keeps working after the farm renames itself,
+   *     and it is why it is here rather than just the score.
+   */
   const creators = (creatorProfiles ?? []).map((profile) => {
     const op = onepageByOwner[profile.id]
     const cId = creatorIdByUserId[profile.id]
     const productCount = cId ? (countByCreatorId[cId] ?? 0) : 0
+    const publishedCount = cId ? (publishedByCreatorId[cId] ?? 0) : 0
+    const verdict = scoreSignup({ handle: profile.username, displayName: profile.display_name })
     return {
       id: profile.id,
       username: profile.username,
@@ -149,9 +185,14 @@ export async function GET(req: NextRequest) {
       joined_at: profile.created_at,
       country: (profile as Record<string, unknown>).country as string | null ?? null,
       product_count: productCount,
+      published_count: publishedCount,
       has_published_products: productCount > 0,
       onepage_slug: op?.slug ?? null,
       onepage_title: op?.title ?? null,
+      spam_score: verdict.score,
+      spam_reasons: verdict.signals.map((s) => s.detail),
+      signature: handleSignature(profile.username),
+      indexable: deservesIndexing({ publishedProducts: publishedCount, handle: profile.username }),
     }
   })
 

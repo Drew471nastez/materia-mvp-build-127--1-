@@ -46,6 +46,7 @@ const SUITES = [
   "tests/import.test.ts",
   "tests/sql-aggregate.test.ts",
   "tests/copy-dashes.test.ts",
+  "tests/spam-defence.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

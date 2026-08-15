@@ -12,9 +12,20 @@ interface Creator {
   joined_at: string | null
   country: string | null
   product_count: number
+  published_count: number
   has_published_products: boolean
   onepage_slug: string | null
   onepage_title: string | null
+  /**
+   * The abuse fields. See app/api/admin/blog/seo-metrics/route.ts for what each
+   * one answers, and lib/security/spam-signals.ts for how the score is reached.
+   * `indexable` is the same call the sitemap and the storefront make, so this
+   * list can never claim surface a crawler is not actually being offered.
+   */
+  spam_score: number
+  spam_reasons: string[]
+  signature: string
+  indexable: boolean
 }
 
 interface BlogPost {
@@ -109,7 +120,9 @@ export default function SeoAdminClient() {
   const [activeTab, setActiveTab] = useState<"overview" | "creators" | "pages" | "infra" | "blog">("overview")
 
   const [creatorSearch, setCreatorSearch] = useState("")
-  const [creatorSort, setCreatorSort] = useState<"newest" | "oldest" | "products" | "az">("newest")
+  const [creatorSort, setCreatorSort] = useState<"newest" | "oldest" | "products" | "az" | "spam">("newest")
+  /** "all" | "flagged" (score at or above the review line) | "noindex". */
+  const [creatorFilter, setCreatorFilter] = useState<"all" | "flagged" | "noindex">("all")
   const [editingCreator, setEditingCreator] = useState<string | null>(null)
   const [creatorEdits, setCreatorEdits] = useState<Record<string, { seo_title: string; seo_description: string }>>({})
   const [savingCreator, setSavingCreator] = useState<string | null>(null)
@@ -277,11 +290,21 @@ export default function SeoAdminClient() {
     .filter(c =>
       !creatorSearch || c.username?.toLowerCase().includes(creatorSearch.toLowerCase()) || c.display_name?.toLowerCase().includes(creatorSearch.toLowerCase())
     )
+    // 4 is the review line in lib/security/spam-signals.ts (REVIEW_SCORE), not
+    // the refusal line. "Flagged" means worth a human glance.
+    .filter(c => creatorFilter === "all" || (creatorFilter === "flagged" ? (c.spam_score ?? 0) >= 4 : !c.indexable))
     .sort((a, b) => {
       if (creatorSort === "newest") return new Date(b.joined_at ?? 0).getTime() - new Date(a.joined_at ?? 0).getTime()
       if (creatorSort === "oldest") return new Date(a.joined_at ?? 0).getTime() - new Date(b.joined_at ?? 0).getTime()
       if (creatorSort === "products") return b.product_count - a.product_count
       if (creatorSort === "az") return (a.display_name || a.username || "").localeCompare(b.display_name || b.username || "")
+      // Highest spam score first, and within a score, grouped by structural
+      // signature — which is what makes a generated batch visible as a batch
+      // rather than as three hundred separate judgement calls.
+      if (creatorSort === "spam") {
+        if (b.spam_score !== a.spam_score) return (b.spam_score ?? 0) - (a.spam_score ?? 0)
+        return (a.signature || "").localeCompare(b.signature || "")
+      }
       return 0
     })
 
@@ -352,7 +375,13 @@ export default function SeoAdminClient() {
               )) : [
                 { label: "Published Products", value: metrics?.publishedProducts ?? 0, sub: `${metrics?.totalProducts ?? 0} total` },
                 { label: "Published Blog Posts", value: metrics?.publishedBlogPosts ?? 0, sub: `${metrics?.totalBlogPosts ?? 0} total` },
-                { label: "Creator Storefronts", value: metrics?.totalSellers ?? 0, sub: "indexed profiles" },
+                // The headline is the INDEXABLE count now, not the total. The
+                // total was the number that made a link farm look like growth.
+                {
+                  label: "Creator Storefronts",
+                  value: (metrics?.creators ?? []).filter(c => c.indexable).length,
+                  sub: `indexable · ${metrics?.totalSellers ?? 0} accounts`,
+                },
                 { label: "Sitemap Pages", value: metrics?.pagesInSitemap ?? 0, sub: `${metrics?.indexablePages ?? 0} indexable`, green: true },
               ].map(m => (
                 <div key={m.label} className="bg-white rounded-xl border border-neutral-200 p-4">
@@ -408,14 +437,36 @@ export default function SeoAdminClient() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-neutral-900">{loading ? "…" : filteredCreators.length} creator storefronts</h2>
-                <p className="text-xs text-neutral-400 mt-0.5">Each storefront has ProfilePage + BreadcrumbList schema and subdomain canonical</p>
+                {/*
+                  This line used to promise "each storefront has ProfilePage +
+                  BreadcrumbList schema and subdomain canonical", which was true
+                  and was the problem: it is a description of what a link farm
+                  was collecting three hundred and sixty times over. Storefronts
+                  now earn that surface by publishing a product, so the header
+                  states the rule instead of advertising the prize.
+                */}
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Schema, canonical and sitemap entry are granted once an account publishes a product.{" "}
+                  {!loading && metrics && (
+                    <span className="text-neutral-500 font-medium">
+                      {metrics.creators.filter(c => c.indexable).length} of {metrics.creators.length} indexable
+                    </span>
+                  )}
+                </p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
+                <select value={creatorFilter} onChange={e => setCreatorFilter(e.target.value as typeof creatorFilter)}
+                  className="px-2.5 py-1.5 text-xs border border-neutral-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-purple-200 cursor-pointer">
+                  <option value="all">All accounts</option>
+                  <option value="flagged">Flagged only</option>
+                  <option value="noindex">Not indexable</option>
+                </select>
                 <select value={creatorSort} onChange={e => setCreatorSort(e.target.value as typeof creatorSort)}
                   className="px-2.5 py-1.5 text-xs border border-neutral-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-purple-200 cursor-pointer">
                   <option value="newest">Newest first</option>
                   <option value="oldest">Oldest first</option>
                   <option value="products">Most products</option>
+                  <option value="spam">Spam risk</option>
                   <option value="az">A → Z</option>
                 </select>
                 <div className="relative">
@@ -445,7 +496,10 @@ export default function SeoAdminClient() {
                 {filteredCreators.map(creator => {
                   const isEditing = editingCreator === creator.username
                   const edits = creatorEdits[creator.username] || { seo_title: "", seo_description: "" }
-                  const score = creator.has_published_products ? 90 : 65
+                  // Indexable rather than has_published_products: the old field
+                  // counts drafts, so a store with three unpublished products
+                  // scored 90 while being invisible to every crawler.
+                  const score = creator.indexable ? 90 : 65
                   return (
                     <div key={creator.id} className="p-4">
                       <div className="flex items-center gap-3">
@@ -464,10 +518,32 @@ export default function SeoAdminClient() {
                               <span className="text-[10px] bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded font-medium">{creator.country}</span>
                             )}
                             <ScorePill score={score} />
+                            {/*
+                              The abuse verdict, next to the name where it is
+                              read rather than in a column nobody scrolls to.
+                              Six is the refusal line and four the review line;
+                              the reasons go in the title so a judgement call
+                              can be made without leaving the row.
+                            */}
+                            {(creator.spam_score ?? 0) >= 4 && (
+                              <span
+                                title={creator.spam_reasons?.join(", ")}
+                                className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                  creator.spam_score >= 6 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                                }`}
+                              >
+                                {creator.spam_score >= 6 ? "Spam" : "Suspect"} · {creator.spam_score}
+                              </span>
+                            )}
+                            {creator.signature && (creator.spam_score ?? 0) >= 4 && (
+                              <code className="text-[10px] bg-neutral-100 text-neutral-400 px-1.5 py-0.5 rounded" title="Handle shape. Matching shapes are one generated batch.">
+                                {creator.signature}
+                              </code>
+                            )}
                             {savedCreators.has(creator.username || "") && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">Saved ✓</span>}
                           </div>
                           <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                            <span className="text-xs text-neutral-400">{creator.product_count} published products</span>
+                            <span className="text-xs text-neutral-400">{creator.published_count ?? 0} published products</span>
                             {creator.joined_at && (
                               <span className="text-[10px] text-neutral-400" title={new Date(creator.joined_at).toLocaleString()}>
                                 Joined {new Date(creator.joined_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -479,8 +555,26 @@ export default function SeoAdminClient() {
                                 /l/{creator.onepage_slug} ↗
                               </a>
                             )}
-                            <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">ProfilePage</span>
-                            <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">BreadcrumbList</span>
+                            {/*
+                              These badges are now a REPORT rather than a
+                              promise. The storefront only emits ProfilePage and
+                              BreadcrumbList when it is indexable, so showing
+                              them unconditionally would have this page state
+                              the opposite of what the page it describes does.
+                            */}
+                            {creator.indexable ? (
+                              <>
+                                <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">ProfilePage</span>
+                                <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">BreadcrumbList</span>
+                              </>
+                            ) : (
+                              <span
+                                className="text-[10px] bg-neutral-100 text-neutral-500 px-1.5 py-0.5 rounded"
+                                title="No sitemap entry, no structured data, robots noindex + nofollow. Granted automatically once a product is published."
+                              >
+                                noindex · no schema
+                              </span>
+                            )}
                             {creator.onepage_slug && <span className="text-[10px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded">OnePage ✓</span>}
                           </div>
                         </div>
