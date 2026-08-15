@@ -109,8 +109,12 @@ check(
     // system-account comment that QUOTES the old line to explain why it went —
     // are not mistaken for shipped copy.
     const inbox = stripComments(readFileSync(join(root, "components/messages/inbox.tsx"), "utf8"))
-    const sys = stripComments(readFileSync(join(root, "lib/system-account.ts"), "utf8"))
-    return !/[—–]/.test(inbox) && !/[—–]/.test(sys)
+    const sysFull = stripComments(readFileSync(join(root, "lib/system-account.ts"), "utf8"))
+    // OFFICIAL_COPY_FIXES holds the old em-dash sentence on purpose — it is the
+    // key the render-time corrector matches. That is not shipped copy; the
+    // shipped copy is WELCOME_RO above it, which must be clean.
+    const welcome = sysFull.slice(sysFull.indexOf("const WELCOME_RO"), sysFull.indexOf("OFFICIAL_COPY_FIXES"))
+    return !/[—–]/.test(inbox) && !/[—–]/.test(welcome)
   })(),
   "        components/messages/inbox.tsx, lib/system-account.ts",
 )

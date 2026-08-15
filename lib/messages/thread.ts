@@ -12,6 +12,7 @@ import {
   fetchProfilesWithOfficial,
   getSystemUserId,
   isOfficialProfile,
+  normalizeOfficialBody,
 } from "@/lib/system-account"
 
 /**
@@ -341,6 +342,17 @@ export async function readThread({
   }
 
   const official = isOfficialProfile(other, systemId)
+
+  // THE OFFICIAL ACCOUNT'S OWN COPY IS CORRECTED ON THE WAY OUT. The old seed
+  // sent a welcome line with an em-dash; rather than make every deployment
+  // re-run SQL to fix a punctuation mark, the rows are rewritten here as they
+  // are read. Only where the sender IS the official account — a person's
+  // message is never touched. See normalizeOfficialBody.
+  if (systemId) {
+    for (const m of messages) {
+      if (m.sender_id === systemId && m.kind === "text") m.body = normalizeOfficialBody(m.body)
+    }
+  }
 
   return {
     id: convo.id,
