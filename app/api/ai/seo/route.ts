@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import Anthropic from "@anthropic-ai/sdk"
 
 // AI-powered SEO description generator
 // Uses Claude AI to create optimized meta descriptions
@@ -48,15 +47,7 @@ async function generateWithAI(text: string, title: string): Promise<string | nul
   }
 
   try {
-    const client = new Anthropic({ apiKey })
-
-    const message = await client.messages.create({
-      model: "claude-3-haiku-20240307",
-      max_tokens: 200,
-      messages: [
-        {
-          role: "user",
-          content: `You are an SEO expert. Generate a compelling meta description for a digital product.
+    const prompt = `You are an SEO expert. Generate a compelling meta description for a digital product.
 
 Product Title: ${title}
 Product Description: ${text}
@@ -70,13 +61,32 @@ Requirements:
 - Output ONLY the meta description, nothing else
 
 Meta description:`
-        }
-      ]
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 200,
+        messages: [{ role: "user", content: prompt }],
+      }),
     })
 
+    if (!response.ok) {
+      const errorBody = await response.text()
+      console.error("[AI SEO] Anthropic HTTP error:", response.status, errorBody)
+      return null
+    }
+
+    const data = await response.json() as { content?: Array<{ type?: string; text?: string }> }
+
     // Extract text from response
-    const responseText = message.content[0]?.type === 'text'
-      ? message.content[0].text.trim()
+    const responseText = data.content?.[0]?.type === 'text'
+      ? data.content[0].text?.trim() ?? null
       : null
 
     if (responseText && responseText.length > 0 && responseText.length <= 160) {

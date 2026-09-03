@@ -160,6 +160,9 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
   const [isDismissing, setIsDismissing] = useState(false)
   const swipeStartY = useRef<number | null>(null)
   const swipeCurrentY = useRef(0)
+  const swipeLastY = useRef(0)
+  const swipeLastTime = useRef(0)
+  const swipeVelocity = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
 
   // Animated close handler
@@ -170,7 +173,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
       setTimeout(() => {
         setIsDismissing(false)
         onClose()
-      }, 200)
+      }, 400)
     } else {
       onClose()
     }
@@ -185,39 +188,76 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
     const scrollContainer = sheet.querySelector("[data-scroll-container]") as HTMLElement
     const isAtTop = !scrollContainer || scrollContainer.scrollTop <= 0
     const isDragHandle = target.closest("[data-drag-handle]")
-    if (isDragHandle || isAtTop) {
-      swipeStartY.current = e.touches[0].clientY
+    const touchY = e.touches[0].clientY
+    const bounds = sheet.getBoundingClientRect()
+    const nearTop = touchY - bounds.top <= 72
+    if (isDragHandle || (isAtTop && nearTop)) {
+      swipeStartY.current = touchY
       swipeCurrentY.current = 0
+      swipeLastY.current = touchY
+      swipeLastTime.current = Date.now()
+      swipeVelocity.current = 0
     }
   }, [])
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (swipeStartY.current === null) return
     const deltaY = e.touches[0].clientY - swipeStartY.current
-    if (deltaY > 0) {
-      swipeCurrentY.current = deltaY
-      if (sheetRef.current) {
-        sheetRef.current.style.transform = `translateY(${deltaY}px)`
-        sheetRef.current.style.transition = "none"
-      }
+    const now = Date.now()
+    const dt = Math.max(1, now - swipeLastTime.current)
+    swipeVelocity.current = (e.touches[0].clientY - swipeLastY.current) / dt
+    swipeLastY.current = e.touches[0].clientY
+    swipeLastTime.current = now
+
+    const trackedY = deltaY > 0 ? deltaY : deltaY * 0.18
+    if (deltaY > 0) e.preventDefault()
+
+    swipeCurrentY.current = Math.max(0, deltaY)
+    if (sheetRef.current) {
+      sheetRef.current.style.transform = `translate3d(0, ${trackedY}px, 0)`
+      sheetRef.current.style.transition = "none"
     }
   }, [])
 
   const handleTouchEnd = useCallback(() => {
     if (swipeStartY.current === null) return
     swipeStartY.current = null
-    if (swipeCurrentY.current > 80) {
-      // Swipe far enough - dismiss
-      handleClose()
-    } else {
-      // Snap back
-      if (sheetRef.current) {
-        sheetRef.current.style.transform = ""
-        sheetRef.current.style.transition = "transform 200ms cubic-bezier(0.32, 0.72, 0, 1)"
+    const activeSheet = sheetRef.current
+
+    if (swipeCurrentY.current > 92 || swipeVelocity.current > 0.55) {
+      setIsDismissing(true)
+      if (activeSheet) {
+        activeSheet.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
+        activeSheet.style.transform = "translate3d(0, 100%, 0)"
       }
+      setTimeout(() => {
+        if (activeSheet) {
+          activeSheet.style.transition = ""
+          activeSheet.style.transform = ""
+        }
+        sheetRef.current = null
+        setIsDismissing(false)
+        onClose()
+      }, 400)
+      swipeCurrentY.current = 0
+      swipeVelocity.current = 0
+      return
+    }
+
+    if (activeSheet) {
+      activeSheet.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
+      activeSheet.style.transform = "translate3d(0, 0, 0)"
+      setTimeout(() => {
+        if (activeSheet) {
+          activeSheet.style.transition = ""
+          activeSheet.style.transform = ""
+        }
+        sheetRef.current = null
+      }, 400)
     }
     swipeCurrentY.current = 0
-  }, [handleClose])
+    swipeVelocity.current = 0
+  }, [onClose])
 
   // Create portal container on mount
   useEffect(() => {
@@ -352,7 +392,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
           zIndex: 2147483645,
           pointerEvents: "auto",
           opacity: isDismissing ? 0 : undefined,
-          transition: isDismissing ? "opacity 200ms ease-out" : undefined,
+          transition: isDismissing ? "opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)" : undefined,
         }}
         onClick={handleClose}
         onMouseDown={(e) => e.stopPropagation()}
@@ -383,12 +423,15 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
             borderTopRightRadius: 20,
             maxHeight: "85vh",
             overflow: "hidden",
+            willChange: "transform",
+            backfaceVisibility: "hidden",
           }}
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
         >
           {/* Drag handle */}
           <div className="flex justify-center py-2.5 flex-shrink-0 cursor-grab" data-drag-handle>
@@ -570,6 +613,7 @@ export function DescriptionRichEditor({
   const hoverBgColor = isDarkTheme ? "rgba(255,255,255,0.1)" : "rgba(124,58,237,0.1)"
 
   // Popover states instead of modals
+  const [showTextStylePopover, setShowTextStylePopover] = useState(false)
   const [showLinkPopover, setShowLinkPopover] = useState(false)
   const [showImagePopover, setShowImagePopover] = useState(false)
   const [showVideoPopover, setShowVideoPopover] = useState(false)
@@ -602,6 +646,7 @@ export function DescriptionRichEditor({
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   // Trigger refs for popovers (for positioning)
+  const textStyleButtonRef = useRef<HTMLDivElement>(null)
   const imageButtonRef = useRef<HTMLDivElement>(null)
   const videoButtonRef = useRef<HTMLDivElement>(null)
   const insertButtonRef = useRef<HTMLDivElement>(null)
@@ -1307,26 +1352,31 @@ export function DescriptionRichEditor({
   // Handle insert options
   const handleInsert = useCallback((insertType: string) => {
     requestAnimationFrame(() => {
-      if (editorRef.current) {
-        editorRef.current.focus()
+      if (!editorRef.current) return
 
-        switch (insertType) {
-          case "divider":
-            document.execCommand("insertHTML", false, '<hr style="margin: 16px 0; border: 0; border-top: 1px solid #e5e7eb;" />')
-            handleContentChange()
-            break
-          case "button":
-            saveSelection()
-            setShowButtonPopover(true)
-            return
-          case "twitter":
-            saveSelection()
-            setShowXEmbedPopover(true)
-            return
-        }
+      const needsInlinePopover = insertType === "button" || insertType === "twitter"
+      if (isMobile && needsInlinePopover) {
+        editorRef.current.blur()
+      } else {
+        editorRef.current.focus()
+      }
+
+      switch (insertType) {
+        case "divider":
+          document.execCommand("insertHTML", false, '<hr style="margin: 16px 0; border: 0; border-top: 1px solid #e5e7eb;" />')
+          handleContentChange()
+          break
+        case "button":
+          saveSelection()
+          setShowButtonPopover(true)
+          return
+        case "twitter":
+          saveSelection()
+          setShowXEmbedPopover(true)
+          return
       }
     })
-  }, [handleContentChange, saveSelection])
+  }, [handleContentChange, isMobile, saveSelection])
 
   // Handle embed click for selection and controls
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
@@ -1349,11 +1399,14 @@ export function DescriptionRichEditor({
     const embedContainer = target.closest('[data-embed-type]') as HTMLElement
 
     if (embedContainer) {
+      if (isMobile) {
+        editorRef.current?.blur()
+      }
       setSelectedEmbed(embedContainer)
     } else {
       setSelectedEmbed(null)
     }
-  }, [handleContentChange])
+  }, [handleContentChange, isMobile])
 
   // Delete selected embed
   const deleteEmbed = useCallback((embed: HTMLElement) => {
@@ -1468,6 +1521,7 @@ export function DescriptionRichEditor({
 
   // Close all popovers
   const closeAllPopovers = useCallback(() => {
+    setShowTextStylePopover(false)
     setShowLinkPopover(false)
     setShowImagePopover(false)
     setShowVideoPopover(false)
@@ -1522,33 +1576,87 @@ export function DescriptionRichEditor({
           borderColor: borderColor,
         }}
       >
-        {/* Text Style Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              className="flex items-center gap-1 px-2 py-1.5 rounded text-sm font-medium transition-colors"
-              style={{ color: fgColor }}
-            >
-              {currentTextStyle}
-              <ChevronDown className="h-3 w-3" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48 z-[2147483640]">
-            {textStyleOptions.map((option) => (
-              <DropdownMenuItem
-                key={option.value}
+        {/* Text Style Dropdown / Mobile sheet */}
+        <div ref={textStyleButtonRef}>
+          {isMobile ? (
+            <>
+              <button
+                type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => applyTextStyle(option.value)}
-                className="flex items-center gap-2 cursor-pointer"
+                onClick={() => {
+                  closeAllPopovers()
+                  saveSelection()
+                  setShowTextStylePopover(true)
+                }}
+                className="flex items-center gap-1 px-2 py-1.5 rounded text-sm font-medium transition-colors"
+                style={{ color: fgColor }}
               >
-                <option.icon className="h-4 w-4" />
-                {option.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                {currentTextStyle}
+                <ChevronDown className="h-3 w-3" />
+              </button>
+              <InlinePopover
+                isOpen={showTextStylePopover}
+                onClose={() => setShowTextStylePopover(false)}
+                themeColors={themeColors}
+                isMobile={isMobile}
+                triggerRef={textStyleButtonRef}
+              >
+                <div className="w-full px-5 pt-1 pb-5">
+                  <h3 className="text-base font-semibold text-center mb-4">Text Style</h3>
+                  <div className="space-y-2">
+                    {textStyleOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          applyTextStyle(option.value)
+                          setShowTextStylePopover(false)
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm transition-colors",
+                          currentTextStyle === option.label
+                            ? "bg-violet-50 text-violet-900"
+                            : "hover:bg-gray-50"
+                        )}
+                      >
+                        <option.icon className="h-4 w-4" />
+                        <span className="flex-1">{option.label}</span>
+                        {currentTextStyle === option.label && <Check className="h-4 w-4 text-violet-500" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </InlinePopover>
+            </>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded text-sm font-medium transition-colors"
+                  style={{ color: fgColor }}
+                >
+                  {currentTextStyle}
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48 z-[2147483640]">
+                {textStyleOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => applyTextStyle(option.value)}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <option.icon className="h-4 w-4" />
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
 
         <div className="w-px h-5 mx-1" style={{ backgroundColor: borderColor }} />
 
@@ -1607,14 +1715,13 @@ export function DescriptionRichEditor({
             isMobile={isMobile}
             triggerRef={imageButtonRef}
           >
-            <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-80")}>
-              <h3 className="font-semibold text-sm mb-4">Insert Image</h3>
+            <div className={cn("px-4 pb-5", isMobile ? "w-full pt-2" : "w-80 pt-4")}>
+              <h3 className={cn("font-semibold mb-4 text-center", isMobile ? "text-base" : "text-sm")}>Insert Image</h3>
               <div className="space-y-4">
-                {/* Upload button */}
                 <button
                   type="button"
                   className={cn(
-                    "w-full h-20 border-2 border-dashed rounded-lg transition-colors flex flex-col items-center justify-center gap-1.5",
+                    "w-full h-24 border-2 border-dashed rounded-xl transition-colors flex flex-col items-center justify-center gap-2",
                     isDarkTheme
                       ? "border-purple-400/50 hover:border-purple-400 hover:bg-purple-500/10"
                       : "border-purple-300 hover:border-purple-500 hover:bg-purple-50"
@@ -1622,16 +1729,16 @@ export function DescriptionRichEditor({
                   onClick={() => imageInputRef.current?.click()}
                 >
                   <Upload className="h-6 w-6" style={{ color: accentColor }} />
-                  <span className="text-xs" style={{ color: mutedColor }}>Click to upload</span>
+                  <span className="text-sm font-medium" style={{ color: mutedColor }}>Click to upload</span>
                 </button>
 
-                <div className="relative">
+                <div className="relative py-1">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t" style={{ borderColor: borderColor }} />
                   </div>
-                  <div className="relative flex justify-center text-xs uppercase">
+                  <div className="relative flex justify-center text-xs uppercase tracking-wide">
                     <span
-                      className="px-2"
+                      className="px-3"
                       style={{
                         backgroundColor: isDarkTheme ? "#1a1a1a" : "#ffffff",
                         color: mutedColor
@@ -1642,13 +1749,13 @@ export function DescriptionRichEditor({
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2 text-left">
                   <Label className="text-xs font-medium">Image URL</Label>
                   <Input
                     placeholder="https://example.com/image.jpg"
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
-                    className="h-10 text-sm"
+                    className="h-11 text-sm"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
@@ -1657,12 +1764,12 @@ export function DescriptionRichEditor({
                     }}
                   />
                 </div>
-                <div className="flex gap-2 pt-2">
+                <div className={cn("grid gap-2 pt-2", isMobile ? "grid-cols-2" : "grid-cols-2")}>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setShowImagePopover(false)}
-                    className="flex-1 h-10"
+                    className="h-11"
                     style={{
                       borderColor: borderColor,
                       color: isDarkTheme ? "#fafafa" : "#1a1a1a",
@@ -1675,7 +1782,7 @@ export function DescriptionRichEditor({
                     size="sm"
                     onClick={insertImage}
                     disabled={!imageUrl}
-                    className="flex-1 h-10"
+                    className="h-11"
                     style={{
                       backgroundColor: accentColor,
                       color: "#ffffff",
@@ -1711,46 +1818,46 @@ export function DescriptionRichEditor({
             isMobile={isMobile}
             triggerRef={videoButtonRef}
           >
-            <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-80")}>
-              <h3 className="font-semibold text-sm mb-4">Insert YouTube Video</h3>
+            <div className={cn("px-4 pb-5", isMobile ? "w-full pt-2" : "w-80 pt-4")}>
+              <h3 className={cn("font-semibold mb-4 text-center", isMobile ? "text-base" : "text-sm")}>Insert YouTube Video</h3>
               <div className="space-y-4">
-                <div className="space-y-1.5">
+                <div className="space-y-2 text-left">
                   <Label className="text-xs font-medium">YouTube URL</Label>
                   <Input
                     placeholder="https://www.youtube.com/watch?v=..."
                     value={videoUrl}
                     onChange={(e) => setVideoUrl(e.target.value)}
-                    className="h-10 text-sm"
-                    autoFocus
+                    className="h-11 text-sm"
+                    autoFocus={!isMobile}
                   />
                 </div>
 
-                <div className="space-y-2.5">
+                <div className="space-y-2.5 text-left">
                   <Label className="text-xs font-medium">Display Mode</Label>
                   <RadioGroup value={videoDisplayMode} onValueChange={(v) => setVideoDisplayMode(v as "embed" | "link")} className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="embed" id="embed" style={{ borderColor: accentColor, color: accentColor }} />
-                      <Label htmlFor="embed" className="flex items-center gap-2 cursor-pointer text-sm">
+                    <label className="flex items-center gap-3 rounded-xl border px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                      <RadioGroupItem value="embed" id="embed-video-mode" style={{ borderColor: accentColor, color: accentColor }} />
+                      <span className="flex items-center gap-2 text-sm">
                         <Play className="h-3.5 w-3.5" />
                         Embed video player
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="link" id="link" style={{ borderColor: accentColor, color: accentColor }} />
-                      <Label htmlFor="link" className="flex items-center gap-2 cursor-pointer text-sm">
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-3 rounded-xl border px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                      <RadioGroupItem value="link" id="link-video-mode" style={{ borderColor: accentColor, color: accentColor }} />
+                      <span className="flex items-center gap-2 text-sm">
                         <ExternalLink className="h-3.5 w-3.5" />
                         Show as thumbnail link
-                      </Label>
-                    </div>
+                      </span>
+                    </label>
                   </RadioGroup>
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                <div className="grid grid-cols-2 gap-2 pt-2">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setShowVideoPopover(false)}
-                    className="flex-1 h-10"
+                    className="h-11"
                     style={{
                       borderColor: borderColor,
                       color: isDarkTheme ? "#fafafa" : "#1a1a1a",
@@ -1763,7 +1870,7 @@ export function DescriptionRichEditor({
                     size="sm"
                     onClick={insertVideo}
                     disabled={!videoUrl}
-                    className="flex-1 h-10"
+                    className="h-11"
                     style={{
                       backgroundColor: accentColor,
                       color: "#ffffff",
@@ -1818,27 +1925,30 @@ export function DescriptionRichEditor({
           isMobile={isMobile}
           triggerRef={insertButtonRef}
         >
-          <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-72")}>
-            <h3 className="font-semibold text-sm mb-4">Insert Button</h3>
+          <div className={cn("px-4 pb-5", isMobile ? "w-full pt-2" : "w-72 pt-4")}>
+            <h3 className={cn("font-semibold mb-4 text-center", isMobile ? "text-base" : "text-sm")}>Insert Button</h3>
             <div className="space-y-4">
-              {/* Button Text */}
-              <Input
-                placeholder="Button text..."
-                value={buttonText}
-                onChange={(e) => setButtonText(e.target.value)}
-                className="h-10 text-sm"
-                autoFocus
-              />
+              <div className="space-y-2 text-left">
+                <Label className="text-xs font-medium">Button label</Label>
+                <Input
+                  placeholder="Button text..."
+                  value={buttonText}
+                  onChange={(e) => setButtonText(e.target.value)}
+                  className="h-11 text-sm"
+                  autoFocus={!isMobile}
+                />
+              </div>
 
-              {/* Button Link */}
-              <Input
-                placeholder="Link URL (optional)"
-                value={buttonLink}
-                onChange={(e) => setButtonLink(e.target.value)}
-                className="h-10 text-sm"
-              />
+              <div className="space-y-2 text-left">
+                <Label className="text-xs font-medium">Link URL (optional)</Label>
+                <Input
+                  placeholder="https://example.com"
+                  value={buttonLink}
+                  onChange={(e) => setButtonLink(e.target.value)}
+                  className="h-11 text-sm"
+                />
+              </div>
 
-              {/* Color presets - compact grid */}
               <div className="flex flex-wrap gap-2 justify-center py-1">
                 {buttonColorPresets.map((preset) => (
                   <button
@@ -1849,7 +1959,7 @@ export function DescriptionRichEditor({
                       setButtonTextColor(preset.textColor)
                     }}
                     className={cn(
-                      "w-7 h-7 rounded-full border-2 transition-all",
+                      "w-8 h-8 rounded-full border-2 transition-all",
                       buttonColor === preset.value ? "scale-110 ring-2" : "border-transparent hover:scale-105"
                     )}
                     style={{
@@ -1862,16 +1972,15 @@ export function DescriptionRichEditor({
                 ))}
               </div>
 
-              {/* Preview - inline compact */}
               <div
-                className="p-3 rounded-lg border text-center"
+                className="p-4 rounded-xl border text-center"
                 style={{
                   borderColor: borderColor,
                   backgroundColor: isDarkTheme ? "#0f0f0f" : "#f9fafb"
                 }}
               >
                 <span
-                  className="inline-block px-4 py-2 font-medium text-sm rounded-lg"
+                  className="inline-block px-5 py-2.5 font-medium text-sm rounded-lg"
                   style={{
                     backgroundColor: buttonColor,
                     color: buttonTextColor,
@@ -1881,13 +1990,12 @@ export function DescriptionRichEditor({
                 </span>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setShowButtonPopover(false)}
-                  className="flex-1 h-10"
+                  className="h-11"
                   style={{
                     borderColor: borderColor,
                     color: isDarkTheme ? "#fafafa" : "#1a1a1a",
@@ -1899,7 +2007,7 @@ export function DescriptionRichEditor({
                 <Button
                   size="sm"
                   onClick={insertButton}
-                  className="flex-1 h-10"
+                  className="h-11"
                   style={{ backgroundColor: accentColor, color: "#ffffff" }}
                 >
                   Insert
@@ -1930,7 +2038,7 @@ export function DescriptionRichEditor({
                   value={xPostUrl}
                   onChange={(e) => setXPostUrl(e.target.value)}
                   className="h-10 text-sm"
-                  autoFocus
+                  autoFocus={!isMobile}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
@@ -2107,7 +2215,7 @@ export function DescriptionRichEditor({
               value={textSelectionLinkUrl}
               onChange={(e) => setTextSelectionLinkUrl(e.target.value)}
               className="h-9 text-sm mb-3"
-              autoFocus
+              autoFocus={!isMobile}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
@@ -2155,7 +2263,7 @@ export function DescriptionRichEditor({
       )}
 
       {/* Selected Embed Controls */}
-      {selectedEmbed && (
+      {selectedEmbed && !isMobile && (
         <div className="fixed" style={{
           zIndex: 2147483640,
           top: selectedEmbed.getBoundingClientRect().top + window.scrollY + 8,
@@ -2229,6 +2337,89 @@ export function DescriptionRichEditor({
             </button>
           </div>
         </div>
+      )}
+
+      {selectedEmbed && isMobile && (
+        <InlinePopover
+          isOpen={!!selectedEmbed}
+          onClose={() => setSelectedEmbed(null)}
+          themeColors={themeColors}
+          isMobile={isMobile}
+        >
+          <div className="w-full px-4 pb-5 pt-2">
+            <h3 className="text-base font-semibold text-center mb-4">Image Settings</h3>
+
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => moveEmbedUp(selectedEmbed)}
+                className="flex h-11 items-center justify-center rounded-xl border hover:bg-gray-50"
+                style={{ borderColor }}
+                title="Move up"
+              >
+                <MoveUp className="h-4 w-4" style={{ color: mutedColor }} />
+              </button>
+              <button
+                type="button"
+                onClick={() => moveEmbedDown(selectedEmbed)}
+                className="flex h-11 items-center justify-center rounded-xl border hover:bg-gray-50"
+                style={{ borderColor }}
+                title="Move down"
+              >
+                <MoveDown className="h-4 w-4" style={{ color: mutedColor }} />
+              </button>
+              <button
+                type="button"
+                onClick={() => changeImageSize(selectedEmbed, 'wide')}
+                className="flex h-11 items-center justify-center rounded-xl border hover:bg-gray-50"
+                style={{ borderColor }}
+                title="Expand"
+              >
+                <Maximize2 className="h-4 w-4" style={{ color: mutedColor }} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteEmbed(selectedEmbed)
+                  setSelectedEmbed(null)
+                }}
+                className="flex h-11 items-center justify-center rounded-xl border border-red-200 hover:bg-red-50"
+                title="Remove"
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </button>
+            </div>
+
+            {selectedEmbed.getAttribute('data-embed-type') === 'image' && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide" style={{ color: mutedColor }}>
+                  Image style
+                </p>
+                <div className="space-y-2">
+                  {imageSizeOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => changeImageSize(selectedEmbed, option.value)}
+                      className="w-full flex items-center gap-3 rounded-xl border px-3 py-3 text-left"
+                      style={{
+                        borderColor: selectedEmbed.getAttribute('data-image-size') === option.value ? accentColor : borderColor,
+                        backgroundColor: selectedEmbed.getAttribute('data-image-size') === option.value ? (isDarkTheme ? 'rgba(124,58,237,0.15)' : '#f5f3ff') : 'transparent'
+                      }}
+                    >
+                      <option.icon className="h-4 w-4" />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">{option.label}</div>
+                        <div className="text-xs" style={{ color: mutedColor }}>{option.description}</div>
+                      </div>
+                      {selectedEmbed.getAttribute('data-image-size') === option.value && <Check className="h-4 w-4" style={{ color: accentColor }} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </InlinePopover>
       )}
     </div>
   )
