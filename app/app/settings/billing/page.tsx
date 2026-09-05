@@ -113,14 +113,50 @@ export default async function BillingPage() {
   }
 
   if (stripeCustomerId) {
-    // Step 2: Fetch subscription from Stripe (independent)
-    // Expand latest_invoice to get period dates (SDK v20 removed current_period_start/end)
+    /**
+     * =========================================================================
+     *  FOUR STRIPE REQUESTS, ONE ROUND TRIP OF LATENCY
+     * =========================================================================
+     *
+     * These used to run one after another -- subscriptions, then the customer,
+     * then payment methods, then invoices -- each one waiting for the last. The
+     * comments beside them already said "independent of subscription" and
+     * "independent of subscription and payment methods", so the sequencing was
+     * never deliberate; it was just how await reads. On a server component that
+     * blocks the FIRST BYTE of the response, so the page could not begin
+     * streaming until four consecutive Stripe round trips had finished. That is
+     * the billing page taking seconds and sitting on a skeleton to do it.
+     *
+     * They are issued together now and the page waits once for the slowest
+     * rather than for the sum.
+     *
+     * allSettled, not all: one Stripe endpoint failing must not take the other
+     * three down with it. Each result is unwrapped INSIDE the try/catch that
+     * already existed for it, so a rejection is still logged by the same handler
+     * and still leaves the rest of the page renderable -- the failure behaviour
+     * is unchanged, only the waiting is.
+     */
+    const [subsSettled, customerSettled, paymentMethodsSettled, invoicesSettled] =
+      await Promise.allSettled([
+        stripe.subscriptions.list({
+          customer: stripeCustomerId,
+          limit: 10,
+          expand: ["data.latest_invoice"],
+        }),
+        stripe.customers.retrieve(stripeCustomerId),
+        stripe.paymentMethods.list({ customer: stripeCustomerId, type: "card", limit: 10 }),
+        stripe.invoices.list({ customer: stripeCustomerId, limit: 20 }),
+      ])
+
+    /** Hand the rejection to the caller's own catch, so logging stays where it was. */
+    const settled = <T,>(r: PromiseSettledResult<T>): T => {
+      if (r.status === "rejected") throw r.reason
+      return r.value
+    }
+
+    // Step 2: subscription
     try {
-      const stripeSubs = await stripe.subscriptions.list({
-        customer: stripeCustomerId,
-        limit: 10,
-        expand: ["data.latest_invoice"],
-      })
+      const stripeSubs = settled(subsSettled)
       const preferredSubscription = stripeSubs.data.find((s) => SUBSCRIBED_STATUSES.has(s.status)) ?? stripeSubs.data[0]
 
       if (preferredSubscription && SUBSCRIBED_STATUSES.has(preferredSubscription.status)) {
@@ -256,13 +292,13 @@ export default async function BillingPage() {
 
     // Step 3: Fetch payment methods from Stripe (independent of subscription)
     try {
-      const customer = await stripe.customers.retrieve(stripeCustomerId)
+      const customer = settled(customerSettled)
       if (!(customer as any).deleted) {
         const defaultPaymentMethodId = typeof customer.invoice_settings.default_payment_method === "string"
           ? customer.invoice_settings.default_payment_method
           : customer.invoice_settings.default_payment_method?.id || null
 
-        const stripePaymentMethods = await stripe.paymentMethods.list({ customer: stripeCustomerId, type: "card", limit: 10 })
+        const stripePaymentMethods = settled(paymentMethodsSettled)
         const defaultPaymentMethod = stripePaymentMethods.data.find((pm) => pm.id === defaultPaymentMethodId) || stripePaymentMethods.data[0]
 
         if (defaultPaymentMethod) {
@@ -282,7 +318,7 @@ export default async function BillingPage() {
 
     // Step 4: Fetch invoices from Stripe (independent of subscription and payment methods)
     try {
-      const stripeInvoices = await stripe.invoices.list({ customer: stripeCustomerId, limit: 20 })
+      const stripeInvoices = settled(invoicesSettled)
       invoices = stripeInvoices.data.map((inv) => ({
         id: inv.id,
         stripe_invoice_id: inv.id,

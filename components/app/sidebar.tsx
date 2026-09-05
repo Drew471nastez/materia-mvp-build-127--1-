@@ -135,6 +135,7 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 import { useLanguage } from "@/lib/i18n"
 import { LanguageModal } from "@/components/platform/language-modal"
+import { toOriginalImageUrl } from "@/lib/storage/image-url"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
@@ -324,14 +325,25 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/library", label: "Library", icon: Library },
   ]
 
-  // Optimize Supabase avatar URLs with render/image transform
-  const optimizedAvatar = (size: number) => {
-    if (!avatarUrl) return ""
-    if (avatarUrl.includes("supabase.co/storage/")) {
-      return avatarUrl.replace("/object/public/", "/render/image/public/") + `?width=${size}&height=${size}&resize=cover`
-    }
-    return avatarUrl
-  }
+  /**
+   * THE AVATAR URL, UNTRANSFORMED.
+   *
+   * This used to swap "/object/public/" for "/render/image/public/" and append
+   * width/height, which is Supabase's metered Image Transformation endpoint.
+   * The project is at 106/100 of its allowance on a plan with a spend cap, so
+   * that endpoint does not serve an image at all -- it fails.
+   *
+   * And the failure is invisible-by-design: the initials are painted UNDERNEATH
+   * and the <img> lies on top with an onError that hides itself. A dead URL
+   * therefore does not look broken, it looks like a user with no avatar. That
+   * is the "AN" where a photo should be.
+   *
+   * The size argument is gone rather than ignored: every call site already sizes
+   * with object-cover inside a fixed box, so CSS was doing the work regardless
+   * and the parameter only ever bought the bill. tests/no-image-transforms
+   * fails the build if a transform URL comes back anywhere.
+   */
+  const avatarSrc = toOriginalImageUrl(avatarUrl)
 
   const storeUrl = username || creatorSlug
   const userDisplayName = displayName || username || creatorSlug || "User"
@@ -595,7 +607,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           {/* Image on top when available */}
           {avatarUrl && (
             <img
-              src={optimizedAvatar(80)}
+              src={avatarSrc}
               alt={userDisplayName}
               width={40}
               height={40}
@@ -1077,7 +1089,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 </div>
                 {avatarUrl && (
                   <img
-                    src={optimizedAvatar(56)}
+                    src={avatarSrc}
                     alt={userDisplayName}
                     width={28}
                     height={28}
@@ -1434,7 +1446,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 {/* Image on top when available */}
                 {avatarUrl && (
                   <img
-                    src={optimizedAvatar(48)}
+                    src={avatarSrc}
                     alt={userDisplayName}
                     width={24}
                     height={24}

@@ -232,7 +232,50 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // Extract categories from joined data
   const productCategories = product.product_categories?.map((pc: any) => pc.category).filter(Boolean) || []
 
-  const { data: creator } = await supabase.from("creators").select("*").eq("id", product.creator_id).maybeSingle()
+  /**
+   * ===========================================================================
+   *  FOUR LOOKUPS THAT ONLY NEED THE PRODUCT, ISSUED TOGETHER
+   * ===========================================================================
+   *
+   * The creator, the shop config, the default product template and the
+   * product-specific config were fetched one after another, each waiting on the
+   * one before it, even though every one of them keys off `product.creator_id`
+   * or `product.id` -- both already in hand by this point. Nothing here reads
+   * anything produced by the others.
+   *
+   * On a server component that cost is paid before the first byte of HTML goes
+   * out, so it is four sequential database round trips of pure dead time on the
+   * page a buyer is waiting to look at. They now cost one.
+   *
+   * `creatorProfile` is NOT in this batch, and cannot be: it is looked up by
+   * `creator.user_id`, which does not exist until the creator row comes back.
+   */
+  const [
+    { data: creator },
+    { data: shopConfig },
+    { data: defaultTemplate },
+    { data: specificConfig },
+  ] = await Promise.all([
+    supabase.from("creators").select("*").eq("id", product.creator_id).maybeSingle(),
+    supabase
+      .from("store_builder_configs")
+      .select("published_config")
+      .eq("creator_id", product.creator_id)
+      .eq("page_type", "shop")
+      .maybeSingle(),
+    supabase
+      .from("store_builder_configs")
+      .select("published_config")
+      .eq("creator_id", product.creator_id)
+      .eq("page_type", "product")
+      .maybeSingle(),
+    supabase
+      .from("product_page_configs")
+      .select("published_config")
+      .eq("creator_id", product.creator_id)
+      .eq("product_id", product.id)
+      .maybeSingle(),
+  ])
 
   let creatorProfile: any = null
   if (creator?.user_id) {
@@ -244,13 +287,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // Fetch shop page config for avatar fallback
   // Avatar hierarchy: Shop Header Avatar → Profile Avatar → Google Avatar → Initials
   // ---------------------------------------------------------------------------
-  const { data: shopConfig } = await supabase
-    .from("store_builder_configs")
-    .select("published_config")
-    .eq("creator_id", product.creator_id)
-    .eq("page_type", "shop")
-    .maybeSingle()
-
   const shopHeaderSettings = shopConfig?.published_config?.headerSettings as ShopHeaderSettings | undefined
 
   // Create proper avatar fallback: Header avatar → Profile avatar
@@ -265,22 +301,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   let productPageConfig: any = null
 
-  // Always fetch the default template for global settings
-  const { data: defaultTemplate } = await supabase
-    .from("store_builder_configs")
-    .select("published_config")
-    .eq("creator_id", product.creator_id)
-    .eq("page_type", "product")
-    .maybeSingle()
-
   const globalHeaderSettings = defaultTemplate?.published_config?.headerSettings || {}
-
-  const { data: specificConfig } = await supabase
-    .from("product_page_configs")
-    .select("published_config")
-    .eq("creator_id", product.creator_id)
-    .eq("product_id", product.id)
-    .maybeSingle()
 
   if (specificConfig?.published_config) {
     // Merge global settings into product-specific config

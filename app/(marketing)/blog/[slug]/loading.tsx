@@ -1,6 +1,6 @@
 export default function BlogPostLoading() {
   return (
-    <div className="min-h-screen bg-white animate-pulse">
+    <div className="min-h-screen bg-white animate-pulse skeleton-deferred">
       <div className="h-64 bg-gray-200" />
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 -mt-8">
         <div className="h-8 w-36 bg-gray-200 rounded mb-5" />

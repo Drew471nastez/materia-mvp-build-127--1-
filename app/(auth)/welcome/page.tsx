@@ -147,7 +147,7 @@ export default function WelcomePage() {
           style={{ paddingTop: "clamp(18px, 4vh, 40px)" }}
         >
           <img
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/Untitled%20(512%20x%20512%20px).svg?width=70&quality=80"
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg?width=70&quality=80"
             alt="Storelib"
             width={34}
             height={34}
@@ -207,7 +207,7 @@ export default function WelcomePage() {
 
 // ── Collage Carousel (vanilla DOM animation for 60fps on iOS) ─────────────────
 const BASE_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags"
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags"
 const IMAGES = [
   "Monetize%20(5)%20(2).webp",
   "Monetize%20(6)%20(1).webp",

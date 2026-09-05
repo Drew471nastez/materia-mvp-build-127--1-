@@ -58,7 +58,7 @@ const PARTNER_LOGOS = [
 // Side cards are ~200–240px → 320px suffices. We use a single set at 400px
 // (the browser picks from srcset via sizes) to keep the code simple.
 // quality=78/88 for crisp WebP at card size (30% bump from previous 60/68).
-const IMG_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags"
+const IMG_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags"
 const IMG_NAMES = [
   "Monetize%20(5)%20(2).webp",
   "Monetize%20(6)%20(1).webp",

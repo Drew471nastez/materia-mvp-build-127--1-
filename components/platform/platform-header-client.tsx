@@ -22,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
+import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
 const LOGO_URL =
@@ -611,11 +612,49 @@ export function PlatformHeaderClient() {
   const searchParams = useSearchParams()
   const { t } = useLocale()
 
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [isCreator, setIsCreator] = useState(false)
-  const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(false)
-  const [loading, setLoading] = useState(true)
+  /**
+   * ===========================================================================
+   *  SEEDED FROM THE LAST KNOWN SESSION, SO THERE IS NO SKELETON TO FLASH
+   * ===========================================================================
+   *
+   * `loading` started as `true` unconditionally, which meant the grey pills of
+   * HeaderActionsSkeleton were painted on EVERY page load and every navigation,
+   * for everybody, and then replaced a moment later once supabase.auth.getUser()
+   * came back over the network. Two circles, a pill and another circle, in grey,
+   * on black -- an animation that told the viewer nothing they did not already
+   * know, on a header whose contents had not actually changed since the last
+   * page.
+   *
+   * The header now starts from a snapshot of the last resolved session in
+   * localStorage. A returning visitor gets their real avatar and their real
+   * buttons on the FIRST PAINT, with no placeholder and no flash of "Log in"
+   * before the avatar appears. Only a genuinely first-time visitor -- who has no
+   * snapshot, and for whom a placeholder is honest -- ever sees loading=true.
+   *
+   * The snapshot is a rendering hint and NEVER an authorisation: only the id,
+   * the display name, the avatar and the seller flag are read from it, every one
+   * of them cosmetic. The real getUser() call still runs on mount and still
+   * overwrites all of this; nothing is gated on the snapshot being truthful.
+   */
+  const [user, setUser] = useState<User | null>(() => {
+    const seed = readAuthSnapshot()
+    return seed?.signedIn && seed.userId ? ({ id: seed.userId } as User) : null
+  })
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    const seed = readAuthSnapshot()
+    return seed?.signedIn
+      ? ({
+          display_name: seed.displayName,
+          avatar_url: seed.avatarUrl,
+          username: seed.username,
+        } as Profile)
+      : null
+  })
+  const [isCreator, setIsCreator] = useState(() => !!readAuthSnapshot()?.isSeller)
+  const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(
+    () => !!readAuthSnapshot()?.isSeller,
+  )
+  const [loading, setLoading] = useState(() => readAuthSnapshot() === null)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
   // Persist avatar URL so it shows immediately on re-renders/navigations (no placeholder flash)
@@ -810,7 +849,10 @@ export function PlatformHeaderClient() {
     const loadUser = async (isInitial = false) => {
       try {
         if (!mountedRef.current) return
-        if (isInitial) {
+        // Only when there is nothing to show yet. With a snapshot in hand,
+        // flipping this back to true would reintroduce the very flash the
+        // snapshot exists to remove.
+        if (isInitial && readAuthSnapshot() === null) {
           setLoading(true)
         }
 
@@ -821,6 +863,7 @@ export function PlatformHeaderClient() {
 
         if (error || !user) {
           if (!mountedRef.current) return
+          clearAuthSnapshot()
           setUser(null)
           setProfile(null)
           setIsCreator(false)
@@ -863,6 +906,14 @@ export function PlatformHeaderClient() {
           const isSellerByState = !!creatorData?.onboarding_completed
           setIsCreator(isSellerByState)
           setHasCompletedSellerOnboarding(isSellerByState)
+          writeAuthSnapshot({
+            signedIn: true,
+            userId: user.id,
+            avatarUrl: freshAvatar,
+            displayName: pd?.display_name ?? null,
+            username: pd?.username ?? null,
+            isSeller: isSellerByState,
+          })
         }
       } catch {
         if (!mountedRef.current) return

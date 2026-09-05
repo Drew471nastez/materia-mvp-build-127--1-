@@ -1,6 +1,6 @@
 export default function MyDownloadsLoading() {
   return (
-    <div className="max-w-5xl mx-auto space-y-5 px-2 sm:px-0 animate-in fade-in-0 duration-300">
+    <div className="max-w-5xl mx-auto space-y-5 px-2 sm:px-0 animate-in fade-in-0 duration-300 skeleton-deferred">
       {/* Header card skeleton — matches the new page header card */}
       <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
         <div className="h-16 sm:h-20 bg-neutral-200 animate-pulse" />

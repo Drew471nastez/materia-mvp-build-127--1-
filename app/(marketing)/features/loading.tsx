@@ -1,6 +1,6 @@
 export default function FeaturesLoading() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white skeleton-deferred">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 animate-pulse">
         <div className="h-10 w-72 bg-gray-200 rounded-xl mx-auto mb-4" />
         <div className="h-5 w-96 max-w-full bg-gray-200 rounded mx-auto mb-12" />

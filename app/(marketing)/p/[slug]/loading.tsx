@@ -5,7 +5,7 @@ export default function ProductLoading() {
   // This allows the skeleton to adapt to the creator's theme preset
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen skeleton-deferred"
       style={{ backgroundColor: "var(--skeleton-bg, #f2f2f2)" }}
     >
       {/* Main Content */}

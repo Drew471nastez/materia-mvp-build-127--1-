@@ -1,6 +1,6 @@
 export default function HelpLoading() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white skeleton-deferred">
       {/* Hero / header band */}
       <div className="bg-gradient-to-b from-[#fafafa] to-white border-b border-[#e5e7eb]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">

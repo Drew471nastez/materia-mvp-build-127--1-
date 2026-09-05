@@ -273,16 +273,33 @@ export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
 
-  // Capacitor WebViews always include "Capacitor" in their User-Agent.
-  // Redirect the native app away from the marketing homepage before any
-  // page renders — the server redirect happens before a single byte of
-  // the marketing page is sent to the client.
+  // ── The native app never shows the marketing site ──────────────────────────
+  //
+  // Capacitor WebViews always include "Capacitor" in their User-Agent, so this
+  // is decided on the SERVER, before a single byte of a marketing page is sent.
+  //
+  // This used to guard "/" alone, which stopped the app opening on the homepage
+  // but left every other marketing page one link away — a tab bar, a footer or a
+  // stray <Link> and the app is showing somebody a pricing table inside an
+  // application they have already installed. The gate is the whole marketing
+  // site now.
+  //
+  // NOT gated, deliberately:
+  //   · /legal, /terms, /privacy — the App Store requires these be reachable
+  //     from inside the app, and gating them is a review rejection.
+  //   · /p, /u, /l, /checkout, /library, /app, /wishlist, /receipt and the auth
+  //     pages — the app's actual screens.
+  // Everything here lands on /native-start, which resolves the session and sends
+  // a seller to /app, a buyer to /library, and a stranger to /welcome.
+  const NATIVE_BLOCKED = ["/pricing", "/features", "/faq", "/blog"]
+  const isCapacitor = (request.headers.get("user-agent") || "").includes("Capacitor")
   if (
-    pathname === "/" &&
-    (request.headers.get("user-agent") || "").includes("Capacitor")
+    isCapacitor &&
+    (pathname === "/" || NATIVE_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`)))
   ) {
     const url = request.nextUrl.clone()
     url.pathname = "/native-start"
+    url.search = ""
     return NextResponse.redirect(url)
   }
 
