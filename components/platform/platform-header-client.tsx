@@ -1615,7 +1615,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               >
                 <Heart className="h-5 w-5" />
                 {wishlistCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white">
+                  <span className="absolute -top-0.5 -right-0.5 flex h-[14px] min-w-[14px] items-center justify-center rounded-full bg-red-500 px-[3px] text-[7px] font-bold leading-none text-white">
                     {wishlistCount > 99 ? "99+" : wishlistCount}
                   </span>
                 )}
@@ -1661,7 +1661,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                     >
                       <Heart className="h-[22px] w-[22px]" />
                       {wishlistCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                        <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-[3px] text-[8px] font-bold leading-none text-white">
                           {wishlistCount > 99 ? "99+" : wishlistCount}
                         </span>
                       )}
