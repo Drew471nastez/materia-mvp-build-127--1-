@@ -1,6 +1,5 @@
 "use client"
 
-import { toOriginalImageUrl } from "@/lib/storage/image-url"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -134,7 +133,7 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
   )
 }
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
-import { useLocale } from "@/components/locale-provider"
+import { useLanguage } from "@/lib/i18n"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
@@ -202,10 +201,14 @@ function getDismissedNotifications(): string[] {
 export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { t, languageShort } = useLocale()
-  // Owned here, not inside the modal: this dropdown closes on outside-click and
-  // the dialog portals to body, so a self-triggering modal is torn down by the
-  // click that opens it. See components/platform/language-modal.tsx.
+  const { t } = useLanguage()
+  /**
+   * The language picker, opened from either account menu in this sidebar.
+   *
+   * The modal drives LocaleProvider while this sidebar reads LanguageProvider --
+   * two providers, but ONE localStorage key ("storelib_language"), which is what
+   * keeps /app and the marketing side agreeing about the chosen language.
+   */
   const [languageOpen, setLanguageOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
@@ -261,7 +264,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   const handleSignOut = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut({ scope: "local" })
+    await supabase.auth.signOut()
     setMobileMenuOpen(false)
     setProfileDropdownOpen(false)
     if (isNativePlatform()) {
@@ -289,11 +292,12 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       href: "/app/products",
       label: t("nav.products"),
       icon: Package,
-      children: [{ href: "/app/coupons", label: t("dashboard.coupons") }],
+      children: [{ href: "/app/coupons", label: "Coupons" }],
     },
     { href: "/app/analytics", label: t("nav.analytics"), icon: BarChart3 },
     { href: "/app/orders", label: t("nav.sales"), icon: ShoppingCart },
     { href: "/app/onepage", label: t("nav.onepage"), icon: Link2, forceNavigation: true },
+    { href: "/store-builder", label: t("nav.storeBuilder"), icon: Store, forceNavigation: true },
     { href: "/app/emails", label: t("nav.emails"), icon: Mail },
     { href: "/app/payouts", label: t("nav.payouts"), icon: Wallet },
   ]
@@ -313,35 +317,24 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   }, [])
 
   const profileDropdownItems = [
-    { href: "/settings", label: t("nav.settings"), icon: Settings },
+    { href: "/app/settings", label: t("nav.settings"), icon: Settings },
     { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
-    { href: "/help", label: t("dashboard.help"), icon: HelpCircle, target: "_blank" as const },
-    { href: "/explore", label: t("dashboard.explore"), icon: Compass },
-    { href: "/library", label: t("nav.library"), icon: Library },
+    { href: "/help", label: "Help", icon: HelpCircle, target: "_blank" as const },
+    { href: "/explore", label: "Explore", icon: Compass, target: "_blank" as const },
+    { href: "/library", label: "Library", icon: Library },
   ]
 
-  /**
-   * The avatar, as the stored object. No transformation.
-   *
-   * This used to rewrite `/object/public/` to `/render/image/public/` and
-   * append `?width=&height=&resize=cover`, which is Supabase's Storage Image
-   * Transformations endpoint — a metered, billed product. Three avatars in
-   * this one component, at three different sizes, meant three transformation
-   * requests, and that is a large part of how the project reached 106/100 on a
-   * plan with a spend cap.
-   *
-   * It bought nothing. Every one of these `<img>` elements is 24–40 CSS pixels
-   * inside a fixed square with `object-fit: cover` — the browser was already
-   * doing the resizing, and doing it for free. The only difference the
-   * transform made was to the bill.
-   *
-   * `toOriginalImageUrl` also normalises a URL that was somehow stored in the
-   * transformed form, so an old row cannot keep billing after this fix.
-   */
-  const avatarSrc = toOriginalImageUrl(avatarUrl)
+  // Optimize Supabase avatar URLs with render/image transform
+  const optimizedAvatar = (size: number) => {
+    if (!avatarUrl) return ""
+    if (avatarUrl.includes("supabase.co/storage/")) {
+      return avatarUrl.replace("/object/public/", "/render/image/public/") + `?width=${size}&height=${size}&resize=cover`
+    }
+    return avatarUrl
+  }
 
   const storeUrl = username || creatorSlug
-  const userDisplayName = displayName || username || creatorSlug || t("dashboard.userFallback")
+  const userDisplayName = displayName || username || creatorSlug || "User"
   const userInitials = userDisplayName.slice(0, 2).toUpperCase()
 
   // Sub-item for expandable groups (e.g. Coupons under Products).
@@ -468,7 +461,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 e.stopPropagation()
                 toggleGroup(item.href)
               }}
-              aria-label={expanded ? `${t("dashboard.collapse")} ${item.label}` : `${t("dashboard.expand")} ${item.label}`}
+              aria-label={expanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
               aria-expanded={expanded}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] text-neutral-400 hover:bg-neutral-100/70 hover:text-neutral-700 transition-[background-color,color] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer"
             >
@@ -602,7 +595,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           {/* Image on top when available */}
           {avatarUrl && (
             <img
-              src={avatarSrc}
+              src={optimizedAvatar(80)}
               alt={userDisplayName}
               width={40}
               height={40}
@@ -645,7 +638,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 onClick={(e) => {
                   if (isExplore && isNativeApp()) {
                     e.preventDefault()
-                    window.location.href = "/explore"
+                    openExternal(EXPLORE_FULL_URL)
                   }
                   setProfileDropdownOpen(false)
                   onItemClick?.()
@@ -658,20 +651,15 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             )
           })}
           <button
-            type="button"
             onClick={() => {
               setProfileDropdownOpen(false)
               setLanguageOpen(true)
             }}
-            className="flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
           >
-            <span className="flex items-center gap-2.5">
-              <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-              <span>{t("language")}</span>
-            </span>
-            <span className="text-[11px] font-semibold text-neutral-400">{languageShort}</span>
+            <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+            <span>{t("settings.language")}</span>
           </button>
-
           <div className="my-1 h-px bg-neutral-100" />
           <button
             onClick={() => {
@@ -698,48 +686,49 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   // Search shortcut items (pill buttons in modal)
   const searchShortcuts = [
-    { label: t("nav.dashboard"), href: "/app", icon: LayoutDashboard },
-    { label: t("nav.products"), href: "/app/products", icon: Package },
-    { label: t("nav.sales"), href: "/app/orders", icon: ShoppingCart },
-    { label: t("nav.analytics"), href: "/app/analytics", icon: BarChart3 },
-    { label: t("nav.payouts"), href: "/app/payouts", icon: Wallet },
-    { label: t("nav.settings"), href: "/settings", icon: Settings },
-    { label: t("nav.emails"), href: "/app/emails", icon: Mail },
-    { label: t("nav.onepage"), href: "/app/onepage", icon: Link2 },
-    { label: t("dashboard.payments"), href: "/app/settings/payments", icon: CreditCard },
-    { label: t("settings.billing"), href: "/app/settings/billing", icon: CreditCard },
+    { label: "Dashboard", href: "/app", icon: LayoutDashboard },
+    { label: "Products", href: "/app/products", icon: Package },
+    { label: "Orders", href: "/app/orders", icon: ShoppingCart },
+    { label: "Analytics", href: "/app/analytics", icon: BarChart3 },
+    { label: "Payouts", href: "/app/payouts", icon: Wallet },
+    { label: "Settings", href: "/app/settings", icon: Settings },
+    { label: "Emails", href: "/app/emails", icon: Mail },
+    { label: "OnePage", href: "/app/onepage", icon: Link2 },
+    { label: "Payments", href: "/app/settings/payments", icon: CreditCard },
+    { label: "Billing", href: "/app/settings/billing", icon: CreditCard },
   ]
 
   // All searchable items
   const allSearchItems = [
-    { label: t("nav.dashboard"), href: "/app", icon: LayoutDashboard, category: t("dashboard.catPages") },
-    { label: t("nav.products"), href: "/app/products", icon: Package, category: t("dashboard.catPages") },
-    { label: t("dashboard.newProduct"), href: "/app/products/new", icon: Package, category: t("dashboard.catPages") },
-    { label: t("nav.analytics"), href: "/app/analytics", icon: BarChart3, category: t("dashboard.catPages") },
-    { label: t("nav.sales"), href: "/app/orders", icon: ShoppingCart, category: t("dashboard.catPages") },
-    { label: t("nav.onepage"), href: "/app/onepage", icon: Link2, category: t("dashboard.catPages") },
-    { label: t("nav.emails"), href: "/app/emails", icon: Mail, category: t("dashboard.catPages") },
-    { label: t("nav.payouts"), href: "/app/payouts", icon: Wallet, category: t("dashboard.catPages") },
-    { label: t("nav.settings"), href: "/settings", icon: Settings, category: t("nav.settings") },
-    { label: t("settings.billing"), href: "/app/settings/billing", icon: CreditCard, category: t("nav.settings") },
-    { label: t("dashboard.paymentMethods"), href: "/app/settings/billing", icon: CreditCard, category: t("nav.settings") },
-    { label: t("dashboard.profileSettings"), href: "/settings", icon: Settings, category: t("nav.settings") },
-    { label: t("nav.sales"), href: "/app/orders", icon: ShoppingCart, category: t("dashboard.catData") },
-    { label: t("dashboard.customers"), href: "/app/orders", icon: ShoppingCart, category: t("dashboard.catData") },
-    { label: t("dashboard.customerEmails"), href: "/app/orders", icon: Mail, category: t("dashboard.catData") },
-    { label: t("dashboard.emailSubscribers"), href: "/app/emails", icon: Mail, category: t("dashboard.catData") },
-    { label: t("dashboard.sendEmail"), href: "/app/emails", icon: Mail, category: t("dashboard.catData") },
-    { label: t("dashboard.emailCampaigns"), href: "/app/emails", icon: Mail, category: t("dashboard.catData") },
-    { label: t("dashboard.revenue"), href: "/app/payouts", icon: Wallet, category: t("dashboard.catData") },
-    { label: t("dashboard.traffic"), href: "/app/analytics", icon: BarChart3, category: t("dashboard.catData") },
-    { label: t("dashboard.transactions"), href: "/app/payouts", icon: Wallet, category: t("dashboard.catData") },
-    { label: t("dashboard.refunds"), href: "/app/orders", icon: ShoppingCart, category: t("dashboard.catData") },
-    { label: t("dashboard.coupons"), href: "/app/products", icon: Package, category: t("dashboard.catData") },
-    { label: t("dashboard.digitalDownloads"), href: "/app/products", icon: Package, category: t("dashboard.catData") },
-    { label: t("dashboard.explore"), href: "/explore", icon: Compass, category: t("dashboard.catOther") },
-    { label: t("nav.library"), href: "/library", icon: Library, category: t("dashboard.catOther") },
-    { label: t("dashboard.help"), href: "/help", icon: HelpCircle, category: t("dashboard.catOther") },
-    { label: t("nav.upgradeToPro"), href: "/app/settings/billing/upgrade", icon: Zap, category: t("dashboard.catOther") },
+    { label: "Dashboard", href: "/app", icon: LayoutDashboard, category: "Pages" },
+    { label: "Products", href: "/app/products", icon: Package, category: "Pages" },
+    { label: "New Product", href: "/app/products/new", icon: Package, category: "Pages" },
+    { label: "Analytics", href: "/app/analytics", icon: BarChart3, category: "Pages" },
+    { label: "Orders", href: "/app/orders", icon: ShoppingCart, category: "Pages" },
+    { label: "OnePage", href: "/app/onepage", icon: Link2, category: "Pages" },
+    { label: "Store Builder", href: "/store-builder", icon: Store, category: "Pages" },
+    { label: "Emails", href: "/app/emails", icon: Mail, category: "Pages" },
+    { label: "Payouts", href: "/app/payouts", icon: Wallet, category: "Pages" },
+    { label: "Settings", href: "/app/settings", icon: Settings, category: "Settings" },
+    { label: "Billing", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
+    { label: "Payment Methods", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
+    { label: "Profile Settings", href: "/app/settings", icon: Settings, category: "Settings" },
+    { label: "Orders", href: "/app/orders", icon: ShoppingCart, category: "Data" },
+    { label: "Customers", href: "/app/orders", icon: ShoppingCart, category: "Data" },
+    { label: "Customer Emails", href: "/app/orders", icon: Mail, category: "Data" },
+    { label: "Email Subscribers", href: "/app/emails", icon: Mail, category: "Data" },
+    { label: "Send Email", href: "/app/emails", icon: Mail, category: "Data" },
+    { label: "Email Campaigns", href: "/app/emails", icon: Mail, category: "Data" },
+    { label: "Revenue", href: "/app/payouts", icon: Wallet, category: "Data" },
+    { label: "Traffic", href: "/app/analytics", icon: BarChart3, category: "Data" },
+    { label: "Transactions", href: "/app/payouts", icon: Wallet, category: "Data" },
+    { label: "Refunds", href: "/app/orders", icon: ShoppingCart, category: "Data" },
+    { label: "Coupons", href: "/app/products", icon: Package, category: "Data" },
+    { label: "Digital Downloads", href: "/app/products", icon: Package, category: "Data" },
+    { label: "Explore", href: "/explore", icon: Compass, category: "Other" },
+    { label: "Library", href: "/library", icon: Library, category: "Other" },
+    { label: "Help", href: "/help", icon: HelpCircle, category: "Other" },
+    { label: "Upgrade to Pro", href: "/app/settings/billing/upgrade", icon: Zap, category: "Other" },
   ]
 
   // Search handler
@@ -827,7 +816,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         onMouseLeave={() => setShow(false)}
       >
         <Link2 className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
-        <span>{t("dashboard.linkShortener")}</span>
+        <span>Link shortener</span>
         {show && typeof document !== "undefined" && createPortal(
           <div
             style={{
@@ -840,7 +829,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             }}
             className="px-2.5 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg whitespace-nowrap shadow-lg"
           >
-            {t("dashboard.comingSoon")}
+            Coming soon
             <div className="absolute right-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[5px] border-b-[5px] border-r-[5px] border-t-transparent border-b-transparent border-r-neutral-900" />
           </div>,
           document.body
@@ -860,7 +849,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
         {/* Tools category */}
         <div className="mt-5">
-          <p className="px-3 mb-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">{t("dashboard.tools")}</p>
+          <p className="px-3 mb-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Tools</p>
           <div className="space-y-0.5">
             <SoonItem />
           </div>
@@ -868,7 +857,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
         {storeUrl && !storePublished && (
           <div className="mt-4 rounded-[10px] bg-amber-50/80 border border-amber-100/80 px-3 py-2.5">
-            <p className="text-[12px] text-amber-700">{t("dashboard.storeUnpublished")}</p>
+            <p className="text-[12px] text-amber-700">Store is unpublished. Go to Settings to publish.</p>
           </div>
         )}
       </nav>
@@ -891,7 +880,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         </Link>
 
         <Link
-          href="/settings"
+          href="/app/settings"
           onClick={onItemClick}
           className="flex items-center gap-3 rounded-[8px] px-3 py-1.5 text-[14px] font-medium text-neutral-600 hover:bg-neutral-100/70 hover:text-neutral-900 transition-[background-color,color] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] w-full"
         >
@@ -914,7 +903,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
         {/* Tools category */}
         <div className="mt-5">
-          <p className="px-3 mb-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">{t("dashboard.tools")}</p>
+          <p className="px-3 mb-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Tools</p>
           <div className="space-y-0.5">
             <SoonItem />
           </div>
@@ -922,7 +911,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
         {storeUrl && !storePublished && (
           <div className="mt-4 rounded-[10px] bg-amber-50/80 border border-amber-100/80 px-3 py-2.5">
-            <p className="text-[12px] text-amber-700">{t("dashboard.storeUnpublished")}</p>
+            <p className="text-[12px] text-amber-700">Store is unpublished. Go to Settings to publish.</p>
           </div>
         )}
 
@@ -952,8 +941,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 </div>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-neutral-900">{t("dashboard.storeSetup")}</p>
-                <p className="text-[11px] text-neutral-500">{setupProgress.completed} {t("dashboard.of")} {setupProgress.total} {t("dashboard.stepsComplete")}</p>
+                <p className="text-[13px] font-semibold text-neutral-900">Store Setup</p>
+                <p className="text-[11px] text-neutral-500">{setupProgress.completed} of {setupProgress.total} steps complete</p>
               </div>
               <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" />
             </div>
@@ -985,7 +974,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <Link
             href="/explore"
             onClick={(e) => {
-              if (isNativeApp()) { e.preventDefault(); window.location.href = "/explore" }
+              if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
               onItemClick?.()
             }}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -1001,7 +990,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <Link
               href="/explore"
               onClick={(e) => {
-                if (isNativeApp()) { e.preventDefault(); window.location.href = "/explore" }
+                if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
                 onItemClick?.()
               }}
               className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
@@ -1009,7 +998,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <Compass className="h-[19px] w-[19px]" strokeWidth={1.5} />
             </Link>
             <Link
-              href="/settings"
+              href="/app/settings"
               onClick={onItemClick}
               className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
             >
@@ -1088,7 +1077,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 </div>
                 {avatarUrl && (
                   <img
-                    src={avatarSrc}
+                    src={optimizedAvatar(56)}
                     alt={userDisplayName}
                     width={28}
                     height={28}
@@ -1136,7 +1125,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                           openExternal(HELP_FULL_URL)
                         } else if (isExploreItem && isNativeApp()) {
                           e.preventDefault()
-                          window.location.href = "/explore"
+                          openExternal(EXPLORE_FULL_URL)
                         }
                         setHeaderProfileOpen(false)
                       }}
@@ -1148,20 +1137,15 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                   )
                 })}
                 <button
-                  type="button"
                   onClick={() => {
                     setHeaderProfileOpen(false)
                     setLanguageOpen(true)
                   }}
-                  className="flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
                 >
-                  <span className="flex items-center gap-2.5">
-                    <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                    <span>{t("language")}</span>
-                  </span>
-                  <span className="text-[11px] font-semibold text-neutral-400">{languageShort}</span>
+                  <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                  <span>{t("settings.language")}</span>
                 </button>
-
                 <div className="my-1 h-px bg-neutral-100" />
                 <button
                   onClick={() => {
@@ -1187,7 +1171,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               )}
             >
               <Search className="h-4 w-4 text-white/40 shrink-0" />
-              <span className="text-[13px] text-white/40 flex-1 text-left">{t("dashboard.searchShort")}</span>
+              <span className="text-[13px] text-white/40 flex-1 text-left">Search...</span>
               <kbd className="hidden lg:flex items-center gap-0.5 text-[11px] text-white/30 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">
                 <span className="text-[10px]">⌘</span>K
               </kbd>
@@ -1199,24 +1183,24 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <div className="flex items-center gap-1.5">
               <Link
                 href="/explore"
-                onClick={(e) => { if (isNativeApp()) { e.preventDefault(); window.location.href = "/explore" } }}
+                onClick={(e) => { if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) } }}
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
-                title={t("dashboard.discover")}
+                title="Discover"
               >
                 <Compass className="h-[19px] w-[19px]" strokeWidth={1.5} />
               </Link>
               <button
                 onClick={() => setNotificationsOpen(true)}
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all relative"
-                title={t("notifications.title")}
+                title="Notifications"
               >
                 <Bell className="h-[19px] w-[19px]" strokeWidth={1.5} />
                 <NotificationBadge count={notificationCount} />
               </button>
               <Link
-                href="/settings"
+                href="/app/settings"
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
-                title={t("nav.settings")}
+                title="Settings"
               >
                 <Settings className="h-[19px] w-[19px]" strokeWidth={1.5} />
               </Link>
@@ -1275,7 +1259,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <input
               ref={searchInputRef}
               type="text"
-              placeholder={t("dashboard.searchFull")}
+              placeholder="Search pages, settings, data..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="flex-1 text-[15px] text-neutral-900 placeholder:text-neutral-400 outline-none bg-transparent"
@@ -1291,7 +1275,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           {/* Default: Shortcut Pills */}
           {!searchQuery.trim() && searchOpen && (
             <div className="px-5 py-4">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-3">{t("dashboard.quickNavigation")}</p>
+              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-3">Quick Navigation</p>
               <div className="flex flex-wrap gap-2">
                 {searchShortcuts.map((item) => {
                   const Icon = item.icon
@@ -1302,7 +1286,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                         setSearchOpen(false)
                         // /explore always opens in external browser on native
                         if (isNativeApp() && item.href === "/explore") {
-                          window.location.href = "/explore"
+                          openExternal(EXPLORE_FULL_URL)
                         } else if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
                           window.location.href = item.href
                         } else {
@@ -1343,7 +1327,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                               setSearchOpen(false)
                               // /explore always opens in external browser on native
                               if (isNativeApp() && item.href === "/explore") {
-                                window.location.href = "/explore"
+                                openExternal(EXPLORE_FULL_URL)
                               } else if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
                                 window.location.href = item.href
                               } else {
@@ -1368,7 +1352,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 </div>
               ) : (
                 <div className="px-5 py-8 text-center">
-                  <p className="text-[13px] text-neutral-400">{t("dashboard.noResultsFor")} &quot;{searchQuery}&quot;</p>
+                  <p className="text-[13px] text-neutral-400">No results for &quot;{searchQuery}&quot;</p>
                 </div>
               )}
             </div>
@@ -1395,7 +1379,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 }
                 setMobileMenuOpen(!mobileMenuOpen)
               }}
-              aria-label={mobileMenuOpen ? t("dashboard.closeMenu") : t("dashboard.openMenu")}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             >
               <div className="relative w-5 h-5 flex items-center justify-center">
                 <span
@@ -1450,7 +1434,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 {/* Image on top when available */}
                 {avatarUrl && (
                   <img
-                    src={avatarSrc}
+                    src={optimizedAvatar(48)}
                     alt={userDisplayName}
                     width={24}
                     height={24}
@@ -1498,7 +1482,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                           openExternal(HELP_FULL_URL)
                         } else if (isExplore && isNativeApp()) {
                           e.preventDefault()
-                          window.location.href = "/explore"
+                          openExternal(EXPLORE_FULL_URL)
                         }
                         setMobileProfileDropdownOpen(false)
                       }}
@@ -1510,20 +1494,15 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                   )
                 })}
                 <button
-                  type="button"
                   onClick={() => {
                     setMobileProfileDropdownOpen(false)
                     setLanguageOpen(true)
                   }}
-                  className="flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
                 >
-                  <span className="flex items-center gap-2.5">
-                    <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                    <span>{t("language")}</span>
-                  </span>
-                  <span className="text-[11px] font-semibold text-neutral-400">{languageShort}</span>
+                  <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                  <span>{t("settings.language")}</span>
                 </button>
-
                 <div className="my-1 h-px bg-neutral-100" />
                 <button
                   onClick={() => {
@@ -1533,7 +1512,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                   className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-red-50 hover:text-red-600"
                 >
                   <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                  <span>{t("dashboard.logout")}</span>
+                  <span>Logout</span>
                 </button>
               </div>
             </div>
@@ -1546,7 +1525,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               size="icon"
               className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10 relative"
               onClick={() => setNotificationsOpen(true)}
-              aria-label={t("notifications.title")}
+              aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
               <NotificationBadge count={notificationCount} />
@@ -1556,7 +1535,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 variant="ghost"
                 size="icon"
                 className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10"
-                aria-label={t("dashboard.home")}
+                aria-label="Home"
               >
                 <Home className="h-5 w-5" />
               </Button>
@@ -1603,7 +1582,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         }}
         role="dialog"
         aria-modal="true"
-        aria-label={t("dashboard.navigationMenu")}
+        aria-label="Navigation Menu"
       >
         <MobileSidebarContent onItemClick={() => setMobileMenuOpen(false)} />
       </div>
@@ -1644,7 +1623,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             // bottom-[calc(...)] keeps the button above the home-indicator on iPad.
           // In a browser env(safe-area-inset-bottom) = 0, so this equals bottom-6.
           "fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,_0px))] right-4 md:right-6 z-40 hidden md:flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 md:pl-2.5 md:pr-4 md:py-2.5 shadow-lg border border-neutral-200/70 transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95",
-            (pathname.startsWith("/settings") || pathname.startsWith("/app/emails") || pathname.startsWith("/app/payouts") || pathname.startsWith("/app/analytics")) && "!hidden"
+            (pathname.startsWith("/app/settings") || pathname.startsWith("/app/emails") || pathname.startsWith("/app/payouts") || pathname.startsWith("/app/analytics")) && "!hidden"
           )}
         >
           <div className="relative shrink-0 w-8 h-8 md:w-[37px] md:h-[37px]">
@@ -1658,11 +1637,12 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <span className="text-[8px] md:text-[9px] font-bold text-violet-600">{setupProgressPercent}%</span>
             </div>
           </div>
-          <span className="text-[11px] md:text-[12px] font-semibold text-neutral-700 whitespace-nowrap">{t("dashboard.setup")}</span>
+          <span className="text-[11px] md:text-[12px] font-semibold text-neutral-700 whitespace-nowrap">Setup</span>
         </button>
       )}
 
-      {/* At the fragment root, outside the dropdown that opens it. */}
+      {/* Outside both account menus: each closes itself on the click that opens
+          this, so it cannot be a child of either. */}
       <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
     </>
   )

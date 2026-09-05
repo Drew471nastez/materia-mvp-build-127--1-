@@ -507,20 +507,45 @@ check(
 check(
   "the picker is reachable from every account menu",
   (() => {
-    // Three menus in the marketplace header and /app sidebar. A row that only
-    // exists on desktop is the failure this catches.
+    /**
+     * DERIVED, NOT COUNTED BY HAND.
+     *
+     * This used to require ">= 3 rows in the sidebar", a number written against
+     * a sidebar that has since been replaced. It happened to still be right and
+     * it caught a real miss -- but a hardcoded floor cannot see a FOURTH menu
+     * added without a language row, which is the same bug one menu later.
+     *
+     * An account menu is one that offers a way out, so every Sign out is a menu
+     * and every menu must also offer the language. Equality, not a floor.
+     */
     const header = stripComments(read("components/platform/platform-header-client.tsx"))
     const sidebar = stripComments(read("components/app/sidebar.tsx"))
-    const headerRows = header.match(/setLanguageOpen\(true\)/g)?.length ?? 0
-    const sidebarRows = sidebar.match(/setLanguageOpen\(true\)/g)?.length ?? 0
+    const count = (src: string, re: RegExp) => src.match(re)?.length ?? 0
+    const pairs: [string, string, number, number][] = [
+      [
+        "platform-header-client.tsx",
+        "header",
+        count(header, /handleLogout\b/g) - 1, // minus its own declaration
+        count(header, /setLanguageOpen\(true\)/g),
+      ],
+      [
+        "sidebar.tsx",
+        "sidebar",
+        count(sidebar, /handleSignOut\(\)/g),
+        count(sidebar, /setLanguageOpen\(true\)/g),
+      ],
+    ]
+    const problems = pairs
+      .filter(([, , menus, rows]) => menus < 1 || rows < menus)
+      .map(([f, , menus, rows]) => `${f}: ${menus} account menus but ${rows} language rows`)
+    if (problems.length) console.log("        " + problems.join("\n        "))
     return (
-      headerRows >= 2 &&
-      sidebarRows >= 3 &&
+      problems.length === 0 &&
       header.includes("<LanguageModal") &&
       sidebar.includes("<LanguageModal")
     )
   })(),
-  "        platform-header-client.tsx (2 menus), sidebar.tsx (3 menus)",
+  "        every Sign out row must be matched by a language row",
 )
 
 check(
