@@ -25,15 +25,7 @@ import { PUBLIC_FEED } from "@/lib/marketplace/listing-status"
 import { recordView } from "@/lib/marketplace/recent-views"
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client"
 import { getStoreUrl } from "@/lib/url-helpers"
-import {
-  CONDITIONS,
-  COLOURS,
-  ERAS,
-  SOURCES,
-  STYLES,
-  categoryLabelFor,
-  conditionsFor,
-} from "@/lib/marketplace/listing-taxonomy"
+import { categoryLabel, normalizeCategoryToId, subcategoryLabel } from "@/lib/marketplace/categories"
 import { ImageViewer } from "@/components/messages/image-viewer"
 import { AvatarPhoto } from "@/components/ui/initial-avatar"
 import { SellerScore } from "@/components/marketplace/seller-score"
@@ -476,25 +468,23 @@ export function ProductDetail({ product }: { product: any }) {
   }, [])
 
   /**
-   * Worded for what this listing IS, not for clothing.
+   * A digital product has a category and nothing else to describe on this line.
    *
-   * The five condition ids are shared by everything on the marketplace and the
-   * words are not: `new_with_tags` reads "Nou, cu etichetă" on a jacket and
-   * "Nou, sigilat" on a board game, which has no tag and was never worn. The
-   * seller was shown the right sentence when they chose it — see conditionsFor
-   * — and the buyer has to be shown the same one, or the listing says something
-   * the seller did not.
+   * Condition, colour, era, source tags and style tags all came out with the
+   * marketplace: they described a second-hand physical object, and none of them
+   * means anything about a font or a course. The `size · condition · brand`
+   * summary went with them for the same reason.
    */
-  const cond = labelOf(conditionsFor(product.category), product.condition)
-  const colour = labelOf(COLOURS, product.colour)
-  const era = labelOf(ERAS, product.era)
-  const category = categoryLabelFor(product.category, product.subcategory)
-  const sourceLabels = (product.source_tags || []).map((s: string) => labelOf(SOURCES, s)).filter(Boolean)
-  const styleLabels = (product.style_tags || []).map((s: string) => labelOf(STYLES, s)).filter(Boolean)
+  const category = subcategoryLabel(product.subcategory) ?? categoryLabel(normalizeCategoryToId(product.category))
+  const cond: string | null = null
+  const colour: string | null = null
+  const era: string | null = null
+  const sourceLabels: string[] = []
+  const styleLabels: string[] = []
 
   // The line under the title, exactly like the reference: size · condition ·
   // brand · when. Everything that decides "is this the one" in one glance.
-  const summary = [product.size?.toUpperCase(), cond].filter(Boolean).join(" · ")
+  const summary = category ?? ""
 
   return (
     <div ref={rootRef} className="min-h-screen bg-white pb-28 md:pb-0">

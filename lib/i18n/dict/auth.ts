@@ -94,9 +94,9 @@ export const authDict: Record<"ro" | "en", Record<string, string>> = {
     "auth.welcome_heading": "Bun venit",
     "auth.welcome_choose": "Alege cum vrei să începi. Poți face și una, și alta.",
     "auth.im_creator": "Vreau să vând",
-    "auth.creator_desc": "Fotografiază hainele pe care nu le mai porți și pune-le la vânzare.",
+    "auth.creator_desc": "Creează produse digitale și vinde-le direct publicului tău.",
     "auth.im_buyer": "Vreau să cumpăr",
-    "auth.buyer_desc": "Caută prin dressingurile altora și cumpără la mâna a doua.",
+    "auth.buyer_desc": "Descoperă produse digitale de la creatori independenți.",
     "auth.switch_later": "Poți schimba mai târziu.",
     // Verify (signup/verify + verify-email)
     "auth.check_email": "Verifică-ți emailul",
@@ -232,9 +232,9 @@ export const authDict: Record<"ro" | "en", Record<string, string>> = {
     "auth.welcome_heading": "Welcome",
     "auth.welcome_choose": "Choose how you want to start. You can do both.",
     "auth.im_creator": "I want to sell",
-    "auth.creator_desc": "Photograph the clothes you no longer wear and list them.",
+    "auth.creator_desc": "Create digital products and sell them straight to your audience.",
     "auth.im_buyer": "I want to buy",
-    "auth.buyer_desc": "Browse other people's wardrobes and buy second-hand.",
+    "auth.buyer_desc": "Discover digital products from independent creators.",
     "auth.switch_later": "You can switch later.",
     // Verify (signup/verify + verify-email)
     "auth.check_email": "Check your email",

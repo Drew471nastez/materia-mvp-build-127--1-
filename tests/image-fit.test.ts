@@ -50,7 +50,6 @@ console.log("\nMarketplace images fill their box; the viewer keeps them whole\n"
 /** Every surface a listing photograph is drawn on, except the viewer. */
 const FILLS: Array<[string, string]> = [
   ["the feed card", "components/explore/product-card.tsx"],
-  ["the reels card", "components/explore/mobile-listing-card.tsx"],
   ["the product detail gallery", "components/product/product-detail.tsx"],
   ["a photo sent in a conversation", "components/messages/thread.tsx"],
   ["the inbox listing thumbnail", "components/messages/inbox.tsx"],

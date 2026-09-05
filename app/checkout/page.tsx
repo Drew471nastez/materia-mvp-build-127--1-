@@ -3,8 +3,6 @@ import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import CheckoutPageClient from "./checkout-client"
 import { getProductUrl } from "@/lib/url-helpers"
-import { conditionLabel } from "@/lib/marketplace/categories"
-import { isShippable } from "@/lib/marketplace/product-kind"
 
 interface CheckoutPageProps {
   searchParams: Promise<{
@@ -170,50 +168,20 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     }
   }
 
-  // ── TWO CHECKOUTS, ONE URL ────────────────────────────────────────────────
-  //
-  // A second-hand jacket and a downloadable preset need different screens. The
-  // jacket needs an address, a locker and postage; the preset needs tips,
-  // gifting, pay-what-you-want, VAT and a licence. Trying to serve both from
-  // one component is how the existing 2,300-line client got that long.
-  //
-  // So anything that has to be put in a box renders the marketplace checkout,
-  // and the three kinds of product delivered as access keep the path they have
-  // always taken. Splitting HERE — one conditional in a server component — is
-  // what makes that possible without editing a single line of the payment code
-  // digital sales already run through.
-  //
-  // The test is `isShippable`, not `type === "physical"`, because the second
-  // one sent every row with a null or legacy type to the digital checkout —
-  // a jacket on a screen with no address field and a "delivered instantly"
-  // promise. See lib/marketplace/product-kind.ts.
-  if (isShippable(product.type)) {
-    const { MarketplaceCheckout } = await import("@/components/checkout/marketplace-checkout")
-    const { senderCarrierId } = await import("@/lib/shipping/create-awb")
-    return (
-      <MarketplaceCheckout
-        product={{
-          id: product.id,
-          title: product.title,
-          slug: product.slug,
-          priceCents: offerCents ?? finalPriceCents,
-          thumbnailUrl: product.thumbnail_url,
-          sellerName: creatorProfile?.display_name || creator?.display_name || null,
-          variantId: selectedVariant?.id ?? null,
-          variantName: selectedVariant?.name ?? null,
-          brand: product.brand ?? null,
-          size: product.size ?? null,
-          condition: conditionLabel(product.condition),
-          colour: product.colour ?? null,
-        }}
-        userEmail={user?.email || null}
-        isLoggedIn={!!user}
-        offerToken={offerToken}
-        carrierId={senderCarrierId()}
-      />
-    )
-  }
-
+  /**
+   * ONE CHECKOUT AGAIN.
+   *
+   * There were two: a marketplace screen for anything that had to be put in a
+   * box (address, locker, postage) and this one for the three kinds of product
+   * delivered as access -- a file, a course, a community. The parcel half went
+   * with the marketplace, along with components/checkout/marketplace-checkout
+   * and the shipping quote it priced against.
+   *
+   * lib/marketplace/product-kind.ts still names the digital kinds and is still
+   * read elsewhere; what it no longer does is choose between two screens here,
+   * because there is only one screen and everything Storelib sells belongs on
+   * it.
+   */
   return (
     <CheckoutPageClient
       product={{

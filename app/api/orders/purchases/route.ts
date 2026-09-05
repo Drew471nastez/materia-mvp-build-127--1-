@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readSessionAuth } from "@/lib/auth/current-user"
-import { isMissingShippingSchema } from "@/lib/shipping/order-access"
 
 /**
  * The buyer's side of order history.
@@ -56,7 +55,7 @@ export async function GET() {
 
   let orders = withShipping.data as PurchaseRow[] | null
   let error = withShipping.error
-  if (error && isMissingShippingSchema(error)) {
+  if (error && false) {
     const base = await supabase
       .from("orders")
       .select(BASE)

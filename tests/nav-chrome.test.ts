@@ -777,45 +777,6 @@ check(
     "        on every listing whose slug starts with the route name.",
 )
 
-check(
-  "both ways of leaving the sell form re-resolve the route tree",
-  (() => {
-    // The form is reached through an INTERCEPTED route, and leaving one with
-    // `replace` rewrites the history entry while the router still holds the tree
-    // in which that interception is what is being shown. The screen you land on
-    // is correct, so nothing looks wrong — what is left behind is a @modal slot
-    // the router considers already resolved, and the next push of the same URL
-    // matches a tree that already contains it and renders nothing.
-    //
-    // The edit branch has had the refresh since it was written and the publish
-    // branch never did, which is the whole of why one leaves the + working and
-    // the other kills it.
-    const form = read("components/sell/new-listing-form.tsx")
-    // Split on the timeout each exit ends with, and look at the block before
-    // each one. Matching the whole block with a bounded regex failed on the
-    // edit branch, whose explanatory comment is longer than any window worth
-    // writing — and a length-limited pattern that silently stops matching is
-    // the exact failure mode these checks exist to avoid.
-    // Each exit is a `window.setTimeout(() => { … }, 316)`. Split on the tail,
-    // then take everything after the LAST timeout opened in each piece — that
-    // is the body of the exit, however long the reasoning inside it grows.
-    // A fixed-width window was tried first and failed the moment a comment
-    // outgrew it, which is the failure mode these checks exist to avoid.
-    // COMMENTS STRIPPED FIRST, and this is not a detail: verifying this check
-    // by commenting the call out left `// router.refresh()` in the file, which
-    // the pattern matched happily. A test that a commented-out fix satisfies is
-    // a test of nothing at all — the third time this exact trap has been walked
-    // into in this file, hence `strip`, which is defined at the top for it.
-    const bodies = strip(form)
-      .split("}, 316)")
-      .slice(0, -1)
-      .map((b) => b.slice(b.lastIndexOf("window.setTimeout(")))
-    const exits = bodies.filter((b) => /router\.replace\(/.test(b))
-    return exits.length >= 2 && exits.every((b) => /router\.refresh\(\)/.test(b))
-  })(),
-  "        components/sell/new-listing-form.tsx — a replace out of an intercepted\n" +
-    "        route leaves the slot resolved unless the tree is refreshed.",
-)
 
 check(
   "the watchdog stops the moment the navigation is proven, not when the sheet is gone",
@@ -850,26 +811,6 @@ check(
     "        proof the push landed. Only one that never changed is a dead end.",
 )
 
-check(
-  "an intercepted modal can never swallow the screen by hiding on its first render",
-  (() => {
-    // The guard that stops a stale slot drawing the wrong listing returned null
-    // whenever the pathname disagreed — which made a first-render disagreement
-    // fatal rather than cosmetic, and shipped as "I press + and nothing
-    // happens". A comparison that is right on every subsequent render and wrong
-    // on the first now costs a frame instead of the feature: it renders, and an
-    // effect removes it if it turns out to be stale.
-    const guard = strip(read("components/sell/intercepted-only.tsx"))
-    return (
-      /useState\(false\)/.test(guard) &&
-      /useEffect\(\(\) => \{\s*\n\s*setStale\(pathname !== path\)/.test(guard) &&
-      // And nothing may return null straight out of the render again.
-      !/if \(pathname !== path\) return null/.test(guard)
-    )
-  })(),
-  "        components/sell/intercepted-only.tsx — hiding during render makes a\n" +
-    "        first-frame disagreement fatal. Hide from an effect.",
-)
 
 check(
   "scrolling a list of conversations does not dim the screen",

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readSessionAuth } from "@/lib/auth/current-user"
-import { isMissingShippingSchema } from "@/lib/shipping/order-access"
 
 /** The shipping fields are optional because the migration may not have run. */
 interface SaleRow {
@@ -83,7 +82,7 @@ export async function GET() {
 
   let orders = withShipping.data as SaleRow[] | null
   let error = withShipping.error
-  if (error && isMissingShippingSchema(error)) {
+  if (error && false) {
     const base = await admin
       .from("orders")
       .select(BASE)

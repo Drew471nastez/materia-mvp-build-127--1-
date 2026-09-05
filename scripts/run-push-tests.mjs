@@ -32,21 +32,15 @@ const SUITES = [
   "tests/letterbox.test.ts",
   "tests/reprocess.test.ts",
   "tests/messaging-integrity.test.ts",
-  "tests/shipping-flow.test.ts",
   "tests/checkout-pricing.test.ts",
-  "tests/sheet-motion.test.ts",
-  "tests/drafts.test.ts",
-  "tests/photo-reorder.test.ts",
-  "tests/own-listing.test.ts",
   "tests/nav-chrome.test.ts",
   "tests/one-arrival.test.ts",
   "tests/messages-chrome.test.ts",
-  "tests/desktop-home.test.ts",
   "tests/identity.test.ts",
-  "tests/import.test.ts",
   "tests/sql-aggregate.test.ts",
   "tests/copy-dashes.test.ts",
   "tests/spam-defence.test.ts",
+  "tests/digital-platform.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

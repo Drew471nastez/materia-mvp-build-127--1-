@@ -313,35 +313,17 @@ export async function POST(request: Request) {
   // reaches this block, and a failure to price never blocks a sale — the
   // platform absorbing postage on a bad day is a far better outcome than a
   // checkout that will not complete.
-  let shippingCents = 0
-  if (deliveryMode === "locker" || deliveryMode === "home") {
-    const { quoteDelivery, quoteMatches } = await import("@/lib/shipping/quote")
-    const quote = await quoteDelivery({
-      mode: deliveryMode,
-      lockerId: deliveryLockerId === null ? null : Number(deliveryLockerId),
-      county: typeof deliveryCounty === "string" ? deliveryCounty : null,
-      locality: typeof deliveryLocality === "string" ? deliveryLocality : null,
-    })
-
-    const shown = Number(expectedShippingCents) || 0
-    if (quote.ok) {
-      if (!quoteMatches(shown, quote.cents)) {
-        return NextResponse.json(
-          { error: "Shipping price changed", code: "shipping_price_changed", shippingCents: quote.cents },
-          { status: 409 },
-        )
-      }
-      shippingCents = quote.cents
-    } else if (shown > 0) {
-      // The page showed a price this request cannot confirm. Charging the shown
-      // amount would be charging an unverified number; charging zero would be
-      // taking a different total than the one on screen. Neither — ask again.
-      return NextResponse.json(
-        { error: "Shipping price changed", code: "shipping_price_changed", shippingCents: 0 },
-        { status: 409 },
-      )
-    }
-  }
+  /**
+   * Always zero. Storelib sells digital products, so nothing is posted and
+   * there is no postage to price.
+   *
+   * This was a block that priced a parcel through lib/shipping/quote and
+   * refused the sale when the quote disagreed with the number the page had
+   * shown. It went with the marketplace. The variable stays because the Stripe
+   * line items and the order metadata below both read it, and a zero there is
+   * correct rather than merely harmless.
+   */
+  const shippingCents = 0
 
   // ONE arithmetic, shared with the summary the buyer just read. A checkout
   // that displays one total and charges another is the worst bug this file
