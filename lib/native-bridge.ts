@@ -311,6 +311,39 @@ export async function triggerHaptic(style: "light" | "medium" | "heavy" = "light
   } catch { /* plugin unavailable or permission denied — silent no-op */ }
 }
 
+/**
+ * ===========================================================================
+ *  TAP FEEDBACK, ON EVERY PLATFORM — USE THIS, NOT navigator.vibrate
+ * ===========================================================================
+ *
+ * `navigator.vibrate()` IS NOT IMPLEMENTED ON iOS. Not in Safari, and not in
+ * the WKWebView that Capacitor runs the app inside. It is not deprecated and it
+ * does not throw — the property simply is not there, so the usual
+ * `"vibrate" in navigator` guard reads false and the call is skipped in
+ * silence. The result is feedback that works on Android, does nothing at all on
+ * an iPhone, and reports no error anywhere.
+ *
+ * That is exactly how it came to be wrong in three separate places: the
+ * dashboard chart, the analytics chart and the OnePage link reorder each wrote
+ * the same reasonable-looking guarded call, and each was dead on the platform
+ * the app mostly ships to.
+ *
+ * So there is one function now. Inside the native app it goes through the
+ * Capacitor Haptics plugin, which is the only thing that reaches the iOS Taptic
+ * Engine; on the web it falls back to navigator.vibrate for the browsers that
+ * do support it. tests/page-performance.test.ts fails the build if a raw
+ * navigator.vibrate call appears anywhere outside this file.
+ */
+export function hapticTap(strength: "light" | "medium" = "light"): void {
+  if (isNativeApp()) {
+    void triggerHaptic(strength)
+    return
+  }
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    navigator.vibrate(strength === "light" ? 10 : 15)
+  }
+}
+
 // ── External link handling ──────────────────────────────────────────────────
 
 /**

@@ -61,7 +61,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
-import { openExternal, triggerHaptic } from "@/lib/native-bridge"
+import { openExternal, hapticTap } from "@/lib/native-bridge"
 import { useToast } from "@/hooks/use-toast"
 
 interface SetupStep {
@@ -90,29 +90,6 @@ type KPIType = "views" | "orders" | "revenue" | "conversion" | null
  * - Smooth animation when switching between KPI modals
  * - Desktop hover works normally via Recharts default
  */
-/**
- * The scrub's tap feedback, on every platform.
- *
- * This was `navigator.vibrate()`, which iOS does not implement -- not in Safari
- * and not in the WKWebView Capacitor runs in. So the chart buzzed on Android and
- * on an iPhone did nothing at all, silently, which is the worst way for a
- * feedback API to fail: nothing to catch, nothing logged, it just is not there.
- *
- * Inside the native app this goes through the Capacitor Haptics plugin, which is
- * the only thing that reaches the iOS Taptic Engine. On the web it keeps
- * navigator.vibrate for the browsers that do support it. triggerHaptic already
- * no-ops off-native, so the order is: try native first, fall back to the web API.
- */
-function scrubHaptic(strength: "light" | "medium" = "light") {
-  if (isNativeApp()) {
-    void triggerHaptic(strength)
-    return
-  }
-  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-    navigator.vibrate(strength === "light" ? 10 : 15)
-  }
-}
-
 function ChartWithLongPressTooltip({
   displayChartData,
   openKPIModal,
@@ -174,7 +151,7 @@ function ChartWithLongPressTooltip({
         setTooltipActive(true)
         const idx = getIndexFromTouch(touch.clientX)
         setActiveIndex(idx)
-        scrubHaptic("medium")
+        hapticTap("medium")
       }
     }, 250)
   }, [getIndexFromTouch])
@@ -210,7 +187,7 @@ function ChartWithLongPressTooltip({
         if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
         tooltipActiveRef.current = true
         setTooltipActive(true)
-        scrubHaptic("light")
+        hapticTap("light")
         e.preventDefault()
         e.stopPropagation()
         const idx = getIndexFromTouch(touch.clientX)

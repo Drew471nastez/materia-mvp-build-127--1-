@@ -192,6 +192,101 @@ check(
   "        components/shared/prefetch-links.tsx",
 )
 
+// ---------------------------------------------------------------------------
+section("Native: feedback that works, and no route out to the marketing site")
+// ---------------------------------------------------------------------------
+
+check(
+  "nothing calls navigator.vibrate directly",
+  (() => {
+    /**
+     * navigator.vibrate IS NOT IMPLEMENTED ON iOS -- not Safari, not the
+     * WKWebView the app runs in. It does not throw; the property is absent, so
+     * the usual `"vibrate" in navigator` guard reads false and the call is
+     * skipped in silence. Feedback then works on Android and does nothing at all
+     * on an iPhone, with no error anywhere.
+     *
+     * That is how it came to be wrong in three separate places -- the dashboard
+     * chart, the analytics chart and the OnePage link reorder. lib/native-bridge
+     * hapticTap() is the one way to ask for a tap: Capacitor Haptics when native
+     * (the only thing that reaches the Taptic Engine), navigator.vibrate on the
+     * web. This is the build failure that stops a fourth one being written.
+     */
+    const roots = ["app", "components", "hooks"]
+    const offenders: string[] = []
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(join(root, dir))) {
+        if (entry === "node_modules" || entry.startsWith(".")) continue
+        const rel = `${dir}/${entry}`
+        if (statSync(join(root, rel)).isDirectory()) walk(rel)
+        else if (/\.(ts|tsx)$/.test(entry) && /navigator\.vibrate/.test(read(rel))) offenders.push(rel)
+      }
+    }
+    roots.forEach(walk)
+    if (offenders.length) console.log("        " + offenders.join("\n        "))
+    return offenders.length === 0
+  })(),
+  "        use hapticTap() from lib/native-bridge instead",
+)
+
+check(
+  "hapticTap reaches the Taptic Engine when native, and falls back on the web",
+  (() => {
+    const src = code("lib/native-bridge.ts")
+    const fn = src.slice(src.indexOf("export function hapticTap"))
+    return (
+      /isNativeApp\(\)/.test(fn) &&
+      /triggerHaptic\(strength\)/.test(fn) &&
+      /navigator\.vibrate/.test(fn)
+    )
+  })(),
+  "        lib/native-bridge.ts",
+)
+
+check(
+  "the chart scrub asks for a haptic on BOTH charts",
+  (() => {
+    // The dashboard chart was fixed first and the analytics chart -- the one on
+    // the screen actually named -- was missed, because each carried its own copy
+    // of the same guarded vibrate call.
+    const dash = code("components/app/dashboard-client.tsx")
+    const analytics = code("app/app/analytics/analytics-client.tsx")
+    return (dash.match(/hapticTap\(/g)?.length ?? 0) >= 2 &&
+           (analytics.match(/hapticTap\(/g)?.length ?? 0) >= 2
+  })(),
+  "        dashboard-client.tsx + analytics-client.tsx",
+)
+
+check(
+  "the native app cannot land on the marketing site, header or no header",
+  (() => {
+    /**
+     * Two gates, deliberately. proxy.ts redirects on the "Capacitor" User-Agent,
+     * which is best because nothing renders at all -- but it depends on that
+     * header arriving, and appendUserAgent is native-side config a cached
+     * response never reaches. The boot script in <head> repeats the decision
+     * from the runtime bridge, synchronously, before <body> paints.
+     *
+     * /native-start must NOT be in either list or the app redirect-loops on
+     * launch.
+     */
+    const proxy = code("proxy.ts")
+    const layout = read("app/layout.tsx")
+    const serverGate =
+      /NATIVE_BLOCKED\s*=\s*\["\/pricing", "\/features", "\/faq", "\/blog"\]/.test(proxy) &&
+      /url\.pathname = "\/native-start"/.test(proxy) &&
+      // Scoped to the array literal itself. An unanchored search here matches
+      // the `url.pathname = "/native-start"` two lines below and passes for the
+      // wrong reason.
+      !(proxy.match(/NATIVE_BLOCKED\s*=\s*\[[^\]]*\]/)?.[0] ?? "").includes("native-start")
+    const clientGate =
+      /location\.replace\('\/native-start'\)/.test(layout) &&
+      /pricing\|features\|faq\|blog/.test(layout)
+    return serverGate && clientGate
+  })(),
+  "        proxy.ts + app/layout.tsx boot script",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

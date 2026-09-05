@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
-import { triggerHaptic } from "@/lib/native-bridge"
+import { triggerHaptic, hapticTap } from "@/lib/native-bridge"
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
 import { DateRangePickerModal } from "@/components/app/date-range-picker-modal"
 
@@ -489,9 +489,7 @@ function AnalyticsChartWithTooltip({
         setTooltipActive(true)
         const idx = getIndexFromTouch(touch.clientX)
         setActiveIndex(idx)
-        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-          navigator.vibrate(15)
-        }
+        hapticTap("medium")
       }
     }, 250)
   }, [getIndexFromTouch])
@@ -522,7 +520,7 @@ function AnalyticsChartWithTooltip({
         if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
         tooltipActiveRef.current = true
         setTooltipActive(true)
-        if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(10)
+        hapticTap("light")
         e.preventDefault()
         e.stopPropagation()
         const idx = getIndexFromTouch(touch.clientX)

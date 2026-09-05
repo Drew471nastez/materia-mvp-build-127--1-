@@ -1,5 +1,7 @@
 "use client"
 
+import { hapticTap } from "@/lib/native-bridge"
+
 import { useOnePage } from "@/lib/onepage/context"
 import {
   createDefaultBlock,
@@ -1854,7 +1856,7 @@ export function LinksTab() {
     touchCurrentYRef.current = touchY ?? 0
     setTouchDragOffsetY(0)
 
-    if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(8)
+    hapticTap("light")
 
     setTouchDragId(blockId)
     setDraggedBlockId(blockId)
@@ -1927,7 +1929,7 @@ export function LinksTab() {
           const [removed] = newOrder.splice(draggedIdx, 1)
           newOrder.splice(targetIdx, 0, removed)
           reorderBlocks(newOrder.map((b, i) => ({ ...b, sort_order: i })))
-          if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(10)
+          hapticTap("light")
         }
       }
 

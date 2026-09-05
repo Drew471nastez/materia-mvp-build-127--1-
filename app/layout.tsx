@@ -132,7 +132,24 @@ export default function RootLayout({
       <head>
         {/* Synchronous native-app intercept — runs before React hydrates.
             1. Add the "capacitor" class to <html> immediately so all
-               html.capacitor CSS rules (overscroll, touch-action, etc.) activate
+               html.capacitor CSS rules (overscroll, touch-action, etc.) activate,
+               and — in the same breath — send the native app off any marketing
+               route to /native-start.
+
+               THE SECOND HALF IS A BELT-AND-BRACES COPY OF THE SERVER GATE.
+               proxy.ts already redirects these routes when the request carries
+               "Capacitor" in its User-Agent, which is the right place to do it
+               because nothing is rendered at all. But it depends on that header
+               arriving: appendUserAgent is native-side config, and a response
+               served from a cache never reaches the proxy to be redirected. If
+               either of those fails, the fallback must not be "the app shows
+               the marketing site".
+
+               This runs in <head>, synchronously, before <body> paints — so
+               there is no flash of the page it is navigating away from — and it
+               uses the runtime Capacitor bridge rather than the UA string, so it
+               holds even when the header does not. /native-start is deliberately
+               not in the list, or this would loop.
                on the very first paint without waiting for NativeCookieKillSwitch.
             2. Legacy "/" redirect: the old shipped iOS app loads "/" — hide and
                redirect before any pixel paints.
@@ -144,7 +161,7 @@ export default function RootLayout({
                Re-writing the cookie here repairs it for every later request. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var _ua=navigator.userAgent||'';if((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||/StorelibApp|Capacitor/.test(_ua)){var h=document.documentElement;h.classList.add('capacitor');var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}try{var r=document.documentElement,vv=window.visualViewport;r.style.setProperty('--vv-h',Math.round(vv?vv.height:window.innerHeight)+'px');r.style.setProperty('--vv-top',Math.round(vv?vv.offsetTop:0)+'px')}catch(e){}try{var d=document.documentElement,v=localStorage.getItem('storelib_feed_view');if(v!=='reels'&&v!=='grid')v='grid';d.setAttribute('data-feed-view',v);d.style.setProperty('--feed-entry-bg',v==='reels'?'#000':'#fff');if(document.cookie.indexOf('storelib_feed_view='+v)<0){document.cookie='storelib_feed_view='+v+'; path=/; max-age=31536000; samesite=lax'}}catch(e){}`,
+            __html: `try{var _ua=navigator.userAgent||'';if((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||/StorelibApp|Capacitor/.test(_ua)){var h=document.documentElement;h.classList.add('capacitor');try{var _p=location.pathname;if(_p==='/'||/^\\/(pricing|features|faq|blog)(\\/|$)/.test(_p)){location.replace('/native-start')}}catch(e){}var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}try{var r=document.documentElement,vv=window.visualViewport;r.style.setProperty('--vv-h',Math.round(vv?vv.height:window.innerHeight)+'px');r.style.setProperty('--vv-top',Math.round(vv?vv.offsetTop:0)+'px')}catch(e){}try{var d=document.documentElement,v=localStorage.getItem('storelib_feed_view');if(v!=='reels'&&v!=='grid')v='grid';d.setAttribute('data-feed-view',v);d.style.setProperty('--feed-entry-bg',v==='reels'?'#000':'#fff');if(document.cookie.indexOf('storelib_feed_view='+v)<0){document.cookie='storelib_feed_view='+v+'; path=/; max-age=31536000; samesite=lax'}}catch(e){}`,
           }}
         />
         {/* ═══════════════════════════════════════════════════════════════════
