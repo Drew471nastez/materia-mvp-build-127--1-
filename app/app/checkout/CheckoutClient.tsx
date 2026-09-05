@@ -1,9 +1,10 @@
 "use client"
 
+import "@/lib/stripe-nav-guard"
 import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { getStripePromise } from "@/lib/stripe-client"
+import { loadStripe } from "@stripe/stripe-js/pure"
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import { createClient } from "@/lib/supabase/client"
 
@@ -24,12 +25,18 @@ type CreatorRow = {
   username?: string | null
 }
 
-// Stripe.js is loaded by lib/stripe-client.ts, which carries the nav guard,
-// the "/pure" entry point, and — crucially — sets advancedFraudSignals through
-// loadStripe.setLoadParameters rather than as a constructor option, where it
-// was being silently ignored. It is also called lazily rather than at module
-// scope: a module-scope call runs on import and locks the load parameters
-// before any other checkout on the page gets to choose them.
+// Disable Stripe's fraud-signals controller iframe in Capacitor WKWebView.
+const _isNative = typeof window !== "undefined" && (() => {
+  const cap = (window as any).Capacitor
+  if (cap?.isNativePlatform?.()) return true
+  const ua = navigator.userAgent || ""
+  return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
+})()
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+  // @ts-ignore — advancedFraudSignals is valid but not yet in the TS types
+  _isNative ? { advancedFraudSignals: false } : undefined,
+)
 
 function formatMoney(amountCents: number, currency: string) {
   const amount = (amountCents || 0) / 100
@@ -356,7 +363,7 @@ function CheckoutClientComponent() {
                   ) : null}
 
                   {clientSecret && elementsOptions ? (
-                    <Elements stripe={getStripePromise()} options={elementsOptions}>
+                    <Elements stripe={stripePromise} options={elementsOptions}>
                       <PaidCheckoutForm
                         productId={product!.id}
                         totalLabel={totalLabel}

@@ -28,7 +28,6 @@ import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getStoreU
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { useLanguage, LANGUAGES } from "@/lib/i18n"
-import { useLocale } from "@/components/locale-provider"
 
 function ChainLinkIcon({ className = "w-3 h-3", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
   return (
@@ -424,7 +423,6 @@ function CountrySelectorModal({
   selectedCountry: string
   onSelect: (country: string) => void
 }) {
-  const { t } = useLocale()
   const [searchQuery, setSearchQuery] = useState("")
   const [isMobile, setIsMobile] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -456,7 +454,7 @@ function CountrySelectorModal({
   }
 
   return (
-    <MobileBottomSheet isOpen={isOpen} onClose={onClose} title={t("settings.selectCountry")}>
+    <MobileBottomSheet isOpen={isOpen} onClose={onClose} title="Select Country">
       <div className="space-y-3">
         {/* Search Input */}
         <div className="relative">
@@ -466,7 +464,7 @@ function CountrySelectorModal({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t("settings.searchCountries")}
+            placeholder="Search countries..."
             readOnly={isMobile}
             onFocus={(e) => {
               if (isMobile) {
@@ -480,7 +478,7 @@ function CountrySelectorModal({
         {/* Countries List */}
         <div className="max-h-[50vh] overflow-y-auto -mx-1 px-1">
           {filteredCountries.length === 0 ? (
-            <p className="text-center text-[13px] text-[#6b7280] py-4">{t("settings.noCountriesFound")}</p>
+            <p className="text-center text-[13px] text-[#6b7280] py-4">No countries found</p>
           ) : (
             <div className="space-y-1">
               {filteredCountries.map((country) => (
@@ -521,7 +519,6 @@ function ImageCropModal({
   onSave: (croppedBlob: Blob) => void
   isSaving: boolean
 }) {
-  const { t } = useLocale()
   const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
@@ -688,7 +685,7 @@ function ImageCropModal({
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <h2 className="text-[18px] font-semibold text-[#1a1a2e] flex-1 text-center pr-8">{t("settings.cropImage")}</h2>
+            <h2 className="text-[18px] font-semibold text-[#1a1a2e] flex-1 text-center pr-8">Crop Image</h2>
           </div>
           <div className="p-5 space-y-4">
             {tempImageUrl && (
@@ -700,7 +697,7 @@ function ImageCropModal({
                 >
                   <img
                     src={tempImageUrl}
-                    alt={t("settings.preview")}
+                    alt="Preview"
                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
                     style={{
                       width: imageSize.width,
@@ -745,14 +742,14 @@ function ImageCropModal({
                   </div>
                 </div>
 
-                <p className="text-[12px] text-center text-[#6b7280]">{t("settings.cropHint")}</p>
+                <p className="text-[12px] text-center text-[#6b7280]">Drag to move, drag corner to resize</p>
 
                 <div className="flex gap-2">
                   <button
                     onClick={onClose}
                     className="flex-1 h-11 text-[14px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors"
                   >
-                    {t("common.cancel")}
+                    Cancel
                   </button>
                   <button
                     onClick={handleSave}
@@ -762,10 +759,10 @@ function ImageCropModal({
                     {isSaving ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        {t("settings.saving")}
+                        Saving...
                       </>
                     ) : (
-                      t("settings.save")
+                      "Save"
                     )}
                   </button>
                 </div>
@@ -790,7 +787,6 @@ function ImageUploadModal({
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void
   fileInputRef: React.RefObject<HTMLInputElement>
 }) {
-  const { t } = useLocale()
   // Prevent pull-to-refresh when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -814,7 +810,7 @@ function ImageUploadModal({
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <div className="relative bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
           <div className="flex items-center justify-between p-4 border-b border-[#e5e7eb]">
-            <h2 className="text-[18px] font-semibold text-[#1a1a2e]">{t("settings.uploadPhoto")}</h2>
+            <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Upload Photo</h2>
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
@@ -828,9 +824,9 @@ function ImageUploadModal({
               className="border-2 border-dashed border-[#e5e7eb] rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-[#8b5cf6] hover:bg-[#faf5ff] transition-colors"
             >
               <Upload className="h-12 w-12 text-[#9ca3af] mb-4" />
-              <p className="font-medium text-[#374151] text-[14px]">{t("settings.selectFile")}</p>
-              <p className="text-[13px] text-[#6b7280] mt-1">{t("settings.orDragDrop")}</p>
-              <p className="text-[12px] text-[#9ca3af] mt-2">{t("settings.imageFormats")}</p>
+              <p className="font-medium text-[#374151] text-[14px]">Select file to upload</p>
+              <p className="text-[13px] text-[#6b7280] mt-1">or drag-and-drop</p>
+              <p className="text-[12px] text-[#9ca3af] mt-2">JPG, PNG or GIF. Max 2MB</p>
             </div>
             <input
               ref={fileInputRef}
@@ -848,8 +844,7 @@ function ImageUploadModal({
 
 export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl, initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
-  const { language: currentLanguage, setLanguage } = useLanguage()
-  const { t } = useLocale()
+  const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage)
   const [showLanguageModal, setShowLanguageModal] = useState(false)
   const initialLanguage = useRef(currentLanguage)
@@ -1568,63 +1563,28 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     const displayName = `${firstName} ${lastName}`.trim()
 
     try {
-      /**
-       * ═══════════════════════════════════════════════════════════════════
-       *  THE HANDLE GOES THROUGH THE SERVER. EVERYTHING ELSE STAYS HERE.
-       * ═══════════════════════════════════════════════════════════════════
-       *
-       * What was here could not save a handle and could not tell you it had
-       * failed, for two separate reasons:
-       *
-       *   `update().eq("id", …)` MATCHING NOTHING IS NOT AN ERROR. An account
-       *   whose row RLS will not let the anon key write — or one with no
-       *   `profiles` row at all — got `error === null` and a green tick, and
-       *   nothing was written. That is the "I change my username and it
-       *   doesn't save" report, and lib/profile/write.ts is the fix: it
-       *   notices the zero-row case and inserts.
-       *
-       *   The uniqueness check above used `.eq()`, which is CASE-SENSITIVE,
-       *   while /member/[username] resolves case-INsensitively. So "Andrew"
-       *   passed a check that "andrew" already held, both rows existed, and
-       *   one of the two profiles became unreachable.
-       *
-       * It also skipped `isValidUsername` entirely on the way to the database
-       * — the check at the top of this file runs on keystrokes and sets an
-       * error message, but nothing here consulted it before writing — so a
-       * reserved word could be claimed by pressing save with the warning
-       * showing.
-       *
-       * PATCH /api/profile does all four things and is the only writer of a
-       * handle in the app now. It returns the STORED value, which is what
-       * `creators.slug` is synced to below: syncing to the typed value is how
-       * a profile at /andrewrullz ends up with a store at /Andrew Rullz.
-       */
-      let storedUsername = cleanUsername
-      if (cleanUsername !== (profile.username ?? "")) {
-        const res = await fetch("/api/profile", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ displayName, username: cleanUsername }),
-        })
-        const data = await res.json().catch(() => null)
-        if (!res.ok) {
-          setError(data?.error ?? "Could not save your username")
-          setIsLoading(false)
-          return
-        }
-        if (typeof data?.username === "string" && data.username) storedUsername = data.username
-        setUsername(storedUsername)
+      // Check if username is taken by another user
+      const { data: existingUsers } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", cleanUsername)
+        .neq("id", profile.id)
+        .limit(1)
+
+      if (existingUsers && existingUsers.length > 0) {
+        setError("This username is already taken")
+        setIsLoading(false)
+        return
       }
 
       // Track old username for redirects (only if actually changing)
       const oldUsername = profile.username
-      if (oldUsername && oldUsername !== storedUsername) {
+      if (oldUsername && oldUsername !== cleanUsername) {
         try {
           await supabase.from("username_history").insert({
             user_id: profile.id,
             old_username: oldUsername,
-            new_username: storedUsername,
+            new_username: cleanUsername,
           })
         } catch {} // Non-fatal
       }
@@ -1633,8 +1593,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         .from("profiles")
         .update({
           display_name: displayName,
-          // NOT `username` — the request above owns it. Writing it again from
-          // here would put the unvalidated value back over the validated one.
+          username: cleanUsername,
           first_name: firstName,
           last_name: lastName,
           address_line1: addressLine1 || null,
@@ -1649,9 +1608,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       if (profileError) throw profileError
 
       const { error: creatorError } = await supabase.from("creators").update({
-        // The STORED handle — see the note above. Syncing to the typed value is
-        // how a profile at /andrewrullz ends up with a store at a different one.
-        slug: storedUsername,
+        slug: cleanUsername,
         support_email: supportEmail || null,
         payout_currency: payoutCurrency,
         statement_descriptor: normalizeStatementDescriptor(statementDescriptor || profile?.username || (creator as any)?.display_name || "STORE"),
@@ -1660,11 +1617,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       if (creatorError) throw creatorError
 
       // Sync OnePage slug to match new username
-      if (oldUsername && oldUsername !== storedUsername) {
+      if (oldUsername && oldUsername !== cleanUsername) {
         try {
           await supabase
             .from("onepages")
-            .update({ slug: storedUsername })
+            .update({ slug: cleanUsername })
             .eq("owner_id", profile.id)
         } catch {} // Non-fatal
       }
@@ -1684,7 +1641,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       initialValues.current = {
         firstName,
         lastName,
-        username: storedUsername,
+        username: cleanUsername,
         avatarUrl,
         addressLine1,
         city,
@@ -1726,7 +1683,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
   const handleSignOut = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut({ scope: "local" })
+    await supabase.auth.signOut()
     if (isNativePlatform()) {
       nativeLogOut()
     } else {
@@ -1814,7 +1771,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
       if (response.ok) {
         const supabase = createClient()
-        await supabase.auth.signOut({ scope: "local" })
+        await supabase.auth.signOut()
         if (isNativePlatform()) {
           nativeLogOut()
         } else {
@@ -1989,8 +1946,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       >
         <div className="bg-[#1a1a2e] text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2.5 whitespace-nowrap max-w-[calc(100vw-2rem)]">
           <Check className="h-4.5 w-4.5 text-emerald-400 shrink-0" />
-          <span className="text-[14px] font-medium hidden sm:inline">{t("settings.settingsSavedLong")}</span>
-          <span className="text-[14px] font-medium sm:hidden">{t("settings.settingsSavedShort")}</span>
+          <span className="text-[14px] font-medium hidden sm:inline">Your settings are saved</span>
+          <span className="text-[14px] font-medium sm:hidden">Settings saved</span>
         </div>
       </div>
 
@@ -2024,7 +1981,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
             {!isMobileViewport && isQuickAccessOpen && (
               <div className="absolute right-0 top-full mt-2 w-[280px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50 origin-top-right animate-in fade-in zoom-in-95 duration-200">
-                <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">{t("settings.quickAccess")}</p>
+                <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">Quick access</p>
                 <button
                   type="button"
                   onClick={() => {
@@ -2052,7 +2009,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           </div>
         </div>
 
-        <MobileBottomSheet isOpen={isMobileViewport && isQuickAccessOpen} onClose={() => setIsQuickAccessOpen(false)} title={t("settings.quickAccess")}>
+        <MobileBottomSheet isOpen={isMobileViewport && isQuickAccessOpen} onClose={() => setIsQuickAccessOpen(false)} title="Quick access">
           <div className="space-y-2">
             <button type="button" onClick={() => {
               setIsQuickAccessOpen(false)
@@ -2081,7 +2038,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                               tab.id === "privacy" ? t("settings.privacy") :
                               tab.id === "billing" ? t("settings.billing") :
                               tab.id === "payments" ? t("settings.payments") :
-                              tab.id === "domains" ? t("settings.domains") :
+                              tab.id === "domains" ? "Domains" :
                               t("settings.stores")
               return (
                 <button
@@ -2157,8 +2114,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <div className="flex items-center gap-3 min-w-0">
                     <Wallet className="h-5 w-5 text-white shrink-0" />
                     <p className="text-[13px] sm:text-[14px] font-medium text-white">
-                      <span className="sm:hidden">{t("settings.getPaidShort")}</span>
-                      <span className="hidden sm:inline">{t("settings.getPaidLong")}</span>
+                      <span className="sm:hidden">Get paid - Connect Stripe</span>
+                      <span className="hidden sm:inline">Get paid — Connect your payouts to receive payments.</span>
                     </p>
                   </div>
                   <button
@@ -2167,7 +2124,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     disabled={stripeBusy !== null}
                     className="shrink-0 h-9 px-5 text-[13px] font-semibold text-[#7c3aed] bg-white rounded-lg hover:bg-[#f5f3ff] active:bg-[#ede9fe] transition-colors shadow-sm cursor-pointer disabled:opacity-60"
                   >
-                    {stripeBusy === "connect" ? t("settings.connecting") : t("common.connect")}
+                    {stripeBusy === "connect" ? "Connecting..." : "Connect"}
                   </button>
                 </div>
               )}
@@ -2182,7 +2139,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     {avatarUrl ? (
                       <img
                         src={avatarUrl}
-                        alt={t("settings.profile")}
+                        alt="Profile"
                         className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full object-cover bg-[#f3f4f6]"
                         onError={(e) => {
                           e.currentTarget.style.display = "none"
@@ -2195,14 +2152,14 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     </div>
                   </a>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[#1a1a2e] text-[15px]">{t("settings.profilePhoto")}</p>
-                    <p className="text-[13px] text-[#6b7280] mb-2">{t("settings.profilePhotoFormats")}</p>
+                    <p className="font-semibold text-[#1a1a2e] text-[15px]">Profile Photo</p>
+                    <p className="text-[13px] text-[#6b7280] mb-2">JPG, PNG or GIF. Max 2MB.</p>
                     <a
                       href="/store-builder"
                       className="inline-flex px-3 py-1.5 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-lg transition-colors items-center gap-1.5"
                     >
                       <Pencil className="h-3.5 w-3.5" />
-                      {t("settings.change")}
+                      Change
                     </a>
                   </div>
                 </div>
@@ -2216,7 +2173,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="firstName" className="text-[13px] font-medium text-[#374151]">
-                      {t("settings.username")}
+                      Username
                     </Label>
                     <Input
                       id="firstName"
@@ -2227,7 +2184,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                         setFirstName(first)
                         setLastName(rest.join(" "))
                       }}
-                      placeholder={t("settings.enterDisplayName")}
+                      placeholder="Enter your display name"
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                   </div>
@@ -2239,7 +2196,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       id="storeUrlProfile"
                       value={username}
                       onChange={(e) => validateUsername(e.target.value)}
-                      placeholder={t("settings.storeNamePlaceholder")}
+                      placeholder="your-store-name"
                       className={`h-11 rounded-xl text-[14px] ${
                         usernameError ? "border-red-300 focus:ring-red-500 focus:border-red-500" : "border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                       }`}
@@ -2260,11 +2217,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* OnePage URL - separate card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  {t("settings.onepageUrl")}
+                  OnePage URL
                 </h3>
                 <div className="space-y-1.5">
                   <Label htmlFor="onepageHandle" className="text-[13px] font-medium text-[#374151]">
-                    {t("settings.handle")}
+                    Handle
                   </Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">
@@ -2282,7 +2239,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     />
                   </div>
                   <p className="text-[12px] text-[#6b7280]">
-                    {t("settings.onepageAvailableAt")} <span className="font-medium text-[#8b5cf6]">{getLinksShareUrl(username || "yourhandle")}</span>
+                    Your OnePage will be available at: <span className="font-medium text-[#8b5cf6]">{getLinksShareUrl(username || "yourhandle")}</span>
                   </p>
                 </div>
               </div>
@@ -2290,12 +2247,12 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* Emails Card - Email + Support Email */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  {t("settings.emails")}
+                  Emails
                 </h3>
                 <div className="space-y-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="email" className="text-[13px] font-medium text-[#374151]">
-                      {t("settings.email")}
+                      Email
                     </Label>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
@@ -2303,7 +2260,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                         {emailVerified && (
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Check className="h-3 w-3" />
-                            {t("settings.verified")}
+                            Verified
                           </span>
                         )}
                       </div>
@@ -2312,13 +2269,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                         onClick={() => setShowEmailChangeModal(true)}
                         className="px-4 h-11 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors whitespace-nowrap cursor-pointer"
                       >
-                        {t("settings.change")}
+                        Change
                       </button>
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="supportEmailProfile" className="text-[13px] font-medium text-[#374151]">
-                      {t("settings.supportEmail")}
+                      Support Email
                     </Label>
                     <Input
                       id="supportEmailProfile"
@@ -2329,12 +2286,12 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                     <div className="flex items-center gap-1.5">
-                      <p className="text-[12px] text-[#9ca3af]">{t("settings.shownOnReceipts")}</p>
+                      <p className="text-[12px] text-[#9ca3af]">Shown to customers on receipts</p>
                       <div className="relative group">
                         <Info className="h-3.5 w-3.5 text-[#9ca3af] cursor-help" />
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[12px] rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-lg">
                           <div className="max-w-[220px] text-center leading-relaxed">
-                            {t("settings.supportEmailTooltip")}
+                            This email will appear on customer receipts and order confirmations. It&apos;s also the contact for customer support inquiries.
                           </div>
                           <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1a1a2e]"></div>
                         </div>
@@ -2347,9 +2304,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* Language Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
-                  {t("settings.language")}
+                  Language
                 </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.languageChoose")}</p>
+                <p className="text-[13px] text-[#6b7280] mb-4">Choose your preferred language for the dashboard</p>
                 <button
                   type="button"
                   onClick={() => setShowLanguageModal(true)}
@@ -2363,9 +2320,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* Timezone Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
-                  {t("settings.timezone")}
+                  Timezone
                 </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.timezoneDesc")}</p>
+                <p className="text-[13px] text-[#6b7280] mb-4">Used for analytics, product launches, scheduled emails, and sales timestamps</p>
                 <button
                   type="button"
                   onClick={() => setShowTimezoneModal(true)}
@@ -2384,79 +2341,79 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* Address Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  {t("settings.address")}
+                  Address
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="addressLine1" className="text-[13px] font-medium text-[#374151]">
-                      {t("settings.addressLine1")}
+                      Address Line 1
                     </Label>
                     <Input
                       id="addressLine1"
                       value={addressLine1}
                       onChange={(e) => setAddressLine1(e.target.value)}
-                      placeholder={t("settings.streetAddress")}
+                      placeholder="Street address"
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="addressLine2" className="text-[13px] font-medium text-[#374151]">
-                      {t("settings.addressLine2")}
+                      Address Line 2
                     </Label>
                     <Input
                       id="addressLine2"
                       value={addressLine2}
                       onChange={(e) => setAddressLine2(e.target.value)}
-                      placeholder={t("settings.aptSuite")}
+                      placeholder="Apt, suite, etc. (optional)"
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="city" className="text-[13px] font-medium text-[#374151]">
-                      {t("settings.city")}
+                      City
                     </Label>
                     <Input
                       id="city"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      placeholder={t("settings.city")}
+                      placeholder="City"
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="state" className="text-[13px] font-medium text-[#374151]">
-                      {t("settings.stateProvince")}
+                      State / Province
                     </Label>
                     <Input
                       id="state"
                       value={state}
                       onChange={(e) => setState(e.target.value)}
-                      placeholder={t("settings.statePlaceholder")}
+                      placeholder="State"
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="postalCode" className="text-[13px] font-medium text-[#374151]">
-                      {t("settings.postalCode")}
+                      Postal Code
                     </Label>
                     <Input
                       id="postalCode"
                       value={postalCode}
                       onChange={(e) => setPostalCode(e.target.value)}
-                      placeholder={t("settings.postalCodePlaceholder")}
+                      placeholder="Postal code"
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="country" className="text-[13px] font-medium text-[#374151]">
-                      {t("settings.country")}
+                      Country
                     </Label>
                     <button
                       type="button"
                       onClick={() => setShowCountryModal(true)}
                       className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
                     >
-                      <span className={country ? "text-[#1a1a2e]" : "text-[#9ca3af]"}>{country || t("settings.selectCountryBtn")}</span>
+                      <span className={country ? "text-[#1a1a2e]" : "text-[#9ca3af]"}>{country || "Select country"}</span>
                       <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
                     </button>
                   </div>
@@ -2465,7 +2422,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
               {/* Resources Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">{t("settings.resources")}</h3>
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Resources</h3>
                 <div className="border border-[#e5e7eb] rounded-xl overflow-hidden">
                   <a
                     href="/app/changelog"
@@ -2478,10 +2435,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                         <rect x="3" y="14" width="7" height="7" rx="1" />
                         <rect x="14" y="14" width="7" height="7" rx="1" />
                       </svg>
-                      <span className="text-[14px] text-[#374151]">{t("settings.changeLog")}</span>
+                      <span className="text-[14px] text-[#374151]">Change log</span>
                     </div>
                     <button type="button" className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors cursor-pointer">
-                      {t("settings.viewChangeLog")}
+                      View change log
                     </button>
                   </a>
                   <button
@@ -2491,10 +2448,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   >
                     <div className="flex items-center gap-3">
                       <Globe className="h-5 w-5 text-[#6b7280]" />
-                      <span className="text-[14px] text-[#374151]">{t("settings.customDomain")}</span>
+                      <span className="text-[14px] text-[#374151]">Custom Domain</span>
                     </div>
                     <span className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
-                      {t("settings.setUpDomain")}
+                      Set up domain
                     </span>
                   </button>
                   <a
@@ -2515,10 +2472,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                         <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
                         <line x1="12" y1="17" x2="12.01" y2="17" />
                       </svg>
-                      <span className="text-[14px] text-[#374151]">{t("settings.helpCenter")}</span>
+                      <span className="text-[14px] text-[#374151]">Storelib Help Center</span>
                     </div>
                     <button type="button" className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors cursor-pointer">
-                      {t("settings.getHelp")}
+                      Get help
                     </button>
                   </a>
                 </div>
@@ -2533,9 +2490,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* Password Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">
-                  {t("settings.password")}
+                  Password
                 </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.passwordDesc")}</p>
+                <p className="text-[13px] text-[#6b7280] mb-4">Send a password reset link to your email address.</p>
                 <button
                   type="button"
                   onClick={handlePasswordReset}
@@ -2547,48 +2504,48 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   {passwordResetLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      {t("settings.sending")}
+                      Sending...
                     </>
                   ) : passwordResetSent ? (
                     <>
                       <Check className="h-4 w-4" />
-                      {t("settings.emailSent")}
+                      Email Sent
                     </>
                   ) : (
                     <>
                       <Mail className="h-4 w-4" />
-                      {t("settings.sendResetLink")}
+                      Send Reset Link
                     </>
                   )}
                 </button>
-                {passwordResetSent && <p className="mt-3 text-[13px] text-emerald-600 bg-emerald-50 p-3 rounded-xl">{t("settings.checkEmailReset")}</p>}
+                {passwordResetSent && <p className="mt-3 text-[13px] text-emerald-600 bg-emerald-50 p-3 rounded-xl">Check your email for the password reset link.</p>}
                 {passwordResetError && <p className="mt-3 text-[13px] text-red-600 bg-red-50 p-3 rounded-xl">{passwordResetError}</p>}
               </div>
 
               {/* Two-Factor Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">
-                  {t("settings.twoFactor")}
+                  Two-Factor Authentication
                 </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.twoFactorDesc")}</p>
+                <p className="text-[13px] text-[#6b7280] mb-4">Add an extra layer of security to your account.</p>
                 <button type="button" disabled className="px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] text-[#9ca3af] rounded-xl cursor-not-allowed">
-                  {t("settings.comingSoon")}
+                  Coming Soon
                 </button>
               </div>
 
               {/* Session Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">
-                  {t("settings.activeSessions")}
+                  Active Sessions
                 </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.activeSessionsDesc")}</p>
+                <p className="text-[13px] text-[#6b7280] mb-4">Manage your active sessions across all devices.</p>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={handleSignOut}
                     className="px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors cursor-pointer"
                   >
-                    {t("settings.signOut")}
+                    Sign Out
                   </button>
                   <button
                     type="button"
@@ -2599,10 +2556,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     {signingOutAll ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        {t("settings.signingOut")}
+                        Signing out...
                       </>
                     ) : (
-                      t("settings.signOutAllDevices")
+                      "Sign out from all devices"
                     )}
                   </button>
                 </div>
@@ -2613,13 +2570,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
-                      {t("settings.deleteYourAccount")}
+                      Delete your account
                     </h3>
                     <p className="text-[13px] text-[#6b7280]">
-                      {t("settings.deleteAccountDesc")}
+                      Permanently delete your account and all associated data. This action cannot be undone.
                     </p>
                     <p className="text-[12px] text-[#9ca3af] mt-2">
-                      {t("settings.accountCreatedOn")} {new Date(profile.created_at || Date.now()).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                      Account created on {new Date(profile.created_at || Date.now()).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                     </p>
                   </div>
                   <button
@@ -2627,7 +2584,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     onClick={() => setShowDeleteModal(true)}
                     className="px-4 h-10 text-[13px] font-medium bg-[#1a1a2e] hover:bg-[#2d2d44] text-white rounded-xl transition-colors cursor-pointer shrink-0"
                   >
-                    {t("settings.deleteAccount")}
+                    Delete Account
                   </button>
                 </div>
               </div>
@@ -2640,16 +2597,16 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* AI & Personalization Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
-                  {t("settings.aiPersonalization")}
+                  AI & Personalization
                 </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.aiPersonalizationDesc")}</p>
+                <p className="text-[13px] text-[#6b7280] mb-4">Control how we use AI and personalize your experience.</p>
 
                 <div className="space-y-4">
                   {/* AI Features Toggle */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">{t("settings.aiFeatures")}</p>
-                      <p className="text-[12px] text-[#6b7280]">{t("settings.aiFeaturesDesc")}</p>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">AI-powered features</p>
+                      <p className="text-[12px] text-[#6b7280]">Enable smart suggestions and AI assistance</p>
                     </div>
                     <button
                       type="button"
@@ -2669,8 +2626,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   {/* Personalization Toggle */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">{t("settings.personalizedRecs")}</p>
-                      <p className="text-[12px] text-[#6b7280]">{t("settings.personalizationDesc")}</p>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Personalized recommendations</p>
+                      <p className="text-[12px] text-[#6b7280]">Get tailored content based on your activity</p>
                     </div>
                     <button
                       type="button"
@@ -2691,15 +2648,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
               {/* Data & Analytics Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">{t("settings.dataAnalytics")}</h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.dataAnalyticsDesc")}</p>
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">Data & Analytics</h3>
+                <p className="text-[13px] text-[#6b7280] mb-4">Manage how your data is collected and used.</p>
 
                 <div className="space-y-4">
                   {/* Session Recording Toggle */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">{t("settings.sessionRecording")}</p>
-                      <p className="text-[12px] text-[#6b7280]">{t("settings.sessionRecordingDesc")}</p>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Session recording</p>
+                      <p className="text-[12px] text-[#6b7280]">Help us improve by recording anonymous sessions</p>
                     </div>
                     <button
                       type="button"
@@ -2719,8 +2676,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   {/* Analytics Sharing Toggle */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">{t("settings.analyticsSharing")}</p>
-                      <p className="text-[12px] text-[#6b7280]">{t("settings.analyticsSharingDesc")}</p>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Analytics sharing</p>
+                      <p className="text-[12px] text-[#6b7280]">Share anonymous usage data to improve our service</p>
                     </div>
                     <button
                       type="button"
@@ -2742,16 +2699,16 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* Email Preferences Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
-                  {t("settings.emailPreferences")}
+                  Email Preferences
                 </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.emailPreferencesDesc")}</p>
+                <p className="text-[13px] text-[#6b7280] mb-4">Choose what emails you want to receive.</p>
 
                 <div className="space-y-4">
                   {/* Marketing Emails Toggle */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">{t("settings.marketingEmails")}</p>
-                      <p className="text-[12px] text-[#6b7280]">{t("settings.marketingEmailsDesc")}</p>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Marketing emails</p>
+                      <p className="text-[12px] text-[#6b7280]">Tips, promotions, and special offers</p>
                     </div>
                     <button
                       type="button"
@@ -2771,8 +2728,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   {/* Product Updates Toggle */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">{t("settings.productUpdates")}</p>
-                      <p className="text-[12px] text-[#6b7280]">{t("settings.productUpdatesDesc")}</p>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Product updates</p>
+                      <p className="text-[12px] text-[#6b7280]">New features and important changes</p>
                     </div>
                     <button
                       type="button"
@@ -2807,7 +2764,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   {connectHelpUrl && (
                     <a href={connectHelpUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#7c3aed] hover:text-[#6d28d9] ml-6">
                       <ExternalLink className="h-3 w-3" />
-                      {t("settings.openStripeSettings")}
+                      Open Stripe Platform Profile Settings
                     </a>
                   )}
                 </div>
@@ -2819,9 +2776,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     <AlertCircle className="h-3.5 w-3.5 text-[#d97706]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-[#374151]">{stripePayoutInfo.requirementsPastDue.length > 0 ? t("settings.actionRequiredPayouts") : t("settings.verificationNeeded")}</p>
+                    <p className="text-[13px] font-medium text-[#374151]">{stripePayoutInfo.requirementsPastDue.length > 0 ? "Action required to keep receiving payouts" : "Verification needed to enable payouts"}</p>
                   </div>
-                  <button type="button" onClick={manageStripe} disabled={stripeBusy !== null} className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 mt-0.5 cursor-pointer">{stripeBusy ? t("settings.opening") : t("settings.completeVerification")}</button>
+                  <button type="button" onClick={manageStripe} disabled={stripeBusy !== null} className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 mt-0.5 cursor-pointer">{stripeBusy ? "Opening..." : "Complete verification"}</button>
                 </div>
               )}
               {stripeStatus.connected && !stripeBankLoading && stripePayoutInfo && !stripePayoutInfo.detailsSubmitted && !stripePayoutInfo.payoutsEnabled && (
@@ -2829,8 +2786,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0">
                     <AlertCircle className="h-3.5 w-3.5 text-[#d97706]" />
                   </div>
-                  <p className="text-[13px] text-[#4b5563] flex-1">{t("settings.completeSetupPayouts")}</p>
-                  <button type="button" onClick={manageStripe} disabled={stripeBusy !== null} className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 cursor-pointer">{stripeBusy ? t("settings.opening") : t("settings.completeSetup")}</button>
+                  <p className="text-[13px] text-[#4b5563] flex-1">Complete your account setup to receive payouts</p>
+                  <button type="button" onClick={manageStripe} disabled={stripeBusy !== null} className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 cursor-pointer">{stripeBusy ? "Opening..." : "Complete setup"}</button>
                 </div>
               )}
               {stripeStatus.connected && !stripeBankLoading && !stripeBankInfo && (
@@ -2838,8 +2795,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0">
                     <Landmark className="h-3.5 w-3.5 text-[#d97706]" />
                   </div>
-                  <p className="text-[13px] text-[#4b5563] flex-1">{t("settings.addBankToCashOut")}</p>
-                  <button type="button" onClick={manageStripe} disabled={stripeBusy !== null} className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 cursor-pointer">{stripeBusy ? t("settings.opening") : t("settings.addBank")}</button>
+                  <p className="text-[13px] text-[#4b5563] flex-1">Add a bank account to cash out</p>
+                  <button type="button" onClick={manageStripe} disabled={stripeBusy !== null} className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 cursor-pointer">{stripeBusy ? "Opening..." : "Add bank"}</button>
                 </div>
               )}
 
@@ -2857,16 +2814,16 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-[15px] sm:text-[16px] font-semibold text-[#1a1a2e]">Stripe</h3>
                         <span className={`px-1.5 py-0.5 font-medium rounded-full flex items-center gap-1 ${isMobileViewport ? "text-[8px]" : "text-[10px]"} ${stripeStatus.connected ? "bg-emerald-500 text-white" : "bg-amber-100 text-amber-700 border border-amber-200"}`}>
-                          <Check className="h-3 w-3" /> {stripeStatus.connected ? t("settings.connected") : stripeStatus.status === "pending" ? t("settings.pending") : stripeStatusLoading ? t("settings.checking") : t("settings.notConnected")}
+                          <Check className="h-3 w-3" /> {stripeStatus.connected ? "Connected" : stripeStatus.status === "pending" ? "Pending" : stripeStatusLoading ? "Checking" : "Not connected"}
                         </span>
                       </div>
-                      <p className="text-[13px] sm:text-[14px] text-[#6b7280] mt-0.5">{t("settings.connectStripeDesc")}</p>
+                      <p className="text-[13px] sm:text-[14px] text-[#6b7280] mt-0.5">Connect to accept payments from Credit/Debit cards</p>
                     </div>
                   </div>
                   {stripeStatus.connected ? (
-                    <button type="button" onClick={() => setShowStripeManage((v) => !v)} className="px-4 sm:px-5 h-9 sm:h-10 text-[13px] sm:text-[14px] font-medium border border-[#e5e7eb] hover:bg-[#f9fafb] text-[#374151] rounded-lg transition-colors cursor-pointer shrink-0">{showStripeManage ? t("settings.hide") : t("settings.manage")}</button>
+                    <button type="button" onClick={() => setShowStripeManage((v) => !v)} className="px-4 sm:px-5 h-9 sm:h-10 text-[13px] sm:text-[14px] font-medium border border-[#e5e7eb] hover:bg-[#f9fafb] text-[#374151] rounded-lg transition-colors cursor-pointer shrink-0">{showStripeManage ? "Hide" : "Manage"}</button>
                   ) : (
-                    <button type="button" onClick={connectStripe} disabled={stripeBusy !== null} className="px-4 sm:px-5 h-9 sm:h-10 text-[13px] sm:text-[14px] font-semibold bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-60">{stripeBusy === "connect" ? t("settings.connecting") : stripeStatus.status === "pending" ? t("settings.completeSetup") : t("common.connect")}</button>
+                    <button type="button" onClick={connectStripe} disabled={stripeBusy !== null} className="px-4 sm:px-5 h-9 sm:h-10 text-[13px] sm:text-[14px] font-semibold bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-60">{stripeBusy === "connect" ? "Connecting..." : stripeStatus.status === "pending" ? "Complete Setup" : "Connect"}</button>
                   )}
                 </div>
               </div>
@@ -2883,23 +2840,23 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     ) : stripeBankInfo ? (
                       <div className="flex items-center gap-2 mb-3 flex-wrap">
                         <Landmark className="h-3.5 w-3.5 text-[#6b7280] shrink-0" />
-                        <span className="text-[13px] font-medium text-[#1a1a2e]">{stripeBankInfo.bankName || t("settings.bankAccount")} ••••{stripeBankInfo.last4}</span>
+                        <span className="text-[13px] font-medium text-[#1a1a2e]">{stripeBankInfo.bankName || "Bank account"} ••••{stripeBankInfo.last4}</span>
                         <span className="text-[11px] text-[#6b7280] uppercase">{stripeBankInfo.currency}</span>
                         {stripeBankInfo.status && stripeBankInfo.status !== "new" && (
                           <span className={`text-[11px] font-medium capitalize ${stripeBankInfo.status === "verified" ? "text-green-600" : "text-amber-600"}`}>{stripeBankInfo.status}</span>
                         )}
                       </div>
                     ) : (
-                      <p className="text-[13px] text-[#6b7280] mb-3">{t("settings.noBankConnected")}</p>
+                      <p className="text-[13px] text-[#6b7280] mb-3">No bank account connected yet.</p>
                     )}
                     <div className="flex flex-wrap gap-2 mb-3">
-                      <span className="px-2 py-1 rounded-full border text-[11px] bg-white">{t("settings.charges")} {stripeStatus.chargesEnabled ? t("settings.enabled") : t("settings.pending")}</span>
-                      <span className="px-2 py-1 rounded-full border text-[11px] bg-white">{t("settings.payouts")} {stripeStatus.payoutsEnabled ? t("settings.enabled") : t("settings.pending")}</span>
+                      <span className="px-2 py-1 rounded-full border text-[11px] bg-white">Charges: {stripeStatus.chargesEnabled ? "Enabled" : "Pending"}</span>
+                      <span className="px-2 py-1 rounded-full border text-[11px] bg-white">Payouts: {stripeStatus.payoutsEnabled ? "Enabled" : "Pending"}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={manageStripe} disabled={stripeBusy !== null || !stripeStatus.connected} className="h-9 px-3 rounded-lg border border-[#e5e7eb] bg-white text-[13px] text-[#374151] hover:bg-[#f3f4f6] disabled:opacity-60 cursor-pointer flex items-center gap-1.5"><ExternalLink className="h-3 w-3" /> {t("settings.manageSettings")}</button>
-                      <button type="button" onClick={connectStripe} disabled={stripeBusy !== null} className="h-9 px-3 rounded-lg border border-[#e5e7eb] text-[13px] text-[#374151] hover:bg-[#f3f4f6] disabled:opacity-60 cursor-pointer">{stripeBusy === "connect" ? t("settings.connecting") : t("settings.reconnect")}</button>
-                      <button type="button" onClick={disconnectStripe} disabled={stripeBusy !== null || !stripeStatus.connected} className="h-9 px-3 rounded-lg border border-[#e5e7eb] text-[13px] text-[#374151] hover:bg-[#f3f4f6] disabled:opacity-60 cursor-pointer">{stripeBusy === "disconnect" ? t("settings.disconnecting") : t("settings.disconnect")}</button>
+                      <button type="button" onClick={manageStripe} disabled={stripeBusy !== null || !stripeStatus.connected} className="h-9 px-3 rounded-lg border border-[#e5e7eb] bg-white text-[13px] text-[#374151] hover:bg-[#f3f4f6] disabled:opacity-60 cursor-pointer flex items-center gap-1.5"><ExternalLink className="h-3 w-3" /> Manage settings</button>
+                      <button type="button" onClick={connectStripe} disabled={stripeBusy !== null} className="h-9 px-3 rounded-lg border border-[#e5e7eb] text-[13px] text-[#374151] hover:bg-[#f3f4f6] disabled:opacity-60 cursor-pointer">{stripeBusy === "connect" ? "Connecting..." : "Reconnect"}</button>
+                      <button type="button" onClick={disconnectStripe} disabled={stripeBusy !== null || !stripeStatus.connected} className="h-9 px-3 rounded-lg border border-[#e5e7eb] text-[13px] text-[#374151] hover:bg-[#f3f4f6] disabled:opacity-60 cursor-pointer">{stripeBusy === "disconnect" ? "Disconnecting..." : "Disconnect"}</button>
                     </div>
                   </div>
                 </div>
@@ -2918,43 +2875,43 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-[15px] sm:text-[16px] font-semibold text-[#1a1a2e]">PayPal</h3>
-                        <span className={`px-1.5 py-0.5 font-medium bg-[#eef2ff] text-[#635bff] rounded-full border border-[#dbe4ff] ${isMobileViewport ? "text-[8px]" : "text-[10px]"}`}>{t("settings.comingSoon")}</span>
+                        <span className={`px-1.5 py-0.5 font-medium bg-[#eef2ff] text-[#635bff] rounded-full border border-[#dbe4ff] ${isMobileViewport ? "text-[8px]" : "text-[10px]"}`}>Coming soon</span>
                       </div>
-                      <p className="text-[13px] sm:text-[14px] text-[#6b7280] mt-0.5">{t("settings.paypalSoonDesc")}</p>
+                      <p className="text-[13px] sm:text-[14px] text-[#6b7280] mt-0.5">PayPal payouts and card-backed options will be available soon.</p>
                     </div>
                   </div>
-                  <button type="button" disabled className="px-4 sm:px-5 h-9 sm:h-10 text-[13px] sm:text-[14px] font-medium border border-[#e5e7eb] text-[#9ca3af] rounded-lg cursor-not-allowed shrink-0">{t("settings.soon")}</button>
+                  <button type="button" disabled className="px-4 sm:px-5 h-9 sm:h-10 text-[13px] sm:text-[14px] font-medium border border-[#e5e7eb] text-[#9ca3af] rounded-lg cursor-not-allowed shrink-0">Soon</button>
                 </div>
               </div>
 
               <div className="relative inline-flex group">
                 <a href="#" className="inline-flex items-center gap-1 text-[14px] font-medium text-[#0891b2] hover:text-[#0e7490] transition-colors cursor-pointer">
-                  {t("settings.seeAllPaymentOptions")}
+                  See all payment options
                   <ChevronRight className="h-4 w-4" />
                 </a>
                 <div className="absolute left-0 top-full mt-2 hidden group-hover:flex items-center gap-1.5 rounded-lg bg-[#111827] text-white text-xs px-3 py-2 shadow-lg z-20 whitespace-nowrap">
                   <Info className="h-3.5 w-3.5 text-[#93c5fd]" />
-                  {t("settings.morePaymentsSoon")}
+                  More payment options coming soon.
                 </div>
               </div>
 
               <div className="pt-2">
                 <div className="space-y-1.5 max-w-[420px]">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="statement-descriptor" className="text-[13px] font-medium text-[#374151]">{t("settings.statementDescriptor")}</Label>
+                    <Label htmlFor="statement-descriptor" className="text-[13px] font-medium text-[#374151]">Statement Descriptor</Label>
                     <TooltipProvider delayDuration={120}>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
                             type="button"
                             className="inline-flex items-center justify-center text-[#9ca3af] hover:text-[#6b7280] transition-colors cursor-help"
-                            aria-label={t("settings.aboutStatementDescriptor")}
+                            aria-label="About statement descriptor"
                           >
                             <Info className="h-3.5 w-3.5" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent className="max-w-[280px] text-xs leading-relaxed">
-                          {t("settings.statementDescriptorTooltip")}
+                          This text appears on your customer&apos;s bank statement to identify who charged them.
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -2966,15 +2923,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     placeholder={defaultStatementDescriptor}
                     className="h-10 rounded-xl border-[#e5e7eb] text-[13px] focus-visible:border-[#8b5cf6] focus-visible:ring-[#8b5cf6]/20"
                   />
-                  <p className="text-[12px] text-[#9ca3af]">{t("settings.statementDescriptorHelp")}</p>
+                  <p className="text-[12px] text-[#9ca3af]">Shown in bank apps as the charge descriptor (max 22 characters).</p>
                 </div>
               </div>
 
               {showCurrencyPicker && !isMobileViewport && (
                 <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4" onClick={() => setShowCurrencyPicker(false)}>
                   <div className="w-full max-w-[420px] rounded-2xl bg-white border border-[#e5e7eb] p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                    <h4 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">{t("settings.selectPayoutCurrency")}</h4>
-                    <p className="text-[12px] text-[#6b7280] mb-3">{t("settings.payoutCurrencyDesc")}</p>
+                    <h4 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">Select payout currency</h4>
+                    <p className="text-[12px] text-[#6b7280] mb-3">Choose your payout settlement currency.</p>
                     <div className="space-y-2 max-h-[52vh] overflow-y-auto pr-1">
                       {(["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "NZD"] as const).map((currency) => (
                         <button key={currency} type="button" onClick={() => { setPayoutCurrency(currency); setShowCurrencyPicker(false) }} className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer ${payoutCurrency === currency ? "bg-[#f5f3ff] text-[#8b5cf6]" : "text-[#374151] hover:bg-[#f3f4f6]"}`}>
@@ -2990,7 +2947,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               <MobileBottomSheet
                 isOpen={showCurrencyPicker && isMobileViewport}
                 onClose={() => setShowCurrencyPicker(false)}
-                title={t("settings.selectPayoutCurrency")}
+                title="Select payout currency"
               >
                 <div className="space-y-2 pb-2">
                   {(["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "NZD"] as const).map((currency) => (
@@ -3010,11 +2967,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* Store Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  {t("settings.yourStore")}
+                  Your Store
                 </h3>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4 pb-4 border-b border-[#e5e7eb]">
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[#1a1a2e] text-[15px] truncate">{creator.headline || t("settings.myStore")}</p>
+                    <p className="font-semibold text-[#1a1a2e] text-[15px] truncate">{creator.headline || "My Store"}</p>
                     <p className="text-[13px] text-[#6b7280] truncate">{storeUrlDisplay}</p>
                   </div>
                   <a
@@ -3036,7 +2993,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     id="username"
                     value={username}
                     onChange={(e) => validateUsername(e.target.value)}
-                    placeholder={t("settings.storeNamePlaceholder")}
+                    placeholder="your-store-name"
                     className={`h-11 rounded-xl text-[14px] ${
                       usernameError ? "border-red-300 focus:ring-red-500 focus:border-red-500" : "border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     }`}
@@ -3069,13 +3026,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* OnePage Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">OnePage</h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.onepageDesc")}</p>
+                <p className="text-[13px] text-[#6b7280] mb-4">Manage your link-in-bio page.</p>
                 <a
                   href="/app/onepage"
                   className="inline-flex items-center gap-2 px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors"
                 >
                   <Link2 className="h-4 w-4" />
-                  {t("settings.editOnepage")}
+                  Edit OnePage
                   <ChevronRight className="h-4 w-4" />
                 </a>
               </div>
@@ -3093,25 +3050,25 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <div className="flex items-center gap-3 min-w-0">
                     <Globe className="h-5 w-5 text-white shrink-0" />
                     <p className="text-[13px] sm:text-[14px] font-medium text-white truncate">
-                      <span className="sm:hidden">{t("settings.upgradeForDomains")}</span>
-                      <span className="hidden sm:inline">{t("settings.customDomainsPlans")}</span>
+                      <span className="sm:hidden">Upgrade for custom domains</span>
+                      <span className="hidden sm:inline">Custom domains are available on Growth &amp; Pro plans.</span>
                     </p>
                   </div>
                   <a
                     href="/app/settings/billing/upgrade"
                     className="shrink-0 inline-flex items-center justify-center h-9 px-5 text-[13px] font-semibold text-[#7c3aed] bg-white rounded-xl hover:bg-[#f5f3ff] active:bg-[#ede9fe] transition-colors shadow-sm cursor-pointer no-underline whitespace-nowrap"
                   >
-                    {t("settings.upgrade")}
+                    Upgrade
                   </a>
                 </div>
               ) : null}
 
               {/* Connect Your Domain Card */}
               <div className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb] transition-[filter,opacity] duration-700 ease-in-out ${(userPlan === "free" || userPlan === null) && !planLoading ? "blur-[1.5px] opacity-80 pointer-events-none select-none" : ""}`}>
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">{t("settings.connectOwnDomain")}</h3>
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">Connect your own domain</h3>
                 {/* Desktop: full text, Mobile: shorter text */}
-                <p className="hidden sm:block text-[13px] text-[#6b7280] mb-4">{t("settings.connectDomainDescA")} <span className="font-medium">yourdomain.com</span> {t("settings.connectDomainDescB")} <span className="font-medium">yourdomain.com/links</span>.</p>
-                <p className="sm:hidden text-[13px] text-[#6b7280] mb-4">{t("settings.connectDomainDescShort")}</p>
+                <p className="hidden sm:block text-[13px] text-[#6b7280] mb-4">Connect a custom domain to your store and OnePage. Your store will be at <span className="font-medium">yourdomain.com</span> and OnePage at <span className="font-medium">yourdomain.com/links</span>.</p>
+                <p className="sm:hidden text-[13px] text-[#6b7280] mb-4">Connect a custom domain to your store and OnePage.</p>
 
                 <div className="flex gap-2">
                   <div className="flex-1 relative">
@@ -3121,7 +3078,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       value={domainInput}
                       onChange={(e) => { setDomainInput(e.target.value); setDomainError(null); setDomainInfo(null) }}
                       onKeyDown={(e) => e.key === "Enter" && addDomain()}
-                      placeholder={t("settings.domainPlaceholder")}
+                      placeholder="Enter your domain (e.g. mydomain.com)"
                       disabled={userPlan === "free" || userPlan === null}
                       className="w-full h-11 pl-10 pr-4 text-[14px] border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] focus:border-[#8b5cf6] transition-colors disabled:cursor-not-allowed"
                     />
@@ -3132,7 +3089,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     className="h-11 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-2 shrink-0 disabled:cursor-not-allowed"
                   >
                     {domainAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                    {t("common.connect")}
+                    Connect
                   </button>
                 </div>
 
@@ -3152,7 +3109,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
                 {domainIssues.length > 0 && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl">
-                    <p className="text-[12px] font-semibold text-red-800 mb-1.5">{t("settings.issuesBlockingSsl")}</p>
+                    <p className="text-[12px] font-semibold text-red-800 mb-1.5">Issues blocking SSL:</p>
                     <ul className="space-y-1.5">
                       {domainIssues.map((issue, i) => (
                         <li key={i} className="text-[11px] text-red-700 flex items-start gap-2 leading-relaxed">
@@ -3166,7 +3123,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
                 {domainWarnings.length > 0 && (
                   <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                    <p className="text-[12px] font-semibold text-amber-800 mb-1.5">{t("settings.warnings")}</p>
+                    <p className="text-[12px] font-semibold text-amber-800 mb-1.5">Warnings:</p>
                     <ul className="space-y-1.5">
                       {domainWarnings.map((warning, i) => (
                         <li key={i} className="text-[11px] text-amber-700 flex items-start gap-2 leading-relaxed">
@@ -3180,7 +3137,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
                 {/* DNS Provider Quick Links */}
                 <div className="flex items-center gap-3 mt-3">
-                  <span className="text-[11px] text-[#9ca3af]">{t("settings.getADomain")}</span>
+                  <span className="text-[11px] text-[#9ca3af]">Get a domain:</span>
                   <div className="flex items-center gap-3">
                     <a href="https://www.hostinger.com/domain-name-search" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity cursor-pointer" title="Hostinger">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="#374151" xmlns="http://www.w3.org/2000/svg"><path d="M16.415 0v7.16l5.785 3.384V2.949zM1.8 0v11.237h18.815L14.89 8.09l-7.457-.003V3.024zm14.615 20.894v-5.019l-7.514-.005c.007.033-5.82-3.197-5.82-3.197l19.119.091V24zM1.8 13.551v7.343l5.633 2.949v-6.988z"/></svg>
@@ -3197,7 +3154,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 {/* Suggested Domains */}
                 {suggestedDomains.length > 0 && domains.length === 0 && (
                   <div className="mt-4">
-                    <p className="text-[12px] font-medium text-[#6b7280] mb-2">{t("settings.suggestedDomains")}</p>
+                    <p className="text-[12px] font-medium text-[#6b7280] mb-2">Suggested domains based on your username:</p>
                     <div className="flex flex-wrap gap-2">
                       {suggestedDomains.filter((sd) => !domains.some((d) => d.domain === sd)).map((sd, idx) => (
                         <button
@@ -3215,7 +3172,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
               {/* Connected Domains List */}
               <div className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb] transition-[filter,opacity] duration-700 ease-in-out ${(userPlan === "free" || userPlan === null) && !planLoading ? "blur-[1.5px] opacity-80 pointer-events-none select-none" : ""}`}>
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">{t("settings.yourDomains")}</h3>
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Your Domains</h3>
 
                 {domainsLoading ? (
                   <div className="flex items-center justify-center py-8">
@@ -3224,17 +3181,17 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 ) : domains.length === 0 ? (
                   <div className="text-center py-8">
                     <Globe className="h-10 w-10 text-[#d1d5db] mx-auto mb-3" />
-                    <p className="text-[13px] text-[#6b7280] mb-1">{t("settings.noDomainsYet")}</p>
-                    <p className="text-[12px] text-[#9ca3af]">{t("settings.addDomainToStart")}</p>
+                    <p className="text-[13px] text-[#6b7280] mb-1">No domains connected yet</p>
+                    <p className="text-[12px] text-[#9ca3af]">Add a custom domain above to get started</p>
                   </div>
                 ) : (
                   <>
                     {/* Table Header - Desktop */}
                     <div className="hidden sm:grid sm:grid-cols-[1fr_130px_150px_140px] gap-4 pb-3 border-b border-[#e5e7eb]">
-                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">{t("settings.domainName")}</p>
-                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">{t("settings.status")}</p>
-                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">{t("settings.dateAdded")}</p>
-                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider text-right">{t("settings.actions")}</p>
+                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">Domain Name</p>
+                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">Status</p>
+                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">Date Added</p>
+                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider text-right">Actions</p>
                     </div>
 
                     {domains.map((d) => (
@@ -3244,31 +3201,31 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                           <div>
                             <p className="text-[14px] font-medium text-[#1a1a2e]">{d.domain}</p>
                             {(d.status === "ssl_provisioning" || d.status === "pending" || d.status === "verifying") && (
-                              <p className="text-[11px] text-[#9ca3af] mt-0.5">{t("settings.fallback")} <SmartLink href={`https://${username}.storelib.com`} className="text-[#7c3aed] hover:underline">{username}.storelib.com</SmartLink></p>
+                              <p className="text-[11px] text-[#9ca3af] mt-0.5">Fallback: <SmartLink href={`https://${username}.storelib.com`} className="text-[#7c3aed] hover:underline">{username}.storelib.com</SmartLink></p>
                             )}
                           </div>
                           <div className="flex items-center gap-1.5">
                             {d.status === "active" ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-semibold rounded-full">
-                                <CheckCircle className="h-3 w-3" /> {t("settings.connected")}
+                                <CheckCircle className="h-3 w-3" /> Connected
                               </span>
                             ) : d.status === "ssl_provisioning" ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-[11px] font-semibold rounded-full">
-                                <Loader2 className="h-3 w-3 animate-spin" /> {t("settings.sslPending")}
+                                <Loader2 className="h-3 w-3 animate-spin" /> SSL Pending
                               </span>
                             ) : d.status === "verifying" ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] font-semibold rounded-full">
-                                <Loader2 className="h-3 w-3 animate-spin" /> {t("settings.verifying")}
+                                <Loader2 className="h-3 w-3 animate-spin" /> Verifying
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-600 text-[11px] font-semibold rounded-full">
-                                <Clock className="h-3 w-3" /> {t("settings.pending")}
+                                <Clock className="h-3 w-3" /> Pending
                               </span>
                             )}
                             <div className="relative group">
                               <Info className="h-3.5 w-3.5 text-[#c0c5cc] hover:text-[#9ca3af] transition-colors cursor-help" />
                               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 bg-[#1a1a2e] text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                {d.status === "active" ? t("settings.domainLive") : d.status === "ssl_provisioning" ? t("settings.issuingSsl") : d.status === "verifying" ? t("settings.checkingDns") : t("settings.awaitingDns")}
+                                {d.status === "active" ? "Domain is live" : d.status === "ssl_provisioning" ? "Issuing SSL cert" : d.status === "verifying" ? "Checking DNS records" : "Awaiting DNS setup"}
                                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1a1a2e]" />
                               </div>
                             </div>
@@ -3283,7 +3240,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                                 disabled={domainVerifying === d.id}
                                 className="h-8 px-3 text-[12px] font-medium text-[#7c3aed] border border-[#ede9fe] bg-[#f5f3ff] hover:bg-[#ede9fe] rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
                               >
-                                {domainVerifying === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : t("settings.verify")}
+                                {domainVerifying === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Verify"}
                               </button>
                             )}
                             <button
@@ -3291,7 +3248,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                               disabled={domainRemoving === d.id}
                               className="h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] hover:text-red-600 hover:border-red-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
                             >
-                              {domainRemoving === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : t("settings.remove")}
+                              {domainRemoving === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
                             </button>
                           </div>
                         </div>
@@ -3311,33 +3268,33 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                             <div className="flex items-center gap-1.5">
                               {d.status === "active" ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-semibold rounded-full">
-                                  <CheckCircle className="h-3 w-3" /> {t("settings.connected")}
+                                  <CheckCircle className="h-3 w-3" /> Connected
                                 </span>
                               ) : d.status === "ssl_provisioning" ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-[11px] font-semibold rounded-full">
-                                  <Loader2 className="h-3 w-3 animate-spin" /> {t("settings.sslPending")}
+                                  <Loader2 className="h-3 w-3 animate-spin" /> SSL Pending
                                 </span>
                               ) : d.status === "verifying" ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] font-semibold rounded-full">
-                                  <Loader2 className="h-3 w-3 animate-spin" /> {t("settings.verifying")}
+                                  <Loader2 className="h-3 w-3 animate-spin" /> Verifying
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-600 text-[11px] font-semibold rounded-full">
-                                  <Clock className="h-3 w-3" /> {t("settings.pending")}
+                                  <Clock className="h-3 w-3" /> Pending
                                 </span>
                               )}
                               <div className="relative group">
                                 <Info className="h-3.5 w-3.5 text-[#c0c5cc] hover:text-[#9ca3af] transition-colors cursor-help" />
                                 <div className="absolute bottom-full right-0 mb-1.5 px-2.5 py-1.5 bg-[#1a1a2e] text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                  {d.status === "active" ? t("settings.domainLive") : d.status === "ssl_provisioning" ? t("settings.issuingSsl") : d.status === "verifying" ? t("settings.checkingDns") : t("settings.awaitingDns")}
+                                  {d.status === "active" ? "Domain is live" : d.status === "ssl_provisioning" ? "Issuing SSL cert" : d.status === "verifying" ? "Checking DNS records" : "Awaiting DNS setup"}
                                   <div className="absolute top-full right-3 border-4 border-transparent border-t-[#1a1a2e]" />
                                 </div>
                               </div>
                             </div>
                           </div>
-                          <p className="text-[12px] text-[#9ca3af] mb-1">{t("settings.added")} {new Date(d.created_at).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}</p>
+                          <p className="text-[12px] text-[#9ca3af] mb-1">Added {new Date(d.created_at).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}</p>
                           {(d.status === "ssl_provisioning" || d.status === "pending" || d.status === "verifying") && (
-                            <p className="text-[11px] text-[#9ca3af] mb-2">{t("settings.fallback")} <SmartLink href={`https://${username}.storelib.com`} className="text-[#7c3aed] hover:underline">{username}.storelib.com</SmartLink></p>
+                            <p className="text-[11px] text-[#9ca3af] mb-2">Fallback: <SmartLink href={`https://${username}.storelib.com`} className="text-[#7c3aed] hover:underline">{username}.storelib.com</SmartLink></p>
                           )}
                           <div className="flex items-center gap-2">
                             {d.status !== "active" && (
@@ -3346,7 +3303,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                                 disabled={domainVerifying === d.id}
                                 className="flex-1 h-9 text-[12px] font-medium text-[#7c3aed] bg-[#f5f3ff] rounded-lg hover:bg-[#ede9fe] transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
                               >
-                                {domainVerifying === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("settings.verifyDns")}
+                                {domainVerifying === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Verify DNS"}
                               </button>
                             )}
                             <button
@@ -3354,7 +3311,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                               disabled={domainRemoving === d.id}
                               className={`h-9 px-4 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:text-red-600 hover:border-red-200 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1 ${d.status === "active" ? "flex-1" : ""}`}
                             >
-                              {domainRemoving === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : t("settings.remove")}
+                              {domainRemoving === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
                             </button>
                           </div>
                         </div>
@@ -3367,44 +3324,44 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* DNS Setup Instructions */}
               {domains.some((d) => d.status !== "active") && (
                 <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                  <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-3">{t("settings.dnsSetupTitle")}</h3>
-                  <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.dnsSetupDescA")} <span className="font-medium">www.yourdomain.com</span> {t("settings.dnsSetupDescB")}</p>
+                  <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-3">DNS Setup Instructions</h3>
+                  <p className="text-[13px] text-[#6b7280] mb-4">Add both DNS records below at your registrar. Your site will be served at <span className="font-medium">www.yourdomain.com</span> (apex auto-redirects to www). Set TTL to 300 for faster propagation.</p>
 
                   <div className="space-y-4">
                     {/* A Record for apex domain */}
                     <div className="bg-[#f9fafb] rounded-xl p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-[12px] font-semibold text-[#374151]">{t("settings.step1ARecord")} <span className="font-normal text-[#6b7280]">{t("settings.apexDomain")} ({domains.find((d) => d.status !== "active")?.domain || "yourdomain.com"})</span></p>
+                        <p className="text-[12px] font-semibold text-[#374151]">Step 1: A Record <span className="font-normal text-[#6b7280]">— apex domain ({domains.find((d) => d.status !== "active")?.domain || "yourdomain.com"})</span></p>
                         {dnsRecordStatus && (
                           <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${dnsRecordStatus.aRecord ? "text-green-600" : "text-[#9ca3af]"}`}>
                             {dnsRecordStatus.aRecord ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                            {dnsRecordStatus.aRecord ? t("settings.verified") : t("settings.notFound")}
+                            {dnsRecordStatus.aRecord ? "Verified" : "Not found"}
                           </span>
                         )}
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-[12px]">
-                          <span className="text-[#6b7280] w-14">{t("settings.type")}</span>
+                          <span className="text-[#6b7280] w-14">Type:</span>
                           <span className="font-mono font-medium text-[#1a1a2e]">A</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#6b7280] w-14">{t("settings.name")}</span>
+                            <span className="text-[#6b7280] w-14">Name:</span>
                             <span className="font-mono font-medium text-[#1a1a2e]">@</span>
                           </div>
                           <button onClick={() => copyToClipboard("@")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
                             {copiedValue === "@" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            {copiedValue === "@" ? t("settings.copied") : t("settings.copy")}
+                            {copiedValue === "@" ? "Copied" : "Copy"}
                           </button>
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#6b7280] w-14">{t("settings.value")}</span>
+                            <span className="text-[#6b7280] w-14">Value:</span>
                             <span className="font-mono font-medium text-[#7c3aed]">216.150.1.1</span>
                           </div>
                           <button onClick={() => copyToClipboard("216.150.1.1")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
                             {copiedValue === "216.150.1.1" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            {copiedValue === "216.150.1.1" ? t("settings.copied") : t("settings.copy")}
+                            {copiedValue === "216.150.1.1" ? "Copied" : "Copy"}
                           </button>
                         </div>
                       </div>
@@ -3413,41 +3370,41 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     {/* CNAME Record for www */}
                     <div className="bg-[#f9fafb] rounded-xl p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-[12px] font-semibold text-[#374151]">{t("settings.step2Cname")} <span className="font-normal text-[#6b7280]">{t("settings.wwwSubdomain")} (www.{domains.find((d) => d.status !== "active")?.domain || "yourdomain.com"})</span></p>
+                        <p className="text-[12px] font-semibold text-[#374151]">Step 2: CNAME Record <span className="font-normal text-[#6b7280]">— www subdomain (www.{domains.find((d) => d.status !== "active")?.domain || "yourdomain.com"})</span></p>
                         {dnsRecordStatus && (
                           <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${dnsRecordStatus.cname ? "text-green-600" : "text-[#9ca3af]"}`}>
                             {dnsRecordStatus.cname ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                            {dnsRecordStatus.cname ? t("settings.verified") : t("settings.notFound")}
+                            {dnsRecordStatus.cname ? "Verified" : "Not found"}
                           </span>
                         )}
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-[12px]">
-                          <span className="text-[#6b7280] w-14">{t("settings.type")}</span>
+                          <span className="text-[#6b7280] w-14">Type:</span>
                           <span className="font-mono font-medium text-[#1a1a2e]">CNAME</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#6b7280] w-14">{t("settings.name")}</span>
+                            <span className="text-[#6b7280] w-14">Name:</span>
                             <span className="font-mono font-medium text-[#1a1a2e]">www</span>
                             <span className="relative group">
                               <Info className="h-3 w-3 text-[#9ca3af] cursor-help" />
-                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 bg-[#1a1a2e] text-white text-[10px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">{t("settings.wwwTooltip")}</span>
+                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 bg-[#1a1a2e] text-white text-[10px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">Enter &quot;www&quot; or &quot;@&quot; — try both if one doesn&apos;t work</span>
                             </span>
                           </div>
                           <button onClick={() => copyToClipboard("www")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
                             {copiedValue === "www" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            {copiedValue === "www" ? t("settings.copied") : t("settings.copy")}
+                            {copiedValue === "www" ? "Copied" : "Copy"}
                           </button>
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#6b7280] w-14">{t("settings.value")}</span>
+                            <span className="text-[#6b7280] w-14">Value:</span>
                             <span className="font-mono font-medium text-[#7c3aed]">cname.vercel-dns.com</span>
                           </div>
                           <button onClick={() => copyToClipboard("cname.vercel-dns.com")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
                             {copiedValue === "cname.vercel-dns.com" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            {copiedValue === "cname.vercel-dns.com" ? t("settings.copied") : t("settings.copy")}
+                            {copiedValue === "cname.vercel-dns.com" ? "Copied" : "Copy"}
                           </button>
                         </div>
                       </div>
@@ -3457,37 +3414,37 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     {domains.filter((d) => d.status !== "active" && d.status !== "ssl_provisioning").map((d) => (
                       <div key={d.id} className="bg-[#f9fafb] rounded-xl p-4">
                         <div className="flex items-center justify-between mb-3">
-                          <p className="text-[12px] font-semibold text-[#374151]">{t("settings.step3Txt")} ({d.domain})</p>
+                          <p className="text-[12px] font-semibold text-[#374151]">Step 3: TXT Record for verification ({d.domain})</p>
                           {dnsRecordStatus && (
                             <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${dnsRecordStatus.txt ? "text-green-600" : "text-[#9ca3af]"}`}>
                               {dnsRecordStatus.txt ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                              {dnsRecordStatus.txt ? t("settings.verified") : t("settings.notFound")}
+                              {dnsRecordStatus.txt ? "Verified" : "Not found"}
                             </span>
                           )}
                         </div>
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#6b7280] w-14">{t("settings.type")}</span>
+                            <span className="text-[#6b7280] w-14">Type:</span>
                             <span className="font-mono font-medium text-[#1a1a2e]">TXT</span>
                           </div>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-[12px]">
-                              <span className="text-[#6b7280] w-14">{t("settings.name")}</span>
+                              <span className="text-[#6b7280] w-14">Name:</span>
                               <span className="font-mono font-medium text-[#1a1a2e]">_storelib</span>
                             </div>
                             <button onClick={() => copyToClipboard("_storelib")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
                               {copiedValue === "_storelib" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                              {copiedValue === "_storelib" ? t("settings.copied") : t("settings.copy")}
+                              {copiedValue === "_storelib" ? "Copied" : "Copy"}
                             </button>
                           </div>
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-start gap-2 text-[12px] min-w-0">
-                              <span className="text-[#6b7280] w-14 shrink-0">{t("settings.value")}</span>
+                              <span className="text-[#6b7280] w-14 shrink-0">Value:</span>
                               <span className="font-mono font-medium text-[#7c3aed] break-all text-[11px]">{d.verification_token}</span>
                             </div>
                             <button onClick={() => copyToClipboard(d.verification_token)} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1 shrink-0">
                               {copiedValue === d.verification_token ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                              {copiedValue === d.verification_token ? t("settings.copied") : t("settings.copy")}
+                              {copiedValue === d.verification_token ? "Copied" : "Copy"}
                             </button>
                           </div>
                         </div>
@@ -3497,34 +3454,34 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     {/* SSL Provisioning notice */}
                     {domains.some((d) => d.status === "ssl_provisioning") && (
                       <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                        <p className="text-[13px] font-medium text-blue-800 mb-1">{t("settings.sslIssuing")}</p>
-                        <p className="text-[12px] text-blue-600">{t("settings.sslIssuingDesc")}</p>
+                        <p className="text-[13px] font-medium text-blue-800 mb-1">SSL certificate is being issued</p>
+                        <p className="text-[12px] text-blue-600">Your DNS is correctly configured. An SSL certificate is being provisioned automatically. This usually takes 1-10 minutes. This page will update automatically when complete.</p>
                       </div>
                     )}
 
                     {/* Cloudflare tip */}
                     <div className="bg-amber-50/60 rounded-xl p-4 border border-amber-100">
-                      <p className="text-[12px] font-semibold text-amber-800 mb-1">{t("settings.usingCloudflare")}</p>
-                      <p className="text-[11px] text-amber-700">{t("settings.cloudflareDesc")}</p>
+                      <p className="text-[12px] font-semibold text-amber-800 mb-1">Using Cloudflare?</p>
+                      <p className="text-[11px] text-amber-700">Set the DNS records to &quot;DNS only&quot; (grey cloud icon, not orange proxy). Set SSL mode to &quot;Full (strict)&quot;. The orange proxy can block SSL certificate issuance.</p>
                     </div>
 
-                    <p className="text-[11px] text-[#b0b5bd] leading-relaxed">{t("settings.dnsPropagation")}</p>
+                    <p className="text-[11px] text-[#b0b5bd] leading-relaxed">DNS propagation may take a few minutes to 48 hours. Click &quot;Verify&quot; after adding records. Remove any conflicting A, AAAA, or CNAME records.</p>
                   </div>
                 </div>
               )}
 
               {/* How Custom Domains Work */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">{t("settings.howDomainsWork")}</h3>
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">How Custom Domains Work</h3>
                 {(() => {
                   const activeDomain = domains.find((d) => d.status === "active")?.domain
                   const displayDomain = activeDomain || "yourdomain.com"
                   return (
                     <div className="space-y-3">
                       {[
-                        { title: t("settings.yourStore"), from: `${username}.storelib.com`, to: displayDomain },
-                        { title: t("settings.yourOnepage"), from: `${username}.storelib.com/links`, to: `${displayDomain}/links` },
-                        { title: t("settings.productPages"), from: `${username}.storelib.com/p/...`, to: `${displayDomain}/p/...` },
+                        { title: "Your Store", from: `${username}.storelib.com`, to: displayDomain },
+                        { title: "Your OnePage", from: `${username}.storelib.com/links`, to: `${displayDomain}/links` },
+                        { title: "Product Pages", from: `${username}.storelib.com/p/...`, to: `${displayDomain}/p/...` },
                       ].map((item, i) => (
                         <div key={i} className="group bg-[#f9fafb] hover:bg-[#f5f3ff]/50 rounded-xl p-3.5 border border-[#e5e7eb] hover:border-[#ede9fe] transition-all duration-200">
                           <p className="text-[13px] font-semibold text-[#374151] mb-2">{item.title}</p>
@@ -3535,7 +3492,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                           </div>
                         </div>
                       ))}
-                      <p className="text-[11px] text-[#9ca3af] mt-2">{t("settings.marketplaceTraffic")} <span className="font-mono">{username}.storelib.com</span></p>
+                      <p className="text-[11px] text-[#9ca3af] mt-2">Marketplace traffic continues to work via <span className="font-mono">{username}.storelib.com</span></p>
                     </div>
                   )
                 })()}
@@ -3637,29 +3594,29 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       <CountrySelectorModal isOpen={showCountryModal} onClose={() => setShowCountryModal(false)} selectedCountry={country} onSelect={setCountry} />
 
       {/* Email Change Modal */}
-      <MobileBottomSheet isOpen={showEmailChangeModal} onClose={closeEmailChangeModal} title={emailChangeStep === "input" ? t("settings.changeEmailTitle") : t("settings.verifyNewEmail")}>
+      <MobileBottomSheet isOpen={showEmailChangeModal} onClose={closeEmailChangeModal} title={emailChangeStep === "input" ? "Change Email Address" : "Verify Your New Email"}>
         {emailChangeSuccess ? (
           <div className="text-center py-6">
             <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <Check className="h-7 w-7 text-emerald-600" />
             </div>
-            <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">{t("settings.emailUpdated")}</h3>
-            <p className="text-[13px] text-[#6b7280]">{t("settings.emailChangedSuccess")}</p>
+            <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">Email Updated!</h3>
+            <p className="text-[13px] text-[#6b7280]">Your email has been successfully changed.</p>
           </div>
         ) : emailChangeStep === "input" ? (
           <div className="space-y-4">
-            <p className="text-[13px] text-[#6b7280]">{t("settings.enterNewEmailDesc")}</p>
+            <p className="text-[13px] text-[#6b7280]">Enter your new email address. We&apos;ll send a verification code to confirm.</p>
             <div className="space-y-1.5">
-              <Label className="text-[13px] font-medium text-[#374151]">{t("settings.currentEmail")}</Label>
+              <Label className="text-[13px] font-medium text-[#374151]">Current Email</Label>
               <Input value={currentEmail} disabled className="h-11 bg-[#f9fafb] border-[#e5e7eb] rounded-xl text-[14px]" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px] font-medium text-[#374151]">{t("settings.newEmail")}</Label>
+              <Label className="text-[13px] font-medium text-[#374151]">New Email</Label>
               <Input
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
-                placeholder={t("settings.enterNewEmailPlaceholder")}
+                placeholder="Enter new email address"
                 className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
               />
             </div>
@@ -3673,17 +3630,17 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {emailChangeLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("settings.sendingCode")}
+                  Sending Code...
                 </>
               ) : (
-                t("settings.sendVerificationCode")
+                "Send Verification Code"
               )}
             </button>
           </div>
         ) : (
           <div className="space-y-4">
             <p className="text-[13px] text-[#6b7280]">
-              {t("settings.enter6Digit")} <span className="font-medium text-[#1a1a2e]">{newEmail}</span>
+              Enter the 6-digit code we sent to <span className="font-medium text-[#1a1a2e]">{newEmail}</span>
             </p>
             <div className="flex justify-center gap-2">
               {verificationCode.map((digit, index) => (
@@ -3712,10 +3669,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {emailChangeLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("settings.verifyingEllipsis")}
+                  Verifying...
                 </>
               ) : (
-                t("settings.verifyChangeEmail")
+                "Verify & Change Email"
               )}
             </button>
             <button
@@ -3726,14 +3683,14 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               }}
               className="w-full text-[13px] text-[#6b7280] hover:text-[#374151] py-2"
             >
-              {t("settings.useDifferentEmail")}
+              Use a different email
             </button>
           </div>
         )}
       </MobileBottomSheet>
 
       {/* Language Selector Modal */}
-      <MobileBottomSheet isOpen={showLanguageModal} onClose={() => setShowLanguageModal(false)} title={t("settings.selectLanguage")}>
+      <MobileBottomSheet isOpen={showLanguageModal} onClose={() => setShowLanguageModal(false)} title="Select Language">
         <div className="space-y-1 max-h-[60vh] overflow-y-auto">
           {LANGUAGES.map((lang) => (
             <button
@@ -3758,7 +3715,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       </MobileBottomSheet>
 
       {/* Timezone Selector Modal */}
-      <MobileBottomSheet isOpen={showTimezoneModal} onClose={() => setShowTimezoneModal(false)} title={t("settings.selectTimezone")}>
+      <MobileBottomSheet isOpen={showTimezoneModal} onClose={() => setShowTimezoneModal(false)} title="Select Timezone">
         <div className="space-y-1 max-h-[60vh] overflow-y-auto">
           {TIMEZONES.map((tz) => (
             <button
@@ -3794,7 +3751,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           setDeleteVerificationCode(["", "", "", "", "", ""])
           setDeleteError(null)
         }}
-        title={deleteStep === "confirm" ? t("settings.deleteAccount") : t("settings.verifyDeletion")}
+        title={deleteStep === "confirm" ? "Delete Account" : "Verify Deletion"}
       >
         {deleteStep === "confirm" ? (
           <div className="space-y-4">
@@ -3804,15 +3761,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <Trash2 className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <p className="font-medium text-white text-[14px]">{t("settings.cannotBeUndone")}</p>
+                  <p className="font-medium text-white text-[14px]">This action cannot be undone</p>
                   <p className="text-[13px] text-[#9ca3af] mt-1">
-                    {t("settings.deleteWarning")}
+                    Deleting your account will permanently remove all your data, including products, customers, and sales history.
                   </p>
                 </div>
               </div>
             </div>
             <p className="text-[13px] text-[#6b7280]">
-              {t("settings.deleteSendCodeA")} <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> {t("settings.deleteSendCodeB")}
+              We&apos;ll send a verification code to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> to confirm this action.
             </p>
             {deleteError && <p className="text-[13px] text-white bg-[#1a1a2e] p-3 rounded-xl">{deleteError}</p>}
             <div className="flex gap-3">
@@ -3824,7 +3781,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 }}
                 className="flex-1 h-11 text-[14px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors cursor-pointer"
               >
-                {t("common.cancel")}
+                Cancel
               </button>
               <button
                 type="button"
@@ -3835,10 +3792,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 {deleteLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {t("settings.sending")}
+                    Sending...
                   </>
                 ) : (
-                  t("settings.sendCode")
+                  "Send Code"
                 )}
               </button>
             </div>
@@ -3846,7 +3803,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         ) : (
           <div className="space-y-4">
             <p className="text-[13px] text-[#6b7280]">
-              {t("settings.enter6Digit")} <span className="font-medium text-[#1a1a2e]">{currentEmail}</span>
+              Enter the 6-digit code we sent to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span>
             </p>
             <div className="flex justify-center gap-2">
               {deleteVerificationCode.map((digit, index) => (
@@ -3875,10 +3832,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {deleteLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("settings.deleting")}
+                  Deleting...
                 </>
               ) : (
-                t("settings.permanentlyDelete")
+                "Permanently Delete Account"
               )}
             </button>
             <button
@@ -3889,7 +3846,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               }}
               className="w-full text-[13px] text-[#6b7280] hover:text-[#374151] py-2 cursor-pointer"
             >
-              {t("settings.goBack")}
+              Go back
             </button>
           </div>
         )}

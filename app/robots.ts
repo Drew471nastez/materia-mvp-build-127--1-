@@ -1,30 +1,17 @@
 import type { MetadataRoute } from "next"
 
-// The feed lives on "/" (and, for the native app, on /explore). Its sort/search
-// permutations are infinite crawl surface, so both prefixes are disallowed.
-const DISALLOW = [
-  "/admin/",
-  "/api/",
-  "/app/",
-  "/auth/",
-  "/?sort=",
-  "/?q=",
-  "/explore?sort=",
-  "/explore?q=",
-]
-
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
         userAgent: "*",
         allow: "/",
-        disallow: DISALLOW,
+        disallow: ["/admin/", "/api/", "/app/", "/auth/", "/explore?sort=", "/explore?q="],
       },
       {
         userAgent: "Googlebot",
         allow: "/",
-        disallow: DISALLOW,
+        disallow: ["/admin/", "/api/", "/app/", "/auth/", "/explore?sort=", "/explore?q="],
       },
     ],
     sitemap: "https://storelib.com/sitemap.xml",

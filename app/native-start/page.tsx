@@ -16,8 +16,6 @@
  */
 
 import { useEffect } from "react"
-import { isAuthInProgress, setAuthInProgress } from "@/lib/auth/auth-in-progress"
-import { hasStoredSessionToken } from "@/lib/auth/session-read"
 
 export default function NativeStartPage() {
   useEffect(() => {
@@ -48,7 +46,7 @@ export default function NativeStartPage() {
             lu.includes("type=recovery") &&
             lu.includes("access_token=")
           if (isBridgeReset || isRecovery) {
-            setAuthInProgress(true)
+            try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch { /* ignore */ }
             if (isBridgeReset) {
               try {
                 const code = new URL(lu).searchParams.get("code")
@@ -78,9 +76,7 @@ export default function NativeStartPage() {
           const sessionRaw = localStorage.getItem(`sb-${ref}-auth-token`)
           const cachedHome = localStorage.getItem("sb-native-home")
           if (sessionRaw && cachedHome) {
-            // Depop/Vinted-style: open straight to the marketplace feed for any
-            // signed-in user (not the seller dashboard).
-            safeRedirect("/")
+            safeRedirect(cachedHome)
             return
           }
         }
@@ -98,7 +94,7 @@ export default function NativeStartPage() {
           // Use cached destination if available — avoids a DB round-trip.
           const cached = await getCachedNativeHome()
           if (cached) {
-            safeRedirect("/")
+            safeRedirect(cached)
             return
           }
 
@@ -112,8 +108,8 @@ export default function NativeStartPage() {
             .maybeSingle()
 
           if (creator?.onboarding_completed) {
-            await cacheNativeHome("/")
-            safeRedirect("/")
+            await cacheNativeHome("/app")
+            safeRedirect("/app")
             return
           }
 
@@ -124,8 +120,9 @@ export default function NativeStartPage() {
             .maybeSingle()
 
           if (profile?.welcome_completed) {
-            await cacheNativeHome("/")
-            safeRedirect("/")
+            const dest = profile.is_creator ? "/app" : "/library"
+            await cacheNativeHome(dest)
+            safeRedirect(dest)
             return
           }
 
@@ -145,7 +142,8 @@ export default function NativeStartPage() {
         try { rawLocal = localStorage.getItem(authKey) } catch { /* ignore */ }
 
         if (rawPrefs || rawLocal) {
-          safeRedirect("/")
+          const cached = await getCachedNativeHome()
+          safeRedirect(cached || "/app")
           return
         }
       } catch (err) {
@@ -155,7 +153,7 @@ export default function NativeStartPage() {
         try {
           const cachedHome = localStorage.getItem("sb-native-home")
           if (cachedHome) {
-            safeRedirect("/")
+            safeRedirect(cachedHome)
             return
           }
         } catch { /* ignore */ }
@@ -172,29 +170,10 @@ export default function NativeStartPage() {
     const timeout = setTimeout(() => {
       if (didRedirect) return
       console.warn("[native-start] resolve() timed out after 8 s — forcing redirect")
-      /**
-       * A TIMEOUT IS NOT A SIGNED-OUT.
-       *
-       * This checked only `sb-native-home` — a CACHE of where to send you,
-       * which a signed-in person on a fresh install simply does not have yet.
-       * Missing it, this fell through to /welcome: the signed-out screen,
-       * shown to somebody whose session was sitting in storage the whole time.
-       * That is the cold-start half of "randomly it just logs me out", and on
-       * this route it is the first thing that happens when you open the app.
-       *
-       * The stored auth token is the durable evidence, and reading it is
-       * synchronous and cannot hang — which is exactly why it is safe to
-       * consult in a handler that only runs because something else did hang.
-       * /welcome is now reserved for having actually looked and found nothing.
-       */
       try {
-        if (hasStoredSessionToken()) {
-          safeRedirect("/")
-          return
-        }
         const cachedHome = localStorage.getItem("sb-native-home")
         if (cachedHome) {
-          safeRedirect("/")
+          safeRedirect(cachedHome)
           return
         }
       } catch { /* ignore */ }
@@ -229,7 +208,7 @@ export default function NativeStartPage() {
         style={{
           position: "fixed",
           inset: 0,
-          background: "#ffffff",
+          background: "#f2f2f2",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

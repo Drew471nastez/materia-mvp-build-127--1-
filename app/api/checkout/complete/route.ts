@@ -1,4 +1,3 @@
-import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
 import { NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@/lib/supabase/server"
@@ -147,7 +146,7 @@ export async function GET(request: Request) {
         fee_cents: applicationFeeCents,
         transfer_id: transferId,
         application_fee_cents: applicationFeeCents,
-        currency: PLATFORM_CURRENCY,
+        currency: "usd",
         provider: "stripe",
         status: "completed",
         stripe_session_id: sessionId,

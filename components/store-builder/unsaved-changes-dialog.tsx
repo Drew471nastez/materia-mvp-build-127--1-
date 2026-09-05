@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
-import { useLocale } from "@/components/locale-provider"
 
 interface UnsavedChangesDialogProps {
   open: boolean
@@ -27,7 +26,6 @@ export function UnsavedChangesDialog({
   onDiscard,
   isSaving = false,
 }: UnsavedChangesDialogProps) {
-  const { t } = useLocale()
   const handleSave = async () => {
     await onSave()
   }
@@ -36,9 +34,9 @@ export function UnsavedChangesDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="sm:max-w-[565px]">
         <AlertDialogHeader>
-          <AlertDialogTitle>{t("builder.unsaved.title")}</AlertDialogTitle>
+          <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
           <AlertDialogDescription>
-            {t("builder.unsaved.description")}
+            You have unsaved changes. Would you like to save them before leaving?
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col sm:flex-row gap-2">
@@ -48,7 +46,7 @@ export function UnsavedChangesDialog({
             disabled={isSaving}
             className="border-gray-300 text-gray-700 hover:bg-gray-50"
           >
-            {t("builder.common.cancel")}
+            Cancel
           </Button>
           <Button
             variant="outline"
@@ -56,7 +54,7 @@ export function UnsavedChangesDialog({
             disabled={isSaving}
             className="border-gray-300 text-gray-700 hover:bg-gray-50"
           >
-            {t("builder.unsaved.discard")}
+            Discard Changes
           </Button>
           <Button
             onClick={handleSave}
@@ -66,10 +64,10 @@ export function UnsavedChangesDialog({
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {t("builder.common.saving")}
+                Saving...
               </>
             ) : (
-              t("builder.unsaved.save")
+              "Save Changes"
             )}
           </Button>
         </AlertDialogFooter>

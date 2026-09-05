@@ -13,14 +13,6 @@
     {
       "path": "/api/cron/rollup-daily",
       "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/cron/activity-digest",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/shipping-awb",
-      "schedule": "*/10 * * * *"
     }
   ],
   "rewrites": [

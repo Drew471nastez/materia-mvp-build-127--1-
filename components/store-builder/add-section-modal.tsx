@@ -16,7 +16,6 @@ import { sectionLibrary, createSectionFromLibrary } from "@/lib/store-builder/de
 import type { SectionLibraryItem, SectionSettings, Section } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
 import { UnifiedSectionRenderer } from "./unified-section-renderer"
-import { useLocale } from "@/components/locale-provider"
 
 interface AddSectionModalProps {
   open: boolean
@@ -24,12 +23,12 @@ interface AddSectionModalProps {
 }
 
 const SECTION_CATEGORIES = [
-  { key: "all", labelKey: "builder.addSection.catAll" },
-  { key: "image-text", labelKey: "builder.addSection.catImageText" },
-  { key: "content", labelKey: "builder.addSection.catContent" },
-  { key: "marketing", labelKey: "builder.addSection.catMarketing" },
-  { key: "commerce", labelKey: "builder.addSection.catProducts" },
-  { key: "info", labelKey: "builder.addSection.catInformation" },
+  { key: "all", label: "All" },
+  { key: "image-text", label: "Image + Text" },
+  { key: "content", label: "Content" },
+  { key: "marketing", label: "Marketing" },
+  { key: "commerce", label: "Products" },
+  { key: "info", label: "Information" },
 ]
 
 const CATEGORY_FILTER: Record<string, string[]> = {
@@ -41,7 +40,6 @@ const CATEGORY_FILTER: Record<string, string[]> = {
 }
 
 export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
-  const { t } = useLocale()
   const { draftConfig, addSection, products } = useStoreBuilder()
   const [activeCategory, setActiveCategory] = useState("all")
   const [isMobileLayout, setIsMobileLayout] = useState(false)
@@ -89,7 +87,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
           {/* Mobile header */}
           <div className="flex items-center justify-between px-5 pt-3 pb-3 shrink-0" data-drag-handle="true">
             <div>
-              <h2 className="text-base font-semibold text-foreground">{t("builder.addSection.mobileTitle")}</h2>
+              <h2 className="text-base font-semibold text-foreground">Add Section</h2>
             </div>
             <button
               onClick={() => onOpenChange(false)}
@@ -113,7 +111,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
                       : "bg-muted text-muted-foreground hover:bg-muted/70 active:scale-95"
                   )}
                 >
-                  {t(cat.labelKey)}
+                  {cat.label}
                 </button>
               ))}
             </div>
@@ -135,7 +133,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
             </div>
             {filteredSections.length === 0 && (
               <div className="py-16 text-center text-muted-foreground">
-                <p className="text-sm">{t("builder.addSection.empty")}</p>
+                <p className="text-sm">No sections in this category</p>
               </div>
             )}
           </div>
@@ -156,8 +154,8 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
       >
         {/* Header */}
         <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
-          <DialogTitle className="text-lg font-semibold">{t("builder.addSection.title")}</DialogTitle>
-          <p className="text-sm text-muted-foreground">{t("builder.addSection.subtitle")}</p>
+          <DialogTitle className="text-lg font-semibold">Add New Section</DialogTitle>
+          <p className="text-sm text-muted-foreground">Choose a section type to add to your page</p>
         </DialogHeader>
 
         {/* Body: sidebar + grid */}
@@ -175,7 +173,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
                     : "text-muted-foreground hover:text-foreground hover:bg-background/60"
                 )}
               >
-                {t(cat.labelKey)}
+                {cat.label}
               </button>
             ))}
           </nav>
@@ -194,7 +192,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
             </div>
             {filteredSections.length === 0 && (
               <div className="py-16 text-center text-muted-foreground">
-                <p className="text-sm">{t("builder.addSection.empty")}</p>
+                <p className="text-sm">No sections in this category</p>
               </div>
             )}
           </div>

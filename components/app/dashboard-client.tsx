@@ -58,7 +58,7 @@ const LazyAreaChart = dynamic(
   { ssr: false, loading: () => <div className="w-full h-[200px] bg-neutral-50 animate-pulse rounded-xl" /> },
 )
 import { createClient } from "@/lib/supabase/client"
-import { useLocale } from "@/components/locale-provider"
+import { useLanguage } from "@/lib/i18n"
 import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
@@ -431,12 +431,12 @@ const stepIcons: Record<string, any> = {
 // Substeps for each main step - using translation keys
 const stepSubsteps: Record<string, { labelKey: string; check: (data: any) => boolean; href: string }[]> = {
   welcome: [
-    { labelKey: "setup.accountCreated", check: () => true, href: "/settings" },
+    { labelKey: "setup.accountCreated", check: () => true, href: "/app/settings" },
   ],
   branding: [
-    { labelKey: "setup.addPhoto", check: (d) => !!d.hasAvatar, href: "/settings" },
-    { labelKey: "setup.setName", check: (d) => !!d.hasName, href: "/settings" },
-    { labelKey: "setup.writeBio", check: (d) => !!d.hasBio, href: "/settings" },
+    { labelKey: "setup.addPhoto", check: (d) => !!d.hasAvatar, href: "/app/settings" },
+    { labelKey: "setup.setName", check: (d) => !!d.hasName, href: "/app/settings" },
+    { labelKey: "setup.writeBio", check: (d) => !!d.hasBio, href: "/app/settings" },
   ],
   product: [
     { labelKey: "setup.createAProduct", check: (d) => d.hasProducts, href: "/app/products/new" },
@@ -527,7 +527,6 @@ function QuickAccessRow({
   onAction: () => void
   onOpen: () => void
 }) {
-  const { t } = useLocale()
   const isSetupAction = actionLabel === "setup"
 
   return (
@@ -567,7 +566,7 @@ function QuickAccessRow({
           ) : (
             <CopyLinkIcon className="h-3.5 w-3.5" />
           )}
-          {isSetupAction ? t("dashboard.setUp") : isCopied ? t("dashboard.copied") : t("dashboard.copyLink")}
+          {isSetupAction ? "Set up" : isCopied ? "Copied" : "Copy link"}
         </button>
       </div>
     </div>
@@ -921,7 +920,7 @@ function TimeframeBottomSheet({
                     : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
                 }`}
               >
-                {t(`dashboard.tf_${option.value}`)}
+                {option.label}
               </button>
             ))}
           </div>
@@ -960,7 +959,6 @@ function QuickAccessBottomSheet({
   isOnePageReady: boolean
   onSetupOnePage: () => void
 }) {
-  const { t } = useLocale()
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [dragY, setDragY] = useState(0)
@@ -1075,11 +1073,11 @@ function QuickAccessBottomSheet({
           </div>
         </div>
         <div className="px-4 pb-5">
-          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">{t("dashboard.quickAccess")}</h3>
+          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Quick access</h3>
           <div className="space-y-2">
             <QuickAccessRow
               label="OnePage"
-              url={isOnePageReady ? onePageUrl : t("dashboard.setupOnePageLink")}
+              url={isOnePageReady ? onePageUrl : "Set up your OnePage to create a link"}
               actionLabel={isOnePageReady ? "copy" : "setup"}
               isCopied={isOnePageCopied}
               onAction={() => {
@@ -1103,7 +1101,7 @@ function QuickAccessBottomSheet({
             />
 
             <QuickAccessRow
-              label={t("dashboard.store")}
+              label="Store"
               url={storeUrl}
               actionLabel="copy"
               isCopied={isStoreCopied}
@@ -1271,7 +1269,7 @@ export function DashboardClient({
     : chartData
 
   const [liveVisitors, setLiveVisitors] = useState(0)
-  const { t } = useLocale()
+  const { t } = useLanguage()
   const { toast } = useToast()
   const [copiedTarget, setCopiedTarget] = useState<"onepage" | "store" | null>(null)
   const [copyNotice, setCopyNotice] = useState<string | null>(null)
@@ -1765,12 +1763,12 @@ export function DashboardClient({
     try {
       await navigator.clipboard.writeText(url)
       setCopiedTarget(target)
-      setCopyNotice(t("dashboard.linkCopied"))
-      toast({ title: t("dashboard.linkCopied") })
+      setCopyNotice("Link copied")
+      toast({ title: "Link copied" })
       setTimeout(() => setCopiedTarget((prev) => (prev === target ? null : prev)), 1800)
       setTimeout(() => setCopyNotice(null), 1800)
     } catch {
-      toast({ title: t("dashboard.copyFailed"), description: t("dashboard.copyFailedDesc"), variant: "destructive" })
+      toast({ title: "Copy failed", description: "Please copy the link manually.", variant: "destructive" })
     }
   }
 
@@ -2128,7 +2126,7 @@ export function DashboardClient({
                   </button>
                   {isProfileAccessVisible && (
                     <div className={`absolute left-0 top-full mt-2 w-[280px] sm:w-[320px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50 origin-top-left transition-all duration-180 ease-out ${isProfileAccessAnimating ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-1 scale-[0.98]"}`}>
-                      <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">{t("dashboard.quickAccess")}</p>
+                      <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">Quick access</p>
                       <div
                         role="button"
                         tabIndex={0}
@@ -2153,7 +2151,7 @@ export function DashboardClient({
                         className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
                       >
                         <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-2.5 h-2.5" stroke="#ffffff" /></span>OnePage</div>
-                        <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{hasOnePageSetup ? publicOnePageUrl : t("dashboard.setupOnePageLink")}</p><button type="button" onClick={(e) => { e.stopPropagation(); if (hasOnePageSetup) { copyQuickAccessUrl("onepage") } else { router.push("/app/onepage"); setIsProfileAccessOpen(false) } }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${hasOnePageSetup ? (copiedTarget === "onepage" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white") : "border-[#ddd6fe] bg-[#f5f3ff] text-[#6d28d9]"}`}>{hasOnePageSetup ? (copiedTarget === "onepage" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />) : <ArrowRight className="h-3 w-3" />}{hasOnePageSetup ? (copiedTarget === "onepage" ? t("dashboard.copied") : t("dashboard.copy")) : t("dashboard.setUp")}</button></div>
+                        <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{hasOnePageSetup ? publicOnePageUrl : "Set up your OnePage to create a link"}</p><button type="button" onClick={(e) => { e.stopPropagation(); if (hasOnePageSetup) { copyQuickAccessUrl("onepage") } else { router.push("/app/onepage"); setIsProfileAccessOpen(false) } }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${hasOnePageSetup ? (copiedTarget === "onepage" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white") : "border-[#ddd6fe] bg-[#f5f3ff] text-[#6d28d9]"}`}>{hasOnePageSetup ? (copiedTarget === "onepage" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />) : <ArrowRight className="h-3 w-3" />}{hasOnePageSetup ? (copiedTarget === "onepage" ? "Copied" : "Copy") : "Set up"}</button></div>
                       </div>
                       <div
                         role="button"
@@ -2165,8 +2163,8 @@ export function DashboardClient({
                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { openExternal(publicStoreUrl || navStoreUrl); setIsProfileAccessOpen(false) } }}
                         className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
                       >
-                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="Storelib" width={14} height={14} className="w-3.5 h-3.5 object-contain" loading="eager" decoding="async" /></span>{t("dashboard.store")}</div>
-                        <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{publicStoreUrl}</p><button type="button" onClick={(e) => { e.stopPropagation(); copyQuickAccessUrl("store") }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${copiedTarget === "store" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white"}`}>{copiedTarget === "store" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />}{copiedTarget === "store" ? t("dashboard.copied") : t("dashboard.copy")}</button></div>
+                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="Storelib" width={14} height={14} className="w-3.5 h-3.5 object-contain" loading="eager" decoding="async" /></span>Store</div>
+                        <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{publicStoreUrl}</p><button type="button" onClick={(e) => { e.stopPropagation(); copyQuickAccessUrl("store") }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${copiedTarget === "store" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white"}`}>{copiedTarget === "store" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />}{copiedTarget === "store" ? "Copied" : "Copy"}</button></div>
                       </div>
                     </div>
                   )}
@@ -2183,7 +2181,7 @@ export function DashboardClient({
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
               >
-                {selectedOption ? t(`dashboard.tf_${selectedOption.value}`) : t("dashboard.tf_last_7_days")}
+                {selectedOption?.label || "Last 7 days"}
                 <ChevronDown
                   className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`}
                 />
@@ -2203,7 +2201,7 @@ export function DashboardClient({
                           : "text-[#374151] hover:bg-[#f9fafb]"
                       }`}
                     >
-                      {t(`dashboard.tf_${option.value}`)}
+                      {option.label}
                     </button>
                   ))}
                 </div>
@@ -2249,7 +2247,7 @@ export function DashboardClient({
               onClick={() => setIsMobileSheetOpen(true)}
               className="w-fit inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-[0_1px_2px_rgba(0,0,0,0.03)] h-[38px]"
             >
-              {selectedOption ? t(`dashboard.tf_${selectedOption.value}`) : t("dashboard.tf_last_7_days")}
+              {selectedOption?.label || "Last 7 days"}
               <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
             </button>
           </div>
@@ -2328,7 +2326,7 @@ export function DashboardClient({
               <button
                 onClick={(e) => { e.stopPropagation(); setChartExpanded(!chartExpanded) }}
                 className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f3f4f6] md:bg-transparent hover:bg-[#e5e7eb] md:hover:bg-[#f3f4f6] transition-colors shrink-0"
-                title={chartExpanded ? t("dashboard.hideChart") : t("dashboard.showChart")}
+                title={chartExpanded ? "Hide chart" : "Show chart"}
               >
                 {chartExpanded ? (
                   <ChevronUp className="h-4 w-4 text-[#6b7280]" />
@@ -2360,12 +2358,12 @@ export function DashboardClient({
                   {!hasRealData && (
                     <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
                       <span className="text-[11px] text-[#c8ccd4]">
-                        {showSampleData ? t("dashboard.sampleData") : t("dashboard.noActivityYet")}
+                        {showSampleData ? "Sample data" : "No activity yet"}
                       </span>
                       <button
                         onClick={() => setShowSampleData(prev => !prev)}
                         className={`relative inline-flex h-4 w-7 rounded-full transition-colors cursor-pointer ${showSampleData ? "bg-indigo-300/80" : "bg-[#e9ecef]"}`}
-                        aria-label={showSampleData ? t("dashboard.hideSampleData") : t("dashboard.showSampleData")}
+                        aria-label={showSampleData ? "Hide sample data" : "Show sample data"}
                       >
                         <span className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 transition-transform ${showSampleData ? "translate-x-3.5" : "translate-x-0.5"}`} />
                       </button>
@@ -2393,30 +2391,30 @@ export function DashboardClient({
               {subscriptionPlanId === "growth" || subscriptionPlanId === "pro" ? (
                 /* Growth / Pro plan banner */
                 <>
-                  <p className="text-[16px] sm:text-[20px] font-medium text-white mb-1">{t("dashboard.trackRealtime")}</p>
-                  <p className="text-[13px] sm:text-[14px] text-white/80 mb-3 sm:mb-4">{t("dashboard.optimizeSales")}</p>
+                  <p className="text-[16px] sm:text-[20px] font-medium text-white mb-1">Track what&apos;s working in real time</p>
+                  <p className="text-[13px] sm:text-[14px] text-white/80 mb-3 sm:mb-4">Use your dashboard to optimize for more sales.</p>
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     <Link
                       href="/app/analytics"
                       className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-lg text-[12px] sm:text-[13px] font-semibold text-[#1a1a2e] hover:bg-white/90 transition-colors"
                     >
                       <BarChart3 className="h-3.5 w-3.5" />
-                      {t("dashboard.viewAnalytics")}
+                      View analytics
                     </Link>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[13px] sm:text-[15px] font-semibold text-white">{t("dashboard.unlockGrowth")}</span>
+                    <span className="text-[13px] sm:text-[15px] font-semibold text-white">Unlock Growth features</span>
                   </div>
-                  <p className="text-[14px] sm:text-[16px] text-white/90 mb-3 sm:mb-4">{t("dashboard.growthDesc")}</p>
+                  <p className="text-[14px] sm:text-[16px] text-white/90 mb-3 sm:mb-4">Scale faster with advanced tools, higher limits, and lower fees.</p>
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     <Link
                       href="/app/settings/billing/upgrade"
                       className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-lg text-[12px] sm:text-[13px] font-semibold text-[#1a1a2e] hover:bg-white/90 transition-colors"
                     >
-                      {t("dashboard.upgrade")}
+                      Upgrade
                     </Link>
                     <button
                       onClick={() => {
@@ -2428,7 +2426,7 @@ export function DashboardClient({
                       }}
                       className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-[12px] sm:text-[13px] font-medium text-white hover:bg-white/20 transition-colors cursor-pointer"
                     >
-                      {t("dashboard.features")}
+                      Features
                     </button>
                   </div>
                 </>
@@ -2618,11 +2616,11 @@ export function DashboardClient({
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                    {t("dashboard.addCustomDomain")}
+                    Add Custom Domain
                   </p>
                   <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
                 </div>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.addCustomDomainDesc")}</p>
+                <p className="text-[13px] text-[#6b7280] mt-0.5">Connect your own domain to your store</p>
               </div>
             </Link>
           </div>
@@ -2705,7 +2703,7 @@ export function DashboardClient({
       <QuickAccessBottomSheet
         isOpen={isQuickAccessMobileOpen}
         onClose={() => setIsQuickAccessMobileOpen(false)}
-        onePageUrl={hasOnePageSetup ? publicOnePageUrl : t("dashboard.setupOnePageLink")}
+        onePageUrl={hasOnePageSetup ? publicOnePageUrl : "Set up your OnePage to create a link"}
         storeUrl={publicStoreUrl}
         navOnePageUrl={hasOnePageSetup ? navOnePageUrl : undefined}
         navStoreUrl={navStoreUrl}

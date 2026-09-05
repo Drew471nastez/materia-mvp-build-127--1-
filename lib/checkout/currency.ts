@@ -115,7 +115,7 @@ export const BUYER_PROTECTION_FIXED_BY_CURRENCY: Record<PlatformCurrency, number
  * it. The percentage scales with the exposure; the fixed part puts a floor
  * under it — and the floor is graduated rather than flat so that a ten-lei sale
  * is not charged the same four lei as a fifteen-lei one, which was a 45%
- * surcharge on exactly the trade a second-hand marketplace lives on.
+ * surcharge on exactly the trade this platform lives on.
  *
  * The platform's cut is this fee and nothing else. There is no separate seller
  * commission — see SELLER_COMMISSION_PERCENT in lib/checkout/pricing.ts for why

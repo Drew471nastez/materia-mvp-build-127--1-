@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { useLocale } from "@/components/locale-provider"
 
 interface CountdownBannerProps {
   imageSrc: string
@@ -31,7 +30,6 @@ function pad(n: number) {
 }
 
 export function CountdownBanner({ imageSrc, imageAlt, priority = false }: CountdownBannerProps) {
-  const { t } = useLocale()
   const [time, setTime] = useState(getTimeRemaining)
   const [mounted, setMounted] = useState(false)
 
@@ -65,22 +63,22 @@ export function CountdownBanner({ imageSrc, imageAlt, priority = false }: Countd
         {/* Beta badge */}
         <div className="mb-5 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20">
           <span className="text-[13px] font-semibold text-white/90 tracking-wider uppercase">
-            {t("auth.beta_release")}
+            Beta Release
           </span>
         </div>
 
         {/* Heading */}
         <h2 className="text-white text-[22px] font-bold tracking-tight mb-6 text-center">
-          {t("auth.official_launch_in")}
+          Official Launch In
         </h2>
 
         {/* Countdown boxes */}
         <div className="flex items-center gap-3">
           {[
-            { value: mounted ? time.days : 0, label: "Days", tKey: "auth.days" },
-            { value: mounted ? time.hours : 0, label: "Hours", tKey: "auth.hours" },
-            { value: mounted ? time.minutes : 0, label: "Min", tKey: "auth.min" },
-            { value: mounted ? time.seconds : 0, label: "Sec", tKey: "auth.sec" },
+            { value: mounted ? time.days : 0, label: "Days" },
+            { value: mounted ? time.hours : 0, label: "Hours" },
+            { value: mounted ? time.minutes : 0, label: "Min" },
+            { value: mounted ? time.seconds : 0, label: "Sec" },
           ].map((unit, i) => (
             <div key={unit.label} className="flex items-center gap-3">
               <div className="flex flex-col items-center">
@@ -90,7 +88,7 @@ export function CountdownBanner({ imageSrc, imageAlt, priority = false }: Countd
                   </span>
                 </div>
                 <span className="mt-2 text-[11px] font-medium text-white/60 uppercase tracking-widest">
-                  {t(unit.tKey)}
+                  {unit.label}
                 </span>
               </div>
               {i < 3 && (
@@ -104,7 +102,7 @@ export function CountdownBanner({ imageSrc, imageAlt, priority = false }: Countd
         <div className="mt-7 flex items-center gap-2">
           <div className="h-px w-8 bg-white/20" />
           <span className="text-[13px] font-medium text-white/50 tracking-wide">
-            {t("auth.launch_date")}
+            10 March
           </span>
           <div className="h-px w-8 bg-white/20" />
         </div>

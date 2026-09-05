@@ -35,7 +35,6 @@ import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { LocaleProvider } from "@/components/locale-provider"
-import { BuyerProtectionHost } from "@/components/marketplace/buyer-protection"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 import { ViewportVars } from "@/components/viewport-vars"
 import { CookieConsentBanner } from "@/components/cookie-consent-banner"
@@ -187,7 +186,6 @@ export default function RootLayout({
             feed, the listing, the wishlist, the swipe cards — and a grid of
             sixty cards must not mount sixty subpages to serve one tap. They all
             open this. It renders nothing until one of them does. */}
-        <BuyerProtectionHost />
         <PrefetchLinks />
         <BodyScrollRestorer />
         {/* One publisher of the visible viewport, at the root, so a route's

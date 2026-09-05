@@ -8,10 +8,8 @@ import { Loader2, CheckCircle2, Mail, AlertCircle } from "lucide-react"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
 import { AuthLogo } from "@/components/auth/auth-logo"
-import { useLocale } from "@/components/locale-provider"
 
 export default function VerifyEmailContent() {
-  const { t } = useLocale()
   const [verificationCode, setVerificationCode] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -74,7 +72,7 @@ export default function VerifyEmailContent() {
       console.log("[VerifyEmail] API response:", res.status, data)
 
       if (!res.ok) {
-        setError(data.error || t("auth.err_send_code_failed"))
+        setError(data.error || "Failed to send verification code")
         setInitialSendStatus("failed")
         return
       }
@@ -83,7 +81,7 @@ export default function VerifyEmailContent() {
       setInitialSendStatus("sent")
     } catch (err) {
       console.error("[VerifyEmail] Error sending verification code:", err)
-      setError(t("auth.err_something_wrong_retry"))
+      setError("Something went wrong. Please try again.")
       setInitialSendStatus("failed")
     } finally {
       setResendLoading(false)
@@ -108,7 +106,7 @@ export default function VerifyEmailContent() {
       console.log("[VerifyEmail] Confirm email response:", res.status, data)
 
       if (!res.ok) {
-        setError(data.error || t("auth.err_invalid_code"))
+        setError(data.error || "Invalid verification code")
         setVerificationCode("")
         setLoading(false)
         return
@@ -137,7 +135,7 @@ export default function VerifyEmailContent() {
       }, 1500)
     } catch (err) {
       console.error("[VerifyEmail] Error verifying code:", err)
-      setError(t("auth.err_something_wrong_retry"))
+      setError("Something went wrong. Please try again.")
       setVerificationCode("")
       setLoading(false)
     }
@@ -159,13 +157,13 @@ export default function VerifyEmailContent() {
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
             <AlertCircle className="h-8 w-8 text-red-600" />
           </div>
-          <h1 className="text-xl font-semibold text-neutral-900 mb-2">{t("auth.invalid_link_title")}</h1>
-          <p className="text-neutral-500 mb-4">{t("auth.invalid_link_desc")}</p>
-          <Link
-            href="/signup"
+          <h1 className="text-xl font-semibold text-neutral-900 mb-2">Invalid Link</h1>
+          <p className="text-neutral-500 mb-4">This verification link is invalid or has expired.</p>
+          <Link 
+            href="/signup" 
             className="inline-flex items-center justify-center px-6 py-2.5 rounded-full bg-neutral-900 text-white font-medium hover:bg-neutral-800 transition-colors"
           >
-            {t("auth.return_to_signup")}
+            Return to signup
           </Link>
         </div>
       </div>
@@ -184,8 +182,8 @@ export default function VerifyEmailContent() {
               <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
                 <CheckCircle2 className="h-10 w-10 text-emerald-600" />
               </div>
-              <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">{t("auth.email_verified_title")}</h1>
-              <p className="text-[15px] text-neutral-500">{t("auth.redirecting_dashboard")}</p>
+              <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Email Verified!</h1>
+              <p className="text-[15px] text-neutral-500">Redirecting you to your dashboard...</p>
             </div>
           ) : (
             <>
@@ -194,9 +192,9 @@ export default function VerifyEmailContent() {
               </div>
 
               <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900 text-center">
-                {t("auth.check_email")}
+                Check your email
               </h1>
-              <p className="mb-2 text-[15px] text-neutral-500 text-center">{t("auth.sent_6_digit_code")}</p>
+              <p className="mb-2 text-[15px] text-neutral-500 text-center">We sent a 6 digit code to</p>
               <p className="mb-8 text-[15px] font-medium text-neutral-900 text-center">{maskedEmail}</p>
 
               <div className="space-y-6">
@@ -228,25 +226,25 @@ export default function VerifyEmailContent() {
                 {loading && (
                   <div className="flex items-center justify-center gap-2 text-neutral-500">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">{t("auth.verifying")}</span>
+                    <span className="text-sm">Verifying...</span>
                   </div>
                 )}
 
                 {initialSendStatus === "pending" && (
                   <div className="flex items-center justify-center gap-2 text-neutral-500">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">{t("auth.sending_verification_code")}</span>
+                    <span className="text-sm">Sending verification code...</span>
                   </div>
                 )}
 
                 {initialSendStatus === "failed" && !error && (
                   <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-center">
-                    <p className="text-sm text-amber-700">{t("auth.err_send_code_click_resend")}</p>
+                    <p className="text-sm text-amber-700">Failed to send code. Click "Resend code" to try again.</p>
                   </div>
                 )}
 
                 <div className="text-center">
-                  <p className="text-[14px] text-neutral-500 mb-1">{t("auth.didnt_receive_code")}</p>
+                  <p className="text-[14px] text-neutral-500 mb-1">Didn't receive the code?</p>
                   <button
                     type="button"
                     onClick={handleResendCode}
@@ -256,28 +254,28 @@ export default function VerifyEmailContent() {
                     {resendLoading ? (
                       <span className="flex items-center justify-center gap-2">
                         <Loader2 className="h-3 w-3 animate-spin" />
-                        {t("auth.sending")}
+                        Sending...
                       </span>
                     ) : resendCountdown > 0 ? (
-                      `${t("auth.resend_code_in")} ${resendCountdown}s`
+                      `Resend code in ${resendCountdown}s`
                     ) : (
-                      t("auth.resend_code")
+                      "Resend code"
                     )}
                   </button>
                 </div>
 
                 <p className="text-[13px] text-neutral-500 text-center">
-                  {t("auth.cant_find_email")} <span className="font-medium">{t("auth.spam_junk_folder")}</span>.
+                  Can&apos;t find the email? Check your <span className="font-medium">spam or junk folder</span>.
                 </p>
 
                 <div className="pt-4 border-t border-neutral-100">
                   <p className="text-[13px] text-neutral-400 text-center">
-                    {t("auth.wrong_email")}{" "}
+                    Wrong email?{" "}
                     <Link
                       href="/signup"
                       className="text-neutral-600 hover:text-neutral-700 underline underline-offset-2"
                     >
-                      {t("auth.go_back_signup")}
+                      Go back to signup
                     </Link>
                   </p>
                 </div>

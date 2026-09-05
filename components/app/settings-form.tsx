@@ -172,7 +172,7 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
 
   const handleSignOut = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut({ scope: "local" })
+    await supabase.auth.signOut()
     if (isNativePlatform()) {
       nativeLogOut()
     } else {

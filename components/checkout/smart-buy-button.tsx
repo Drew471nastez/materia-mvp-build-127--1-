@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2, Download } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
-import { useLocale } from "@/components/locale-provider"
 
 interface SmartBuyButtonProps {
   productId: string
@@ -46,7 +45,6 @@ export function SmartBuyButton({
   serverHasPurchased = false,
   serverAssetId = null,
 }: SmartBuyButtonProps) {
-  const { t } = useLocale()
   const [loading, setLoading] = useState(false)
   const [downloadLoading, setDownloadLoading] = useState(false)
   const [hasPurchased, setHasPurchased] = useState(serverHasPurchased)
@@ -194,7 +192,7 @@ export function SmartBuyButton({
         }}
       >
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        {t("checkout.loading")}
+        Loading...
       </Button>
     )
   }
@@ -214,12 +212,12 @@ export function SmartBuyButton({
         {downloadLoading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            {t("checkout.downloading")}
+            Downloading...
           </>
         ) : (
           <>
             <Download className="mr-2 h-4 w-4" />
-            {t("checkout.download_file")}
+            Download File
           </>
         )}
       </Button>
@@ -241,10 +239,10 @@ export function SmartBuyButton({
       {loading ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          {t("checkout.loading")}
+          Loading...
         </>
       ) : (
-        callToAction || (price === 0 ? t("checkout.get_for_free") : t("checkout.i_want_this"))
+        callToAction || (price === 0 ? "Get for Free" : "I want this!")
       )}
     </Button>
   )

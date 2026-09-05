@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
-import { POST_LOGIN_HOME } from "@/lib/auth/post-login"
 
 /**
  * GET /auth/callback?code=<code>
@@ -111,11 +110,11 @@ export async function GET(request: Request) {
       .maybeSingle()
 
     if (creatorRow?.onboarding_completed) {
-      nextPath = POST_LOGIN_HOME
+      nextPath = "/app"
     } else if (existingProfile.welcome_completed && existingProfile.is_creator === false) {
-      nextPath = POST_LOGIN_HOME
+      nextPath = "/library"
     } else if (existingProfile.welcome_completed && existingProfile.is_creator === true) {
-      nextPath = POST_LOGIN_HOME
+      nextPath = "/app"
     }
   }
 

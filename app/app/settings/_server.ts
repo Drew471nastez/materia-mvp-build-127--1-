@@ -3,20 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 
 export type SettingsTab = "general" | "security" | "privacy" | "billing" | "payments" | "stores"
 
-/**
- * Shared loader for both settings surfaces.
- *
- * `requireCreator` exists because the two callers want opposite things from a
- * missing `creators` row. /app/settings is the seller dashboard's own settings
- * screen and SettingsFormNew dereferences `creator` directly (slug, id,
- * avatar_url, headline), so someone with no creator row genuinely belongs in
- * onboarding there. The marketplace /settings passes false: it is where the
- * Profile tab's gear lands, and redirecting a buyer who has never listed
- * anything out of their own account settings is precisely the bug that made
- * that tab look broken. It returns `creator: null` and the page decides what to
- * render around it.
- */
-export async function loadSettingsData({ requireCreator = true }: { requireCreator?: boolean } = {}) {
+export async function loadSettingsData() {
   const supabase = await createClient()
 
   const {
@@ -28,7 +15,7 @@ export async function loadSettingsData({ requireCreator = true }: { requireCreat
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle()
   const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).maybeSingle()
 
-  if (!creator && requireCreator) redirect("/onboarding")
+  if (!creator) redirect("/onboarding")
 
   const { data: onepage } = await supabase
     .from("onepages")

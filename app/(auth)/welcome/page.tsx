@@ -3,15 +3,14 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
-import { useLocale } from "@/components/locale-provider"
 
 // ── Typing effect ────────────────────────────────────────────────────────────
-const PHRASE_KEYS = [
-  "auth.phrase_monetize",
-  "auth.phrase_link_bio",
-  "auth.phrase_sell_digital",
-  "auth.phrase_share_passion",
-  "auth.phrase_online_store",
+const PHRASES = [
+  "Start monetizing your passion...",
+  "Build link in bio pages...",
+  "Sell digital products...",
+  "Share your passion...",
+  "Build your online store...",
 ]
 const TYPING_SPEED   = 70
 const DELETING_SPEED = 35
@@ -19,7 +18,6 @@ const PAUSE_MS       = 2000
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function WelcomePage() {
-  const { t } = useLocale()
   const router = useRouter()
   const [typedText, setTypedText] = useState("")
   const phraseIndex = useRef(0)
@@ -67,7 +65,7 @@ export default function WelcomePage() {
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>
     function tick() {
-      const phrase = t(PHRASE_KEYS[phraseIndex.current])
+      const phrase = PHRASES[phraseIndex.current]
       if (!isDeleting.current) {
         charIndex.current++
         setTypedText(phrase.substring(0, charIndex.current))
@@ -82,7 +80,7 @@ export default function WelcomePage() {
         setTypedText(phrase.substring(0, charIndex.current))
         if (charIndex.current === 0) {
           isDeleting.current = false
-          phraseIndex.current = (phraseIndex.current + 1) % PHRASE_KEYS.length
+          phraseIndex.current = (phraseIndex.current + 1) % PHRASES.length
           timeout = setTimeout(tick, 300)
           return
         }
@@ -91,7 +89,7 @@ export default function WelcomePage() {
     }
     timeout = setTimeout(tick, 600)
     return () => clearTimeout(timeout)
-  }, [t])
+  }, [])
 
   // Client-side navigation — stays in WebView, never opens Safari
   const goToSignup = () => router.push("/signup")
@@ -149,16 +147,7 @@ export default function WelcomePage() {
           style={{ paddingTop: "clamp(18px, 4vh, 40px)" }}
         >
           <img
-            /* The stored object, not a transformation.
-             *
-             * This asked the billed /render/image/ endpoint for a 70px
-             * raster of an SVG — which is the one case where the transform
-             * is not merely unnecessary but actively worse: it throws away
-             * the vector and hands back a fixed-resolution bitmap that goes
-             * soft on any display denser than the size it was asked for.
-             * The original SVG is 11 KB, scales perfectly to the 34px box
-             * below, and costs nothing against the quota. */
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/Untitled%20(512%20x%20512%20px).svg?width=70&quality=80"
             alt="Storelib"
             width={34}
             height={34}
@@ -201,13 +190,13 @@ export default function WelcomePage() {
               onClick={goToSignup}
               className="w-full rounded-[10px] bg-[#7c3aed] text-white font-semibold text-base py-[15px] active:scale-[0.97] active:opacity-85 transition-transform border-none cursor-pointer"
             >
-              {t("nav.sign_up")}
+              Sign up
             </button>
             <button
               onClick={goToLogin}
               className="w-full rounded-[10px] bg-[#0a0a0a] text-white/90 font-semibold text-base py-[14px] active:scale-[0.97] active:opacity-85 transition-transform border-none cursor-pointer"
             >
-              {t("auth.log_in")}
+              Log in
             </button>
           </div>
         </div>
@@ -217,11 +206,8 @@ export default function WelcomePage() {
 }
 
 // ── Collage Carousel (vanilla DOM animation for 60fps on iOS) ─────────────────
-// The stored objects. `/object/public/` is free and CDN-cached;
-// `/render/image/public/` is the metered transformation endpoint that put this
-// project at 106/100. See lib/storage/image-url.ts.
 const BASE_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags"
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags"
 const IMAGES = [
   "Monetize%20(5)%20(2).webp",
   "Monetize%20(6)%20(1).webp",
@@ -243,23 +229,10 @@ function CollageCarousel() {
     let cachedSlots: ReturnType<typeof getSlots> | null = null
     let cVW = 0, cVH = 0
 
-    /**
-     * The per-device sizing that used to live here is gone, along with the
-     * Supabase image transformation it fed.
-     *
-     * It was the most expensive thing in the codebase against the
-     * transformation quota, and not obviously so. `imgW`/`imgH` were derived
-     * from `window.devicePixelRatio`, and Supabase meters DISTINCT transformed
-     * outputs — so five images did not cost five transformations, they cost
-     * five per pixel ratio the app was ever opened at. A 1x laptop, a 2x
-     * phone and a 3x phone were three separate sets. That is how a five-image
-     * carousel helps push a project to 106/100.
-     *
-     * The card is a fixed-ratio box and the image inside it is
-     * `width:100%;height:100%;object-fit:cover` — set a few lines below, and
-     * unchanged. The browser has always done this resizing, on the device,
-     * for free, at whatever pixel ratio the screen actually has.
-     */
+    const dpr  = Math.min(window.devicePixelRatio || 1, 2)
+    const imgW = Math.round(280 * dpr)
+    const imgH = Math.round(386 * dpr)
+    const imgQ = dpr > 1.5 ? 55 : 65
 
     function getSlots() {
       const vw = window.innerWidth
@@ -303,7 +276,7 @@ function CollageCarousel() {
       card.className = "wlc-shimmer"
       card.style.cssText = "position:absolute;top:0;left:0;border-radius:18px;overflow:hidden;"
       const img = document.createElement("img")
-      img.src      = `${BASE_URL}/${IMAGES[i]}`
+      img.src      = `${BASE_URL}/${IMAGES[i]}?width=${imgW}&height=${imgH}&resize=cover&quality=${imgQ}`
       img.alt      = ""
       img.loading  = i >= 1 && i <= 3 ? "eager" : "lazy"
       img.decoding = "async"

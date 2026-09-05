@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { Check, Loader2 } from "lucide-react"
-import { useLocale } from "@/components/locale-provider"
 
 interface Plan {
   id: string
@@ -21,7 +20,6 @@ interface PricingPlansProps {
 }
 
 export function PricingPlans({ plans, currentPlanId, onUpgrade }: PricingPlansProps) {
-  const { t } = useLocale()
   const [loading, setLoading] = useState<string | null>(null)
 
   const handleUpgrade = async (planId: string) => {
@@ -48,9 +46,9 @@ export function PricingPlans({ plans, currentPlanId, onUpgrade }: PricingPlansPr
 
   return (
     <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-      <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">{t("settings.ppChoosePlan")}</h3>
+      <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Choose Your Plan</h3>
       <p className="text-[13px] text-[#6b7280] mb-6">
-        {t("settings.ppChoosePlanDesc")}
+        Upgrade to reduce platform transaction fees and unlock premium features
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -69,7 +67,7 @@ export function PricingPlans({ plans, currentPlanId, onUpgrade }: PricingPlansPr
             >
               {isCurrentPlan && (
                 <span className="absolute top-3 right-3 text-[10px] font-bold text-[#8b5cf6] bg-white px-2 py-1 rounded-full border border-[#8b5cf6]">
-                  {t("settings.ppCurrent")}
+                  CURRENT
                 </span>
               )}
 
@@ -77,13 +75,13 @@ export function PricingPlans({ plans, currentPlanId, onUpgrade }: PricingPlansPr
                 <h4 className="text-[16px] font-bold text-[#1a1a2e] mb-1">{plan.name}</h4>
                 <div className="flex items-baseline gap-1">
                   {isFree ? (
-                    <span className="text-[28px] font-bold text-[#1a1a2e]">{t("product.free")}</span>
+                    <span className="text-[28px] font-bold text-[#1a1a2e]">Free</span>
                   ) : (
                     <>
                       <span className="text-[28px] font-bold text-[#1a1a2e]">
                         {formatPrice(plan.price_cents)}
                       </span>
-                      <span className="text-[13px] text-[#6b7280]">{t("settings.perMonth")}</span>
+                      <span className="text-[13px] text-[#6b7280]">/month</span>
                     </>
                   )}
                 </div>
@@ -91,12 +89,12 @@ export function PricingPlans({ plans, currentPlanId, onUpgrade }: PricingPlansPr
 
               <div className="mb-5">
                 <div className="text-[12px] font-semibold text-[#6b7280] mb-2">
-                  {t("settings.ppPlatformFee")}
+                  Platform Fee
                 </div>
                 <div className="text-[15px] font-bold text-[#8b5cf6]">
                   {formatFee(plan.fee_percent, plan.fee_fixed_cents)}
                 </div>
-                <div className="text-[11px] text-[#9ca3af] mt-0.5">{t("settings.ppPerTransaction")}</div>
+                <div className="text-[11px] text-[#9ca3af] mt-0.5">per transaction</div>
               </div>
 
               <ul className="space-y-2.5 mb-5">
@@ -122,14 +120,14 @@ export function PricingPlans({ plans, currentPlanId, onUpgrade }: PricingPlansPr
                 {loading === plan.id ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {t("settings.ppProcessing")}
+                    Processing...
                   </>
                 ) : isCurrentPlan ? (
-                  t("settings.currentPlan")
+                  "Current Plan"
                 ) : isFree ? (
-                  t("settings.ppDowngrade")
+                  "Downgrade"
                 ) : (
-                  t("settings.upgrade")
+                  "Upgrade"
                 )}
               </button>
             </div>

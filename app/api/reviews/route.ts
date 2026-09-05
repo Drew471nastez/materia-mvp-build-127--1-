@@ -2,35 +2,20 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { resolveSellerEmail, sendReviewNotificationEmail } from "@/lib/email"
-import { isOwnProduct, SELF_ACTION_CODE, SELF_ACTION_MESSAGE } from "@/lib/marketplace/self-action"
 
 // GET - Fetch reviews for a product
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const productId = searchParams.get("productId")
   const creatorId = searchParams.get("creatorId")
-  // A profile is a PERSON, and reviews hang off creators rows — of which one
-  // account can hold several (see lib/profile/listings.ts for the bug that
-  // came of assuming one). This resolves the person to every creator row they
-  // own, so the reviews tab shows all of them.
-  const sellerUserId = searchParams.get("sellerUserId")
   const limit = Number.parseInt(searchParams.get("limit") || "10")
   const offset = Number.parseInt(searchParams.get("offset") || "0")
 
-  if (!productId && !creatorId && !sellerUserId) {
-    return NextResponse.json({ error: "productId, creatorId or sellerUserId required" }, { status: 400 })
+  if (!productId && !creatorId) {
+    return NextResponse.json({ error: "productId or creatorId required" }, { status: 400 })
   }
 
   const admin = createAdminClient()
-
-  let creatorIds: string[] | null = null
-  if (!productId && !creatorId && sellerUserId) {
-    const { data } = await admin.from("creators").select("id").eq("user_id", sellerUserId)
-    creatorIds = (data ?? []).map((c) => c.id).filter(Boolean)
-    if (creatorIds.length === 0) {
-      return NextResponse.json({ reviews: [], total: 0, hasMore: false })
-    }
-  }
 
   let query = admin
     .from("reviews")
@@ -45,8 +30,6 @@ export async function GET(request: NextRequest) {
     query = query.eq("product_id", productId)
   } else if (creatorId) {
     query = query.eq("creator_id", creatorId)
-  } else if (creatorIds) {
-    query = query.in("creator_id", creatorIds)
   }
 
   const { data: reviews, error } = await query
@@ -62,8 +45,6 @@ export async function GET(request: NextRequest) {
     countQuery = countQuery.eq("product_id", productId)
   } else if (creatorId) {
     countQuery = countQuery.eq("creator_id", creatorId)
-  } else if (creatorIds) {
-    countQuery = countQuery.in("creator_id", creatorIds)
   }
 
   const { count } = await countQuery
@@ -103,17 +84,6 @@ export async function POST(request: NextRequest) {
 
   if (content.trim().length < 10) {
     return NextResponse.json({ error: "Review must be at least 10 characters" }, { status: 400 })
-  }
-
-  // Reviewing your own listing. An entitlement check alone does not stop this:
-  // a seller who bought from themselves before that was refused still holds
-  // one, and a five-star review of your own jumper is exactly the kind of
-  // number that makes every other review on the platform worth less.
-  if (await isOwnProduct(admin, user.id, productId)) {
-    return NextResponse.json(
-      { error: SELF_ACTION_MESSAGE.review, code: SELF_ACTION_CODE },
-      { status: 403 },
-    )
   }
 
   // Check if user has purchased this product

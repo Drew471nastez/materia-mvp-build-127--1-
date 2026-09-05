@@ -4,7 +4,6 @@ import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { Loader2 } from "lucide-react"
-import { useLocale } from "@/components/locale-provider"
 
 interface CoverImageLibraryModalProps {
   open: boolean
@@ -61,7 +60,6 @@ const curatedCovers = [
 ] as const
 
 export function CoverImageLibraryModal({ open, onOpenChange, onSelect }: CoverImageLibraryModalProps) {
-  const { t } = useLocale()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -115,14 +113,14 @@ export function CoverImageLibraryModal({ open, onOpenChange, onSelect }: CoverIm
         )}
       >
         <DialogHeader className="px-4 sm:px-6 py-4 border-b border-border shrink-0">
-          <DialogTitle>{t("builder.coverLibrary.title")}</DialogTitle>
+          <DialogTitle>Choose Cover Image</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
           <div className="p-4 sm:p-6 space-y-6">
             {/* Color & Gradient Section */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-muted-foreground">{t("builder.coverLibrary.colorGradient")}</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">Color & Gradient</h3>
               <div className="grid grid-cols-4 gap-2 sm:gap-3">
                 {colorGradientCovers.map((cover) => (
                   <button
@@ -147,7 +145,7 @@ export function CoverImageLibraryModal({ open, onOpenChange, onSelect }: CoverIm
 
             {/* Curated Images Section */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-muted-foreground">{t("builder.coverLibrary.curatedImages")}</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">Curated Images</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                 {curatedCovers.map((cover) => (
                   <button
@@ -160,7 +158,7 @@ export function CoverImageLibraryModal({ open, onOpenChange, onSelect }: CoverIm
                   >
                     <img
                       src={cover.thumb}
-                      alt={t("builder.coverLibrary.coverOption")}
+                      alt="Cover option"
                       className="w-full h-full object-cover"
                       loading="lazy"
                       decoding="async"

@@ -5,19 +5,11 @@ import CheckoutPageClient from "./checkout-client"
 import { getProductUrl } from "@/lib/url-helpers"
 
 interface CheckoutPageProps {
-  searchParams: Promise<{
-    productId?: string
-    variantId?: string
-    customPrice?: string
-    offerId?: string
-    /** Accepted for links minted by /checkout/livrare; no longer read, because
-     *  the marketplace checkout asks for delivery on the page itself. */
-    deliverySet?: string
-  }>
+  searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string }>
 }
 
 async function CheckoutContent({ searchParams }: CheckoutPageProps) {
-  const { productId, variantId, customPrice, offerId } = await searchParams
+  const { productId, variantId, customPrice } = await searchParams
 
   if (!productId) {
     redirect("/explore")
@@ -102,35 +94,6 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     }
   }
 
-  // An accepted offer changes what this checkout charges. Verified HERE, against
-  // the conversation, and carried forward as a signed token — the endpoints that
-  // set the Stripe amount re-verify the token instead of trusting a client
-  // field. Requirements: the caller is signed in, is the conversation's buyer,
-  // the offer is theirs to use (accepted), and it is about this very product.
-  let offerCents: number | null = null
-  let offerToken: string | null = null
-  if (offerId && user) {
-    const { createAdminClient } = await import("@/lib/supabase/admin")
-    const admin = createAdminClient()
-    const { data: offer } = await admin
-      .from("messages")
-      .select("id, kind, offer_status, offer_cents, conversation_id")
-      .eq("id", offerId)
-      .maybeSingle()
-    if (offer?.kind === "offer" && offer.offer_status === "accepted" && offer.offer_cents > 0) {
-      const { data: convo } = await admin
-        .from("conversations")
-        .select("buyer_id, listing_id")
-        .eq("id", offer.conversation_id)
-        .maybeSingle()
-      if (convo && convo.buyer_id === user.id && convo.listing_id === productId) {
-        offerCents = offer.offer_cents
-        const { mintOfferToken } = await import("@/lib/marketplace/offer-token")
-        offerToken = mintOfferToken({ productId, buyerId: user.id, cents: offer.offer_cents, offerId: offer.id })
-      }
-    }
-  }
-
   // Fetch all variants for this product (for variant selector)
   const { data: allVariants } = await supabase
     .from("product_variants")
@@ -168,20 +131,6 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     }
   }
 
-  /**
-   * ONE CHECKOUT AGAIN.
-   *
-   * There were two: a marketplace screen for anything that had to be put in a
-   * box (address, locker, postage) and this one for the three kinds of product
-   * delivered as access -- a file, a course, a community. The parcel half went
-   * with the marketplace, along with components/checkout/marketplace-checkout
-   * and the shipping quote it priced against.
-   *
-   * lib/marketplace/product-kind.ts still names the digital kinds and is still
-   * read elsewhere; what it no longer does is choose between two screens here,
-   * because there is only one screen and everything Storelib sells belongs on
-   * it.
-   */
   return (
     <CheckoutPageClient
       product={{
@@ -189,7 +138,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
         title: product.title,
         slug: product.slug,
         description: product.description,
-        price_cents: offerCents ?? finalPriceCents,
+        price_cents: finalPriceCents,
         thumbnail_url: product.thumbnail_url,
         type: product.type,
       }}
@@ -201,7 +150,6 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       }}
       userEmail={user?.email || null}
       isLoggedIn={!!user}
-      offerToken={offerToken}
       selectedVariant={selectedVariant ? {
         id: selectedVariant.id,
         name: selectedVariant.name,

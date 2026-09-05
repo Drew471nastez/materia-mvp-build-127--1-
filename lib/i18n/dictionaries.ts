@@ -15,11 +15,8 @@
 import { authDict } from "./dict/auth"
 import { checkoutDict } from "./dict/checkout"
 import { dashboardDict } from "./dict/dashboard"
-import { marketplaceDict } from "./dict/marketplace"
 import { settingsDict } from "./dict/settings"
 import { builderDict } from "./dict/builder"
-import { feedDict } from "./dict/feed"
-import { catpageDict } from "./dict/catpage"
 // Fully translated locales. Unlike the per-surface dicts above, each of
 // these is one flat, complete map -- see the header of lib/i18n/dict/es.ts
 // for why they are exhaustive rather than merged from fragments.
@@ -35,11 +32,8 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     ...authDict.ro,
     ...checkoutDict.ro,
     ...dashboardDict.ro,
-    ...marketplaceDict.ro,
     ...settingsDict.ro,
     ...builderDict.ro,
-    ...feedDict.ro,
-    ...catpageDict.ro,
     // Header / nav
     "nav.library": "Biblioteca",
     "nav.dashboard": "Panou",
@@ -79,7 +73,7 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     "feed.trending": "În tendințe",
     "feed.new": "Noutăți",
     "feed.featured_categories": "Categorii recomandate",
-    // Mobile feed (Depop/TikTok-style)
+    // Mobile browse
     "mfeed.search_placeholder": "Caută șabloane, cursuri, fonturi...",
     "mfeed.search_for": "Caută",
     "mfeed.filters": "Filtre",
@@ -159,11 +153,8 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     ...authDict.en,
     ...checkoutDict.en,
     ...dashboardDict.en,
-    ...marketplaceDict.en,
     ...settingsDict.en,
     ...builderDict.en,
-    ...feedDict.en,
-    ...catpageDict.en,
     "nav.library": "Library",
     "nav.dashboard": "Dashboard",
     "nav.sign_in": "Sign in",
@@ -199,7 +190,7 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     "feed.trending": "Trending",
     "feed.new": "New",
     "feed.featured_categories": "Featured categories",
-    // Mobile feed (Depop/TikTok-style)
+    // Mobile browse
     "mfeed.search_placeholder": "Search templates, courses, fonts...",
     "mfeed.search_for": "Search for",
     "mfeed.filters": "Filters",

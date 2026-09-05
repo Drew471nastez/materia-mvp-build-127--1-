@@ -1,5 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr"
-import { createClient as createSupabaseClient, processLock } from "@supabase/supabase-js"
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 export { createAdminClient } from "@/lib/supabase/admin"
 
 // Singleton instance to prevent rate limiting from multiple client creations
@@ -125,32 +125,6 @@ export function createClient() {
           autoRefreshToken: true,
           detectSessionInUrl: false,
           storage: capacitorStorage,
-          /**
-           * THE /login SPINNER THAT NEVER RESOLVES.
-           *
-           * supabase-js defaults to `navigatorLock`, which serialises auth
-           * operations through the Web Locks API so that several BROWSER TABS
-           * cannot refresh the same session at once. A Capacitor app has no
-           * tabs — there is one WebView and, thanks to the singleton above, one
-           * client. So the lock protects against nothing here.
-           *
-           * What it does do is deadlock. `navigator.locks.request` waits
-           * forever by default, and iOS suspends a backgrounded WebView
-           * mid-request: the refresh never completes, the lock is never
-           * released, and every `getSession()` afterwards — including the one
-           * useAuthGate is waiting on to decide whether to draw /login — blocks
-           * for the rest of the app's life. That is the "it just shows the
-           * loading thing and never loads" report, and no timeout on our side
-           * fixes it, because the call never returns to be timed out.
-           *
-           * processLock is an in-memory promise chain: same serialisation
-           * within this JS context, nothing that can outlive it. A killed or
-           * suspended web view starts with it unheld.
-           *
-           * Native ONLY. The web client below keeps navigatorLock, because
-           * there the tabs it guards against are real.
-           */
-          lock: processLock,
         },
       }
     ) as ReturnType<typeof createBrowserClient>

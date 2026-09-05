@@ -4,88 +4,203 @@ import type React from "react"
 
 import Image from "next/image"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain } from "@/lib/url-helpers"
-import { goToSellFormAsPage, isSellFormRoute } from "@/lib/marketplace/sell-route"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
-import { savedShelfHref } from "@/lib/marketplace/saved-items"
-import { useHideOnScrollDown } from "@/lib/marketplace/use-hide-on-scroll-down"
-import { useUrlSearchParams } from "@/lib/use-url-search-params"
-import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
-import { AnimatedSearchPlaceholder } from "@/components/explore/animated-search-placeholder"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-import { Heart, Library, Search, MessageCircle, Plus, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
-import { CATEGORY_NAV, CATEGORY_RAIL, categoryPath, type CategoryIcon } from "@/lib/marketplace/categories"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
-/**
- * The departments, their groups, their hrefs and their glyphs all come from
- * lib/marketplace/department-nav — which derives them from the taxonomy the
- * SELL FORM uses, so a department added there appears here without anybody
- * remembering to come and add it. They were defined in this file; the phone
- * browser's menu and its category rail need the same five, and two copies of a
- * navigation taxonomy is how one of them ends up pointing at an empty feed.
- */
-
 const LOGO_URL =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
-/**
- * ===========================================================================
- *  THE CATEGORY BAR AND THE BROWSE MENU ARE THE MARKETPLACE'S OWN TAXONOMY
- * ===========================================================================
- *
- * These were three hand-written lists — All / Audio & Music / Business & Money
- * / Other / Freebies / AI in the bar, and Design / Development / Marketing /
- * Business / AI / Social Media / Music & Audio / Photography / Video & Film /
- * Productivity in the Browse menu. Every one of them is a category from the
- * DIGITAL-PRODUCTS product this codebase used to be. None of them is a thing
- * anybody can list on Storelib.
- *
- * So a shopper's first navigation offered ten doors, all of which opened onto
- * an empty room, while the five departments that actually hold the stock —
- * the ones the sell form makes somebody choose from — appeared nowhere.
- *
- * They are DERIVED now, from lib/marketplace/categories.ts, which is the single
- * taxonomy the sitemap and every other menu also read. That is the point: a
- * category added there appears in the bar and in the menu without anybody
- * remembering to come here, and it is not possible for the two to disagree
- * about what Storelib sells.
- */
+// Desktop category bar with icons
+const DEFAULT_CATEGORIES = [
+  { id: "all", label: "All", icon: LayoutGrid, badge: null },
+  { id: "audio-music", label: "Audio & Music", icon: Music, badge: null },
+  { id: "business", label: "Business & Money", icon: Briefcase, badge: null },
+  { id: "other", label: "Other", icon: MoreHorizontal, badge: null },
+  { id: "freebies", label: "Freebies", icon: Gift, badge: null },
+  { id: "ai", label: "AI", icon: Bot, badge: "HOT" },
+]
 
-/** The bar under the header: "All" and the six categories. */
-const DEFAULT_CATEGORIES = CATEGORY_RAIL
+// Mobile category pills - 6 categories as pill buttons with icons
+const MOBILE_CATEGORIES = [
+  { id: "all", label: "All", icon: LayoutGrid, badge: null },
+  { id: "audio-music", label: "Audio & Music", icon: Music, badge: null },
+  { id: "business", label: "Business & Money", icon: Briefcase, badge: null },
+  { id: "other", label: "Other", icon: MoreHorizontal, badge: null },
+  { id: "freebies", label: "Freebies", icon: Gift, badge: null },
+  { id: "ai", label: "AI", icon: Bot, badge: "HOT" },
+]
 
-// The phone rail shows the same six. It was a second copy of the same literal
-// list, which is two places to forget.
-const MOBILE_CATEGORIES = DEFAULT_CATEGORIES
+// Categories with subcategories for the dropdown
+const CATEGORIES_WITH_SUBS = [
+  {
+    label: "Design",
+    href: "/explore?category=design",
+    icon: Sparkles,
+    subcategories: [
+      { label: "UI/UX Templates", href: "/explore?category=design&sub=ui-ux" },
+      { label: "Graphics & Illustrations", href: "/explore?category=design&sub=graphics" },
+      { label: "Fonts & Typography", href: "/explore?category=design&sub=fonts" },
+      { label: "Icons & Elements", href: "/explore?category=design&sub=icons" },
+      { label: "Mockups", href: "/explore?category=design&sub=mockups" },
+    ]
+  },
+  {
+    label: "Development",
+    href: "/explore?category=development",
+    icon: Code,
+    subcategories: [
+      { label: "Web Templates", href: "/explore?category=development&sub=web" },
+      { label: "Mobile Apps", href: "/explore?category=development&sub=mobile" },
+      { label: "Scripts & Plugins", href: "/explore?category=development&sub=scripts" },
+      { label: "APIs & Tools", href: "/explore?category=development&sub=apis" },
+      { label: "Code Snippets", href: "/explore?category=development&sub=snippets" },
+    ]
+  },
+  {
+    label: "Marketing",
+    href: "/explore?category=marketing",
+    icon: Megaphone,
+    subcategories: [
+      { label: "Email Templates", href: "/explore?category=marketing&sub=email" },
+      { label: "Ad Creatives", href: "/explore?category=marketing&sub=ads" },
+      { label: "Landing Pages", href: "/explore?category=marketing&sub=landing" },
+      { label: "SEO Tools", href: "/explore?category=marketing&sub=seo" },
+    ]
+  },
+  {
+    label: "Business",
+    href: "/explore?category=business",
+    icon: Briefcase,
+    subcategories: [
+      { label: "Spreadsheets", href: "/explore?category=business&sub=spreadsheets" },
+      { label: "Presentations", href: "/explore?category=business&sub=presentations" },
+      { label: "Documents & Contracts", href: "/explore?category=business&sub=documents" },
+      { label: "Finance Tools", href: "/explore?category=business&sub=finance" },
+    ]
+  },
+  {
+    label: "AI",
+    href: "/explore?category=ai",
+    icon: Bot,
+    isHot: true,
+    subcategories: [
+      { label: "AI Prompts", href: "/explore?category=ai&sub=prompts" },
+      { label: "ChatGPT Templates", href: "/explore?category=ai&sub=chatgpt" },
+      { label: "AI Art Prompts", href: "/explore?category=ai&sub=art-prompts" },
+      { label: "Automation Tools", href: "/explore?category=ai&sub=automation" },
+      { label: "AI Workflows", href: "/explore?category=ai&sub=workflows" },
+    ]
+  },
+  {
+    label: "Social Media",
+    href: "/explore?category=social-media",
+    icon: Share2,
+    subcategories: [
+      { label: "Instagram Templates", href: "/explore?category=social-media&sub=instagram" },
+      { label: "TikTok Content", href: "/explore?category=social-media&sub=tiktok" },
+      { label: "YouTube Assets", href: "/explore?category=social-media&sub=youtube" },
+      { label: "Social Media Kits", href: "/explore?category=social-media&sub=kits" },
+    ]
+  },
+  {
+    label: "Music & Audio",
+    href: "/explore?category=music",
+    icon: Music,
+    subcategories: [
+      { label: "Sound Effects", href: "/explore?category=music&sub=sfx" },
+      { label: "Music Loops", href: "/explore?category=music&sub=loops" },
+      { label: "Podcast Templates", href: "/explore?category=music&sub=podcast" },
+    ]
+  },
+  {
+    label: "Photography",
+    href: "/explore?category=photography",
+    icon: Camera,
+    subcategories: [
+      { label: "Presets & Filters", href: "/explore?category=photography&sub=presets" },
+      { label: "Stock Photos", href: "/explore?category=photography&sub=stock" },
+      { label: "Overlays & Textures", href: "/explore?category=photography&sub=overlays" },
+    ]
+  },
+  {
+    label: "Video & Film",
+    href: "/explore?category=video",
+    icon: Video,
+    subcategories: [
+      { label: "Video Templates", href: "/explore?category=video&sub=templates" },
+      { label: "Motion Graphics", href: "/explore?category=video&sub=motion" },
+      { label: "LUTs & Color Grades", href: "/explore?category=video&sub=luts" },
+    ]
+  },
+  {
+    label: "Productivity",
+    href: "/explore?category=productivity",
+    icon: Zap,
+    subcategories: [
+      { label: "Notion Templates", href: "/explore?category=productivity&sub=notion" },
+      { label: "Calendars & Planners", href: "/explore?category=productivity&sub=planners" },
+      { label: "Checklists", href: "/explore?category=productivity&sub=checklists" },
+    ]
+  },
+  {
+    label: "E-commerce",
+    href: "/explore?category=ecommerce",
+    icon: ShoppingBag,
+    subcategories: [
+      { label: "Shopify Themes", href: "/explore?category=ecommerce&sub=shopify" },
+      { label: "Product Mockups", href: "/explore?category=ecommerce&sub=mockups" },
+      { label: "Store Templates", href: "/explore?category=ecommerce&sub=stores" },
+    ]
+  },
+  {
+    label: "Education",
+    href: "/explore?category=education",
+    icon: Lightbulb,
+    subcategories: [
+      { label: "Online Courses", href: "/explore?category=education&sub=courses" },
+      { label: "Ebooks & Guides", href: "/explore?category=education&sub=ebooks" },
+      { label: "Worksheets", href: "/explore?category=education&sub=worksheets" },
+    ]
+  },
+]
 
-/**
- * The Browse menu: the six categories, each drilling into its own
- * subcategories -- Design opens Design Templates / Fonts / Digital Art /
- * Photography / Game Assets.
- */
-const CATEGORIES_WITH_SUBS = CATEGORY_NAV
+// Simple search categories for search modal
+const SEARCH_CATEGORIES = CATEGORIES_WITH_SUBS.slice(0, 9).map(cat => ({
+  label: cat.label,
+  href: cat.href,
+  icon: cat.icon,
+  isHot: cat.isHot,
+}))
 
-/* SEARCH_CATEGORIES and SearchProduct are gone with the dropdown they fed.
-   They described a catalogue this app no longer sells: nine digital-goods
-   categories, and a product shaped like a download with a `creator` and a
-   dollar price. Search is the marketplace overlay now, which reads listings.
-   See components/explore/mobile-search-overlay.tsx. */
+// Product type for search results
+type SearchProduct = {
+  id: string
+  title: string
+  slug: string
+  thumbnail_url?: string
+  price_cents: number
+  creator?: {
+    display_name?: string
+    slug?: string
+  }
+}
 
 type Profile = {
   display_name?: string | null
@@ -493,58 +608,16 @@ function LaunchCountdownBar({ onCanonicalNav }: { onCanonicalNav: (e: React.Mous
 export function PlatformHeaderClient() {
   const router = useRouter()
   const pathname = usePathname()
-  /**
-   * READ OFF THE ADDRESS BAR, not through useSearchParams().
-   *
-   * That hook opts this component into Suspense, and the boundary above it
-   * (components/marketing/conditional-header.tsx) falls back to a bare black
-   * bar. So every navigation that made this re-suspend blanked the entire
-   * header — logo, search, messages, wishlist, cart, Vinde acum, avatar — and
-   * then filled it back in, which is the flash on pressing Vinde acum. The
-   * button was never involved. See lib/use-url-search-params.ts.
-   */
-  const searchParams = useUrlSearchParams()
-  const { t, languageShort } = useLocale()
-  /**
-   * Owned HERE rather than inside the modal. Both profile menus close on
-   * outside-click, and the dialog portals to document.body -- so a
-   * self-triggering modal would be unmounted by the very click that opened it.
-   * See components/platform/language-modal.tsx.
-   */
-  const [languageOpen, setLanguageOpen] = useState(false)
+  const searchParams = useSearchParams()
+  const { t } = useLocale()
 
-  const [user, setUser] = useState<User | null>(() => {
-    const seed = readAuthSnapshot()
-    // Only the id is ever read off this before the real session lands.
-    return seed?.signedIn && seed.userId ? ({ id: seed.userId } as User) : null
-  })
-  const [profile, setProfile] = useState<Profile | null>(() => {
-    const seed = readAuthSnapshot()
-    return seed?.signedIn
-      ? ({
-          display_name: seed.displayName,
-          avatar_url: seed.avatarUrl,
-          username: seed.username,
-        } as Profile)
-      : null
-  })
-  const [isCreator, setIsCreator] = useState(() => !!readAuthSnapshot()?.isSeller)
-  const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(
-    () => !!readAuthSnapshot()?.isSeller,
-  )
-  // Seeded from the persisted snapshot, so a returning visitor gets the correct
-  // header on the FIRST paint — no skeleton, no flash of "Log in" before the
-  // avatar appears. Only a genuinely first-time visitor ever sees loading=true.
-  const [loading, setLoading] = useState(() => readAuthSnapshot() === null)
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [isCreator, setIsCreator] = useState(false)
+  const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
-  // Seeded from the last known value. The badge used to start at 0 on every page
-  // load and jump to the real count once a fetch returned — that pop, on every
-  // navigation, is the "red circle flickering randomly".
-  const [wishlistCount, setWishlistCount] = useState(() => {
-    if (typeof window === "undefined") return 0
-    const n = Number(localStorage.getItem("_sl_wishlist_count"))
-    return Number.isFinite(n) && n >= 0 ? n : 0
-  })
+  const [wishlistCount, setWishlistCount] = useState(0)
   // Persist avatar URL so it shows immediately on re-renders/navigations (no placeholder flash)
   const [cachedAvatarUrl, setCachedAvatarUrl] = useState<string | null>(() => {
     if (typeof window === "undefined") return null
@@ -555,57 +628,29 @@ export function PlatformHeaderClient() {
 
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "")
   const [searchModalOpen, setSearchModalOpen] = useState(false)
-  /** The field the search panel is measured against. See `anchorTo`. */
-  const searchBoxRef = useRef<HTMLDivElement>(null)
+  const [searchResults, setSearchResults] = useState<SearchProduct[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
   const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [selectedCategoryForSubs, setSelectedCategoryForSubs] = useState<string | null>(null)
-  /** True while the top level is arriving from a BACK press, so it plays the
-   *  pop rather than the push. Reset on the way in. */
-  const [poppedSub, setPoppedSub] = useState(false)
-  /** The same flag for the phone sheet, which is a separate surface with its
-   *  own level state — sharing one would make a back press in the dropdown
-   *  decide how the sheet animates the next time it opens. */
-  const [sheetPopped, setSheetPopped] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
   const [desktopProfileOpen, setDesktopProfileOpen] = useState(false)
-
   /**
-   * ═══════════════════════════════════════════════════════════════════════
-   *  WHY TYPING IN THE HEADER DID NOTHING
-   * ═══════════════════════════════════════════════════════════════════════
+   * The language picker, opened from either account menu.
    *
-   * This was:
-   *
-   *     useEffect(() => { setQuery(searchParams.get("q") ?? "") }, [searchParams])
-   *
-   * `searchParams` is an OBJECT, and a new one arrives on re-render — so the
-   * dependency is an identity, not a value, and the effect fires again and
-   * again on a URL that never changed. On the home page `q` is absent, so
-   * every one of those runs set the field back to "".
-   *
-   * And the header re-renders constantly: the auth state resolves, the avatar
-   * loads, a dropdown opens — and, fatally, `setSearchModalOpen(true)` fires
-   * from the field's own `onChange`. So the sequence for the first character
-   * anybody typed was: set query to "n", open the panel, re-render, effect
-   * runs, query back to "". The field stayed empty, the panel stayed on its
-   * "search vintage, brands, styles…" empty state, and search looked broken
-   * because from the outside it WAS.
-   *
-   * Comparing the VALUE fixes it: a string dependency is stable across
-   * re-renders, and the ref makes the intent explicit — the URL may seed this
-   * field, and may overwrite it on a real navigation to a different query, but
-   * it may never overwrite it merely because React rendered again.
+   * State lives here rather than in the modal because BOTH menus open the same
+   * one, and each has to close itself on the click that opens it -- a sheet
+   * left open behind a modal reappears when the modal closes.
    */
-  const urlQuery = searchParams.get("q") ?? ""
-  const lastUrlQuery = useRef(urlQuery)
+  const [languageOpen, setLanguageOpen] = useState(false)
+
   useEffect(() => {
-    if (lastUrlQuery.current === urlQuery) return
-    lastUrlQuery.current = urlQuery
-    setQuery(urlQuery)
-  }, [urlQuery])
+    setQuery(searchParams.get("q") ?? "")
+  }, [searchParams])
 
   // Close modals on route change
   useEffect(() => {
@@ -650,12 +695,73 @@ export function PlatformHeaderClient() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  /* The debounced `products` lookup that lived here is gone with the dropdown
-     it filled. It queried `products` joined to `creators` for digital goods,
-     which is not what this marketplace sells and is not what the overlay asks
-     for. Search runs inside components/explore/mobile-search-overlay.tsx, once,
-     for every screen. */
+  // Live search with debounce
+  const handleSearchChange = useCallback((value: string) => {
+    setQuery(value)
 
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    if (value.trim().length < 1) {
+      setSearchResults([])
+      setSearchLoading(false)
+      return
+    }
+
+    setSearchLoading(true)
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from("products")
+          .select(`
+            id,
+            title,
+            slug,
+            thumbnail_url,
+            price_cents,
+            creator_id,
+            creators!inner (
+              display_name,
+              slug
+            )
+          `)
+          .ilike("title", `%${value}%`)
+          .eq("status", "published")
+          .limit(8)
+
+        if (!error && data) {
+          const results = data.map((p: any) => ({
+            id: p.id,
+            title: p.title,
+            slug: p.slug,
+            thumbnail_url: p.thumbnail_url,
+            price_cents: p.price_cents,
+            creator: p.creators ? {
+              display_name: p.creators.display_name,
+              slug: p.creators.slug,
+            } : undefined,
+          }))
+          setSearchResults(results)
+        }
+      } catch (err) {
+        console.error("Search error:", err)
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 300)
+  }, [])
+
+  // Cleanup search timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const fetchWishlistCount = useCallback(async () => {
     try {
@@ -667,13 +773,7 @@ export function PlatformHeaderClient() {
       })
       if (res.ok) {
         const data = await res.json()
-        const next = data.count || data.items?.length || 0
-        setWishlistCount((prev) => (prev === next ? prev : next))
-        try {
-          localStorage.setItem("_sl_wishlist_count", String(next))
-        } catch {
-          /* storage unavailable */
-        }
+        setWishlistCount(data.count || data.items?.length || 0)
       }
     } catch (err) {
       console.error("[v0] Failed to fetch wishlist count:", err)
@@ -687,13 +787,7 @@ export function PlatformHeaderClient() {
   useEffect(() => {
     const handleWishlistUpdate = (event: CustomEvent) => {
       if (typeof event.detail?.count === "number") {
-        const next = event.detail.count
-        setWishlistCount((prev) => (prev === next ? prev : next))
-        try {
-          localStorage.setItem("_sl_wishlist_count", String(next))
-        } catch {
-          /* storage unavailable */
-        }
+        setWishlistCount(event.detail.count)
       } else {
         fetchWishlistCount()
       }
@@ -713,85 +807,69 @@ export function PlatformHeaderClient() {
       setInitialLoadDone(true)
     }, 2500)
 
-    const loadUser = async () => {
+    const loadUser = async (isInitial = false) => {
       try {
         if (!mountedRef.current) return
-
-        // getSession() reads the stored session locally; getUser() posts to
-        // Supabase to re-validate the JWT. This runs on every page load purely to
-        // decide which header to draw, so it takes the local read — a header does
-        // not need to re-verify a token, and anything that actually matters is
-        // authorised server-side anyway. This alone removes a network round trip
-        // from in front of the first paint.
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-        const user = sessionData.session?.user ?? null
-
-        // An error here is the session failing to READ — a refresh that hit a
-        // rate limit, a dropped connection — not a session that isn't there.
-        // Treating the two alike is what turns a passing Supabase incident into
-        // a mass logout: the snapshot below is the durable record that draws the
-        // signed-in header, and clearing it on a failure we cannot interpret
-        // loses the user's state for a reason that may not survive the minute.
-        if (sessionError) {
-          if (!mountedRef.current) return
-          return
+        if (isInitial) {
+          setLoading(true)
         }
 
-        if (!user) {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser()
+
+        if (error || !user) {
           if (!mountedRef.current) return
           setUser(null)
           setProfile(null)
           setIsCreator(false)
           setHasCompletedSellerOnboarding(false)
-          clearAuthSnapshot()
-          setCachedAvatarUrl(null)
           return
         }
 
         if (!mountedRef.current) return
         setUser(user)
 
-        // In parallel, not one after the other — they don't depend on each other,
-        // and serialising them doubled how long the header took to settle.
-        // profiles.avatar_url is the single source of truth for the avatar; both
-        // /app/settings and Store Builder sync to it. Do NOT also read
-        // store_builder_configs — two sources is what caused avatar flicker.
-        const [profileRes, creatorRes] = await Promise.all([
-          supabase
-            .from("profiles")
-            .select("display_name, avatar_url, username, is_creator")
-            .eq("id", user.id)
-            .single(),
-          supabase.from("creators").select("id, onboarding_completed").eq("user_id", user.id).maybeSingle(),
-        ])
+        // profiles.avatar_url is the single source of truth for avatar.
+        // Both /app/settings and Store Builder sync avatar changes to this field.
+        // Do NOT query store_builder_configs separately — it causes split-source flicker.
+        const { data: profileData, error: profileErr } = await supabase
+          .from("profiles")
+          .select("display_name, avatar_url, username, is_creator")
+          .eq("id", user.id)
+          .single()
+
+        const { data: creatorData } = await supabase
+          .from("creators")
+          .select("id, onboarding_completed")
+          .eq("user_id", user.id)
+          .maybeSingle()
 
         if (!mountedRef.current) return
-        if (profileRes.error) {
-          // Signed in but the profile row didn't load — keep the session state.
-          // Blanking it here is what made a logged-in header fall back to "Log in".
+        if (profileErr) {
           setProfile(null)
+          setIsCreator(false)
+          setHasCompletedSellerOnboarding(false)
         } else {
-          const pd = (profileRes.data as Profile) ?? null
+          const pd = (profileData as Profile) ?? null
           setProfile(pd)
+          // Persist avatar so the next render (or next page load) shows it immediately
           const freshAvatar = pd?.avatar_url || null
-          if (freshAvatar) setCachedAvatarUrl(freshAvatar)
-          const isSellerByState = !!creatorRes.data?.onboarding_completed
+          if (freshAvatar) {
+            setCachedAvatarUrl(freshAvatar)
+            try { localStorage.setItem("_sl_avatar", freshAvatar) } catch {}
+          }
+          const isSellerByState = !!creatorData?.onboarding_completed
           setIsCreator(isSellerByState)
           setHasCompletedSellerOnboarding(isSellerByState)
-          writeAuthSnapshot({
-            signedIn: true,
-            userId: user.id,
-            avatarUrl: freshAvatar,
-            displayName: pd?.display_name ?? null,
-            username: pd?.username ?? null,
-            isSeller: isSellerByState,
-          })
         }
       } catch {
-        // A failed lookup is not proof of being signed out — leave whatever the
-        // snapshot seeded rather than throwing the user back to a logged-out
-        // header on a flaky connection.
         if (!mountedRef.current) return
+        setUser(null)
+        setProfile(null)
+        setIsCreator(false)
+        setHasCompletedSellerOnboarding(false)
       } finally {
         if (!mountedRef.current) return
         setLoading(false)
@@ -799,16 +877,10 @@ export function PlatformHeaderClient() {
       }
     }
 
-    loadUser()
+    loadUser(true)
 
-    const { data } = supabase.auth.onAuthStateChange((event: string) => {
-      // Clear the snapshot the instant we sign out, so a reload can't briefly
-      // show the previous user's avatar before the session check catches up.
-      if (event === "SIGNED_OUT") {
-        clearAuthSnapshot()
-        setCachedAvatarUrl(null)
-      }
-      loadUser()
+    const { data } = supabase.auth.onAuthStateChange(() => {
+      loadUser(false)
       fetchWishlistCount()
     })
 
@@ -821,30 +893,18 @@ export function PlatformHeaderClient() {
   }, [fetchWishlistCount])
 
   const startSellingHref = useMemo(() => {
-    // Selling is part of the marketplace, not a dashboard task — signed-in
-    // sellers go straight to the listing form rather than through onboarding.
     if (!user) return "/signup"
-    return "/products/new"
-  }, [user])
+    return hasCompletedSellerOnboarding ? "/app" : "/library"
+  }, [user, hasCompletedSellerOnboarding])
 
   const dashboardHref = useMemo(() => {
     if (!user) return "/signup"
     return hasCompletedSellerOnboarding ? "/app" : "/onboarding"
   }, [user, hasCompletedSellerOnboarding])
 
-  // One wishlist, one URL — but that URL is now the SAVED TAB ON YOUR PROFILE
-  // rather than a page of its own. See savedShelfHref: the list lives in a tab
-  // beside your listings and your reviews, so the bookmark in this bar should
-  // land on it rather than on a separate screen with different chrome showing
-  // the same items. /wishlist is still there and is still the fallback for
-  // anybody whose handle this header does not know — a guest, or a session that
-  // has not resolved yet.
-  //
-  // `profile` is seeded from the persisted auth snapshot before the first paint
-  // (see its useState above), so a returning visitor's bookmark points at their
-  // own profile immediately rather than at /wishlist for the frame before the
-  // session resolves.
-  const wishlistHref = useMemo(() => savedShelfHref(profile?.username), [profile?.username])
+  const wishlistHref = useMemo(() => {
+    return user ? "/library/wishlist" : "/wishlist"
+  }, [user])
 
   // profiles.avatar_url is the single source of truth.
   // Both /app/settings and Store Builder sync to it. No cache-busting params needed.
@@ -860,31 +920,9 @@ export function PlatformHeaderClient() {
     ((user?.user_metadata as any)?.full_name as string | undefined) ||
     (user?.email ? user.email.split("@")[0] : "User")
 
-  /**
-   * ===========================================================================
-   *  SIGNING OUT HERE SIGNS OUT *HERE*
-   * ===========================================================================
-   *
-   * `scope: "local"` is not a detail — a bare `signOut()` defaults to
-   * `scope: "global"`, which asks Supabase to REVOKE EVERY REFRESH TOKEN THE
-   * ACCOUNT HAS. Signing out on a laptop therefore killed the session on the
-   * iOS app, the Android app and every other browser at the same time, without
-   * anything on screen suggesting it would.
-   *
-   * The second-order damage was worse than the logout. Those devices still held
-   * a stored refresh token, now dead. On next open they tried to refresh it,
-   * got an error back, and sat on a spinner while the auth gate waited for a
-   * read that was never going to resolve into a session — which is the
-   * "it logs me out randomly and then loads forever" report, both halves of it,
-   * from one default argument.
-   *
-   * Local revokes this device's token and leaves the others alone. Signing out
-   * everywhere is still available, deliberately, as its own control in
-   * settings — and that one passes `scope: 'global'` on purpose.
-   */
   async function handleLogout() {
     const supabase = createClient()
-    await supabase.auth.signOut({ scope: "local" })
+    await supabase.auth.signOut()
     setMobileProfileOpen(false)
     setDesktopProfileOpen(false)
     setCachedAvatarUrl(null)
@@ -897,79 +935,17 @@ export function PlatformHeaderClient() {
     }
   }
 
-  /**
-   * A DEPARTMENT IS A MARKETPLACE FILTER, NOT AN /explore CATEGORY.
-   *
-   * This sent every click to `/explore?category=…`, which is the legacy
-   * digital-goods browse page and knows nothing about Femei or Hobbyuri. Now
-   * that the bar carries the real departments, the only page that can answer
-   * them is the marketplace itself — the same URL the category tiles at the
-   * bottom of the home page have always used.
-   */
-  /**
-   * THE BAR GOES TO THE RESULTS PAGE, like every other way of picking a
-   * department does.
-   *
-   * It pushed `/?category=women`, which is the home page carrying a filter: no
-   * title, no count, no trail, no page number and no filter bar. So the same
-   * word — Bărbați — did one thing in the Browse menu, another in the phone's
-   * drawer, and a third here, and only the third had nothing to show for it.
-   *
-   * `categoryPath` rather than a string, so this cannot drift from the menus
-   * that already use it.
-   *
-   * AND "TOATE" GOES TO /shop, NOT HOME. It used to be the one pill in the row
-   * that left the results page: five of the six took you somewhere with a
-   * heading, a count, a trail and seven filters, and the sixth dropped you on
-   * the home feed — an endless column with no count and nothing to filter by.
-   * "Toate" is the absence of a DEPARTMENT, not the absence of the page, and
-   * `/shop` with no path is exactly that: the whole catalogue, with the same
-   * apparatus as every other pill in the row. `categoryPath(null)` is already
-   * "/shop", so there is no second spelling of it here.
-   */
   const onCategoryClick = (cat: string) => {
-    navigateToExploreCategory(categoryPath(cat === "all" ? null : cat))
+    const url = `/explore?category=${encodeURIComponent(cat)}&scroll=recommended`
+    navigateToExploreCategory(url)
   }
 
-  // "/" is the marketplace, so it gets the category bar. It was excluded here
-  // (and again in the two guards below), which is why storelib.com had no
-  // category strip while storelib.com/explore did — the same page, minus its
-  // navigation.
-  //
-  // NOT ON /shop, though every pill in it now goes there. That page has a sticky
-  // refine bar of its own pinned to `--platform-header-h`, which is exactly
-  // where this bar sits — and this one is z-35 to the refine bar's z-30, so the
-  // categories would paint over the filters every time somebody scrolled UP,
-  // which is the gesture people make in order to reach the filters. The results
-  // page carries its own department rail instead, in its own scroll flow — see
-  // components/explore/category-results.tsx.
-  const showCategories =
-    pathname === "/" || pathname.startsWith("/explore") || pathname === "/wishlist"
+  const showCategories = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
   const isDiscoverProductContext = pathname.startsWith("/p/") && isDiscoverMode(pathname, searchParams)
   const isSellerOrProductPage = pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/") || pathname.startsWith("/s/")
-  /**
-   * THE SELL FORM IS NOT A WHITE PAGE, so it must not be handed a white lip.
-   *
-   * Under the black header the shell draws a 20px strip with a white
-   * `rounded-t-[20px]` overlay on it — the concave transition into the white
-   * search-and-categories bar below. On a route that has no such bar and whose
-   * own background is #f6f6f7, that strip is simply a band of white between the
-   * header and the page: the empty gap at the top of /products/new, curving at
-   * the corners because it is the lip of a bar that is not there.
-   *
-   * Named rather than folded into the condition, because it is now checked
-   * twice — for the lip and for the bar it is the lip OF — and the two must not
-   * be able to disagree about which routes they apply to.
-   */
-  const isSellRoute = pathname.startsWith("/products/new") || pathname.startsWith("/products/edit")
   const isBlogRoute = pathname === "/blog" || pathname.startsWith('/blog/')
   const isFaqRoute = pathname === "/faq"
-  // "/" is the marketplace now, not a landing page, so it gets the marketplace
-  // header — the same one /explore has always had, with search, categories and
-  // the action row. It used to fall in here and render the old Home / Discover /
-  // Blog / Pricing / FAQ nav instead, which is why storelib.com and
-  // storelib.com/explore looked like two different products.
-  const isMarketingNavRoute = pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute
+  const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute
 
   const canonicalBaseUrl = useMemo(() => getCanonicalSiteUrl(), [])
 
@@ -1052,24 +1028,6 @@ export function PlatformHeaderClient() {
 
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
-      /**
-       * THE SELL FORM IS A PAGE ON A DESKTOP, NOT A MODAL OVER THE FEED.
-       *
-       * Both sell addresses are intercepted routes, so `router.push` renders
-       * them into the @modal slot over whatever you were looking at. Right on a
-       * phone; wrong on a monitor, where writing a listing is a ten-minute job
-       * with eight photographs in it and a modal says the opposite — a quick
-       * aside from the page behind, dismissable by clicking away from it.
-       *
-       * An interception only fires on a client navigation, so the fix is to
-       * stop asking the router rather than to defeat it. First, before the
-       * canonical and native branches: those decide HOW to navigate, and this
-       * decides whether this navigation may be a soft one at all.
-       */
-      if (isSellFormRoute(targetPath) && goToSellFormAsPage(targetPath)) {
-        e.preventDefault()
-        return
-      }
       if (targetPath !== pathname) startNavigationLoading()
       // When on a seller subdomain (e.g. sellername.storelib.com), ALL navigation
       // to non-seller routes (/library, /app, /explore, /signup, etc.) MUST use
@@ -1116,119 +1074,13 @@ export function PlatformHeaderClient() {
     ? CATEGORIES_WITH_SUBS.find(c => c.label === selectedCategoryForSubs)
     : null
 
-  /**
-   * THIS BAR'S HEIGHT, ON THE ROOT, FOR THE THINGS THAT HAVE TO START BELOW IT.
-   *
-   * The twin of `--web-header-h` in mobile-web-header.tsx, and it exists for
-   * the same reason: something else on the page is `position: fixed` and has to
-   * know where this ends. Here it is the profile's pinned bar, which used to
-   * park itself at `top: 0` on top of seventy-one pixels of black header and
-   * leave the bottom third of it showing as a strip.
-   *
-   * A LAYOUT effect, so the value is published before the browser paints the
-   * route it was mounted by. As a passive effect the first painted frame of
-   * every navigation has the previous route's number in it, and a fixed element
-   * positioned from a stale variable is a visible jump one frame later — the
-   * bug mobile-web-header.tsx records at length.
-   *
-   * ZERO WHEN THIS BAR IS NOT DRAWN, which is most of the product: the shell
-   * around it is `display: none` below 48rem and inside the app, and a hidden
-   * element measures zero — so the readers fall back to the top of the screen
-   * without any of them having to ask whether this header exists.
-   *
-   * The observer catches what a render cannot predict: the category row opening,
-   * the logo's font landing, a window resize crossing the md breakpoint.
-   */
-  /**
-   * Whether the category bar below the header is currently out of the way.
-   *
-   * Closed over by the bar's `data-hidden`, which is the only thing that reads
-   * it — the CSS does the rest. Six departments pinned to the top of the screen
-   * for the whole length of a marketplace is six words of navigation taking a
-   * slice off every page, and you are scrolling because you want listings.
-   *
-   * Never disabled: the bar only renders on routes where the black header above
-   * it is `sticky`, so there is no arrangement in which this pins under
-   * something that has scrolled away.
-   *
-   * THE FLOOR IS THE BAR'S OWN HEIGHT, and that is the whole of the second
-   * argument. `position: sticky` leaves the element's space in the document,
-   * and for this bar that space is at the very top of the page — so hiding it
-   * while any of that space is still on screen shows the band it vacated:
-   * white, bar-height, between a black header and a #f5f5f5 page. Once the page
-   * has moved by the bar's height the header covers that band completely, so
-   * below that point the bar simply stays. Measured rather than written down,
-   * because the height is exactly the kind of number that changes.
-   */
-  const showSubbar =
-    !isSellRoute &&
-    (showCategories ||
-      (!pathname.startsWith("/features") &&
-        !pathname.startsWith("/blog") &&
-        !pathname.startsWith("/pricing") &&
-        !isFaqRoute &&
-        !isSellerOrProductPage))
-
-  const [subbarH, setSubbarH] = useState(0)
-  const subbarRef = useRef<HTMLDivElement>(null)
-  const subbarHidden = useHideOnScrollDown(true, subbarH)
-
-  useLayoutEffect(() => {
-    const el = subbarRef.current
-    if (!showSubbar || !el) {
-      setSubbarH(0)
-      return
-    }
-    const measure = () => setSubbarH(Math.round(el.getBoundingClientRect().height))
-    measure()
-    if (typeof ResizeObserver === "undefined") return
-    // The bar changes height without remounting — the mobile search trigger
-    // appearing on a route change, a resize crossing md, the category row
-    // opening. A mount-only read would leave the floor set to whatever the bar
-    // was on the route before this one.
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [showSubbar])
-
-  const headerRootRef = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    const el = headerRootRef.current
-    if (!el) return
-    const publish = () => {
-      document.documentElement.style.setProperty(
-        "--platform-header-h",
-        `${Math.round(el.getBoundingClientRect().height)}px`,
-      )
-    }
-    publish()
-    if (typeof ResizeObserver === "undefined") return
-    const ro = new ResizeObserver(publish)
-    ro.observe(el)
-    return () => {
-      ro.disconnect()
-      // Zeroed rather than removed: an explicit 0px is one style write, while a
-      // removal invalidates custom-property inheritance for the whole document
-      // on a frame that is already committing a route. And a stale height left
-      // behind would push a bar down past a header that is no longer there.
-      document.documentElement.style.setProperty("--platform-header-h", "0px")
-    }
-  }, [])
-
   return (
     <>
-      <div ref={headerRootRef} id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black", isSellerOrProductPage ? "relative" : "sticky top-0")}>
+      <div id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black", isSellerOrProductPage ? "relative" : "sticky top-0")}>
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div
-          // 81 → 68 on a desktop. Eighty-one pixels of black is a band, and it
-          // was one on every page: the tallest thing on a marketplace should be
-          // a photograph of something for sale, not the bar above it. The logo
-          // comes down with it — at 46px in a 68px row it would have four
-          // pixels of air top and bottom, which is a logo wedged into a bar
-          // rather than sitting in one. Untouched below md, where the row is
-          // sized by the safe-area inset rather than by this.
-          className="platform-header-row flex md:h-[68px] items-center justify-between gap-4 pb-3 md:pb-[3px]"
+          className="platform-header-row flex md:h-[81px] items-center justify-between gap-4 pb-3 md:pb-[3px]"
         >
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
           {isMarketingNavRoute ? (
@@ -1242,10 +1094,10 @@ export function PlatformHeaderClient() {
                     alt="Storelib"
                     width={138}
                     height={46}
-                    className="h-[38px] w-auto rounded-[7px]"
+                    className="h-[46px] w-auto rounded-[7px]"
                     priority
                   />
-                  <span className="text-[20px] font-bold text-white tracking-tight">Storelib</span>
+                  <span className="text-[22px] font-bold text-white tracking-tight">Storelib</span>
                 </Link>
 
                 {/* Center - Nav Links (show for all users) */}
@@ -1283,8 +1135,8 @@ export function PlatformHeaderClient() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Link
-                            href="/" onClick={(e) => onCanonicalNav(e, "/")}
-                            className="flex h-10 w-10 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                            href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")}
+                            className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                             aria-label="Discover"
                           >
                             <Compass className="h-[22px] w-[22px]" />
@@ -1354,16 +1206,16 @@ export function PlatformHeaderClient() {
               {/* Left side - Logo and Categories Button */}
               <div className="flex items-center gap-3 shrink-0">
                 {/* Logo with Storelib text - links to /explore */}
-                <Link href="/" onClick={(e) => onCanonicalNav(e, "/")} className="shrink-0 hidden md:flex items-center gap-2">
+                <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 hidden md:flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
                     width={138}
                     height={46}
-                    className="h-[38px] w-auto rounded-[7px]"
+                    className="h-[46px] w-auto rounded-[7px]"
                     priority
                   />
-                  <span className="text-[20px] font-bold text-white tracking-tight">Storelib</span>
+                  <span className="text-[22px] font-bold text-white tracking-tight">Storelib</span>
                 </Link>
 
                 {/* Categories Dropdown Button with Tooltip */}
@@ -1376,89 +1228,51 @@ export function PlatformHeaderClient() {
                       setExpandedCategory(null)
                       setSelectedCategoryForSubs(null)
                     }}
-                    /* THE ICON, WITHOUT THE WORD.
-                    
-                       It read "Categories" in English on a Romanian
-                       marketplace, immediately left of a field whose
-                       placeholder is "Caută orice" — one bar, two languages,
-                       and the only untranslated string on it. Translating it
-                       was the obvious repair and the wrong one: "Categorii" is
-                       nine characters of chrome next to a hamburger that
-                       already means exactly that, and it was eating width the
-                       search field could use.
-                    
-                       A square target with a tooltip and an aria-label instead.
-                       The three lines are the most universally understood glyph
-                       in an interface, this one opens a menu of categories, and
-                       the tooltip says so for anybody who hesitates. */
-                    aria-label="Categorii"
-                    className={`flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-150 cursor-pointer ${
+                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150 cursor-pointer ${
                       categoriesDropdownOpen
                         ? "bg-white/15 text-white"
                         : "text-white/80 hover:bg-white/10 hover:text-white"
                     }`}
                   >
-                    <Menu className="w-[20px] h-[20px]" />
+                    <Menu className="w-[18px] h-[18px]" />
+                    <span>Categories</span>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
-                  Categorii
+                  Browse all categories
                 </TooltipContent>
               </Tooltip>
 
               {/* Categories Megamenu Dropdown with dedicated subcategory view */}
               {categoriesDropdownOpen && (
                 <div className="absolute top-full left-0 mt-2 w-[320px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50">
-                  {/* ═══════════════════════════════════════════════════════
-                      THE TWO LEVELS PUSH, THEY DO NOT SWAP
-                      ═══════════════════════════════════════════════════════
-
-                      Picking a department replaced one list with another in a
-                      single frame, so the menu simply became a different menu
-                      and nothing said which direction you had gone — the Back
-                      button was the only evidence you were a level deep.
-
-                      The listing form solved this once already, in
-                      components/sell/picker-page.tsx: the arriving level slides
-                      in from the right while the leaving one steps 25% left and
-                      dims to 0.62, and the same pair runs backwards on the way
-                      out. `sub-push` / `sub-pop` in app/globals.css are that
-                      movement at the same 360ms and the same curve, so a
-                      drill-down in the header and a drill-down in the sell form
-                      are recognisably the same gesture rather than two
-                      animations that happen to live in one app.
-
-                      Only transform and opacity, for the reason picker-page
-                      gives: anything animating width or height across a subtree
-                      this size drops the whole menu onto the main thread. */}
                   <div className="max-h-[70vh] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
                     {/* Subcategory View */}
                     {selectedCategoryForSubs && selectedCategoryData ? (
-                      <div className="sub-push p-3">
+                      <div className="p-3">
                         <button
-                          onClick={() => {
-                            // Mark the RETURN so the level underneath plays the
-                            // pop rather than the push — without this the list
-                            // you are going back to slides in from the right as
-                            // though you had gone deeper.
-                            setPoppedSub(true)
-                            setSelectedCategoryForSubs(null)
-                          }}
+                          onClick={() => setSelectedCategoryForSubs(null)}
                           className="flex items-center gap-2 px-2 py-2 mb-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
                         >
                           <ChevronLeft className="h-4 w-4" />
-                          <span>Toate categoriile</span>
+                          <span>Back to Categories</span>
                         </button>
                         <div className="flex items-center gap-3 px-3 py-2 mb-2">
                           <selectedCategoryData.icon className="h-5 w-5 text-violet-500" />
-                          <span className="text-base font-semibold text-gray-900">{t(`category.${selectedCategoryData.id}`)}</span>
+                          <span className="text-base font-semibold text-gray-900">{selectedCategoryData.label}</span>
+                          {selectedCategoryData.isHot && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
+                              <Flame className="h-3 w-3" />
+                              Hot
+                            </span>
+                          )}
                         </div>
                         <Link
                           href={getCanonicalOrRelativePath(selectedCategoryData.href + '&scroll=recommended')}
                           onClick={() => setCategoriesDropdownOpen(false)}
                           className="flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
                         >
-                          <span>{t("marketplace.show_all")} · {t(`category.${selectedCategoryData.id}`)}</span>
+                          <span>View All {selectedCategoryData.label}</span>
                           <ArrowRight className="h-4 w-4" />
                         </Link>
                         <div className="space-y-0.5 mt-2">
@@ -1476,8 +1290,8 @@ export function PlatformHeaderClient() {
                       </div>
                     ) : (
                       /* Main Categories List */
-                      <div className={cn("p-3", poppedSub && "sub-pop")}>
-                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Categorii</h3>
+                      <div className="p-3">
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Browse Categories</h3>
                         <div className="space-y-0.5">
                           {CATEGORIES_WITH_SUBS.map((cat) => {
                             const Icon = cat.icon
@@ -1488,7 +1302,6 @@ export function PlatformHeaderClient() {
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   if (hasSubcats) {
-                                    setPoppedSub(false)
                                     setSelectedCategoryForSubs(cat.label)
                                   } else {
                                     navigateToExploreCategory(cat.href + '&scroll=recommended')
@@ -1499,7 +1312,13 @@ export function PlatformHeaderClient() {
                               >
                                 <div className="flex items-center gap-3">
                                   <Icon className="h-4 w-4 text-gray-400" />
-                                  <span>{t(`category.${cat.id}`)}</span>
+                                  <span>{cat.label}</span>
+                                  {cat.isHot && (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
+                                      <Flame className="h-3 w-3" />
+                                      Hot
+                                    </span>
+                                  )}
                                 </div>
                                 {hasSubcats && (
                                   <ChevronRight className="h-4 w-4 text-gray-400" />
@@ -1516,127 +1335,138 @@ export function PlatformHeaderClient() {
             </div>
           </div>
 
-          {/* THE MARKETPLACE'S SEARCH, not the digital-goods one.
+          {/* Desktop Search - Centered with Modal (10% larger) */}
+          <div className="hidden md:flex flex-1 max-w-xl mx-4 relative">
+            <div className="relative w-full">
+              <Search className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40 pointer-events-none z-10" />
+              <Input
+                ref={searchInputRef}
+                value={query}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onFocus={() => setSearchModalOpen(true)}
+                placeholder={t("search_placeholder")}
+                className={`h-11 w-full pl-11 pr-4 bg-white/10 border-white/15 text-white text-[15px] placeholder:text-white/50 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-0 focus-visible:border-violet-500 ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery("")
+                    setSearchResults([])
+                    searchInputRef.current?.focus()
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
 
-              What was here was a field with its own dropdown: nine categories
-              from the product this app used to be (Design, Development,
-              Marketing, AI…), results linking to /p/ pages, dollar prices,
-              "Product by", English copy on a Romanian site. None of it had been
-              updated when the marketplace replaced it, so a desktop browser was
-              searching a catalogue that is no longer the catalogue.
+            {/* Search Modal Dropdown */}
+            {searchModalOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setSearchModalOpen(false)}
+                />
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50 max-h-[70vh] overflow-y-auto">
+                  {!query && (
+                    <div className="p-4 border-b border-gray-100">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Categories</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {SEARCH_CATEGORIES.map((cat) => (
+                          <Link
+                            key={cat.label}
+                            href={getCanonicalOrRelativePath(cat.href + '&scroll=recommended')}
+                            onClick={(e) => {
+                              onCanonicalNav(e, cat.href + '&scroll=recommended')
+                              setSearchModalOpen(false)
+                            }}
+                            className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
+                          >
+                            {cat.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-              The real search already exists and every phone has been using it:
-              items, categories and people behind three tabs, recent queries and
-              the popular-expansion table. It was `md:hidden`. So this is a
-              TRIGGER now, and the overlay it opens is that one — see
-              components/explore/mobile-search-overlay.tsx, which grew a desktop
-              shape rather than a desktop copy. */}
-          {/* ONE FIELD, IN THE BAR, WITH THE RESULTS UNDER IT.
+                  {searchLoading && (
+                    <div className="p-6 flex items-center justify-center">
+                      <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                      <span className="ml-2 text-sm text-gray-500">Searching...</span>
+                    </div>
+                  )}
 
-              A real input rather than a button that opens a modal with its own
-              input. Both earlier versions of this were wrong in opposite ways:
-              a centred modal put two search boxes on screen at once, and hiding
-              this one while the modal was open meant the thing you clicked
-              vanished from where you clicked it and a different one appeared
-              lower down.
+                  {!searchLoading && searchResults.length > 0 && (
+                    <div className="p-2">
+                      <h3 className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Products</h3>
+                      {searchResults.map((product) => (
+                        <Link
+                          key={product.id}
+                          href={getCanonicalOrRelativePath(`/p/${product.slug}`)}
+                          onClick={(e) => {
+                            onCanonicalNav(e, `/p/${product.slug}`)
+                            setSearchModalOpen(false)
+                          }}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
+                        >
+                          {product.thumbnail_url ? (
+                            <Image
+                              src={product.thumbnail_url}
+                              alt={product.title}
+                              width={48}
+                              height={48}
+                              className="w-12 h-12 rounded-lg object-cover border border-gray-200"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                              <Search className="w-5 h-5 text-gray-400" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
+                            {product.creator?.display_name && (
+                              <p className="text-xs text-gray-500 truncate">Product by {product.creator.display_name}</p>
+                            )}
+                          </div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
 
-              The field stays. It never moves, it is always the one you type in,
-              and the panel is a child of this container so it lines up with the
-              field at every width without measuring anything. This is the shape
-              the old dropdown had right; what was wrong with it was its
-              CONTENTS, which are now the marketplace's. */}
-          {/* 518px, down from `max-w-xl` (576). Ten percent off a field that had
-              grown into the widest object in the bar: at 576 it ran most of the
-              way between the logo and the icons on a 1400px measure, which made
-              the header read as a search page with some navigation attached
-              rather than as navigation with a search in it. It is still by some
-              distance the largest control up there. */}
-          <div ref={searchBoxRef} className="relative hidden md:flex flex-1 max-w-[518px] mx-4">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-[18px] w-[18px] -translate-y-1/2 text-white/40" />
-            <input
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value)
-                // Typing is opening. Somebody who starts typing into a closed
-                // field means to search, and making them press it first is a
-                // step that exists only because the panel is a separate thing.
-                if (!searchModalOpen) setSearchModalOpen(true)
-              }}
-              onFocus={() => setSearchModalOpen(true)}
-              // AND on click. After Escape the field still holds focus, so
-              // `onFocus` cannot fire again — clicking the search box would do
-              // nothing at all until you clicked somewhere else first.
-              onClick={() => setSearchModalOpen(true)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") setSearchModalOpen(false)
-                // ENTER SEARCHES, which it did not do at all.
-                //
-                // The field opened a suggestions panel and nothing else, so the
-                // only way to run a query was to pick one of ITS answers —
-                // anything the panel had no suggestion for could be typed in
-                // full, pressed Enter on, and simply sat there. On a desktop
-                // Enter in a search box is not a convenience, it is the control.
-                if (e.key === "Enter") {
-                  const v = query.trim()
-                  if (!v) return
-                  e.preventDefault()
-                  setSearchModalOpen(false)
-                  router.push(`/shop?q=${encodeURIComponent(v)}`)
-                }
-              }}
-              /**
-               * NO NATIVE PLACEHOLDER — the animated one below stands in for it.
-               *
-               * The phone has had the typing placeholder since it shipped (see
-               * SearchTrigger in components/marketplace/search-row.tsx) and the
-               * desktop had a static "Caută orice", which is the same field
-               * saying less on the surface with more room to say it. A search box
-               * that shows you what people actually search for is the cheapest
-               * onboarding a marketplace has: it answers "what is on here" before
-               * anybody has typed anything.
-               *
-               * It cannot be the `placeholder` attribute — animating one
-               * per-character means rewriting the attribute every frame — so the
-               * attribute is empty and the overlay is a sibling. `aria-label`
-               * still carries the field's name, which is what a screen reader was
-               * reading anyway.
-               */
-              placeholder=""
-              aria-label={t("search_placeholder")}
-              className={`h-11 w-full border border-white/15 bg-white/10 pl-11 pr-4 text-[15px] text-white outline-none transition-colors placeholder:text-white/50 focus:border-violet-500 focus:bg-white/[0.14] ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
-            />
-            {/* MOUNTED ALWAYS, TOGGLED BY `active`. Unmounting resets the phrase
-                cursor, so every focus and blur would restart the loop from
-                "jordan 4 retro"; while inactive it renders nothing and holds no
-                timers. It is `pointer-events-none` because the thing under it is
-                the input — a click landing on the placeholder text instead of the
-                field is the one way an overlay like this can be worse than the
-                attribute it replaces. */}
-            <AnimatedSearchPlaceholder
-              active={!query && !searchModalOpen}
-              prefix={t("mfeed.search_for")}
-              quoted
-              className="pointer-events-none absolute left-11 right-11 top-1/2 z-10 -translate-y-1/2 text-[15px] text-white/50"
-            />
-            {query && (
-              <button
-                type="button"
-                aria-label={t("marketplace.clear_search")}
-                onClick={() => setQuery("")}
-                className="absolute right-3.5 top-1/2 z-10 -translate-y-1/2 text-white/40 transition-colors hover:text-white/80"
-              >
-                <X className="h-4 w-4" />
-              </button>
+                  {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
+                    <div className="p-6 text-center">
+                      <p className="text-sm text-gray-500">No products found for "{query}"</p>
+                    </div>
+                  )}
+
+                  {!query && (
+                    <div className="p-4 bg-gray-50 text-center">
+                      <p className="text-xs text-gray-500">Start typing to search products</p>
+                    </div>
+                  )}
+
+                  {query.trim() && (
+                    <div className="p-3 border-t border-gray-100 bg-gray-50">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigateReliably(`/explore?q=${encodeURIComponent(query)}`)
+                          setSearchModalOpen(false)
+                        }}
+                        className="w-full py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                      >
+                        View all results for "{query}"
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
-
-            <MobileSearchOverlay
-              open={searchModalOpen}
-              onClose={() => setSearchModalOpen(false)}
-              anchored
-              anchorTo={searchBoxRef}
-              query={query}
-              onQueryChange={setQuery}
-            />
           </div>
 
           {/* Mobile Header for Non-Homepage pages */}
@@ -1653,7 +1483,7 @@ export function PlatformHeaderClient() {
               </button>
 
               {/* Logo next to hamburger - links to /explore */}
-              <Link href="/" onClick={(e) => onCanonicalNav(e, "/")} className="shrink-0 flex items-center gap-1.5">
+              <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"
@@ -1668,12 +1498,18 @@ export function PlatformHeaderClient() {
 
             {/* Right - Mobile Icons */}
             <div className="flex items-center gap-1">
-
-              {/* Wishlist — h-11 w-11 = 44px tap target. Signed-in only, for
-                  the reason spelled out beside the desktop pair below: a saved
-                  count shown to somebody who has never been here is the
-                  interface guessing out loud. */}
+              {/* Library - only show when logged in; h-11 w-11 = 44px tap target */}
               {user && (
+                <Link
+                  href={getCanonicalOrRelativePath("/library")} onClick={(e) => { e.preventDefault(); setMobileProfileOpen(false); onCanonicalNav(e, "/library") }}
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
+                  aria-label="Library"
+                >
+                  <Library className="h-5 w-5" />
+                </Link>
+              )}
+
+              {/* Wishlist — h-11 w-11 = 44px tap target */}
               <Link
                 href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
                 className="relative flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
@@ -1686,7 +1522,6 @@ export function PlatformHeaderClient() {
                   </span>
                 )}
               </Link>
-              )}
 
               {/* Mobile Avatar or Sign In button — use h-11 w-11 wrapper for 44px tap target */}
               {user ? (
@@ -1718,62 +1553,17 @@ export function PlatformHeaderClient() {
               <HeaderActionsSkeleton />
             ) : (
               <>
-                {/* Messages — signed in only; there's nothing to show otherwise. */}
-                {user && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link
-                        href={getCanonicalOrRelativePath("/messages")} onClick={(e) => onCanonicalNav(e, "/messages")}
-                        className="flex h-10 w-10 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
-                        aria-label={t("messages")}
-                      >
-                        <MessageCircle className="h-[22px] w-[22px]" />
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
-                      {t("messages")}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-
-                {/* ═══════════════════════════════════════════════════════════
-                    THE HEART AND THE BAG ARE FOR PEOPLE WHO HAVE AN ACCOUNT
-                    ═══════════════════════════════════════════════════════════
-
-                    Both were drawn to everybody, and to a stranger they are two
-                    icons that lead to two empty rooms. Worse than empty: the
-                    heart carried a COUNT — the guest wishlist hangs off a cookie
-                    — so a first-time visitor could arrive at a black bar
-                    advertising that they had two saved items and a shopping bag,
-                    on a site they had never used. A number about you, on a page
-                    that has never met you, is the interface guessing out loud.
-
-                    The row is also a pitch when it is empty. Signed out, what is
-                    left is search, Vinde, Log in and Sign up: the two things a
-                    stranger can do and the two ways in. Signed in, the icons are
-                    back and they mean something, because by then there is a list
-                    behind each of them.
-
-                    Messages was already gated this way and has been since it was
-                    added — "there's nothing to show otherwise", a few lines up.
-                    This is the same rule finally applied to its two neighbours. */}
-                {user && (
+                {/* Wishlist */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
                       href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
-                      className="relative flex h-10 w-10 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                      className="relative flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                       aria-label={t("wishlist")}
                     >
                       <Heart className="h-[22px] w-[22px]" />
-                      {/* 16px, down from 20. At h-5 the bubble was half the
-                          height of the heart it sat on and read as an alert
-                          rather than a count — on a black header a red disc
-                          that size is the loudest thing in the row. It only
-                          has to be legible at a glance, and two digits at
-                          9.5px are. */}
                       {wishlistCount > 0 && (
-                        <span className="absolute -top-px -right-px flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9.5px] font-bold leading-none text-white">
+                        <span className="absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                           {wishlistCount > 99 ? "99+" : wishlistCount}
                         </span>
                       )}
@@ -1784,127 +1574,28 @@ export function PlatformHeaderClient() {
                   </TooltipContent>
                 </Tooltip>
 
-                )}
-
-                {/* THE BAG STAYS FOR EVERYBODY, and the heart does not.
-                    
-                    They looked like the same case and are not. A wishlist is a
-                    record of what YOU have done — it is only ever a list of your
-                    own decisions, so on a page that has never met you it is
-                    either empty or, worse, carrying a count from a cookie you do
-                    not know you have.
-                    
-                    A basket is a step in buying something, and buying does not
-                    require an account here: the cart works signed out and the
-                    sign-in happens at checkout. Hiding it would be hiding the
-                    only place a guest's items are, from the guest whose items
-                    they are. */}
+                {/* Library */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
-                      href={getCanonicalOrRelativePath("/cart")} onClick={(e) => onCanonicalNav(e, "/cart")}
-                      className="flex h-10 w-10 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
-                      aria-label={t("bag")}
+                      href={getCanonicalOrRelativePath("/library")} onClick={(e) => onCanonicalNav(e, "/library")}
+                      className="hidden sm:flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                      aria-label={t("library")}
                     >
-                      <ShoppingBag className="h-[22px] w-[22px]" />
+                      <Library className="h-[22px] w-[22px]" />
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
-                    {t("bag")}
+                    My Library
                   </TooltipContent>
                 </Tooltip>
 
-                {/* Sell now — the one filled action in the row, in brand purple.
-                    A seller who's finished onboarding gets their dashboard here
-                    instead; there's no separate "My Library" icon any more. */}
-                {/* Always Sell — never "Panou". This is the primary action of a
-                    marketplace header, and sending an onboarded seller to a
-                    dashboard instead is what stopped it ever reaching the
-                    listing form. */}
-                {/* EIGHT PIXELS, NOT A PILL. A fully rounded button reads as a
-                    chip — something to toggle or dismiss — and this is the
-                    primary action of the whole marketplace. A modest radius is
-                    what every other real control on this site already uses: the
-                    hero's CTA, the search field's panel, the listing cards. It
-                    also stops the two buttons in this row being lozenges beside
-                    a rectangular search field, which is what made the bar read
-                    as three unrelated shapes. */}
-                <Button asChild className="h-10 rounded-lg px-5 text-[14.5px] font-semibold bg-[#7c3aed] text-white hover:bg-[#6d28d9] shadow-[0_2px_12px_-2px_rgba(124,58,237,0.6)] transition-transform active:scale-[0.97]">
-                  <Link href={startSellingHref} onClick={(e) => onCanonicalNav(e, startSellingHref)}>
-                    <span className="flex items-center gap-1.5">
-                      <Plus className="h-4 w-4" strokeWidth={3} />
-                      {t("sell_now")}
-                    </span>
+                {/* Library or Dashboard */}
+                <Button asChild className="h-11 rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
+                  <Link href={getCanonicalOrRelativePath(user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)} onClick={(e) => onCanonicalNav(e, user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)}>
+                    {user && hasCompletedSellerOnboarding ? t("dashboard") : user ? "Library" : t("start_selling")}
                   </Link>
                 </Button>
-
-                {/* ═══════════════════════════════════════════════════════════
-                    SIGNED OUT: ONE CONTROL, SPLIT — NOT TWO BUTTONS
-                    ═══════════════════════════════════════════════════════════
-
-                    It was an outlined pill beside a ghost pill: two objects of
-                    the same size and shape, so the row asked a question it has
-                    no business asking. Between "sign up" and "log in" there is
-                    always a right answer for the person reading it, and they
-                    already know which one they are.
-
-                    So they are ONE thing with two weights. Log in is the plain
-                    word — the returning half needs recognising, not selling to
-                    — and Sign up is the only solid object in the pair, which
-                    makes it the thing a first-time visitor's eye lands on.
-
-                    THE HAIRLINE IS GONE, AND THE GAP DOES ITS JOB.
-                    A rule between two things is what you reach for when they
-                    are NOT obviously related — it is a separator, and drawing
-                    one here argued against the very point of the control. Two
-                    words a few pixels apart, one of them filled, already read
-                    as one object; the rule was pushing them apart and then
-                    asking a line to hold them together.
-
-                    And Log in is at FULL WHITE now, not 85%. It was the word
-                    a returning shopper is looking for, dimmed — which put the
-                    only two things in the pair at the same low contrast as
-                    each other, and made the half most people need the harder
-                    one to find.
-
-                    It sits exactly where the avatar sits when you are signed
-                    in, so the row never changes shape. */}
-                {/* SIGN UP LEADS, LOG IN FOLLOWS.
-                
-                    The pair used to read Log in → Sign up, which is the order
-                    every product ships by habit and the wrong one for this bar:
-                    the row is already read right to left by anybody looking for
-                    their account, and the filled object was sitting at the very
-                    end of it, against the edge of the window. Leading with it
-                    puts the two halves in the order of how many people each is
-                    for — most of the traffic on a page carrying the signed-out
-                    hero has never been here — and leaves Log in as the last
-                    word, which is where somebody who already has an account
-                    looks anyway.
-                    
-                    It sits exactly where the avatar sits when you are signed in,
-                    so the row never changes shape. */}
-                {!user && (
-                  <div className="flex items-center gap-2">
-                    {/* Solid dark grey rather than white. The bar is pure
-                        black, so a filled neutral is a real object on it — and
-                        it stays out of the way of the one purple button beside
-                        it, which is the marketplace's actual primary action. A
-                        white pill here would be two things shouting. */}
-                    <Link
-                      href="/signup"
-                      className="inline-flex h-10 items-center justify-center rounded-lg border border-white/15 bg-neutral-800 px-5 text-[14.5px] font-semibold text-white transition-colors duration-200 hover:bg-neutral-700"
-                    >
-                      {t("sign_up")}
-                    </Link>
-                    <Link
-                      href="/login"
-                      className="px-2 text-[15px] font-semibold text-white transition-opacity duration-200 hover:opacity-70"
-                    >
-                      {t("log_in")}
-                    </Link>
-                  </div>
-                )}
 
                 {/* User Menu - Desktop styled like sidebar dropdown */}
                 {user && (
@@ -1917,7 +1608,7 @@ export function PlatformHeaderClient() {
                           className="rounded-full cursor-pointer outline-none ring-offset-black transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-400 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
                           aria-label="Open profile menu"
                         >
-                          <Avatar className="h-10 w-10 border border-gray-200 transition-opacity duration-150">
+                          <Avatar className="h-11 w-11 border border-gray-200 transition-opacity duration-150">
                             <AvatarImage src={avatarUrl} alt={displayName} />
                             <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
                           </Avatar>
@@ -1977,33 +1668,33 @@ export function PlatformHeaderClient() {
                           <span>Become a Seller</span>
                         </Link>
                         )}
-                        
                         <Link
-                          href={getCanonicalOrRelativePath("/settings")}
-                          onClick={(e) => { onCanonicalNav(e, "/settings"); setDesktopProfileOpen(false) }}
+                          href={getCanonicalOrRelativePath("/library")}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            setDesktopProfileOpen(false)
+                            onCanonicalNav(e, "/library")
+                          }}
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
+                        >
+                          <Library className="h-4 w-4 shrink-0" />
+                          <span>My Library</span>
+                        </Link>
+                        <Link
+                          href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings")}
+                          onClick={(e) => { onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings"); setDesktopProfileOpen(false) }}
                           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
                           <Settings className="h-4 w-4 shrink-0" />
                           <span>Settings</span>
                         </Link>
-
-                        {/* Language. Closes the menu FIRST, then opens the
-                            dialog on the next tick -- opening both at once
-                            means the dialog's own click-outside sees the menu
-                            teardown and closes with it. */}
                         <button
                           type="button"
-                          onClick={() => {
-                            setDesktopProfileOpen(false)
-                            setLanguageOpen(true)
-                          }}
-                          className="flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
+                          onClick={() => { setDesktopProfileOpen(false); setLanguageOpen(true) }}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
-                          <span className="flex items-center gap-2.5">
-                            <Globe className="h-4 w-4 shrink-0" />
-                            <span>{t("language")}</span>
-                          </span>
-                          <span className="text-[11px] font-semibold text-gray-400">{languageShort}</span>
+                          <Globe className="h-4 w-4 shrink-0" />
+                          <span>{t("settings.language")}</span>
                         </button>
 
                         <div className="my-1.5 h-px bg-gray-100" />
@@ -2027,6 +1718,142 @@ export function PlatformHeaderClient() {
 
         </div>
 
+        {/* Mobile Search Bar Trigger is now rendered below in white UI section */}
+
+        {/* Mobile Search Top Sheet Modal */}
+        <MobileTopSheet
+          isOpen={searchModalOpen}
+          onClose={() => setSearchModalOpen(false)}
+        >
+          <div className="px-4 pt-4 pb-2">
+            {/* Search Input inside modal */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
+              <Input
+                value={query}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder={t("search_placeholder")}
+                className={`h-11 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 text-sm ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+                autoFocus
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery("")
+                    setSearchResults([])
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer z-10"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Categories */}
+            {!query && (
+              <div className="pb-4 border-b border-gray-100">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Categories</h3>
+                <div className="flex flex-wrap gap-2">
+                  {SEARCH_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.label}
+                      type="button"
+                      onClick={() => {
+                        navigateToExploreCategory(cat.href + '&scroll=recommended')
+                        setSearchModalOpen(false)
+                      }}
+                      className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer touch-manipulation"
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Loading */}
+            {searchLoading && (
+              <div className="py-8 flex items-center justify-center">
+                <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                <span className="ml-2 text-sm text-gray-500">Searching...</span>
+              </div>
+            )}
+
+            {/* Search Results */}
+            {!searchLoading && searchResults.length > 0 && (
+              <div className="pt-2">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Products</h3>
+                <div className="space-y-0.5">
+                  {searchResults.map((product) => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      onClick={() => {
+                        navigateReliably(`/p/${product.slug}`)
+                        setSearchModalOpen(false)
+                      }}
+                      className="flex w-full items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation text-left"
+                    >
+                      {product.thumbnail_url ? (
+                        <Image
+                          src={product.thumbnail_url}
+                          alt={product.title}
+                          width={48}
+                          height={48}
+                          className="w-12 h-12 rounded-lg object-cover border border-gray-200"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                          <Search className="w-5 h-5 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
+                        {product.creator?.display_name && (
+                          <p className="text-xs text-gray-500 truncate">by {product.creator.display_name}</p>
+                        )}
+                      </div>
+                      <div className="text-sm font-semibold text-gray-900">
+                        {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* No results */}
+            {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
+              <div className="py-8 text-center">
+                <p className="text-sm text-gray-500">No products found for "{query}"</p>
+              </div>
+            )}
+
+            {/* Hint text */}
+            {!query && !searchLoading && (
+              <div className="py-4 text-center">
+                <p className="text-xs text-gray-500">Start typing to search products</p>
+              </div>
+            )}
+
+            {/* View all results button */}
+            {query.trim() && (
+              <div className="pt-3 mt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigateReliably(`/explore?q=${encodeURIComponent(query)}`)
+                    setSearchModalOpen(false)
+                  }}
+                  className="w-full py-3 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 transition-colors cursor-pointer"
+                >
+                  View all results for "{query}"
+                </button>
+              </div>
+            )}
+          </div>
+        </MobileTopSheet>
 
         {/* Mobile & Desktop Categories are now rendered below in white UI section */}
       </div>
@@ -2168,41 +1995,10 @@ export function PlatformHeaderClient() {
 
           {/* Subcategory View with animation - Only show Browse Categories on non-homepage pages */}
           {!isMarketingNavRoute && expandedCategory ? (
-            /* ═══════════════════════════════════════════════════════════════
-               THE SAME DRILL-DOWN AS THE SELL FORM AND THE BROWSE DROPDOWN
-               ═══════════════════════════════════════════════════════════
-
-               It was `slide-in-from-right-4 fade-in` going in and
-               `slide-in-from-left-4 fade-in` coming back: a 16px nudge and a
-               fade, which is not a level arriving — it is a panel appearing
-               near where the last one was. And the row beneath it staggered
-               its own children on top of that, so one transition played as two
-               overlapping animations of different lengths.
-
-               `sub-push` / `sub-pop` are the movement components/sell/
-               picker-page.tsx uses, at the same 360ms and the same curve: the
-               arriving level comes the full width from the right, and the one
-               you go BACK to steps in from -25% at 0.62 opacity, which is the
-               parallax that says it was underneath the whole time. Transform
-               and opacity only, so a list of twelve rows costs the compositor
-               a layer and the main thread nothing.
-
-               Three surfaces, one gesture. A drill-down in the sell form, in
-               the header's dropdown and in this sheet are now recognisably the
-               same movement rather than three animations that happen to live
-               in one app. */
-            <div className="sub-push">
+            <div className="animate-in slide-in-from-right-4 fade-in duration-300 ease-out">
               <button
                 type="button"
-                onClick={() => {
-                  // Mark the RETURN, so the level underneath plays the pop
-                  // rather than the push. Without it the list you are going
-                  // BACK to slides in from the right as though you had gone
-                  // deeper — and it would also play on the first open, which
-                  // is a sheet that greets you with a back animation.
-                  setSheetPopped(true)
-                  setExpandedCategory(null)
-                }}
+                onClick={() => setExpandedCategory(null)}
                 className="flex items-center gap-2 px-2 py-2.5 mb-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-all duration-200 cursor-pointer rounded-lg hover:bg-gray-100 active:scale-[0.98]"
               >
                 <ChevronLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
@@ -2216,7 +2012,13 @@ export function PlatformHeaderClient() {
                   <>
                     <div className="flex items-center gap-3 px-2 py-2 mb-3">
                       <Icon className="h-5 w-5 text-violet-500" />
-                      <span className="text-base font-semibold text-gray-900">{t(`category.${cat.id}`)}</span>
+                      <span className="text-base font-semibold text-gray-900">{cat.label}</span>
+                      {cat.isHot && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
+                          <Flame className="h-3 w-3" />
+                          Hot
+                        </span>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -2240,12 +2042,8 @@ export function PlatformHeaderClient() {
                             setExpandedCategory(null)
                             setMobileMenuOpen(false)
                           }}
-                          /* NO STAGGER. Twelve rows each fading in on their own
-                             30ms offset, inside a panel that is itself sliding
-                             in, is two animations of different lengths over one
-                             gesture — the panel lands and the contents are still
-                             arriving. The level moves as one object now. */
-                          className="block w-full text-left px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation"
+                          className="block w-full text-left px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation animate-in fade-in slide-in-from-right-2"
+                          style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
                         >
                           {sub.label}
                         </button>
@@ -2256,13 +2054,8 @@ export function PlatformHeaderClient() {
               })()}
             </div>
           ) : !isMarketingNavRoute ? (
-            /* Main Categories List - Only show on non-homepage pages.
-
-               `sheetPopped &&`, so this plays ONLY when you have come back from
-               a department. Unconditional, it ran every time the sheet opened —
-               so the first thing the menu did was animate as though you had
-               just pressed Back out of somewhere you had never been. */
-            <div className={cn(sheetPopped && "sub-pop")}>
+            /* Main Categories List - Only show on non-homepage pages */
+            <div className="animate-in slide-in-from-left-4 fade-in duration-300 ease-out">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Browse Categories</h3>
               <div className="space-y-0.5">
                 {CATEGORIES_WITH_SUBS.map((cat) => {
@@ -2271,9 +2064,6 @@ export function PlatformHeaderClient() {
 
                   const handleCategoryClick = () => {
                     if (hasSubcats) {
-                      // Cleared on the way in, so the pop is spent. A flag left
-                      // set replays the back animation on the next open.
-                      setSheetPopped(false)
                       setExpandedCategory(cat.label)
                     } else {
                       navigateToExploreCategory(cat.href + '&scroll=recommended')
@@ -2290,7 +2080,13 @@ export function PlatformHeaderClient() {
                     >
                       <div className="flex items-center gap-3 pointer-events-none">
                         <Icon className="h-5 w-5 text-gray-400" />
-                        <span>{t(`category.${cat.id}`)}</span>
+                        <span>{cat.label}</span>
+                        {cat.isHot && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
+                            <Flame className="h-3 w-3" />
+                            Hot
+                          </span>
+                        )}
                       </div>
                       <ChevronRight className="h-5 w-5 text-gray-400 pointer-events-none" />
                     </button>
@@ -2300,7 +2096,17 @@ export function PlatformHeaderClient() {
 
               {/* Quick Links section */}
               <div className="mt-4 pt-4 border-t border-gray-200">
-                
+                <Link
+                  href={getCanonicalOrRelativePath("/library")}
+                  onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); onCanonicalNav(e, "/library") }}
+                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <Library className="h-5 w-5" />
+                    <span>My Library</span>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                </Link>
                 {user && hasCompletedSellerOnboarding && (
                   <Link
                     href={getCanonicalOrRelativePath(dashboardHref)}
@@ -2378,10 +2184,20 @@ export function PlatformHeaderClient() {
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </Link>
             )}
-            
             <Link
-              href={getCanonicalOrRelativePath("/settings")}
-              onClick={(e) => { onCanonicalNav(e, "/settings"); setMobileProfileOpen(false) }}
+              href={getCanonicalOrRelativePath("/library")}
+              onClick={(e) => { onCanonicalNav(e, "/library"); setMobileProfileOpen(false) }}
+              className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <Library className="h-5 w-5 text-gray-400" />
+                <span>My Library</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-gray-400" />
+            </Link>
+            <Link
+              href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings")}
+              onClick={(e) => { onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings"); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -2390,23 +2206,16 @@ export function PlatformHeaderClient() {
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </Link>
-
             <button
               type="button"
-              onClick={() => {
-                setMobileProfileOpen(false)
-                setLanguageOpen(true)
-              }}
-              className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+              onClick={() => { setMobileProfileOpen(false); setLanguageOpen(true) }}
+              className="flex w-full items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
                 <Globe className="h-5 w-5 text-gray-400" />
-                <span>{t("language")}</span>
+                <span>{t("settings.language")}</span>
               </div>
-              <span className="flex items-center gap-1.5">
-                <span className="text-[13px] font-semibold text-gray-400">{languageShort}</span>
-                <ChevronRight className="h-5 w-5 text-gray-400" />
-              </span>
+              <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
           </div>
 
@@ -2424,75 +2233,23 @@ export function PlatformHeaderClient() {
           </div>
         </div>
       </MobileBottomSheet>
-    </header>
 
-      {/* Rendered at the header root, deliberately outside both profile menus:
-          it has to outlive the menu that opened it. See the note in
-          components/platform/language-modal.tsx. */}
+      {/* Rendered outside both menus on purpose: each closes itself on the
+          click that opens this, so it cannot be a child of either. */}
       <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
+    </header>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          THE CATEGORY BAR IS STICKY, AND IT GETS OUT OF THE WAY
-          ═══════════════════════════════════════════════════════════════════
-
-          Two elements that were always one object: the 20px concave lip that
-          rounds the black header into the white, and the bar itself. They are
-          wrapped together now because they have to move together — sliding one
-          without the other leaves a white lip with rounded corners floating
-          over the page, which is the seam this lip exists to remove.
-
-          STICKY UNDER THE HEADER, not at the top of the window. The black bar
-          is `sticky top-0`, so this pins to `--platform-header-h` — the height
-          that header publishes for itself — and the two read as one piece of
-          chrome however tall the header happens to be.
-
-          AND IT HIDES ON THE WAY DOWN. Six departments pinned to the top of the
-          screen for the entire length of a marketplace is six words of
-          navigation permanently taking a slice off every page — you are
-          scrolling because you want to see LISTINGS. Scroll up and it is back
-          before you have finished the gesture, which is the shape every app in
-          this category uses and the reason it works: the moment you reverse is
-          the moment you are looking for a way somewhere else.
-
-          `transform` and nothing else, so the travel is the compositor's and
-          never the layout's, and `position: sticky` keeps the element's space at
-          its real place in the document — hiding it can therefore never open a
-          gap in the middle of the page, which is what `fixed` would have done.
-
-          It slides UP, behind the header, which is opaque and one z-index above
-          it. So it does not fade or shrink; it goes under something.
-
-          AND IT MEASURES ITSELF, because of the one place sticky is not free.
-          A sticky element keeps its space in the document, and that space is at
-          the TOP of the page — so the moment this hides while any of that space
-          is still on screen, what you see under the black header is the band it
-          vacated: white, the height of the bar, sitting above a #f5f5f5 page.
-          It was on screen for the first sixty pixels of every scroll, which is
-          exactly the part of the page people flick through fastest.
-
-          `subbarH` is the floor. The bar may not hide until it has been
-          scrolled far enough that the header covers the space it left, and the
-          bar reports its own height for that rather than trusting a number
-          somebody wrote down while it was a different height. */}
-      {showSubbar && (
-        <div
-          ref={subbarRef}
-          className="platform-subbar sticky z-[35]"
-          data-hidden={subbarHidden ? "true" : "false"}
-          style={{ top: "var(--platform-header-h, 0px)" }}
-        >
-        {/* SIXTEEN, NOT TWENTY — and the radius came with it. The lip is the
-            bar's top padding (see the note on the desktop nav below), so its
-            height is half of what makes this bar as tall as it is, and a
-            `rounded-t-[20px]` curve inside a 16px box is a curve with its
-            bottom cut off: black wedges either side of the white. Height and
-            radius are the same number here and always were. */}
-        <div className="relative bg-black h-[16px]">
-          <div className="absolute inset-0 bg-white rounded-t-[16px]" />
+      {/* Concave transition from black header to white category bar */}
+      {(showCategories || (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
+        <div className="relative z-[35] bg-black h-[20px]">
+          <div className="absolute inset-0 bg-white rounded-t-[20px]" />
         </div>
+      )}
 
-        <div className={`relative w-full bg-white border-b border-neutral-200${!showCategories ? " md:hidden" : ""}`}>
+      {/* White UI section for search bar and category pills (below the black header) */}
+      {(showCategories || (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
+        <div className={`relative z-[35] w-full bg-white border-b border-neutral-200${!showCategories ? " md:hidden" : ""}`}>
           <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
             {/* Mobile Search Bar Trigger */}
             {pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && (
@@ -2510,12 +2267,7 @@ export function PlatformHeaderClient() {
 
             {/* Mobile Category Pills - White/Light UI */}
             {showCategories && (
-              /* Same lip above, same arithmetic — see the note on the desktop nav
-                 below. pt-0 lets the concave block be the top padding, and pb-4
-                 is now exactly it: 16 above, 16 below. It used to be 16 under a
-                 20px lip, which is the one place the old bar was already a
-                 little lopsided. */
-              <div className="md:hidden px-0 pt-0 pb-4 overflow-x-auto scrollbar-hide">
+              <div className="md:hidden px-0 pt-1 pb-2 overflow-x-auto scrollbar-hide">
                 <div className="flex items-center gap-2 whitespace-nowrap">
                   {MOBILE_CATEGORIES.map((cat) => {
                     const Icon = cat.icon
@@ -2533,6 +2285,11 @@ export function PlatformHeaderClient() {
                       >
                         <Icon className="w-3.5 h-3.5" />
                         {cat.label}
+                        {cat.badge && (
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold leading-none ${isActive ? "bg-white text-neutral-900" : "bg-gradient-to-r from-violet-500 to-violet-600 text-white"} shadow-sm`}>
+                            {cat.badge}
+                          </span>
+                        )}
                       </button>
                     )
                   })}
@@ -2543,50 +2300,8 @@ export function PlatformHeaderClient() {
             {/* Desktop Categories - White/Light UI */}
             {showCategories && (
               <nav className="hidden md:block">
-                {/* ═══════════════════════════════════════════════════════════
-                    THE 20px NOBODY WAS COUNTING
-                    ═══════════════════════════════════════════════════════════
-
-                    Three values were tried here — pt-1, pt-4, pt-2.5 — and all
-                    three were guesses at the wrong number, because the white
-                    above these labels does not start where this element starts.
-
-                    A SEPARATE BLOCK sits above it: the concave transition,
-                    `bg-black h-[16px]` with a `rounded-t-[16px]` white overlay,
-                    which is what makes the corners curve where the black bar
-                    meets the white. Its pixels are white too, so the gap above
-                    the labels has always been LIP + whatever was set here,
-                    while the gap below was only what was set here. pt-2.5
-                    therefore read as 30 above against 14 below — the lopsided
-                    band of white in the screenshot, and the reason no value of
-                    `pt` alone was ever going to centre this.
-
-                    So the padding-top is ZERO and the lip IS the top padding.
-                    `pb-4` matches it and the row is centred in the white: 16
-                    above, 16 below.
-
-                    IT WAS 20/20, and both came down together. Eight pixels off
-                    a sixty-pixel bar is a bar you notice is smaller without
-                    being able to say what changed, which is the size of the
-                    change that was asked for. Going to 16 on one side only
-                    would have been four pixels of dead white under the labels
-                    and nothing above them — the exact fault this note exists to
-                    record.
-
-                    If that block's height ever changes, this has to change with
-                    it. They are one measurement written in two places, which is
-                    exactly how this went wrong.
-
-                    NO DIVIDERS HERE. They were tried and taken out: these six
-                    are one flat list of filters over the same thing, and ruling
-                    between them made a navigation bar out of a category rail.
-                    The rules belong in the search panel, where Articole /
-                    Categorii / Persoane really are three different KINDS of
-                    result — see components/explore/mobile-search-overlay.tsx.
-                    Gaps are the right separator for a list; rules are for a
-                    choice between unlike things. */}
                 <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex items-center justify-start gap-7 whitespace-nowrap pb-4 pt-0 text-[14.5px]">
+                  <div className="flex items-center justify-start gap-7 whitespace-nowrap text-[15px] pt-1 pb-6">
                     {DEFAULT_CATEGORIES.map((cat) => {
                       const Icon = cat.icon
                       const isAll = cat.id === "all"
@@ -2604,6 +2319,11 @@ export function PlatformHeaderClient() {
                         >
                           {isAll && <Icon className="w-[18px] h-[18px]" />}
                           {cat.label}
+                          {cat.badge && (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-violet-500 to-violet-600 text-white leading-none shadow-sm">
+                              {cat.badge}
+                            </span>
+                          )}
                         </button>
                       )
                     })}
@@ -2612,7 +2332,6 @@ export function PlatformHeaderClient() {
               </nav>
             )}
           </div>
-        </div>
         </div>
       )}
 

@@ -12,9 +12,6 @@
  *   - The nativeAuthInProgress flag is owned here so all callers agree on state.
  */
 
-import { POST_LOGIN_HOME } from "@/lib/auth/post-login"
-import { isAuthInProgress, setAuthInProgress } from "@/lib/auth/auth-in-progress"
-
 // ── Bridge accessor ──────────────────────────────────────────────────────────
 function bridge(): Record<string, unknown> | null {
   if (typeof window === "undefined") return null
@@ -41,7 +38,7 @@ export function nativeAuthStart(): void {
  */
 export function nativeAppReady(): void {
   try {
-    if (isAuthInProgress()) return
+    if (sessionStorage.getItem("nativeAuthInProgress") === "1") return
     ;(bridge() as any)?.appReady?.()
   } catch { /* sessionStorage unavailable (SSR) or bridge absent (web) */ }
 }
@@ -60,16 +57,16 @@ export function nativeAppReadyForce(): void {
 // Read by nativeAppReady() and useAuthGate() to suppress premature overlay
 // dismissal or redirect logic.
 
-// Both delegate to lib/auth/auth-in-progress.ts, which is where the flag's
-// expiry lives. See the note there: an abandoned OAuth round trip used to leave
-// this set for the life of the web view, and every later visit to /login sat on
-// a spinner for thirty seconds.
 export function setNativeAuthInProgress(value: boolean): void {
-  setAuthInProgress(value)
+  try {
+    if (value) sessionStorage.setItem("nativeAuthInProgress", "1")
+    else sessionStorage.removeItem("nativeAuthInProgress")
+  } catch { /* ignore */ }
 }
 
 export function isNativeAuthInProgress(): boolean {
-  return isAuthInProgress()
+  try { return sessionStorage.getItem("nativeAuthInProgress") === "1" }
+  catch { return false }
 }
 
 // ── Platform detection ───────────────────────────────────────────────────────
@@ -264,14 +261,14 @@ export async function handleNativeOAuthCallback(
     const { data: creator } = await supabaseClient.from("creators")
       .select("onboarding_completed").eq("user_id", userId).maybeSingle()
     if (creator?.onboarding_completed) {
-      await cacheNativeHome(POST_LOGIN_HOME)
-      return { success: true, isCreator: true, nextPath: POST_LOGIN_HOME }
+      await cacheNativeHome("/app")
+      return { success: true, isCreator: true, nextPath: "/app" }
     }
 
     const { data: profile } = await supabaseClient.from("profiles")
       .select("is_creator, welcome_completed").eq("id", userId).maybeSingle()
     if (profile?.welcome_completed) {
-      const dest = POST_LOGIN_HOME
+      const dest = profile.is_creator ? "/app" : "/library"
       await cacheNativeHome(dest)
       return { success: true, isCreator: !!profile.is_creator, nextPath: dest }
     }
@@ -290,47 +287,12 @@ export async function nativeLogout(
   supabaseClient: import("@supabase/supabase-js").SupabaseClient,
   router: { replace: (url: string) => void },
 ): Promise<void> {
-  try { await supabaseClient.auth.signOut({ scope: "local" }) } catch { /* ignore */ }
+  try { await supabaseClient.auth.signOut() } catch { /* ignore */ }
   try { localStorage.removeItem("sb-native-home") } catch { /* ignore */ }
   isNative() ? window.location.replace("/welcome") : router.replace("/login")
 }
 
 // ── Haptic feedback ──────────────────────────────────────────────────────────
-
-/**
- * The haptics module, fetched once and kept.
- *
- * `await import(...)` inside the tap handler is what made the buzz land after
- * the thing it was supposed to accompany. The FIRST call on a cold app pays for
- * fetching, parsing and evaluating a chunk before it can ask the OS for
- * anything — tens of milliseconds on a phone — and even a warm one costs a
- * promise tick, so the feedback always arrived a beat behind the finger. On a
- * tab bar, where the haptic IS the acknowledgement, a beat behind is the
- * difference between the bar answering you and the bar confirming something you
- * had already noticed.
- *
- * So it is warmed on first use and held. The dynamic import is kept — it is
- * what keeps the plugin out of the web bundle, which is the whole reason it was
- * written this way — but it is paid once instead of on every press.
- */
-let hapticsModule: Promise<typeof import("@capacitor/haptics")> | null = null
-
-function loadHaptics(): Promise<typeof import("@capacitor/haptics")> {
-  if (!hapticsModule) hapticsModule = import("@capacitor/haptics")
-  return hapticsModule
-}
-
-/**
- * Fetch the haptics chunk before anything needs it.
- *
- * Called from the tab bar on mount, so by the time a finger lands on it the
- * module is resolved and `triggerHaptic` is a straight call into the OS.
- */
-export function warmHaptics(): void {
-  if (typeof window === "undefined") return
-  if (!(window as any).Capacitor?.isNativePlatform?.()) return
-  void loadHaptics().catch(() => {})
-}
 
 /**
  * Trigger a short haptic impact on iOS/Android via @capacitor/haptics.
@@ -343,12 +305,9 @@ export async function triggerHaptic(style: "light" | "medium" | "heavy" = "light
   const cap = (window as any).Capacitor
   if (!cap?.isNativePlatform?.()) return
   try {
-    const { Haptics, ImpactStyle } = await loadHaptics()
+    const { Haptics, ImpactStyle } = await import("@capacitor/haptics")
     const styleMap = { light: ImpactStyle.Light, medium: ImpactStyle.Medium, heavy: ImpactStyle.Heavy }
-    // Not awaited. The OS call is a round trip through the bridge and nothing
-    // here depends on its result; awaiting it only means the caller's own work
-    // — the navigation, the send — waits behind a vibration.
-    void Haptics.impact({ style: styleMap[style] })
+    await Haptics.impact({ style: styleMap[style] })
   } catch { /* plugin unavailable or permission denied — silent no-op */ }
 }
 

@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
-import { useLocale } from "@/components/locale-provider"
 
 interface ViewInLibraryButtonProps {
   backgroundColor?: string
@@ -22,7 +21,6 @@ export function ViewInLibraryButton({
   borderColor,
   className = "w-full min-h-[44px]",
 }: ViewInLibraryButtonProps) {
-  const { t } = useLocale()
   const handleClick = () => {
     const canonical = getCanonicalSiteUrl()
     window.location.assign(new URL("/library/my-downloads", canonical).toString())
@@ -41,7 +39,7 @@ export function ViewInLibraryButton({
       }}
     >
       <ArrowRight className="mr-2 h-4 w-4" />
-      {t("checkout.view_in_library")}
+      View in Library
     </Button>
   )
 }

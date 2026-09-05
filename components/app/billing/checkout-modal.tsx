@@ -1,20 +1,29 @@
 "use client"
 
+import "@/lib/stripe-nav-guard"
 import { useCallback, useState } from "react"
-import { getStripePromise } from "@/lib/stripe-client"
+import { loadStripe } from "@stripe/stripe-js/pure"
 import {
   EmbeddedCheckoutProvider,
   EmbeddedCheckout,
 } from "@stripe/react-stripe-js"
 import { X, ArrowLeft } from "lucide-react"
-import { useLocale } from "@/components/locale-provider"
 
-// Stripe.js is loaded by lib/stripe-client.ts, which carries the nav guard,
-// the "/pure" entry point, and — crucially — sets advancedFraudSignals through
-// loadStripe.setLoadParameters rather than as a constructor option, where it
-// was being silently ignored. It is also called lazily rather than at module
-// scope: a module-scope call runs on import and locks the load parameters
-// before any other checkout on the page gets to choose them.
+// Disable Stripe's fraud-signals controller iframe in Capacitor WKWebView.
+// The controller iframe triggers window.location.href navigation which in WebKit
+// is [LegacyUnforgeable] and can't be intercepted by JS — preventing the controller
+// from being created is the only reliable solution.
+const _isNative = typeof window !== "undefined" && (() => {
+  const cap = (window as any).Capacitor
+  if (cap?.isNativePlatform?.()) return true
+  const ua = navigator.userAgent || ""
+  return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
+})()
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+  // @ts-ignore — advancedFraudSignals is valid but not yet in the TS types
+  _isNative ? { advancedFraudSignals: false } : undefined,
+)
 
 const STORELIB_LOGO_URL =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
@@ -34,7 +43,6 @@ export function CheckoutModal({
   visible,
   onClose,
 }: CheckoutModalProps) {
-  const { t } = useLocale()
   const [error, setError] = useState<string | null>(null)
 
   const fetchClientSecret = useCallback(async () => {
@@ -46,7 +54,7 @@ export function CheckoutModal({
         })
         if (!response.ok) {
           const err = await response.json()
-          throw new Error(err.error || t("settings.coFailedSetup"))
+          throw new Error(err.error || "Failed to create setup session")
         }
         const data = await response.json()
         return data.clientSecret
@@ -60,12 +68,12 @@ export function CheckoutModal({
       })
       if (!response.ok) {
         const err = await response.json()
-        throw new Error(err.error || t("settings.coFailedCheckout"))
+        throw new Error(err.error || "Failed to create checkout session")
       }
       const data = await response.json()
       return data.clientSecret
     } catch (err: any) {
-      setError(err.message || t("settings.pmtSomethingWrong"))
+      setError(err.message || "Something went wrong")
       throw err
     }
   }, [mode, planId])
@@ -83,8 +91,8 @@ export function CheckoutModal({
             className="flex items-center gap-1.5 text-[13px] sm:text-[14px] font-medium text-[#7c3aed] hover:text-[#6d28d9] transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">{t("settings.coBackToPlans")}</span>
-            <span className="sm:hidden">{t("settings.coBack")}</span>
+            <span className="hidden sm:inline">Back to plans</span>
+            <span className="sm:hidden">Back</span>
           </button>
 
           {/* Storelib Logo */}
@@ -109,16 +117,16 @@ export function CheckoutModal({
         {/* Title */}
         <div className="mb-8">
           <h1 className="text-[24px] sm:text-[32px] font-bold text-[#1a1a2e]">
-            {mode === "setup" ? t("settings.coAddPaymentMethod") : t("settings.coCompleteUpgrade")}
+            {mode === "setup" ? "Add Payment Method" : "Complete your upgrade"}
           </h1>
           {planName && mode === "subscription" && (
             <p className="text-[14px] sm:text-[15px] text-[#6b7280] mt-2">
-              {t("settings.coSubscribeTo")} {planName}
+              Subscribe to the {planName} plan
             </p>
           )}
           {mode === "setup" && (
             <p className="text-[14px] sm:text-[15px] text-[#6b7280] mt-2">
-              {t("settings.coSetupDesc")}
+              Securely add your card details. You won&apos;t be charged now.
             </p>
           )}
         </div>
@@ -133,7 +141,7 @@ export function CheckoutModal({
         {/* Stripe Embedded Checkout */}
         <div className="min-h-[400px]">
           <EmbeddedCheckoutProvider
-            stripe={getStripePromise()}
+            stripe={stripePromise}
             options={{ fetchClientSecret }}
           >
             <EmbeddedCheckout />

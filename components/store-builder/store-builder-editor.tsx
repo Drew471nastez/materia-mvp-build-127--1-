@@ -11,7 +11,6 @@ import { AddSectionModal } from "./add-section-modal"
 import { ProductPageModeSelector } from "./product-page-mode-selector"
 import { cn } from "@/lib/utils"
 import type { PageType } from "@/lib/store-builder/types"
-import { useLocale } from "@/components/locale-provider"
 
 interface StoreBuilderEditorProps {
   creatorId: string
@@ -81,7 +80,6 @@ function EditorLayout({
   profile,
   products,
 }: Omit<StoreBuilderEditorProps, "initialPageType" | "initialProductId">) {
-  const { t } = useLocale()
   const {
     canUndo,
     canRedo,
@@ -112,7 +110,7 @@ function EditorLayout({
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (saveState === "unsaved") {
         e.preventDefault()
-        e.returnValue = t("builder.editor.beforeUnload")
+        e.returnValue = "You have unsaved changes. Are you sure you want to leave?"
         return e.returnValue
       }
     }
@@ -205,12 +203,12 @@ function EditorLayout({
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-background pt-[env(safe-area-inset-top,_0px)] pb-[env(safe-area-inset-bottom,_0px)]">
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4">
-          <span className="text-sm font-medium">{t("builder.editor.previewMode")}</span>
+          <span className="text-sm font-medium">Preview Mode</span>
           <button
             onClick={() => setPreviewMode(false)}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
-            {t("builder.editor.exitPreview")}
+            Exit Preview
           </button>
         </div>
         <div className="flex-1 overflow-auto">
