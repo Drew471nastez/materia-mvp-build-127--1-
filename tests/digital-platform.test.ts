@@ -54,26 +54,50 @@ console.log("\nStorelib sells digital products\n")
 
 /* ── THE FRONT DOOR ──────────────────────────────────────────────────────── */
 
-const home = code("app/(marketing)/(feed)/page.tsx")
+/**
+ * "/" is app/(marketing)/page.tsx again -- the file itself, restored verbatim
+ * from 95bb2f8f, not a wrapper re-exporting a parked copy.
+ *
+ * The pivot renamed this file to _legacy-landing.tsx and put a fashion feed in
+ * its place; an earlier pass at the switch-back left the rename alone and added
+ * app/(marketing)/(feed)/page.tsx to re-export it, which worked but meant the
+ * home page lived at a path Next.js only resolved to "/" by route-group
+ * accident. Both the group and the parked copy are gone.
+ */
+const home = code("app/(marketing)/page.tsx")
 check(
-  '"/" renders the digital-products landing, not a feed',
+  '"/" is the landing page file itself, not a wrapper around a parked copy',
   home.includes("StorelibLanding") &&
-    home.includes("_legacy-landing") &&
-    !/ExploreFeed/.test(home),
-  "        app/(marketing)/(feed)/page.tsx",
+    !home.includes("_legacy-landing") &&
+    !/ExploreFeed/.test(home) &&
+    gone("app/(marketing)/_legacy-landing.tsx") &&
+    gone("app/(marketing)/(feed)/page.tsx"),
+  "        app/(marketing)/page.tsx",
 )
 
 check(
-  "the landing page and its sections still exist",
-  !gone("app/(marketing)/_legacy-landing.tsx") &&
-    ["hero", "bento-grid", "pricing-section", "product-marquee", "faq-section"].every(
-      (f) => !gone(`components/marketing/${f}.tsx`),
-    ),
+  "the landing page's sections all still exist",
+  [
+    "hero", "bento-grid", "stats-bar", "manage-section", "split-features-section",
+    "carousel-section", "tool-stack-section", "pricing-section",
+    "features-badges-section", "faq-section", "cta-section", "product-marquee",
+  ].every((f) => !gone(`components/marketing/${f}.tsx`)),
 )
 
 check(
   "the home page says what Storelib sells",
-  /Sell Digital Products Online/.test(home) && !/Second-Hand|Sneakers|Vintage/i.test(home),
+  (() => {
+    // The landing itself carries no metadata export -- it inherits the root
+    // layout's, which is where the title and description live. Checking both,
+    // so the claim is tested where it is actually made.
+    const root = code("app/layout.tsx")
+    return (
+      /Sell Products & Grow Your Audience/.test(root) &&
+      /sell digital products/i.test(root) &&
+      /Organization/.test(home) &&
+      !/Second-Hand|Sneakers|Vintage/i.test(home)
+    )
+  })(),
 )
 
 /* ── THE MARKETPLACE IS GONE, NOT PARKED ─────────────────────────────────── */
@@ -145,17 +169,24 @@ check(
 /* ── THE TAXONOMY ────────────────────────────────────────────────────────── */
 
 check(
-  "the taxonomy is digital, with no fashion left in it",
+  "the taxonomy is the real pre-pivot one, with no fashion left in it",
   (() => {
+    // The fourteen recovered from 95bb2f8f, the last commit before the pivot.
+    // An earlier pass invented six departments while this list was believed
+    // lost and dropped AI, Social Media, Productivity, Video, E-commerce and
+    // Freebies outright, so the count is checked as well as the members.
     const ids: string[] = CATEGORIES.map((c) => c.id)
+    const REAL = [
+      "all", "design", "development", "marketing", "business", "ai",
+      "social-media", "productivity", "photography", "video", "audio-music",
+      "education", "ecommerce", "freebies", "other",
+    ]
+    const INVENTED = ["templates", "learning", "audio", "software", "memberships"]
     const FASHION = ["womenswear", "menswear", "sneakers", "bags-accessories", "jewellery", "vintage"]
     return (
-      ids.includes("design") &&
-      ids.includes("templates") &&
-      ids.includes("learning") &&
-      ids.includes("audio") &&
-      ids.includes("software") &&
-      ids.includes("memberships") &&
+      ids.length === REAL.length &&
+      REAL.every((r) => ids.includes(r)) &&
+      INVENTED.every((i) => !ids.includes(i)) &&
       FASHION.every((f) => !ids.includes(f))
     )
   })(),
@@ -171,16 +202,22 @@ check(
 )
 
 check(
-  "every label comes from the marketing site's own vocabulary",
+  "the shared taxonomy still agrees with the browse pages it drives",
   (() => {
-    // The twenty-one subcategory labels are the ones product-marquee.tsx has
-    // shown all along. Checking a sample against that file, so the taxonomy
-    // cannot drift into invented categories.
-    const marquee = read("components/marketing/product-marquee.tsx")
-    const labels = CATEGORIES.flatMap((c) => c.subcategories.map((s) => s.label))
-    const SAMPLE = ["Notion Templates", "Beat Packs", "Online Courses", "E-books", "Game Assets", "Fonts"]
-    return SAMPLE.every((l) => labels.includes(l) && marquee.includes(l))
+    // Three files carry this list: lib/marketplace/categories.ts (the shared
+    // one), the CATEGORIES array inside explore-page-client.tsx, and the
+    // VALID_CATEGORIES literal in the category route. The last two are restored
+    // pre-pivot files and are deliberately left verbatim, so this is what stops
+    // the shared copy drifting away from what the pages actually browse.
+    const client = code("components/explore/explore-page-client.tsx")
+    const route = code("app/(marketing)/explore/[category]/page.tsx")
+    return CATEGORIES.every(
+      (c) =>
+        new RegExp(`id: "${c.id}"`).test(client) &&
+        (c.id === "all" || new RegExp(`"${c.id}"`).test(route)),
+    )
   })(),
+  "        components/explore/explore-page-client.tsx",
 )
 
 check(
@@ -190,18 +227,25 @@ check(
   // periodically disagreed. One source now.
   CATEGORY_NAV.length === CATEGORIES.length - 1 &&
     CATEGORY_RAIL.length === CATEGORIES.length &&
-    CATEGORY_NAV.every((n) => n.subcategories.length > 0),
+    // "freebies" and "other" have no subcategories, and never did -- they are
+    // buckets, not shelves. Every OTHER category must have some.
+    CATEGORY_NAV.filter((n) => !["freebies", "other"].includes(n.id)).every(
+      (n) => n.subcategories.length > 0,
+    ),
 )
 
 check(
   "legacy database category strings still resolve",
   // products.category is free text with three generations of value in it.
-  normalizeCategoryToId("Notion Templates") === "templates" &&
-    normalizeCategoryToId("beat pack") === "audio" &&
+  normalizeCategoryToId("Notion Templates") === "productivity" &&
+    normalizeCategoryToId("beat pack") === "audio-music" &&
     normalizeCategoryToId("UI Kit") === "design" &&
-    normalizeCategoryToId("Online Course") === "learning" &&
-    // A fashion value has no home here and must NOT be quietly filed somewhere.
-    normalizeCategoryToId("Womenswear") === "all" &&
+    normalizeCategoryToId("Online Course") === "education" &&
+    normalizeCategoryToId("Lightroom Presets") === "photography" &&
+    normalizeCategoryToId("ChatGPT Templates") === "ai" &&
+    // A fashion value has no home here. It lands in "other" -- a real browsable
+    // category -- rather than being filed under a real one it does not belong to.
+    normalizeCategoryToId("Womenswear") === "other" &&
     normalizeCategoryToId("") === "",
 )
 
@@ -214,7 +258,12 @@ check(
     // now, so a redirect would send somebody asking to browse to the wrong
     // place entirely.
     const src = code("app/(marketing)/explore/page.tsx")
-    return !/redirect\(/.test(src) && /from\("products"\)/.test(src) && /CollectionPage/.test(src)
+    return (
+      !/redirect\(/.test(src) &&
+      /from\("products"\)/.test(src) &&
+      /CollectionPage/.test(src) &&
+      /ExplorePageClient/.test(src)
+    )
   })(),
 )
 
@@ -225,7 +274,10 @@ check(
     return (
       /for \(const category of CATEGORIES\)/.test(src) &&
       !/DEPARTMENT_NAV|categoryPath\(dept/.test(src) &&
-      !/\/shop/.test(src)
+      !/\/shop/.test(src) &&
+      // No `?sub=` rows: the category route does not read `sub`, so all seventy
+      // of them served the same unfiltered page.
+      !/\?sub=/.test(src)
     )
   })(),
 )
@@ -279,8 +331,9 @@ check(
     // An empty meta description wastes the page: it is what a search result
     // shows. One hand-written sentence per category, not a generated list.
     const src = read("app/(marketing)/explore/[category]/page.tsx")
+    const block = src.slice(src.indexOf("CATEGORY_DESCRIPTIONS"))
     return CATEGORIES.filter((c) => c.id !== "all").every((c) =>
-      new RegExp(`\\b${c.id}:\\s*\n?\\s*"`).test(src),
+      new RegExp(`"${c.id}":\\s*\n?\\s*"`).test(block),
     )
   })(),
 )
@@ -313,7 +366,7 @@ check(
 )
 
 check(
-  "the six categories are translated in every offered locale",
+  "every category is translated in every offered locale",
   (() => {
     // The picker offers a locale once it covers 70% of English; these are the
     // strings the header and the browse page render, so a missing one shows an

@@ -3,12 +3,6 @@ import { Hero } from "@/components/marketing/hero"
 import { BentoGrid } from "@/components/marketing/bento-grid"
 import { StatsBar } from "@/components/marketing/stats-bar"
 
-// PRESERVED — this was `app/(marketing)/page.tsx` (the SaaS "sell digital products"
-// landing) before the marketplace pivot moved the Explore feed onto "/".
-// Nothing renders it today; the leading underscore + non-reserved filename keep
-// Next.js from mapping it to a URL. To restore the old homepage, replace the body
-// of `app/(marketing)/page.tsx` with `export { StorelibLanding as default } from "./_legacy-landing"`.
-
 // Below-the-fold sections — dynamically imported to reduce initial JS bundle.
 // Hero + BentoGrid + StatsBar load eagerly (above the fold).
 const ManageSection = dynamic(() => import("@/components/marketing/manage-section").then(m => ({ default: m.ManageSection })))
@@ -21,7 +15,7 @@ const FaqSection = dynamic(() => import("@/components/marketing/faq-section").th
 const CtaSection = dynamic(() => import("@/components/marketing/cta-section").then(m => ({ default: m.CtaSection })))
 const ProductMarquee = dynamic(() => import("@/components/marketing/product-marquee").then(m => ({ default: m.ProductMarquee })))
 
-export function StorelibLanding() {
+export default function StorelibLanding() {
   return (
     <div className="bg-white overflow-x-hidden">
       {/* JSON-LD structured data */}

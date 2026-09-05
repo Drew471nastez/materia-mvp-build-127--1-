@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Bookmark } from "lucide-react"
 
-import { ProductCard } from "@/components/explore/product-card"
+import { ListingCard } from "@/components/member/listing-card"
 import { useWishlistedIds } from "@/components/explore/wishlist-context"
 import {
   loadSavedItems,
@@ -136,7 +136,7 @@ export function SavedShelf({ reloadSignal = 0 }: { reloadSignal?: number }) {
     // pages, and switching between them would move every card on the screen.
     <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 pb-10 md:mt-6 md:grid-cols-3 md:gap-x-5 md:gap-y-8 md:pb-16 lg:grid-cols-4">
       {snapshot.map((product, i) => (
-        <ProductCard
+        <ListingCard
           key={product.id}
           product={product}
           origin="wishlist"

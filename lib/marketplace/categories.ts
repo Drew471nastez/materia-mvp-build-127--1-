@@ -1,104 +1,218 @@
 import type React from "react"
 
-// Single source of truth for the Storelib taxonomy: digital products sold by
-// independent creators. Safe to import from both server and client components -
+// ===========================================================================
+//  THE STORELIB TAXONOMY
+// ===========================================================================
+//
+// Single source of truth for what Storelib sells: digital products made by
+// independent creators. Safe to import from both server and client components --
 // no "use client", no server-only imports.
 //
-// ===========================================================================
-//  THIS FILE WAS THE FASHION TAXONOMY, AND IS THE DIGITAL ONE AGAIN
-// ===========================================================================
+// ---------------------------------------------------------------------------
+// WHERE THIS LIST COMES FROM
+// ---------------------------------------------------------------------------
+// It is not invented, and it is not a reconstruction. It is the taxonomy this
+// platform actually shipped, recovered verbatim from the last commit before the
+// fashion-marketplace pivot (95bb2f8f, 2026-04-21) -- the same fourteen
+// categories and seventy subcategories that components/explore/
+// explore-page-client.tsx has always browsed, and that
+// app/(marketing)/explore/[category]/page.tsx has always had hand-written SEO
+// copy for.
 //
-// It held womenswear / menswear / sneakers / vintage, with UK shoe sizes and
-// a "Very good condition" scale. Storelib sells digital products, so all of it
-// is gone: a download has no size and no condition, and offering those fields
-// produced listings that asked a font what waist it was.
+// An earlier pass at this file held six invented "departments" (design /
+// templates / learning / audio / software / memberships). Those were a good
+// guess made while the real list was believed lost, and they were wrong: they
+// dropped AI, Social Media, Productivity, Video, E-commerce and Freebies
+// entirely, and every /explore/<id> they produced was a URL this site had never
+// served. They are gone.
 //
-// WHERE THESE LABELS COME FROM. Not invented here. The original digital
-// taxonomy was never a curated list in code -- it was roughly six hundred
-// free-text strings in the database, which is why normalizeCategoryToId below
-// still exists to collapse them. The twenty-one labels used here are the ones
-// the marketing site itself has been showing all along, in
-// components/marketing/product-marquee.tsx, unchanged through the whole
-// marketplace era. They are what Storelib has always said it sells.
-//
-// The six departments are the only new thing: twenty-one flat chips are a
-// marquee, not a navigation, so they are grouped the way somebody shopping
-// would group them.
-import { Layers, Palette, LayoutTemplate, GraduationCap, AudioLines, Code, Users } from "lucide-react"
+// The marketplace era's own file lived here too -- womenswear, menswear,
+// sneakers, vintage, UK shoe sizes and a "very good condition" scale. Also gone.
+// A download has no size and no condition.
+import {
+  Layers,
+  Sparkles,
+  Code,
+  Megaphone,
+  Briefcase,
+  Bot,
+  Share2,
+  Zap,
+  Camera,
+  Video,
+  Music,
+  GraduationCap,
+  ShoppingBag,
+} from "lucide-react"
 
-// Categories with icons and subcategories.
-// Subcategory IDs are globally unique because `?sub=` is resolved by scanning
-// every category.
+/**
+ * Categories with icons and subcategories.
+ *
+ * "all" is first and carries no subcategories: it is not a category, it is the
+ * absence of a filter, which is why the rails include it and the navigation
+ * menus do not.
+ *
+ * Subcategory ids are globally unique, which is what lets `?sub=` be resolved
+ * by scanning every category rather than needing its parent to disambiguate it.
+ */
 const CATEGORIES = [
-  {
-    id: "all",
-    label: "All",
-    icon: Layers,
-    subcategories: [],
-  },
+  { id: "all", label: "All", icon: Layers, subcategories: [] },
   {
     id: "design",
     label: "Design",
-    icon: Palette,
+    icon: Sparkles,
     subcategories: [
-      { id: "design-templates", label: "Design Templates" },
-      { id: "fonts", label: "Fonts" },
-      { id: "digital-art", label: "Digital Art" },
-      { id: "photography", label: "Photography" },
-      { id: "game-assets", label: "Game Assets" },
+      { id: "ui-ux", label: "UI/UX Templates" },
+      { id: "graphics", label: "Graphics & Illustrations" },
+      { id: "fonts", label: "Fonts & Typography" },
+      { id: "icons", label: "Icons & Elements" },
+      { id: "mockups", label: "Mockups" },
+      { id: "logos", label: "Logo Templates" },
+      { id: "branding", label: "Branding Kits" },
+      { id: "print", label: "Print Design" },
     ],
   },
   {
-    id: "templates",
-    label: "Templates",
-    icon: LayoutTemplate,
-    subcategories: [
-      { id: "notion-templates", label: "Notion Templates" },
-      { id: "spreadsheets", label: "Spreadsheets" },
-      { id: "worksheets", label: "Worksheets" },
-    ],
-  },
-  {
-    id: "learning",
-    label: "Learning",
-    icon: GraduationCap,
-    subcategories: [
-      { id: "online-courses", label: "Online Courses" },
-      { id: "video-tutorials", label: "Video Tutorials" },
-      { id: "ebooks", label: "E-books" },
-      { id: "coaching", label: "1:1 Coaching" },
-      { id: "fitness-plans", label: "Fitness Plans" },
-    ],
-  },
-  {
-    id: "audio",
-    label: "Audio",
-    icon: AudioLines,
-    subcategories: [
-      { id: "music", label: "Music" },
-      { id: "beat-packs", label: "Beat Packs" },
-      { id: "podcasts", label: "Podcasts" },
-    ],
-  },
-  {
-    id: "software",
-    label: "Software",
+    id: "development",
+    label: "Development",
     icon: Code,
     subcategories: [
-      { id: "software", label: "Software" },
-      { id: "plugins", label: "Plugins" },
-      { id: "link-in-bio", label: "Link-in-bio" },
+      { id: "web", label: "Web Templates" },
+      { id: "mobile", label: "Mobile Apps" },
+      { id: "scripts", label: "Scripts & Plugins" },
+      { id: "apis", label: "APIs & Tools" },
+      { id: "wordpress", label: "WordPress Themes" },
+      { id: "shopify", label: "Shopify Themes" },
+      { id: "react", label: "React Components" },
+      { id: "nextjs", label: "Next.js Templates" },
     ],
   },
   {
-    id: "memberships",
-    label: "Memberships",
-    icon: Users,
+    id: "marketing",
+    label: "Marketing",
+    icon: Megaphone,
     subcategories: [
-      { id: "memberships", label: "Memberships" },
-      { id: "merch", label: "Merch" },
+      { id: "email", label: "Email Templates" },
+      { id: "ads", label: "Ad Creatives" },
+      { id: "landing", label: "Landing Pages" },
+      { id: "seo", label: "SEO Tools" },
+      { id: "copywriting", label: "Copywriting Templates" },
+      { id: "funnels", label: "Sales Funnels" },
     ],
   },
+  {
+    id: "business",
+    label: "Business",
+    icon: Briefcase,
+    subcategories: [
+      { id: "spreadsheets", label: "Spreadsheets" },
+      { id: "presentations", label: "Presentations" },
+      { id: "documents", label: "Documents & Contracts" },
+      { id: "invoices", label: "Invoice Templates" },
+      { id: "proposals", label: "Proposal Templates" },
+      { id: "business-plans", label: "Business Plans" },
+    ],
+  },
+  {
+    id: "ai",
+    label: "AI",
+    icon: Bot,
+    subcategories: [
+      { id: "prompts", label: "AI Prompts" },
+      { id: "chatgpt", label: "ChatGPT Templates" },
+      { id: "midjourney", label: "Midjourney Prompts" },
+      { id: "automation", label: "Automation Tools" },
+      { id: "ai-tools", label: "AI-Powered Tools" },
+    ],
+  },
+  {
+    id: "social-media",
+    label: "Social Media",
+    icon: Share2,
+    subcategories: [
+      { id: "instagram", label: "Instagram Templates" },
+      { id: "tiktok", label: "TikTok Content" },
+      { id: "youtube", label: "YouTube Assets" },
+      { id: "twitter", label: "Twitter/X Templates" },
+      { id: "linkedin", label: "LinkedIn Templates" },
+      { id: "pinterest", label: "Pinterest Templates" },
+      { id: "reels", label: "Reels & Shorts" },
+    ],
+  },
+  {
+    id: "productivity",
+    label: "Productivity",
+    icon: Zap,
+    subcategories: [
+      { id: "notion", label: "Notion Templates" },
+      { id: "planners", label: "Calendars & Planners" },
+      { id: "checklists", label: "Checklists" },
+      { id: "trackers", label: "Habit Trackers" },
+      { id: "dashboards", label: "Dashboards" },
+      { id: "airtable", label: "Airtable Templates" },
+    ],
+  },
+  {
+    id: "photography",
+    label: "Photography",
+    icon: Camera,
+    subcategories: [
+      { id: "presets", label: "Lightroom Presets" },
+      { id: "overlays", label: "Photo Overlays" },
+      { id: "actions", label: "Photoshop Actions" },
+      { id: "luts", label: "Color LUTs" },
+      { id: "stock", label: "Stock Photos" },
+    ],
+  },
+  {
+    id: "video",
+    label: "Video",
+    icon: Video,
+    subcategories: [
+      { id: "templates", label: "Video Templates" },
+      { id: "transitions", label: "Transitions & Effects" },
+      { id: "motion", label: "Motion Graphics" },
+      { id: "after-effects", label: "After Effects" },
+      { id: "premiere", label: "Premiere Pro" },
+      { id: "davinci", label: "DaVinci Resolve" },
+    ],
+  },
+  {
+    id: "audio-music",
+    label: "Audio & Music",
+    icon: Music,
+    subcategories: [
+      { id: "music", label: "Royalty-Free Music" },
+      { id: "sfx", label: "Sound Effects" },
+      { id: "loops", label: "Loops & Samples" },
+      { id: "podcasts", label: "Podcast Templates" },
+    ],
+  },
+  {
+    id: "education",
+    label: "Education",
+    icon: GraduationCap,
+    subcategories: [
+      { id: "courses", label: "Online Courses" },
+      { id: "ebooks", label: "eBooks" },
+      { id: "tutorials", label: "Tutorials" },
+      { id: "worksheets", label: "Worksheets" },
+      { id: "guides", label: "Guides & How-tos" },
+    ],
+  },
+  {
+    id: "ecommerce",
+    label: "E-commerce",
+    icon: ShoppingBag,
+    subcategories: [
+      { id: "product-photos", label: "Product Photography" },
+      { id: "store-themes", label: "Store Themes" },
+      { id: "pricing", label: "Pricing Templates" },
+      { id: "emails", label: "E-commerce Emails" },
+    ],
+  },
+  { id: "freebies", label: "Freebies", icon: Sparkles, subcategories: [] },
+  { id: "other", label: "Other", icon: Layers, subcategories: [] },
 ] as const
 
 export { CATEGORIES }
@@ -114,8 +228,8 @@ export type CategoryIcon = React.ComponentType<{ className?: string; strokeWidth
  *
  * CATEGORIES is `as const` so ids and labels are literal types where that is
  * useful, but a readonly tuple whose members have differently-shaped
- * `subcategories` (the "all" entry's is an empty tuple) is not something you can
- * call `.map` or `.find` on. This is the one place that widening happens, and
+ * `subcategories` (three of them are empty tuples) is not something you can call
+ * `.map` or `.find` on. This is the one place that widening happens, and
  * everything below reads from it.
  */
 type CategoryShape = { id: string; label: string; icon: CategoryIcon; subcategories: Subcategory[] }
@@ -126,157 +240,278 @@ const CATEGORY_LIST: CategoryShape[] = CATEGORIES.map((c) => ({
   subcategories: c.subcategories.map((s) => ({ id: s.id, label: s.label })),
 }))
 
-// Server-side route/query validation (replaces the per-page VALID_CATEGORIES copies)
+/** Server-side route and query validation. */
 export const VALID_CATEGORY_IDS: string[] = CATEGORY_LIST.map((category) => category.id)
 
 const VALID_CATEGORY_ID_SET = new Set<string>(VALID_CATEGORY_IDS)
 
-/**
- * Every subcategory id, flattened, so `?sub=` can be validated without walking
- * the tree at each call site.
- */
+/** Every subcategory id, flattened, so `?sub=` can be validated in one lookup. */
 export const VALID_SUBCATEGORY_IDS: string[] = CATEGORY_LIST.flatMap((c) =>
   c.subcategories.map((s) => s.id),
 )
 
 /**
- * Map from DB category values to our code category IDs.
+ * Map from free-text DB category values to the ids above.
  *
  * `products.category` is free text and holds three generations of value: the
- * original digital strings ("Notion Templates", "Beat Pack", "UI Kit"), the
- * fashion ones the marketplace era wrote ("Womenswear", "Sneakers"), and plain
- * ids. The first are mapped properly, the second deliberately are NOT -- a
- * jacket has no home in this taxonomy, and quietly filing it under Design would
- * be worse than showing it as uncategorised.
+ * labels this taxonomy has always displayed ("Notion Templates", "Lightroom
+ * Presets"), plain ids, and the fashion strings the marketplace era wrote
+ * ("Womenswear", "Sneakers"). The first two are mapped; the fashion ones
+ * deliberately are NOT -- a jacket has no home here, and filing it under Design
+ * would be worse than showing it as uncategorised.
  */
 export const DB_CATEGORY_TO_ID: Record<string, string> = {
   // Exact id matches
   all: "all",
   design: "design",
-  templates: "templates",
-  learning: "learning",
-  audio: "audio",
-  software: "software",
-  memberships: "memberships",
+  development: "development",
+  marketing: "marketing",
+  business: "business",
+  ai: "ai",
+  "social-media": "social-media",
+  "social media": "social-media",
+  productivity: "productivity",
+  photography: "photography",
+  video: "video",
+  "audio-music": "audio-music",
+  "audio & music": "audio-music",
+  audio: "audio-music",
+  education: "education",
+  ecommerce: "ecommerce",
+  "e-commerce": "ecommerce",
+  freebies: "freebies",
+  other: "other",
 
   // Design
-  "design templates": "design",
-  "design template": "design",
-  graphics: "design",
-  "graphic design": "design",
+  "ui/ux templates": "design",
   "ui kit": "design",
   "ui kits": "design",
-  mockups: "design",
-  mockup: "design",
-  icons: "design",
+  "graphics & illustrations": "design",
+  graphics: "design",
+  "graphic design": "design",
   illustrations: "design",
   illustration: "design",
   "digital art": "design",
   art: "design",
+  "fonts & typography": "design",
   fonts: "design",
   font: "design",
   typefaces: "design",
-  photography: "design",
-  photos: "design",
-  presets: "design",
-  "lightroom presets": "design",
-  "game assets": "design",
-  "3d": "design",
-  "3d models": "design",
+  typography: "design",
+  "icons & elements": "design",
+  icons: "design",
+  mockups: "design",
+  mockup: "design",
+  "logo templates": "design",
+  logos: "design",
+  "branding kits": "design",
+  branding: "design",
+  "print design": "design",
+  print: "design",
+  "design templates": "design",
+  "design template": "design",
 
-  // Templates
-  "notion templates": "templates",
-  "notion template": "templates",
-  notion: "templates",
-  spreadsheets: "templates",
-  spreadsheet: "templates",
-  excel: "templates",
-  "google sheets": "templates",
-  worksheets: "templates",
-  worksheet: "templates",
-  planners: "templates",
-  planner: "templates",
-  printables: "templates",
-  "resume templates": "templates",
-  "cv templates": "templates",
+  // Development
+  "web templates": "development",
+  web: "development",
+  "mobile apps": "development",
+  mobile: "development",
+  apps: "development",
+  app: "development",
+  "scripts & plugins": "development",
+  scripts: "development",
+  plugins: "development",
+  plugin: "development",
+  extensions: "development",
+  code: "development",
+  "apis & tools": "development",
+  apis: "development",
+  "wordpress themes": "development",
+  wordpress: "development",
+  "shopify themes": "development",
+  shopify: "development",
+  "react components": "development",
+  react: "development",
+  "next.js templates": "development",
+  nextjs: "development",
+  saas: "development",
 
-  // Learning
-  "online courses": "learning",
-  "online course": "learning",
-  course: "learning",
-  courses: "learning",
-  "video tutorials": "learning",
-  tutorials: "learning",
-  tutorial: "learning",
-  "e-books": "learning",
-  ebooks: "learning",
-  ebook: "learning",
-  "e-book": "learning",
-  books: "learning",
-  guides: "learning",
-  guide: "learning",
-  coaching: "learning",
-  "1:1 coaching": "learning",
-  consulting: "learning",
-  "fitness plans": "learning",
-  fitness: "learning",
-  "workout plans": "learning",
-  "meal plans": "learning",
+  // Marketing
+  "email templates": "marketing",
+  email: "marketing",
+  "ad creatives": "marketing",
+  ads: "marketing",
+  "landing pages": "marketing",
+  landing: "marketing",
+  "seo tools": "marketing",
+  seo: "marketing",
+  "copywriting templates": "marketing",
+  copywriting: "marketing",
+  "sales funnels": "marketing",
+  funnels: "marketing",
 
-  // Audio
-  music: "audio",
-  beats: "audio",
-  "beat packs": "audio",
-  "beat pack": "audio",
-  samples: "audio",
-  "sample packs": "audio",
-  "sound effects": "audio",
-  sfx: "audio",
-  podcasts: "audio",
-  podcast: "audio",
+  // Business
+  spreadsheets: "business",
+  spreadsheet: "business",
+  excel: "business",
+  "google sheets": "business",
+  presentations: "business",
+  "documents & contracts": "business",
+  documents: "business",
+  contracts: "business",
+  "invoice templates": "business",
+  invoices: "business",
+  "proposal templates": "business",
+  proposals: "business",
+  "business plans": "business",
+  "resume templates": "business",
+  "cv templates": "business",
 
-  // Software
-  apps: "software",
-  app: "software",
-  plugins: "software",
-  plugin: "software",
-  extensions: "software",
-  scripts: "software",
-  code: "software",
-  "link-in-bio": "software",
-  "link in bio": "software",
-  saas: "software",
+  // AI
+  "ai prompts": "ai",
+  prompts: "ai",
+  "chatgpt templates": "ai",
+  chatgpt: "ai",
+  "midjourney prompts": "ai",
+  midjourney: "ai",
+  "automation tools": "ai",
+  automation: "ai",
+  "ai-powered tools": "ai",
+  "ai tools": "ai",
 
-  // Memberships
-  membership: "memberships",
-  community: "memberships",
-  communities: "memberships",
-  subscription: "memberships",
-  subscriptions: "memberships",
-  merch: "memberships",
-  merchandise: "memberships",
+  // Social media
+  "instagram templates": "social-media",
+  instagram: "social-media",
+  "tiktok content": "social-media",
+  tiktok: "social-media",
+  "youtube assets": "social-media",
+  youtube: "social-media",
+  "twitter/x templates": "social-media",
+  twitter: "social-media",
+  "linkedin templates": "social-media",
+  linkedin: "social-media",
+  "pinterest templates": "social-media",
+  pinterest: "social-media",
+  "reels & shorts": "social-media",
+  reels: "social-media",
 
-  // Catch-all buckets
-  other: "all",
-  misc: "all",
-  miscellaneous: "all",
-  uncategorized: "all",
-  uncategorised: "all",
+  // Productivity
+  "notion templates": "productivity",
+  "notion template": "productivity",
+  notion: "productivity",
+  "calendars & planners": "productivity",
+  planners: "productivity",
+  planner: "productivity",
+  calendars: "productivity",
+  checklists: "productivity",
+  "habit trackers": "productivity",
+  trackers: "productivity",
+  dashboards: "productivity",
+  "airtable templates": "productivity",
+  airtable: "productivity",
+  printables: "productivity",
+
+  // Photography
+  "lightroom presets": "photography",
+  presets: "photography",
+  "photo overlays": "photography",
+  overlays: "photography",
+  "photoshop actions": "photography",
+  actions: "photography",
+  "color luts": "photography",
+  luts: "photography",
+  "stock photos": "photography",
+  stock: "photography",
+  photos: "photography",
+
+  // Video
+  "video templates": "video",
+  "transitions & effects": "video",
+  transitions: "video",
+  "motion graphics": "video",
+  motion: "video",
+  "after effects": "video",
+  "premiere pro": "video",
+  premiere: "video",
+  "davinci resolve": "video",
+  davinci: "video",
+
+  // Audio & music
+  "royalty-free music": "audio-music",
+  music: "audio-music",
+  "sound effects": "audio-music",
+  sfx: "audio-music",
+  "loops & samples": "audio-music",
+  loops: "audio-music",
+  samples: "audio-music",
+  "sample packs": "audio-music",
+  beats: "audio-music",
+  "beat packs": "audio-music",
+  "beat pack": "audio-music",
+  "podcast templates": "audio-music",
+  podcasts: "audio-music",
+  podcast: "audio-music",
+
+  // Education
+  "online courses": "education",
+  "online course": "education",
+  courses: "education",
+  course: "education",
+  ebooks: "education",
+  ebook: "education",
+  "e-books": "education",
+  "e-book": "education",
+  books: "education",
+  tutorials: "education",
+  tutorial: "education",
+  "video tutorials": "education",
+  worksheets: "education",
+  worksheet: "education",
+  "guides & how-tos": "education",
+  guides: "education",
+  guide: "education",
+  coaching: "education",
+  "1:1 coaching": "education",
+  fitness: "education",
+  "fitness plans": "education",
+
+  // E-commerce
+  "product photography": "ecommerce",
+  "product-photos": "ecommerce",
+  "store themes": "ecommerce",
+  "pricing templates": "ecommerce",
+  "e-commerce emails": "ecommerce",
+
+  // Freebies
+  free: "freebies",
+  freebie: "freebies",
+
+  // Catch-alls
+  misc: "other",
+  miscellaneous: "other",
+  uncategorized: "other",
+  uncategorised: "other",
+  memberships: "other",
+  membership: "other",
+  community: "other",
+  communities: "other",
+  merch: "other",
 }
 
 /**
  * Normalize a DB category value to a code category id.
  *
- * Anything unrecognised falls back to "all" rather than to itself, so a stale
- * value -- including every fashion string the marketplace era wrote -- can
- * never match a real category filter.
+ * Anything unrecognised falls back to "other" rather than to itself, so a stale
+ * value -- including every fashion string the marketplace era wrote -- can never
+ * match a real category filter. "other" is a real browsable category here, which
+ * is why it is the fallback: an unrecognised product is still reachable.
  */
 export function normalizeCategoryToId(dbCategory: string | null | undefined): string {
   const lower = (dbCategory || "").toLowerCase().trim()
   if (!lower) return ""
   const mapped = DB_CATEGORY_TO_ID[lower]
   if (mapped) return mapped
-  return VALID_CATEGORY_ID_SET.has(lower) ? lower : "all"
+  return VALID_CATEGORY_ID_SET.has(lower) ? lower : "other"
 }
 
 export function getCategory(id: string): CategoryShape | undefined {
@@ -291,7 +526,7 @@ export function categoryLabel(id: string): string {
   return getCategory(id)?.label ?? "All"
 }
 
-/** The label for a subcategory id, searched across every department. */
+/** The label for a subcategory id, searched across every category. */
 export function subcategoryLabel(id: string | null | undefined): string | null {
   if (!id) return null
   for (const category of CATEGORY_LIST) {
@@ -302,20 +537,19 @@ export function subcategoryLabel(id: string | null | undefined): string | null {
 }
 
 /**
- * ===========================================================================
- *  NAVIGATION SHAPES, DERIVED FROM THE TAXONOMY ABOVE
- * ===========================================================================
+ * The path for a category, and optionally one subcategory inside it.
  *
- * The header, the search row and the two mobile headers each need the category
- * list in a slightly different shape. These used to come from
- * lib/marketplace/department-nav.ts, which derived them from a SECOND fashion
- * taxonomy file -- two sources that had to agree and periodically did not.
- *
- * They are derived HERE now, from CATEGORIES, because a category added above
- * should appear in every menu and in the sitemap without anybody remembering
- * to edit a nav file. That was the good idea in department-nav; it just had the
- * wrong taxonomy underneath it.
+ * A PATH for the category, because /explore/design is a page a crawler can rank
+ * and a person can read -- and it is the URL this site has served all along. The
+ * subcategory stays a query param: it filters the page rather than being a page
+ * of its own, and every subcategory id is globally unique so `?sub=` needs no
+ * parent to disambiguate it.
  */
+export function categoryPath(categoryId?: string | null, subId?: string | null): string {
+  if (!categoryId || categoryId === "all") return "/explore"
+  const base = `/explore/${categoryId}`
+  return subId ? `${base}?sub=${subId}` : base
+}
 
 export type CategoryNavItem = {
   id: string
@@ -325,22 +559,7 @@ export type CategoryNavItem = {
   subcategories: { id: string; label: string; href: string }[]
 }
 
-/**
- * The path for a category, and optionally one subcategory inside it.
- *
- * A PATH rather than a query string for the category, because /explore/design
- * is a page a crawler can rank and a person can read. The subcategory stays a
- * query param: it filters the page rather than being a page of its own, and
- * every subcategory id is globally unique so `?sub=` needs no department to
- * disambiguate it.
- */
-export function categoryPath(categoryId?: string | null, subId?: string | null): string {
-  if (!categoryId || categoryId === "all") return "/explore"
-  const base = `/explore/${categoryId}`
-  return subId ? `${base}?sub=${subId}` : base
-}
-
-/** The six departments, each drilling into its own subcategories. */
+/** The fourteen categories, each drilling into its own subcategories. */
 export const CATEGORY_NAV: CategoryNavItem[] = CATEGORY_LIST.filter((c) => c.id !== "all").map((c) => ({
   id: c.id,
   label: c.label,
@@ -353,31 +572,12 @@ export const CATEGORY_NAV: CategoryNavItem[] = CATEGORY_LIST.filter((c) => c.id 
   })),
 }))
 
-/**
- * The same six with "All" in front, for the rails that FILTER rather than
- * navigate. "all" is not a category and has no subcategories; it is the absence
- * of a filter, which is why it is the first entry of CATEGORIES with an empty
- * list.
- */
+/** The same, with "All" in front, for the rails that FILTER rather than navigate. */
 export const CATEGORY_RAIL: { id: string; label: string; icon: CategoryIcon }[] = CATEGORY_LIST.map(
   (c) => ({ id: c.id, label: c.label, icon: c.icon }),
 )
 
-/** The subcategories of one department, or an empty list for an unknown id. */
+/** The subcategories of one category, or an empty list for an unknown id. */
 export function subcategoriesFor(categoryId: string): { id: string; label: string }[] {
   return [...(getCategory(categoryId)?.subcategories ?? [])]
 }
-
-/**
- * ---------------------------------------------------------------------------
- * WHAT USED TO BE HERE
- * ---------------------------------------------------------------------------
- * SIZE_SYSTEMS (UK/EU/US shoe sizes, alpha garment sizes), CATEGORY_SIZING,
- * sizeSystemForCategory, sizeOptionsForCategory, CONDITIONS and conditionLabel.
- *
- * All removed with the marketplace. They described a physical object being
- * resold, and there is no version of "Men's waist 34, very good condition" that
- * means anything about a Notion template. Nothing referenced the size helpers
- * by the time they came out -- they had already been superseded by
- * listing-taxonomy.ts, which is gone too.
- */
