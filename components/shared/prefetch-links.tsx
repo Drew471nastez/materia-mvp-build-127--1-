@@ -10,10 +10,15 @@ import { useRouter, usePathname } from "next/navigation"
 const PREFETCH_MAP: Record<string, string[]> = {
   "/": ["/explore", "/signup", "/login"],
   "/explore": ["/explore/design", "/explore/development", "/explore/ai"],
-  "/app": ["/app/products", "/app/analytics", "/app/orders/sales"],
+  "/app": ["/app/products", "/app/analytics", "/app/orders/sales", "/app/settings"],
   "/app/products": ["/app/products/new"],
   "/app/analytics": ["/app/orders/sales"],
   "/app/orders/sales": ["/app/analytics"],
+  // Settings → Billing is the slowest hop in the dashboard: billing is a server
+  // component that talks to Stripe, so its RSC payload is the one most worth
+  // having in hand before the click rather than after it.
+  "/app/settings": ["/app/settings/billing"],
+  "/app/settings/billing": ["/app/settings/billing/upgrade"],
   "/library": ["/library/products", "/library/wishlist"],
   "/signup": ["/login"],
   "/login": ["/signup", "/app"],

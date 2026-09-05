@@ -23,6 +23,7 @@ import { join, basename, dirname, relative } from "node:path"
 const SUITES = [
   "tests/auth-session.test.ts",
   "tests/no-image-transforms.test.ts",
+  "tests/page-performance.test.ts",
   "tests/sql-aggregate.test.ts",
   "tests/spam-defence.test.ts",
   "tests/digital-platform.test.ts",

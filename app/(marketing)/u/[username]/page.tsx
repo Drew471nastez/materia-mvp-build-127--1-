@@ -250,9 +250,24 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     )
   }
 
-  const { data: products, error: productsError } = await supabase
-    .from("products")
-    .select(`
+  /**
+   * The products and the published shop config are fetched together.
+   *
+   * Both key off `creator.id` alone and neither reads anything the other
+   * returns, but they ran in series -- and `getPublishedConfig` was issued only
+   * after the full product list, with its nested category join, had come back.
+   * Two sequential round trips on a storefront, before any HTML is sent.
+   *
+   * The profile → creator hop above genuinely IS sequential: the creator is
+   * looked up by `profile.id`, so it cannot start any earlier.
+   */
+  const [
+    { data: products, error: productsError },
+    publishedConfig,
+  ] = await Promise.all([
+    supabase
+      .from("products")
+      .select(`
       *,
       product_categories (
         category_id,
@@ -264,9 +279,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         )
       )
     `)
-    .eq("creator_id", creator.id)
-    .eq("status", "published")
-    .order("created_at", { ascending: false })
+      .eq("creator_id", creator.id)
+      .eq("status", "published")
+      .order("created_at", { ascending: false }),
+    getPublishedConfig(creator.id, "shop"),
+  ])
 
   if (productsError) {
     console.error("[v0] Products query error:", productsError)
@@ -284,8 +301,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * search result.
    */
   const indexable = deservesIndexing({ publishedProducts: products?.length ?? 0, handle: username })
-
-  const publishedConfig = await getPublishedConfig(creator.id, "shop")
 
   const srcParam = src === "platform" ? "?src=platform" : ""
 
