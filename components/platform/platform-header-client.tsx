@@ -18,7 +18,6 @@ import { useUrlSearchParams } from "@/lib/use-url-search-params"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { AnimatedSearchPlaceholder } from "@/components/explore/animated-search-placeholder"
 import { cn } from "@/lib/utils"
-import { DEPARTMENTS, categoryShortLabel, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,7 +27,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 import { Heart, Library, Search, MessageCircle, Plus, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
-import { DEPARTMENT_NAV, DEPARTMENT_RAIL, categoryPath, type DeptIcon } from "@/lib/marketplace/department-nav"
+import { CATEGORY_NAV, CATEGORY_RAIL, categoryPath, type CategoryIcon } from "@/lib/marketplace/categories"
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
@@ -61,30 +60,26 @@ const LOGO_URL =
  * an empty room, while the five departments that actually hold the stock —
  * the ones the sell form makes somebody choose from — appeared nowhere.
  *
- * They are DERIVED now, from lib/marketplace/listing-taxonomy, which is the
- * same module the listing form's category picker reads. That is the point: a
- * department added there appears in the bar and in the menu without anybody
+ * They are DERIVED now, from lib/marketplace/categories.ts, which is the single
+ * taxonomy the sitemap and every other menu also read. That is the point: a
+ * category added there appears in the bar and in the menu without anybody
  * remembering to come here, and it is not possible for the two to disagree
- * about what this marketplace sells.
+ * about what Storelib sells.
  */
 
-/** The bar under the header: "Toate" and the five departments. */
-const DEFAULT_CATEGORIES = DEPARTMENT_RAIL
+/** The bar under the header: "All" and the six categories. */
+const DEFAULT_CATEGORIES = CATEGORY_RAIL
 
-// The phone rail shows the same five. It was a second copy of the same literal
+// The phone rail shows the same six. It was a second copy of the same literal
 // list, which is two places to forget.
 const MOBILE_CATEGORIES = DEFAULT_CATEGORIES
 
 /**
- * The Browse menu: the five departments, each drilling into its own groups.
- *
- * The groups come from `groupsForDepartment`, so "Femei" opens Haine / Pantofi
- * / Genți / Accesorii / Frumusețe — the exact list the sell form offers under
- * Femei — and `categoryShortLabel` takes the department off the front so the
- * submenu reads "Haine" rather than "Femei · Haine" under a heading that
- * already says Femei.
+ * The Browse menu: the six categories, each drilling into its own
+ * subcategories -- Design opens Design Templates / Fonts / Digital Art /
+ * Photography / Game Assets.
  */
-const CATEGORIES_WITH_SUBS = DEPARTMENT_NAV
+const CATEGORIES_WITH_SUBS = CATEGORY_NAV
 
 /* SEARCH_CATEGORIES and SearchProduct are gone with the dropdown they fed.
    They described a catalogue this app no longer sells: nine digital-goods
@@ -1456,14 +1451,14 @@ export function PlatformHeaderClient() {
                         </button>
                         <div className="flex items-center gap-3 px-3 py-2 mb-2">
                           <selectedCategoryData.icon className="h-5 w-5 text-violet-500" />
-                          <span className="text-base font-semibold text-gray-900">{selectedCategoryData.label}</span>
+                          <span className="text-base font-semibold text-gray-900">{t(`category.${selectedCategoryData.id}`)}</span>
                         </div>
                         <Link
                           href={getCanonicalOrRelativePath(selectedCategoryData.href + '&scroll=recommended')}
                           onClick={() => setCategoriesDropdownOpen(false)}
                           className="flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
                         >
-                          <span>Vezi tot din {selectedCategoryData.label}</span>
+                          <span>{t("marketplace.show_all")} · {t(`category.${selectedCategoryData.id}`)}</span>
                           <ArrowRight className="h-4 w-4" />
                         </Link>
                         <div className="space-y-0.5 mt-2">
@@ -1504,7 +1499,7 @@ export function PlatformHeaderClient() {
                               >
                                 <div className="flex items-center gap-3">
                                   <Icon className="h-4 w-4 text-gray-400" />
-                                  <span>{cat.label}</span>
+                                  <span>{t(`category.${cat.id}`)}</span>
                                 </div>
                                 {hasSubcats && (
                                   <ChevronRight className="h-4 w-4 text-gray-400" />
@@ -2221,7 +2216,7 @@ export function PlatformHeaderClient() {
                   <>
                     <div className="flex items-center gap-3 px-2 py-2 mb-3">
                       <Icon className="h-5 w-5 text-violet-500" />
-                      <span className="text-base font-semibold text-gray-900">{cat.label}</span>
+                      <span className="text-base font-semibold text-gray-900">{t(`category.${cat.id}`)}</span>
                     </div>
                     <button
                       type="button"
@@ -2295,7 +2290,7 @@ export function PlatformHeaderClient() {
                     >
                       <div className="flex items-center gap-3 pointer-events-none">
                         <Icon className="h-5 w-5 text-gray-400" />
-                        <span>{cat.label}</span>
+                        <span>{t(`category.${cat.id}`)}</span>
                       </div>
                       <ChevronRight className="h-5 w-5 text-gray-400 pointer-events-none" />
                     </button>

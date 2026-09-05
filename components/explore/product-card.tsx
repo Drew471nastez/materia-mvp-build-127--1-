@@ -12,7 +12,6 @@ import { useLocale } from "@/components/locale-provider"
 import { ProtectionMark } from "@/components/marketplace/buyer-protection"
 import { buyerPaysCents } from "@/lib/marketplace/display-price"
 import { useListingOwnership } from "@/lib/marketplace/use-my-username"
-import { CONDITIONS } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
 import { Heart, ImageOff } from "lucide-react"
 
@@ -61,7 +60,9 @@ function getSizeLabel(product: { size?: string | null; size_system?: string | nu
 function getConditionLabel(condition: string | null | undefined): string | null {
   if (!condition) return null
   const key = condition.trim().toLowerCase().replace(/[\s-]+/g, "_")
-  return CONDITIONS.find((entry) => entry.id === key)?.label ?? null
+  // Conditions were a marketplace concept (a jacket is "very good"; a font is
+  // not). The chip is gone with them.
+  return null
 }
 
 

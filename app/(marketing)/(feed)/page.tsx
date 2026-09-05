@@ -1,44 +1,73 @@
 import { Metadata } from "next"
-import {
-  ExploreFeed,
-  FEED_CANONICAL,
-  FEED_DESCRIPTION,
-  FEED_KEYWORDS,
-  FEED_OG_IMAGE,
-  FEED_OG_IMAGE_ALT,
-  type FeedSearchParams,
-} from "../_explore-feed"
 
-// SEO-optimized metadata — "/" is the primary marketplace surface.
-// The previous SaaS landing page lives on in ./_legacy-landing.tsx (not routed).
+import { StorelibLanding } from "../_legacy-landing"
+
+/**
+ * ===========================================================================
+ *  "/" IS THE DIGITAL-PRODUCTS LANDING AGAIN
+ * ===========================================================================
+ *
+ * Storelib was a platform for selling digital products -- downloads, courses,
+ * templates, memberships -- and at some point the front door was given over to
+ * a second-hand fashion feed. This puts it back.
+ *
+ * Whoever made that change did it carefully: they moved the landing page to
+ * `_legacy-landing.tsx` rather than deleting it, kept every section component
+ * under components/marketing/ alive, and left a note saying exactly how to
+ * restore it. This is that restore, done the way the note describes. Nothing
+ * here was rebuilt from memory -- it is the original page, unchanged.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THE FEED IS GONE RATHER THAN MOVED
+ * ---------------------------------------------------------------------------
+ * The fashion marketplace is being removed, not parked: the taxonomy, the
+ * shipping and AWB subsystem, the Vinted importer and the parcel checkout all
+ * go with it. Keeping the feed reachable at some other URL would leave a
+ * half-platform behind, advertising categories nothing can be listed in.
+ *
+ * What survives is the part that was always shared: `products` with its
+ * `creator_id` and `status`, the store builder, OnePage, the library, and the
+ * secure download pipeline. lib/marketplace/product-kind.ts is the seam -- it
+ * already knew the difference between "a file to download" and "a parcel", and
+ * only the first half of it is a live path now.
+ */
+
+const TITLE = "Storelib | Sell Digital Products Online"
+const DESCRIPTION =
+  "The all-in-one ecommerce platform to sell digital products, build your online store and grow your audience."
+const OG_IMAGE =
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+
 export const metadata: Metadata = {
-  title: { absolute: "Storelib | Buy & Sell Second-Hand Fashion, Sneakers & Vintage" },
-  description: FEED_DESCRIPTION,
-  keywords: FEED_KEYWORDS,
+  title: { absolute: TITLE },
+  description: DESCRIPTION,
+  keywords: [
+    "sell digital products",
+    "digital downloads",
+    "online courses",
+    "ecommerce platform",
+    "creator platform",
+    "link in bio",
+    "online store builder",
+    "sell templates",
+    "sell ebooks",
+    "memberships",
+  ],
   openGraph: {
-    title: "Storelib | Buy & Sell Second-Hand Fashion, Sneakers & Vintage",
-    description: FEED_DESCRIPTION,
+    title: TITLE,
+    description: DESCRIPTION,
     type: "website",
     url: "/",
     siteName: "Storelib",
-    images: [
-      {
-        url: FEED_OG_IMAGE,
-        width: 1200,
-        height: 630,
-        alt: FEED_OG_IMAGE_ALT,
-      },
-    ],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: "Storelib" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Storelib | Buy & Sell Second-Hand Fashion, Sneakers & Vintage",
-    description: FEED_DESCRIPTION,
-    images: [FEED_OG_IMAGE],
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [OG_IMAGE],
   },
-  alternates: {
-    canonical: FEED_CANONICAL,
-  },
+  alternates: { canonical: "https://storelib.com" },
   robots: {
     index: true,
     follow: true,
@@ -52,49 +81,12 @@ export const metadata: Metadata = {
   },
 }
 
-export const dynamic = "force-dynamic"
-
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<FeedSearchParams>
-}) {
-  return (
-    <>
-      {/* Site-wide JSON-LD — Organization + WebSite are homepage-scoped signals,
-          carried over from the retired landing page so they aren't lost. */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            "name": "Storelib",
-            "url": "https://storelib.com",
-            "logo": "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg",
-            "sameAs": [],
-            "description": "The marketplace for second-hand fashion, sneakers, bags, jewellery, books, homeware and vintage."
-          }),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            "name": "Storelib",
-            "url": "https://storelib.com",
-            "potentialAction": {
-              "@type": "SearchAction",
-              "target": "https://storelib.com/?q={search_term_string}",
-              "query-input": "required name=search_term_string"
-            }
-          }),
-        }}
-      />
-
-      <ExploreFeed searchParams={searchParams} />
-    </>
-  )
+/**
+ * Static again. The feed was force-dynamic because it read live listings and a
+ * per-request search param; a marketing page reads neither, and rendering it
+ * per request was paying for nothing. Organization and WebSite JSON-LD are
+ * emitted by StorelibLanding itself, so nothing SEO-bearing is lost here.
+ */
+export default function HomePage() {
+  return <StorelibLanding />
 }

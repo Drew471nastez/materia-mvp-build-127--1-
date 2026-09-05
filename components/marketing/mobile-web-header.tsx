@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, Heart, Menu, MessageCircle, Search, Shopping
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { SearchTrigger } from "@/components/marketplace/search-row"
-import { DEPARTMENT_NAV, categoryPath, type DepartmentNavItem } from "@/lib/marketplace/department-nav"
+import { CATEGORY_NAV, categoryPath, type CategoryNavItem } from "@/lib/marketplace/categories"
 import { savedShelfHref } from "@/lib/marketplace/saved-items"
 import { useLocale } from "@/components/locale-provider"
 import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
@@ -140,7 +140,7 @@ export function MobileWebHeader() {
   const [searchOpen, setSearchOpen] = useState(false)
   /** The department the menu is a level inside, and whether the top level is
    *  arriving from a BACK press — see the note on the list itself. */
-  const [drawerDept, setDrawerDept] = useState<DepartmentNavItem | null>(null)
+  const [drawerDept, setDrawerDept] = useState<CategoryNavItem | null>(null)
   const [drawerPopped, setDrawerPopped] = useState(false)
 
   // Seeded synchronously from the persisted snapshot so the header draws the
@@ -567,11 +567,11 @@ export function MobileWebHeader() {
             Bijuterii / Frumusețe / Cărți / Casă / Vintage, from
             lib/marketplace/categories.ts. Not one of those is a value any
             listing carries: the sell form files everything under the five
-            departments in lib/marketplace/listing-taxonomy, so `?category=
+            categories in lib/marketplace/categories, so `?category=
             sneakers` validated and then matched nothing. Ten doors, every one
             of them opening onto an empty room.
 
-            DEPARTMENT_NAV is the sell form's own taxonomy shaped for
+            CATEGORY_NAV is the sell form's own taxonomy shaped for
             navigation — the same list the desktop header's Browse menu draws,
             from the same module, so the two cannot disagree about what this
             marketplace sells.
@@ -610,7 +610,7 @@ export function MobileWebHeader() {
             </div>
           ) : (
             <div className={drawerPopped ? "sub-pop" : undefined}>
-              {DEPARTMENT_NAV.map((dept) => {
+              {CATEGORY_NAV.map((dept) => {
                 const Icon = dept.icon
                 return (
                   <button

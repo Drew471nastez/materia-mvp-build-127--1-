@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation"
 import { Search, Clock, ArrowUpLeft, ChevronLeft, ChevronRight, X, Store } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { useRecentSearches } from "@/lib/hooks/use-recent-searches"
-import { DEPARTMENT_NAV, categoryPath, type DepartmentNavItem } from "@/lib/marketplace/department-nav"
+import { CATEGORY_NAV, categoryPath, type CategoryNavItem } from "@/lib/marketplace/categories"
 import { AllSquares, IconChip, groupIcon } from "@/components/marketplace/department-icons"
 import { addRecentPerson, removeRecentPerson, useRecentPeople } from "@/lib/hooks/use-recent-people"
 import { searchTokens, textFilterGroups } from "@/lib/marketplace/search-terms"
 import { createClient } from "@/lib/supabase/client"
-import { groupsForDepartment, type Option } from "@/lib/marketplace/listing-taxonomy"
+import { subcategoriesFor } from "@/lib/marketplace/categories"
 import { SmartLink } from "@/components/smart-link"
 import { SellerScore } from "@/components/marketplace/seller-score"
 import { AvatarPhoto } from "@/components/ui/initial-avatar"
@@ -1261,13 +1261,22 @@ function BrowseLevels({
   onLevelChange?: (level: number) => void
   t: (k: string) => string
 }) {
-  const [dept, setDept] = useState<DepartmentNavItem | null>(null)
+  const [dept, setDept] = useState<CategoryNavItem | null>(null)
   const [group, setGroup] = useState<{ id: string; label: string } | null>(null)
   /** Which animation the NEXT level plays. Set by whatever changed the stack. */
   const [dir, setDir] = useState<"push" | "pop">("push")
 
-  const leaves: Option[] =
-    dept && group ? groupsForDepartment(dept.id).find((g) => g.id === group.id)?.items ?? [] : []
+  /**
+   * Always empty: the digital taxonomy is two levels deep, not three.
+   *
+   * The fashion one went department -> group -> leaf ("Femei" -> "Pantofi" ->
+   * "Sneakers"), and this read the third. Categories now stop at the
+   * subcategory -- Design -> Fonts is the whole path -- so there is nothing
+   * below the level `group` already holds. Kept as a const rather than ripping
+   * out the third pane, because the pane renders nothing for an empty list and
+   * a third level may well come back.
+   */
+  const leaves: { id: string; label: string }[] = []
   const level = dept ? (group ? 2 : 1) : 0
 
   useEffect(() => {
@@ -1360,7 +1369,7 @@ function BrowseLevels({
                 one layout whose next level can arrive as the same list moved
                 left. A 2-col tile grid was tried and pushing from a grid into
                 a list reads as changing rooms, not going deeper. */}
-            {DEPARTMENT_NAV.map((d) => (
+            {CATEGORY_NAV.map((d) => (
               <button
                 key={d.id}
                 type="button"

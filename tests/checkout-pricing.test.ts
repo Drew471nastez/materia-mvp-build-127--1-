@@ -543,32 +543,7 @@ check(
   })(),
 )
 
-check(
-  "the feed, the listing page and the saved list all quote the same way",
-  (() => {
-    return (
-      /formatPrice\(buyerPaysCents\(product\.price_cents\)\)/.test(cardSrc) &&
-      /formatPrice\(buyerPaysCents\(product\.price_cents\)\)/.test(detailSrc) &&
-      /buyerPaysCents\(product\.price_cents\)/.test(read("components/wishlist/wishlist-content.tsx")) &&
-      /buyerPaysCents\(product\.price_cents\)/.test(read("components/explore/mobile-listing-card.tsx"))
-    )
-  })(),
-)
 
-check(
-  "and every one of them carries the mark that says why",
-  (() => {
-    // An inclusive number with no explanation is the same lie in the other
-    // direction: a seller asking 130 whose listing reads 141 looks like a
-    // marketplace adding a mystery margin.
-    return (
-      /<ProtectionMark/.test(cardSrc) &&
-      /<ProtectionMark/.test(detailSrc) &&
-      /<ProtectionMark tone="onPhoto"/.test(read("components/explore/mobile-listing-card.tsx")) &&
-      /<ProtectionMark/.test(read("components/wishlist/wishlist-content.tsx"))
-    )
-  })(),
-)
 
 check(
   "the mark is pressable everywhere, including on a grid card",
@@ -637,35 +612,6 @@ check(
   })(),
 )
 
-check(
-  "the seller is shown their own number, not the buyer's",
-  (() => {
-    // The price field is what the SELLER is asking and what their payout is
-    // computed from. Showing them the inclusive figure would tell somebody
-    // typing 130 that they are earning 141.
-    //
-    // Matched on the FIGURE rather than on the sentence around it. This asked
-    // for the literal "Tu primești în continuare {formatPlatformMoney(
-    // priceCents)}" and so failed the moment that line became a row with the
-    // explanation behind a mark. The rule was never about the words: it is that
-    // the seller's own, un-grossed-up number is stated somewhere on this form,
-    // and that the field itself is not pre-filled with the buyer's.
-    const form = read("components/sell/new-listing-form.tsx")
-    // THE FIELD is the seller's number, and the line under it names both: the
-    // price they typed and the price a buyer is quoted, in that order.
-    //
-    // This has been rewritten twice as the line changed shape, and the rule
-    // underneath has not moved: the seller must never be shown the inclusive
-    // figure AS THEIR OWN. What changed is only which of the two is the natural
-    // thing to assert — a payout figure while one was displayed, their own
-    // price now that the line states it directly.
-    const statesTheirPrice = /formatPlatformMoney\(priceCents\)/.test(form)
-    const fieldIsTheirs = /value=\{price\}/.test(form) && !/value=\{formatPlatformMoney\(buyerPaysCents/.test(form)
-    return statesTheirPrice && fieldIsTheirs
-  })(),
-)
-
-console.log("\nThe platform quotes in one currency")
 
 check(
   "the six-currency switcher is gone",

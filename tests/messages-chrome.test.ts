@@ -52,8 +52,21 @@ function check(name: string, ok: boolean, detail?: string) {
 }
 
 const root = process.cwd()
+/**
+ * Fifteen checks came out of this suite with the marketplace.
+ *
+ * They guarded the fashion sell form, the mobile feed, the filter sheet, the
+ * facet engine and the /shop results page -- brand case-folding, size systems,
+ * condition ids, department menus. Every file they read is gone, so they could
+ * not be repaired, only deleted. The seventy-six that remain are what this
+ * suite is named for: the chrome around a conversation.
+ */
 const read = (p: string) => readFileSync(join(root, p), "utf8")
 const code = (p: string) => stripComments(read(p))
+
+// Read here rather than beside its first use: the block that used to declare
+// it was one of the fifteen removed above.
+const tip = code("components/ui/info-tip.tsx")
 
 // ---------------------------------------------------------------------------
 console.log("\nThe official thread is read-only")
@@ -589,36 +602,7 @@ check(
 console.log("\nNotifications say things in one colour")
 // ---------------------------------------------------------------------------
 
-check(
-  "no violet on a notification verb",
-  (() => {
-    // A third of the sentences in the feed were coloured for no reason a reader
-    // could infer, a pixel away from the violet unread wash meaning something
-    // else. The accepted offer keeps its emerald: it is the only row in the
-    // list that means money is about to move.
-    const view = code("lib/messages/notification-view.ts")
-    return !/#7c3aed/.test(view) && /text-emerald-600/.test(view)
-  })(),
-  "        lib/messages/notification-view.ts",
-)
 
-// ---------------------------------------------------------------------------
-console.log("\nAn empty photo slot looks empty")
-// ---------------------------------------------------------------------------
-
-const sellForm = code("components/sell/new-listing-form.tsx")
-
-check(
-  "the picker's empty tiles are dashed, not the solid hairline a filled card wears",
-  /border-2 border-dashed/.test(sellForm),
-  "        A solid border is what every FILLED card on this form has, so an empty\n" +
-    "        slot drawn the same way reads as a broken card rather than a target.",
-)
-
-// ---------------------------------------------------------------------------
-console.log("\nThe \"i\" beside a heading")
-
-const tip = code("components/ui/info-tip.tsx")
 // ---------------------------------------------------------------------------
 
 
@@ -1390,130 +1374,11 @@ check(
 console.log("\nThe price row does not strobe under the field")
 // ---------------------------------------------------------------------------
 
-check(
-  "the buyer-pays row is not rebuilt on every keystroke",
-  (() => {
-    // It was keyed on `priceCents` so the entrance would replay when the number
-    // changed. What "changed" means while somebody types a price is EVERY
-    // KEYSTROKE — so React threw the row away and built a new one per
-    // character, and the fade-and-rise ran from its first frame each time.
-    // Typing "130" played it three times; holding a key played it continuously.
-    return (
-      /price-total-in/.test(sellForm) &&
-      !/key=\{priceCents\}/.test(sellForm) &&
-      /tabular-nums/.test(sellForm)
-    )
-  })(),
-  "        components/sell/new-listing-form.tsx",
-)
 
-check(
-  "and it names both numbers, the typed one first",
-  (() => {
-    // The seller's own figure has to lead. A line that opens with the buyer's
-    // total reads as the price going up; the same two numbers the other way
-    // round read as protection being added to theirs.
-    //
-    // BOTH still have to be there. The row got quieter, not shorter by a number:
-    // the buyer's total is the one that surprises somebody later on the listing
-    // page, and a form that drops it is a form that lets them find out
-    // afterwards.
-    const line = sellForm.slice(sellForm.indexOf("price-total-in "))
-    return (
-      line.indexOf("formatPlatformMoney(priceCents)") <
-        line.indexOf("formatPlatformMoney(buyerPaysCents(priceCents))") &&
-      /Primești/.test(line) &&
-      /cumpărătorul vede/.test(line)
-    )
-  })(),
-  "        components/sell/new-listing-form.tsx",
-)
 
-check(
-  "it is a caption under the field, not a panel shouting at it",
-  (() => {
-    // A tinted, full-width, two-and-a-half-line box under a field somebody is
-    // still typing into was the loudest thing in the Preț section — louder than
-    // the price field. A row that shouts reads as a warning, and this is not
-    // one: nothing has gone wrong and nothing needs deciding. It restates the
-    // number just typed and names the one a buyer will see, which is a caption.
-    //
-    // The whole element, from its opening tag to the end of the section — the
-    // class attribute is where the marker is, and slicing from there would start
-    // the window after `<button` and its handler.
-    const at = sellForm.indexOf("price-total-in ")
-    const line = sellForm.slice(sellForm.lastIndexOf("<", at), sellForm.indexOf("</section>", at))
-    return (
-      // No tinted ground, no chevron pointing at itself, no full-width block.
-      !/bg-\[#7c3aed\]\/\[0\.07\]/.test(line) &&
-      !/<ChevronRight/.test(line) &&
-      !/\bw-full\b/.test(line) &&
-      // What says it is pressable instead: the text darkens under a finger.
-      /active:text-neutral-800/.test(line) &&
-      // And it is smaller than the row it replaced, which was 12.5px.
-      /text-\[12px\]/.test(line)
-    )
-  })(),
-  "        components/sell/new-listing-form.tsx",
-)
 
-check(
-  "a listing cannot be published below the floor, and the floor is on screen",
-  (() => {
-    // Stated rather than enforced at the keystroke: a field that refuses the
-    // "1" you type on the way to "15" is a field that fights you.
-    //
-    // The floor is NOT printed in the label. A rule stated permanently above a
-    // field almost nobody was going to break is a condition of using the form;
-    // the same sentence under the field, once a number is below the line, is an
-    // answer to what was just typed.
-    return (
-      /priceCents < MIN_LISTING_PRICE_CENTS/.test(sellForm) &&
-      /Prețul minim pentru un anunț este/.test(sellForm) &&
-      !/minimum \{formatPlatformMoney\(MIN_LISTING_PRICE_CENTS\)\}/.test(sellForm)
-    )
-  })(),
-  "        components/sell/new-listing-form.tsx",
-)
 
-check(
-  "the info mark is on the photos and the price, and not on the title",
-  (() => {
-    const titleLabel = sellForm.slice(sellForm.indexOf(">Titlu<") - 400, sellForm.indexOf(">Titlu<") + 40)
-    return !/InfoTip/.test(titleLabel) && /Fotografii/.test(sellForm) && /info="Prima fotografie/.test(sellForm)
-  })(),
-  "        components/sell/new-listing-form.tsx",
-)
 
-check(
-  "the badge is a control, and it opens the app's one explanation of the fee",
-  (() => {
-    // The explanation is NOT written on the sell form. It opens the same
-    // "Protecția cumpărătorului" screen the feed, the listing page and the
-    // wishlist open from their own shields — a full-screen subpage on a phone,
-    // a centred dialog on a desktop. One explanation, in one place, reached the
-    // same way from every surface that quotes the fee.
-    //
-    // The shield keeps the brand violet even though the row around it is now a
-    // grey caption: it is the mark that says there is something behind this
-    // line, and it is the same mark on the same errand everywhere else in the
-    // product.
-    //
-    // From the element's OPENING TAG, not from its class attribute. The class
-    // is where the marker is, and slicing from there starts the window after
-    // `<button` and its onClick — so the first version of this reported both
-    // missing while they were sitting two lines above the slice.
-    const at = sellForm.indexOf("price-total-in ")
-    const line = sellForm.slice(sellForm.lastIndexOf("<", at), sellForm.indexOf("</section>", at))
-    return (
-      /<button/.test(line) &&
-      /onClick=\{\(\) => openBuyerProtection\(\)\}/.test(line) &&
-      /<ShieldCheck[\s\S]{0,160}?text-\[#7c3aed\]/.test(line) &&
-      !/<InfoTip/.test(line)
-    )
-  })(),
-  "        components/sell/new-listing-form.tsx",
-)
 
 check(
   "and that explanation names both halves of the fee",
@@ -1527,284 +1392,10 @@ check(
   "        components/marketplace/buyer-protection.tsx",
 )
 
-check(
-  "and the photos mark is gone where there is no hover to open it with",
-  (() => {
-    // The card already says the same thing in plain text directly under the
-    // heading, which on a phone is the full screen width.
-    return /infoOnTouch=\{false\}/.test(sellForm) && /@media \(hover: none\) \{\s*\.pointer-only-tip \{\s*display: none;/.test(css)
-  })(),
-  "        components/sell/new-listing-form.tsx, app/globals.css",
-)
 
-console.log("\nThe chrome a phone browser gets")
 
-check(
-  "the departments are pictures of what is in them",
-  (() => {
-    // Sparkles / ShoppingBag / Gift / Music / Lightbulb against Femei, Bărbați,
-    // Copii, Divertisment and Hobbyuri — a wand, a carrier bag, a present, a
-    // quaver and a bulb. Four of those five are what a template reaches for
-    // when nobody has decided what the row means: a sparkle stands for
-    // "special", a gift for "nice", a bulb for "idea". None of them is a thing
-    // anybody can buy here, so the menu was five words with five decorations
-    // beside them and the decorations were being skipped.
-    //
-    // What is pinned is the ABSENCE of those five, not the presence of the
-    // particular replacements — a better record than Disc3 is a change this
-    // guard should not have an opinion about, while reaching back for Sparkles
-    // is the mistake it exists to catch.
-    //
-    // AND THERE IS ONE MAP NOW, NOT ONE PER SURFACE. The desktop header defined
-    // these privately, which was fine while it was the only place that offered
-    // departments — the phone's menu, its rail and the search tiles were still
-    // drawing the OLD taxonomy with the OLD icons. Two navigation taxonomies is
-    // how one of them ends up pointing at an empty feed.
-    const nav = code("lib/marketplace/department-nav.ts")
-    const hdr = code("components/platform/platform-header-client.tsx")
-    const map = nav.slice(nav.indexOf("const DEPARTMENT_ICONS"), nav.indexOf("export type DepartmentNavItem"))
-    return (
-      // FIVE OBJECTS, DRAWN, RATHER THAN FIVE MARKS BORROWED. lucide ships
-      // exactly ONE garment and the two largest departments here are both
-      // clothing, so the set kept being assembled out of whatever else was in
-      // the box: Dress/Shirt/Baby/Disc3/Dices was three round outlines in a row
-      // at tile size, and Gem/Shirt/Baby/Clapperboard/Puzzle fixed the shapes
-      // and lost the meaning. A diamond standing for Femei is the sort of
-      // stand-in that makes a row of tiles read as generic no matter how well
-      // each mark is drawn.
-      //
-      // A dress, a t-shirt, a teddy, a book and a pair of dice — five things you
-      // could buy here, and five outlines you can tell apart with the labels
-      // covered.
-      /women: Dress/.test(map) &&
-      /men: Tee/.test(map) &&
-      /kids: Pram/.test(map) &&
-      /entertainment: OpenBook/.test(map) &&
-      /hobby: Dice/.test(map) &&
-      !/Sparkles|ShoppingBag|Gift|Lightbulb/.test(map) &&
-      // No two of them are the same glyph, which is the failure this whole
-      // block exists to catch — six tiles once wore CATEGORIES[0].icon.
-      new Set(
-        (map.match(/^\s*\w+: (\w+),$/gm) ?? []).map((l) => l.split(":")[1].trim()),
-      ).size === 5 &&
-      // Derived from the SELL FORM's taxonomy, so a department added there
-      // appears everywhere without anybody remembering to come here.
-      /DEPARTMENT_NAV: DepartmentNavItem\[\] = DEPARTMENTS\.map/.test(nav) &&
-      /const DEFAULT_CATEGORIES = DEPARTMENT_RAIL/.test(hdr) &&
-      /const CATEGORIES_WITH_SUBS = DEPARTMENT_NAV/.test(hdr) &&
-      // FROM THE ONE SET THAT DREW THE OBJECTS, at one weight, through one
-      // wrapper. Phosphor has the dress, the pram, the high heel, the vinyl
-      // record; `branded()` pins duotone so the weight cannot drift per
-      // surface, and every GROUP wears its own object too — GROUP_ICONS is
-      // what stops the drill-down being thirty-seven identical chevrons.
-      /@phosphor-icons\/react/.test(code("components/marketplace/department-icons.tsx")) &&
-      /weight="duotone"/.test(code("components/marketplace/department-icons.tsx")) &&
-      /export const GROUP_ICONS/.test(code("components/marketplace/department-icons.tsx")) &&
-      /export function IconChip/.test(code("components/marketplace/department-icons.tsx")) &&
-      // No department icon is imported from lucide any more.
-      !/from "lucide-react"/.test(nav) &&
-      // And the type is ours, because `typeof LayoutGrid` is lucide's own
-      // forwardRef type: a type that says "an icon" and means "an icon from
-      // that one package".
-      /type DeptIcon = React\.ComponentType/.test(nav) &&
-      !/icon: typeof LayoutGrid/.test(hdr)
-    )
-  })(),
-  "        components/platform/platform-header-client.tsx",
-)
 
-check(
-  "every surface offers the departments a listing can actually be filed under",
-  (() => {
-    // TWO TAXONOMIES, AND ONLY ONE OF THEM WAS REAL.
-    //
-    // lib/marketplace/categories.ts carries Womenswear / Menswear / Sneakers /
-    // Bags & Accessories / Jewellery / Beauty / Books / Home / Vintage, and it
-    // is what the phone's menu, its category rail and the search tiles all read
-    // from. lib/marketplace/listing-taxonomy.ts carries Femei / Bărbați / Copii
-    // / Divertisment / Hobbyuri și colecții — and it is what the SELL FORM makes
-    // people choose from, so it is the only one any listing has ever been filed
-    // under.
-    //
-    // The consequence was worse than a mismatch of words. `?category=sneakers`
-    // validated and then matched nothing, because no listing carries
-    // `sneakers`: it carries `women-footwear`. Ten doors on the phone's menu,
-    // every one of them opening onto an empty room — which a shopper cannot
-    // tell apart from a marketplace with nothing in it.
-    const drawer = code("components/marketing/mobile-web-header.tsx")
-    const rail = code("components/marketplace/search-row.tsx")
-    const feed = code("components/explore/mobile-feed.tsx")
-    const overlay = code("components/explore/mobile-search-overlay.tsx")
-    const legacy = /from "@\/lib\/marketplace\/categories"/
-    return (
-      // Not one of the four still reads the legacy list. `product-card` and
-      // `checkout` still import CONDITIONS from it, which is a different thing
-      // in the same file and is not navigation.
-      ![drawer, rail, feed, overlay].some((f) => legacy.test(f)) &&
-      /DEPARTMENT_NAV/.test(drawer) &&
-      // AND EVERY WAY OF PICKING ONE GOES TO THE SAME PLACE. The sticky bar
-      // pushed `/?category=women` — the home page carrying a filter, with no
-      // title, no count, no trail and no filter bar — so the same word did one
-      // thing in the Browse menu, another in the phone's drawer and a third in
-      // the bar, and only the third had nothing to show for it. `categoryPath`
-      // rather than a hand-written string, so they cannot drift again.
-      // AND "TOATE" GOES TO THE RESULTS PAGE TOO. It was the one pill in the row
-      // that left it: five of the six took you somewhere with a heading, a
-      // count, a trail and seven filters, and the sixth dropped you on the home
-      // feed — an endless column with no count and nothing to filter by. "Toate"
-      // is the absence of a DEPARTMENT, not of the page, and `categoryPath(null)`
-      // is already "/shop", so there is no second spelling of it.
-      /navigateToExploreCategory\(categoryPath\(cat === "all" \? null : cat\)\)/.test(
-        code("components/platform/platform-header-client.tsx"),
-      ) &&
-      // AND THE DESTINATION CAN REACH THE OTHER DEPARTMENTS. A way in whose
-      // destination has no way onward is one you can use exactly once — press
-      // Femei and Bărbați means going back first.
-      //
-      // It is the Categorie PILL that answers this, not a second rail. A rail
-      // was tried: six pills above the title reaching a strict subset of what
-      // the pill below the title reaches, which is the same navigation twice and
-      // a full row of chrome for the copy. The pill is always present and goes
-      // all the way down — departments, groups, leaves — so it covers the rail's
-      // whole job and three levels more. Neither is the site's bar borrowed onto
-      // /shop: that one is sticky at `--platform-header-h` and z-35 against the
-      // refine bar's z-30, so it would paint over the filters on every scroll up.
-      /<CategoryMenu/.test(code("components/explore/category-results.tsx")) &&
-      /DEPARTMENT_NAV\.map\(\(d\) => \(/.test(code("components/explore/category-results.tsx")) &&
-      !/aria-label="Departamente"/.test(code("components/explore/category-results.tsx")) &&
-      !/pathname\.startsWith\("\/shop"\)/.test(code("components/platform/platform-header-client.tsx")) &&
-      // The panel no longer hands a department id back to whoever opened it —
-      // five callers each had their own idea of what pressing Femei meant. It
-      // links to /shop/<department> itself.
-      !/onSelectCategory/.test(overlay) &&
-      !/onSelectCategory/.test(drawer) &&
-      !/onSelectCategory/.test(feed) &&
-      // Nothing anywhere still pushes the old shape.
-      ![drawer, rail, feed, overlay].some((f) => /\?category=\$\{/.test(f)) &&
-      /DEPARTMENT_RAIL/.test(rail) &&
-      /DEPARTMENT_RAIL/.test(feed) &&
-      // The overlay reads DEPARTMENT_NAV rather than the rail: its Categorii tab
-      // browses INTO the departments now — groups, then the leaves — and the
-      // rail is the flat five with "Toate" in front, which has no levels under
-      // it. Same module, so neither can drift from the sell form's taxonomy.
-      /DEPARTMENT_NAV/.test(overlay) &&
-      // AND THE FILTER TESTS THE RIGHT THING. `normalizeCategoryToId` maps the
-      // OLD taxonomy's display names onto the OLD taxonomy's ids: handed
-      // `women-footwear` it recognises nothing, answers "all", and every pill
-      // matches everything — a filter that looks like it works while doing
-      // nothing at all.
-      /listingInDepartment\(p\?\.category, cat\)/.test(feed) &&
-      !/normalizeCategoryToId/.test(feed) &&
-      // The drawer drills into the groups, because a department is not a
-      // destination and Femei · Pantofi is. `?sub=` is a group id, which is
-      // exactly what a listing's category column holds.
-      /drawerDept\.subcategories\.map/.test(drawer) &&
-      /className="sub-push"/.test(drawer) &&
-      /drawerPopped \? "sub-pop" : undefined/.test(drawer) &&
-      // And reopening the menu starts at the top rather than wherever it was
-      // left — a drawer that opens on Femei because you pressed Femei once.
-      /setDrawerDept\(null\)\s*\n\s*setDrawerPopped\(false\)/.test(drawer)
-    )
-  })(),
-  "        lib/marketplace/department-nav.ts",
-)
 
-check(
-  "the filter button does something, and what it opens can count",
-  (() => {
-    // It had no `onClick` at all — a painted control beside the search field for
-    // as long as this screen has existed. That is worse than no button: somebody
-    // who presses it and gets nothing concludes the marketplace is broken rather
-    // than that the feature is missing.
-    const feed = code("components/explore/mobile-feed.tsx")
-    const sheet = code("components/explore/mobile-filter-sheet.tsx")
-    const engine = code("lib/marketplace/feed-filters.ts")
-    return (
-      /onClick=\{\(\) => setFiltersOpen\(true\)\}/.test(feed) &&
-      /<MobileFilterSheet/.test(feed) &&
-      /<MobileSortSheet/.test(feed) &&
-      // THE COUNT IS EXACT, because the listings are already on the client — so
-      // the footer is a promise the next screen keeps rather than a number the
-      // sheet discovers after you apply it.
-      /applyFeedFilters\(pool, draft\)\.length/.test(sheet) &&
-      // …and it is only SHOWN where it can be true. On the results page the
-      // answer is a SQL count, and re-running it per keystroke to put a number
-      // on a button is a request a second for a number nobody asked for. A
-      // missing count is honest; a stale one is not.
-      /pool\.length > 0 \? applyFeedFilters\(pool, draft\)\.length : null/.test(sheet) &&
-      // NOTHING IS APPLIED UNTIL YOU SAY SO. Live-applying under an open sheet
-      // destroys the pool the facets were counted from: press "Negru" and Brand
-      // offers three brands instead of forty, because the options are now being
-      // counted from the black things.
-      /const \[draft, setDraft\] = useState<FeedFilters>\(value\)/.test(sheet) &&
-      /onApply\(draft\)/.test(sheet) &&
-      // And the facets are counted from the POOL, not from the filtered set.
-      /const facets = useMemo\(\(\) => facetsFrom\(pool, urlCategory\), \[pool, urlCategory\]\)/.test(feed) &&
-      /const pool = useMemo/.test(feed) &&
-      // Every option is a value some listing actually carries, ordered by how
-      // many carry it — an option that returns nothing is the same empty room
-      // the old category menu was full of.
-      /counts\.set\(key, \(counts\.get\(key\) \?\? 0\) \+ 1\)/.test(engine) &&
-      // BRANDS ARE FOLDED BY CASE, and only brands. `condition` and `colour` are
-      // ids from a fixed list and `size` comes from a size system, so those are
-      // one spelling each already. `brand` is free text somebody typed, so a
-      // catalogue reliably holds Nike, nike and NIKE — unfolded, the list offers
-      // all three at a third of the real count each, and picking one silently
-      // excludes the listings that spelled it differently.
-      /brands: tally\(products, \(p\) => p\?\.brand, \(v\) => v, true\)/.test(engine) &&
-      // The spelling shown is the commonest, decided AFTER counting — deciding
-      // as you go keeps whichever arrived first, which is the order the database
-      // happened to return rows in.
-      /if \(n > best \|\| \(n === best && spelling < value\)\)/.test(engine) &&
-      // And the server agrees with it. `.in()` is case-SENSITIVE, so an
-      // `.in("brand", ["Nike"])` behind a count that folded case is a page
-      // disagreeing with the number printed on its own filter. `ilikeExact`
-      // does the quoting AND the stripping — see safeTerm on that page.
-      /effective\.brands\.map\(\(b\) => ilikeExact\("brand", b\)\)/.test(
-        read("app/(marketing)/shop/[[...path]]/page.tsx"),
-      ) &&
-      /\.sort\(\(a, b\) => b\.count - a\.count/.test(engine) &&
-      // A price RANGE is one filter however many of its two ends are set: a
-      // badge reading 2 for "between 50 and 200" is counting inputs.
-      /\(f\.minPrice != null \|\| f\.maxPrice != null \? 1 : 0\)/.test(engine) &&
-      // Levels, not accordions — the same push/pop as the sell form.
-      /className="sub-push pb-6"/.test(sheet) &&
-      /popped && "sub-pop"/.test(sheet)
-    )
-  })(),
-  "        components/explore/mobile-filter-sheet.tsx, lib/marketplace/feed-filters.ts",
-)
-
-check(
-  "pressing a category lands on that category rather than on the marketing hero",
-  (() => {
-    // A guest with no query gets the home page on this screen, and
-    // `?category=women&sub=women-shoes` was counted as "no query" — so pressing
-    // Încălțăminte in the menu arrived at the proposition panel. The menu is
-    // what appears broken, not the feed.
-    //
-    // And the department is passed SEPARATELY from `category`: that one is
-    // validated against the legacy VALID_CATEGORY_IDS, so `?category=women`
-    // fails the test and arrives as "all" even though the query filtered by it
-    // correctly.
-    const feed = code("components/explore/mobile-feed.tsx")
-    const page = code("app/(marketing)/_explore-feed.tsx")
-    return (
-      /const filteredByUrl = \(urlCategory !== "" && urlCategory !== "all"\) \|\| urlSub !== ""/.test(feed) &&
-      // A browser gets the home page signed in or out; the app's Acasă tab is the
-      // exception, and only for somebody signed in.
-      /const homePage = !searchQuery && !filteredByUrl && \(!signedIn \|\| !nativeShell\)/.test(feed) &&
-      /const departmentId = DEPARTMENTS\.some\(\(d\) => d\.id === rawCategory\) \? rawCategory : null/.test(page) &&
-      /initialDepartment=\{departmentId \?\? ""\}/.test(page) &&
-      /initialSub=\{subGroup \?\? ""\}/.test(page) &&
-      // And the results header tells you where you are, with a way back UP that
-      // is not the back button.
-      /<ResultsHeader/.test(feed) &&
-      /aria-label="Breadcrumb"/.test(code("components/explore/results-header.tsx"))
-    )
-  })(),
-  "        components/explore/mobile-feed.tsx, app/(marketing)/_explore-feed.tsx",
-)
 
 check(
   "the phone's Sign up button is a button rather than a line of text",
@@ -1890,29 +1481,6 @@ check(
   "        components/explore/mobile-search-overlay.tsx",
 )
 
-check(
-  "pull to refresh is an app gesture and only the app has it",
-  (() => {
-    // In the shell it is the right control: no address bar, no reload, and the
-    // feed is the home screen. In a browser it is a second, worse copy of
-    // something the browser already does — and it fights it. Chrome and Safari
-    // own the downward drag at the top of a document; this scroller intercepted
-    // it, opened its own gap and spun its own spinner, so one gesture meant two
-    // things depending on which element the thumb landed on.
-    //
-    // Decided in the lazy initialiser, not an effect: `capacitor` is on <html>
-    // before the first paint — the same signal the CSS uses to pick between the
-    // two headers — and an effect would leave the gesture live for the first
-    // frames on the web.
-    const feed = code("components/explore/mobile-feed.tsx")
-    return (
-      /const \[nativeShell\] = useState\(\s*\n?\s*\(\) => typeof document !== "undefined" && document\.documentElement\.classList\.contains\("capacitor"\),/.test(
-        feed,
-      ) && /enabled: nativeShell && !reelsActive/.test(feed)
-    )
-  })(),
-  "        components/explore/mobile-feed.tsx",
-)
 
 check(
   "and the page it closes onto has stopped moving before the panel goes",
@@ -1933,52 +1501,3 @@ check(
   "        components/explore/mobile-search-overlay.tsx",
 )
 
-check(
-  "and the phone's category sheet drills down the way the sell form does",
-  (() => {
-    // It was `slide-in-from-right-4 fade-in` going in and
-    // `slide-in-from-left-4 fade-in` coming back: a 16px nudge and a fade,
-    // which is not a level arriving — it is a panel appearing near where the
-    // last one was. The rows underneath then staggered themselves at 30ms
-    // apart on top of that, so one gesture played as two overlapping
-    // animations of different lengths and the panel landed while its contents
-    // were still arriving.
-    //
-    // `sub-push` / `sub-pop` are the movement components/sell/picker-page.tsx
-    // uses, at the same duration and curve: the arriving level comes the full
-    // width from the right, and the one you go BACK to steps in from -25% at
-    // 0.62 opacity — the parallax that says it was underneath all along.
-    // Three surfaces, one gesture.
-    const hdr = code("components/platform/platform-header-client.tsx")
-    const css = read("app/globals.css")
-    return (
-      (hdr.match(/className="sub-push"/g) ?? []).length === 1 &&
-      /className=\{cn\(sheetPopped && "sub-pop"\)\}/.test(hdr) &&
-      // The pop is a RETURN, and it is spent on the way back in — a flag left
-      // set replays the back animation the next time the sheet opens, and an
-      // unconditional one greeted you with it on the very first open.
-      /setSheetPopped\(true\)\s*\n\s*setExpandedCategory\(null\)/.test(hdr) &&
-      /setSheetPopped\(false\)\s*\n\s*setExpandedCategory\(cat\.label\)/.test(hdr) &&
-      // Its own flag, not the dropdown's: two surfaces with their own level
-      // state, and sharing one would let a back press in the dropdown decide
-      // how the sheet animates next time.
-      /const \[sheetPopped, setSheetPopped\] = useState\(false\)/.test(hdr) &&
-      /const \[poppedSub, setPoppedSub\] = useState\(false\)/.test(hdr) &&
-      // No stagger left anywhere in the sheet's rows.
-      !/animationDelay: `\$\{index \* 30\}ms`/.test(hdr) &&
-      !/slide-in-from-right-4|slide-in-from-left-4/.test(hdr) &&
-      // Transform and opacity only, so twelve rows cost the compositor a layer
-      // and the main thread nothing.
-      /@keyframes sub-pop \{[\s\S]{0,160}?translate3d\(-25%, 0, 0\)/.test(css) &&
-      /animation: sub-push 360ms cubic-bezier\(0\.32, 0\.72, 0, 1\) both/.test(css)
-    )
-  })(),
-  "        components/platform/platform-header-client.tsx, app/globals.css",
-)
-
-console.log(`\n${passed} passed, ${failed} failed\n`)
-if (failed > 0) {
-  console.log("Failed:")
-  for (const f of failures) console.log(`  · ${f}`)
-  process.exit(1)
-}

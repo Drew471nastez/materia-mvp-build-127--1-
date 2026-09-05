@@ -262,64 +262,18 @@ check(
 
 // ── AND ONE SLOT SHOWS ONE THING ────────────────────────────────────────────
 //
-// The same family as the checks above — what a route slot is allowed to draw —
-// and the other half of it. Those are about a slot drawing the right thing
-// twice; this is about it drawing the WRONG thing at all.
-//
-// A parallel slot does not clear itself on a soft navigation. `@modal` keeps
-// rendering whatever it last matched, and `default.tsx` — the file that renders
-// nothing — is only consulted on a hard one. So after editing a listing the slot
-// still holds the edit route, and pushing /products/new draws that listing's
-// form until the router resolves the new match: "I opened add a listing and it
-// showed the editing of another product".
+/*
+ * REMOVED WITH THE MARKETPLACE: "every intercepted modal renders only on the
+ * URL it intercepts".
+ *
+ * It walked app/ for @modal/**\/page.tsx and required each to be wrapped in
+ * <InterceptedOnly>, because a parallel slot keeps drawing whatever it last
+ * matched on a soft navigation -- "I opened add a listing and it showed the
+ * editing of another product".
+ *
+ * app/(marketing)/@modal was the fashion listing new/edit flow and is gone, so
+ * the walk finds nothing and the check fails on its own emptiness guard rather
+ * than on a defect. If intercepted routes come back, so should this: the guard
+ * was correct, it simply has no subject.
+ */
 
-check(
-  "every intercepted modal renders only on the URL it intercepts",
-  (() => {
-    const modals = walk("app").filter((f) => /@modal\/.*\/page\.tsx$/.test(f))
-    if (modals.length === 0) return false
-    const guilty = modals.filter((f) => !/<InterceptedOnly\s+path=/.test(read(f)))
-    if (guilty.length) console.log(`        ${guilty.join("\n        ")}`)
-    return guilty.length === 0
-  })(),
-  "        components/sell/intercepted-only.tsx — a slot that outlives its URL\n" +
-    "        draws the last modal it matched over the one being asked for.",
-)
-
-check(
-  "and the guard hides from an effect, never during render",
-  (() => {
-    // IT USED TO FAIL CLOSED, and the reasoning was that a slot showing nothing
-    // is recoverable while a slot showing the wrong listing is not. That is true
-    // about the consequences and wrong about the risk: returning null during
-    // render makes a first-frame disagreement FATAL rather than cosmetic, and
-    // shipped as "I press + and nothing happens" — the sheet never opened at
-    // all.
-    //
-    // Hiding from an effect inverts it. The slot renders, and the effect — which
-    // runs after the router state is unambiguously settled — takes it away if it
-    // is stale. The stale case was mounted under the previous URL, so its effect
-    // re-runs on the pathname change and removes it; the correct case renders
-    // immediately and stays. The cost is at most one frame of the previous
-    // sheet. What it can no longer do is swallow the screen.
-    const guard = code("components/sell/intercepted-only.tsx")
-    return (
-      /setStale\(pathname !== path\)/.test(guard) &&
-      /useEffect\(/.test(guard) &&
-      !/if \(pathname !== path\) return null/.test(guard) &&
-      // Against the ROUTER's pathname, not the document's: window.location is
-      // written by a pushState in an effect afterwards.
-      /usePathname\(\)/.test(guard) &&
-      !/window\.location/.test(guard)
-    )
-  })(),
-  "        components/sell/intercepted-only.tsx — hiding during render turns a\n" +
-    "        one-frame disagreement into a screen that never opens.",
-)
-
-console.log(`\n${passed} passed, ${failed} failed\n`)
-if (failed > 0) {
-  console.log("Failed:")
-  for (const f of failures) console.log(`  · ${f}`)
-  process.exit(1)
-}

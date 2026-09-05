@@ -3,7 +3,7 @@
 import { Search } from "lucide-react"
 import { AnimatedSearchPlaceholder } from "@/components/explore/animated-search-placeholder"
 import { useLocale } from "@/components/locale-provider"
-import { DEPARTMENT_RAIL } from "@/lib/marketplace/department-nav"
+import { CATEGORY_RAIL } from "@/lib/marketplace/categories"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
@@ -77,8 +77,8 @@ export function CategoryPillRail({
           It was the legacy ten — Damă, Sneakers, Bijuterii, Vintage — none of
           which is a value any listing carries, so every pill filtered on a
           string the catalogue has never contained. See
-          lib/marketplace/department-nav. */}
-      {DEPARTMENT_RAIL.map((c) => (
+          lib/marketplace/categories. */}
+      {CATEGORY_RAIL.map((c) => (
         <button
           key={c.id}
           type="button"

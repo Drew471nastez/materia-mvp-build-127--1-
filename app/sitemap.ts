@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
-import { VALID_CATEGORY_IDS } from "@/lib/marketplace/categories"
-import { DEPARTMENT_NAV, categoryPath } from "@/lib/marketplace/department-nav"
+import { CATEGORIES } from "@/lib/marketplace/categories"
 import { deservesIndexing } from "@/lib/security/spam-signals"
 
 export const dynamic = "force-dynamic"
@@ -16,13 +15,8 @@ const STATIC_BLOG_SLUGS = [
   "pricing-strategies-for-digital-products",
 ]
 
-// Marketplace taxonomy, minus the "all" pseudo-category (that is just "/")
-const EXPLORE_CATEGORIES = VALID_CATEGORY_IDS.filter((id) => id !== "all")
-
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // "/" is the marketplace feed and the primary URL. /explore serves the same feed but
-  // canonicalises to "/", so it is intentionally not listed. /features, /pricing and
-  // /faq now redirect to "/" and are not advertised either.
+  // "/" is the digital-products landing and the primary URL.
   const routes: MetadataRoute.Sitemap = [
     { url: BASE, lastModified: new Date(), changeFrequency: "daily", priority: 1.0 },
     { url: `${BASE}/blog`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
@@ -31,35 +25,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]
 
   /**
-   * ═════════════════════════════════════════════════════════════════════════
-   *  THE FORTY-TWO PAGES THIS MARKETPLACE ACTUALLY HAS
-   * ═════════════════════════════════════════════════════════════════════════
+   * One row per category, and one per subcategory beneath it.
    *
-   * Five departments and thirty-seven groups, each a real page with its own
-   * title, description and canonical — see app/(marketing)/shop. They were
-   * indexable and unlisted, which is the worst of both: a crawler could index
-   * them but had to find them first, and the only links in were a menu behind a
-   * button and a bar rendered by a client component.
+   * A SUBCATEGORY OUTRANKS ITS DEPARTMENT, 0.8 against 0.7, and that is
+   * deliberate rather than tidy. "Design" is a shelf; "Notion Templates" is
+   * what somebody actually searches for, and it is the page that can answer
+   * them. The department is the way in, not the destination.
    *
-   * A GROUP OUTRANKS ITS DEPARTMENT here, 0.8 against 0.7, and that is
-   * deliberate rather than tidy. "Femei" is a category listing; "Femei ·
-   * Încălțăminte" is what somebody actually searches for, and it is the page
-   * that can answer them. The department is the way in, not the destination.
-   *
-   * Derived from the taxonomy the sell form uses, so a department added there
-   * appears in the sitemap without anybody remembering to come here — the same
-   * rule the menus follow. See lib/marketplace/department-nav.
+   * Derived from lib/marketplace/categories.ts, so a category added there
+   * appears here without anybody remembering to come back -- the same rule the
+   * menus follow.
    */
-  for (const dept of DEPARTMENT_NAV) {
+  for (const category of CATEGORIES) {
+    if (category.id === "all") continue
     routes.push({
-      url: `${BASE}${categoryPath(dept.id)}`,
+      url: `${BASE}/explore/${category.id}`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.7,
     })
-    for (const group of dept.subcategories) {
+    for (const sub of category.subcategories) {
       routes.push({
-        url: `${BASE}${categoryPath(dept.id, group.id)}`,
+        url: `${BASE}/explore/${category.id}?sub=${sub.id}`,
         lastModified: new Date(),
         changeFrequency: "daily",
         priority: 0.8,
@@ -67,21 +54,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
-  /**
-   * The legacy /explore/<id> pages, still listed because they still resolve and
-   * still carry whatever authority they have accumulated. They are the OLD
-   * taxonomy — sneakers, jewellery, vintage — and no listing has ever been filed
-   * under one, so they are the lower priority of the two sets and are the ones
-   * to retire once /shop has been crawled.
-   */
-  for (const category of EXPLORE_CATEGORIES) {
-    routes.push({
-      url: `${BASE}/explore/${category}`,
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.5,
-    })
-  }
 
   // Blog category pages
   for (const category of STORELIB_CATEGORIES) {

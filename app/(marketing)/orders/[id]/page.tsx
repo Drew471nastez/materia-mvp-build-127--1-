@@ -4,18 +4,17 @@ import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { ArrowLeft, ShoppingBag } from "lucide-react"
 
-import { OrderShippingPanel } from "@/components/shipping/order-shipping-panel"
 import { requireVerifiedUser } from "@/lib/auth/current-user"
-import { resolveOrderParty } from "@/lib/shipping/order-access"
+import { resolveOrderParty } from "@/lib/orders/access"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
 /**
  * One order, from whichever side is looking.
  *
- * The access check is `resolveOrderParty`, the same function the shipping API
- * routes use — so a page and the endpoints it calls can never disagree about
- * who is allowed to see an order. Anyone who is neither the buyer nor the
+ * The access check is `resolveOrderParty` (lib/orders/access.ts), so the page
+ * and anything else reading an order can never disagree about
+ * who is allowed to see one. Anyone who is neither the buyer nor the
  * seller gets a 404, identical to the answer for an id that does not exist.
  *
  * The product is fetched with the admin client on purpose: a listing that has
@@ -128,7 +127,6 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
       {/* Shipping. Renders nothing at all when the shipping migration has not
           been run, so this page is safe to ship before the SQL is applied. */}
       <div className="mt-4">
-        <OrderShippingPanel orderId={order.id} />
       </div>
     </div>
   )
