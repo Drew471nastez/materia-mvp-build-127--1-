@@ -56,7 +56,9 @@ export function LanguageModal({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[92vw] max-w-[420px] rounded-2xl p-0 overflow-hidden gap-0">
+      {/* 336px is the old 420 less 20%. A language list is short rows of short
+          words; the extra width was empty space to the right of every one. */}
+      <DialogContent className="w-[92vw] max-w-[336px] rounded-2xl p-0 overflow-hidden gap-0">
         <div className="px-6 pt-6 pb-2">
           <DialogTitle className="text-[22px] font-bold tracking-tight text-foreground">
             {t("language")}
@@ -108,14 +110,6 @@ export function LanguageModal({ open, onOpenChange }: Props) {
           })}
         </div>
 
-        {/*
-          Said plainly, because it is the question people actually have when
-          they see a language control on a marketplace: will this rewrite the
-          listings? It will not.
-        */}
-        <p className="border-t border-border px-6 py-3.5 text-[12px] leading-relaxed text-muted-foreground">
-          {t("language.scope_note")}
-        </p>
       </DialogContent>
     </Dialog>
   )

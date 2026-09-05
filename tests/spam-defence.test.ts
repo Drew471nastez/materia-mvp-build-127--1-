@@ -390,18 +390,56 @@ check(
     // Listing a locale with a 0.5% dictionary means somebody picks Español and
     // the page does not change. The provider must filter, not just declare.
     const baseline = Object.keys(dictionaries.en).length
-    const ready = Object.entries(dictionaries).filter(
-      ([, d]) => Object.keys(d).length / baseline >= 0.7,
-    )
+    const ready = Object.entries(dictionaries)
+      .filter(([, d]) => Object.keys(d).length / baseline >= 0.7)
+      .map(([code]) => code)
+      .sort()
     return (
       provider.includes("AVAILABLE_LANGUAGES") &&
       provider.includes("languages: AVAILABLE_LANGUAGES") &&
-      // ro and en are translated; the other seven are not, and must not show.
-      ready.length === 2 &&
-      ready.every(([code]) => code === "ro" || code === "en")
+      // Five are translated. The other four (pt-BR, it, nl, pl) are still
+      // seven-key stubs and must not appear in the picker until they are done.
+      ready.join(",") === "de,en,es,fr,ro"
     )
   })(),
   "        components/locale-provider.tsx",
+)
+
+check(
+  "every offered locale is a COMPLETE translation, key for key",
+  (() => {
+    // Coverage by count is not enough: a dictionary could hit 70% while missing
+    // the checkout and carrying junk keys that match nothing. This compares the
+    // key SETS, so a locale that drifts from English fails here rather than
+    // falling through to English in front of a customer mid-purchase.
+    const en = new Set(Object.keys(dictionaries.en))
+    const problems: string[] = []
+    for (const loc of ["es", "fr", "de", "ro"]) {
+      const keys = new Set(Object.keys(dictionaries[loc] ?? {}))
+      const missing = [...en].filter((k) => !keys.has(k))
+      const extra = [...keys].filter((k) => !en.has(k))
+      if (missing.length) problems.push(`${loc} missing ${missing.length}: ${missing.slice(0, 5).join(", ")}`)
+      if (extra.length) problems.push(`${loc} extra ${extra.length}: ${extra.slice(0, 5).join(", ")}`)
+    }
+    if (problems.length) console.log("        " + problems.join("\n        "))
+    return problems.length === 0
+  })(),
+  "        lib/i18n/dict/{es,fr,de}.ts vs the English baseline",
+)
+
+check(
+  "a translated locale actually differs from English",
+  (() => {
+    // The cheap way to pass the key-set check above is to copy the English
+    // file. Brand names and loanwords legitimately match (Nike, SEO, Zoom), so
+    // this asks that the OVERWHELMING majority differ rather than all of them.
+    const keys = Object.keys(dictionaries.en)
+    return ["es", "fr", "de"].every((loc) => {
+      const same = keys.filter((k) => dictionaries[loc][k] === dictionaries.en[k]).length
+      return same / keys.length < 0.1
+    })
+  })(),
+  "        lib/i18n/dict/{es,fr,de}.ts",
 )
 
 check(
@@ -442,19 +480,6 @@ check(
     )
   })(),
   "        components/platform/language-modal.tsx",
-)
-
-check(
-  "the picker says it does not translate what people wrote",
-  (() => {
-    const modal = stripComments(read("components/platform/language-modal.tsx"))
-    return (
-      modal.includes("language.scope_note") &&
-      !!dictionaries.en["language.scope_note"] &&
-      !!dictionaries.ro["language.scope_note"]
-    )
-  })(),
-  "        language-modal.tsx + lib/i18n/dictionaries.ts",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

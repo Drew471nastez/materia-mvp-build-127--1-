@@ -20,6 +20,12 @@ import { settingsDict } from "./dict/settings"
 import { builderDict } from "./dict/builder"
 import { feedDict } from "./dict/feed"
 import { catpageDict } from "./dict/catpage"
+// Fully translated locales. Unlike the per-surface dicts above, each of
+// these is one flat, complete map -- see the header of lib/i18n/dict/es.ts
+// for why they are exhaustive rather than merged from fragments.
+import { esDict } from "./dict/es"
+import { frDict } from "./dict/fr"
+import { deDict } from "./dict/de"
 
 export type LocaleCode = "ro" | "en" | "es" | "de" | "pt-BR" | "fr" | "it" | "nl" | "pl"
 
@@ -140,7 +146,6 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     sign_up: "Sign up",
     log_in: "Log in",
     language: "Limbă",
-    "language.scope_note": "Schimbă limba platformei: meniuri, butoane și pagini. Textele scrise de utilizatori, cum sunt anunțurile și mesajele, rămân exact așa cum au fost scrise.",
     currency: "Monedă",
   },
   en: {
@@ -252,28 +257,11 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     log_in: "Log in",
     dashboard: "Dashboard",
     language: "Language",
-    "language.scope_note": "Changes the platform language: menus, buttons and pages. Text written by people, such as listings and messages, stays exactly as it was written.",
     currency: "Currency",
   },
   // Other locales keep their original header keys; everything else falls back to English.
-  es: {
-    search_placeholder: "Buscar cualquier cosa",
-    wishlist: "Lista",
-    library: "Biblioteca",
-    start_selling: "Empezar a vender",
-    dashboard: "Panel",
-    language: "Idioma",
-    currency: "Moneda",
-  },
-  de: {
-    search_placeholder: "Alles suchen",
-    wishlist: "Wunschliste",
-    library: "Bibliothek",
-    start_selling: "Verkaufen",
-    dashboard: "Dashboard",
-    language: "Sprache",
-    currency: "Währung",
-  },
+  es: esDict,
+  de: deDict,
   "pt-BR": {
     search_placeholder: "Buscar qualquer coisa",
     wishlist: "Lista",
@@ -283,15 +271,7 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     language: "Idioma",
     currency: "Moeda",
   },
-  fr: {
-    search_placeholder: "Rechercher n'importe quoi",
-    wishlist: "Favoris",
-    library: "Bibliothèque",
-    start_selling: "Vendre",
-    dashboard: "Tableau de bord",
-    language: "Langue",
-    currency: "Devise",
-  },
+  fr: frDict,
   it: {
     search_placeholder: "Cerca qualsiasi cosa",
     wishlist: "Preferiti",
