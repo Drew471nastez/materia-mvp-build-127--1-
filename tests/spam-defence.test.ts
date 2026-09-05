@@ -40,6 +40,7 @@ import {
   REVIEW_SCORE,
 } from "../lib/security/spam-signals"
 import { isValidUsername } from "../lib/reserved-words"
+import { dictionaries } from "../lib/i18n/dictionaries"
 import { stripComments } from "./_source"
 
 let passed = 0
@@ -324,6 +325,136 @@ check(
     // would mean storing personal data this never needs.
     !/\bip:\s*clientIp/.test(guard),
   "        app/api/auth/signup-guard/route.ts",
+)
+
+/**
+ * ---------------------------------------------------------------------------
+ * 4. THE CLEAN-UP ROUTE
+ * ---------------------------------------------------------------------------
+ * The one irreversible thing in this whole feature. Its safety properties are
+ * a handful of lines that would be easy to "simplify" away by somebody who
+ * did not know what they were for, so they are pinned here.
+ */
+const purge = stripComments(read("app/api/admin/spam-purge/route.ts"))
+check(
+  "removal is admin-only and refuses a count that no longer matches",
+  purge.includes("isAdminAuthenticated") && purge.includes("confirm_mismatch") && purge.includes("body?.confirm !== candidates.length"),
+  "        app/api/admin/spam-purge/route.ts",
+)
+
+check(
+  "an account that published, messaged, ordered or was cleared is spared",
+  purge.includes('spam_state === "clear"') &&
+    purge.includes('.eq("status", "published")') &&
+    purge.includes('.from("messages")') &&
+    purge.includes('.from("orders")'),
+  "        app/api/admin/spam-purge/route.ts",
+)
+
+check(
+  "a failed activity lookup spares rather than removes",
+  (() => {
+    // Inverting this turns a transient database error into mass deletion of
+    // real customers. It is the single most dangerous line in the feature.
+    const i = purge.indexOf('.from("orders")')
+    if (i < 0) return false
+    const region = purge.slice(i, i + 420)
+    return region.includes("if (error) {") && region.includes("for (const id of part) spare.add(id)")
+  })(),
+  "        app/api/admin/spam-purge/route.ts",
+)
+
+/**
+ * ---------------------------------------------------------------------------
+ * 5. LANGUAGE
+ * ---------------------------------------------------------------------------
+ * English is the default again, and the three places that decide it must
+ * agree — a mismatch renders one language on the server and hydrates into
+ * another, which the reader sees as the page changing language under them.
+ */
+const provider = stripComments(read("components/locale-provider.tsx"))
+const serverLocale = stripComments(read("lib/i18n/server.ts"))
+const rootLayout = stripComments(read("app/layout.tsx"))
+
+check(
+  "client, server and <html lang> all default to English",
+  /DEFAULT_LANGUAGE: SupportedLanguage = "en"/.test(provider) &&
+    /DEFAULT_LOCALE: LocaleCode = "en"/.test(serverLocale) &&
+    /<html lang="en"/.test(rootLayout),
+  "        locale-provider.tsx, lib/i18n/server.ts, app/layout.tsx",
+)
+
+check(
+  "the picker only offers locales that are actually translated",
+  (() => {
+    // Listing a locale with a 0.5% dictionary means somebody picks Español and
+    // the page does not change. The provider must filter, not just declare.
+    const baseline = Object.keys(dictionaries.en).length
+    const ready = Object.entries(dictionaries).filter(
+      ([, d]) => Object.keys(d).length / baseline >= 0.7,
+    )
+    return (
+      provider.includes("AVAILABLE_LANGUAGES") &&
+      provider.includes("languages: AVAILABLE_LANGUAGES") &&
+      // ro and en are translated; the other seven are not, and must not show.
+      ready.length === 2 &&
+      ready.every(([code]) => code === "ro" || code === "en")
+    )
+  })(),
+  "        components/locale-provider.tsx",
+)
+
+check(
+  "a visitor whose browser is Romanian still gets Romanian",
+  provider.includes("detectBrowserLanguage") && provider.includes("navigator.languages"),
+  "        components/locale-provider.tsx",
+)
+
+check(
+  "the picker is reachable from every account menu",
+  (() => {
+    // Three menus in the marketplace header and /app sidebar. A row that only
+    // exists on desktop is the failure this catches.
+    const header = stripComments(read("components/platform/platform-header-client.tsx"))
+    const sidebar = stripComments(read("components/app/sidebar.tsx"))
+    const headerRows = header.match(/setLanguageOpen\(true\)/g)?.length ?? 0
+    const sidebarRows = sidebar.match(/setLanguageOpen\(true\)/g)?.length ?? 0
+    return (
+      headerRows >= 2 &&
+      sidebarRows >= 3 &&
+      header.includes("<LanguageModal") &&
+      sidebar.includes("<LanguageModal")
+    )
+  })(),
+  "        platform-header-client.tsx (2 menus), sidebar.tsx (3 menus)",
+)
+
+check(
+  "the modal is controlled, so it outlives the menu that opened it",
+  (() => {
+    // A self-triggering modal is unmounted by the click that opens it: the
+    // menus close on outside-click and the dialog portals to body.
+    const modal = stripComments(read("components/platform/language-modal.tsx"))
+    return (
+      modal.includes("open: boolean") &&
+      modal.includes("onOpenChange") &&
+      !modal.includes("trigger")
+    )
+  })(),
+  "        components/platform/language-modal.tsx",
+)
+
+check(
+  "the picker says it does not translate what people wrote",
+  (() => {
+    const modal = stripComments(read("components/platform/language-modal.tsx"))
+    return (
+      modal.includes("language.scope_note") &&
+      !!dictionaries.en["language.scope_note"] &&
+      !!dictionaries.ro["language.scope_note"]
+    )
+  })(),
+  "        language-modal.tsx + lib/i18n/dictionaries.ts",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

@@ -27,6 +27,7 @@ import {
   X,
   Store,
   Search,
+  Globe,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
@@ -134,6 +135,7 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
 }
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 import { useLocale } from "@/components/locale-provider"
+import { LanguageModal } from "@/components/platform/language-modal"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
@@ -200,7 +202,11 @@ function getDismissedNotifications(): string[] {
 export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { t } = useLocale()
+  const { t, languageShort } = useLocale()
+  // Owned here, not inside the modal: this dropdown closes on outside-click and
+  // the dialog portals to body, so a self-triggering modal is torn down by the
+  // click that opens it. See components/platform/language-modal.tsx.
+  const [languageOpen, setLanguageOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [mobileProfileDropdownOpen, setMobileProfileDropdownOpen] = useState(false)
@@ -651,6 +657,21 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               </Link>
             )
           })}
+          <button
+            type="button"
+            onClick={() => {
+              setProfileDropdownOpen(false)
+              setLanguageOpen(true)
+            }}
+            className="flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+          >
+            <span className="flex items-center gap-2.5">
+              <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+              <span>{t("language")}</span>
+            </span>
+            <span className="text-[11px] font-semibold text-neutral-400">{languageShort}</span>
+          </button>
+
           <div className="my-1 h-px bg-neutral-100" />
           <button
             onClick={() => {
@@ -1126,6 +1147,21 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                     </Link>
                   )
                 })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHeaderProfileOpen(false)
+                    setLanguageOpen(true)
+                  }}
+                  className="flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <span>{t("language")}</span>
+                  </span>
+                  <span className="text-[11px] font-semibold text-neutral-400">{languageShort}</span>
+                </button>
+
                 <div className="my-1 h-px bg-neutral-100" />
                 <button
                   onClick={() => {
@@ -1473,6 +1509,21 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                     </Link>
                   )
                 })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileProfileDropdownOpen(false)
+                    setLanguageOpen(true)
+                  }}
+                  className="flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <span>{t("language")}</span>
+                  </span>
+                  <span className="text-[11px] font-semibold text-neutral-400">{languageShort}</span>
+                </button>
+
                 <div className="my-1 h-px bg-neutral-100" />
                 <button
                   onClick={() => {
@@ -1610,6 +1661,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <span className="text-[11px] md:text-[12px] font-semibold text-neutral-700 whitespace-nowrap">{t("dashboard.setup")}</span>
         </button>
       )}
+
+      {/* At the fragment root, outside the dropdown that opens it. */}
+      <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
     </>
   )
 }
