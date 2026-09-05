@@ -7,7 +7,10 @@ import { dictionaries, type LocaleCode } from "./dictionaries"
  * client LocaleProvider, so they read the language from the cookie the provider
  * writes (`storelib_language`) and translate against the same dictionaries.
  *
- * Romanian-first: falls back to "ro" when no valid cookie is present.
+ * Falls back to English when no valid cookie is present. This MUST match
+ * DEFAULT_LANGUAGE in components/locale-provider.tsx and <html lang> in
+ * app/layout.tsx -- if the server renders one language and the client hydrates
+ * into another, the page visibly swaps languages in front of the reader.
  *
  * NOTE: calling getServerLocale()/getServerT() opts the calling route into
  * dynamic rendering (it reads a request cookie). Use it in already-dynamic
@@ -15,7 +18,7 @@ import { dictionaries, type LocaleCode } from "./dictionaries"
  */
 
 const SUPPORTED: readonly LocaleCode[] = ["ro", "en", "es", "de", "pt-BR", "fr", "it", "nl", "pl"]
-const DEFAULT_LOCALE: LocaleCode = "ro"
+const DEFAULT_LOCALE: LocaleCode = "en"
 const LANGUAGE_COOKIE = "storelib_language"
 
 export async function getServerLocale(): Promise<LocaleCode> {

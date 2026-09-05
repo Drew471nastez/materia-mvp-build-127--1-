@@ -125,8 +125,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // `lang` must match DEFAULT_LANGUAGE (components/locale-provider.tsx) and
+  // DEFAULT_LOCALE (lib/i18n/server.ts). LocaleProvider rewrites the attribute
+  // on the client once a stored or detected choice resolves.
   return (
-    <html lang="ro" className="light" style={{ colorScheme: "light" }}>
+    <html lang="en" className="light" style={{ colorScheme: "light" }}>
       <head>
         {/* Synchronous native-app intercept — runs before React hydrates.
             1. Add the "capacitor" class to <html> immediately so all

@@ -27,9 +27,10 @@ import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/au
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-import { Heart, Library, Search, MessageCircle, Plus, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass } from "lucide-react"
+import { Heart, Library, Search, MessageCircle, Plus, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
 import { DEPARTMENT_NAV, DEPARTMENT_RAIL, categoryPath, type DeptIcon } from "@/lib/marketplace/department-nav"
 import { useLocale } from "@/components/locale-provider"
+import { LanguageModal } from "@/components/platform/language-modal"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
 /**
@@ -508,7 +509,14 @@ export function PlatformHeaderClient() {
    * button was never involved. See lib/use-url-search-params.ts.
    */
   const searchParams = useUrlSearchParams()
-  const { t } = useLocale()
+  const { t, languageShort } = useLocale()
+  /**
+   * Owned HERE rather than inside the modal. Both profile menus close on
+   * outside-click, and the dialog portals to document.body -- so a
+   * self-triggering modal would be unmounted by the very click that opened it.
+   * See components/platform/language-modal.tsx.
+   */
+  const [languageOpen, setLanguageOpen] = useState(false)
 
   const [user, setUser] = useState<User | null>(() => {
     const seed = readAuthSnapshot()
@@ -1984,6 +1992,25 @@ export function PlatformHeaderClient() {
                           <span>Settings</span>
                         </Link>
 
+                        {/* Language. Closes the menu FIRST, then opens the
+                            dialog on the next tick -- opening both at once
+                            means the dialog's own click-outside sees the menu
+                            teardown and closes with it. */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDesktopProfileOpen(false)
+                            setLanguageOpen(true)
+                          }}
+                          className="flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <Globe className="h-4 w-4 shrink-0" />
+                            <span>{t("language")}</span>
+                          </span>
+                          <span className="text-[11px] font-semibold text-gray-400">{languageShort}</span>
+                        </button>
+
                         <div className="my-1.5 h-px bg-gray-100" />
 
                         <button
@@ -2368,6 +2395,24 @@ export function PlatformHeaderClient() {
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </Link>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMobileProfileOpen(false)
+                setLanguageOpen(true)
+              }}
+              className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <Globe className="h-5 w-5 text-gray-400" />
+                <span>{t("language")}</span>
+              </div>
+              <span className="flex items-center gap-1.5">
+                <span className="text-[13px] font-semibold text-gray-400">{languageShort}</span>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
+              </span>
+            </button>
           </div>
 
           {/* Logout */}
@@ -2385,6 +2430,11 @@ export function PlatformHeaderClient() {
         </div>
       </MobileBottomSheet>
     </header>
+
+      {/* Rendered at the header root, deliberately outside both profile menus:
+          it has to outlive the menu that opened it. See the note in
+          components/platform/language-modal.tsx. */}
+      <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════

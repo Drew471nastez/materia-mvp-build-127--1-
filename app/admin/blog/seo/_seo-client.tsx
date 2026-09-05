@@ -123,6 +123,22 @@ export default function SeoAdminClient() {
   const [creatorSort, setCreatorSort] = useState<"newest" | "oldest" | "products" | "az" | "spam">("newest")
   /** "all" | "flagged" (score at or above the review line) | "noindex". */
   const [creatorFilter, setCreatorFilter] = useState<"all" | "flagged" | "noindex">("all")
+
+  /**
+   * The clean-up flow for the accounts that got in before the signup gate
+   * existed. Two steps, never one: `preview` holds the result of the GET, which
+   * changes nothing, and the destructive POST is only reachable once that list
+   * has been fetched and its count echoed back. See app/api/admin/spam-purge.
+   */
+  const [preview, setPreview] = useState<{
+    count: number
+    scanned: number
+    spared: number
+    candidates: Array<{ id: string; username: string | null; score: number; signature: string; reasons: string[] }>
+  } | null>(null)
+  const [purgeBusy, setPurgeBusy] = useState<false | "preview" | "run">(false)
+  const [purgeResult, setPurgeResult] = useState<string | null>(null)
+
   const [editingCreator, setEditingCreator] = useState<string | null>(null)
   const [creatorEdits, setCreatorEdits] = useState<Record<string, { seo_title: string; seo_description: string }>>({})
   const [savingCreator, setSavingCreator] = useState<string | null>(null)
@@ -207,6 +223,45 @@ export default function SeoAdminClient() {
   }, [])
 
   useEffect(() => { loadMetrics() }, [loadMetrics])
+
+  const loadPreview = useCallback(async () => {
+    setPurgeBusy("preview")
+    setPurgeResult(null)
+    try {
+      const res = await fetch("/api/admin/spam-purge")
+      if (!res.ok) throw new Error(`Preview failed (${res.status})`)
+      setPreview(await res.json())
+    } catch (e) {
+      setPurgeResult(e instanceof Error ? e.message : "Preview failed")
+    } finally {
+      setPurgeBusy(false)
+    }
+  }, [])
+
+  const runPurge = useCallback(async () => {
+    if (!preview) return
+    // The browser confirm is the last stop before something irreversible. It
+    // names the count rather than asking "are you sure", because the count is
+    // the thing worth checking.
+    if (!window.confirm(`Permanently remove ${preview.count} accounts? This cannot be undone.`)) return
+    setPurgeBusy("run")
+    try {
+      const res = await fetch("/api/admin/spam-purge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: preview.count }),
+      })
+      const json = await res.json()
+      setPurgeResult(json.message ?? json.error ?? "Done")
+      setPreview(null)
+      await loadMetrics()
+    } catch (e) {
+      setPurgeResult(e instanceof Error ? e.message : "Removal failed")
+    } finally {
+      setPurgeBusy(false)
+    }
+  }, [preview, loadMetrics])
+
 
   const overallScore = Math.round(SEO_PAGES.reduce((s, p) => s + p.score, 0) / SEO_PAGES.length)
 
@@ -434,6 +489,73 @@ export default function SeoAdminClient() {
         {/* ── CREATORS ─────────────────────────────────────────── */}
         {activeTab === "creators" && (
           <div className="space-y-4">
+            {/*
+              CLEAN-UP PANEL
+
+              Two steps, and the destructive one is unreachable until the first
+              has run. Preview is a GET that changes nothing and returns the
+              exact list with each account's score, reasons and handle shape;
+              only then does the remove button appear, and it echoes the count
+              back so a set that moved in between is refused rather than acted
+              on. See app/api/admin/spam-purge/route.ts for the four kinds of
+              evidence that make an account untouchable.
+            */}
+            <div className="bg-white rounded-xl border border-neutral-200 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-neutral-900">Spam clean-up</h3>
+                  <p className="text-xs text-neutral-400 mt-0.5 max-w-2xl">
+                    Finds accounts scoring at or above the refusal line that have never published a product,
+                    sent a message, or placed an order. Preview first; nothing is removed until you confirm.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={loadPreview}
+                    disabled={purgeBusy !== false}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-neutral-100 text-neutral-700 hover:bg-neutral-200 disabled:opacity-50 transition-colors"
+                  >
+                    {purgeBusy === "preview" ? "Scanning…" : "Preview"}
+                  </button>
+                  {preview && preview.count > 0 && (
+                    <button
+                      onClick={runPurge}
+                      disabled={purgeBusy !== false}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                    >
+                      {purgeBusy === "run" ? "Removing…" : `Remove ${preview.count}`}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {purgeResult && (
+                <p className="mt-3 text-xs font-medium text-neutral-700 bg-neutral-50 rounded-lg px-3 py-2">{purgeResult}</p>
+              )}
+
+              {preview && (
+                <div className="mt-3 border-t border-neutral-100 pt-3">
+                  <p className="text-xs text-neutral-500">
+                    <span className="font-semibold text-neutral-800">{preview.count}</span> to remove ·{" "}
+                    {preview.scanned} scanned · <span className="text-emerald-700">{preview.spared} spared</span>{" "}
+                    (published, messaged, ordered, or cleared)
+                  </p>
+                  {preview.count > 0 && (
+                    <div className="mt-2 max-h-56 overflow-y-auto rounded-lg bg-neutral-50 p-2">
+                      {preview.candidates.map(c => (
+                        <div key={c.id} className="flex items-center gap-2 px-1.5 py-1 text-[11px]">
+                          <code className="text-neutral-700 font-medium">@{c.username}</code>
+                          <span className="text-red-600 font-semibold">{c.score}</span>
+                          <code className="text-neutral-400">{c.signature}</code>
+                          <span className="text-neutral-400 truncate">{c.reasons.join(", ")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-neutral-900">{loading ? "…" : filteredCreators.length} creator storefronts</h2>

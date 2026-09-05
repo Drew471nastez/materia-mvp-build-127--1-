@@ -140,6 +140,7 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     sign_up: "Sign up",
     log_in: "Log in",
     language: "Limbă",
+    "language.scope_note": "Schimbă limba platformei: meniuri, butoane și pagini. Textele scrise de utilizatori, cum sunt anunțurile și mesajele, rămân exact așa cum au fost scrise.",
     currency: "Monedă",
   },
   en: {
@@ -251,6 +252,7 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     log_in: "Log in",
     dashboard: "Dashboard",
     language: "Language",
+    "language.scope_note": "Changes the platform language: menus, buttons and pages. Text written by people, such as listings and messages, stays exactly as it was written.",
     currency: "Currency",
   },
   // Other locales keep their original header keys; everything else falls back to English.

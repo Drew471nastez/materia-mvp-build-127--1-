@@ -674,7 +674,13 @@ check(
     // charged in one currency regardless — so a shopper who chose GBP read
     // pounds everywhere and got a lei charge. A control that moves the label
     // and not the money is worse than no control.
-    const modal = read("components/platform/language-currency-modal.tsx")
+    //
+    // The file this used to read was language-currency-modal.tsx, which had
+    // already lost its currency tab and was never imported anywhere. It is gone
+    // now, replaced by the language picker that IS wired into the account
+    // menus — so the guard follows the live file. The property under test is
+    // unchanged: whatever modal the menus open must not offer a currency.
+    const modal = read("components/platform/language-modal.tsx")
     return !/setCurrency/.test(modal) && !/currencies\.map/.test(modal)
   })(),
 )
