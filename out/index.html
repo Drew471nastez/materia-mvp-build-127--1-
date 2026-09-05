@@ -40,7 +40,21 @@
     var HOME_KEY     = 'sb-native-home';
 
     var session  = localStorage.getItem(AUTH_KEY);
-    var home     = localStorage.getItem(HOME_KEY) || '/app';
+
+    // The cached home is sanitised here for the same reason it is sanitised in
+    // lib/native-bridge.ts: older builds could store "/" (the login page cached
+    // whatever `next` happened to be), and sending the app to "/" bounces it
+    // straight back to /native-start, which loops forever on the launch screen.
+    // Kept deliberately in sync with NATIVE_HOME_ALLOWED there.
+    var ALLOWED  = ['/app', '/library', '/dashboard', '/store-builder'];
+    var cached   = localStorage.getItem(HOME_KEY) || '';
+    var home     = '/app';
+    if (cached.charAt(0) === '/' && cached.charAt(1) !== '/') {
+      var bare = cached.split('?')[0].split('#')[0];
+      for (var i = 0; i < ALLOWED.length; i++) {
+        if (bare === ALLOWED[i] || bare.indexOf(ALLOWED[i] + '/') === 0) { home = cached; break; }
+      }
+    }
 
     if (session) {
       // User is authenticated — send to their home screen.

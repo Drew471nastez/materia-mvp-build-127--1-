@@ -95,8 +95,42 @@ const NATIVE_HOME_KEY = "sb-native-home"
  * Call after determining account type post-login or post-OAuth.
  * No-op on web / SSR.
  */
-export async function cacheNativeHome(destination: string): Promise<void> {
+/**
+ * ===========================================================================
+ *  A HOME THE APP CAN ACTUALLY GO TO
+ * ===========================================================================
+ *
+ * `cacheNativeHome` is called with a `next` path in two places (the login page
+ * and the OAuth callback) and that path is whatever the URL happened to carry --
+ * very often "/". Storing "/" as the native app's home is how the app came to
+ * open on the marketing site instead of the dashboard.
+ *
+ * It got worse than wrong. Once the app also redirects "/" back to
+ * /native-start, a cached home of "/" is an INFINITE LOOP: /native-start reads
+ * the cache, goes to "/", which bounces to /native-start, forever, and the app
+ * sits on the launch screen at a few requests per second.
+ *
+ * So a home is only ever one of the app's real destinations. Anything else --
+ * "/", a marketing route, an off-site URL, a protocol-relative "//evil.com" --
+ * collapses to /app rather than being stored. This is the one place that
+ * decides, so the login page and the OAuth callback cannot disagree with
+ * /native-start about what a valid home is.
+ */
+const NATIVE_HOME_ALLOWED = ["/app", "/library", "/dashboard", "/store-builder"]
+
+export function sanitizeNativeHome(destination: string | null | undefined): string {
+  if (!destination) return "/app"
+  // Must be a same-origin absolute path. "//host" is protocol-relative and
+  // leaves the app entirely, so a leading "/" alone is not enough.
+  if (!destination.startsWith("/") || destination.startsWith("//")) return "/app"
+  const path = destination.split(/[?#]/)[0]
+  const ok = NATIVE_HOME_ALLOWED.some((a) => path === a || path.startsWith(`${a}/`))
+  return ok ? destination : "/app"
+}
+
+export async function cacheNativeHome(rawDestination: string): Promise<void> {
   if (typeof window === "undefined") return
+  const destination = sanitizeNativeHome(rawDestination)
   try {
     const cap = (window as any).Capacitor
     if (!cap?.isNativePlatform?.()) return
@@ -119,7 +153,10 @@ export async function getCachedNativeHome(): Promise<string | null> {
     if (!cap?.isNativePlatform?.()) return null
     const { Preferences } = await import("@capacitor/preferences")
     const { value } = await Preferences.get({ key: NATIVE_HOME_KEY })
-    return value
+    // Sanitised on the way OUT as well as in: a device that cached "/" under an
+    // older build still has it in Preferences, and that value must not be able
+    // to loop the app on first launch after the update.
+    return value ? sanitizeNativeHome(value) : null
   } catch { return null }
 }
 

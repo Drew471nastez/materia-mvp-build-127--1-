@@ -287,6 +287,50 @@ check(
   "        proxy.ts + app/layout.tsx boot script",
 )
 
+check(
+  "the native launch screen can never redirect into a loop",
+  (() => {
+    /**
+     * THE OUTAGE THIS EXISTS FOR.
+     *
+     * cacheNativeHome() was called with whatever `next` the login URL carried,
+     * so "/" could be stored as the app's home. /native-start then sent the app
+     * to "/", and once "/" also redirected back to /native-start for native, the
+     * two ping-ponged at a few requests per second and the app never left its
+     * launch screen. Production logs showed /native-start and / at 150 and 147
+     * hits in twenty minutes -- one to one, which is what a loop looks like.
+     *
+     * Three layers have to agree, and all three are asserted, because any one of
+     * them alone still leaves a device that cached "/" under an older build
+     * looping on first launch after the update.
+     */
+    const bridge = code("lib/native-bridge.ts")
+    const start = code("app/native-start/page.tsx")
+    const offline = read("out/index.html")
+
+    const sanitiserRejectsRoot =
+      /NATIVE_HOME_ALLOWED\s*=\s*\["\/app", "\/library", "\/dashboard", "\/store-builder"\]/.test(bridge) &&
+      // Protocol-relative "//host" leaves the app entirely, so a leading "/"
+      // alone must not be accepted.
+      /startsWith\("\/\/"\)/.test(bridge)
+    const sanitisedOnWrite = /const destination = sanitizeNativeHome\(rawDestination\)/.test(bridge)
+    const sanitisedOnRead = /value \? sanitizeNativeHome\(value\) : null/.test(bridge)
+    const startGuards =
+      /sanitizeNativeHome\(url\)/.test(start) &&
+      /target === "\/native-start"/.test(start)
+    const offlineGuards = /ALLOWED\s*=\s*\['\/app', '\/library', '\/dashboard', '\/store-builder'\]/.test(offline)
+
+    const missing: string[] = []
+    if (!sanitiserRejectsRoot) missing.push("lib/native-bridge.ts: sanitizeNativeHome allowlist")
+    if (!sanitisedOnWrite) missing.push("lib/native-bridge.ts: cacheNativeHome does not sanitise")
+    if (!sanitisedOnRead) missing.push("lib/native-bridge.ts: getCachedNativeHome does not sanitise")
+    if (!startGuards) missing.push("app/native-start/page.tsx: safeRedirect unguarded")
+    if (!offlineGuards) missing.push("out/index.html: offline fallback unguarded")
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

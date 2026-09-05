@@ -16,15 +16,33 @@
  */
 
 import { useEffect } from "react"
+import { sanitizeNativeHome } from "@/lib/native-bridge"
 
 export default function NativeStartPage() {
   useEffect(() => {
     let didRedirect = false
 
+    /**
+     * The last line of defence against this screen redirecting to itself.
+     *
+     * Every destination below is checked, not just the cached one, because the
+     * cache is only ONE of the ways "/" got in here. If a target is not a real
+     * app destination and not one of the small set of screens this gate is
+     * allowed to hand off to, it becomes /app.
+     *
+     * Redirecting to "/" from here is the specific catastrophe: "/" bounces
+     * straight back to /native-start in the native app, so the two ping-pong at
+     * a few requests per second and the launch screen never lifts.
+     */
+    const HANDOFF_OK = ["/welcome", "/login", "/signup", "/reset-password", "/auth/"]
+
     function safeRedirect(url: string) {
       if (didRedirect) return
+      const isHandoff = HANDOFF_OK.some((h) => url === h || url.startsWith(h))
+      const target = isHandoff ? url : sanitizeNativeHome(url)
+      if (target === "/native-start" || target.startsWith("/native-start")) return
       didRedirect = true
-      window.location.replace(url)
+      window.location.replace(target)
     }
 
     async function resolve() {
