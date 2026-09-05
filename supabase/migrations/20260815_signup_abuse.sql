@@ -118,33 +118,76 @@ create index if not exists profiles_spam_state_idx
   on public.profiles (spam_state) where spam_state is not null;
 
 -- ---------------------------------------------------------------------------
--- 4. What the storefront reads
+-- 4. What the storefront reads  (OPTIONAL, and it skips itself when it cannot run)
 -- ---------------------------------------------------------------------------
 -- Publication is the primary gate and it lives in app code, because it has to
 -- be recomputed per request as sellers publish. This view is the operator's
 -- ANSWER SHEET rather than a dependency: which accounts have surface, which do
 -- not, and why. Handy in the SQL editor when somebody asks "is my store
 -- indexed" and the answer needs to be checkable in one query.
-create or replace view public.storefront_indexability as
-select
-  p.id,
-  p.username,
-  p.created_at,
-  p.spam_score,
-  p.spam_state,
-  coalesce(pub.published_count, 0) as published_products,
-  (
-    coalesce(pub.published_count, 0) > 0
-    and coalesce(p.spam_state, '') <> 'confirmed'
-  ) as indexable
-from public.profiles p
-left join lateral (
-  select count(*) as published_count
-  from public.products pr
-  join public.creators c on c.id = pr.creator_id
-  where c.user_id = p.id and pr.status = 'published'
-) pub on true
-where p.username is not null;
+--
+-- ###########################################################################
+--  WHY THIS IS WRAPPED AND THE THREE SECTIONS ABOVE ARE NOT
+-- ###########################################################################
+--  This section reads public.products and public.creators. Everything above it
+--  touches only public.profiles and tables it creates itself, so those run on
+--  any database. This one does not, and the first time it was run it aborted
+--  the script with:
+--
+--      ERROR: 42P01: relation "public.products" does not exist
+--      LINE 143: from public.products pr
+--
+--  A bare `create or replace view` is a plain statement: PostgreSQL resolves
+--  every table in it at parse time, so a missing one raises and takes the rest
+--  of the file down with it. That broke the promise RUN_EVERYTHING.sql makes in
+--  its own header -- "sections that reference a table this database does not
+--  have degrade to a NOTICE instead of aborting the rest" -- and the promise is
+--  the right one: an operator pasting one file should never end up with a
+--  half-applied script because an OPTIONAL convenience view could not be built.
+--
+--  So the view is built through EXECUTE inside a guard. to_regclass returns
+--  NULL rather than raising for a name that does not exist, and it is the idiom
+--  this repo already uses (see 20260805_storelib_seed.sql). Deferring the SQL
+--  to a string is the point: nothing inside it is parsed unless the guard
+--  passes.
+--
+--  If you see the NOTICE below, the ledger and the spam columns still applied
+--  and the abuse defence is fully working -- app code never reads this view.
+--  But it is also worth checking WHY: public.products is base schema that the
+--  marketplace cannot run without, so a database missing it is almost certainly
+--  not the project this app talks to.
+do $$
+begin
+  if to_regclass('public.products') is null or to_regclass('public.creators') is null then
+    raise notice 'storefront_indexability skipped: public.products or public.creators is missing. This is optional; nothing else in this file depends on it.';
+    return;
+  end if;
 
-comment on view public.storefront_indexability is
-  'Which storefronts get sitemap and robots surface. Publication is the gate; see lib/security/spam-signals.ts deservesIndexing().';
+  execute $view$
+    create or replace view public.storefront_indexability as
+    select
+      p.id,
+      p.username,
+      p.created_at,
+      p.spam_score,
+      p.spam_state,
+      coalesce(pub.published_count, 0) as published_products,
+      (
+        coalesce(pub.published_count, 0) > 0
+        and coalesce(p.spam_state, '') <> 'confirmed'
+      ) as indexable
+    from public.profiles p
+    left join lateral (
+      select count(*) as published_count
+      from public.products pr
+      join public.creators c on c.id = pr.creator_id
+      where c.user_id = p.id and pr.status = 'published'
+    ) pub on true
+    where p.username is not null
+  $view$;
+
+  execute $c$
+    comment on view public.storefront_indexability is
+      'Which storefronts get sitemap and robots surface. Publication is the gate; see lib/security/spam-signals.ts deservesIndexing().'
+  $c$;
+end $$;

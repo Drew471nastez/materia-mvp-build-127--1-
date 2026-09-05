@@ -365,6 +365,62 @@ check(
 )
 
 /**
+ * The migration has to survive a database that is missing the optional tables
+ * it reads. It did not, the first time it was run:
+ *
+ *     ERROR: 42P01: relation "public.products" does not exist
+ *     LINE 143: from public.products pr
+ *
+ * A bare `create view` is resolved at parse time, so one missing table aborted
+ * the whole file and left the abuse defence half-applied. RUN_EVERYTHING.sql
+ * promises the opposite in its own header, and every other section keeps that
+ * promise. This is what keeps this one keeping it.
+ */
+const abuseSql = read("supabase/migrations/20260815_signup_abuse.sql")
+check(
+  "the migration guards the tables it does not create",
+  (() => {
+    // Both optional tables must be behind to_regclass, and the view must be
+    // built through EXECUTE -- deferring it to a string is what stops the
+    // planner resolving the tables when the guard is false.
+    const guarded =
+      /to_regclass\('public\.products'\) is null/.test(abuseSql) &&
+      /to_regclass\('public\.creators'\) is null/.test(abuseSql) &&
+      /execute \$view\$/.test(abuseSql)
+    // And there must be no bare `create ... view` left at STATEMENT level:
+    // that is exactly the shape that aborted the script. The one inside the
+    // EXECUTE string is the fix, not the bug, so the deferred block is removed
+    // before looking -- otherwise this check can never pass.
+    const outsideExecute = abuseSql.replace(/\$view\$[\s\S]*?\$view\$/g, "")
+    const bareView = /^\s*create (or replace )?view/im.test(outsideExecute)
+    return guarded && !bareView
+  })(),
+  "        supabase/migrations/20260815_signup_abuse.sql",
+)
+
+check(
+  "nothing the abuse defence actually needs depends on those tables",
+  (() => {
+    // The ledger, the prune function and the profiles columns must all sit
+    // BEFORE the guarded section, so a database without products still gets the
+    // whole working defence. If one of them drifts below the guard it silently
+    // stops being applied on exactly the databases that hit this bug.
+    const guardAt = abuseSql.indexOf("to_regclass('public.products')")
+    const required = [
+      "create table if not exists public.signup_attempts",
+      "create or replace function public.prune_signup_attempts",
+      "add column if not exists spam_score",
+      "add column if not exists spam_state",
+    ]
+    return guardAt > 0 && required.every((frag) => {
+      const at = abuseSql.indexOf(frag)
+      return at > 0 && at < guardAt
+    })
+  })(),
+  "        supabase/migrations/20260815_signup_abuse.sql",
+)
+
+/**
  * ---------------------------------------------------------------------------
  * 5. LANGUAGE
  * ---------------------------------------------------------------------------
