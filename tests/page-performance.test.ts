@@ -184,6 +184,31 @@ check(
 )
 
 check(
+  "the wishlist badge knows its count on the first paint",
+  (() => {
+    /**
+     * It started at 0 on every load, so the red bubble was absent until
+     * /api/wishlist answered and then appeared — arriving late, after the page
+     * had settled. Nothing was flickering: the header did not know the number
+     * yet and rendered the honest zero.
+     *
+     * Seeded from the last known value, with ONE writer so the cache cannot
+     * drift from what is drawn, and cleared on sign-out so the next person at
+     * this device is not shown the previous account's count.
+     */
+    const src = code("components/platform/platform-header-client.tsx")
+    return (
+      /useState\(\(\) => \{[\s\S]{0,200}?_sl_wishlist_count/.test(src) &&
+      /const applyWishlistCount = useCallback/.test(src) &&
+      // No raw setter outside the writer and the declaration itself.
+      (src.match(/setWishlistCount\(/g)?.length ?? 0) <= 2 &&
+      /removeItem\("_sl_wishlist_count"\)/.test(src)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
+check(
   "the slowest hop in the dashboard is prefetched before it is clicked",
   (() => {
     const src = code("components/shared/prefetch-links.tsx")

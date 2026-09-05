@@ -656,7 +656,38 @@ export function PlatformHeaderClient() {
   )
   const [loading, setLoading] = useState(() => readAuthSnapshot() === null)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
-  const [wishlistCount, setWishlistCount] = useState(0)
+  /**
+   * Seeded from the last known count, for the same reason the session is.
+   *
+   * It started at 0 on every load, so the badge was ABSENT for as long as
+   * /api/wishlist took to answer and then appeared — the red bubble arriving
+   * late, after the page had already settled. Nothing was flickering; the
+   * header simply did not know the number yet and rendered the honest zero.
+   *
+   * It knows the last one now, so the badge is correct on the first paint and
+   * the fetch only confirms it. A stale count is corrected within the same
+   * second and is a far smaller wrong than a control that moves after you have
+   * started reading the page.
+   */
+  const [wishlistCount, setWishlistCount] = useState(() => {
+    if (typeof window === "undefined") return 0
+    try {
+      const n = Number(localStorage.getItem("_sl_wishlist_count"))
+      return Number.isFinite(n) && n >= 0 ? n : 0
+    } catch {
+      return 0
+    }
+  })
+
+  /** One writer for the badge, so the cache cannot drift from what is drawn. */
+  const applyWishlistCount = useCallback((next: number) => {
+    setWishlistCount((prev) => (prev === next ? prev : next))
+    try {
+      localStorage.setItem("_sl_wishlist_count", String(next))
+    } catch {
+      /* storage unavailable — the badge is still correct for this page */
+    }
+  }, [])
   // Persist avatar URL so it shows immediately on re-renders/navigations (no placeholder flash)
   const [cachedAvatarUrl, setCachedAvatarUrl] = useState<string | null>(() => {
     if (typeof window === "undefined") return null
@@ -812,12 +843,12 @@ export function PlatformHeaderClient() {
       })
       if (res.ok) {
         const data = await res.json()
-        setWishlistCount(data.count || data.items?.length || 0)
+        applyWishlistCount(data.count || data.items?.length || 0)
       }
     } catch (err) {
       console.error("[v0] Failed to fetch wishlist count:", err)
     }
-  }, [])
+  }, [applyWishlistCount])
 
   useEffect(() => {
     fetchWishlistCount()
@@ -826,7 +857,7 @@ export function PlatformHeaderClient() {
   useEffect(() => {
     const handleWishlistUpdate = (event: CustomEvent) => {
       if (typeof event.detail?.count === "number") {
-        setWishlistCount(event.detail.count)
+        applyWishlistCount(event.detail.count)
       } else {
         fetchWishlistCount()
       }
@@ -864,6 +895,10 @@ export function PlatformHeaderClient() {
         if (error || !user) {
           if (!mountedRef.current) return
           clearAuthSnapshot()
+          // The cached badge belongs to whoever was signed in. Leaving it would
+          // show the previous account's count to the next person at this device
+          // until the guest fetch returns.
+          try { localStorage.removeItem("_sl_wishlist_count") } catch { /* ignore */ }
           setUser(null)
           setProfile(null)
           setIsCreator(false)
