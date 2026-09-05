@@ -47,15 +47,37 @@ function isKnownPlatformPath(p: string): boolean {
   )
 }
 
-export function ConditionalHeader({ initialWishlistCount = 0 }: { initialWishlistCount?: number }) {
+export function ConditionalHeader({
+  initialWishlistCount = 0,
+  onPlatformDomain = false,
+}: {
+  initialWishlistCount?: number
+  /**
+   * Whether this request arrived on the platform's OWN domain, decided on the
+   * server from the Host header.
+   *
+   * "/" was excluded from the synchronous check below because it is genuinely
+   * ambiguous on the client: a seller's custom domain also has a "/", and
+   * showing platform chrome there would be wrong. So the header was not
+   * rendered on the homepage at all until the effect ran, and the whole thing --
+   * search, icons, avatar and the wishlist badge with it -- appeared after
+   * hydration.
+   *
+   * The ambiguity is only on the CLIENT. The server has the Host header and
+   * knows exactly which domain it is answering, so it answers here and the
+   * homepage renders its header in the first paint like every other page. The
+   * effect still runs and still has the last word.
+   */
+  onPlatformDomain?: boolean
+}) {
   const pathname = usePathname()
 
   // Initialise synchronously so the header renders on the first paint for
   // known platform paths — avoids the blank-gap / "clipped header" flash.
   // "/" is intentionally excluded (ambiguous: could be a custom-domain home).
   // Seller paths (/u/ /p/ /l/) are excluded; host-based check below handles them.
-  const [showPlatformHeader, setShowPlatformHeader] = useState(() =>
-    isKnownPlatformPath(pathname)
+  const [showPlatformHeader, setShowPlatformHeader] = useState(
+    () => isKnownPlatformPath(pathname) || (pathname === "/" && onPlatformDomain)
   )
 
   useEffect(() => {

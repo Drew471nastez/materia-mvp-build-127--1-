@@ -375,6 +375,47 @@ check(
   })(),
 )
 
+check(
+  "the badge hangs off the heart, not off the tap target",
+  (() => {
+    // The link is a 44px tap target with a 20px heart centred in it, so a badge
+    // positioned against the LINK sat ~12px clear of the glyph and read as
+    // floating loose. It was always so; shrinking the bubble made it obvious.
+    const src = code("components/platform/platform-header-client.tsx")
+    const wrappers = src.match(/<span className="relative inline-flex">\s*<Heart/g)?.length ?? 0
+    const badges = src.match(/bg-red-500/g)?.length ?? 0
+    return wrappers === 2 && badges === 2
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "the homepage header is decided on the server, and never leaks to a seller domain",
+  (() => {
+    /**
+     * "/" was excluded from the header's synchronous check because it is
+     * ambiguous ON THE CLIENT — a seller's custom domain also has a "/". So the
+     * homepage rendered no header at all until an effect ran, and the whole
+     * thing appeared after hydration.
+     *
+     * The ambiguity is only client-side: the server has the Host header. It
+     * answers now, which is what puts the homepage header in the first paint.
+     *
+     * The safety half matters more than the speed half. If this ever renders
+     * platform chrome on a seller subdomain or a custom domain, somebody's shop
+     * grows a Storelib header — so the answer must be BOTH checks, not just one.
+     */
+    const layout = code("app/(marketing)/layout.tsx")
+    const header = code("components/marketing/conditional-header.tsx")
+    return (
+      /extractUsernameFromHost\(host\) === null && !isCustomDomain\(host\)/.test(layout) &&
+      /onPlatformDomain=\{onPlatformDomain\}/.test(layout) &&
+      /pathname === "\/" && onPlatformDomain/.test(header)
+    )
+  })(),
+  "        app/(marketing)/layout.tsx + conditional-header.tsx",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

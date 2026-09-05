@@ -1613,12 +1613,21 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 className="relative flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
                 aria-label="Wishlist"
               >
-                <Heart className="h-5 w-5" />
-                {wishlistCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-[14px] min-w-[14px] items-center justify-center rounded-full bg-red-500 px-[3px] text-[7px] font-bold leading-none text-white">
-                    {wishlistCount > 99 ? "99+" : wishlistCount}
-                  </span>
-                )}
+                {/* The badge is anchored to the ICON, not to the link.
+                    The link is a 44px tap target and the heart is 20px inside
+                    it, so a badge positioned against the link sat roughly 12px
+                    clear of the glyph — it read as floating loose rather than
+                    attached. It was always so; shrinking the bubble is what made
+                    the gap obvious. This wrapper is the size of the heart, so
+                    -top/-right land on the heart's own corner. */}
+                <span className="relative inline-flex">
+                  <Heart className="h-5 w-5" />
+                  {wishlistCount > 0 && (
+                    <span className="absolute -top-1 -right-1.5 flex h-[14px] min-w-[14px] items-center justify-center rounded-full bg-red-500 px-[3px] text-[7px] font-bold leading-none text-white">
+                      {wishlistCount > 99 ? "99+" : wishlistCount}
+                    </span>
+                  )}
+                </span>
               </Link>
 
               {/* Mobile Avatar or Sign In button — use h-11 w-11 wrapper for 44px tap target */}
@@ -1659,12 +1668,14 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                       className="relative flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                       aria-label={t("wishlist")}
                     >
-                      <Heart className="h-[22px] w-[22px]" />
-                      {wishlistCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-[3px] text-[8px] font-bold leading-none text-white">
-                          {wishlistCount > 99 ? "99+" : wishlistCount}
-                        </span>
-                      )}
+                      <span className="relative inline-flex">
+                        <Heart className="h-[22px] w-[22px]" />
+                        {wishlistCount > 0 && (
+                          <span className="absolute -top-1 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-[3px] text-[8px] font-bold leading-none text-white">
+                            {wishlistCount > 99 ? "99+" : wishlistCount}
+                          </span>
+                        )}
+                      </span>
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>

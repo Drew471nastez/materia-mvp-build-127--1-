@@ -1,6 +1,7 @@
 import type React from "react"
 import { Suspense } from "react"
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
+import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
@@ -30,12 +31,33 @@ async function readWishlistCount(): Promise<number> {
   }
 }
 
+/**
+ * Is this request on the platform's own domain, rather than a seller subdomain
+ * or a custom domain?
+ *
+ * Only the server can answer this at render time — the client has to wait for
+ * an effect to read window.location — and it is what lets the homepage draw its
+ * header in the first paint instead of after hydration.
+ */
+async function isPlatformDomain(): Promise<boolean> {
+  try {
+    const host = (await headers()).get("host") || ""
+    if (!host) return false
+    return extractUsernameFromHost(host) === null && !isCustomDomain(host)
+  } catch {
+    // Outside a request scope: fall back to the old behaviour, where the client
+    // decides after mount.
+    return false
+  }
+}
+
 export default async function MarketingLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   const initialWishlistCount = await readWishlistCount()
+  const onPlatformDomain = await isPlatformDomain()
   return (
     <div className="flex min-h-svh flex-col marketing-flex-wrapper">
       {/* Preconnect to image CDN — saves ~200-400ms on first image request */}
@@ -43,7 +65,7 @@ export default async function MarketingLayout({
       <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="preconnect" href="https://cdn.sanity.io" />
       <BodyScrollRestorer />
-      <ConditionalHeader initialWishlistCount={initialWishlistCount} />
+      <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
 
       <main className="flex-1 [overflow-x:clip]">{children}</main>
 
