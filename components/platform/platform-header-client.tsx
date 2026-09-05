@@ -606,7 +606,7 @@ function LaunchCountdownBar({ onCanonicalNav }: { onCanonicalNav: (e: React.Mous
   )
 }
 
-export function PlatformHeaderClient() {
+export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWishlistCount?: number }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -669,23 +669,33 @@ export function PlatformHeaderClient() {
    * second and is a far smaller wrong than a control that moves after you have
    * started reading the page.
    */
-  const [wishlistCount, setWishlistCount] = useState(() => {
-    if (typeof window === "undefined") return 0
-    try {
-      const n = Number(localStorage.getItem("_sl_wishlist_count"))
-      return Number.isFinite(n) && n >= 0 ? n : 0
-    } catch {
-      return 0
-    }
-  })
+  const [wishlistCount, setWishlistCount] = useState(initialWishlistCount)
 
-  /** One writer for the badge, so the cache cannot drift from what is drawn. */
+  /**
+   * One writer for the badge, so the stored value cannot drift from what is
+   * drawn — and it writes a COOKIE, not localStorage.
+   *
+   * That distinction is the whole fix. Seeding React state from localStorage
+   * only helps once the client has hydrated: the SERVER still renders the badge
+   * as absent, the page paints without it, and it appears a moment later. That
+   * is the bubble arriving late, and it is why the first attempt at this did not
+   * work — it moved the delay from "after the fetch" to "after hydration"
+   * instead of removing it.
+   *
+   * localStorage is invisible to the server. A cookie is not, so the count is
+   * read in the marketing layout and passed down as `initialWishlistCount`,
+   * which puts the badge in the first painted HTML. The same trick the locale
+   * provider already uses, for the same reason.
+   *
+   * `samesite=lax` and no `secure` flag on localhost only; this is a display
+   * count, never an authorisation, and the real list is still fetched.
+   */
   const applyWishlistCount = useCallback((next: number) => {
     setWishlistCount((prev) => (prev === next ? prev : next))
     try {
-      localStorage.setItem("_sl_wishlist_count", String(next))
+      document.cookie = `storelib_wishlist_count=${next}; path=/; max-age=31536000; samesite=lax`
     } catch {
-      /* storage unavailable — the badge is still correct for this page */
+      /* cookies unavailable — the badge is still correct for this page */
     }
   }, [])
   // Persist avatar URL so it shows immediately on re-renders/navigations (no placeholder flash)
@@ -898,7 +908,9 @@ export function PlatformHeaderClient() {
           // The cached badge belongs to whoever was signed in. Leaving it would
           // show the previous account's count to the next person at this device
           // until the guest fetch returns.
-          try { localStorage.removeItem("_sl_wishlist_count") } catch { /* ignore */ }
+          try {
+            document.cookie = "storelib_wishlist_count=0; path=/; max-age=0; samesite=lax"
+          } catch { /* ignore */ }
           setUser(null)
           setProfile(null)
           setIsCreator(false)

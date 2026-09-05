@@ -47,7 +47,7 @@ function isKnownPlatformPath(p: string): boolean {
   )
 }
 
-export function ConditionalHeader() {
+export function ConditionalHeader({ initialWishlistCount = 0 }: { initialWishlistCount?: number }) {
   const pathname = usePathname()
 
   // Initialise synchronously so the header renders on the first paint for
@@ -100,7 +100,7 @@ export function ConditionalHeader() {
   // the layout stable — no gap above content while the client hydrates.
   return (
     <Suspense fallback={<HeaderPlaceholder />}>
-      <PlatformHeaderClient />
+      <PlatformHeaderClient initialWishlistCount={initialWishlistCount} />
     </Suspense>
   )
 }

@@ -184,28 +184,47 @@ check(
 )
 
 check(
-  "the wishlist badge knows its count on the first paint",
+  "the wishlist badge is in the first painted HTML, not added at hydration",
   (() => {
     /**
-     * It started at 0 on every load, so the red bubble was absent until
-     * /api/wishlist answered and then appeared — arriving late, after the page
-     * had settled. Nothing was flickering: the header did not know the number
-     * yet and rendered the honest zero.
+     * The red bubble arrived after the page had settled.
      *
-     * Seeded from the last known value, with ONE writer so the cache cannot
-     * drift from what is drawn, and cleared on sign-out so the next person at
-     * this device is not shown the previous account's count.
+     * The first attempt at this seeded React state from localStorage, and it did
+     * not work -- it moved the delay from "after the fetch" to "after
+     * hydration". The SERVER still rendered the badge as absent, so the page
+     * still painted without it. localStorage is invisible to the server.
+     *
+     * The count is mirrored into a COOKIE, read in the marketing layout, and
+     * passed down as a prop, so it is server-rendered into the first paint. Both
+     * sides seed from that same prop, which is also what keeps hydration
+     * matching.
+     *
+     * It is client-written, so the server clamps it to a plain non-negative
+     * integer and the real list is still fetched and still wins. A count is a
+     * decoration; it is never an authorisation.
      */
-    const src = code("components/platform/platform-header-client.tsx")
-    return (
-      /useState\(\(\) => \{[\s\S]{0,200}?_sl_wishlist_count/.test(src) &&
-      /const applyWishlistCount = useCallback/.test(src) &&
-      // No raw setter outside the writer and the declaration itself.
-      (src.match(/setWishlistCount\(/g)?.length ?? 0) <= 2 &&
-      /removeItem\("_sl_wishlist_count"\)/.test(src)
-    )
+    const header = code("components/platform/platform-header-client.tsx")
+    const conditional = code("components/marketing/conditional-header.tsx")
+    const layout = code("app/(marketing)/layout.tsx")
+
+    const missing: string[] = []
+    if (!/useState\(initialWishlistCount\)/.test(header))
+      missing.push("header: badge not seeded from the server prop")
+    if (!/document\.cookie = `storelib_wishlist_count=/.test(header))
+      missing.push("header: count not mirrored into a cookie")
+    if (!/localStorage/.test(header) === false && /_sl_wishlist_count/.test(header))
+      missing.push("header: still using localStorage, which the server cannot read")
+    if ((header.match(/setWishlistCount\(/g)?.length ?? 0) > 2)
+      missing.push("header: more than one writer for the badge")
+    if (!/initialWishlistCount=\{initialWishlistCount\}/.test(conditional))
+      missing.push("conditional-header: prop not threaded through")
+    if (!/cookies\(\)/.test(layout) || !/storelib_wishlist_count/.test(layout))
+      missing.push("marketing layout: not reading the cookie server-side")
+    if (!/Number\.isInteger\(n\) && n >= 0/.test(layout))
+      missing.push("marketing layout: client-written cookie not clamped")
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
   })(),
-  "        components/platform/platform-header-client.tsx",
 )
 
 check(
