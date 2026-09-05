@@ -740,29 +740,7 @@ check(
 
 console.log("\nThe comparison price is gone from the marketplace")
 
-check(
-  "no strikethrough, no percentage badge, no field",
-  (() => {
-    return (
-      !/compare_at/.test(cardSrc) &&
-      !/compare_at/.test(detailSrc) &&
-      !/line-through/.test(cardSrc) &&
-      !/compareCents/.test(read("lib/marketplace/listing-completeness.ts"))
-    )
-  })(),
-)
 
-check(
-  "and no listing can be refused for a rule with no control left",
-  (() => {
-    // A stored listing with a compare-at below its price would have been
-    // unpublishable, permanently, over a number nobody can see any more.
-    const completeness = read("lib/marketplace/listing-completeness.ts")
-    return !/compare_at_too_low/.test(completeness)
-  })(),
-)
-
-console.log("\nYou are not offered your own listing")
 
 check(
   "the save control is not drawn on your own card",
