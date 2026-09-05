@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, CheckCircle2, AlertTriangle, CreditCard, Unplug, RefreshCw, Info } from "lucide-react"
-import { useLocale } from "@/components/locale-provider"
 
 interface PaymentsContentProps {
   creator: {
@@ -47,7 +46,6 @@ const CURRENCIES = [
 
 export function PaymentsContent({ creator }: PaymentsContentProps) {
   const router = useRouter()
-  const { t } = useLocale()
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -74,7 +72,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
 
   useEffect(() => {
     if (searchParams.get("success") === "true") {
-      setSuccess(t("settings.pmtConnectedVerifying"))
+      setSuccess("Successfully connected to Stripe! Verifying your account...")
       fetchConnectionStatus()
     }
   }, [searchParams])
@@ -108,13 +106,13 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || t("settings.pmtFailedStart"))
+        throw new Error(data.error || "Failed to start Stripe Connect")
       }
 
       const { url } = await response.json()
       window.location.href = url
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("settings.pmtSomethingWrong"))
+      setError(err instanceof Error ? err.message : "Something went wrong")
       setIsLoading(false)
     }
   }
@@ -130,14 +128,14 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || t("settings.pmtFailedDisconnect"))
+        throw new Error(data.error || "Failed to disconnect")
       }
 
       setConnectionStatus(null)
-      setSuccess(t("settings.pmtDisconnected"))
+      setSuccess("Successfully disconnected from Stripe")
       router.refresh()
     } catch (err) {
-      setError(t("settings.pmtFailedRefresh"))
+      setError("Failed to refresh status")
     } finally {
       setIsDisconnecting(false)
     }
@@ -162,13 +160,13 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || t("settings.pmtFailedSave"))
+        throw new Error(data.error || "Failed to save settings")
       }
 
-      setSuccess(t("settings.pmtSaved"))
+      setSuccess("Payment settings saved successfully!")
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("settings.pmtSomethingWrong"))
+      setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
       setIsSaving(false)
     }
@@ -181,9 +179,9 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
 
     try {
       await fetchConnectionStatus()
-      setSuccess(t("settings.pmtStatusRefreshed"))
+      setSuccess("Status refreshed successfully!")
     } catch (err) {
-      setError(t("settings.pmtFailedRefresh"))
+      setError("Failed to refresh status")
     } finally {
       setIsRefreshing(false)
     }
@@ -196,16 +194,16 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
   return (
     <div className="min-h-screen bg-white p-4 sm:p-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-foreground">{t("settings.pmtTitle")}</h1>
-        <p className="text-muted-foreground">{t("settings.pmtSubtitle")}</p>
+        <h1 className="text-2xl font-semibold text-foreground">Payments & Store Settings</h1>
+        <p className="text-muted-foreground">Connect your payout method to start selling</p>
       </div>
 
       <div className="max-w-2xl space-y-6">
         {isTestMode && (
           <Alert>
             <AlertDescription className="flex items-center gap-2">
-              <Badge variant="secondary">{t("settings.testMode")}</Badge>
-              <span className="text-sm">{t("settings.pmtTestKeys")}</span>
+              <Badge variant="secondary">Test Mode</Badge>
+              <span className="text-sm">You're using Stripe test keys</span>
             </AlertDescription>
           </Alert>
         )}
@@ -216,12 +214,12 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
             <AlertDescription>
               <strong>
                 {!connectionStatus?.connected
-                  ? t("settings.pmtConnectToSell")
-                  : t("settings.pmtHasRestrictions")}
+                  ? "Connect payouts to sell paid products."
+                  : "Your Stripe account has restrictions."}
               </strong>{" "}
               {!connectionStatus?.connected
-                ? t("settings.pmtCannotAccept")
-                : t("settings.pmtCompleteVerification")}
+                ? "You won't be able to accept payments until your Stripe account is connected and verified."
+                : "Complete your Stripe verification to enable all payment features."}
             </AlertDescription>
           </Alert>
         )}
@@ -243,30 +241,30 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              {t("settings.stripeConnect")}
+              Stripe Connect
             </CardTitle>
-            <CardDescription>{t("settings.pmtReceiveDirect")}</CardDescription>
+            <CardDescription>Receive payments directly to your bank account</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">{t("settings.status")}</p>
+                <p className="text-sm font-medium">Status</p>
                 <div className="mt-1 flex items-center gap-2">
                   {connectionStatus?.status === "connected" ? (
                     <>
                       <Badge variant="default" className="bg-green-600">
-                        {t("settings.pmtFullyEnabled")}
+                        Fully Enabled
                       </Badge>
                       {connectionStatus?.accountId && (
                         <span className="text-xs text-muted-foreground">{connectionStatus.accountId}</span>
                       )}
                     </>
                   ) : connectionStatus?.status === "pending" ? (
-                    <Badge variant="destructive">{t("settings.pmtRestricted")}</Badge>
+                    <Badge variant="destructive">Restricted</Badge>
                   ) : connectionStatus?.status === "pending" ? (
-                    <Badge variant="secondary">{t("settings.pmtPendingVerification")}</Badge>
+                    <Badge variant="secondary">Pending Verification</Badge>
                   ) : (
-                    <Badge variant="outline">{t("settings.notConnected")}</Badge>
+                    <Badge variant="outline">Not Connected</Badge>
                   )}
                 </div>
               </div>
@@ -281,7 +279,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                     className="gap-2 bg-transparent"
                   >
                     <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-                    {t("settings.pmtRefresh")}
+                    Refresh
                   </Button>
                 )}
 
@@ -290,12 +288,12 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {t("settings.connecting")}
+                        Connecting...
                       </>
                     ) : connectionStatus?.status === "pending" || connectionStatus?.status === "pending" ? (
-                      t("settings.completeSetup")
+                      "Complete Setup"
                     ) : (
-                      t("settings.pmtConnectStripe")
+                      "Connect Stripe"
                     )}
                   </Button>
                 ) : (
@@ -305,26 +303,27 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                         {isDisconnecting ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            {t("settings.disconnecting")}
+                            Disconnecting...
                           </>
                         ) : (
                           <>
                             <Unplug className="mr-2 h-4 w-4" />
-                            {t("settings.disconnect")}
+                            Disconnect
                           </>
                         )}
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>{t("settings.pmtDisconnectTitle")}</AlertDialogTitle>
+                        <AlertDialogTitle>Disconnect Stripe?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          {t("settings.pmtDisconnectDesc")}
+                          This will disable new paid checkouts until you reconnect. Historical orders will remain
+                          intact.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDisconnect}>{t("settings.disconnect")}</AlertDialogAction>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDisconnect}>Disconnect</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -335,20 +334,20 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
             {connectionStatus?.chargesEnabled !== undefined && (
               <div className="space-y-2 rounded-lg border bg-muted/50 p-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">{t("settings.pmtChargesEnabled")}</span>
+                  <span className="text-muted-foreground">Charges enabled:</span>
                   <Badge variant={connectionStatus.chargesEnabled ? "default" : "destructive"}>
-                    {connectionStatus.chargesEnabled ? t("settings.pmtYes") : t("settings.pmtNo")}
+                    {connectionStatus.chargesEnabled ? "Yes" : "No"}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">{t("settings.pmtPayoutsEnabled")}</span>
+                  <span className="text-muted-foreground">Payouts enabled:</span>
                   <Badge variant={connectionStatus.payoutsEnabled ? "default" : "destructive"}>
-                    {connectionStatus.payoutsEnabled ? t("settings.pmtYes") : t("settings.pmtNo")}
+                    {connectionStatus.payoutsEnabled ? "Yes" : "No"}
                   </Badge>
                 </div>
                 {(!connectionStatus.chargesEnabled || !connectionStatus.payoutsEnabled) && (
                   <p className="pt-2 text-xs text-muted-foreground">
-                    {t("settings.pmtCompleteAllFeatures")}
+                    Complete your Stripe verification to enable all features. Click "Complete Setup" above.
                   </p>
                 )}
               </div>
@@ -362,19 +361,19 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.77.77 0 0 1 .76-.653h8.14c2.97 0 4.93 1.017 5.848 3.03.774 1.697.587 3.694-.544 5.78-1.296 2.388-3.413 3.61-6.116 3.61h-.777a.77.77 0 0 0-.76.653l-.647 4.11a.641.641 0 0 1-.633.647H7.076z" />
               </svg>
-              {t("settings.pmtPaypalOptional")}
+              PayPal (Optional)
             </CardTitle>
-            <CardDescription>{t("settings.pmtPaypalAlt")}</CardDescription>
+            <CardDescription>Alternative payment method for your customers</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Alert className="border-blue-200 bg-blue-50 text-blue-800">
               <AlertDescription className="text-sm">
-                {t("settings.pmtPaypalNote")}
+                PayPal is optional. Most creators use Stripe for payouts.
               </AlertDescription>
             </Alert>
 
             <div className="grid gap-2">
-              <Label htmlFor="paypal-email">{t("settings.pmtPaypalEmail")}</Label>
+              <Label htmlFor="paypal-email">PayPal Email</Label>
               <Input
                 id="paypal-email"
                 type="email"
@@ -383,7 +382,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                 placeholder="your@email.com"
               />
               <p className="text-xs text-muted-foreground">
-                {t("settings.pmtPaypalEmailHelp")}
+                Your PayPal account email (optional - save settings to update)
               </p>
             </div>
           </CardContent>
@@ -391,12 +390,12 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
 
         <Card>
           <CardHeader>
-            <CardTitle>{t("settings.paymentSettings")}</CardTitle>
-            <CardDescription>{t("settings.pmtConfigurePrefs")}</CardDescription>
+            <CardTitle>Payment Settings</CardTitle>
+            <CardDescription>Configure your default payment preferences</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="currency">{t("settings.defaultCurrency")}</Label>
+              <Label htmlFor="currency">Default Currency</Label>
               <Select value={defaultCurrency} onValueChange={setDefaultCurrency}>
                 <SelectTrigger id="currency">
                   <SelectValue />
@@ -404,7 +403,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                 <SelectContent>
                   {CURRENCIES.map((currency) => (
                     <SelectItem key={currency.code} value={currency.code}>
-                      {currency.code} - {t(`settings.currencyName_${currency.code}`)}
+                      {currency.code} - {currency.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -413,7 +412,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
 
             <div className="grid gap-2">
               <div className="flex items-center gap-2">
-                <Label htmlFor="descriptor">{t("settings.statementDescriptor")}</Label>
+                <Label htmlFor="descriptor">Statement Descriptor</Label>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -421,7 +420,8 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
                       <p className="text-sm">
-                        {t("settings.pmtDescriptorTooltip")}
+                        This text appears on your customers' bank statements. It helps them identify the charge.
+                        Format: &quot;(Your Name) - STORELIB&quot;. Only your name can be changed. Max 22 characters total.
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -441,7 +441,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                {t("settings.pmtBankShow")} <span className="font-mono">{statementDescriptor || creator.name?.slice(0, 10).toUpperCase() || "YOURNAME"} - STORELIB</span>
+                Bank statement will show: <span className="font-mono">{statementDescriptor || creator.name?.slice(0, 10).toUpperCase() || "YOURNAME"} - STORELIB</span>
               </p>
             </div>
 
@@ -449,10 +449,10 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t("settings.saving")}
+                  Saving...
                 </>
               ) : (
-                t("settings.pmtSaveSettings")
+                "Save Settings"
               )}
             </Button>
           </CardContent>

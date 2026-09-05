@@ -1,330 +1,153 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import {
-  buildTsQuery,
-  isWordToken,
-  matchModesFor,
-  safeTerm,
-  searchTokens,
-  textFilterGroups,
-} from "@/lib/marketplace/search-terms"
 
 /**
- * GET /api/v2/search?q=term&category=sneakers&sort=relevance&limit=30&offset=0
+ * GET /api/v2/search?q=term&category=design&sort=relevance&limit=30
  *
- * Ranked product search for the marketplace.
+ * Ranked search using PostgreSQL full-text search (tsvector) with:
+ * - Title weight A (highest)
+ * - Description weight B
+ * - Popularity boost (sales_count, reviews)
+ * - Freshness boost (newer products ranked higher)
+ * - Completeness boost (has thumbnail, long description)
  *
- * ── Status ────────────────────────────────────────────────────────────────────
- * Nothing in the UI calls this endpoint yet — /explore still filters server-side
- * with ILIKE and the header typeahead queries Supabase from the browser. It is
- * kept correct and ready for those two call sites to move over.
- *
- * ── What changed and why ──────────────────────────────────────────────────────
- * The previous implementation built ~70 lines of ts_rank_cd SQL and executed it
- * through `admin.rpc("exec_sql", …)`. No such function exists anywhere in
- * supabase/migrations, so that call always errored and every request silently
- * took the ILIKE fallback — the ranking SQL had never once run, and
- * products.search_vector (maintained by trg_products_search_vector) was never
- * read. One line of it, `jsonb_array_length(p.gallery_urls)`, would also have
- * thrown the moment it did run if that column is a text[].
- *
- * This version uses the real full-text index through PostgREST's `fts` operator,
- * which needs no RPC and no migration:
- *
- *   1. Full-text search against products.search_vector (GIN,
- *      idx_products_search_vector). Title and brand are weight A, description
- *      weight B — brand was added to the vector by
- *      20260730_marketplace_physical_attributes.sql, and on a resale marketplace
- *      the brand IS the query ("carhartt", "nike").
- *   2. If FTS matches nothing — a typo, or a query that stems away entirely —
- *      fall back to trigram ILIKE across title, brand and description
- *      (idx_products_title_trgm, idx_products_brand_trgm,
- *      idx_products_description_trgm).
- *   3. Rank in JS over the returned pool. PostgREST cannot ORDER BY an
- *      expression, so relevance sorting happens here; the pool is capped at
- *      MAX_POOL rows so the sort is trivially cheap.
- *
- * Scoring is retuned for tangible second-hand goods. Most listings are
- * quantity-one with zero sales and zero reviews, so the old popularity/review
- * weights would have been 0.0 for nearly the whole catalogue: reviews are capped
- * far lower, freshness is raised sharply (recency is the primary quality signal
- * on Depop/Vinted), and multi-photo listings are rewarded because they convert.
- *
- * The response shape is unchanged — { results, total, query, category, sort } —
- * and `results` rows keep the nested `creator` embed the fallback path already
- * returned, now including creator.profile so ProductCard can build store links.
+ * Falls back to trigram ILIKE for short queries or when FTS returns no results.
  */
-
-/** Ceiling on a single page of results. */
-const MAX_LIMIT = 100
-
-/** Rows pulled before ranking. Bounded so the JS sort can never become the bottleneck. */
-const MAX_POOL = 200
-
-/** Extra candidates fetched beyond the requested page so ranking has room to reorder. */
-const RANK_BUFFER = 60
-
-const RICH_SELECT =
-  "*, creator:creators(id, slug, display_name, avatar_url, profile:profiles!creators_user_id_fkey(display_name, avatar_url, username))"
-
-/** Used if the profile embed is unavailable — matches what this route returned before. */
-const BASE_SELECT = "*, creator:creators(id, slug, display_name, avatar_url)"
-
-const SORTS = ["relevance", "newest", "popular", "price-low", "price-high"] as const
-
-type Sort = (typeof SORTS)[number]
-
-interface ProductRow {
-  id: string
-  title: string | null
-  description: string | null
-  brand: string | null
-  condition: string | null
-  size: string | null
-  thumbnail_url: string | null
-  gallery_urls: unknown
-  price_cents: number | null
-  sales_count: number | null
-  reviews_count: number | null
-  reviews_average: number | null
-  created_at: string | null
-}
-
-/**
- * The three text columns a query is matched against. Weighted A/A/B in the
- * tsvector; here they are the OR group the ILIKE tiers are built over.
- */
-const SEARCH_COLS = ["title", "description", "brand"]
-
-/** gallery_urls is jsonb and can arrive as a non-array — same guard product-card.tsx uses. */
-function galleryCount(gallery: unknown): number {
-  return Array.isArray(gallery) ? gallery.filter((url) => typeof url === "string" && url.length > 0).length : 0
-}
-
-/**
- * How well the row's text answers the query.
- *
- * Coverage-based rather than positional: what matters on a resale marketplace is
- * whether every word the shopper typed appears, and whether it appears in the
- * title/brand (weight A in the tsvector) or only in the description (weight B).
- */
-function textScore(product: ProductRow, needle: string, tokens: string[]): number {
-  const title = (product.title || "").toLowerCase()
-  const brand = (product.brand || "").toLowerCase()
-  const description = (product.description || "").toLowerCase()
-
-  if (tokens.length === 0) return 0
-
-  let titleHits = 0
-  let brandHits = 0
-  let descriptionHits = 0
-
-  for (const token of tokens) {
-    if (title.includes(token)) titleHits++
-    if (brand && brand.includes(token)) brandHits++
-    if (description.includes(token)) descriptionHits++
-  }
-
-  let score =
-    (titleHits / tokens.length) * 2.0 + (brandHits / tokens.length) * 1.4 + (descriptionHits / tokens.length) * 0.5
-
-  // Whole-phrase bonuses — "jordan 4 retro" should beat a listing that merely
-  // contains all three words scattered through a paragraph.
-  if (title === needle) score += 1.5
-  else if (title.startsWith(needle)) score += 0.8
-  else if (title.includes(needle)) score += 0.4
-
-  if (brand === needle) score += 1.0
-  else if (brand && brand.startsWith(needle)) score += 0.5
-
-  return score
-}
-
-/**
- * Non-textual quality signals, weighted for tangible second-hand goods.
- * Deliberately small relative to textScore — these break ties, they don't
- * override what the shopper asked for.
- */
-function qualityScore(product: ProductRow): number {
-  let score = 0
-
-  // Almost every resale listing is quantity-one with no sales history, so this is
-  // near-zero for most of the catalogue. Log-scaled and capped regardless.
-  score += Math.min(Math.log10((product.sales_count || 0) + 1) * 0.5, 1.0)
-
-  // Capped hard (was 1.0): second-hand listings rarely accumulate reviews, so a
-  // heavier weight would just rank the handful of reviewed sellers above everyone.
-  if ((product.reviews_count || 0) > 0) {
-    score += ((product.reviews_average || 0) / 5) * Math.min(Math.log10((product.reviews_count || 0) + 1) * 0.2, 0.3)
-  }
-
-  // Raised sharply from the digital-goods tuning. Fresh stock is the strongest
-  // quality signal on a resale marketplace — an item listed today is far more
-  // likely to still be available than one from six months ago.
-  const createdAt = product.created_at ? Date.parse(product.created_at) : NaN
-  if (!Number.isNaN(createdAt)) {
-    const ageDays = (Date.now() - createdAt) / 86_400_000
-    if (ageDays <= 7) score += 1.2
-    else if (ageDays <= 30) score += 0.6
-    else if (ageDays <= 90) score += 0.2
-  }
-
-  // Completeness. Multiple photos matter far more for tangible goods than for a
-  // digital download, so the gallery term outweighs the description term.
-  if (product.thumbnail_url) score += 0.2
-  score += Math.min(galleryCount(product.gallery_urls) * 0.08, 0.32)
-  if ((product.description || "").length > 100) score += 0.15
-
-  // A listing that filled in the resale attributes is a properly described item.
-  if (product.condition) score += 0.1
-  if (product.size) score += 0.05
-
-  return score
-}
-
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const query = (searchParams.get("q") || "").trim()
     const category = searchParams.get("category") || ""
-    const requestedSort = searchParams.get("sort") || "relevance"
-    const sort: Sort = (SORTS as readonly string[]).includes(requestedSort) ? (requestedSort as Sort) : "relevance"
-    const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 30, 1), MAX_LIMIT)
-    const offset = Math.max(Number(searchParams.get("offset")) || 0, 0)
+    const sort = searchParams.get("sort") || "relevance"
+    const limit = Math.min(Number(searchParams.get("limit")) || 30, 100)
+    const offset = Number(searchParams.get("offset")) || 0
 
     if (!query) {
       return NextResponse.json({ error: "Missing search query" }, { status: 400 })
     }
 
-    const term = safeTerm(query)
-    const tokens = searchTokens(query)
+    const admin = createAdminClient()
 
-    // Everything the user typed was punctuation — nothing to match on.
-    if (!term || tokens.length === 0) {
-      return NextResponse.json({ results: [], total: 0, query, category, sort })
+    // Build the search query with ts_rank scoring
+    const tsQuery = query
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(term => `${term}:*`) // Prefix matching for partial words
+      .join(" & ")
+
+    // Try full-text search first (ranked)
+    let sqlQuery = `
+      SELECT
+        p.*,
+        ts_rank_cd(p.search_vector, to_tsquery('english', $1), 32) AS text_rank,
+        -- Popularity boost: log scale to prevent dominant products
+        LEAST(LOG(GREATEST(p.sales_count, 1) + 1) * 0.3, 2.0) AS popularity_boost,
+        -- Review quality boost
+        CASE WHEN p.reviews_count > 0
+          THEN (p.reviews_average / 5.0) * LEAST(LOG(p.reviews_count + 1) * 0.2, 1.0)
+          ELSE 0
+        END AS review_boost,
+        -- Freshness boost: newer products get a slight edge
+        CASE
+          WHEN p.created_at > NOW() - INTERVAL '7 days' THEN 0.5
+          WHEN p.created_at > NOW() - INTERVAL '30 days' THEN 0.3
+          WHEN p.created_at > NOW() - INTERVAL '90 days' THEN 0.1
+          ELSE 0
+        END AS freshness_boost,
+        -- Completeness boost: reward well-filled products
+        CASE WHEN p.thumbnail_url IS NOT NULL THEN 0.2 ELSE 0 END +
+        CASE WHEN LENGTH(COALESCE(p.description, '')) > 100 THEN 0.15 ELSE 0 END +
+        CASE WHEN p.gallery_urls IS NOT NULL AND jsonb_array_length(p.gallery_urls) > 0 THEN 0.1 ELSE 0 END
+        AS completeness_boost,
+        -- Creator info
+        c.slug AS creator_slug,
+        c.display_name AS creator_name,
+        c.avatar_url AS creator_avatar
+      FROM public.products p
+      LEFT JOIN public.creators c ON c.id = p.creator_id
+      WHERE p.status = 'published'
+        AND p.search_vector @@ to_tsquery('english', $1)
+    `
+
+    const queryParams: unknown[] = [tsQuery]
+    let paramIndex = 2
+
+    // Category filter
+    if (category && category !== "all") {
+      sqlQuery += ` AND LOWER(COALESCE(p.category, '')) = $${paramIndex}`
+      queryParams.push(category.toLowerCase())
+      paramIndex++
     }
 
-    const admin = createAdminClient()
-    const isRelevance = sort === "relevance"
+    // Sorting
+    if (sort === "relevance") {
+      sqlQuery += `
+        ORDER BY (
+          ts_rank_cd(p.search_vector, to_tsquery('english', $1), 32) * 2.0
+          + LEAST(LOG(GREATEST(p.sales_count, 1) + 1) * 0.3, 2.0)
+          + CASE WHEN p.reviews_count > 0
+              THEN (p.reviews_average / 5.0) * LEAST(LOG(p.reviews_count + 1) * 0.2, 1.0)
+              ELSE 0 END
+          + CASE
+              WHEN p.created_at > NOW() - INTERVAL '7 days' THEN 0.5
+              WHEN p.created_at > NOW() - INTERVAL '30 days' THEN 0.3
+              WHEN p.created_at > NOW() - INTERVAL '90 days' THEN 0.1
+              ELSE 0 END
+          + CASE WHEN p.thumbnail_url IS NOT NULL THEN 0.2 ELSE 0 END
+          + CASE WHEN LENGTH(COALESCE(p.description, '')) > 100 THEN 0.15 ELSE 0 END
+        ) DESC
+      `
+    } else if (sort === "newest") {
+      sqlQuery += ` ORDER BY p.created_at DESC`
+    } else if (sort === "popular") {
+      sqlQuery += ` ORDER BY p.sales_count DESC NULLS LAST`
+    } else if (sort === "price-low") {
+      sqlQuery += ` ORDER BY p.price_cents ASC`
+    } else if (sort === "price-high") {
+      sqlQuery += ` ORDER BY p.price_cents DESC`
+    }
 
-    // Relevance re-orders in JS, so it needs a pool wide enough to reorder within.
-    // Every other sort is already ordered by Postgres, so only the page is fetched.
-    const fetchLimit = isRelevance ? Math.min(offset + limit + RANK_BUFFER, MAX_POOL) : limit
+    sqlQuery += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`
+    queryParams.push(limit, offset)
 
-    // For relevance this only decides which rows enter the ranking pool — newest
-    // first, because recency is the strongest availability signal on resale stock.
-    const orderBy =
-      sort === "popular"
-        ? { column: "sales_count", ascending: false }
-        : sort === "price-low"
-          ? { column: "price_cents", ascending: true }
-          : sort === "price-high"
-            ? { column: "price_cents", ascending: false }
-            : { column: "created_at", ascending: false }
+    const { data: ftsResults, error: ftsError } = await admin.rpc("exec_sql", {
+      query: sqlQuery,
+      params: queryParams,
+    }).maybeSingle()
 
-    /**
-     * Status + category scope. Supabase query builders are single-use, so every
-     * attempt rebuilds from scratch.
-     */
-    function filtered(select: string) {
-      let q = admin.from("products").select(select).eq("status", "published")
+    // If FTS RPC doesn't exist, fall back to standard Supabase query with ILIKE
+    let results: unknown[] = []
+
+    if (ftsError || !ftsResults) {
+      // Fallback: trigram ILIKE search
+      let fallbackQ = admin
+        .from("products")
+        .select("*, creator:creators(id, slug, display_name, avatar_url)")
+        .eq("status", "published")
+        .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
+        .limit(limit)
 
       if (category && category !== "all") {
-        // ilike without wildcards is a case-insensitive equality match — the same
-        // semantics as the LOWER(category) = $n comparison this replaced.
-        q = q.ilike("category", category)
+        fallbackQ = fallbackQ.ilike("category", category)
       }
 
-      return q
-    }
-
-    /** Ordering and paging, applied after the text filter (builder order matters). */
-    function paginate(q: ReturnType<typeof filtered>) {
-      const start = isRelevance ? 0 : offset
-      return q
-        .order(orderBy.column, { ascending: orderBy.ascending, nullsFirst: false })
-        .range(start, start + fetchLimit - 1)
-    }
-
-    /**
-     * ═══════════════════════════════════════════════════════════════════════
-     *  FIVE READINGS OF THE QUERY, STRICTEST FIRST
-     * ═══════════════════════════════════════════════════════════════════════
-     *
-     * It was two: full-text with every word required, then one `ILIKE` for the
-     * WHOLE PHRASE as a single substring. So "geaca nike" found "Geaca Nike"
-     * and missed "Nike geaca de piele" — the same two words, in the order
-     * somebody actually types them — and one mistyped letter found nothing at
-     * all.
-     *
-     *   1  FTS, every word     the index doing what it is for
-     *   2  FTS, any word       for a query with more words than the catalogue
-     *                          has in any one listing
-     *   3  ILIKE, every word   substrings, so "nik" inside "Nike" counts, and
-     *                          diacritic-blind — "barbati" finds "bărbați"
-     *   4  ILIKE, any word
-     *   5  ILIKE, stems        "jordn" → "jor%"
-     *
-     * Each runs ONLY when everything above it returned nothing, so a good query
-     * costs exactly one round trip and pays nothing for the tail. And the
-     * ranking below is unchanged: it scores by how many of the typed words a
-     * row actually contains, which is what keeps a widened tier from putting
-     * the loosest match first.
-     */
-    let select = RICH_SELECT
-    let rows: ProductRow[] = []
-
-    /** Runs a built query, dropping the profile embed if this database has no
-     *  such relationship rather than losing the whole search. */
-    const run = async (build: (sel: string) => any): Promise<ProductRow[]> => {
-      let res = await paginate(build(select))
-      if (res.error && select === RICH_SELECT) {
-        select = BASE_SELECT
-        res = await paginate(build(select))
+      if (sort === "newest") {
+        fallbackQ = fallbackQ.order("created_at", { ascending: false })
+      } else if (sort === "popular") {
+        fallbackQ = fallbackQ.order("sales_count", { ascending: false })
+      } else if (sort === "price-low") {
+        fallbackQ = fallbackQ.order("price_cents", { ascending: true })
+      } else if (sort === "price-high") {
+        fallbackQ = fallbackQ.order("price_cents", { ascending: false })
+      } else {
+        // Relevance: title matches first, then by sales
+        fallbackQ = fallbackQ.order("sales_count", { ascending: false })
       }
-      if (res.error) {
-        console.error("[v2/search] attempt failed:", res.error.message)
-        return []
-      }
-      return (res.data as unknown as ProductRow[] | null) || []
-    }
 
-    // The OR-prefix pass is offered on the same test the ILIKE tiers use, and
-    // over the same WORDS — `jrdn4 | 424i2` is a widening that can only match by
-    // coincidence, and `matchModesFor` is where that judgement lives.
-    const modes = matchModesFor(tokens)
-    const words = tokens.filter(isWordToken)
-    const ftsAttempts = [buildTsQuery(tokens, "&"), modes.includes("any") ? buildTsQuery(words, "|") : ""]
-    for (const tsQuery of ftsAttempts) {
-      if (!tsQuery || rows.length > 0) continue
-      rows = await run((sel) => filtered(sel).textSearch("search_vector", tsQuery, { config: "english" }))
-    }
-
-    // Trigram ILIKE. Chained `.or()` calls are ANDed by PostgREST, which is what
-    // makes "every word, anywhere, in any order" expressible — see
-    // textFilterGroups. Trigram indexes need 3 characters to be useful, which
-    // "y2k" and anything longer satisfies.
-    // `matchModesFor` drops the tiers that would be the previous query again —
-    // "any" is "all" on a one-word query, and "fuzzy" is both when no word is
-    // long enough to have a stem.
-    for (const mode of modes) {
-      if (rows.length > 0) continue
-      const groups = textFilterGroups(SEARCH_COLS, tokens, mode)
-      if (groups.length === 0) continue
-      rows = await run((sel) => groups.reduce((q: any, g) => q.or(g), filtered(sel)))
-    }
-
-    // ── Rank ─────────────────────────────────────────────────────────────────
-    let results: ProductRow[] = rows
-
-    if (isRelevance && rows.length > 0) {
-      const needle = term.toLowerCase()
-
-      results = rows
-        .map((product) => ({ product, score: textScore(product, needle, tokens) * 2.0 + qualityScore(product) }))
-        .sort((a, b) => b.score - a.score)
-        .slice(offset, offset + limit)
-        .map((entry) => entry.product)
+      const { data: fallbackData } = await fallbackQ
+      results = fallbackData || []
+    } else {
+      results = Array.isArray(ftsResults) ? ftsResults : []
     }
 
     return NextResponse.json({

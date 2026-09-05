@@ -7,7 +7,6 @@ import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
 import { Move, ZoomIn, Check, X, Upload, ImageIcon } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { useLocale } from "@/components/locale-provider"
 
 interface CoverImageEditorProps {
   open: boolean
@@ -28,7 +27,6 @@ export function CoverImageEditor({
   bucket = "store-builder-images",
   folder = "store-builder",
 }: CoverImageEditorProps) {
-  const { t } = useLocale()
   const [imageUrl, setImageUrl] = useState<string | null>(currentImageUrl || null)
   const [focalPoint, setFocalPoint] = useState(currentFocalPoint)
   const [isDragging, setIsDragging] = useState(false)
@@ -133,7 +131,7 @@ export function CoverImageEditor({
         <DialogHeader className="px-4 sm:px-5 py-3 border-b shrink-0 bg-white">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Move className="h-4 w-4" />
-            {t("builder.coverEditor.title")}
+            Adjust Cover Image
           </DialogTitle>
         </DialogHeader>
 
@@ -159,7 +157,7 @@ export function CoverImageEditor({
               <>
                 <img
                   src={imageUrl}
-                  alt={t("builder.coverEditor.coverPreviewAlt")}
+                  alt="Cover preview"
                   className="absolute inset-0 w-full h-full object-cover transition-transform select-none pointer-events-none"
                   style={{
                     objectPosition: `${focalPoint.x}% ${focalPoint.y}%`,
@@ -187,7 +185,7 @@ export function CoverImageEditor({
                 )}>
                   <div className="bg-black/70 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
                     <Move className="h-4 w-4" />
-                    {t("builder.coverEditor.dragToReposition")}
+                    Drag to reposition
                   </div>
                 </div>
               </>
@@ -199,16 +197,16 @@ export function CoverImageEditor({
                 {uploading ? (
                   <div className="flex flex-col items-center gap-3">
                     <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-                    <p className="text-sm text-muted-foreground">{t("builder.coverEditor.uploading")}</p>
+                    <p className="text-sm text-muted-foreground">Uploading...</p>
                   </div>
                 ) : (
                   <>
                     <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
                       <ImageIcon className="h-8 w-8 text-muted-foreground" />
                     </div>
-                    <p className="text-sm font-medium text-foreground">{t("builder.coverEditor.clickToUpload")}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{t("builder.coverEditor.orDragDrop")}</p>
-                    <p className="text-xs text-muted-foreground">{t("builder.coverEditor.fileHint")}</p>
+                    <p className="text-sm font-medium text-foreground">Click to upload cover image</p>
+                    <p className="text-xs text-muted-foreground mt-1">or drag and drop</p>
+                    <p className="text-xs text-muted-foreground">PNG, JPG, WEBP up to 10MB</p>
                   </>
                 )}
               </div>
@@ -218,7 +216,7 @@ export function CoverImageEditor({
           {imageUrl && (
             <div className="space-y-4">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{t("builder.coverEditor.position")}</span>
+                <span className="text-muted-foreground">Position</span>
                 <span className="font-mono text-xs bg-muted px-2 py-1 rounded">
                   X: {focalPoint.x}% / Y: {focalPoint.y}%
                 </span>
@@ -228,7 +226,7 @@ export function CoverImageEditor({
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground flex items-center gap-2">
                     <ZoomIn className="h-4 w-4" />
-                    {t("builder.coverEditor.zoom")}
+                    Zoom
                   </span>
                   <span className="font-mono text-xs">{zoom}%</span>
                 </div>
@@ -248,7 +246,7 @@ export function CoverImageEditor({
                 onClick={() => inputRef.current?.click()}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                {t("builder.coverEditor.changeImage")}
+                Change Image
               </Button>
             </div>
           )}
@@ -264,7 +262,7 @@ export function CoverImageEditor({
 
         <div className="shrink-0 grid grid-cols-2 sm:flex items-center sm:justify-end gap-2 px-3.5 sm:px-5 py-3 border-t bg-muted/30">
           <Button variant="ghost" size="sm" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
-            {t("builder.common.cancel")}
+            Cancel
           </Button>
           <Button
             size="sm"
@@ -273,7 +271,7 @@ export function CoverImageEditor({
             className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white"
           >
             <Check className="h-3.5 w-3.5 mr-1.5" />
-            {t("builder.common.apply")}
+            Apply
           </Button>
         </div>
       </DialogContent>

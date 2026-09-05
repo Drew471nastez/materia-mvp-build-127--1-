@@ -1,7 +1,6 @@
 import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
-import { cookieDomainFor, cookieSecureFor, isNativeUserAgent } from "@/lib/supabase/cookie-domain"
 
 // Main domain - customize this based on environment
 const MAIN_DOMAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
@@ -274,10 +273,18 @@ export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
 
-  // The native app opens to the marketplace feed at "/" (Depop/Vinted-style).
-  // Cold start still loads /native-start via the Capacitor server.url to resolve
-  // the session, then redirects here. We intentionally DON'T bounce "/" back to
-  // /native-start anymore — that would loop now that /native-start lands on "/".
+  // Capacitor WebViews always include "Capacitor" in their User-Agent.
+  // Redirect the native app away from the marketing homepage before any
+  // page renders — the server redirect happens before a single byte of
+  // the marketing page is sent to the client.
+  if (
+    pathname === "/" &&
+    (request.headers.get("user-agent") || "").includes("Capacitor")
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/native-start"
+    return NextResponse.redirect(url)
+  }
 
   // Extract username from subdomain
   let username = extractUsernameFromHost(host)
@@ -407,53 +414,8 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse
   }
 
-  /**
-   * ─────────────────────────────────────────────────────────────────────────
-   *  NATIVE OWNS ITS OWN SESSION — do not refresh it here
-   * ─────────────────────────────────────────────────────────────────────────
-   * This is one half of the random-logout fix, and it needs the mechanism
-   * spelled out because the symptom looks like anything but this.
-   *
-   * Supabase ROTATES refresh tokens: every successful refresh issues a new one
-   * and invalidates the one that was used. So exactly one thing in the system
-   * may hold and refresh a given session.
-   *
-   * On native there were two. The Capacitor client keeps the session in
-   * Preferences (it has to — that is what survives the Chrome Custom Tab round
-   * trip and holds the PKCE verifier), and /auth/sync-session copies it into
-   * cookies ONCE at sign-in so server code can see who is calling. From then on
-   * both copies refreshed independently against the same project, and whichever
-   * went second was using a token the other had already invalidated. supabase-js
-   * treats "Invalid Refresh Token: Already Used" as terminal — SIGNED_OUT,
-   * session wiped. No bad network needed, no expiry: only time. That is
-   * "randomly it just logs me out of the iOS app".
-   *
-   * capacitor.config.ts appends "Capacitor" to the native User-Agent, so this
-   * is a check rather than a guess. The cookie copy is now a MIRROR, rewritten
-   * by the client after every refresh through POST /api/auth/session-sync — so
-   * it stays fresh without anything here ever touching it.
-   *
-   * The route guards below then have no locally-read user, which is handled the
-   * way an unreadable session already was: let the request through and let the
-   * layout decide. That is not a hole — app/app/layout.tsx and
-   * app/dashboard/layout.tsx both re-verify with getUser() before rendering
-   * anything, and the comments below are explicit that the check here is a
-   * cheap first pass and never the authority.
-   */
-  const isNative = isNativeUserAgent(request.headers.get("user-agent"))
-
-  // The cookie domain, from the one shared rule — see lib/supabase/cookie-domain.ts.
-  //
-  // This used to be `.${MAIN_DOMAIN}` for every non-localhost request, which is
-  // wrong on any host that is not storelib.com: a browser silently DISCARDS a
-  // Set-Cookie naming a domain it is not on. On a seller's custom domain that
-  // meant a refresh rotated the token at Supabase and the replacement was
-  // thrown away by the browser — leaving the old, now-dead refresh token in
-  // place, to fail at some unpredictable point later. Host-aware, it matches
-  // what the browser and server clients write, so there is one cookie on one
-  // domain rather than two that take turns being stale.
-  const cookieDomain = cookieDomainFor(host)
-  const cookieSecure = cookieSecureFor(host)
+  // Determine if we're on localhost for cookie domain settings
+  const isLocalhost = MAIN_DOMAIN.includes("localhost")
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -492,11 +454,10 @@ export async function proxy(request: NextRequest) {
         cookiesToSet.forEach(({ name, value, options }) => {
           supabaseResponse.cookies.set(name, value, {
             ...options,
-            // `.storelib.com` on storelib hosts so subdomains share the session,
-            // and UNDEFINED anywhere else so the browser accepts the cookie at
-            // all. See the note above cookieDomain.
-            domain: cookieDomain,
-            secure: cookieSecure,
+            // Set domain to root domain for subdomain sharing (e.g., .storelib.com)
+            domain: isLocalhost ? undefined : `.${MAIN_DOMAIN}`,
+            // Ensure secure in production
+            secure: !isLocalhost,
             // Allow cookies to be sent with same-site requests
             sameSite: "lax",
           })
@@ -505,94 +466,55 @@ export async function proxy(request: NextRequest) {
     },
   })
 
-  // This runs on every request the matcher accepts — every page and every one
-  // of the API routes. getUser() would make that a guaranteed round trip to the
-  // Supabase Auth server per request, which is the single largest consumer of
-  // the project's auth rate limit; getSession() reads the JWT from the cookies
-  // we were just handed and only reaches the network when the token is genuinely
-  // near expiry, which is the refresh this middleware exists to perform. The
-  // refresh — and therefore the Set-Cookie it produces — still happens exactly
-  // as before, it just stops happening on requests that never needed one.
-  //
-  // On native this call is SKIPPED entirely — see the block above. getSession()
-  // is what performs the refresh, so calling it here is what invalidated the
-  // Capacitor client's token.
-  const { data: sessionData, error: sessionError } = isNative
-    ? { data: { session: null }, error: null as any }
-    : await supabase.auth.getSession()
-  const user = sessionData.session?.user ?? null
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  // An error here means the session could not be read — a refresh that hit a
-  // rate limit, a network fault — which is emphatically not the same as being
-  // signed out. Redirecting on it would sign out every user holding a valid
-  // session the moment Supabase started returning 429s. Let the request through
-  // and let the layout below decide: /app and /dashboard both re-verify with
-  // getUser() server-side, so nothing is actually reachable on a bad session.
-  //
-  // Native counts as unreadable BY DESIGN, not by failure: we deliberately did
-  // not read it, so we must not conclude anything from the absence. Both guards
-  // below then fall through to the layouts, which re-verify properly.
-  const sessionUnreadable = !!sessionError || isNative
-
-  // Protect creator dashboard routes. The check is a cheap first pass over the
-  // cookie, not the authority — app/app/layout.tsx re-verifies against the auth
-  // server before rendering anything — so a locally-read session is enough to
-  // decide whether it is worth routing there at all.
-  if (request.nextUrl.pathname.startsWith("/app") && !user && !sessionUnreadable) {
+  // Protect creator dashboard routes
+  if (request.nextUrl.pathname.startsWith("/app") && !user) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     return NextResponse.redirect(url)
   }
 
-  // Protect customer dashboard routes. Same reasoning: app/dashboard/layout.tsx
-  // performs the verified check that actually gates the content.
-  if (request.nextUrl.pathname.startsWith("/dashboard") && !user && !sessionUnreadable) {
+  // Protect customer dashboard routes
+  if (request.nextUrl.pathname.startsWith("/dashboard") && !user) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     return NextResponse.redirect(url)
   }
 
-  // ── Stripe frame CSP (Capacitor WKWebView only) ─────────────────────────────
+  // ── Stripe controller CSP (Capacitor WKWebView only) ────────────────────────
+  // When Stripe.js initialises it creates a hidden controller iframe at
+  // js.stripe.com/v3/controller-with-preconnect-*.html. That iframe sends a
+  // postMessage; Stripe.js reacts by setting window.location.href = controllerUrl.
+  // In WebKit, window.location.href is [LegacyUnforgeable] — no JS patch can
+  // intercept it. The WebView navigates away from the checkout page.
   //
-  // THIS HEADER USED TO BE THE BUG IT WAS WRITTEN TO PREVENT.
+  // Fix: inject a Content-Security-Policy frame-src that only allows the Stripe
+  // iframe URL patterns actually needed. The controller URL (controller-with-
+  // preconnect-*.html) is intentionally absent → the browser engine blocks it
+  // before any JS runs → no postMessage is ever sent → window.location.href
+  // is never set → checkout stays inline.
   //
-  // It tried to allow only certain Stripe iframes by path, like this:
-  //
-  //     frame-src https://js.stripe.com/v3/elements-*
-  //
-  // A `*` in the PATH of a CSP source is not a wildcard. CSP only wildcards the
-  // host (`https://*.stripe.com`); in a path it is an ordinary character, and
-  // the matching rule is: a source ending in "/" is a path PREFIX, anything
-  // else is an EXACT match. So that line permitted exactly one URL — a file
-  // literally named "elements-*" — and therefore permitted nothing at all.
-  //
-  // Every Stripe iframe was blocked. Not just the controller: the card number,
-  // expiry and CVC fields are `elements-inner-card-*` frames, so they could
-  // never have rendered either.
-  //
-  // And blocking the controller is what CAUSED the ejection. Stripe.js needs
-  // that frame to hold its shared state; with no way to create it, it falls
-  // back to handing the whole page off to Stripe — which is precisely the
-  //
-  //     js.stripe.com/v3/m-outer-<hash>.html#url=…&referrer=…
-  //
-  // top-level navigation people were being thrown out of the app by. The
-  // header meant to keep the checkout inline was the reason it left.
-  //
-  // So: allow Stripe's frame hosts properly, and let Stripe.js have the frames
-  // it needs so it never reaches for the fallback. What is NOT wanted — the
-  // advanced-fraud-signals frame — is turned off where it is actually
-  // configurable, in lib/stripe-client.ts, and stripe-nav-guard.ts remains as
-  // the JS-level net for genuine top-level navigation attempts.
-  //
-  //   js.stripe.com     Elements, the controller, Link, 3DS challenge frames
+  // Allowed patterns (all live under js.stripe.com/v3/):
+  //   elements-*        CardNumberElement / CardExpiryElement / CardCvcElement
+  //   payment-request-* Apple Pay / Google Pay availability check iframe
+  //   three-ds-*        3DS v2 bank-auth challenge iframes
+  //   link-*            Stripe Link authentication iframes
   //   hooks.stripe.com  3DS redirect-return host
-  //   m.stripe.network  named so a blocked frame cannot trigger the fallback;
-  //                     it is not requested at all with fraud signals off
+  //
+  // NOT allowed (intentionally blocked):
+  //   controller-with-preconnect-*  ← the cause of the top-level navigation
   if ((request.headers.get("user-agent") || "").includes("Capacitor")) {
     supabaseResponse.headers.set(
       "Content-Security-Policy",
-      "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://m.stripe.network",
+      "frame-src 'self'" +
+      " https://js.stripe.com/v3/elements-*" +
+      " https://js.stripe.com/v3/payment-request-*" +
+      " https://js.stripe.com/v3/three-ds-*" +
+      " https://js.stripe.com/v3/link-*" +
+      " https://hooks.stripe.com",
     )
   }
 

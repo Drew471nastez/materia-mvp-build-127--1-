@@ -53,31 +53,12 @@ const PARTNER_LOGOS = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9kIiwia2V5IjoibWVkaWEvY29udGFjdF9pbWFnZXMvOWQ0MDVmYmMtNGJkMS00NzEz.svg",
 ]
 
-/**
- * The collage, served as stored objects. No Supabase image transformations.
- *
- * This pointed at `/storage/v1/render/image/public/…?width=&height=&resize=
- * &quality=` in TWO variants per image — a 280px one and a 480px one, wired
- * into a srcSet. Five images × two sizes is ten distinct transformations on
- * the busiest page of the site, and Supabase meters that endpoint: the project
- * hit 106/100 with a spend cap on, which means the eleventh one does not get
- * served at all.
- *
- * The originals are already WebP and already small — 57, 81, 130, 134 and
- * 310 KB, measured — so serving them directly costs roughly half a megabyte
- * more on first load and then nothing, because the object endpoint is CDN
- * cached like any other file. The transform bought a few hundred kilobytes and
- * cost the quota the whole site depends on.
- *
- * The srcSet is gone with it: with one file per image there is nothing to
- * choose between, and `sizes` on a single-candidate srcSet only misleads the
- * next reader. Sizing is CSS — `w-full h-full object-cover` inside the
- * fixed-ratio card — which is what was actually resizing these all along.
- *
- * If the 310 KB one matters, the fix is to re-upload that ONE asset smaller,
- * once, by hand. Not to re-transform it on every page view for every visitor.
- */
-const IMG_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags"
+// Supabase image transforms — mobile-first sizing.
+// Desktop center card is ~280px wide → serve 400px (2x retina cushion).
+// Side cards are ~200–240px → 320px suffices. We use a single set at 400px
+// (the browser picks from srcset via sizes) to keep the code simple.
+// quality=78/88 for crisp WebP at card size (30% bump from previous 60/68).
+const IMG_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags"
 const IMG_NAMES = [
   "Monetize%20(5)%20(2).webp",
   "Monetize%20(6)%20(1).webp",
@@ -85,7 +66,12 @@ const IMG_NAMES = [
   "Monetize%20(21).webp",
   "Monetize%20(9).webp",
 ]
-const IMAGES = IMG_NAMES.map((n) => `${IMG_BASE}/${n}`)
+// Small (mobile / side cards): 280px wide, lower quality for fast mobile loading
+const IMAGES_SM = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=280&height=350&resize=cover&quality=55`)
+// Large (desktop center): 480px wide, moderate quality
+const IMAGES_LG = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=480&height=600&resize=cover&quality=70`)
+// Default src uses the small variant
+const IMAGES = IMAGES_SM
 
 interface CardDef {
   left: number
@@ -550,6 +536,8 @@ export function Hero() {
                     style={{ opacity: loadedImages.has(imageIdx) ? 0 : 1, pointerEvents: "none" }}
                   />
                   <img
+                    srcSet={`${IMAGES_SM[imageIdx]} 320w, ${IMAGES_LG[imageIdx]} 560w`}
+                    sizes="(max-width: 640px) 260px, 280px"
                     src={src}
                     alt=""
                     className="w-full h-full object-cover pointer-events-none transition-opacity duration-700 ease-out"

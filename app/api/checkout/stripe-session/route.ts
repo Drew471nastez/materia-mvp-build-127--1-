@@ -1,4 +1,3 @@
-import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
 import { NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
 import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
@@ -8,12 +7,7 @@ import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
-import { priceCheckout, SELLER_COMMISSION_PERCENT, sellerCommissionCents } from "@/lib/checkout/pricing"
-import { minimumChargeCents } from "@/lib/checkout/currency"
-import { assertChargeCurrencyReady } from "@/lib/checkout/currency-guard"
-import { isShippable } from "@/lib/marketplace/product-kind"
-import { buyerKeyFor, claimReservation } from "@/lib/marketplace/reservation"
-import { SELF_ACTION_CODE, SELF_ACTION_MESSAGE } from "@/lib/marketplace/self-action"
+import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -21,25 +15,7 @@ export async function POST(request: Request) {
   const body = await request.json()
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin") || ""
 
-  const {
-    productId,
-    firstName,
-    lastName,
-    email,
-    tipCents = 0,
-    isGift = false,
-    variantId,
-    customPriceCents = null,
-    offerToken = null,
-    emailOptIn = true,
-    // Marketplace checkout only. Absent for every digital purchase, which is
-    // why nothing below changes when they are missing.
-    deliveryMode = null,
-    deliveryLockerId = null,
-    deliveryCounty = null,
-    deliveryLocality = null,
-    expectedShippingCents = null,
-  } = body
+  const { productId, firstName, lastName, email, tipCents = 0, isGift = false, variantId, customPriceCents = null, emailOptIn = true } = body
 
   if (!productId || !firstName || !lastName || !email) {
     return NextResponse.json({ error: "All fields are required" }, { status: 400 })
@@ -105,24 +81,6 @@ export async function POST(request: Request) {
       }
       basePriceCents = parsedCustomPrice
     }
-  }
-
-  // An accepted offer overrides the asking price — but only through the signed
-  // token the checkout page minted after checking the conversation. The token is
-  // personal: it verifies against the CALLER's user id, so it cannot be lifted
-  // from one buyer's session and spent from another's.
-  if (offerToken) {
-    const { verifyOfferToken } = await import("@/lib/marketplace/offer-token")
-    const { createClient: createUserClient } = await import("@/lib/supabase/server")
-    const userClient = await createUserClient()
-    const {
-      data: { user: buyer },
-    } = await userClient.auth.getUser()
-    const verified = verifyOfferToken(offerToken, { productId, buyerId: buyer?.id ?? null })
-    if (!verified) {
-      return NextResponse.json({ error: "Offer is no longer valid" }, { status: 400 })
-    }
-    basePriceCents = verified.cents
   }
 
   // Require Stripe when the total charge (including tips) is > 0
@@ -195,72 +153,6 @@ export async function POST(request: Request) {
     }
   }
 
-  // ── TWO THINGS THAT MUST BE REFUSED BEFORE A CARD IS TOUCHED ───────────────
-  //
-  // Both were checked only in the interface, which says of itself that it is
-  // "not an authority — worst case the buttons render and checkout refuses".
-  // Checkout did not refuse. These are that refusal.
-
-  // 1. NOBODY BUYS THEIR OWN LISTING.
-  //    With a Connect destination charge, a seller buying from themselves pays
-  //    themselves back minus fees — which is a way to move money through the
-  //    platform, and a way to manufacture completed orders and the reviews and
-  //    badges that hang off them.
-  if (user && product.creator?.user_id && user.id === product.creator.user_id) {
-    return NextResponse.json(
-      { error: SELF_ACTION_MESSAGE.buy, code: SELF_ACTION_CODE },
-      { status: 400 },
-    )
-  }
-
-  // 2. A SECOND-HAND ITEM EXISTS ONCE.
-  //    Every listing on the marketplace is one physical object, so a second
-  //    completed order for it is a sale that cannot be fulfilled — two people
-  //    paid, one gets a refund and an apology. The listing is marked sold when
-  //    the first order completes (see confirm-payment) and every listing
-  //    surface filters on status = 'published', so this is the narrow window
-  //    between one buyer paying and that write landing.
-  if (isShippable(product.type)) {
-    const { data: alreadySold } = await admin
-      .from("orders")
-      .select("id")
-      .eq("product_id", productId)
-      .in("status", ["completed", "paid", "succeeded"])
-      .limit(1)
-      .maybeSingle()
-    if (alreadySold) {
-      return NextResponse.json(
-        { error: "This item has already been sold", code: "already_sold" },
-        { status: 409 },
-      )
-    }
-
-    // ── AND THE NARROW CASE THE READ ABOVE CANNOT SEE ──────────────────────
-    //
-    // Two people pressing pay in the same second both read "no completed
-    // order", because neither order exists yet — and both cards get charged.
-    // A read-then-write can never close that; something has to make Postgres
-    // pick. This is a single INSERT … ON CONFLICT against a primary key, so of
-    // two requests arriving together exactly one comes back holding the item.
-    //
-    // Taken BEFORE the PaymentIntent exists. Reserving after it would mean
-    // creating a charge for somebody who is about to be told they cannot have
-    // the thing, which is the same bug one step later.
-    const reserved = await claimReservation(admin, {
-      productId,
-      buyerKey: buyerKeyFor(user?.id, email),
-    })
-    if (!reserved) {
-      return NextResponse.json(
-        {
-          error: "Someone else is buying this right now. Try again in a few minutes.",
-          code: "reserved_by_other",
-        },
-        { status: 409 },
-      )
-    }
-  }
-
   const accessToken = nanoid(32)
   const sessionFingerprint = nanoid(32)
   const receiptToken = generateReceiptToken()
@@ -282,101 +174,27 @@ export async function POST(request: Request) {
     domain: isLocalhost ? undefined : `.${mainDomain}`,
   })
 
-  /**
-   * The seller's commission is charged on THEIR money — the item and any tip.
-   * Not on the buyer's protection fee and not on the postage, neither of which
-   * was ever theirs to be taxed on.
-   *
-   * FIVE PERCENT, FLAT, FOR EVERYBODY. This used to call calculatePlatformFee,
-   * which resolves a subscription plan off the `creators` table and charges 6%,
-   * 3% or 1.5% accordingly, plus a $0.25 fixed fee above $3. That is the fee
-   * schedule of the digital-goods product this app used to be: it prices
-   * subscriptions this marketplace does not sell, and its fixed component is
-   * denominated in dollars against rows that hold lei.
-   *
-   * It also meant the sell form could not tell a seller what they would be paid
-   * without doing a database read and reimplementing a plan ladder. One
-   * percentage, in the same module as the buyer's fee, is what lets the form's
-   * promise and the transfer be the same arithmetic.
-   */
-  const sellerSideCents = basePriceCents + (tipCents || 0)
-  const commissionCents = sellerCommissionCents(sellerSideCents)
+  const totalAmount = basePriceCents + (tipCents || 0)
 
-  // ── POSTAGE ────────────────────────────────────────────────────────────────
-  //
-  // Priced HERE, server-side, from the courier — never taken from the request.
-  // The browser sends the figure it displayed, and its only use is to be
-  // compared: if the tariff has moved since the page loaded, the buyer is sent
-  // back to look at the new number rather than quietly charged it.
-  //
-  // Only for physical goods with a delivery method. A digital purchase never
-  // reaches this block, and a failure to price never blocks a sale — the
-  // platform absorbing postage on a bad day is a far better outcome than a
-  // checkout that will not complete.
-  /**
-   * Always zero. Storelib sells digital products, so nothing is posted and
-   * there is no postage to price.
-   *
-   * This was a block that priced a parcel through lib/shipping/quote and
-   * refused the sale when the quote disagreed with the number the page had
-   * shown. It went with the marketplace. The variable stays because the Stripe
-   * line items and the order metadata below both read it, and a zero there is
-   * correct rather than merely harmless.
-   */
-  const shippingCents = 0
-
-  // ONE arithmetic, shared with the summary the buyer just read. A checkout
-  // that displays one total and charges another is the worst bug this file
-  // could have, and the only defence is that both come from here.
-  const pricing = priceCheckout({
-    itemCents: basePriceCents,
-    shippingCents,
-    tipCents: tipCents || 0,
-    platformCommissionCents: commissionCents,
-  })
-
-  const totalAmount = pricing.totalCents
-
-  // Stripe's floor, in the currency actually being charged. Hard-coded as 50 it
-  // meant 50 BANI once the platform moved to lei — half a leu, roughly a tenth
-  // of the real minimum, so a charge under it would have been built here and
-  // rejected by Stripe with a message nobody could act on.
-  // THE ONE CHECK THAT CANNOT BE DONE AFTERWARDS.
-  //
-  // If the currency flag has been flipped to lei but the migration that
-  // rewrites price_cents has not run, every amount built below is a dollar
-  // figure about to be charged as lei — a 78% discount on the whole catalogue,
-  // with no error anywhere because both halves work exactly as written. See
-  // lib/checkout/currency-guard.ts.
-  const currencyReady = await assertChargeCurrencyReady()
-  if (!currencyReady.ok) {
-    console.error("[checkout] refusing to charge:", currencyReady.message)
-    return NextResponse.json({ error: currencyReady.message, code: "currency_not_migrated" }, { status: 503 })
+  if (totalAmount < 50) {
+    return NextResponse.json({ error: "Minimum payment amount is $0.50" }, { status: 400 })
   }
 
-  const minimum = minimumChargeCents()
-  if (totalAmount < minimum) {
-    return NextResponse.json(
-      { error: `Minimum payment amount is ${(minimum / 100).toFixed(2)} ${PLATFORM_CURRENCY.toUpperCase()}` },
-      { status: 400 },
-    )
-  }
-
-  // The platform keeps its commission PLUS the protection fee. Passing the
-  // bare commission here would hand the seller a share of the buyer's
-  // protection fee on every single order.
-  const platformFee = pricing.platformTakesCents
+  // Calculate platform fee based on creator's subscription plan
+  const feeCalculation = await calculatePlatformFee(totalAmount, product.creator.id, admin)
+  const platformFee = feeCalculation.platformFeeCents
 
   console.log("[v0] Checkout fee breakdown:", {
     totalAmount,
     basePriceCents,
-    buyerProtectionCents: pricing.buyerProtectionCents,
     tipCents: tipCents || 0,
     platformFee,
-    sellerReceives: pricing.sellerReceivesCents,
+    sellerReceives: totalAmount - platformFee,
     stripeAccountId: product.creator.stripe_account_id,
-    feePercent: `${(SELLER_COMMISSION_PERCENT * 100).toFixed(2)}%`,
-    commissionCents,
+    creatorPlan: feeCalculation.planId,
+    planName: feeCalculation.planName,
+    feePercent: `${(feeCalculation.feePercent * 100).toFixed(2)}%`,
+    feeFixedCents: feeCalculation.feeFixedCents,
     variantId: selectedVariant?.id || "none",
     variantName: selectedVariant?.name || "none",
   })
@@ -385,7 +203,7 @@ export async function POST(request: Request) {
     // Build PaymentIntent config
     const intentConfig: any = {
       amount: totalAmount,
-      currency: PLATFORM_CURRENCY,
+      currency: "usd",
       automatic_payment_methods: {
         enabled: true,
       },
@@ -401,17 +219,14 @@ export async function POST(request: Request) {
         product_type: product.type,
         tip_cents: tipCents.toString(),
         base_price_cents: basePriceCents.toString(),
-        // What the buyer paid for postage, so a refund or a reconciliation can
-        // tell it apart from the item and the protection fee.
-        shipping_cents: shippingCents.toString(),
-        buyer_protection_cents: pricing.buyerProtectionCents.toString(),
         access_token: user ? "" : accessToken,
         is_gift: isGift ? "true" : "false",
         session_fingerprint: sessionFingerprint,
         receipt_token: receiptToken,
         platform_fee_cents: platformFee.toString(),
-        fee_percent: String(SELLER_COMMISSION_PERCENT),
-        fee_fixed_cents: "0",
+        fee_percent: String(feeCalculation.feePercent),
+        fee_fixed_cents: String(feeCalculation.feeFixedCents),
+        plan_used: feeCalculation.planId,
         variant_id: selectedVariant?.id || "",
         variant_name: selectedVariant?.name || "",
         variant_price_cents: selectedVariant?.price_cents?.toString() || "",
@@ -470,7 +285,7 @@ export async function POST(request: Request) {
       try {
         const fallbackConfig: any = {
           amount: totalAmount,
-          currency: PLATFORM_CURRENCY,
+          currency: "usd",
           automatic_payment_methods: { enabled: true },
           metadata: {
             product_id: product.id,
@@ -489,8 +304,9 @@ export async function POST(request: Request) {
             session_fingerprint: sessionFingerprint,
             receipt_token: receiptToken,
             platform_fee_cents: platformFee.toString(),
-            fee_percent: String(SELLER_COMMISSION_PERCENT),
-            fee_fixed_cents: "0",
+            fee_percent: String(feeCalculation.feePercent),
+            fee_fixed_cents: String(feeCalculation.feeFixedCents),
+            plan_used: feeCalculation.planId,
             variant_id: selectedVariant?.id || "",
             variant_name: selectedVariant?.name || "",
             variant_price_cents: selectedVariant?.price_cents?.toString() || "",

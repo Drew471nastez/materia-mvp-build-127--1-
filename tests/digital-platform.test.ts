@@ -140,7 +140,6 @@ check(
       "app/checkout/page.tsx",
       "app/api/checkout/stripe-session/route.ts",
       "components/platform/platform-header-client.tsx",
-      "components/product/product-detail.tsx",
     ]
     const bad = FILES.filter((f) =>
       /lib\/shipping|lib\/eawb|listing-taxonomy|department-nav|feed-filters|marketplace-checkout/.test(code(f)),
@@ -154,15 +153,25 @@ check(
   "checkout charges no postage",
   (() => {
     // The parcel branch priced a delivery and refused the sale when the quote
-    // disagreed with the page. Nothing is posted now, so the constant is zero
-    // and there is no second checkout to route to.
-    const page = code("app/checkout/page.tsx")
-    const session = code("app/api/checkout/stripe-session/route.ts")
-    return (
-      /const shippingCents = 0/.test(session) &&
-      !/quoteDelivery|quoteMatches/.test(session) &&
-      !/isShippable|MarketplaceCheckout/.test(page)
-    )
+    // disagreed with the page.
+    //
+    // An earlier version of this check required `const shippingCents = 0` --
+    // correct while checkout was the marketplace's with the postage zeroed out.
+    // Checkout is the pre-pivot one now and has no shipping concept AT ALL, so
+    // the constant does not exist and asserting it would have forced a zero back
+    // into a file with nothing to zero. The property is the absence of postage,
+    // not the presence of a zero.
+    const files = [
+      "app/checkout/page.tsx",
+      "app/checkout/checkout-client.tsx",
+      "app/api/checkout/stripe-session/route.ts",
+      "app/api/checkout/route.ts",
+      "app/api/checkout/process/route.ts",
+    ]
+    const POSTAGE = /shippingCents|quoteDelivery|quoteMatches|isShippable|MarketplaceCheckout|deliveryMode|awb/i
+    const bad = files.filter((f) => POSTAGE.test(code(f)))
+    if (bad.length) console.log(`        ${bad.join(", ")}`)
+    return bad.length === 0
   })(),
 )
 

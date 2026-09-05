@@ -1,10 +1,7 @@
-import { after, type NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
-import { recordListingLike } from "@/lib/push/activity-db"
-import { PUBLIC_FEED } from "@/lib/marketplace/listing-status"
-import { isOwnProduct, SELF_ACTION_CODE, SELF_ACTION_MESSAGE } from "@/lib/marketplace/self-action"
 
 const GUEST_ID_COOKIE = "materia_guest_id"
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60
@@ -75,7 +72,6 @@ export async function GET(request: NextRequest) {
           compare_at_cents,
           thumbnail_url,
           type,
-          status,
           creator_id,
           creators (
             id,
@@ -101,46 +97,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ items: [], count: 0, error: error.message })
     }
 
-    // Total saves per product across all users → read-only count pill on cards.
-    const savesByProduct = new Map<string, number>()
-    try {
-      const savedIds = (data || []).map((it: any) => it.product_id).filter(Boolean)
-      if (savedIds.length > 0) {
-        const { data: saveRows } = await adminClient
-          .from("wishlist_items")
-          .select("product_id")
-          .in("product_id", savedIds)
-          .limit(50000)
-        for (const row of saveRows || []) {
-          const pid = (row as any).product_id
-          if (pid) savesByProduct.set(pid, (savesByProduct.get(pid) || 0) + 1)
-        }
-      }
-    } catch {
-      /* counts optional */
-    }
-
     // Now fetch profile info for each creator
     const items = data || []
     const enrichedItems = []
 
     for (const item of items) {
       if (!item.products) continue
-      /**
-       * A SAVED LISTING THAT IS NO LONGER FOR SALE IS NOT A CARD.
-       *
-       * The embed neither filtered nor selected `status`, so a wishlist kept
-       * drawing ordinary buyable cards for listings that had since been sold,
-       * archived, reserved or reverted to a draft — and the client could not
-       * tell, because the field never reached it. Tapping one led to a 404 or
-       * a checkout that refuses.
-       *
-       * Filtered here rather than in the query: PostgREST cannot filter on an
-       * embedded table without turning the join into an inner one, which would
-       * silently drop rows for a different reason. The saved ROW stays either
-       * way — un-archiving puts the card back.
-       */
-      if (!PUBLIC_FEED.includes((item.products as any).status)) continue
 
       let creatorInfo = null
       if (item.products.creators?.user_id) {
@@ -163,8 +125,7 @@ export async function GET(request: NextRequest) {
         ...item,
         products: {
           ...item.products,
-          creator_profile: creatorInfo,
-          saves_count: savesByProduct.get(item.products.id) || 0
+          creator_profile: creatorInfo
         }
       })
     }
@@ -207,17 +168,6 @@ export async function POST(request: NextRequest) {
       // Not authenticated
     }
 
-    // Saving your own listing inflates the one number a buyer uses to judge
-    // whether an item is worth acting on. Refused here, not just hidden in the
-    // interface — anything reachable by a request has to be refused by the code
-    // that handles the request. See lib/marketplace/self-action.ts.
-    if (userId && (await isOwnProduct(adminClient, userId, productId))) {
-      return NextResponse.json(
-        { error: SELF_ACTION_MESSAGE.save, code: SELF_ACTION_CODE },
-        { status: 400 },
-      )
-    }
-
     if (userId) {
       // Logged in user flow
       const { data: existing } = await adminClient
@@ -249,25 +199,6 @@ export async function POST(request: NextRequest) {
         .from("wishlist_items")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId)
-
-      /**
-       * The heart on a product card IS the wishlist, so this is the "someone
-       * liked your listing" event and there is no second one.
-       *
-       * Only on the branch that actually INSERTED — the `alreadyExists` return
-       * above never reaches here, so re-saving something you already saved is
-       * silent. And only for signed-in savers: a guest has no identity to
-       * deduplicate against, which would make the guest path the one way to
-       * generate unlimited events. Guests still save; they just do not notify.
-       *
-       * Queued rather than sent, and on `after()` so the heart animates at the
-       * speed of the tap. See lib/push/activity-notification.ts.
-       */
-      after(() => {
-        void recordListingLike(productId, userId!).catch((e) =>
-          console.error("[push:activity] like enqueue failed:", e?.message ?? e),
-        )
-      })
 
       return NextResponse.json({ success: true, count: count || 0 })
     }

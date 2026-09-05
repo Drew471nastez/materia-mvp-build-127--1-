@@ -1,21 +1,6 @@
 "use client"
 
 import { Capacitor } from "@capacitor/core"
-import { tapTargetFor } from "@/lib/push/tap-target"
-
-/**
- * Registered EXACTLY ONCE for the lifetime of the web view.
- *
- * `initPushNotifications` is called from a React effect. Effects run twice in
- * development under StrictMode, again on every remount, and again on a hot
- * reload — and `PushNotifications.addListener` accumulates rather than
- * replaces. Two tap listeners means one tap navigates twice; five means five.
- *
- * Module scope is the right place for this flag, and it is the one place in
- * this codebase where a module-level boolean is correct: there is exactly one
- * web view, it is not a serverless function, and the module dies with the app.
- */
-let listenersAttached = false
 
 /**
  * Initialise push notifications for the native app.
@@ -91,19 +76,6 @@ export async function initPushNotifications(): Promise<void> {
 
   // ── 2. Listeners (must be attached BEFORE register() so the token event
   //       is not missed on iOS) ───────────────────────────────────────────────
-  if (listenersAttached) {
-    // Already wired by an earlier call. Registration below is idempotent on
-    // both platforms, so it is safe to fall through — what must not happen
-    // twice is the listeners.
-    console.log("[push] Listeners already attached — skipping")
-    await PushNotifications.register()
-    return
-  }
-  listenersAttached = true
-  // Belt and braces for a hot reload, where the module is re-evaluated and the
-  // flag above is a fresh `false` while the plugin still holds the old
-  // listeners. Harmless in production, where it removes nothing.
-  await PushNotifications.removeAllListeners().catch(() => {})
   console.log("[push] Attaching listeners now...")
 
   PushNotifications.addListener("registration", ({ value: token }) => {
@@ -132,10 +104,14 @@ export async function initPushNotifications(): Promise<void> {
   })
 
   PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
-    const data = (notification.data ?? {}) as Record<string, unknown>
-    const target = tapTargetFor(data)
-    console.log("[push] Notification tapped, type:", data.type, "→", target ?? "(no route)")
-    if (target) window.location.href = target
+    const { type } = (notification.data ?? {}) as { type?: string }
+    console.log("[push] Notification tapped, type:", type)
+
+    if (type === "sale") {
+      window.location.href = "/app/sales"
+    } else if (type === "payout_available") {
+      window.location.href = "/app/payouts"
+    }
   })
 
   // ── 3. On iOS: listen for the FCM token dispatched from native AppDelegate ─

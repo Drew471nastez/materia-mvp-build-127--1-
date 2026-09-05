@@ -113,7 +113,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
         </Link>
 
         <Link
-          href="/wishlist"
+          href="/library/wishlist"
           className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 transition-all hover:border-neutral-300 hover:shadow-sm group"
         >
           <div className="flex items-center justify-between mb-3">

@@ -15,11 +15,8 @@ import { AppleSignInButton } from "@/components/auth/apple-sign-in-button"
 import { useAuthGate } from "@/lib/use-auth-gate"
 import { nativeAuthStart, nativeAppReady, cacheNativeHome } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
-import { useLocale } from "@/components/locale-provider"
-import { POST_LOGIN_HOME } from "@/lib/auth/post-login"
 
 function LoginFormContent() {
-  const { t } = useLocale()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -41,24 +38,17 @@ function LoginFormContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // One navigation, not two.
-  //
-  // This used to router.push() and then hard-reload the same URL 1.5s later as a
-  // "fallback". When the push worked you got a second, full page load on top of
-  // it — the glitch after signing in. When it didn't, you sat on the login screen
-  // for a second and a half first.
-  //
-  // A hard navigation is also the CORRECT one here specifically: the session
-  // cookie has only just been set, and a client-side push can reach the server
-  // before that cookie is being sent, so the destination renders signed-out. That
-  // race is what made logging in look like it hadn't stuck.
   const navigateWithFallback = (url: string) => {
     setIsRedirecting(true)
-    if (typeof window !== "undefined") {
-      window.location.assign(url)
-      return
-    }
     router.push(url)
+    if (typeof window !== "undefined") {
+      if (redirectTimeoutRef.current) {
+        window.clearTimeout(redirectTimeoutRef.current)
+      }
+      redirectTimeoutRef.current = window.setTimeout(() => {
+        window.location.assign(url)
+      }, 1500)
+    }
   }
 
   // Get redirect URL from search params (for returning to receipt page after login)
@@ -129,13 +119,13 @@ function LoginFormContent() {
             `/auth/sync-session` +
             `?access_token=${encodeURIComponent(gateSession.access_token)}` +
             `&refresh_token=${encodeURIComponent(gateSession.refresh_token)}` +
-            `&next=${encodeURIComponent(POST_LOGIN_HOME)}`
+            `&next=${encodeURIComponent("/app")}`
           )
         } else {
-          window.location.assign(POST_LOGIN_HOME)
+          window.location.assign("/app")
         }
       } catch {
-        window.location.assign(POST_LOGIN_HOME)
+        window.location.assign("/app")
       }
     }, 6000)
 
@@ -155,10 +145,10 @@ function LoginFormContent() {
 
       let nextPath = "/signup/success"
       if (creatorRow?.onboarding_completed) {
-        nextPath = POST_LOGIN_HOME
+        nextPath = "/app"
       } else if (creatorRow === undefined) {
         // Query timed out — assume creator to keep flow moving; layout will re-check.
-        nextPath = POST_LOGIN_HOME
+        nextPath = "/app"
       } else {
         const profileRes = await withTimeout(
           supabase.from("profiles").select("is_creator, welcome_completed").eq("id", user.id).maybeSingle(),
@@ -166,10 +156,10 @@ function LoginFormContent() {
         )
         const profile = (profileRes as any)?.data as { is_creator: boolean; welcome_completed: boolean } | null | undefined
         if (profile?.welcome_completed) {
-          nextPath = POST_LOGIN_HOME
+          nextPath = profile.is_creator ? "/app" : "/library"
         } else if (profile === undefined) {
           // Timed out — default to /app; /app layout will re-check.
-          nextPath = POST_LOGIN_HOME
+          nextPath = "/app"
         }
       }
 
@@ -179,7 +169,7 @@ function LoginFormContent() {
         (window as any).Capacitor.isNativePlatform()
 
       // Cache home route so NativeStartupRouter can skip DB on next cold start
-      if (nextPath === POST_LOGIN_HOME) {
+      if (nextPath === "/app" || nextPath === "/library") {
         cacheNativeHome(nextPath)
       }
 
@@ -236,7 +226,7 @@ function LoginFormContent() {
 
     if (!showPasswordField) {
       if (!email.trim()) {
-        setError(t("auth.err_enter_email"))
+        setError("Please enter your email")
         return
       }
 
@@ -246,7 +236,7 @@ function LoginFormContent() {
         if (origin?.googleOnly) {
           setGoogleOnlyEmail(email.trim().toLowerCase())
           setShowPasswordField(false)
-          setError(t("auth.err_account_google_signin"))
+          setError("This account was created with Google. Continue with Google to sign in.")
           return
         }
       } catch {}
@@ -271,7 +261,7 @@ function LoginFormContent() {
       const origin = await lookupAccountOrigin(trimmedEmail)
       if (origin?.googleOnly) {
         setGoogleOnlyEmail(trimmedEmail)
-        setError(t("auth.err_no_password_google"))
+        setError("No password exists for this account. Continue with Google.")
         setIsLoading(false)
         return
       }
@@ -281,26 +271,6 @@ function LoginFormContent() {
       })
 
       if (error) {
-        // Say which limit was hit, and to whom.
-        //
-        // Supabase answers every exhausted budget with the same sentence —
-        // "Request rate limit reached" — whether what ran out was sign-in
-        // attempts, token refreshes, or the two verification emails an hour the
-        // built-in mailer allows. Passing that through verbatim tells a person
-        // nothing they can act on and tells us nothing we can debug, which is
-        // why this has been diagnosed by inference rather than by reading. The
-        // status and code go to the console for us; the reader gets a sentence
-        // that says what to do.
-        const status = (error as { status?: number }).status
-        const code = (error as { code?: string }).code
-        if (status === 429 || code === "over_request_rate_limit" || /rate limit/i.test(error.message)) {
-          console.error("[auth] rate limited", { status, code, message: error.message })
-          throw new Error(
-            "Prea multe încercări. Așteaptă câteva minute și încearcă din nou.",
-          )
-        }
-        console.error("[auth] sign-in failed", { status, code, message: error.message })
-
         // Handle specific error messages
         if (error.message.includes("Email not confirmed")) {
           // User hasn't verified email — redirect to our custom verify page
@@ -384,24 +354,24 @@ function LoginFormContent() {
           if (creator.onboarding_completed === false) {
             navigateWithFallback("/signup/success")
           } else {
-            cacheNativeHome(POST_LOGIN_HOME)
-            navigateWithFallback(POST_LOGIN_HOME)
+            cacheNativeHome("/app")
+            navigateWithFallback("/app")
           }
         } else {
           // Buyer — welcome_completed is already true (passed gate 2)
           localStorage.setItem("storelib_welcome_shown", "true")
-          cacheNativeHome(POST_LOGIN_HOME)
-          navigateWithFallback(POST_LOGIN_HOME)
+          cacheNativeHome("/library")
+          navigateWithFallback("/library")
         }
         router.refresh()
       }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : t("auth.err_invalid_credentials")
+      const errorMessage = error instanceof Error ? error.message : "Invalid email or password"
       // Clean up error message
       if (errorMessage.includes("Invalid login credentials")) {
-        setError(t("auth.err_invalid_credentials"))
+        setError("Invalid email or password")
       } else if (errorMessage.includes("Email not confirmed")) {
-        setError(t("auth.err_verify_email_first"))
+        setError("Please verify your email first")
       } else {
         setError(errorMessage)
       }
@@ -504,7 +474,7 @@ function LoginFormContent() {
           browserFinishedHandle?.remove()
           ;(window as any).__oauthStarting = false
           setIsGoogleLoading(false)
-          setError(t("auth.err_signin_timeout"))
+          setError("Sign in timed out. Please try again.")
         }, 20_000)
 
         try {
@@ -550,7 +520,7 @@ function LoginFormContent() {
         return
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t("auth.err_google_failed"))
+      setError(err instanceof Error ? err.message : "Failed to sign in with Google")
     }
     ;(window as any).__oauthStarting = false
     setIsGoogleLoading(false)
@@ -607,7 +577,7 @@ function LoginFormContent() {
           browserFinishedHandle?.remove()
           ;(window as any).__appleOAuthStarting = false
           setIsAppleLoading(false)
-          setError(t("auth.err_signin_timeout"))
+          setError("Sign in timed out. Please try again.")
         }, 20_000)
 
         try {
@@ -638,7 +608,7 @@ function LoginFormContent() {
         return
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t("auth.err_apple_failed"))
+      setError(err instanceof Error ? err.message : "Failed to sign in with Apple")
     }
     ;(window as any).__appleOAuthStarting = false
     setIsAppleLoading(false)
@@ -647,7 +617,7 @@ function LoginFormContent() {
   // Block rendering while auth state is resolving or redirect is in progress.
   // This guarantees the login form is never shown after auth succeeds.
   if (authGateLoading || nativeAuthInProgress) {
-    return <AuthResolvingScreen message={nativeAuthInProgress ? t("auth.signing_you_in") : undefined} />
+    return <AuthResolvingScreen message={nativeAuthInProgress ? "Signing you in..." : undefined} />
   }
 
   if (isRedirecting || gateSession || isGoogleRedirecting || isAppleRedirecting) {
@@ -660,15 +630,15 @@ function LoginFormContent() {
         <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4 animate-fade-in-up auth-card">
           <AuthLogo />
 
-          <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">{t("auth.login_title")}</h1>
-          <p className="mb-8 text-[15px] text-neutral-500">{t("auth.login_subtitle")}</p>
+          <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Welcome back</h1>
+          <p className="mb-8 text-[15px] text-neutral-500">Log in to your account</p>
 
           <form onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">
               <Input
                 id="email"
                 type="email"
-                placeholder={t("auth.email_placeholder")}
+                placeholder="Email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -683,7 +653,7 @@ function LoginFormContent() {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder={t("auth.password_placeholder")}
+                    placeholder="Password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -706,7 +676,7 @@ function LoginFormContent() {
 
             {googleOnlyEmail && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
-                <p className="text-xs text-blue-800">{t("auth.use_google_signin_for")} <span className="font-medium">{googleOnlyEmail}</span>.</p>
+                <p className="text-xs text-blue-800">Use Google sign-in for <span className="font-medium">{googleOnlyEmail}</span>.</p>
               </div>
             )}
 
@@ -715,13 +685,13 @@ function LoginFormContent() {
               className="h-12 w-full rounded-full bg-neutral-900 text-[15px] font-semibold text-white hover:bg-neutral-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading || isContinueLoading}
             >
-              {isLoading ? t("auth.logging_in") : isContinueLoading ? t("auth.checking") : t("auth.continue")}
+              {isLoading ? "Logging in..." : isContinueLoading ? "Checking..." : "Continue"}
             </Button>
           </form>
 
           <div className="my-6 flex items-center gap-4">
             <div className="h-px flex-1 bg-neutral-200" />
-            <span className="text-[13px] font-medium text-neutral-400">{t("auth.or")}</span>
+            <span className="text-[13px] font-medium text-neutral-400">OR</span>
             <div className="h-px flex-1 bg-neutral-200" />
           </div>
 
@@ -755,7 +725,7 @@ function LoginFormContent() {
                   />
                 </svg>
               )}
-              {isGoogleLoading ? t("auth.connecting") : t("auth.continue_with_google")}
+              {isGoogleLoading ? "Connecting..." : "Continue with Google"}
             </Button>
 
             <AppleSignInButton
@@ -767,14 +737,14 @@ function LoginFormContent() {
 
           <div className="mt-4 text-center">
             <Link href="/request" className="text-[13px] text-neutral-400 hover:text-neutral-600">
-              {t("auth.forgot_password")}
+              Forgot password?
             </Link>
           </div>
 
           <p className="mt-6 text-center text-[14px] text-neutral-500">
-            {t("auth.no_account")}{" "}
+            Don&apos;t have an account?{" "}
             <Link href="/signup" className="font-medium text-purple-600 hover:text-purple-700">
-              {t("nav.sign_up")}
+              Sign up
             </Link>
           </p>
         </div>

@@ -6,12 +6,8 @@ import { MarketingFooter } from "@/components/marketing/footer"
 import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
-import { isSellFormRoute } from "@/lib/marketplace/sell-route"
 
 export function ConditionalFooter() {
-  // No footer on the listing form. It's a long, focused task and ending it in a
-  // sitemap invites people to wander off mid-listing.
-
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [showFooter, setShowFooter] = useState(false)
@@ -38,12 +34,6 @@ export function ConditionalFooter() {
 
     // In Capacitor native apps, hide the black footer on seller pages,
     // product pages, and /explore for a clean native app experience.
-    // No footer anywhere inside the app shell. A sitemap of marketing links at
-    // the bottom of every screen is a website's furniture, not an app's.
-    if (isNativeApp()) {
-      setShowFooter(false)
-      return
-    }
     if (isNativeApp() && (isSubdomain || isSellerPath || pathname.startsWith("/explore"))) {
       setShowFooter(false)
       return
@@ -69,8 +59,6 @@ export function ConditionalFooter() {
       pathname.startsWith("/features") ||
       pathname.startsWith("/creators") ||
       pathname.startsWith("/wishlist") ||
-      pathname.startsWith("/cart") ||
-      pathname.startsWith("/messages") ||
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/app") ||
       pathname.startsWith("/marketplace") ||
@@ -84,14 +72,5 @@ export function ConditionalFooter() {
     setShowFooter(isPlatformPage)
   }, [pathname, searchParams, isHydrated])
 
-  // Surfaces that are a task, not a destination: a sitemap under them just
-  // invites you to abandon what you were doing.
-  const noFooter =
-    isSellFormRoute(pathname) ||
-    pathname.startsWith("/settings") ||
-    pathname.startsWith("/messages") ||
-    pathname.startsWith("/cart") ||
-    pathname.startsWith("/wishlist")
-
-  return showFooter && !noFooter ? <MarketingFooter /> : null
+  return showFooter ? <MarketingFooter /> : null
 }

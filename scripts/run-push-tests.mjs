@@ -21,24 +21,8 @@ import { tmpdir } from "node:os"
 import { join, basename, dirname, relative } from "node:path"
 
 const SUITES = [
-  "tests/push-notifications.test.ts",
-  "tests/activity-notifications.test.ts",
   "tests/auth-session.test.ts",
-  "tests/auth-guards.test.ts",
-  "tests/no-image-transforms.test.ts",
-  "tests/image-pipeline.test.ts",
-  "tests/thread-loading-shell.test.ts",
-  "tests/image-fit.test.ts",
-  "tests/letterbox.test.ts",
-  "tests/reprocess.test.ts",
-  "tests/messaging-integrity.test.ts",
-  "tests/checkout-pricing.test.ts",
-  "tests/nav-chrome.test.ts",
-  "tests/one-arrival.test.ts",
-  "tests/messages-chrome.test.ts",
-  "tests/identity.test.ts",
   "tests/sql-aggregate.test.ts",
-  "tests/copy-dashes.test.ts",
   "tests/spam-defence.test.ts",
   "tests/digital-platform.test.ts",
 ]

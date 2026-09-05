@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
-import { useLocale } from "@/components/locale-provider"
 
 interface BuyButtonProps {
   productId: string
@@ -29,7 +28,6 @@ export function BuyButton({
   callToAction,
   customPriceCents,
 }: BuyButtonProps) {
-  const { t } = useLocale()
   const [loading, setLoading] = useState(false)
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
@@ -90,12 +88,12 @@ export function BuyButton({
       {loading ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          {t("checkout.loading")}
+          Loading...
         </>
       ) : displayPrice === 0 ? (
-        callToAction || t("checkout.get_for_free")
+        callToAction || "Get for Free"
       ) : (
-        callToAction || t("checkout.i_want_this")
+        callToAction || "I want this!"
       )}
     </Button>
   )

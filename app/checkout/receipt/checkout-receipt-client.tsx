@@ -26,7 +26,6 @@ import {
   UserPlus,
 } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
-import { useLocale } from "@/components/locale-provider"
 
 interface CheckoutReceiptClientProps {
   order: {
@@ -72,6 +71,12 @@ const formatFileSize = (bytes?: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+const formatPrice = (cents: number) => {
+  if (cents == null || isNaN(cents)) return "Free"
+  if (cents === 0) return "Free"
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
+}
+
 /** Truncate a filename to maxLen chars, preserving the extension */
 const truncateFileName = (name: string, maxLen = 32) => {
   if (!name || name.length <= maxLen) return name
@@ -96,9 +101,8 @@ export default function CheckoutReceiptClient({
   emailStatus,
 }: CheckoutReceiptClientProps) {
   const searchParams = useSearchParams()
-  const { t, formatPrice } = useLocale()
   const orderId = order.id
-  const creatorName = product.creator?.display_name || t("checkout.the_creator")
+  const creatorName = product.creator?.display_name || "the creator"
   const creatorAvatar = product.creator?.avatar_url || null
   const creatorUsername = product.creator?.username || product.creator?.slug || ""
   const productUrl = creatorUsername ? getProductUrl(creatorUsername, product.slug) : "/explore"
@@ -202,9 +206,9 @@ export default function CheckoutReceiptClient({
     const allSent = emailStatus.buyerEmailSent && emailStatus.sellerEmailSent
 
     if (hasError) {
-      showToast(t("checkout.toast_email_failed"), "error")
+      showToast("We couldn't send one of the emails. Try Resend below.", "error")
     } else if (allSent || searchParams.get("emailSent") === "1") {
-      showToast(t("checkout.toast_download_inbox"), "success")
+      showToast("Your download link is now in your inbox. Check spam if you don't see it.", "success")
     } else {
       return
     }
@@ -242,13 +246,13 @@ export default function CheckoutReceiptClient({
       })
       const data = await res.json()
       if (!res.ok) {
-        setVerifyError(data.error || t("checkout.err_send_code"))
+        setVerifyError(data.error || "Failed to send verification code")
         return
       }
-      setVerifySuccess(t("checkout.verify_code_sent"))
+      setVerifySuccess("Verification code sent! Check your email.")
       setVerifyStep("code")
     } catch {
-      setVerifyError(t("checkout.err_something_wrong"))
+      setVerifyError("Something went wrong. Please try again.")
     } finally {
       setVerifyLoading(false)
     }
@@ -266,15 +270,15 @@ export default function CheckoutReceiptClient({
       const data = await res.json()
       if (!res.ok) {
         if (data.limitReached) {
-          setVerifyError(t("checkout.err_device_limit"))
+          setVerifyError("Device limit reached. You can only verify 3 devices per order. Please contact support.")
         } else {
-          setVerifyError(data.error || t("checkout.err_invalid_code"))
+          setVerifyError(data.error || "Invalid verification code")
         }
         return
       }
       window.location.reload()
     } catch {
-      setVerifyError(t("checkout.err_something_wrong"))
+      setVerifyError("Something went wrong. Please try again.")
     } finally {
       setVerifyLoading(false)
     }
@@ -284,7 +288,7 @@ export default function CheckoutReceiptClient({
   const handleResendEmail = async () => {
     if (resendCount >= MAX_RESENDS) {
       setResendDisabled(true)
-      setResendError(t("checkout.err_max_resends"))
+      setResendError("Maximum resend attempts reached.")
       return
     }
     setResendLoading(true)
@@ -304,20 +308,20 @@ export default function CheckoutReceiptClient({
       })
       const data = await res.json()
       if (res.status === 429) {
-        setResendError(data.error || t("checkout.err_too_many_resends"))
+        setResendError(data.error || "Too many resend attempts. Please try again later.")
         setResendDisabled(true)
         return
       }
       if (res.ok && data.success) {
         setResendSuccess(true)
         setResendCount((c) => c + 1)
-        showToast(t("checkout.toast_email_resent"), "success")
+        showToast("Email resent successfully!", "success")
         setTimeout(() => setResendSuccess(false), 5000)
       } else {
-        setResendError(data.error || t("checkout.err_resend_failed"))
+        setResendError(data.error || "Failed to resend email.")
       }
     } catch {
-      setResendError(t("checkout.err_network"))
+      setResendError("Network error. Please try again.")
     } finally {
       setResendLoading(false)
     }
@@ -326,7 +330,7 @@ export default function CheckoutReceiptClient({
   // Update email address
   const handleUpdateEmail = async () => {
     if (!newEmail || !newEmail.includes("@")) {
-      setUpdateEmailError(t("checkout.err_valid_email"))
+      setUpdateEmailError("Please enter a valid email address")
       return
     }
     setUpdateEmailLoading(true)
@@ -344,16 +348,16 @@ export default function CheckoutReceiptClient({
         return
       }
       if (!res.ok) {
-        setUpdateEmailError(data.error || t("checkout.err_update_email"))
+        setUpdateEmailError(data.error || "Failed to update email")
         return
       }
       setResendSuccess(true)
       setShowWrongEmail(false)
       setNewEmail("")
-      showToast(t("checkout.toast_email_updated"), "success")
+      showToast("Email updated and receipt resent!", "success")
       setTimeout(() => setResendSuccess(false), 5000)
     } catch {
-      setUpdateEmailError(t("checkout.err_network"))
+      setUpdateEmailError("Network error. Please try again.")
     } finally {
       setUpdateEmailLoading(false)
     }
@@ -402,7 +406,7 @@ export default function CheckoutReceiptClient({
   }
 
   const renderDownloadItem = (asset: any, idx: number) => {
-    const fileName = asset.file_name || t("checkout.download_fallback")
+    const fileName = asset.file_name || "Download"
     const displayName = truncateFileName(fileName, 28)
     const isDownloading = downloadingId === asset.id
 
@@ -464,7 +468,7 @@ export default function CheckoutReceiptClient({
               onClick={() => setShowAllDownloads(!showAllDownloads)}
               className="w-full py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
             >
-              {showAllDownloads ? t("checkout.show_less") : `${t("checkout.show_all")} (${assetsList.length})`}
+              {showAllDownloads ? "Show Less" : `Show All (${assetsList.length})`}
             </button>
           </div>
         )}
@@ -499,9 +503,9 @@ export default function CheckoutReceiptClient({
           </div>
 
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{t("checkout.verify_identity")}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Verify your identity</h1>
             <p className="mt-3 text-sm leading-relaxed text-gray-500 max-w-sm mx-auto">
-              {t("checkout.verify_new_device")}
+              You&apos;re accessing this receipt from a new device. Quick verification keeps your purchase secure.
             </p>
           </div>
 
@@ -515,7 +519,7 @@ export default function CheckoutReceiptClient({
               <div className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="verify-email" className="text-sm font-medium text-gray-700">
-                    {t("checkout.purchase_email")}
+                    Purchase email
                   </Label>
                   <Input
                     id="verify-email"
@@ -532,7 +536,7 @@ export default function CheckoutReceiptClient({
                     inputMode="email"
                     className="h-11 rounded-xl border-gray-200 focus:border-[#7c3aed] focus:ring-[#7c3aed]/20"
                   />
-                  <p className="text-xs text-gray-500">{t("checkout.verify_send_hint")}</p>
+                  <p className="text-xs text-gray-500">We&apos;ll send a 6-digit code to verify it&apos;s you.</p>
                 </div>
 
                 {verifyError && (
@@ -555,14 +559,14 @@ export default function CheckoutReceiptClient({
                   className="w-full h-11 rounded-xl gap-2 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-medium shadow-sm"
                 >
                   {verifyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                  {t("checkout.send_verification_code")}
+                  Send verification code
                 </Button>
               </div>
             ) : (
               <div className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="verify-code" className="text-sm font-medium text-gray-700">
-                    {t("checkout.verification_code")}
+                    Verification code
                   </Label>
                   <Input
                     id="verify-code"
@@ -576,7 +580,7 @@ export default function CheckoutReceiptClient({
                     autoComplete="one-time-code"
                     className="h-11 rounded-xl border-gray-200 focus:border-[#7c3aed] focus:ring-[#7c3aed]/20 text-center text-lg tracking-widest font-mono"
                   />
-                  <p className="text-xs text-gray-500">{t("checkout.verify_check_inbox")}</p>
+                  <p className="text-xs text-gray-500">Check your inbox for the 6-digit code.</p>
                 </div>
 
                 {verifyError && (
@@ -593,7 +597,7 @@ export default function CheckoutReceiptClient({
                     className="w-full h-11 rounded-xl gap-2 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-medium shadow-sm"
                   >
                     {verifyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-                    {t("checkout.verify_unlock")}
+                    Verify & unlock download
                   </Button>
                   <button
                     type="button"
@@ -606,7 +610,7 @@ export default function CheckoutReceiptClient({
                     disabled={verifyLoading}
                     className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors py-2"
                   >
-                    {t("checkout.didnt_receive")}
+                    Didn&apos;t receive it? Send again
                   </button>
                 </div>
               </div>
@@ -614,7 +618,7 @@ export default function CheckoutReceiptClient({
           </div>
 
           <p className="mt-6 text-center text-xs text-gray-400 max-w-xs mx-auto">
-            {t("checkout.verify_protects")}
+            This verification protects your purchase. If you didn&apos;t request access, you can safely ignore this.
           </p>
         </div>
       </div>
@@ -631,10 +635,10 @@ export default function CheckoutReceiptClient({
         <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-6 sm:px-10 lg:px-16">
           <a href={backToProductUrl} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 min-h-[44px] transition-colors">
             <ArrowLeft className="h-4 w-4 shrink-0" />
-            <span className="truncate">{t("checkout.back_to_product")}</span>
+            <span className="truncate">Back to product</span>
           </a>
           <Link href="/explore" className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-            {t("checkout.continue_shopping")}
+            Continue Shopping
           </Link>
         </div>
       </header>
@@ -650,8 +654,8 @@ export default function CheckoutReceiptClient({
                 <path d="M8.5 12.5L10.5 14.5L15.5 9.5" stroke="#7b42ff" strokeWidth="0.648" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">{t("checkout.order_complete")}</h1>
-            <p className="text-sm text-gray-500 mt-1">{t("checkout.download_ready")}</p>
+            <h1 className="text-2xl font-bold text-gray-900">Order Complete</h1>
+            <p className="text-sm text-gray-500 mt-1">Your download is ready</p>
           </div>
 
           {/* Product info */}
@@ -667,7 +671,7 @@ export default function CheckoutReceiptClient({
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 line-clamp-2">{product.title}</p>
                 {order.variant_name && <p className="text-xs text-gray-500 mt-0.5">{order.variant_name}</p>}
-                <p className="text-xs text-gray-400 mt-1">{t("checkout.by")} {creatorName}</p>
+                <p className="text-xs text-gray-400 mt-1">by {creatorName}</p>
               </div>
             </div>
           </div>
@@ -676,13 +680,13 @@ export default function CheckoutReceiptClient({
           <div className="bg-white rounded-2xl border border-gray-200 p-5">
             <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
               <Download className="h-4 w-4 text-gray-500" />
-              {t("checkout.download_files")}
+              Download Files
             </h3>
             {assets.length > 0 ? (
               renderDownloadList(assets)
             ) : (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
-                <p className="text-sm text-gray-500">{t("checkout.no_files_check_back")}</p>
+                <p className="text-sm text-gray-500">No files available yet. Check back soon!</p>
               </div>
             )}
           </div>
@@ -711,7 +715,7 @@ export default function CheckoutReceiptClient({
             {isLoggedIn && (
               <Link href="/library/my-downloads" className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
                 <BookOpen className="h-4 w-4" />
-                {t("checkout.view_in_library")}
+                View in Library
               </Link>
             )}
             <a
@@ -721,7 +725,7 @@ export default function CheckoutReceiptClient({
               className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               <FileText className="h-4 w-4" />
-              {t("checkout.view_receipt")}
+              View Receipt
             </a>
           </div>
 
@@ -732,21 +736,21 @@ export default function CheckoutReceiptClient({
                 <div className="h-8 w-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0">
                   <UserPlus className="h-4 w-4 text-[#6b7280]" />
                 </div>
-                <p className="text-sm font-semibold text-gray-900">{t("checkout.create_account_heading")}</p>
+                <p className="text-sm font-semibold text-gray-900">Create an account</p>
               </div>
-              <p className="text-xs text-gray-600 mb-3">{t("checkout.account_cta_subtitle")}</p>
+              <p className="text-xs text-gray-600 mb-3">Access your purchases from any device, leave reviews, and manage downloads.</p>
               <div className="flex gap-2">
                 <Link
                   href={`/signup?redirect=${encodeURIComponent(`/checkout/receipt?token=${receiptToken}`)}&autoBuyer=1&receiptToken=${receiptToken}`}
                   className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-sm font-semibold transition-colors"
                 >
-                  {t("checkout.create_account")}
+                  Create Account
                 </Link>
                 <Link
                   href={`/login?redirect=${encodeURIComponent(`/checkout/receipt?token=${receiptToken}`)}&autoBuyer=1&receiptToken=${receiptToken}`}
                   className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  {t("checkout.log_in")}
+                  Log In
                 </Link>
               </div>
             </div>
@@ -757,7 +761,7 @@ export default function CheckoutReceiptClient({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Mail className="h-4 w-4" />
-                <span>{t("checkout.need_email_again")}</span>
+                <span>Need the email again?</span>
               </div>
               <Button
                 variant="ghost"
@@ -767,9 +771,9 @@ export default function CheckoutReceiptClient({
                 disabled={resendLoading || resendDisabled || resendCount >= MAX_RESENDS}
               >
                 {resendSuccess ? (
-                  <><CheckCircle className="h-4 w-4 mr-1.5 text-green-600" /><span className="text-green-600">{t("checkout.sent")}</span></>
+                  <><CheckCircle className="h-4 w-4 mr-1.5 text-green-600" /><span className="text-green-600">Sent!</span></>
                 ) : (
-                  <>{resendLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}{t("checkout.resend")}{resendCount > 0 ? ` (${MAX_RESENDS - resendCount} ${t("checkout.left")})` : ""}</>
+                  <>{resendLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}Resend{resendCount > 0 ? ` (${MAX_RESENDS - resendCount} left)` : ""}</>
                 )}
               </Button>
             </div>
@@ -779,14 +783,14 @@ export default function CheckoutReceiptClient({
             <div className="pt-3 border-t border-gray-200/60">
               {!showWrongEmail && !emailAlreadyChanged ? (
                 <button onClick={() => setShowWrongEmail(true)} className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
-                  {t("checkout.wrong_email")}
+                  Wrong email address?
                 </button>
               ) : emailAlreadyChanged ? (
-                <p className="text-sm text-gray-500">{t("checkout.email_already_updated")}</p>
+                <p className="text-sm text-gray-500">Email was already updated once for this order.</p>
               ) : (
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="new-email-mobile" className="text-sm font-medium text-gray-700">{t("checkout.new_email_address")}</Label>
+                    <Label htmlFor="new-email-mobile" className="text-sm font-medium text-gray-700">New email address</Label>
                     <Input
                       id="new-email-mobile"
                       type="email"
@@ -801,10 +805,10 @@ export default function CheckoutReceiptClient({
                   <div className="flex gap-2">
                     <Button onClick={handleUpdateEmail} disabled={updateEmailLoading || !newEmail} className="flex-1 h-10 rounded-xl" size="sm">
                       {updateEmailLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      {t("checkout.update_resend")}
+                      Update & resend
                     </Button>
                     <Button variant="ghost" onClick={() => { setShowWrongEmail(false); setNewEmail(""); setUpdateEmailError("") }} disabled={updateEmailLoading} size="sm" className="h-10 rounded-xl">
-                      {t("checkout.cancel")}
+                      Cancel
                     </Button>
                   </div>
                 </div>
@@ -827,8 +831,8 @@ export default function CheckoutReceiptClient({
                   <path d="M8.5 12.5L10.5 14.5L15.5 9.5" stroke="#7b42ff" strokeWidth="0.648" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <h1 className="text-[28px] font-bold text-gray-900">{t("checkout.order_complete")}</h1>
-              <p className="text-sm text-gray-500 mt-1">{t("checkout.purchase_successful_download")}</p>
+              <h1 className="text-[28px] font-bold text-gray-900">Order Complete</h1>
+              <p className="text-sm text-gray-500 mt-1">Your purchase was successful. Download your files below.</p>
             </div>
 
             {/* Product card */}
@@ -844,7 +848,7 @@ export default function CheckoutReceiptClient({
                 <div className="flex-1 min-w-0">
                   <p className="text-[15px] font-semibold text-gray-900 line-clamp-2">{product.title}</p>
                   {order.variant_name && <p className="text-xs text-gray-500 mt-0.5">{order.variant_name}</p>}
-                  <p className="text-xs text-gray-400 mt-1">{t("checkout.by")} {creatorName} · {order.total_cents === 0 ? t("checkout.free") : formatPrice(order.total_cents)}</p>
+                  <p className="text-xs text-gray-400 mt-1">by {creatorName} · {formatPrice(order.total_cents)}</p>
                 </div>
               </div>
             </div>
@@ -853,13 +857,13 @@ export default function CheckoutReceiptClient({
             <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
               <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Download className="h-4 w-4 text-gray-500" />
-                {t("checkout.download_files")}
+                Download Files
               </h3>
               {assets.length > 0 ? (
                 renderDownloadList(assets)
               ) : (
                 <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
-                  <p className="text-sm text-gray-500">{t("checkout.no_files_check_back")}</p>
+                  <p className="text-sm text-gray-500">No files available yet. Check back soon!</p>
                 </div>
               )}
             </div>
@@ -869,7 +873,7 @@ export default function CheckoutReceiptClient({
               {isLoggedIn && (
                 <Link href="/library/my-downloads" className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
                   <BookOpen className="h-4 w-4" />
-                  {t("checkout.view_in_library")}
+                  View in Library
                 </Link>
               )}
               <a
@@ -879,7 +883,7 @@ export default function CheckoutReceiptClient({
                 className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 <FileText className="h-4 w-4" />
-                {t("checkout.view_receipt")}
+                View Receipt
               </a>
             </div>
 
@@ -888,7 +892,7 @@ export default function CheckoutReceiptClient({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Mail className="h-4 w-4" />
-                  <span>{t("checkout.need_email_again")}</span>
+                  <span>Need the email again?</span>
                 </div>
                 <Button
                   variant="ghost"
@@ -898,9 +902,9 @@ export default function CheckoutReceiptClient({
                   disabled={resendLoading || resendDisabled || resendCount >= MAX_RESENDS}
                 >
                   {resendSuccess ? (
-                    <><CheckCircle className="h-4 w-4 mr-1.5 text-green-600" /><span className="text-green-600">{t("checkout.sent")}</span></>
+                    <><CheckCircle className="h-4 w-4 mr-1.5 text-green-600" /><span className="text-green-600">Sent!</span></>
                   ) : (
-                    <>{resendLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}{t("checkout.resend")}{resendCount > 0 ? ` (${MAX_RESENDS - resendCount} ${t("checkout.left")})` : ""}</>
+                    <>{resendLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}Resend{resendCount > 0 ? ` (${MAX_RESENDS - resendCount} left)` : ""}</>
                   )}
                 </Button>
               </div>
@@ -913,11 +917,11 @@ export default function CheckoutReceiptClient({
                     Wrong email address?
                   </button>
                 ) : emailAlreadyChanged ? (
-                  <p className="text-sm text-gray-500">{t("checkout.email_already_updated")}</p>
+                  <p className="text-sm text-gray-500">Email was already updated once for this order.</p>
                 ) : (
                   <div className="space-y-3">
                     <div className="space-y-2">
-                      <Label htmlFor="new-email-desktop" className="text-sm font-medium text-gray-700">{t("checkout.new_email_address")}</Label>
+                      <Label htmlFor="new-email-desktop" className="text-sm font-medium text-gray-700">New email address</Label>
                       <Input
                         id="new-email-desktop"
                         type="email"
@@ -932,10 +936,10 @@ export default function CheckoutReceiptClient({
                     <div className="flex gap-2">
                       <Button onClick={handleUpdateEmail} disabled={updateEmailLoading || !newEmail} className="flex-1 h-10 rounded-xl" size="sm">
                         {updateEmailLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                        {t("checkout.update_resend")}
+                        Update & resend
                       </Button>
                       <Button variant="ghost" onClick={() => { setShowWrongEmail(false); setNewEmail(""); setUpdateEmailError("") }} disabled={updateEmailLoading} size="sm" className="h-10 rounded-xl">
-                        {t("checkout.cancel")}
+                        Cancel
                       </Button>
                     </div>
                   </div>
@@ -978,8 +982,8 @@ export default function CheckoutReceiptClient({
                     <UserPlus className="h-5 w-5 text-[#6b7280]" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900">{t("checkout.create_account_heading")}</h3>
-                    <p className="text-sm text-gray-500 mt-0.5">{t("checkout.account_cta_subtitle")}</p>
+                    <h3 className="font-semibold text-gray-900">Create an account</h3>
+                    <p className="text-sm text-gray-500 mt-0.5">Access your purchases from any device, leave reviews, and manage downloads.</p>
                   </div>
                 </div>
                 <div className="flex gap-3">
@@ -987,13 +991,13 @@ export default function CheckoutReceiptClient({
                     href={`/signup?redirect=${encodeURIComponent(`/checkout/receipt?token=${receiptToken}`)}&autoBuyer=1&receiptToken=${receiptToken}`}
                     className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-sm font-semibold transition-colors"
                   >
-                    {t("checkout.create_account")}
+                    Create Account
                   </Link>
                   <Link
                     href={`/login?redirect=${encodeURIComponent(`/checkout/receipt?token=${receiptToken}`)}&autoBuyer=1&receiptToken=${receiptToken}`}
                     className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                   >
-                    {t("checkout.log_in")}
+                    Log In
                   </Link>
                 </div>
               </div>

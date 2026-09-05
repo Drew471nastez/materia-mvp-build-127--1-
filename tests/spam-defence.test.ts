@@ -538,6 +538,26 @@ check(
   "        components/platform/language-modal.tsx",
 )
 
+check(
+  "the picker offers a language and not a currency",
+  (() => {
+    /**
+     * Salvaged from tests/checkout-pricing.test.ts, which was deleted with the
+     * marketplace pricing it guarded.
+     *
+     * The property is worth keeping on its own: a six-currency switcher once
+     * relabelled every price against a static rate table while the card was
+     * charged in one currency regardless, so a shopper who chose GBP read
+     * pounds everywhere and got a lei charge. A control that moves the label
+     * and not the money is worse than no control. Whatever modal the account
+     * menus open must not offer one.
+     */
+    const modal = read("components/platform/language-modal.tsx")
+    return !/setCurrency/.test(modal) && !/currencies\.map/.test(modal)
+  })(),
+  "        components/platform/language-modal.tsx",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

@@ -25,7 +25,7 @@ export function CreatorQuickNav() {
     { href: "/app", label: "Dashboard", icon: LayoutDashboard },
     { href: "/app/products", label: "Products", icon: Package },
     { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/settings", label: "Settings", icon: Settings },
+    { href: "/app/settings", label: "Settings", icon: Settings },
   ]
 
   return (

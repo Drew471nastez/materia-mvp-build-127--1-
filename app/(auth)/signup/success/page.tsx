@@ -3,18 +3,19 @@
 import { Suspense, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Loader2, Shirt } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { CreatorOnboardingModal } from "@/components/app/creator-onboarding-modal"
 import { createClient } from "@/lib/supabase/client"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
-import { useLocale } from "@/components/locale-provider"
 import Image from "next/image"
-import { POST_LOGIN_HOME } from "@/lib/auth/post-login"
-import { isAuthInProgress } from "@/lib/auth/auth-in-progress"
 
-// Iconiță pentru vânzător — hainele pe care le pui la vânzare
-const SellerIcon = () => <Shirt className="w-7 h-7" strokeWidth={2} />
-
+// Store/Creator icon - matches UserIcon style
+const StoreIcon = () => (
+  <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M9 22V12H15V22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
 
 const UserIcon = () => (
   <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -24,7 +25,6 @@ const UserIcon = () => (
 )
 
 function SuccessContent() {
-  const { t } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [hoveredCard, setHoveredCard] = useState<"creator" | "buyer" | null>(null)
@@ -44,7 +44,7 @@ function SuccessContent() {
     // Guard: if native-oauth.ts is handling a deep-link callback, don't
     // run any auth checks or redirects — the handler owns navigation.
     try {
-      if (isAuthInProgress()) return
+      if (sessionStorage.getItem("nativeAuthInProgress") === "1") return
     } catch {}
 
     const supabase = createClient()
@@ -115,7 +115,7 @@ function SuccessContent() {
         if (cancelled) return
 
         if (creator?.onboarding_completed === true) {
-          window.location.replace(POST_LOGIN_HOME)
+          window.location.replace("/app")
           return
         }
 
@@ -137,7 +137,7 @@ function SuccessContent() {
         if (cancelled) return
 
         if (profile?.welcome_completed === true && profile?.is_creator === false) {
-          window.location.replace(POST_LOGIN_HOME)
+          window.location.replace("/library")
           return
         }
 
@@ -154,7 +154,7 @@ function SuccessContent() {
     // Listen for auth state changes (handles delayed session after OAuth).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       try {
-        if (isAuthInProgress()) return
+        if (sessionStorage.getItem("nativeAuthInProgress") === "1") return
       } catch {}
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         checkOnboardingStatus()
@@ -228,13 +228,13 @@ function SuccessContent() {
 
       // Show full-screen loader, then navigate to library (hard navigation for fresh server state)
       setIsRouting(true)
-      window.location.replace(POST_LOGIN_HOME)
+      window.location.replace("/library")
     }
   }
 
   const handleCreatorOnboardingComplete = () => {
     // Onboarding modal has saved everything to database
-    // The modal handles navigation via window.location.replace(POST_LOGIN_HOME)
+    // The modal handles navigation via window.location.replace("/app")
     setShowCreatorOnboarding(false)
   }
 
@@ -279,10 +279,10 @@ function SuccessContent() {
             {/* Title & Subtext */}
             <div className="text-center mb-6">
               <h1 className="text-[28px] sm:text-[32px] font-bold leading-tight mb-1.5">
-                {t("auth.welcome_heading")}
+                Welcome
               </h1>
               <p className="text-gray-500 text-sm">
-                {t("auth.welcome_choose")}
+                Choose how you want to use Storelib.
               </p>
             </div>
 
@@ -291,7 +291,7 @@ function SuccessContent() {
               "flex flex-col gap-3 mb-6 transition-opacity duration-300",
               isLoading && "opacity-50"
             )}>
-              {/* Cardul vânzătorului */}
+              {/* Creator Card */}
               <div
                 className={cn(
                   "p-5 rounded-[16px] border-2 cursor-pointer transition-all duration-300 ease-out",
@@ -306,12 +306,12 @@ function SuccessContent() {
               >
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-full flex items-center justify-center bg-gray-100 text-gray-600 shrink-0">
-                    <SellerIcon />
+                    <StoreIcon />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-base font-semibold mb-0.5">{t("auth.im_creator")}</h3>
+                    <h3 className="text-base font-semibold mb-0.5">I'm a creator</h3>
                     <p className="text-gray-500 text-sm">
-                      {t("auth.creator_desc")}
+                      Create pages and sell products.
                     </p>
                   </div>
                   <button
@@ -327,13 +327,13 @@ function SuccessContent() {
                     {isLoading && selectedChoice === "creator" ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      t("auth.continue")
+                      "Continue"
                     )}
                   </button>
                 </div>
               </div>
 
-              {/* Cardul cumpărătorului */}
+              {/* Buyer Card */}
               <div
                 className={cn(
                   "p-5 rounded-[16px] border-2 cursor-pointer transition-all duration-300 ease-out",
@@ -351,9 +351,9 @@ function SuccessContent() {
                     <UserIcon />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-base font-semibold mb-0.5">{t("auth.im_buyer")}</h3>
+                    <h3 className="text-base font-semibold mb-0.5">I'm a buyer</h3>
                     <p className="text-gray-500 text-sm">
-                      {t("auth.buyer_desc")}
+                      Explore and purchase from creators.
                     </p>
                   </div>
                   <button
@@ -369,7 +369,7 @@ function SuccessContent() {
                     {isLoading && selectedChoice === "buyer" ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      t("auth.continue")
+                      "Continue"
                     )}
                   </button>
                 </div>
@@ -378,7 +378,7 @@ function SuccessContent() {
 
             {/* Footer */}
             <p className="text-center text-gray-400 text-xs">
-              {t("auth.switch_later")}
+              You can switch later.
             </p>
           </div>
         </div>
@@ -387,7 +387,7 @@ function SuccessContent() {
         <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden bg-neutral-900">
           <Image
             src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/awapage.png"
-            alt="Bun venit pe Storelib"
+            alt="Welcome banner"
             fill
             className="object-cover object-center"
             sizes="(min-width: 1024px) 50vw, 0px"
@@ -397,7 +397,7 @@ function SuccessContent() {
         </div>
       </div>
 
-      {/* Modalul de onboarding pentru vânzători */}
+      {/* Creator Onboarding Modal */}
       <CreatorOnboardingModal
         open={showCreatorOnboarding}
         onClose={handleCreatorOnboardingComplete}

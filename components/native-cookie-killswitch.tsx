@@ -96,38 +96,7 @@ export function NativeCookieKillSwitch(): null {
     observer.observe(document.body, { childList: true, subtree: true })
 
     return () => {
-      /**
-       * THE `capacitor` CLASS IS NEVER REMOVED. This line used to remove it,
-       * and it was the cause of the black header, the "Sign in" button, the
-       * blank grey frame and the layout shift on every navigation in the app.
-       *
-       * The class does not describe a component's lifetime. It describes an
-       * immutable fact about the document — "this page is running inside the
-       * native shell" — which is decided by the inline script in app/layout.tsx
-       * before React exists and never stops being true. It is what
-       * `html.capacitor` in app/globals.css keys on to hide the web header, the
-       * search row and the site chrome that the app supplies natively.
-       *
-       * So a cleanup that removed it did not undo this component's work; it
-       * undid the inline script's, and for as long as the component was
-       * unmounted the app RENDERED AS A WEBSITE:
-       *
-       *   · the black Storelib header appeared, with a "Sign in" button (the
-       *     web header seeds from a snapshot the app never writes, so it draws
-       *     the signed-out state over a signed-in session)
-       *   · the search row appeared under it
-       *   · `--web-header-h` was republished, which moves `.thread-shell` —
-       *     `top: var(--web-header-h)` — so the conversation dropped by the
-       *     height of chrome that should not exist
-       *   · and the frame in between, with the class gone and the header not
-       *     yet painted, is the blank `#f5f5f5` screen
-       *
-       * All four reported as "the transition is buggy and shifts the layout",
-       * and none of them is a transition at all.
-       *
-       * The observer is still disconnected — that IS this component's own work
-       * and it must not outlive it.
-       */
+      document.documentElement.classList.remove("capacitor")
       observer.disconnect()
       // Leave the <style> in place intentionally — removing it on unmount
       // could briefly expose a vendor banner before the component remounts.

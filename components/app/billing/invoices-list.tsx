@@ -1,7 +1,6 @@
 "use client"
 
 import { Download, FileText, CheckCircle, Clock, XCircle } from "lucide-react"
-import { useLocale } from "@/components/locale-provider"
 
 interface Invoice {
   id: string
@@ -20,7 +19,6 @@ interface InvoicesListProps {
 }
 
 export function InvoicesList({ invoices }: InvoicesListProps) {
-  const { t } = useLocale()
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString("en-US", {
@@ -40,14 +38,14 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
         return (
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
             <CheckCircle className="h-3 w-3" />
-            {t("settings.invPaid")}
+            Paid
           </div>
         )
       case "open":
         return (
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
             <Clock className="h-3 w-3" />
-            {t("settings.pending")}
+            Pending
           </div>
         )
       case "void":
@@ -70,12 +68,12 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
   if (!invoices || invoices.length === 0) {
     return (
       <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-        <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">{t("settings.billingHistory")}</h3>
+        <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Billing History</h3>
         <div className="bg-[#f9fafb] rounded-xl p-8 text-center">
           <FileText className="h-10 w-10 text-[#9ca3af] mx-auto mb-3" />
-          <p className="text-[13px] text-[#6b7280] mb-1">{t("settings.invNoInvoices")}</p>
+          <p className="text-[13px] text-[#6b7280] mb-1">No invoices yet</p>
           <p className="text-[12px] text-[#9ca3af]">
-            {t("settings.invHistoryHere")}
+            Your billing history will appear here
           </p>
         </div>
       </div>
@@ -107,7 +105,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
 
             {invoice.period_start && invoice.period_end && (
               <div className="text-[11px] text-[#9ca3af] mb-3">
-                {t("settings.invBillingPeriod")} {formatDate(invoice.period_start)} - {formatDate(invoice.period_end)}
+                Billing period: {formatDate(invoice.period_start)} - {formatDate(invoice.period_end)}
               </div>
             )}
 
@@ -120,7 +118,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
                   className="flex-1 h-9 text-[12px] font-medium bg-white hover:bg-[#f3f4f6] text-[#374151] border border-[#e5e7eb] rounded-lg transition-colors flex items-center justify-center gap-1.5"
                 >
                   <Download className="h-3.5 w-3.5" />
-                  {t("settings.invDownloadPdf")}
+                  Download PDF
                 </a>
               )}
               {invoice.hosted_invoice_url && (
@@ -131,7 +129,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
                   className="flex-1 h-9 text-[12px] font-medium bg-white hover:bg-[#f3f4f6] text-[#374151] border border-[#e5e7eb] rounded-lg transition-colors flex items-center justify-center gap-1.5"
                 >
                   <FileText className="h-3.5 w-3.5" />
-                  {t("settings.invViewInvoice")}
+                  View Invoice
                 </a>
               )}
             </div>
@@ -144,11 +142,11 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
         <table className="w-full">
           <thead>
             <tr className="border-b border-[#e5e7eb]">
-              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">{t("settings.invDate")}</th>
-              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">{t("settings.invAmount")}</th>
-              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">{t("settings.invPeriod")}</th>
-              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">{t("settings.status")}</th>
-              <th className="text-right text-[12px] font-semibold text-[#6b7280] pb-3">{t("settings.invInvoice")}</th>
+              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">Date</th>
+              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">Amount</th>
+              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">Period</th>
+              <th className="text-left text-[12px] font-semibold text-[#6b7280] pb-3">Status</th>
+              <th className="text-right text-[12px] font-semibold text-[#6b7280] pb-3">Invoice</th>
             </tr>
           </thead>
           <tbody>
@@ -183,7 +181,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
                         className="px-3 h-8 text-[12px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-lg transition-colors inline-flex items-center gap-1.5"
                       >
                         <Download className="h-3.5 w-3.5" />
-                        {t("settings.invPdf")}
+                        PDF
                       </a>
                     )}
                     {invoice.hosted_invoice_url && (
@@ -194,7 +192,7 @@ export function InvoicesList({ invoices }: InvoicesListProps) {
                         className="px-3 h-8 text-[12px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-lg transition-colors inline-flex items-center gap-1.5"
                       >
                         <FileText className="h-3.5 w-3.5" />
-                        {t("settings.invView")}
+                        View
                       </a>
                     )}
                   </div>

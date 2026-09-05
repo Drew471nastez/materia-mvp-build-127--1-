@@ -47,21 +47,6 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Storelib may use the microphone when recording video for product previews.</string>
 
-	<!-- ── Location — REQUIRED for the delivery-point picker ─────────────────
-	     WKWebView refuses the JavaScript Geolocation API outright unless this
-	     key is present: no prompt is shown and the call fails silently, which
-	     looks like a broken feature rather than a missing permission.
-
-	     WhenInUse only. Nothing here needs a position while backgrounded, and
-	     asking for Always would be a worse review and a worse prompt for no
-	     gain. Location is used to sort easyboxes by distance at checkout and is
-	     never stored — see components/shipping/use-geolocation.ts.
-
-	     The app asks in its own words first (LocationPrompt) before this alert
-	     is shown, because iOS shows it only ONCE per install. -->
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Storelib uses your location to show the easybox delivery points nearest to you. Your location is never saved.</string>
-
 	<!-- ── Push notifications ────────────────────────────────────────────── -->
 	<key>UIBackgroundModes</key>
 	<array>

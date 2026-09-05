@@ -9,8 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react"
 import { AuthLogo } from "@/components/auth/auth-logo"
-import { useLocale } from "@/components/locale-provider"
-import { isAuthInProgress, setAuthInProgress } from "@/lib/auth/auth-in-progress"
 
 /**
  * Detect if running in a mobile browser (NOT inside Capacitor WebView).
@@ -111,13 +109,12 @@ async function exchangeBridgeCode(code: string): Promise<{
  */
 function dismissNativeOverlay() {
   notifyNativeAuthDone()
-  setAuthInProgress(false)
+  try { sessionStorage.removeItem("nativeAuthInProgress") } catch {}
 }
 
 type Phase = "initializing" | "handoff" | "form" | "success" | "expired"
 
 function ResetPasswordContent() {
-  const { t } = useLocale()
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>("initializing")
   const [password, setPassword] = useState("")
@@ -144,7 +141,7 @@ function ResetPasswordContent() {
         if (sessionError) {
           console.error("[ResetPassword] setSession error:", sessionError.message)
           setPhase("expired")
-          setError(t("auth.err_link_expired_invalid"))
+          setError("This reset link has expired or is invalid. Please request a new one.")
           dismissNativeOverlay()
           return
         }
@@ -163,11 +160,11 @@ function ResetPasswordContent() {
       } catch (err) {
         console.error("[ResetPassword] Unexpected error:", err)
         setPhase("expired")
-        setError(t("auth.err_something_wrong_reset"))
+        setError("Something went wrong. Please request a new password reset.")
         dismissNativeOverlay()
       }
     },
-    [t]
+    []
   )
 
   // Main initialization — parse tokens and decide on flow
@@ -206,7 +203,7 @@ function ResetPasswordContent() {
             const result = await exchangeBridgeCode(bridgeCode)
             if (result.error || !result.accessToken || !result.refreshToken) {
               setPhase("expired")
-              setError(result.error || t("auth.err_link_expired"))
+              setError(result.error || "This reset link has expired. Please request a new one.")
               dismissNativeOverlay()
             } else {
               await establishSessionAndShowForm(result.accessToken, result.refreshToken)
@@ -226,7 +223,7 @@ function ResetPasswordContent() {
         const result = await exchangeBridgeCode(bridgeCode)
         if (result.error || !result.accessToken || !result.refreshToken) {
           setPhase("expired")
-          setError(result.error || t("auth.err_link_expired"))
+          setError(result.error || "This reset link has expired. Please request a new one.")
           dismissNativeOverlay()
           return
         }
@@ -243,7 +240,7 @@ function ResetPasswordContent() {
         // Check for old ?token= param (legacy flow)
         if (searchParams.get("token")) {
           setPhase("expired")
-          setError(t("auth.err_link_old_format"))
+          setError("This reset link uses an older format. Please request a new one.")
           dismissNativeOverlay()
           return
         }
@@ -255,7 +252,7 @@ function ResetPasswordContent() {
             setPhase((prev) => {
               if (prev === "initializing") {
                 dismissNativeOverlay()
-                setError(t("auth.err_load_reset_link"))
+                setError("Could not load reset link. Please try again from your email.")
                 return "expired"
               }
               return prev
@@ -265,7 +262,7 @@ function ResetPasswordContent() {
         }
 
         setPhase("expired")
-        setError(t("auth.err_missing_reset_link"))
+        setError("Missing or invalid reset link. Please request a new password reset.")
         dismissNativeOverlay()
         return
       }
@@ -323,12 +320,12 @@ function ResetPasswordContent() {
     setError(null)
 
     if (password.length < 8) {
-      setError(t("auth.err_password_min8"))
+      setError("Password must be at least 8 characters")
       return
     }
 
     if (password !== confirmPassword) {
-      setError(t("auth.err_passwords_no_match"))
+      setError("Passwords do not match")
       return
     }
 
@@ -350,7 +347,7 @@ function ResetPasswordContent() {
 
       // Sign out and redirect to login after 3 seconds
       setTimeout(async () => {
-        await supabase.auth.signOut({ scope: "local" })
+        await supabase.auth.signOut()
         if (isNativePlatform()) {
           try {
             (window as any).StorelibNative?.authDone?.()
@@ -361,7 +358,7 @@ function ResetPasswordContent() {
         }
       }, 3000)
     } catch {
-      setError(t("auth.err_generic_retry"))
+      setError("An error occurred. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -380,7 +377,7 @@ function ResetPasswordContent() {
         <div className="w-full max-w-[440px] text-center">
           <AuthLogo />
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
-          <p className="mt-4 text-[15px] text-neutral-500">{t("auth.loading")}</p>
+          <p className="mt-4 text-[15px] text-neutral-500">Loading...</p>
         </div>
       </div>
     )
@@ -394,14 +391,14 @@ function ResetPasswordContent() {
           <AuthLogo />
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
           <p className="mt-4 text-[15px] text-neutral-500">
-            {t("auth.opening_app")}
+            Opening Storelib app...
           </p>
           <div className="mt-6 space-y-3">
             <Button
               onClick={handleOpenInApp}
               className="h-12 w-full rounded-full bg-neutral-900 text-[15px] font-semibold text-white hover:bg-neutral-800"
             >
-              {t("auth.open_in_app")}
+              Open in app
             </Button>
             <button
               onClick={async () => {
@@ -410,7 +407,7 @@ function ResetPasswordContent() {
                   const result = await exchangeBridgeCode(pendingBridgeCode)
                   if (result.error || !result.accessToken || !result.refreshToken) {
                     setPhase("expired")
-                    setError(result.error || t("auth.err_link_expired"))
+                    setError(result.error || "This reset link has expired. Please request a new one.")
                     dismissNativeOverlay()
                   } else {
                     await establishSessionAndShowForm(result.accessToken, result.refreshToken)
@@ -429,7 +426,7 @@ function ResetPasswordContent() {
               }}
               className="text-[14px] font-medium text-purple-600 hover:text-purple-700"
             >
-              {t("auth.continue_in_browser")}
+              Continue in browser instead
             </button>
           </div>
         </div>
@@ -447,10 +444,10 @@ function ResetPasswordContent() {
             <CheckCircle2 className="h-8 w-8 text-green-600" />
           </div>
           <h1 className="mb-4 text-[32px] font-bold tracking-tight text-neutral-900">
-            {t("auth.reset_success_title")}
+            Password reset successfully
           </h1>
           <p className="mb-8 text-[15px] text-neutral-500">
-            {t("auth.reset_success_subtitle")}
+            Your password has been updated. Redirecting to login...
           </p>
           <Loader2 className="h-5 w-5 animate-spin mx-auto text-neutral-400" />
         </div>
@@ -468,22 +465,22 @@ function ResetPasswordContent() {
             <XCircle className="h-8 w-8 text-red-600" />
           </div>
           <h1 className="mb-4 text-[32px] font-bold tracking-tight text-neutral-900">
-            {t("auth.link_expired_title")}
+            Link expired
           </h1>
           <p className="mb-8 text-[15px] text-neutral-500">
-            {error || t("auth.link_expired_default")}
+            {error || "This password reset link has expired or is invalid."}
           </p>
           <a href="/request">
             <Button
               variant="outline"
               className="h-12 px-8 rounded-full border-neutral-200 text-[15px] font-medium text-purple-600 hover:bg-purple-50 hover:border-purple-200"
             >
-              {t("auth.send_new_reset")}
+              Send new reset email
             </Button>
           </a>
           <div className="mt-4">
             <a href="/login" className="text-[14px] font-medium text-purple-600 hover:text-purple-700">
-              {t("auth.back_to_login")}
+              Back to log in
             </a>
           </div>
         </div>
@@ -497,11 +494,11 @@ function ResetPasswordContent() {
       <div className="w-full max-w-[440px] text-center">
         <AuthLogo />
         <h1 className="mb-4 text-[32px] font-bold tracking-tight text-neutral-900">
-          {t("auth.reset_your_password")}
+          Reset your password
         </h1>
         {userEmail && (
           <p className="mb-8 text-[15px] text-neutral-500">
-            {t("auth.setting_new_password_for")}{" "}
+            Setting new password for{" "}
             <span className="font-medium text-neutral-700">{userEmail}</span>
           </p>
         )}
@@ -510,7 +507,7 @@ function ResetPasswordContent() {
           <div className="relative">
             <Input
               type={showPassword ? "text" : "password"}
-              placeholder={t("auth.new_password_placeholder")}
+              placeholder="New password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="h-12 rounded-lg border-neutral-200 bg-neutral-50 px-4 pr-12 text-[15px] placeholder:text-neutral-400 focus:border-neutral-300 focus:bg-white focus:ring-0"
@@ -525,11 +522,11 @@ function ResetPasswordContent() {
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
           </div>
-          <p className="text-xs text-neutral-400 text-left pl-1">{t("auth.min_8_chars")}</p>
+          <p className="text-xs text-neutral-400 text-left pl-1">Minimum 8 characters</p>
 
           <Input
             type={showPassword ? "text" : "password"}
-            placeholder={t("auth.confirm_new_password_placeholder")}
+            placeholder="Confirm new password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             className="h-12 rounded-lg border-neutral-200 bg-neutral-50 px-4 text-[15px] placeholder:text-neutral-400 focus:border-neutral-300 focus:bg-white focus:ring-0"
@@ -544,13 +541,13 @@ function ResetPasswordContent() {
             disabled={isSubmitting || !password.trim() || !confirmPassword.trim()}
             className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-black hover:bg-neutral-300 hover:text-black disabled:opacity-50 disabled:cursor-not-allowed disabled:text-neutral-400"
           >
-            {isSubmitting ? t("auth.resetting") : t("auth.reset_password_button")}
+            {isSubmitting ? "Resetting..." : "Reset Password"}
           </Button>
         </form>
 
         <div className="mt-6">
           <a href="/login" className="text-[14px] font-medium text-purple-600 hover:text-purple-700">
-            {t("auth.back_to_login")}
+            Back to log in
           </a>
         </div>
       </div>

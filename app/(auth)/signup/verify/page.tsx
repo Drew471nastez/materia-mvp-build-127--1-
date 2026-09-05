@@ -9,7 +9,6 @@ import Link from "next/link"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { createClient } from "@/lib/supabase/client"
-import { useLocale } from "@/components/locale-provider"
 
 /**
  * /signup/verify?userId=...&email=...
@@ -25,7 +24,6 @@ import { useLocale } from "@/components/locale-provider"
  *  4. User is sent to /signup/success (role chooser).
  */
 function VerifyContent() {
-  const { t } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
   const userId = searchParams.get("userId") ?? ""
@@ -43,7 +41,7 @@ function VerifyContent() {
   // Sign out and go back to signup (user wants a different email)
   const handleBackToSignup = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut({ scope: "local" })
+    await supabase.auth.signOut()
     window.location.href = "/signup"
   }
 
@@ -102,15 +100,15 @@ function VerifyContent() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || t("auth.err_verification_failed"))
+        throw new Error(data.error || "Verification failed")
       }
 
       setIsRedirecting(true)
       router.replace("/signup/success")
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t("auth.err_verification_failed")
+      const msg = err instanceof Error ? err.message : "Verification failed"
       if (msg.toLowerCase().includes("expired")) {
-        setError(t("auth.err_code_expired"))
+        setError("Code expired. Please request a new one.")
       } else {
         setError(msg)
       }
@@ -135,34 +133,34 @@ function VerifyContent() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || t("auth.err_resend_failed"))
+        throw new Error(data.error || "Failed to resend code")
       }
 
       setResendCooldown(60)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("auth.err_resend_failed"))
+      setError(err instanceof Error ? err.message : "Failed to resend code")
     } finally {
       setIsResending(false)
     }
   }
 
   if (isRedirecting) {
-    return <AuthResolvingScreen message={t("auth.verified_redirecting")} />
+    return <AuthResolvingScreen message="Verified! Redirecting..." />
   }
 
   if (!userId || !email) {
     return (
       <div className="flex min-h-svh w-full items-center justify-center p-6">
         <div className="text-center">
-          <h1 className="text-xl font-semibold text-neutral-900 mb-2">{t("auth.missing_info_title")}</h1>
+          <h1 className="text-xl font-semibold text-neutral-900 mb-2">Missing information</h1>
           <p className="text-neutral-500 mb-4">
-            {t("auth.no_user_info")}
+            No user information was provided. Please sign up first.
           </p>
           <Link
             href="/signup"
             className="inline-flex items-center justify-center px-6 py-2.5 rounded-full bg-neutral-900 text-white font-medium hover:bg-neutral-800 transition-colors"
           >
-            {t("auth.go_to_signup")}
+            Go to signup
           </Link>
         </div>
       </div>
@@ -186,10 +184,10 @@ function VerifyContent() {
           </div>
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900 text-center">
-            {t("auth.check_email")}
+            Check your email
           </h1>
           <p className="mb-2 text-[15px] text-neutral-500 text-center">
-            {t("auth.sent_6_digit_code")}
+            We sent a 6 digit code to
           </p>
           <p className="mb-8 text-[15px] font-medium text-neutral-900 text-center">
             {maskedEmail}
@@ -224,13 +222,13 @@ function VerifyContent() {
             {isVerifying && (
               <div className="flex items-center justify-center gap-2 text-neutral-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">{t("auth.verifying")}</span>
+                <span className="text-sm">Verifying...</span>
               </div>
             )}
 
             <div className="text-center">
               <p className="text-[14px] text-neutral-500 mb-1">
-                {t("auth.didnt_receive_code")}
+                Didn&apos;t receive the code?
               </p>
               <button
                 type="button"
@@ -241,29 +239,29 @@ function VerifyContent() {
                 {isResending ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    {t("auth.sending")}
+                    Sending...
                   </span>
                 ) : resendCooldown > 0 ? (
-                  `${t("auth.resend_code_in")} ${resendCooldown}s`
+                  `Resend code in ${resendCooldown}s`
                 ) : (
-                  t("auth.resend_code")
+                  "Resend code"
                 )}
               </button>
             </div>
 
             <p className="text-[13px] text-neutral-500 text-center">
-              {t("auth.cant_find_email")} <span className="font-medium">{t("auth.spam_junk_folder")}</span>.
+              Can&apos;t find the email? Check your <span className="font-medium">spam or junk folder</span>.
             </p>
 
             <div className="pt-4 border-t border-neutral-100">
               <p className="text-[13px] text-neutral-400 text-center">
-                {t("auth.wrong_email")}{" "}
+                Wrong email?{" "}
                 <button
                   type="button"
                   onClick={handleBackToSignup}
                   className="text-neutral-600 hover:text-neutral-700 underline underline-offset-2"
                 >
-                  {t("auth.go_back_signup")}
+                  Go back to signup
                 </button>
               </p>
             </div>

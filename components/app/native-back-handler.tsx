@@ -29,7 +29,7 @@ const ROOT_ROUTES = [
   "/app/onepage",
   "/app/emails",
   "/app/payouts",
-  "/settings",
+  "/app/settings",
   "/library",
 ]
 
