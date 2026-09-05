@@ -187,25 +187,29 @@ const nextConfig = {
     ]
   },
 
-  // Marketing pages retired by the marketplace pivot — everything funnels to the feed on "/".
-  // `permanent: false` (307) on purpose: the pivot is still settling, and a 308 would be
-  // cached by browsers indefinitely, making a rollback impossible to push to existing users.
-  // Note /explore is deliberately NOT redirected — the native app treats it as a Discover
-  // route (lib/isDiscoverMode.ts) and "/" is intercepted to /native-start in proxy.ts.
-  // /legal/terms, /legal/privacy and /blog are untouched.
+  /**
+   * ===========================================================================
+   *  NOTHING IS RETIRED HERE ANY MORE
+   * ===========================================================================
+   *
+   * This block held five 307s the marketplace pivot put in: /pricing, /features
+   * and /faq funnelled to the feed on "/", and the Website Builder was made
+   * unreachable by direct URL.
+   *
+   * All five are gone now that Storelib sells digital products again. Pricing,
+   * features and an FAQ are not optional decoration for a platform people
+   * subscribe to -- the landing page has a PricingSection and a FaqSection on
+   * it, and both linked at pages that bounced you back to the page you were
+   * already on. The Website Builder is a seller tool that belongs to this
+   * product, not to a clothing marketplace.
+   *
+   * Every route was still there the whole time; only the redirect was removed.
+   * That is because whoever wrote this block chose `permanent: false` on purpose
+   * -- a 308 would have been cached by browsers indefinitely and this would have
+   * been a much worse day.
+   */
   async redirects() {
-    return [
-      { source: '/pricing', destination: '/', permanent: false },
-      { source: '/features', destination: '/', permanent: false },
-      { source: '/faq', destination: '/', permanent: false },
-      // Website Builder retired for the marketplace pivot — hidden from the UI
-      // and unreachable by direct URL. 307 so it's reversible.
-      // NOTE: Store Builder is removed from the nav but its route is left alive
-      // on purpose — the "change profile photo" links in settings open it to
-      // edit the avatar, so redirecting it would break avatar editing.
-      { source: '/app/website-builder', destination: '/app', permanent: false },
-      { source: '/website-builder/:path*', destination: '/app', permanent: false },
-    ]
+    return []
   },
 }
 

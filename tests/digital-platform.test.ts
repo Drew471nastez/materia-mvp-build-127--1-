@@ -228,6 +228,33 @@ check(
 )
 
 check(
+  "the marketing pages the pivot retired are reachable again",
+  (() => {
+    // /pricing, /features and /faq were 307ing to "/" and the Website Builder
+    // was unreachable by URL -- all four retired BY the marketplace pivot, and
+    // all four belong to a platform people subscribe to. The redirect list is
+    // empty now; this fails if any of them is funnelled away again.
+    const cfg = read("next.config.mjs")
+    const block = cfg.slice(cfg.indexOf("async redirects()"))
+    return (
+      !/source: '\/(pricing|features|faq)'/.test(block) &&
+      !/website-builder/.test(block) &&
+      ["pricing", "features", "faq"].every((r) => !gone(`app/(marketing)/${r}/page.tsx`)) &&
+      !gone("app/app/website-builder")
+    )
+  })(),
+  "        next.config.mjs",
+)
+
+check(
+  "and the sitemap advertises them",
+  (() => {
+    const src = code("app/sitemap.ts")
+    return ["/pricing", "/features", "/faq", "/explore"].every((r) => src.includes(`${"${BASE}"}${r}\`"`.slice(0, -1)) || src.includes(r))
+  })(),
+)
+
+check(
   "category paths point at /explore",
   categoryPath("design") === "/explore/design" &&
     categoryPath("design", "fonts") === "/explore/design?sub=fonts" &&

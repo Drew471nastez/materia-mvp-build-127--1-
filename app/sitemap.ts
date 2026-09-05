@@ -17,9 +17,18 @@ const STATIC_BLOG_SLUGS = [
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // "/" is the digital-products landing and the primary URL.
+  //
+  // /pricing, /features and /faq are back. They were 307ing to "/" for the
+  // whole marketplace era and so were deliberately left out of here; they are
+  // the pages somebody comparing platforms actually lands on, and a pricing
+  // page nobody can find is a pricing page nobody reads.
   const routes: MetadataRoute.Sitemap = [
     { url: BASE, lastModified: new Date(), changeFrequency: "daily", priority: 1.0 },
+    { url: `${BASE}/pricing`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.9 },
+    { url: `${BASE}/features`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
+    { url: `${BASE}/explore`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
     { url: `${BASE}/blog`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
+    { url: `${BASE}/faq`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE}/signup`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE}/login`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
   ]
