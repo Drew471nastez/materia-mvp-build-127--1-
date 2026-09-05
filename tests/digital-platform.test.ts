@@ -95,6 +95,9 @@ const REMOVED = [
   "components/sell/new-listing-form.tsx",
   "components/checkout/marketplace-checkout.tsx",
   "app/api/listings",
+  // Fashion-only helpers that outlived their callers.
+  "lib/marketplace/listing-completeness.ts",
+  "lib/marketplace/owned-listing.ts",
 ]
 const survivors = REMOVED.filter((p) => !gone(p))
 check(
@@ -251,6 +254,34 @@ check(
   (() => {
     const src = code("app/sitemap.ts")
     return ["/pricing", "/features", "/faq", "/explore"].every((r) => src.includes(`${"${BASE}"}${r}\`"`.slice(0, -1)) || src.includes(r))
+  })(),
+)
+
+check(
+  "every URL the sitemap advertises has a route behind it",
+  (() => {
+    // The sitemap listed /explore/<id> before the route existed, so a crawler
+    // following it got a 404 from the domain that submitted the sitemap. The
+    // category page is a real route now; this is what stops the two drifting
+    // apart again.
+    return (
+      !gone("app/(marketing)/explore/[category]/page.tsx") &&
+      !gone("app/(marketing)/explore/page.tsx") &&
+      ["pricing", "features", "faq", "blog"].every((r) => !gone(`app/(marketing)/${r}/page.tsx`))
+    )
+  })(),
+  "        app/(marketing)/explore/[category]/page.tsx",
+)
+
+check(
+  "every category has an SEO description of its own",
+  (() => {
+    // An empty meta description wastes the page: it is what a search result
+    // shows. One hand-written sentence per category, not a generated list.
+    const src = read("app/(marketing)/explore/[category]/page.tsx")
+    return CATEGORIES.filter((c) => c.id !== "all").every((c) =>
+      new RegExp(`\\b${c.id}:\\s*\n?\\s*"`).test(src),
+    )
   })(),
 )
 
