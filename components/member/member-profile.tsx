@@ -8,7 +8,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Bookmark, Settings, Share2 } from "lucide-react"
 
-import { ProductCard } from "@/components/explore/product-card"
+import { ListingCard } from "@/components/member/listing-card"
 import { FollowButton } from "@/components/explore/follow-button"
 import { EmptyShelf } from "@/components/member/empty-shelf"
 import { ImageViewer } from "@/components/messages/image-viewer"
@@ -1505,7 +1505,7 @@ export function MemberProfile({
                  nobody ever buys them. */
               const badge = isOwner ? ownerStatusBadge(listing.status) : null
               return (
-                <ProductCard
+                <ListingCard
                   key={listing.id}
                   product={listing}
                   origin="member"

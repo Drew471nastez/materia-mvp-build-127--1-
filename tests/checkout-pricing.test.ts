@@ -497,7 +497,18 @@ check(
  * had committed to it — which is the single worst place for a price to change.
  */
 
-const cardSrc = read("components/explore/product-card.tsx")
+/**
+ * The card these price guards are about is the MARKETPLACE one, and it lives at
+ * components/member/listing-card.tsx now.
+ *
+ * It used to sit at components/explore/product-card.tsx, on top of the card
+ * /explore had used since before the fashion pivot. Restoring the pre-pivot
+ * browse surface put the original back and moved this one to the two pages that
+ * still want its shape -- the member profile and the saved shelf. The pre-pivot
+ * card has no ProtectionMark and no cornerAction, so pointing these checks at it
+ * tested a file that had never made the promise.
+ */
+const cardSrc = read("components/member/listing-card.tsx")
 const detailSrc = read("components/product/product-detail.tsx")
 const displaySrc = read("lib/marketplace/display-price.ts")
 const protectionSrc = read("components/marketplace/buyer-protection.tsx")

@@ -1,240 +1,201 @@
-import type { Metadata } from "next"
-import Link from "next/link"
+import { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import { CategoryPageClient } from "@/components/explore/category-page-client"
 
-import { createAdminClient } from "@/lib/supabase/admin"
-import {
-  CATEGORIES,
-  categoryPath,
-  getCategory,
-  normalizeCategoryToId,
-  subcategoryLabel,
-} from "@/lib/marketplace/categories"
-import { ProductCard } from "@/components/explore/product-card"
-import { getServerT } from "@/lib/i18n/server"
+// Valid categories
+const VALID_CATEGORIES = [
+  "design",
+  "development",
+  "marketing",
+  "business",
+  "ai",
+  "social-media",
+  "productivity",
+  "photography",
+  "video",
+  "audio-music",
+  "education",
+  "ecommerce",
+  "freebies",
+  "other",
+]
 
-/**
- * ===========================================================================
- *  /explore/<category> — ONE PAGE PER DEPARTMENT
- * ===========================================================================
- *
- * These are the pages app/sitemap.ts advertises, one per category and one per
- * subcategory beneath it. They were 404ing: the sitemap was pointed at the new
- * taxonomy before the route that serves it existed, which is worse than not
- * listing them at all -- a crawler following the sitemap gets a 404 from the
- * domain that submitted it.
- *
- * ---------------------------------------------------------------------------
- * WHAT THIS REPLACES, AND WHY IT IS NOT A RESTORATION
- * ---------------------------------------------------------------------------
- * The marketplace had a page here with the same shape -- per-category metadata,
- * a hand-written SEO description each, CollectionPage JSON-LD, a product grid.
- * Its content was womenswear, sneakers and vintage.
- *
- * There is no digital version to restore. This repository's ROOT commit already
- * contains _legacy-landing.tsx and _explore-feed.tsx, so the pivot to a fashion
- * marketplace predates the first commit and the pre-pivot browse pages are not
- * in the history at all. The landing page is the only artefact of that era
- * anybody preserved.
- *
- * So the STRUCTURE here is the marketplace page's, which was well built and is
- * what these URLs already rank as, and the CONTENT is the digital taxonomy.
- * The descriptions below are written for what Storelib actually sells, in the
- * same voice and at the same length the old ones used, because they are what a
- * search result shows and an empty meta description wastes the page.
- */
+// Category labels for display
+const CATEGORY_LABELS: Record<string, string> = {
+  "design": "Design",
+  "development": "Development",
+  "marketing": "Marketing",
+  "business": "Business",
+  "ai": "AI",
+  "social-media": "Social Media",
+  "productivity": "Productivity",
+  "photography": "Photography",
+  "video": "Video",
+  "audio-music": "Audio & Music",
+  "education": "Education",
+  "ecommerce": "E-commerce",
+  "freebies": "Freebies",
+  "other": "Other",
+}
 
-export const dynamic = "force-dynamic"
+// Category descriptions for SEO
+const CATEGORY_DESCRIPTIONS: Record<string, string> = {
+  "design": "Browse premium design templates, UI kits, graphics, fonts, mockups and more. Find the perfect design resources for your next project.",
+  "development": "Discover web templates, mobile apps, scripts, plugins and development tools. Build faster with ready-made code resources.",
+  "marketing": "Find email templates, ad creatives, landing pages and SEO tools. Supercharge your marketing with professional templates.",
+  "business": "Get spreadsheets, presentations, documents and contracts. Professional business templates to streamline your workflow.",
+  "ai": "Explore AI prompts, ChatGPT templates and automation tools. Leverage AI with curated prompt libraries and tools.",
+  "social-media": "Download Instagram templates, TikTok content, YouTube assets and more. Grow your social media presence with stunning templates.",
+  "productivity": "Find Notion templates, calendars, planners and checklists. Boost your productivity with organized template systems.",
+  "photography": "Discover Lightroom presets, photo overlays, Photoshop actions and stock photos. Enhance your photography with professional tools.",
+  "video": "Find video templates, transitions, motion graphics and effects. Create stunning videos with premium assets.",
+  "audio-music": "Browse royalty-free music, sound effects, loops and samples. Find the perfect audio for your projects.",
+  "education": "Explore online courses, eBooks, tutorials and worksheets. Learn new skills with quality educational content.",
+  "ecommerce": "Get store themes, product photography templates and e-commerce tools. Build and grow your online store.",
+  "freebies": "Discover free digital products, templates, and resources. Get started with no cost - perfect for trying before you buy.",
+  "other": "Browse miscellaneous digital products and resources that don't fit into specific categories.",
+}
 
 type Props = {
   params: Promise<{ category: string }>
-  searchParams: Promise<{ sub?: string }>
-}
-
-/**
- * One description per category. Hand-written rather than generated from the
- * subcategory list: "Design: Design Templates, Fonts, Digital Art" is a list,
- * not a sentence, and Google shows it to a person.
- */
-const CATEGORY_DESCRIPTIONS: Record<string, string> = {
-  design:
-    "Design assets from independent creators: templates, fonts, digital art, photography and game assets. Instant download, yours to keep.",
-  templates:
-    "Notion templates, spreadsheets and worksheets built by people who use them daily. Set up in minutes instead of starting from a blank page.",
-  learning:
-    "Online courses, video tutorials, e-books, coaching and fitness plans from creators who do the thing they are teaching.",
-  audio: "Music, beat packs and podcasts from independent artists. Licensed for your projects, downloaded instantly.",
-  software: "Software, plugins and link-in-bio tools built by independent developers. Buy once, download immediately.",
-  memberships:
-    "Memberships and merch from creators worth following. Ongoing access to the work, the community and everything behind it.",
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category } = await params
-  const found = getCategory(category)
-  if (!found || category === "all") return { title: "Not Found" }
 
-  const title = `${found.label} | Storelib`
-  const description = CATEGORY_DESCRIPTIONS[category] ?? `Browse ${found.label.toLowerCase()} on Storelib.`
+  if (!VALID_CATEGORIES.includes(category)) {
+    return {
+      title: "Category Not Found",
+    }
+  }
+
+  const label = CATEGORY_LABELS[category] || category
+  const description = CATEGORY_DESCRIPTIONS[category] || `Browse ${label} products on Storelib`
 
   return {
-    title: { absolute: title },
+    title: label,
     description,
-    alternates: { canonical: `https://storelib.com${categoryPath(category)}` },
     openGraph: {
-      title,
+      title: `${label} | Storelib`,
       description,
       type: "website",
-      url: categoryPath(category),
-      siteName: "Storelib",
+      url: `https://storelib.com/explore/${category}`,
+      images: [
+        {
+          url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg",
+          width: 1200,
+          height: 630,
+          alt: `${label} on Storelib`,
+        },
+      ],
     },
-    twitter: { card: "summary_large_image", title, description },
-    robots: { index: true, follow: true },
+    twitter: {
+      card: "summary_large_image",
+      title: `${label} | Storelib`,
+      description,
+      images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg"],
+    },
+    alternates: {
+      canonical: `https://storelib.com/explore/${category}`,
+    },
   }
 }
 
-type ExploreProduct = Parameters<typeof ProductCard>[0]["product"]
+export const dynamic = "force-dynamic"
 
-export default async function CategoryPage({ params, searchParams }: Props) {
+export default async function CategoryPage({ params }: Props) {
   const { category } = await params
-  const { sub } = await searchParams
-  const found = getCategory(category)
 
-  // "all" is the browse page at /explore, so /explore/all would duplicate it.
-  if (!found || category === "all") notFound()
-
-  const { t } = await getServerT()
-  const activeSub = sub && found.subcategories.some((s) => s.id === sub) ? sub : null
-
-  let products: ExploreProduct[] = []
-  try {
-    const admin = createAdminClient()
-    const { data } = await admin
-      .from("products")
-      .select(
-        "id, title, slug, description, price_cents, thumbnail_url, gallery_urls, image_variants, type, category, saves_count, reviews_count, reviews_average",
-      )
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(60)
-
-    // Filtered in JS, not SQL: products.category is free text holding three
-    // generations of value, and normalizeCategoryToId is what reconciles them.
-    // It cannot run inside a PostgREST filter.
-    products = ((data ?? []) as ExploreProduct[]).filter(
-      (p) => normalizeCategoryToId(p.category ?? null) === category,
-    )
-  } catch {
-    // A category page that cannot reach the database still renders its heading,
-    // its description and its subcategory links. Throwing would 500 a page that
-    // is mostly static.
+  if (!VALID_CATEGORIES.includes(category)) {
+    notFound()
   }
 
-  const label = t(`category.${category}`)
-  const description = CATEGORY_DESCRIPTIONS[category] ?? ""
+  const supabase = await createClient()
+
+  // Fetch ALL published products - same query as the working /explore page
+  // Category filtering is done client-side for relevance-based sorting
+  const { data: products, error: productsError } = await supabase
+    .from("products")
+    .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
+    .eq("status", "published")
+    .order("created_at", { ascending: false })
+    .limit(100)
+
+  if (productsError) {
+    console.error("[CategoryPage] Products error:", productsError.message)
+  }
+
+  // Build products with creator info
+  let productsWithCreators: any[] = []
+
+  if (products && products.length > 0) {
+    // Get creators for products
+    const productCreatorIds = [...new Set(products.map((p) => p.creator_id).filter(Boolean))]
+    let productCreators: any[] = []
+
+    if (productCreatorIds.length > 0) {
+      const { data: pCreators } = await supabase
+        .from("creators")
+        .select("id, user_id, slug, niche_tags")
+        .in("id", productCreatorIds)
+      productCreators = pCreators || []
+    }
+
+    // Get profiles for product creators
+    const productCreatorUserIds = productCreators.map((c) => c.user_id).filter(Boolean)
+    let productCreatorProfiles: any[] = []
+
+    if (productCreatorUserIds.length > 0) {
+      const { data: pcProfiles } = await supabase
+        .from("profiles")
+        .select("id, display_name, avatar_url, username")
+        .in("id", productCreatorUserIds)
+      productCreatorProfiles = pcProfiles || []
+    }
+
+    // Build products with creator info
+    productsWithCreators = products.map((product) => {
+      const creator = productCreators.find((c) => c.id === product.creator_id)
+      const profile = creator ? productCreatorProfiles.find((p) => p.id === creator.user_id) : null
+      return {
+        ...product,
+        creator: creator ? { ...creator, profile } : null,
+        categories: [],
+        categoryName: product.category || null,
+        reviews_count: (product as any).reviews_count || 0,
+        reviews_average: (product as any).reviews_average || 0,
+      }
+    })
+  }
+
+  const categoryLabel = CATEGORY_LABELS[category] || category
+
+  const categoryDescription = CATEGORY_DESCRIPTIONS[category] || `Browse ${categoryLabel} products on Storelib`
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 md:px-6 md:py-12">
+    <main className="min-h-screen bg-white">
+      {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "CollectionPage",
-            name: `${found.label} | Storelib`,
-            description,
-            url: `https://storelib.com${categoryPath(category)}`,
-          }),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "BreadcrumbList",
-            itemListElement: [
-              { "@type": "ListItem", position: 1, name: "Explore", item: "https://storelib.com/explore" },
-              { "@type": "ListItem", position: 2, name: found.label },
-            ],
+            "name": categoryLabel,
+            "description": categoryDescription,
+            "url": `https://storelib.com/explore/${category}`
           }),
         }}
       />
 
-      <nav className="text-[13px] text-neutral-400" aria-label="Breadcrumb">
-        <Link href="/explore" className="hover:text-neutral-600">
-          Explore
-        </Link>
-        <span className="px-1.5">/</span>
-        <span className="text-neutral-600">{label}</span>
-      </nav>
-
-      <h1 className="mt-2 text-2xl font-bold tracking-tight text-neutral-900 md:text-3xl">
-        {activeSub ? subcategoryLabel(activeSub) : label}
-      </h1>
-      {description && <p className="mt-1.5 max-w-2xl text-sm text-neutral-500">{description}</p>}
-
-      {/* Sibling categories, so a crawler arriving here can reach the rest. */}
-      <nav className="mt-6 flex flex-wrap gap-2" aria-label="Categories">
-        {CATEGORIES.filter((c) => c.id !== "all").map((c) => (
-          <Link
-            key={c.id}
-            href={categoryPath(c.id)}
-            className={`rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
-              c.id === category
-                ? "border-neutral-900 bg-neutral-900 text-white"
-                : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
-            }`}
-          >
-            {t(`category.${c.id}`)}
-          </Link>
-        ))}
-      </nav>
-
-      {found.subcategories.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link
-            href={categoryPath(category)}
-            className={`rounded-full px-3 py-1.5 text-[13px] transition-colors ${
-              activeSub ? "text-neutral-500 hover:bg-neutral-50" : "bg-neutral-100 font-medium text-neutral-900"
-            }`}
-          >
-            {t("category.all")}
-          </Link>
-          {found.subcategories.map((s) => (
-            <Link
-              key={s.id}
-              href={categoryPath(category, s.id)}
-              className={`rounded-full px-3 py-1.5 text-[13px] transition-colors ${
-                activeSub === s.id
-                  ? "bg-neutral-100 font-medium text-neutral-900"
-                  : "text-neutral-500 hover:bg-neutral-50"
-              }`}
-            >
-              {s.label}
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {products.length === 0 ? (
-        <div className="mt-12 rounded-2xl border border-neutral-200 bg-neutral-50 p-12 text-center">
-          <p className="text-sm font-medium text-neutral-700">Nothing published here yet</p>
-          <p className="mt-1 text-sm text-neutral-500">Products appear here as creators publish them.</p>
-          <Link
-            href="/signup"
-            className="mt-5 inline-flex items-center rounded-lg bg-[#7c3aed] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6d28d9]"
-          >
-            Start selling
-          </Link>
-        </div>
-      ) : (
-        <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-3 lg:grid-cols-4">
-          {products.map((product, i) => (
-            <ProductCard key={product.id} product={product} origin="category" priority={i < 4} />
-          ))}
-        </div>
-      )}
-    </div>
+      <div className="mx-auto max-w-6xl lg:max-w-[1270px] px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <CategoryPageClient
+          initialProducts={productsWithCreators}
+          category={category}
+          categoryLabel={categoryLabel}
+        />
+      </div>
+    </main>
   )
 }

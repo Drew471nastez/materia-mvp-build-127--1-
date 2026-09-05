@@ -5,7 +5,7 @@
  * The app is Romanian-first: `ro` and `en` are the maintained locales. Other
  * locales keep their original header keys and fall back to English for the rest.
  *
- * Convention for keys: dot-namespaced, e.g. "nav.library", "category.sneakers".
+ * Convention for keys: dot-namespaced, e.g. "nav.library", "category.design".
  * When converting a component, add its strings here (ro + en) and call t("...").
  * A translation workflow extends this map across the rest of the app.
  */
@@ -60,11 +60,19 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     // the English labels; these are what the UI shows in each locale.
     "category.all": "Toate",
     "category.design": "Design",
-    "category.templates": "Șabloane",
-    "category.learning": "Învățare",
-    "category.audio": "Audio",
-    "category.software": "Software",
-    "category.memberships": "Abonamente",
+    "category.development": "Dezvoltare",
+    "category.marketing": "Marketing",
+    "category.business": "Afaceri",
+    "category.ai": "AI",
+    "category.social-media": "Social media",
+    "category.productivity": "Productivitate",
+    "category.photography": "Fotografie",
+    "category.video": "Video",
+    "category.audio-music": "Audio și muzică",
+    "category.education": "Educație",
+    "category.ecommerce": "E-commerce",
+    "category.freebies": "Gratuite",
+    "category.other": "Altele",
     // Feed sections
     "feed.recommended": "Recomandate",
     "feed.most_popular": "Cele mai populare",
@@ -173,11 +181,19 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     // the English labels; these are what the UI shows in each locale.
     "category.all": "All",
     "category.design": "Design",
-    "category.templates": "Templates",
-    "category.learning": "Learning",
-    "category.audio": "Audio",
-    "category.software": "Software",
-    "category.memberships": "Memberships",
+    "category.development": "Development",
+    "category.marketing": "Marketing",
+    "category.business": "Business",
+    "category.ai": "AI",
+    "category.social-media": "Social Media",
+    "category.productivity": "Productivity",
+    "category.photography": "Photography",
+    "category.video": "Video",
+    "category.audio-music": "Audio & Music",
+    "category.education": "Education",
+    "category.ecommerce": "E-commerce",
+    "category.freebies": "Freebies",
+    "category.other": "Other",
     "feed.recommended": "Recommended",
     "feed.most_popular": "Most popular",
     "feed.trending": "Trending",

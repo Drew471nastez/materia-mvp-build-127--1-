@@ -1,172 +1,189 @@
-import type { Metadata } from "next"
-import Link from "next/link"
+import { Metadata } from "next"
+import { Suspense } from "react"
+import { createClient } from "@/lib/supabase/server"
+import { ExplorePageClient } from "@/components/explore/explore-page-client"
+import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
+import { MostPopularSection } from "@/components/explore/most-popular-section"
 
-import { createAdminClient } from "@/lib/supabase/admin"
-import { CATEGORIES, categoryPath, normalizeCategoryToId } from "@/lib/marketplace/categories"
-import { ProductCard } from "@/components/explore/product-card"
-import { getServerT } from "@/lib/i18n/server"
-
-/**
- * ===========================================================================
- *  /explore — BROWSE THE DIGITAL PRODUCTS PEOPLE HAVE PUBLISHED
- * ===========================================================================
- *
- * This route spent the marketplace era as a redirect to "/", because "/" WAS
- * the feed and two URLs for one page is a canonical problem. "/" is the
- * landing page again, so a redirect here would now send somebody who asked to
- * browse to a marketing page instead. It is a real page again.
- *
- * ---------------------------------------------------------------------------
- * WHY IT IS DELIBERATELY MODEST
- * ---------------------------------------------------------------------------
- * What was here before -- an infinite feed, a filter sheet, facet counts, a
- * reels pager, department rails -- was fourteen thousand lines built to sort
- * second-hand clothing by size and condition. None of those questions has an
- * answer for a font or a course, so it came out rather than being retuned.
- *
- * What replaces it is the part that was always true: a grid of what is for
- * sale, and the six categories as a way in. It reads `products` directly, the
- * same table the storefronts and product pages read, and it filters on
- * `status = published` so an unfinished draft is never on a public shelf.
- *
- * The category pages at /explore/<id> are listed in the sitemap and are the
- * next thing to build; until they exist this page is what those links resolve
- * through, so the taxonomy is rendered here rather than being invisible.
- */
+// SEO-optimized metadata
+export const metadata: Metadata = {
+  title: { absolute: "Storelib | Discover" },
+  description: "Discover premium digital products from independent creators. Design templates, AI prompts, productivity tools, development resources and more.",
+  keywords: ["digital products", "productivity tools", "design assets", "social media templates", "AI tools", "digital downloads", "creator marketplace", "online store"],
+  openGraph: {
+    title: "Storelib | Discover",
+    description: "Discover premium digital products from independent creators. Design templates, AI prompts, productivity tools, development resources and more.",
+    type: "website",
+    url: "/explore",
+    siteName: "Storelib",
+    images: [
+      {
+        url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Storelib - Discover Digital Products",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Storelib | Discover",
+    description: "Discover premium digital products from independent creators. Design templates, AI prompts, productivity tools, development resources and more.",
+    images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg"],
+  },
+  alternates: {
+    canonical: "https://storelib.com/explore",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+}
 
 export const dynamic = "force-dynamic"
 
-const TITLE = "Explore Digital Products | Storelib"
-const DESCRIPTION =
-  "Browse digital products from independent creators: templates, courses, e-books, music, fonts, software and more."
-
-export const metadata: Metadata = {
-  title: { absolute: TITLE },
-  description: DESCRIPTION,
-  alternates: { canonical: "https://storelib.com/explore" },
-  openGraph: { title: TITLE, description: DESCRIPTION, type: "website", url: "/explore", siteName: "Storelib" },
-  robots: { index: true, follow: true },
-}
-
-type ExploreProduct = Parameters<typeof ProductCard>[0]["product"]
+// Categories that match the client-side categories (including header categories)
+const VALID_CATEGORIES = [
+  "all", "productivity", "design", "social-media", "ai",
+  // Additional categories from header
+  "development", "marketing", "business", "music", "photography",
+  "video", "ecommerce", "education", "audio-music", "other", "freebies"
+]
 
 export default async function ExplorePage({
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>
+  searchParams: Promise<{ q?: string; category?: string }>
 }) {
-  const { t } = await getServerT()
-  const params = await searchParams
-  const raw = typeof params.category === "string" ? params.category : ""
-  const active = raw ? normalizeCategoryToId(raw) : "all"
-
-  let products: ExploreProduct[] = []
+  // Safely get search params
+  let params: { q?: string; category?: string } = {}
   try {
-    const admin = createAdminClient()
-    let query = admin
-      .from("products")
-      .select(
-        "id, title, slug, description, price_cents, thumbnail_url, gallery_urls, image_variants, type, category, saves_count, reviews_count, reviews_average",
-      )
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(60)
-
-    // Filtering happens in JS rather than SQL because `products.category` is
-    // free text holding three generations of value -- normalizeCategoryToId is
-    // what reconciles them, and it cannot run inside a PostgREST filter.
-    const { data } = await query
-    products = (data ?? []) as ExploreProduct[]
-    if (active !== "all") {
-      products = products.filter((p) => normalizeCategoryToId(p.category ?? null) === active)
-    }
+    params = await searchParams
   } catch {
-    // A browse page that cannot reach the database renders its categories and
-    // an empty shelf. Throwing would take the whole route down over a shelf.
+    params = {}
   }
 
+  const searchQuery = (params?.q || "").toLowerCase()
+  const rawCategory = (params?.category || "all").toLowerCase()
+  const category = VALID_CATEGORIES.includes(rawCategory) ? rawCategory : "all"
+
+  // Initialize data
+  let productsWithCreators: any[] = []
+
+  try {
+    const supabase = await createClient()
+
+    // Fetch published products — apply search filter server-side via ILIKE
+    // to avoid fetching 100 rows when only a few match the query
+    let query = supabase
+      .from("products")
+      .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
+      .eq("status", "published")
+      .order("created_at", { ascending: false })
+      .limit(100)
+
+    if (searchQuery) {
+      query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+    }
+
+    const { data: products, error: productsError } = await query
+
+    if (productsError) {
+      console.error("[ExplorePage] Products error:", productsError.message)
+    }
+
+    if (products && products.length > 0) {
+      // Get creators for products
+      const productCreatorIds = [...new Set(products.map((p) => p.creator_id).filter(Boolean))]
+      let productCreators: any[] = []
+
+      if (productCreatorIds.length > 0) {
+        const { data: pCreators } = await supabase
+          .from("creators")
+          .select("id, user_id, slug, niche_tags")
+          .in("id", productCreatorIds)
+        productCreators = pCreators || []
+      }
+
+      // Get profiles for product creators
+      const productCreatorUserIds = productCreators.map((c) => c.user_id).filter(Boolean)
+      let productCreatorProfiles: any[] = []
+
+      if (productCreatorUserIds.length > 0) {
+        const { data: pcProfiles } = await supabase
+          .from("profiles")
+          .select("id, display_name, avatar_url, username")
+          .in("id", productCreatorUserIds)
+        productCreatorProfiles = pcProfiles || []
+      }
+
+      // Build products with creator info
+      productsWithCreators = products.map((product) => {
+        const creator = productCreators.find((c) => c.id === product.creator_id)
+        const profile = creator ? productCreatorProfiles.find((p) => p.id === creator.user_id) : null
+        return {
+          ...product,
+          creator: creator ? { ...creator, profile } : null,
+          categories: [],
+          categoryName: product.category || null,
+          reviews_count: (product as any).reviews_count || 0,
+          reviews_average: (product as any).reviews_average || 0,
+        }
+      })
+    }
+  } catch (error: any) {
+    console.error("[ExplorePage] Exception:", error?.message || error)
+  }
+
+  // Search filtering is now done server-side via ILIKE in the Supabase query
+  const filteredProducts = productsWithCreators
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 md:px-6 md:py-12">
+    <main className="min-h-screen bg-[#f5f5f5]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "CollectionPage",
-            name: TITLE,
-            description: DESCRIPTION,
-            url: "https://storelib.com/explore",
+            "name": "Discover Digital Products",
+            "description": "Discover premium digital products from independent creators.",
+            "url": "https://storelib.com/explore"
           }),
         }}
       />
 
-      <h1 className="text-2xl font-bold tracking-tight text-neutral-900 md:text-3xl">
-        Explore digital products
-      </h1>
-      <p className="mt-1.5 max-w-2xl text-sm text-neutral-500">{DESCRIPTION}</p>
+      {/* Semantic page structure for SEO - matches header max-width (1400px) */}
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
+        {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
+        <h1 className="sr-only">
+          Discover Digital Products - Productivity, Design, AI & More | Storelib
+        </h1>
 
-      {/* The six categories, plus All. Links rather than client state so each
-          one is a URL a crawler can follow and a person can share. */}
-      <nav className="mt-6 flex flex-wrap gap-2" aria-label="Categories">
-        {CATEGORIES.map((c) => {
-          const on = c.id === active
-          return (
-            <Link
-              key={c.id}
-              href={c.id === "all" ? "/explore" : `/explore?category=${c.id}`}
-              className={`rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
-                on
-                  ? "border-neutral-900 bg-neutral-900 text-white"
-                  : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
-              }`}
-            >
-              {t(`category.${c.id}`)}
-            </Link>
-          )
-        })}
-      </nav>
+        {/* Main content */}
+        <ExplorePageClient
+          initialProducts={filteredProducts}
+          initialCategory={category}
+          searchQuery={searchQuery}
+        />
 
-      {products.length === 0 ? (
-        <div className="mt-16 rounded-2xl border border-neutral-200 bg-neutral-50 p-12 text-center">
-          <p className="text-sm font-medium text-neutral-700">Nothing published here yet</p>
-          <p className="mt-1 text-sm text-neutral-500">
-            {active === "all"
-              ? "Products appear here as creators publish them."
-              : "Try another category, or check back soon."}
-          </p>
-          <Link
-            href="/signup"
-            className="mt-5 inline-flex items-center rounded-lg bg-[#7c3aed] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6d28d9]"
-          >
-            Start selling
-          </Link>
-        </div>
-      ) : (
-        <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-3 lg:grid-cols-4">
-          {products.map((product, i) => (
-            <ProductCard key={product.id} product={product} origin="category" priority={i < 4} />
-          ))}
-        </div>
-      )}
+        {/* Below-the-fold sections wrapped in Suspense for streaming SSR */}
+        <Suspense fallback={null}>
+          <FeaturedCategoriesSection products={productsWithCreators} />
+        </Suspense>
 
-      {/* Subcategory links for the active category, so /explore/<id>?sub=<id>
-          in the sitemap has something pointing at it from inside the app. */}
-      {active !== "all" && (
-        <div className="mt-10 border-t border-neutral-100 pt-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">In this category</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {(CATEGORIES.find((c) => c.id === active)?.subcategories ?? []).map((s) => (
-              <Link
-                key={s.id}
-                href={categoryPath(active, s.id)}
-                className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-[13px] text-neutral-600 hover:bg-neutral-50"
-              >
-                {s.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+        <Suspense fallback={null}>
+          <MostPopularSection products={productsWithCreators} />
+        </Suspense>
+      </div>
+    </main>
   )
 }

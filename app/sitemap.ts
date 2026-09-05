@@ -34,16 +34,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]
 
   /**
-   * One row per category, and one per subcategory beneath it.
+   * ONE ROW PER CATEGORY. NO SUBCATEGORY ROWS.
    *
-   * A SUBCATEGORY OUTRANKS ITS DEPARTMENT, 0.8 against 0.7, and that is
-   * deliberate rather than tidy. "Design" is a shelf; "Notion Templates" is
-   * what somebody actually searches for, and it is the page that can answer
-   * them. The department is the way in, not the destination.
+   * An earlier version of this file also emitted `/explore/<id>?sub=<sub>` for
+   * all seventy subcategories, ranked ABOVE their parent. That was wrong twice
+   * over: /explore/[category]/page.tsx does not read `sub` at all -- the
+   * subcategory chips are a client-side filter inside CategoryPageClient -- so
+   * every one of those URLs served the same unfiltered page. Seventy sitemap
+   * rows resolving to fourteen distinct documents is duplicate content, and we
+   * were the ones handing Google the list.
    *
    * Derived from lib/marketplace/categories.ts, so a category added there
-   * appears here without anybody remembering to come back -- the same rule the
-   * menus follow.
+   * appears here without anybody remembering to come back.
    */
   for (const category of CATEGORIES) {
     if (category.id === "all") continue
@@ -51,18 +53,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${BASE}/explore/${category.id}`,
       lastModified: new Date(),
       changeFrequency: "daily",
-      priority: 0.7,
+      priority: 0.8,
     })
-    for (const sub of category.subcategories) {
-      routes.push({
-        url: `${BASE}/explore/${category.id}?sub=${sub.id}`,
-        lastModified: new Date(),
-        changeFrequency: "daily",
-        priority: 0.8,
-      })
-    }
   }
-
 
   // Blog category pages
   for (const category of STORELIB_CATEGORIES) {
