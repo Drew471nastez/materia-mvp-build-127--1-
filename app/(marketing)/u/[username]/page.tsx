@@ -16,6 +16,7 @@ import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 import { deservesIndexing } from "@/lib/security/spam-signals"
+import { ProfileHeader } from "@/components/creator/profile-header"
 
 export const dynamic = "force-dynamic"
 
@@ -302,6 +303,39 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    */
   const indexable = deservesIndexing({ publishedProducts: products?.length ?? 0, handle: username })
 
+  /**
+   * Does the person looking at this page own it?
+   *
+   * Decided on the SERVER, from the verified session — never from a query param
+   * or anything the client could set. It only gates a button; the modal behind
+   * it writes under row-level security and the social-links endpoint re-proves
+   * ownership for itself, so a forged answer here would reveal a control that
+   * still could not save anything.
+   */
+  let isOwner = false
+  try {
+    const {
+      data: { user: viewer },
+    } = await supabase.auth.getUser()
+    isOwner = !!viewer && viewer.id === profile.id
+  } catch {
+    isOwner = false
+  }
+
+  const profileHeader = (
+    <ProfileHeader
+      displayName={profile.display_name || username}
+      username={profile.username || username}
+      bio={profile.bio ?? null}
+      avatarUrl={profile.avatar_url ?? null}
+      coverUrl={creator.cover_url ?? profile.cover_url ?? null}
+      socialLinks={(publishedConfig?.headerSettings as { socialLinks?: never } | undefined)?.socialLinks}
+      isOwner={isOwner}
+      profileId={profile.id}
+      creatorId={creator.id}
+    />
+  )
+
   const srcParam = src === "platform" ? "?src=platform" : ""
 
   const productsData: ProductData[] =
@@ -547,6 +581,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
         <TrackView type="store" creatorId={creator.id} />
 
+        {/* Identity above the page. Drawn in both branches — the
+            builder-configured storefront and the default one — because a
+            creator page without a face and a handle is not a creator page. */}
+        <div className="mx-auto w-full max-w-[1100px] px-0 sm:px-4 sm:pt-4">{profileHeader}</div>
+
         {subscribeBarSettings.visible && <SubscribeBar settings={subscribeBarSettings} creatorId={creator.id} />}
 
         <ShopHeaderRenderer
@@ -652,6 +691,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         <DynamicFavicon avatarUrl={profile.avatar_url} />
         <BackLabelSetter label={profile.display_name || username} />
       <TrackView type="store" creatorId={creator.id} />
+
+        {/* Identity above the page. Drawn in both branches — the
+            builder-configured storefront and the default one — because a
+            creator page without a face and a handle is not a creator page. */}
+        <div className="mx-auto w-full max-w-[1100px] px-0 sm:px-4 sm:pt-4">{profileHeader}</div>
 
       {defaultSubscribeSettings.visible && <SubscribeBar settings={defaultSubscribeSettings} creatorId={creator.id} />}
 
