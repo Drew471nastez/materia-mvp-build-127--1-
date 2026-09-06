@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
+import { ignoreError } from "@/lib/supabase/ignore-error"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -213,12 +214,14 @@ export async function GET(request: Request) {
           })
 
           // Increment email usage for the creator
-          await supabaseAdmin.rpc("increment_email_usage", {
-            p_creator_id: email.creator_id,
-            p_count: 1,
-          }).catch(() => {
-            // Ignore if function doesn't exist
-          })
+          // Ignore if the function doesn't exist. `.catch()` on a PostgREST
+          // builder never did that — it threw. See lib/supabase/ignore-error.
+          await ignoreError(
+            supabaseAdmin.rpc("increment_email_usage", {
+              p_creator_id: email.creator_id,
+              p_count: 1,
+            }),
+          )
 
           sent++
           console.log(`[cron/scheduled-emails] ✅ Sent email to ${email.recipient_email}`)

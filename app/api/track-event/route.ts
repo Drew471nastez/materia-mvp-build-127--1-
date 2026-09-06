@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { type NextRequest, NextResponse } from "next/server"
+import { ignoreError } from "@/lib/supabase/ignore-error"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -45,14 +46,14 @@ export async function POST(req: NextRequest) {
     if (payload.eventType === "buy_click" && payload.productId) {
       const today = new Date().toISOString().split("T")[0]
 
-      await supabase
-        .rpc("increment_daily_rollup", {
+      await ignoreError(
+        supabase.rpc("increment_daily_rollup", {
           p_creator_id: payload.creatorId,
           p_product_id: payload.productId,
           p_date: today,
           p_field: "buy_clicks",
-        })
-        .catch(() => {})
+        }),
+      )
     }
 
     return NextResponse.json({ ok: true })

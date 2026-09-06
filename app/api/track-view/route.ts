@@ -2,6 +2,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
+import { ignoreError } from "@/lib/supabase/ignore-error"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -342,22 +343,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 })
     }
 
-    // ---- COUNTERS (keep your RPCs)
+    /**
+     * ---- COUNTERS (keep your RPCs)
+     *
+     * These were `.rpc(...).catch(() => {})`, which is a TypeError rather than
+     * a guard: a PostgREST builder implements `then()` and has no `catch`. So
+     * EVERY view — every creator page, every product page — threw here and the
+     * endpoint answered 500, and the counters never incremented.
+     */
     if (payload.type === "product" && payload.productId) {
-      await supabase
-        .rpc("increment_product_views", {
+      await ignoreError(
+        supabase.rpc("increment_product_views", {
           p_product_id: payload.productId,
           p_creator_id: payload.creatorId,
           p_viewer_id: visitorId,
-        })
-        .catch(() => {})
+        }),
+      )
     } else {
-      await supabase
-        .rpc("increment_creator_views", {
+      await ignoreError(
+        supabase.rpc("increment_creator_views", {
           p_creator_id: payload.creatorId,
           p_viewer_id: visitorId,
-        })
-        .catch(() => {})
+        }),
+      )
     }
 
     const res = NextResponse.json({

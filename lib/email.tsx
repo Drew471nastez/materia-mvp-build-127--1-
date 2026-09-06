@@ -9,6 +9,7 @@
  */
 
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
+import { ignoreError } from "@/lib/supabase/ignore-error"
 
 // MUST be a real mailbox on your verified domain in Amazon SES
 const FROM_EMAIL = EMAIL_FROM
@@ -1673,12 +1674,14 @@ export async function triggerEmailFlows(
                 triggered++
 
                 // Log the email event (ignore errors if table doesn't exist)
-                await admin.from("email_events").insert({
-                  flow_id: flow.id,
-                  recipient_email: recipientEmail,
-                  event_type: "sent",
-                  metadata: { step_id: step.id, subject: personalizedSubject },
-                }).catch(() => {})
+                await ignoreError(
+                  admin.from("email_events").insert({
+                    flow_id: flow.id,
+                    recipient_email: recipientEmail,
+                    event_type: "sent",
+                    metadata: { step_id: step.id, subject: personalizedSubject },
+                  }),
+                )
               } else {
                 console.error("[email-flows] ❌ Failed to send flow email:", result.error)
                 errors.push(`Flow ${flow.name}: ${result.error || "Send failed"}`)

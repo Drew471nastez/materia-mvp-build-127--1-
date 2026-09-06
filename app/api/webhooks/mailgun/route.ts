@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
+import { ignoreError } from "@/lib/supabase/ignore-error"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -101,18 +102,21 @@ export async function POST(request: Request) {
     }
 
     // Log the event in email_events table
-    await supabaseAdmin.from("email_events").insert({
-      recipient_email: recipient,
-      event_type: event,
-      metadata: {
-        severity,
-        message_id: eventData?.message?.headers?.["message-id"] || null,
-        reason: eventData?.reason || eventData?.["delivery-status"]?.message || null,
-        timestamp: eventData?.timestamp || null,
-      },
-    }).catch((err) => {
-      console.warn("[mailgun-webhook] Failed to log event:", err)
-    })
+    // `.catch()` here threw instead of logging — a PostgREST builder has no
+    // `catch` — so this webhook answered 500 on every delivery event.
+    const logged = await ignoreError(
+      supabaseAdmin.from("email_events").insert({
+        recipient_email: recipient,
+        event_type: event,
+        metadata: {
+          severity,
+          message_id: eventData?.message?.headers?.["message-id"] || null,
+          reason: eventData?.reason || eventData?.["delivery-status"]?.message || null,
+          timestamp: eventData?.timestamp || null,
+        },
+      }),
+    )
+    if (logged === null) console.warn("[mailgun-webhook] Failed to log event")
 
     return NextResponse.json({ received: true })
   } catch (error) {

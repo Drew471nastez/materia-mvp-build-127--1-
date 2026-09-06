@@ -1592,6 +1592,94 @@ check(
   })(),
 )
 
+check(
+  "nothing calls .catch() on a Supabase query",
+  (() => {
+    /**
+     * A POSTGREST QUERY BUILDER IS A THENABLE, NOT A PROMISE. It implements
+     * `then()` and nothing else — no `catch`, no `finally`. So
+     *
+     *     await supabase.from("x").delete().eq("id", id).catch(() => {})
+     *
+     * does not swallow an error. It throws `TypeError: .catch is not a
+     * function` before the query is even sent, and it throws EVERY time.
+     * Verified against the installed @supabase/postgrest-js: `then` is a
+     * function, `catch` is undefined.
+     *
+     * WHAT IT WAS ACTUALLY BREAKING when this was written:
+     *
+     *   · /api/track-view answered 500 on every creator and product page view,
+     *     and the view counters never incremented.
+     *   · /api/auth/delete-account threw on its first cleanup call, so account
+     *     deletion left the account's rows behind.
+     *   · The chunked and server upload routes answered 500 after the file had
+     *     already uploaded.
+     *
+     * It hides well: it type-checks, because a builder is assignable to
+     * PromiseLike, and it appears exactly where nobody looks — fire-and-forget
+     * cleanup and best-effort counters. `lib/supabase/ignore-error.ts` is what
+     * those lines were trying to be.
+     *
+     * Storage (`.storage.from(...).remove()`) and `fetch`/`Response.json()` DO
+     * return real Promises; their `.catch()` is correct and not matched here.
+     */
+    const offenders: string[] = []
+
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(join(root, dir))) {
+        if (entry === "node_modules" || entry === ".next") continue
+        const rel = `${dir}/${entry}`
+        const full = join(root, rel)
+        if (statSync(full).isDirectory()) {
+          walk(rel)
+          continue
+        }
+        if (!/\.(ts|tsx)$/.test(entry)) continue
+        if (rel.endsWith("lib/supabase/ignore-error.ts")) continue
+
+        const src = code(rel)
+        const lines = src.split("\n")
+        for (let i = 0; i < lines.length; i++) {
+          if (!lines[i].includes(".catch(")) continue
+          // The builder chain can span lines; look back a little for its start.
+          /**
+           * Read back the EXACT expression the `.catch(` is attached to, by
+           * walking left from it and matching brackets until the expression
+           * starts. Looking at "the last few lines" is not good enough: it
+           * flags `notifyPayoutAvailable(...).catch(...)` — a plain async call
+           * returning a real Promise — whenever an unrelated `.from(` happens
+           * to sit above it.
+           */
+          const window = lines.slice(Math.max(0, i - 12), i + 1).join("\n")
+          const at = window.lastIndexOf(".catch(")
+          if (at === -1) continue
+
+          let depth = 0
+          let k = at - 1
+          for (; k >= 0; k--) {
+            const c = window[k]
+            if (c === ")" || c === "}" || c === "]") depth++
+            else if (c === "(" || c === "{" || c === "[") {
+              if (depth === 0) break
+              depth--
+            } else if (depth === 0 && /[\s;=,]/.test(c)) break
+          }
+          const target = window.slice(k + 1, at)
+
+          if (!/\.(from|rpc)\(/.test(target)) continue
+          if (/\.storage\./.test(target)) continue
+          if (/\.(json|text|arrayBuffer)\(\)$/.test(target.trim())) continue
+          offenders.push(`${rel}:${i + 1}  ${lines[i].trim().slice(0, 84)}`)
+        }
+      }
+    }
+    for (const dir of ["app", "lib", "components"]) walk(dir)
+
+    if (offenders.length) console.log("        " + offenders.join("\n        "))
+    return offenders.length === 0
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

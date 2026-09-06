@@ -12,6 +12,7 @@ import {
   readBufferHeader,
   scanFile,
 } from "@/lib/storage"
+import { ignoreError } from "@/lib/supabase/ignore-error"
 
 export const runtime = "nodejs"
 export const maxDuration = 300
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
     const deepScan = scanFile(fileName, contentType, header)
     if (!deepScan.safe) {
       if (assetId) {
-        await admin.from("digital_assets").delete().eq("id", assetId).catch(() => {})
+        await ignoreError(admin.from("digital_assets").delete().eq("id", assetId))
       }
       return NextResponse.json({ error: deepScan.reason }, { status: 400 })
     }
@@ -202,7 +203,7 @@ export async function POST(request: NextRequest) {
     if (uploadError) {
       // Clean up pending asset
       if (assetId) {
-        await admin.from("digital_assets").delete().eq("id", assetId).catch(() => {})
+        await ignoreError(admin.from("digital_assets").delete().eq("id", assetId))
       }
 
       // Provide actionable error message
@@ -222,11 +223,18 @@ export async function POST(request: NextRequest) {
 
     // Mark asset as completed
     if (assetId) {
-      await admin
-        .from("digital_assets")
-        .update({ upload_status: "completed", updated_at: new Date().toISOString() })
-        .eq("id", assetId)
-        .catch(() => {})
+      /*
+        This was `.catch(() => {})`, i.e. meant as best-effort — but a PostgREST
+        builder has no `catch`, so it threw a TypeError and the route answered
+        500 AFTER the file had uploaded successfully. The author's intent is
+        restored, not changed.
+      */
+      await ignoreError(
+        admin
+          .from("digital_assets")
+          .update({ upload_status: "completed", updated_at: new Date().toISOString() })
+          .eq("id", assetId),
+      )
     }
 
     // Get public URL
