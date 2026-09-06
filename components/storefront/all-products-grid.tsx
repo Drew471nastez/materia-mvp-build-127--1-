@@ -8,25 +8,51 @@
  * cannot end up looking like different products from different sites.
  */
 
-import { SmartLink } from "@/components/smart-link"
+import * as React from "react"
 import { Package } from "lucide-react"
-import { StorefrontProductCard, type StorefrontProductCardProduct } from "./product-card"
+import { cn } from "@/lib/utils"
+import { StorefrontProductCard, type StorefrontCardProduct } from "./storefront-product-card"
 
-export interface AllProductsGridProduct extends StorefrontProductCardProduct {
-  id: string
-  slug?: string
-}
-
-const formatPrice = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
+export type AllProductsGridProduct = StorefrontCardProduct
 
 export function AllProductsGrid({
   products,
   creatorName,
+  creatorUsername,
+  creatorAvatarUrl,
 }: {
   products: AllProductsGridProduct[]
   creatorName?: string | null
+  creatorUsername?: string | null
+  creatorAvatarUrl?: string | null
 }) {
+  /**
+   * Category filtering, which the tab had none of. Chips rather than the rail
+   * that used to sit down the left of Featured — they cost no horizontal room,
+   * they read the same on a phone and a desktop, and they sit above the thing
+   * they filter instead of beside it.
+   *
+   * Built from the products actually on the page, so a creator never sees a
+   * filter that leads nowhere, and hidden entirely below two categories, where
+   * the only thing to choose is "everything".
+   */
+  const [active, setActive] = React.useState<string | null>(null)
+
+  const categories = React.useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const product of products) {
+      for (const category of product.categories || []) {
+        if (category?.name) counts.set(category.name, (counts.get(category.name) ?? 0) + 1)
+      }
+    }
+    return Array.from(counts, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count)
+  }, [products])
+
+  const shown = React.useMemo(
+    () => (active ? products.filter((p) => (p.categories || []).some((c) => c.name === active)) : products),
+    [products, active],
+  )
+
   if (products.length === 0) {
     return (
       <div className="mx-auto w-full max-w-[1100px] px-3 py-12 sm:px-4 lg:px-6">
@@ -40,17 +66,59 @@ export function AllProductsGrid({
 
   return (
     <div className="mx-auto w-full max-w-[1100px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">
+      {categories.length > 1 && (
+        <div className="mb-6 flex flex-wrap gap-2">
+          <FilterChip label="All" count={products.length} active={active === null} onClick={() => setActive(null)} />
+          {categories.map((category) => (
+            <FilterChip
+              key={category.name}
+              label={category.name}
+              count={category.count}
+              active={active === category.name}
+              onClick={() => setActive(category.name)}
+            />
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {products.map((product) => (
-          <SmartLink
+        {shown.map((product) => (
+          <StorefrontProductCard
             key={product.id}
-            href={product.slug ? `/p/${product.slug}` : "#"}
-            className="group overflow-hidden rounded-lg border border-border bg-card shadow-[0_1px_3px_0_rgba(0,0,0,0.1),0_1px_2px_-1px_rgba(0,0,0,0.1)] transition-all [@media(hover:hover)]:hover:shadow-lg"
-          >
-            <StorefrontProductCard product={product} formatPrice={formatPrice} creatorName={creatorName} />
-          </SmartLink>
+            product={product}
+            creatorName={creatorName}
+            creatorUsername={creatorUsername}
+            creatorAvatarUrl={creatorAvatarUrl}
+          />
         ))}
       </div>
     </div>
+  )
+}
+
+function FilterChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string
+  count: number
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-full border px-3 py-1.5 text-[13px] transition-colors",
+        active
+          ? "border-foreground bg-foreground text-background"
+          : "border-border text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label} <span className="opacity-60">{count}</span>
+    </button>
   )
 }

@@ -9,13 +9,12 @@
  * in the first HTML the visitor receives, which is what search engines and a
  * cold load actually get.
  *
- * ON THE THIRD TAB: the design this was taken from also has "Communities", a
- * paid membership a creator sells alongside their products. Storelib has no
- * such thing — `community_posts` is the creator's own dashboard feed, not
- * something anyone can join or be charged for — so there is no tab for it.
- * Rendering one that leads to an empty panel would be worse than not having
- * it. `tabs` is a list rather than three hardcoded buttons precisely so that
- * the day paid communities exist, they get a tab by appearing in the data.
+ * ON THE THIRD TAB: "Communities" is a paid membership a creator sells
+ * alongside their products, and Storelib has no such thing — `community_posts`
+ * is the creator's own dashboard feed, not something anyone can join or be
+ * charged for. The tab is there anyway because it was asked for, and it says
+ * so in the panel rather than opening onto nothing. When the feature exists,
+ * the panel is the only thing that has to change.
  */
 
 import * as React from "react"
@@ -27,6 +26,24 @@ export interface StorefrontTab {
   panel: React.ReactNode
 }
 
+/**
+ * Shown by a tab that has nothing behind it yet.
+ *
+ * Communities is on the page because it was asked for, with the feature not
+ * built — so the tab has to say that plainly. A blank panel reads as broken; a
+ * sentence reads as "not yet", which is what it is.
+ */
+export function EmptyTabPanel({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="mx-auto w-full max-w-[1100px] px-3 py-16 sm:px-4 lg:px-6">
+      <div className="rounded-lg border border-dashed border-border p-10 text-center">
+        <p className="font-medium text-foreground">{title}</p>
+        <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">{detail}</p>
+      </div>
+    </div>
+  )
+}
+
 export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
   const [active, setActive] = React.useState(tabs[0]?.id)
 
@@ -36,17 +53,19 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
   return (
     <>
       {/*
-        NO FULL-WIDTH RULE. The strip used to sit on a `border-b` spanning the
-        whole 1100px column, which cut the page in half under a header that is
-        centred and has no other hard edges in it. The only line now is the one
-        under the active tab, which is the line that means something.
+        LEFT-ALIGNED, AND STILL NO FULL-WIDTH RULE.
 
-        Centred, too, for the same reason: the name, handle, bio and icons above
-        are all on the centre line, and a left-aligned pair of words with no rule
-        to anchor them reads as though it slipped.
+        The strip used to sit on a `border-b` spanning the whole 1100px column,
+        which cut the page in half under a header that is centred and has no
+        other hard edges in it. That rule is gone for good — the only line is
+        the one under the active tab, which is the line that means something.
+
+        The tabs themselves are back on the left, where they line up with the
+        content they switch: the product grid below starts at the same edge, so
+        the eye follows one vertical, not two.
       */}
       <div className="mx-auto w-full max-w-[1100px] px-3 sm:px-4 lg:px-6">
-        <div className="flex justify-center gap-8" role="tablist">
+        <div className="flex gap-7" role="tablist">
           {tabs.map((tab) => {
             const selected = tab.id === active
             return (

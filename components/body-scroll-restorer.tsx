@@ -65,10 +65,28 @@ const OVERLAY_SELECTOR = [
   '[role="alertdialog"]',
 ].join(", ")
 
+/**
+ * Is the page stuck? Note the FIRST TWO CHECKS — they are the reason this
+ * function exists at all now.
+ *
+ * `pointer-events: none` on the body is what Radix leaves behind when a modal
+ * layer unmounts badly, and it is by far the worst of these: the page looks
+ * completely normal and nothing responds to a click. `cleanScrollLocks` below
+ * has always cleared it — but this predicate did not LOOK for it, so once
+ * `repair()` was changed to return early unless something was stuck, a page in
+ * that state was never repaired at all. Clicks went nowhere, permanently, and
+ * the only way out was a reload.
+ *
+ * That is a regression this file caused, and it is the reason the early return
+ * has to be paired with a predicate that knows about every lock the cleaner
+ * can clear. If you add a line to `cleanScrollLocks`, add its detection here.
+ */
 function isScrollLocked(): boolean {
   const html = document.documentElement
   const body = document.body
   return (
+    body.style.pointerEvents === "none" ||
+    html.style.pointerEvents === "none" ||
     html.hasAttribute("data-scroll-locked") ||
     body.hasAttribute("data-scroll-locked") ||
     body.classList.contains("modal-open") ||
@@ -81,6 +99,27 @@ function isScrollLocked(): boolean {
 
 function hasOpenOverlay(): boolean {
   return !!document.querySelector(OVERLAY_SELECTOR)
+}
+
+/**
+ * An overlay that is actually OPEN, as opposed to merely present in the DOM.
+ *
+ * Radix stamps `data-state="open"` on live content and `"closed"` on content
+ * that is on its way out — or that leaked, which is the case that matters. A
+ * leaked portal node makes `hasOpenOverlay()` true forever, and that alone
+ * would be enough to keep a frozen page frozen.
+ *
+ * The popper wrapper carries no state of its own, so its child is checked too.
+ */
+function hasLiveOverlay(): boolean {
+  return Array.from(document.querySelectorAll(OVERLAY_SELECTOR)).some(
+    (el) => el.getAttribute("data-state") === "open" || !!el.querySelector('[data-state="open"]'),
+  )
+}
+
+/** The page is inert: it looks completely normal and nothing responds. */
+function isInteractionBlocked(): boolean {
+  return document.body.style.pointerEvents === "none" || document.documentElement.style.pointerEvents === "none"
 }
 
 function cleanScrollLocks() {
@@ -121,6 +160,7 @@ function cleanScrollLocks() {
   body.style.removeProperty("--scroll-y")
   body.style.removeProperty("--removed-body-scroll-bar-size")
 
+  html.style.pointerEvents = ""
   html.style.overflow = ""
   html.style.overflowX = ""
   html.style.overflowY = ""
@@ -165,6 +205,20 @@ function forceScrollRecalculation() {
  * behind an actual lock we just removed.
  */
 function repair() {
+  /**
+   * AN INERT PAGE IS ALWAYS A BUG, and it is repaired even when an overlay
+   * node is still in the DOM — because a leaked one is exactly how the page
+   * gets stuck. `hasLiveOverlay()` is the narrower question: is a layer really
+   * open right now, in which case the background is inert ON PURPOSE and must
+   * stay that way. Anything else — a closed layer, an orphaned portal, nothing
+   * at all — and the clicks come back.
+   */
+  if (isInteractionBlocked() && !hasLiveOverlay()) {
+    cleanScrollLocks()
+    forceScrollRecalculation()
+    return
+  }
+
   if (!isScrollLocked() || hasOpenOverlay()) return
   cleanScrollLocks()
   forceScrollRecalculation()
@@ -194,8 +248,11 @@ export function BodyScrollRestorer() {
     })
 
     attrObserver.observe(document.body, {
+      // `style` matters: `pointer-events: none` arrives as an inline style and
+      // as nothing else, so without it the freeze goes unnoticed until the next
+      // navigation.
       attributes: true,
-      attributeFilter: ["data-scroll-locked", "data-remove-scroll-bar", "class"],
+      attributeFilter: ["data-scroll-locked", "data-remove-scroll-bar", "class", "style"],
     })
 
     // ── Child observer: catch portal unmount without proper cleanup ──

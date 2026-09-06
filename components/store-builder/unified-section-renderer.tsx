@@ -1,7 +1,10 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+// `import type React` gives the TYPES only — `React.Fragment` off that binding
+// is undefined at runtime, which is a blank page, not a type error. The meta
+// row below needs the real Fragment, so it is imported by name.
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import type {
   Section,
@@ -46,7 +49,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ProductGallery } from "@/components/product/product-gallery"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { SocialMediaIcons } from "./social-media-icons"
-import { StorefrontProductCard } from "@/components/storefront/product-card"
+import { StorefrontProductCard } from "@/components/storefront/storefront-product-card"
 import { avatarSizeMap } from "@/lib/store-builder/defaults"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ReviewsList } from "@/components/reviews/reviews-list"
@@ -118,6 +121,10 @@ export interface UnifiedSectionProps {
   onSelect?: () => void
   moreFromSellerProducts?: ProductData[]
   creatorName?: string
+  // The card shows the creator beside every product, and links their name to
+  // their store, so it needs the handle and the avatar as well as the name.
+  creatorUsername?: string | null
+  creatorAvatarUrl?: string | null
   productId?: string
   reviews?: any[]
   reviewsCount?: number
@@ -1163,6 +1170,8 @@ export function UnifiedSectionRenderer({
   onSelect,
   moreFromSellerProducts = [],
   creatorName = "this creator",
+  creatorUsername,
+  creatorAvatarUrl,
   productId,
   reviews = [],
   reviewsCount = 0,
@@ -1244,6 +1253,8 @@ export function UnifiedSectionRenderer({
           isEditorCanvas={!!onSelect}
           globalSettings={globalSettings}
           creatorName={creatorName}
+          creatorUsername={creatorUsername}
+          creatorAvatarUrl={creatorAvatarUrl}
         />
       )}
       {section.type === "more-from-seller" && (
@@ -2118,6 +2129,8 @@ function UnifiedFeaturedProductsSection({
   isEditorCanvas = false,
   globalSettings,
   creatorName,
+  creatorUsername,
+  creatorAvatarUrl,
 }: {
   settings: FeaturedProductsSettings
   products?: ProductData[]
@@ -2126,6 +2139,8 @@ function UnifiedFeaturedProductsSection({
   isEditorCanvas?: boolean
   globalSettings?: GlobalStoreSettings
   creatorName?: string | null
+  creatorUsername?: string | null
+  creatorAvatarUrl?: string | null
 }) {
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
   const horizontalPadding = 8
@@ -2529,54 +2544,32 @@ function UnifiedFeaturedProductsSection({
               const content = (
                 <StorefrontProductCard
                   product={product}
-                  formatPrice={formatPrice}
                   creatorName={creatorName}
-                  showPrice={settings.showPrice}
-                  textColor={cardTextColor}
-                  priceColor={cardPriceColor}
+                  creatorUsername={creatorUsername}
+                  creatorAvatarUrl={creatorAvatarUrl}
                 />
               )
 
+              /**
+               * The card is a whole card now — its own border, its own links to
+               * the product and to the creator. It is no longer wrapped in a
+               * second link with a second border.
+               *
+               * In the BUILDER CANVAS those links must not navigate: a click
+               * there selects the section. Rather than rendering a different
+               * card for the editor, which is how the two drift apart, the
+               * links are simply switched off with pointer-events and the click
+               * is caught on the way down.
+               */
               if (isPreviewMode) {
                 return (
-                  <div
-                    key={product.id}
-                    className={cn(
-                      "group overflow-hidden rounded-lg border transition-all [@media(hover:hover)]:hover:shadow-lg cursor-pointer",
-                      !cardBgColor && "bg-card border-border",
-                    )}
-                    style={{
-                      backgroundColor: cardBgColor || undefined,
-                      borderColor: cardBorderColor || undefined,
-                      boxShadow: cardBgColor && cardBgColor.includes("rgba")
-                        ? "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)"
-                        : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
-                    }}
-                  >
+                  <div key={product.id} className="cursor-pointer [&_a]:pointer-events-none">
                     {content}
                   </div>
                 )
               }
 
-              return (
-                <SmartLink
-                  key={product.id}
-                  href={getProductHref(product)}
-                  className={cn(
-                    "group overflow-hidden rounded-lg border transition-all [@media(hover:hover)]:hover:shadow-lg",
-                    !cardBgColor && "bg-card border-border",
-                  )}
-                  style={{
-                    backgroundColor: cardBgColor || undefined,
-                    borderColor: cardBorderColor || undefined,
-                    boxShadow: cardBgColor && cardBgColor.includes("rgba")
-                      ? "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)"
-                      : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
-                  }}
-                >
-                  {content}
-                </SmartLink>
-              )
+              return <div key={product.id}>{content}</div>
             })}
           </div>
 
@@ -2924,7 +2917,10 @@ export function UnifiedShopHeader({
               <p
                 className={cn(
                   "max-w-xl break-words px-4",
-                  isMobile ? "mt-4 text-xs" : "mt-6 text-sm",
+                  // Tighter than it was (mt-4 / mt-6): the meta row underneath
+                  // used to be two separately-margined blocks, and the column
+                  // read as a series of unrelated islands.
+                  isMobile ? "mt-3 text-xs" : "mt-4 text-sm",
                   !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
                 )}
                 style={{ color: settings.textsColor ? `${settings.textsColor}99` : (settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined) }}
@@ -2958,70 +2954,100 @@ export function UnifiedShopHeader({
           )}
 
           {/*
-            SOCIAL ICONS — THE ONLY COPY ON THE PAGE. They were an overlay on
-            the cover; see the note up there for why they moved.
+            ONE META ROW: the product count, the sales count, and the social
+            icons, separated by dots.
 
-            NO `showSocialMedia` GATE. It was the same trap the sticky bar took
-            three attempts to escape: the builder's master toggle defaulted to
-            OFF and was written out on every save whether or not anyone touched
-            it, so essentially every stored config carries an explicit `false`
-            that never represented a decision — and creators who had filled in
-            their links saw no icons and no reason why.
+            These were three stacked blocks, each with its own top margin, so a
+            profile ran name / handle / bio / icons / stats down a long column
+            of whitespace with nothing tying them together. They are all the
+            same KIND of thing — small facts about the creator — so they read as
+            one line with dividers, and the page gets shorter by about a
+            hundred pixels.
 
-            The per-platform toggles are the real control and they still work.
-            `SocialMediaIcons` returns null unless a platform is both enabled
-            AND has a URL, so "only if he added those" is decided by the data: a
-            creator who has added nothing gets nothing, with no empty row left
-            behind, and one who has added links gets them without hunting for a
-            second switch.
+            SOCIAL ICONS ARE THE ONLY COPY ON THE PAGE. They were an overlay on
+            the cover; see the note up there for why they moved. There is no
+            `showSocialMedia` gate and no per-platform switch left: filling a
+            URL in is what shows an icon. Both of those toggles defaulted to
+            off and were written out on every save, so a creator could type
+            their Instagram in, save, and see nothing, with two different
+            switches able to be the reason and neither visible from the page.
 
-            The colour follows the page text rather than the cover's white,
-            which was invisible against a light background down here.
+            Every part is conditional on its own, and the dividers are drawn
+            BETWEEN whatever survives rather than after each item, so no
+            combination leaves a dot hanging.
           */}
-          {settings.socialLinks && (!isMobile || (settings.showSocialIconsOnMobile ?? true)) && (
-              <div className={cn("flex justify-center", isMobile ? "mt-3" : "mt-4")}>
+          {(() => {
+            const parts: React.ReactNode[] = []
+
+            if (settings.showStats) {
+              parts.push(
+                <span key="products" className="flex items-center gap-1.5">
+                  <Package className={cn(isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} />
+                  {productCount} products
+                </span>,
+              )
+
+              // Same rule as the About block: a sales count is only worth
+              // printing once there is one. "0 sales" beside the creator's name
+              // is among the first things a buyer reads about them.
+              if (creator?.show_total_sales_badge && settings.showTotalSalesBadge && Number(totalSales) > 0) {
+                parts.push(
+                  <span key="sales" className="flex items-center gap-1.5">
+                    <ShoppingBag className={cn(isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} />
+                    {totalSales} sales
+                  </span>,
+                )
+              }
+            }
+
+            if (settings.socialLinks && (!isMobile || (settings.showSocialIconsOnMobile ?? true))) {
+              const icons = (
                 <SocialMediaIcons
+                  key="social"
                   socialLinks={settings.socialLinks}
                   iconColor={settings.textsColor || settings.colors?.textColor || "#111827"}
                   iconStyle={settings.socialMediaIconStyle || "default"}
                   isPreviewMode={isPreviewMode}
                   isMobile={isMobile}
                 />
-              </div>
-            )}
+              )
+              // SocialMediaIcons renders null when there is nothing to show, so
+              // the divider before it must depend on the same condition rather
+              // than on the component being present.
+              const hasAnyLink = Object.values(settings.socialLinks).some((link) => !!link?.url?.trim())
+              if (hasAnyLink) parts.push(icons)
+            }
 
-          {settings.showStats && (
-            <div className={cn("flex flex-wrap gap-4 justify-center", isMobile ? "mt-4 gap-3" : "mt-6 sm:gap-8")}>
+            if (parts.length === 0) return null
+
+            return (
               <div
                 className={cn(
-                  "flex items-center gap-2",
-                  isMobile ? "text-xs" : "text-sm sm:text-base",
+                  "flex flex-wrap items-center justify-center gap-x-3 gap-y-2",
+                  isMobile ? "mt-3 text-xs" : "mt-4 text-sm",
                   !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
                 )}
-                style={{ color: settings.textsColor ? `${settings.textsColor}99` : (settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined) }}
+                style={{
+                  color: settings.textsColor
+                    ? `${settings.textsColor}99`
+                    : settings.colors?.textColor
+                      ? `${settings.colors.textColor}99`
+                      : undefined,
+                }}
               >
-                <Package className={cn(isMobile ? "h-4 w-4" : "h-4 w-4 sm:h-5 sm:w-5")} />
-                <span>{productCount} products</span>
+                {parts.map((part, i) => (
+                  <Fragment key={i}>
+                    {i > 0 && (
+                      <span aria-hidden className="opacity-40">
+                        ·
+                      </span>
+                    )}
+                    {part}
+                  </Fragment>
+                ))}
               </div>
-
-              {/* Same rule as the About block: a sales count is only worth
-                  printing once there is one. "0 sales" beside the creator's
-                  name is among the first things a buyer reads about them. */}
-              {creator?.show_total_sales_badge && settings.showTotalSalesBadge && Number(totalSales) > 0 && (
-                <div
-                  className={cn(
-                    "flex items-center gap-2",
-                    isMobile ? "text-xs" : "text-sm sm:text-base",
-                    !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
-                  )}
-                  style={{ color: settings.textsColor ? `${settings.textsColor}99` : (settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined) }}
-                >
-                  <ShoppingBag className={cn(isMobile ? "h-4 w-4" : "h-4 w-4 sm:h-5 sm:w-5")} />
-                  <span>{totalSales} sales</span>
-                </div>
-              )}
-            </div>
-          )}
+            )
+          })()}
         </div>
       </SectionContainer>
     </div>

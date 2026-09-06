@@ -1022,20 +1022,18 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
 
                       return (
                         <div key={platform} className="space-y-2 rounded-lg border border-border p-3">
+                          {/*
+                            NO PER-PLATFORM TOGGLE. Typing a URL in is what
+                            turns the icon on and clearing the field is what
+                            turns it off — one control, visible from the page.
+                            Before, a link could be invisible because of this
+                            switch, or the master one above it, with no way to
+                            tell which.
+                          */}
                           <div className="flex items-center justify-between">
                             <Label className="text-sm font-normal">{platformNames[platform]}</Label>
-                            <Toggle
-                              checked={socialLinks[platform].enabled}
-                              onCheckedChange={(checked) => {
-                                const newSocialLinks = {
-                                  ...socialLinks,
-                                  [platform]: { ...socialLinks[platform], enabled: checked },
-                                }
-                                updateHeaderSettings({ socialLinks: newSocialLinks })
-                              }}
-                            />
                           </div>
-                          {socialLinks[platform].enabled && (
+                          {(
                             <Input
                               value={socialLinks[platform].url}
                               onChange={(e) => {
@@ -2183,19 +2181,20 @@ function ShopHeaderSettingsForm({
     spotify: { enabled: false, url: "" },
   }
 
-  const handleSocialLinkChange = (
-    platform: keyof SocialLinksConfig,
-    field: "enabled" | "url",
-    value: boolean | string,
-  ) => {
-    const newSocialLinks = {
-      ...socialLinks,
-      [platform]: {
-        ...socialLinks[platform],
-        [field]: value,
+  /**
+   * The URL is the only field anything writes now. `enabled` used to be
+   * settable here too, and it is exactly the switch that let a creator fill in
+   * a link and see nothing — so the parameter is gone rather than left as an
+   * option nobody is supposed to use. The field survives in the stored shape
+   * for old configs; nothing reads it.
+   */
+  const handleSocialLinkChange = (platform: keyof SocialLinksConfig, url: string) => {
+    onChange({
+      socialLinks: {
+        ...socialLinks,
+        [platform]: { ...socialLinks[platform], url, enabled: !!url.trim() },
       },
-    }
-    onChange({ socialLinks: newSocialLinks })
+    })
   }
 
   return (
@@ -2488,18 +2487,16 @@ function ShopHeaderSettingsForm({
 
                 return (
                   <div key={platform} className="space-y-2">
+                    {/* No per-platform toggle — see the note in the header
+                        panel. The URL field is the only control. */}
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-normal">{platformNames[platform]}</Label>
-                      <Toggle
-                        checked={socialLinks[platform].enabled}
-                        onCheckedChange={(checked) => handleSocialLinkChange(platform, "enabled", checked)}
-                      />
                     </div>
-                    {socialLinks[platform].enabled && (
+                    {(
                       <div className="space-y-1">
                         <Input
                           value={socialLinks[platform].url}
-                          onChange={(e) => handleSocialLinkChange(platform, "url", e.target.value)}
+                          onChange={(e) => handleSocialLinkChange(platform, e.target.value)}
                           placeholder={`https://${platform === "twitter" ? "x" : platform}.com/...`}
                           className="h-8 text-sm"
                         />

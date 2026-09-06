@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ImageUpload } from "@/components/app/image-upload"
 import { Pencil, Loader2 } from "lucide-react"
 
 const PLATFORMS = [
@@ -36,10 +37,19 @@ export interface EditProfileButtonProps {
   displayName: string
   bio: string
   username?: string | null
+  avatarUrl?: string | null
+  coverUrl?: string | null
   socialLinks: Partial<Record<PlatformKey, string>>
 }
 
-export function EditProfileButton({ displayName, bio, username, socialLinks }: EditProfileButtonProps) {
+export function EditProfileButton({
+  displayName,
+  bio,
+  username,
+  avatarUrl,
+  coverUrl,
+  socialLinks,
+}: EditProfileButtonProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
@@ -47,6 +57,8 @@ export function EditProfileButton({ displayName, bio, username, socialLinks }: E
 
   const [name, setName] = React.useState(displayName)
   const [about, setAbout] = React.useState(bio)
+  const [avatar, setAvatar] = React.useState<string | null>(avatarUrl ?? null)
+  const [cover, setCover] = React.useState<string | null>(coverUrl ?? null)
   const [links, setLinks] = React.useState<Record<string, string>>(() => ({ ...socialLinks }))
 
   // Reopening after a cancel should show what is saved, not what was abandoned.
@@ -54,9 +66,11 @@ export function EditProfileButton({ displayName, bio, username, socialLinks }: E
     if (open) return
     setName(displayName)
     setAbout(bio)
+    setAvatar(avatarUrl ?? null)
+    setCover(coverUrl ?? null)
     setLinks({ ...socialLinks })
     setError(null)
-  }, [open, displayName, bio, socialLinks])
+  }, [open, displayName, bio, avatarUrl, coverUrl, socialLinks])
 
   const save = async () => {
     setSaving(true)
@@ -65,7 +79,13 @@ export function EditProfileButton({ displayName, bio, username, socialLinks }: E
       const res = await fetch("/api/creator-profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName: name, bio: about, socialLinks: links }),
+        body: JSON.stringify({
+          displayName: name,
+          bio: about,
+          avatarUrl: avatar,
+          coverUrl: cover,
+          socialLinks: links,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -100,6 +120,36 @@ export function EditProfileButton({ displayName, bio, username, socialLinks }: E
           </DialogHeader>
 
           <div className="space-y-5 py-2">
+            {/*
+              Cover first, then the avatar sitting half over it — the same
+              relationship they have on the page, so what you are editing looks
+              like what you will get.
+            */}
+            <div className="space-y-2">
+              <div className="flex items-baseline justify-between">
+                <Label>Cover</Label>
+                <span className="text-xs text-muted-foreground">Recommended ratio 3:1</span>
+              </div>
+              <ImageUpload
+                bucket="covers"
+                aspectRatio="cover"
+                value={cover || undefined}
+                onChange={(url) => setCover(url)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Profile picture</Label>
+              <div className="w-28">
+                <ImageUpload
+                  bucket="avatars"
+                  aspectRatio="square"
+                  value={avatar || undefined}
+                  onChange={(url) => setAvatar(url)}
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="ep-name">Name</Label>
               <Input id="ep-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />

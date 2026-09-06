@@ -83,7 +83,16 @@ export function SocialMediaIcons({
     { key: "spotify" as const, Icon: SpotifyIcon },
   ]
 
-  const enabledPlatforms = platforms.filter(({ key }) => socialLinks[key]?.enabled && socialLinks[key]?.url)
+  /**
+   * A URL IS THE WHOLE CONDITION. It used to also require `enabled`, a second
+   * per-platform switch on top of the master one — so a creator could type
+   * their Instagram in, save, and see nothing, with two different toggles able
+   * to be the reason and neither of them visible from the page.
+   *
+   * Filling the field in is the creator saying "show this"; clearing it is
+   * them saying "don't". There is nothing else to get wrong.
+   */
+  const enabledPlatforms = platforms.filter(({ key }) => !!socialLinks[key]?.url?.trim())
 
   if (enabledPlatforms.length === 0) return null
 

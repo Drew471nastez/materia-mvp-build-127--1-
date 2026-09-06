@@ -13,7 +13,7 @@ import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { EditProfileButton } from "@/components/storefront/edit-profile-button"
-import { StorefrontTabs, type StorefrontTab } from "@/components/storefront/storefront-tabs"
+import { StorefrontTabs, EmptyTabPanel, type StorefrontTab } from "@/components/storefront/storefront-tabs"
 import { AllProductsGrid } from "@/components/storefront/all-products-grid"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 import { deservesIndexing } from "@/lib/security/spam-signals"
@@ -318,6 +318,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         displayName={profile.display_name || ""}
         bio={headerSettings?.bio || creator.bio || ""}
         username={profile.username}
+        avatarUrl={headerSettings?.avatarUrl ?? profile.avatar_url}
+        coverUrl={headerSettings?.coverImageUrl ?? creator.cover_url}
         socialLinks={{
           instagram: links?.instagram?.url || "",
           tiktok: links?.tiktok?.url || "",
@@ -656,6 +658,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                   products={productsData}
                   globalSettings={globalSettings}
                   creatorName={profile.display_name || undefined}
+                  creatorUsername={profile.username}
+                  creatorAvatarUrl={profile.avatar_url}
                 />
               ))}
 
@@ -667,6 +671,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                   products={productsData}
                   globalSettings={globalSettings}
                   creatorName={profile.display_name || undefined}
+                  creatorUsername={profile.username}
+                  creatorAvatarUrl={profile.avatar_url}
                   sellerMemberSince={profile.created_at}
                   sellerTotalSales={totalSales}
                   sellerProductsCount={productsCount}
@@ -690,9 +696,36 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             tabs.push({
               id: "products",
               label: "Products",
-              panel: <AllProductsGrid products={productsData} creatorName={profile.display_name} />,
+              panel: (
+                <AllProductsGrid
+                  products={productsData}
+                  creatorName={profile.display_name}
+                  creatorUsername={profile.username}
+                  creatorAvatarUrl={profile.avatar_url}
+                />
+              ),
             })
           }
+
+          /**
+           * Communities is here because it was asked for, and the feature is
+           * not built: Storelib has no paid membership a creator sells, and
+           * `community_posts` is their own dashboard feed rather than something
+           * anyone joins. The panel says that instead of opening onto nothing —
+           * a blank tab reads as broken, a sentence reads as "not yet".
+           *
+           * When the feature lands, this panel is the only thing that changes.
+           */
+          tabs.push({
+            id: "communities",
+            label: "Communities",
+            panel: (
+              <EmptyTabPanel
+                title="No communities yet"
+                detail="Paid communities are not available on Storelib yet. When they are, the ones this creator runs will appear here."
+              />
+            ),
+          })
 
           return <StorefrontTabs tabs={tabs} />
         })()}

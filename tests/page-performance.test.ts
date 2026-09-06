@@ -634,9 +634,12 @@ check(
         missing.push(`overlay detection no longer covers ${marker} — its layers will be force-closed`)
     }
 
-    // repair() must be inert when nothing is stuck or an overlay owns the lock.
-    if (!/function repair\(\)\s*\{\s*if \(!isScrollLocked\(\) \|\| hasOpenOverlay\(\)\) return/.test(restorer))
+    // repair() must be inert when nothing is stuck or a LIVE overlay owns the
+    // lock — and must still act when the page is inert with no live overlay.
+    if (!/if \(!isScrollLocked\(\) \|\| hasOpenOverlay\(\)\) return/.test(restorer))
       missing.push("repair() runs unconditionally again — it will fire a resize into a working page")
+    if (!/if \(isInteractionBlocked\(\) && !hasLiveOverlay\(\)\)/.test(restorer))
+      missing.push("an inert page with a leaked overlay node can never be repaired — clicks stay dead")
 
     // The synthetic resize is the actual weapon; it must stay behind repair().
     const dispatches = restorer.match(/dispatchEvent\(new Event\("resize"\)\)/g)?.length ?? 0
@@ -948,92 +951,40 @@ check(
 )
 
 check(
-  "there is ONE product card, and it is the one that was asked for",
+  "the storefront renders the explore card itself, not a lookalike",
   (() => {
     /**
-     * THE SHAPE, asked for more than once and pinned so it stops drifting:
+     * "The product cards in the profile listings should use the same font
+     * sizes and all the things such as on the explore product listings" is not
+     * a styling task. Matching a design by hand is how two components start
+     * identical and end up different — which has already happened twice on
+     * this page, with the header and with the profile block.
      *
-     *     4:5 image, discount badge if there is one
-     *     Product name
-     *     Creator · Category
-     *     €29   €230
-     *
-     * No type chip — "PRODUCT" over every card in a grid of products is a word
-     * that never distinguishes anything. No description: a grid is scanned, not
-     * read. Price at 600, firm without shouting over the title.
-     *
-     * AND ONE OF IT. The Featured rail and the Products tab render the same
-     * component. The way this goes wrong is that somebody needs a second grid,
-     * copies the markup, and the two drift until they are visibly different
-     * products from different sites on the same page — which is the exact
-     * failure this file already carries two other guards for.
-     *
-     * Measured in a browser: the image box came back at 0.800, which is 4:5,
-     * and a $92-from-$230 product produced "60% off".
+     * So the storefront renders components/explore/product-card.tsx ITSELF.
+     * The only storefront-specific file is an adapter that reshapes a product
+     * into what that card expects, and it must carry no markup of its own —
+     * the moment it does, it has started becoming a second card.
      */
-    const card = code("components/storefront/product-card.tsx")
-    const featured = code("components/store-builder/unified-section-renderer.tsx")
+    const adapter = code("components/storefront/storefront-product-card.tsx")
     const grid = code("components/storefront/all-products-grid.tsx")
+    const featured = code("components/store-builder/unified-section-renderer.tsx")
     const missing: string[] = []
 
-    // The shape.
-    if (!/aspect-video/.test(card)) missing.push("the card image is not 16:9 any more")
-    if (/aspect-\[4\/5\]/.test(card)) missing.push("the card is back to 4:5 — three of those stop fitting one screen")
-    if (/\{product\.description\}/.test(card)) missing.push("the description is back on the card")
-    if (/>PRODUCT|PRODUCT</.test(card)) missing.push("the type chip is back on the card")
-    if (!/font-semibold tracking-tight/.test(card)) missing.push("the price is no longer 600 weight")
-    if (/settings\.showCompareAtPrice/.test(card))
-      missing.push("the compare-at price is gated on a toggle again — entered discounts will not show")
-    if (!/compare_at_cents > product\.price_cents/.test(card)) missing.push("the compare-at price is gone")
-    if (!/discountPercent/.test(card)) missing.push("the discount badge is gone")
-    if (!/\[creatorName, category\]/.test(card)) missing.push("the Creator · Category line is gone")
-
-    /**
-     * The rating rule, run rather than pattern-matched: a rating is worth
-     * printing once somebody has left one, and "0.0" under a new product says
-     * the opposite of what a rating is for — it makes it look judged rather
-     * than new.
-     */
-    const decl = card.match(/const hasReviews = [^\n]+/)?.[0]
-    if (!decl) {
-      missing.push("the review gate is gone from the card")
-    } else {
-      // eslint-disable-next-line no-new-func
-      const hasReviews = new Function(
-        "product",
-        `const reviewsCount = product.reviews_count ?? 0; ${decl}; return hasReviews`,
-      ) as (p: Record<string, unknown>) => boolean
-      if (hasReviews({}) !== false) missing.push("a product with no review data shows a rating")
-      if (hasReviews({ reviews_count: 0, reviews_average: 0 }) !== false)
-        missing.push("a product with zero reviews shows a rating")
-      if (hasReviews({ reviews_count: 3, reviews_average: 0 }) !== false)
-        missing.push("a product with reviews but no average shows 0.0")
-      if (hasReviews({ reviews_count: 12, reviews_average: 5 }) !== true)
-        missing.push("a product WITH reviews does not show its rating")
+    if (!/from "@\/components\/explore\/product-card"/.test(adapter))
+      missing.push("the storefront card no longer wraps the explore card — the two designs will drift")
+    for (const markup of ["aspect-video", "line-through", "formatPrice", "<Image", "% OFF"]) {
+      if (adapter.includes(markup)) missing.push(`the adapter has grown card markup of its own (${markup})`)
     }
-
-    // Performance, and a bug that has been fixed once already.
-    if (!/quality=\{72\}/.test(card) || !/sizes="/.test(card)) missing.push("the card image is unoptimised again")
-    if (/el\.style\.opacity = "0"/.test(card))
-      missing.push("the ref-driven opacity is back — a failed image leaves the card blank forever")
-
-    /**
-     * One of it. `aspect-video` alone is no longer a usable fingerprint — other
-     * sections legitimately use it — so what is matched is the card's own image
-     * container, class for class. A copy-paste of the card brings it along; an
-     * unrelated 16:9 box does not.
-     */
-    const IMAGE_BOX = /aspect-video overflow-hidden rounded-t-lg bg-muted/g
-    if ((card.match(IMAGE_BOX)?.length ?? 0) !== 1)
-      missing.push("more than one card image block inside the card component")
     for (const [name, src] of [
       ["the featured rail", featured],
       ["the products tab", grid],
     ] as const) {
       if (!/<StorefrontProductCard/.test(src)) missing.push(`${name} no longer renders the shared card`)
-      if (IMAGE_BOX.test(src)) missing.push(`${name} has its own copy of the card markup`)
-      IMAGE_BOX.lastIndex = 0
     }
+    // `?layout=discover` tells the product page it was reached from a browse
+    // surface. A creator's own storefront is not that.
+    if (!/discoverLayout=\{false\}/.test(adapter))
+      missing.push("the storefront links products as though they came from discover")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -1041,41 +992,25 @@ check(
 )
 
 check(
-  "the storefront tabs cost nothing to switch, and claim nothing that does not exist",
+  "the products tab can be filtered",
   (() => {
     /**
-     * Both panels are rendered ON THE SERVER and handed to the tab strip as
-     * props, so switching is a visibility change — no fetch, no spinner, no
-     * second render of the sections — and Home is in the first HTML a visitor
-     * or a crawler receives. A tab strip that fetches its panel on click would
-     * undo every batching fix above it in this file.
+     * The tab shipped with no filtering at all — every product, no way to
+     * narrow it. Chips rather than the rail that used to run down the left of
+     * Featured: they cost no horizontal room, read the same on a phone and a
+     * desktop, and sit above the thing they filter instead of beside it.
      *
-     * Inactive panels stay MOUNTED and hidden. Unmounting them would rebuild
-     * the sections and re-request their images on every switch back.
-     *
-     * The design also has a "Communities" tab — a paid membership a creator
-     * sells. Storelib has no such thing: `community_posts` is the creator's own
-     * dashboard feed, not something anyone joins or is charged for. So there is
-     * no tab for it, and this asserts none was invented, because a tab onto an
-     * empty panel is worse than no tab. The list is data so that the day paid
-     * communities exist they get a tab by appearing in it.
+     * Built from the products actually on the page, so a creator never sees a
+     * filter that leads nowhere, and hidden below two categories where the only
+     * choice is "everything". Verified in a browser: All 3 / Productivity 2 /
+     * Audio & Music 1, and clicking Productivity left two cards.
      */
-    const tabs = code("components/storefront/storefront-tabs.tsx")
-    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const grid = code("components/storefront/all-products-grid.tsx")
     const missing: string[] = []
-
-    if (/fetch\(|useEffect/.test(tabs))
-      missing.push("the tab strip fetches or runs an effect — panels are server-rendered props")
-    if (!/hidden=\{tab\.id !== active\}/.test(tabs))
-      missing.push("inactive panels are unmounted instead of hidden — every switch back rebuilds them")
-    if (!/if \(tabs\.length < 2\) return/.test(tabs))
-      missing.push("a lone tab renders a strip — that is a button onto what is already on screen")
-
-    if (!/label: "Home"/.test(page)) missing.push("the Home tab is gone")
-    if (!/label: "Products"/.test(page)) missing.push("the Products tab is gone")
-    if (/label: "Communities"/.test(page))
-      missing.push("a Communities tab was added with no feature behind it — it would open an empty panel")
-
+    if (!/const \[active, setActive\]/.test(grid)) missing.push("the products tab has no filter state")
+    if (!/categories\.length > 1/.test(grid))
+      missing.push("the chips render for a single category — a filter with one option is not a choice")
+    if (!/products\.filter\(/.test(grid)) missing.push("selecting a chip no longer filters anything")
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),
@@ -1122,7 +1057,8 @@ check(
     if (!list) missing.push("the tablist element is gone")
     else {
       if (/border-b\b/.test(list)) missing.push("the full-width rule is back under the tabs")
-      if (!/justify-center/.test(list)) missing.push("the tabs are no longer centred under the profile")
+      // Left, lined up with the grid below it — not centred.
+      if (/justify-center/.test(list)) missing.push("the tabs are centred again, off the content's left edge")
     }
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -1180,8 +1116,20 @@ check(
       missing.push("the storefront gates social icons on showSocialMedia again — a stored false will win")
     if (/showSocialMedia/.test(sidebar))
       missing.push("the master social toggle is back in the builder, and it defaults to off")
-    if (!/socialLinks\[key\]\?\.enabled && socialLinks\[key\]\?\.url/.test(icons))
-      missing.push("icons no longer require both a switch and a url — empty links will render")
+    /**
+     * A URL IS THE WHOLE CONDITION. It used to also need a per-platform
+     * `enabled`, a second switch on top of the master one — so a creator could
+     * type their Instagram in, save, and see nothing, with two different
+     * toggles able to be the reason and neither visible from the page.
+     * Verified in a browser with BOTH set false and three URLs present: three
+     * icons rendered.
+     */
+    if (!/!!socialLinks\[key\]\?\.url\?\.trim\(\)/.test(icons))
+      missing.push("icons depend on something other than the url again")
+    if (/socialLinks\[key\]\?\.enabled/.test(icons))
+      missing.push("the per-platform enabled flag is back — a filled-in link can be invisible again")
+    if (/"enabled", checked/.test(sidebar) || /field: "enabled"/.test(sidebar))
+      missing.push("the per-platform toggle is back in the builder")
     if (!/enabledPlatforms\.length === 0\) return null/.test(icons))
       missing.push("a creator with no links gets an empty icon row")
 

@@ -73,9 +73,22 @@ interface ProductCardProps {
   priority?: boolean
   /** Use router.push() on native instead of window.location.href to avoid white flash */
   clientNav?: boolean
+  /**
+   * `?layout=discover` tells the product page it was reached from a browse
+   * surface and to render the back-to-discover chrome. A creator's own
+   * storefront is not that, so it passes false and links straight to the
+   * product.
+   */
+  discoverLayout?: boolean
 }
 
-export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false, clientNav = false }: ProductCardProps) {
+export const ProductCard = memo(function ProductCard({
+  product,
+  srcParam = "",
+  priority = false,
+  clientNav = false,
+  discoverLayout = true,
+}: ProductCardProps) {
   // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
   // Hooks must be declared before any early return (React rules).
   const touchStartY = useRef(0)
@@ -120,7 +133,9 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   const creatorUsername = product.creator?.profile?.username || ""
   const creatorAvatarUrl = product.creator?.profile?.avatar_url
   const baseProductUrl = getProductUrl(creatorUsername, product.slug || "")
-  const productUrl = `${baseProductUrl}${baseProductUrl.includes("?") ? "&" : "?"}layout=discover&recommended=1`
+  const productUrl = discoverLayout
+    ? `${baseProductUrl}${baseProductUrl.includes("?") ? "&" : "?"}layout=discover&recommended=1`
+    : baseProductUrl
   // "#" when username is unknown so the creator link is a safe no-op.
   const storeUrl = creatorUsername ? getStoreUrl(creatorUsername) : "#"
 

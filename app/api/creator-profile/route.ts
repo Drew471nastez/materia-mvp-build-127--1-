@@ -76,11 +76,10 @@ function buildSocialLinks(input: unknown, existing?: SocialLinksConfig): SocialL
   const out = {} as SocialLinksConfig
   for (const key of PLATFORMS) {
     const url = cleanUrl(source[key])
-    out[key as Platform] = url
-      ? { enabled: true, url }
-      : // Cleared: keep the row but switch it off, which is what the builder's
-        // own toggle does. SocialMediaIcons skips anything without both.
-        { enabled: false, url: "" }
+    // `enabled` is kept only because the stored shape has the field; nothing
+    // reads it any more. A URL is what shows an icon, and clearing the field
+    // is what removes it — see the note in social-media-icons.tsx.
+    out[key as Platform] = url ? { enabled: true, url } : { enabled: false, url: "" }
   }
   // Anything the caller did not mention at all keeps whatever was stored.
   if (existing) {
@@ -112,15 +111,29 @@ export async function PATCH(request: NextRequest) {
   const displayName = typeof body.displayName === "string" ? body.displayName.trim().slice(0, MAX_NAME) : undefined
   const bio = typeof body.bio === "string" ? body.bio.trim().slice(0, MAX_BIO) : undefined
 
+  /**
+   * Images go through the same cleaner as the social links, for the same
+   * reason: they end up in a `src` on a public page, and `javascript:` in an
+   * attribute does not care that we called it an avatar. `null` clears; a
+   * value that will not parse is refused rather than stored.
+   */
+  const avatarUrl =
+    body.avatarUrl === null ? null : "avatarUrl" in body ? cleanUrl(body.avatarUrl) : undefined
+  const coverUrl = body.coverUrl === null ? null : "coverUrl" in body ? cleanUrl(body.coverUrl) : undefined
+
   if (displayName !== undefined && displayName.length === 0) {
     return NextResponse.json({ error: "A display name is required" }, { status: 400 })
   }
 
-  if (displayName !== undefined) {
-    const { error } = await supabase.from("profiles").update({ display_name: displayName }).eq("id", user.id)
+  const profileUpdate: Record<string, unknown> = {}
+  if (displayName !== undefined) profileUpdate.display_name = displayName
+  if (avatarUrl !== undefined) profileUpdate.avatar_url = avatarUrl
+
+  if (Object.keys(profileUpdate).length > 0) {
+    const { error } = await supabase.from("profiles").update(profileUpdate).eq("id", user.id)
     if (error) {
-      console.error("[creator-profile] display_name update failed", error)
-      return NextResponse.json({ error: "Could not save your name" }, { status: 500 })
+      console.error("[creator-profile] profile update failed", error)
+      return NextResponse.json({ error: "Could not save your profile" }, { status: 500 })
     }
   }
 
@@ -133,9 +146,13 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ ok: true, storefront: false })
   }
 
-  if (bio !== undefined) {
-    const { error } = await supabase.from("creators").update({ bio }).eq("id", creator.id)
-    if (error) console.error("[creator-profile] creators.bio update failed", error)
+  const creatorUpdate: Record<string, unknown> = {}
+  if (bio !== undefined) creatorUpdate.bio = bio
+  if (coverUrl !== undefined) creatorUpdate.cover_url = coverUrl
+
+  if (Object.keys(creatorUpdate).length > 0) {
+    const { error } = await supabase.from("creators").update(creatorUpdate).eq("id", creator.id)
+    if (error) console.error("[creator-profile] creators update failed", error)
   }
 
   const { data: config } = await supabase
@@ -155,11 +172,17 @@ export async function PATCH(request: NextRequest) {
     const header = (cfg.headerSettings || {}) as ShopHeaderSettings
     const next: ShopHeaderSettings = { ...header }
     if (bio !== undefined) next.bio = bio
+    /**
+     * The storefront reads `headerSettings.avatarUrl` and `coverImageUrl`
+     * FIRST and only falls back to the profile and creator rows. Writing only
+     * those rows would look like the save silently did nothing — an empty
+     * string in `avatarUrl` even means "show initials" rather than "inherit",
+     * so a cleared image has to be written as `undefined`, not "".
+     */
+    if (avatarUrl !== undefined) next.avatarUrl = avatarUrl ?? undefined
+    if (coverUrl !== undefined) next.coverImageUrl = coverUrl ?? undefined
     if ("socialLinks" in body) {
       next.socialLinks = buildSocialLinks(body.socialLinks, header.socialLinks)
-      // Adding a link and not seeing it because a separate toggle was off is
-      // not a state anyone chooses on purpose.
-      next.showSocialMedia = true
     }
     return { ...cfg, headerSettings: next }
   }

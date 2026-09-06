@@ -28,6 +28,8 @@ export function SectionRenderer({
   isMobile = false,
   moreFromSellerProducts,
   creatorName,
+  creatorUsername,
+  creatorAvatarUrl,
   productId,
   reviews,
   reviewsCount,
@@ -42,6 +44,8 @@ export function SectionRenderer({
   isMobile?: boolean
   moreFromSellerProducts?: ProductData[]
   creatorName?: string
+  creatorUsername?: string | null
+  creatorAvatarUrl?: string | null
   productId?: string
   reviews?: any[]
   reviewsCount?: number
@@ -66,6 +70,8 @@ export function SectionRenderer({
       isPreviewMode={false}
       moreFromSellerProducts={moreFromSellerProducts}
       creatorName={creatorName}
+      creatorUsername={creatorUsername}
+      creatorAvatarUrl={creatorAvatarUrl}
       productId={productId}
       reviews={reviews}
       reviewsCount={reviewsCount}
