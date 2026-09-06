@@ -49,6 +49,12 @@ export function StorefrontProductCard({
     <ProductCard
       priority={priority}
       discoverLayout={false}
+      /**
+       * No seller row on the creator's own page. Every card would show the
+       * same face and the same name, directly beneath a header showing that
+       * face and that name. The rating still renders on its own.
+       */
+      showCreator={false}
       product={{
         id: product.id,
         title: product.title,

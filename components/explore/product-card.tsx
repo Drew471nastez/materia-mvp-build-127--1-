@@ -80,6 +80,13 @@ interface ProductCardProps {
    * product.
    */
   discoverLayout?: boolean
+  /**
+   * The seller row. On a browse surface it is the point — it says whose work
+   * this is. On a creator's OWN storefront every card would carry the same
+   * face and the same name, directly under a header showing that face and that
+   * name, which tells the visitor nothing and costs a row on every card.
+   */
+  showCreator?: boolean
 }
 
 export const ProductCard = memo(function ProductCard({
@@ -88,6 +95,7 @@ export const ProductCard = memo(function ProductCard({
   priority = false,
   clientNav = false,
   discoverLayout = true,
+  showCreator = true,
 }: ProductCardProps) {
   // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
   // Hooks must be declared before any early return (React rules).
@@ -174,30 +182,35 @@ export const ProductCard = memo(function ProductCard({
         )}
       </SmartLink>
       <div className="flex flex-1 flex-col p-4">
-        {/* Seller info row - avatar, name (clickable), divider, rating */}
-        <div className="flex items-center gap-2 mb-2">
-          <SmartLink
-            href={storeUrl}
-            className="group/seller flex items-center gap-1.5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <CreatorAvatar url={creatorAvatarUrl} name={creatorName} size={20} />
-            <span className="text-[13px] text-muted-foreground truncate max-w-[120px] group-hover/seller:underline">
-              {creatorName}
-            </span>
-          </SmartLink>
-          {hasReviews && (
-            <>
-              <span className="h-3.5 w-px bg-border/60 shrink-0" />
-              <div className="flex items-center gap-1">
-                <Star className="h-3.5 w-3.5 fill-current text-foreground" />
-                <span className="text-[13px] text-muted-foreground">
-                  {reviewsAverage.toFixed(1)}
+        {/* Seller info row - avatar, name (clickable), divider, rating.
+            The row disappears entirely when there is neither a seller to show
+            nor a rating, rather than leaving an empty 20px gap above the
+            title. */}
+        {(showCreator || hasReviews) && (
+          <div className="flex items-center gap-2 mb-2">
+            {showCreator && (
+              <SmartLink
+                href={storeUrl}
+                className="group/seller flex items-center gap-1.5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <CreatorAvatar url={creatorAvatarUrl} name={creatorName} size={20} />
+                <span className="text-[13px] text-muted-foreground truncate max-w-[120px] group-hover/seller:underline">
+                  {creatorName}
                 </span>
-              </div>
-            </>
-          )}
-        </div>
+              </SmartLink>
+            )}
+            {hasReviews && (
+              <>
+                {showCreator && <span className="h-3.5 w-px bg-border/60 shrink-0" />}
+                <div className="flex items-center gap-1">
+                  <Star className="h-3.5 w-3.5 fill-current text-foreground" />
+                  <span className="text-[13px] text-muted-foreground">{reviewsAverage.toFixed(1)}</span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <SmartLink href={productUrl} useClientNav={clientNav} className="flex-1 flex flex-col">
           <div className="flex items-start justify-between gap-2">

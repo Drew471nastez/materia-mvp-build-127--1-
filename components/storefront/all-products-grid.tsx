@@ -15,6 +15,15 @@ import { StorefrontProductCard, type StorefrontCardProduct } from "./storefront-
 
 export type AllProductsGridProduct = StorefrontCardProduct
 
+type SortKey = "recent" | "price-low" | "price-high" | "rating"
+
+const SORT_LABELS: Record<SortKey, string> = {
+  recent: "Most recent",
+  "price-low": "Price: low to high",
+  "price-high": "Price: high to low",
+  rating: "Top rated",
+}
+
 export function AllProductsGrid({
   products,
   creatorName,
@@ -37,6 +46,7 @@ export function AllProductsGrid({
    * the only thing to choose is "everything".
    */
   const [active, setActive] = React.useState<string | null>(null)
+  const [sort, setSort] = React.useState<SortKey>("recent")
 
   const categories = React.useMemo(() => {
     const counts = new Map<string, number>()
@@ -48,10 +58,22 @@ export function AllProductsGrid({
     return Array.from(counts, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count)
   }, [products])
 
-  const shown = React.useMemo(
-    () => (active ? products.filter((p) => (p.categories || []).some((c) => c.name === active)) : products),
-    [products, active],
-  )
+  const shown = React.useMemo(() => {
+    const filtered = active
+      ? products.filter((p) => (p.categories || []).some((c) => c.name === active))
+      : [...products]
+    const list = active ? [...filtered] : filtered
+    switch (sort) {
+      case "price-low":
+        return list.sort((a, b) => a.price_cents - b.price_cents)
+      case "price-high":
+        return list.sort((a, b) => b.price_cents - a.price_cents)
+      case "rating":
+        return list.sort((a, b) => (b.reviews_average ?? 0) - (a.reviews_average ?? 0))
+      default:
+        return list
+    }
+  }, [products, active, sort])
 
   if (products.length === 0) {
     return (
@@ -66,20 +88,53 @@ export function AllProductsGrid({
 
   return (
     <div className="mx-auto w-full max-w-[1100px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">
-      {categories.length > 1 && (
-        <div className="mb-6 flex flex-wrap gap-2">
-          <FilterChip label="All" count={products.length} active={active === null} onClick={() => setActive(null)} />
-          {categories.map((category) => (
-            <FilterChip
-              key={category.name}
-              label={category.name}
-              count={category.count}
-              active={active === category.name}
-              onClick={() => setActive(category.name)}
-            />
-          ))}
+      {/*
+        THE CONTROLS ARE ALWAYS HERE. Category chips only appear for a creator
+        who has more than one category — a filter with a single option is not a
+        choice — but that left the tab with nothing at all on it for everybody
+        else, which is what "there's no filtering, no nothing" was about. Sort
+        works for any number of products, so the row is never empty.
+      */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          {categories.length > 1 && (
+            <>
+              <FilterChip
+                label="All"
+                count={products.length}
+                active={active === null}
+                onClick={() => setActive(null)}
+              />
+              {categories.map((category) => (
+                <FilterChip
+                  key={category.name}
+                  label={category.name}
+                  count={category.count}
+                  active={active === category.name}
+                  onClick={() => setActive(category.name)}
+                />
+              ))}
+            </>
+          )}
         </div>
-      )}
+
+        {products.length > 1 && (
+          <label className="flex shrink-0 items-center gap-2 text-[13px] text-muted-foreground">
+            <span className="sr-only">Sort products</span>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              className="cursor-pointer rounded-lg border border-border bg-transparent py-1.5 pl-2 pr-7 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
+              {Object.entries(SORT_LABELS).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {shown.map((product) => (

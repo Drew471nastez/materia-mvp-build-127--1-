@@ -1138,6 +1138,119 @@ check(
   })(),
 )
 
+check(
+  "social marks are outlines in currentColor, on any background",
+  (() => {
+    /**
+     * They were solid brand glyphs painted with a hardcoded `#111827`.
+     * Instagram and YouTube in particular render as a filled rounded square,
+     * which beside a line of small grey text reads as two black blobs stamped
+     * on the page — and on a dark storefront a near-black icon is simply
+     * invisible.
+     *
+     * Stroked outlines sit at the same visual weight as the text they share a
+     * row with, and `currentColor` means they inherit that row's colour: grey
+     * on white, grey on black, and a creator's own text colour without anyone
+     * passing one. Screenshotted on both backgrounds.
+     */
+    const icons = code("components/store-builder/social-media-icons.tsx")
+    const header = code("components/store-builder/unified-section-renderer.tsx")
+    const missing: string[] = []
+
+    if (!/stroke: "currentColor"/.test(icons)) missing.push("the marks are not stroked in currentColor any more")
+    if (/fill="#|fill={color}/.test(icons)) missing.push("a mark is painted with a fixed fill again")
+    if (!/iconColor = "currentColor"/.test(icons))
+      missing.push("the default icon colour is a fixed value again — it will vanish on a dark page")
+    if (/iconColor=\{settings\.textsColor/.test(header))
+      missing.push("the header passes a hardcoded colour again instead of letting the row decide")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the creator's own page does not put their face on every card",
+  (() => {
+    /**
+     * The explore card carries a seller row — avatar, name, rating — and on a
+     * browse surface that is the point. On a creator's OWN storefront every
+     * card would show the same face and the same name, directly under a header
+     * showing that face and that name.
+     *
+     * The row is not merely hidden: when there is no seller AND no rating it
+     * is not rendered at all, so nothing leaves a 20px gap above the title.
+     */
+    const card = code("components/explore/product-card.tsx")
+    const adapter = code("components/storefront/storefront-product-card.tsx")
+    const missing: string[] = []
+
+    if (!/showCreator=\{false\}/.test(adapter)) missing.push("the storefront card shows the creator on every card again")
+    if (!/\{\(showCreator \|\| hasReviews\) && \(/.test(card))
+      missing.push("the seller row renders even with nothing in it — an empty gap above every title")
+    if (!/showCreator = true/.test(card)) missing.push("explore lost its seller row, which is where it belongs")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the creator page has surfaces, not one white sheet",
+  (() => {
+    /**
+     * Everything on a creator page is white — the subscribe bar, the header,
+     * the tab strip, every card — so on a white page there was nothing to see
+     * them against and the whole thing read as one undifferentiated sheet.
+     *
+     * The page is a very light grey; the bar, cover, profile and tab strip
+     * share one white surface above it. A creator who has chosen their own
+     * page colour still gets it edge to edge — `surfaceFor` returns undefined
+     * then, rather than cutting their colour in half with a white band.
+     */
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const tabs = code("components/storefront/storefront-tabs.tsx")
+    const missing: string[] = []
+
+    if (!/const STOREFRONT_PAGE_BACKGROUND = "#[0-9a-f]{6}"/i.test(page))
+      missing.push("the page background is back to plain white")
+    if (/min-h-screen bg-background/.test(page))
+      missing.push("a branch still paints the page with the default white background")
+    if (!/const surfaceFor = \(pageColour[^)]*\) => \(pageColour \? undefined : "#ffffff"\)/.test(page))
+      missing.push("a creator's own page colour is overpainted by the white surface, or the surface is gone")
+    if (!/stripBackground/.test(tabs)) missing.push("the tab strip is no longer part of the header surface")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the products tab always has a control, and the edit button is a button",
+  (() => {
+    /**
+     * Category chips only appear for a creator with more than one category — a
+     * filter with a single option is not a choice — which left everybody else
+     * with an entirely bare tab. Sort works for any number of products, so the
+     * row is never empty.
+     *
+     * And the edit control: `rounded-full` made it read as a chip or a tag.
+     * 8px, the same corner as the cards it sits above.
+     */
+    const grid = code("components/storefront/all-products-grid.tsx")
+    const button = code("components/storefront/edit-profile-button.tsx")
+    const missing: string[] = []
+
+    if (!/const \[sort, setSort\]/.test(grid)) missing.push("the products tab has no sort — a creator with one category sees nothing")
+    if (!/price-low|price-high/.test(grid)) missing.push("sorting by price is gone")
+    if (/rounded-full/.test(button)) missing.push("the edit control is a pill again")
+    if (!/rounded-lg/.test(button)) missing.push("the edit control lost its 8px corner")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

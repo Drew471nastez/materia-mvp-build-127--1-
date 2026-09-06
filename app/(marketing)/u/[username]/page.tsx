@@ -20,6 +20,20 @@ import { deservesIndexing } from "@/lib/security/spam-signals"
 
 export const dynamic = "force-dynamic"
 
+/**
+ * The default page colour behind a creator's white surfaces. Light enough that
+ * nobody would call the page grey, dark enough that a white card has an edge.
+ */
+const STOREFRONT_PAGE_BACKGROUND = "#f6f6f7"
+
+/**
+ * The white sheet the subscribe bar, the cover, the profile and the tab strip
+ * share. `undefined` when the creator has chosen their own page colour — their
+ * choice then covers the whole page, as it did before, rather than being cut
+ * in half by a white band they did not ask for.
+ */
+const surfaceFor = (pageColour?: string | null) => (pageColour ? undefined : "#ffffff")
+
 interface StorefrontPageProps {
   params: Promise<{ username: string }>
   searchParams: Promise<{ src?: string }>
@@ -223,7 +237,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
   if (!creator) {
     return (
-      <div className="min-h-screen bg-background overflow-x-hidden">
+      // Same page colour as a real storefront — this is still a creator page,
+      // just one with nothing set up on it yet.
+      <div className="min-h-screen overflow-x-hidden" style={{ background: STOREFRONT_PAGE_BACKGROUND }}>
         <div className="mx-auto max-w-4xl px-4 py-12">
           <div className="flex flex-col items-center text-center">
             <Avatar
@@ -620,16 +636,34 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             />
           </>
         )}
+        {/*
+          THE PAGE IS A VERY LIGHT GREY, not white.
+
+          Everything on a creator page is white — the subscribe bar, the header,
+          the tab strip, every product card — so on a white page there was
+          nothing to see them against and the whole thing read as one
+          undifferentiated sheet. A grey barely darker than the cards is enough
+          to give each surface an edge without drawing a single border.
+
+          A creator who has chosen their own page colour still gets it; this is
+          only the default.
+        */}
         <div
           className="min-h-screen overflow-x-hidden"
           style={{
-            background: pageBackgroundColor || "var(--background)",
+            background: pageBackgroundColor || STOREFRONT_PAGE_BACKGROUND,
             color: pageTextColor || "var(--foreground)",
           }}
         >
           <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
         <TrackView type="store" creatorId={creator.id} />
 
+        {/*
+          One white sheet: the bar, the cover, the profile and the tab strip
+          below. Everything after it sits on the page colour, which is what
+          gives the cards and the panels an edge to be seen against.
+        */}
+        <div style={{ background: surfaceFor(pageBackgroundColor) }}>
         {subscribeBarSettings.visible && <SubscribeBar settings={subscribeBarSettings} creatorId={creator.id} />}
 
         <ShopHeaderRenderer
@@ -641,6 +675,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           globalSettings={globalSettings}
           ownerActions={buildOwnerActions(headerSettings)}
         />
+        </div>
 
         {(() => {
           // Separate About section to render last
@@ -727,7 +762,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             ),
           })
 
-          return <StorefrontTabs tabs={tabs} />
+          return <StorefrontTabs tabs={tabs} stripBackground={surfaceFor(pageBackgroundColor)} />
         })()}
 
         <SellerFooter />
@@ -779,7 +814,10 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           />
         </>
       )}
-      <div className="min-h-screen bg-background overflow-x-hidden">
+      <div
+        className="min-h-screen overflow-x-hidden"
+        style={{ background: STOREFRONT_PAGE_BACKGROUND }}
+      >
         <DynamicFavicon avatarUrl={profile.avatar_url} />
         <BackLabelSetter label={profile.display_name || username} />
       <TrackView type="store" creatorId={creator.id} />

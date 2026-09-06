@@ -2743,9 +2743,14 @@ export function UnifiedShopHeader({
           )}
         </div>
       ) : ownerActions ? (
-        // No cover and no placeholder: the owner's control would have nowhere
-        // to sit, so it gets its own row rather than disappearing.
-        <div className={cn("flex justify-end", isMobile ? "px-3 pt-3" : "px-4 pt-4")}>{ownerActions}</div>
+        /*
+          No cover: the control has no banner to sit at the bottom of, and
+          pinning it to the very top of the section put it level with the
+          subscribe bar above — reading as part of that row, and floating well
+          clear of anything it belongs to. It gets a proper row of its own with
+          the same breathing space the header below it has.
+        */
+        <div className={cn("flex justify-end", isMobile ? "px-3 pt-5" : "px-4 pt-6 sm:px-6")}>{ownerActions}</div>
       ) : null}
 
       {/*
@@ -2756,8 +2761,15 @@ export function UnifiedShopHeader({
         style rather than a `pt-0` class so it does not depend on which of two
         equally specific Tailwind rules the stylesheet happens to emit last.
       */}
+      {/*
+        The bottom padding is deliberately smaller than the top used to be.
+        With the stats and the icons merged into one row, `py-8 sm:py-12` left
+        a stretch of empty page between that row and whatever follows — big
+        enough to read as a mistake rather than as spacing. The top padding is
+        still dropped entirely under a cover, so the avatar can straddle it.
+      */}
       <SectionContainer
-        className={cn(isMobile ? "py-6" : "py-8 sm:py-12")}
+        className={cn(isMobile ? "pt-6 pb-5" : "pt-8 pb-6 sm:pt-12 sm:pb-8")}
         style={coverImageUrl ? { paddingTop: 0 } : undefined}
         isMobile={isMobile}
       >
@@ -3005,7 +3017,10 @@ export function UnifiedShopHeader({
                 <SocialMediaIcons
                   key="social"
                   socialLinks={settings.socialLinks}
-                  iconColor={settings.textsColor || settings.colors?.textColor || "#111827"}
+                  // Inherited from the meta row, which is already the muted
+                  // grey the rest of that line uses — and follows a creator's
+                  // own text colour, and stays visible on a dark storefront.
+                  iconColor="currentColor"
                   iconStyle={settings.socialMediaIconStyle || "default"}
                   isPreviewMode={isPreviewMode}
                   isMobile={isMobile}

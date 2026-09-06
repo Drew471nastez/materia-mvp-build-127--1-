@@ -107,7 +107,10 @@ export function EditProfileButton({
         type="button"
         size="sm"
         onClick={() => setOpen(true)}
-        className="h-9 gap-2 rounded-full bg-white/95 px-4 text-gray-900 shadow-md backdrop-blur hover:bg-white"
+        // rounded-lg (8px), not a pill. A fully rounded control reads as a
+        // chip or a tag; this is a button, and it sits beside a card grid whose
+        // corners are the same 8px.
+        className="h-9 gap-2 rounded-lg bg-white/95 px-4 text-gray-900 shadow-md backdrop-blur hover:bg-white"
       >
         <Pencil className="h-3.5 w-3.5" />
         Edit profile
