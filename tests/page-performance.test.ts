@@ -802,6 +802,188 @@ check(
   })(),
 )
 
+section("The creator's own page: one header, one owner")
+
+check(
+  "the storefront header is ONE component, not two that drift",
+  (() => {
+    /**
+     * The page had two headers. The configured branch rendered
+     * ShopHeaderRenderer; the branch for creators with no published config
+     * carried about fifty lines of hand-written cover/avatar/name/bio/stats
+     * that were a near copy of it.
+     *
+     * A copy is not free: every improvement had to be made twice and in
+     * practice was made once, so that branch had no handle, no social icons
+     * and no way for the owner to edit anything. It renders the real header
+     * with the real defaults now.
+     *
+     * This is also the guard against the mistake that got made here before —
+     * adding a NEW profile block beside the existing one instead of editing
+     * it. Two headers on one page is the failure either way round.
+     */
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const missing: string[] = []
+
+    const headers = page.match(/<ShopHeaderRenderer/g)?.length ?? 0
+    if (headers !== 2) missing.push(`expected both branches to render ShopHeaderRenderer, found ${headers}`)
+
+    // The tell-tales of a hand-rolled second header.
+    if (/productCount\} products/.test(page))
+      missing.push("a hand-written stats row is back in the page — the header already renders one")
+    if (/creator\.niche_tags\.map/.test(page))
+      missing.push("a hand-written niche-tag row is back in the page")
+    if ((page.match(/<Avatar\b/g)?.length ?? 0) > 1)
+      missing.push("more than one Avatar in the page — the storefront header owns the creator's avatar")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the profile sits half over the cover, with its handle and its links",
+  (() => {
+    /**
+     * Four things the creator page was asked for, each with a way of being
+     * quietly wrong:
+     *
+     *   · the avatar half over the cover — it was two hardcoded offsets that
+     *     came out at 34% and 44%, and drifted further at other avatar sizes.
+     *     Deriving it from `avatarSize` is only half the fix: the negative
+     *     margin travels through the section's top padding first, so with the
+     *     padding left in a -68px offset on a 137px avatar produced a 15%
+     *     overlap. Measured in a browser at 50% after both changes.
+     *   · the @handle — the address the page is served from, which the page
+     *     never showed.
+     *   · social icons ONLY for platforms the creator actually filled in.
+     *     SocialMediaIcons already filters on `enabled && url`, so the rule is
+     *     kept in the data; what was wrong is that they only rendered as an
+     *     overlay on the cover, so a creator with no cover got none at all.
+     *   · exactly one copy of those icons. Rendering them in both places is
+     *     the duplication this file exists to prevent.
+     */
+    const header = code("components/store-builder/unified-section-renderer.tsx")
+    const missing: string[] = []
+
+    if (!/marginTop: coverImageUrl \? `-\$\{avatarSize \/ 2\}px`/.test(header))
+      missing.push("the avatar overlap is hardcoded again — it will be wrong at every other avatar size")
+    if (!/style=\{coverImageUrl \? \{ paddingTop: 0 \} : undefined\}/.test(header))
+      missing.push("the section's top padding is back under the avatar — the overlap collapses to ~15%")
+    if (!/@\{profile\.username\}/.test(header)) missing.push("the @handle is gone from the header")
+
+    const socialRenders = header.match(/<SocialMediaIcons/g)?.length ?? 0
+    if (socialRenders !== 1)
+      missing.push(`social icons render in ${socialRenders} places in the header — there must be exactly one`)
+    if (/absolute z-\[5\][\s\S]{0,120}<SocialMediaIcons/.test(header))
+      missing.push("social icons are back as a cover overlay, where a creator with no cover never sees them")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "only the owner gets the edit control, and the server does not take its word for it",
+  (() => {
+    /**
+     * `viewerIsOwner` decides whether a button is drawn. It is NOT an
+     * authorisation, and the value of this check is that the route says so
+     * too: every write re-derives the identity from the session and scopes the
+     * update by it, so a forged answer in the page buys a button that fails.
+     *
+     * The URL cleaner is lifted out of the route and RUN, rather than pattern
+     * matched. These links become an href on a public page, so `javascript:`
+     * is the case that matters and asserting a regex exists would not prove it
+     * is rejected.
+     */
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const api = read("app/api/creator-profile/route.ts")
+    const missing: string[] = []
+
+    if (!/const viewerIsOwner = !!viewer && viewer\.id === profile\.id/.test(page))
+      missing.push("the page no longer checks who is looking")
+    if (!/if \(!viewerIsOwner\) return null/.test(page))
+      missing.push("buildOwnerActions hands the edit control to everyone")
+    if (!/supabase\.auth\.getUser\(\),/.test(page))
+      missing.push("the viewer lookup left the batch — that is a third round trip before first byte")
+
+    // The route must re-check, and must not reach for the admin client.
+    if (!/if \(!user\)[\s\S]{0,120}401/.test(api))
+      missing.push("the save route no longer rejects an unauthenticated caller")
+    if (/createAdminClient/.test(api))
+      missing.push("the save route uses the admin client — it would bypass the RLS that scopes writes to the owner")
+    if (!/\.eq\("id", user\.id\)/.test(api))
+      missing.push("the profile update is not scoped to the signed-in user")
+
+    // Run the real cleaner.
+    const src = api.match(/function cleanUrl[\s\S]*?\n\}/)?.[0]
+    if (!src) {
+      missing.push("cleanUrl is gone — social URLs reach the page unchecked")
+    } else {
+      // The constants it closes over come from the same file, so they are
+      // lifted with it rather than restated here — a copy would drift.
+      const consts = api.match(/^const MAX_URL = \d+$/m)?.[0] ?? ""
+      if (!consts) missing.push("MAX_URL is gone from the save route — social URLs have no length bound")
+      // eslint-disable-next-line no-new-func
+      const cleanUrl = new Function(
+        `${consts}; ${src.replace(/: unknown/g, "").replace(/: string \| null/g, "")}; return cleanUrl`,
+      )() as (v: unknown) => string | null
+      if (cleanUrl("javascript:alert(1)") !== null) missing.push("cleanUrl lets a javascript: URL through")
+      // Not just the payload that happens to be an invalid port: one that
+      // parses cleanly as a URL is the case that would actually reach an href.
+      if (cleanUrl("javascript:void(0)") !== null) missing.push("cleanUrl lets a parseable javascript: URL through")
+      if (cleanUrl("data:text/html,<script>") !== null) missing.push("cleanUrl lets a data: URL through")
+      if (cleanUrl("vbscript:msgbox") !== null) missing.push("cleanUrl lets a vbscript: URL through")
+      if (cleanUrl("   ") !== null) missing.push("cleanUrl turns blank input into a link")
+      if (cleanUrl("notaurl") !== null) missing.push("cleanUrl accepts something with no host")
+      if (cleanUrl("instagram.com/me") !== "https://instagram.com/me")
+        missing.push("cleanUrl no longer accepts a bare host and adds https")
+      if (cleanUrl("https://x.com/me") !== "https://x.com/me") missing.push("cleanUrl mangles a valid https URL")
+    }
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "featured product cards stay stripped down",
+  (() => {
+    /**
+     * Asked for repeatedly, so it is pinned: no type chip, no description, the
+     * compare-at price whenever the product HAS one (it used to need a second
+     * toggle nobody found, so an entered discount simply did not appear), and
+     * a 600-weight price that is the firmest thing on the card without
+     * shouting over the title.
+     *
+     * The image carries `quality` and real `sizes` so the browser fetches
+     * roughly the pixels it will paint, and no ref-driven opacity — that was a
+     * real bug, not clutter: a failed image never fired onLoad and the card
+     * stayed permanently blank.
+     */
+    const src = code("components/store-builder/unified-section-renderer.tsx")
+    const featured = src.slice(src.indexOf("function UnifiedFeaturedProductsSection"))
+    const card = featured.slice(0, featured.indexOf("function ", 40))
+    const missing: string[] = []
+
+    if (/\{product\.description\}/.test(card)) missing.push("the description is back on the featured card")
+    if (/PRODUCT/.test(card)) missing.push("the type chip is back on the featured card")
+    if (!/font-semibold tracking-tight/.test(card)) missing.push("the price is no longer 600 weight")
+    if (/settings\.showCompareAtPrice/.test(card))
+      missing.push("the compare-at price is gated on a toggle again — entered discounts will not show")
+    if (!/product\.compare_at_cents > product\.price_cents/.test(card))
+      missing.push("the compare-at price is gone from the featured card")
+    if (!/quality=\{72\}/.test(card) || !/sizes="/.test(card))
+      missing.push("the card image is unoptimised again")
+    if (/el\.style\.opacity = "0"/.test(card))
+      missing.push("the ref-driven opacity is back — a failed image leaves the card blank forever")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

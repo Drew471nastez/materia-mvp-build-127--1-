@@ -2721,6 +2721,14 @@ export interface UnifiedShopHeaderProps {
   onCoverEdit?: () => void
   onBioEdit?: () => void
   globalSettings?: GlobalStoreSettings
+  /**
+   * Rendered over the cover, top-right, on the LIVE storefront only. The page
+   * fills it with the owner's "Edit profile" control when the signed-in
+   * viewer owns this page. It is a slot rather than a prop the header acts on,
+   * so this component stays free of session logic and there is exactly one
+   * place the button can come from.
+   */
+  ownerActions?: React.ReactNode
 }
 
 export function UnifiedShopHeader({
@@ -2737,6 +2745,7 @@ export function UnifiedShopHeader({
   onCoverEdit,
   onBioEdit,
   globalSettings,
+  ownerActions,
 }: UnifiedShopHeaderProps) {
   const avatarSizeChoice = isMobile
     ? settings.mobileAvatarSizeChoice || "medium"
@@ -2810,21 +2819,17 @@ export function UnifiedShopHeader({
             onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
           />
 
-          {settings.showSocialMedia && settings.socialLinks && (!isMobile || settings.showSocialIconsOnMobile) && (
-            <div className={cn(
-              "absolute z-[5]",
-              isMobile 
-                ? "top-2 right-2" 
-                : "top-[18px] right-[12px]"  // Desktop: 3px more down (15->18), 3px more left (15->12)
-            )}>
-              <SocialMediaIcons
-                socialLinks={settings.socialLinks}
-                iconColor={settings.socialMediaIconColor || "#ffffff"}
-                iconStyle={settings.socialMediaIconStyle || "default"}
-                isPreviewMode={isPreviewMode}
-                isMobile={isMobile}
-              />
-            </div>
+          {/*
+            THE SOCIAL ICONS USED TO LIVE HERE, floating over the cover. They
+            have moved down beside the bio, where they read as part of who the
+            creator is rather than as a watermark on their banner — and, more
+            to the point, where a creator with no cover image still gets them.
+            Inside this branch they only existed when `coverImageUrl` did.
+
+            They are rendered in ONE place. Do not add a second copy here.
+          */}
+          {ownerActions && (
+            <div className={cn("absolute z-[6]", isMobile ? "top-2 right-2" : "top-4 right-4")}>{ownerActions}</div>
           )}
 
           {!isPreviewMode && onSelect && (
@@ -2842,14 +2847,40 @@ export function UnifiedShopHeader({
             </div>
           )}
         </div>
+      ) : ownerActions ? (
+        // No cover and no placeholder: the owner's control would have nowhere
+        // to sit, so it gets its own row rather than disappearing.
+        <div className={cn("flex justify-end", isMobile ? "px-3 pt-3" : "px-4 pt-4")}>{ownerActions}</div>
       ) : null}
 
-      <SectionContainer className={cn(isMobile ? "py-6" : "py-8 sm:py-12")} isMobile={isMobile}>
+      {/*
+        The top padding is dropped when there is a cover, because the avatar's
+        negative margin has to travel through it before it reaches the cover at
+        all. Left in, a -68px offset on a 137px avatar spent 48px of itself on
+        padding and produced a 15% overlap instead of 50%. Written as an inline
+        style rather than a `pt-0` class so it does not depend on which of two
+        equally specific Tailwind rules the stylesheet happens to emit last.
+      */}
+      <SectionContainer
+        className={cn(isMobile ? "py-6" : "py-8 sm:py-12")}
+        style={coverImageUrl ? { paddingTop: 0 } : undefined}
+        isMobile={isMobile}
+      >
         <div className="flex flex-col items-center text-center">
           <div
             className="relative group"
             style={{
-              marginTop: coverImageUrl ? (isMobile ? "-2.875rem" : "-3.75rem") : "0",
+              /**
+               * EXACTLY HALF over the cover, whatever size the avatar is.
+               *
+               * This was two hardcoded offsets, -2.875rem and -3.75rem — 46px
+               * and 60px against a 137px avatar, so the overlap was 34% on
+               * mobile and 44% on desktop, and it drifted further whenever the
+               * creator picked a different avatar size. Deriving it from
+               * `avatarSize` makes the circle straddle the cover's edge the
+               * way the design asks for, at every size, on both layouts.
+               */
+              marginTop: coverImageUrl ? `-${avatarSize / 2}px` : "0",
             }}
           >
             {/*
@@ -2946,6 +2977,32 @@ export function UnifiedShopHeader({
             )}
           </h1>
 
+          {/*
+            The handle. It is the address the page is served from —
+            {username}.storelib.com and /u/{username} both key off it — so a
+            visitor who wants to come back, or link someone here, has had no
+            way to read it off the page until now. Shown only when there is
+            one; a profile that has never claimed a username shows nothing
+            rather than an empty "@".
+          */}
+          {profile?.username && (
+            <p
+              className={cn(
+                "mt-0.5 break-words max-w-full px-4",
+                isMobile ? "text-xs" : "text-sm",
+                !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
+              )}
+              style={{
+                color: settings.textsColor
+                  ? `${settings.textsColor}99`
+                  : settings.colors?.textColor
+                    ? `${settings.colors.textColor}99`
+                    : undefined,
+              }}
+            >
+              @{profile.username}
+            </p>
+          )}
 
           {(settings.showCategory ?? settings.showNicheTags) && (() => {
             const nicheTags = (globalSettings?.storeNicheTags !== undefined ? globalSettings.storeNicheTags : creator?.niche_tags) ?? []
@@ -2997,6 +3054,32 @@ export function UnifiedShopHeader({
               )}
             </div>
           )}
+
+          {/*
+            SOCIAL ICONS — THE ONLY COPY ON THE PAGE. They were an overlay on
+            the cover; see the note up there for why they moved.
+
+            `SocialMediaIcons` already returns null unless a platform is both
+            enabled AND has a URL, so "only if he added those" is decided by the
+            data, not by a toggle: a creator who has added nothing gets nothing,
+            with no empty row left behind.
+
+            The colour follows the page text rather than the cover's white,
+            which was invisible against a light background down here.
+          */}
+          {(settings.showSocialMedia ?? true) &&
+            settings.socialLinks &&
+            (!isMobile || (settings.showSocialIconsOnMobile ?? true)) && (
+              <div className={cn("flex justify-center", isMobile ? "mt-3" : "mt-4")}>
+                <SocialMediaIcons
+                  socialLinks={settings.socialLinks}
+                  iconColor={settings.textsColor || settings.colors?.textColor || "#111827"}
+                  iconStyle={settings.socialMediaIconStyle || "default"}
+                  isPreviewMode={isPreviewMode}
+                  isMobile={isMobile}
+                />
+              </div>
+            )}
 
           {settings.showStats && (
             <div className={cn("flex flex-wrap gap-4 justify-center", isMobile ? "mt-4 gap-3" : "mt-6 sm:gap-8")}>

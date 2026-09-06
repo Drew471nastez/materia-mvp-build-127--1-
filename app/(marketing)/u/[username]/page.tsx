@@ -2,8 +2,6 @@ import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Package, ShoppingBag } from "lucide-react"
 import { isReservedWord } from "@/lib/reserved-words"
 import Image from "next/image"
 import { TrackView } from "@/components/analytics/track-view"
@@ -14,6 +12,7 @@ import { defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/def
 import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
+import { EditProfileButton } from "@/components/storefront/edit-profile-button"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 import { deservesIndexing } from "@/lib/security/spam-signals"
 
@@ -264,6 +263,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const [
     { data: products, error: productsError },
     publishedConfig,
+    {
+      data: { user: viewer },
+    },
   ] = await Promise.all([
     supabase
       .from("products")
@@ -283,7 +285,47 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       .eq("status", "published")
       .order("created_at", { ascending: false }),
     getPublishedConfig(creator.id, "shop"),
+    /**
+     * Who is looking. Joined to the batch above rather than awaited on its own
+     * — it reads the session cookie and touches nothing the other two return,
+     * so paying for it in series would be a third round trip before the first
+     * byte of a page that is already dynamic.
+     *
+     * This decides ONE thing: whether the owner gets an edit control on their
+     * own page. It is not an authorisation — every write it leads to is
+     * re-checked against the session on the server (see
+     * app/api/creator-profile/route.ts), so a forged answer here buys nothing
+     * but a button that fails.
+     */
+    supabase.auth.getUser(),
   ])
+
+  const viewerIsOwner = !!viewer && viewer.id === profile.id
+
+  /**
+   * Built once and handed to whichever header branch renders, so the control
+   * cannot end up present on the configured page and missing on the fallback.
+   * `null` for everyone who is not the owner — a visitor never receives the
+   * component, not even hidden.
+   */
+  const buildOwnerActions = (headerSettings?: ShopHeaderSettings) => {
+    if (!viewerIsOwner) return null
+    const links = headerSettings?.socialLinks
+    return (
+      <EditProfileButton
+        displayName={profile.display_name || ""}
+        bio={headerSettings?.bio || creator.bio || ""}
+        username={profile.username}
+        socialLinks={{
+          instagram: links?.instagram?.url || "",
+          tiktok: links?.tiktok?.url || "",
+          youtube: links?.youtube?.url || "",
+          twitter: links?.twitter?.url || "",
+          spotify: links?.spotify?.url || "",
+        }}
+      />
+    )
+  }
 
   if (productsError) {
     console.error("[v0] Products query error:", productsError)
@@ -589,6 +631,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           products={products || []}
           productCount={products?.length || 0}
           globalSettings={globalSettings}
+          ownerActions={buildOwnerActions(headerSettings)}
         />
 
         {(() => {
@@ -633,16 +676,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     )
   }
 
-  // Default rendering when no custom config exists
-  const initials = profile.display_name
-    ?.split(" ")
-    .map((n: string) => n[0])
-    .join("")
-    .toUpperCase()
-
+  // Default rendering when no custom config exists. The initials, sales total
+  // and badge flag that used to be computed here belonged to the hand-written
+  // header this branch no longer has — UnifiedShopHeader derives all three from
+  // the props it is given.
   const productCount = products?.length ?? 0
-  const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
-  const showTotalSalesBadge = creator.show_total_sales_badge !== false
 
   // Use default subscribe bar settings for stores without published config
   const defaultSubscribeSettings = buildSubscribeBarSettings()
@@ -688,63 +726,29 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
       {defaultSubscribeSettings.visible && <SubscribeBar settings={defaultSubscribeSettings} creatorId={creator.id} />}
 
-      {creator.cover_url && (
-        <div className="relative h-48 sm:h-64 w-full overflow-hidden">
-          <Image
-            src={creator.cover_url || "/placeholder.svg"}
-            alt={`${profile.display_name || username} cover`}
-            fill
-            sizes="100vw"
-            className="object-cover"
-            priority
-          />
-        </div>
-      )}
+      {/*
+        THE SAME HEADER AS THE CONFIGURED PAGE, not a second hand-written one.
 
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:py-12">
-        <div className="flex flex-col items-center text-center">
-          <Avatar
-            className="h-20 w-20 sm:h-24 sm:w-24 border-4 border-background shadow-lg shrink-0"
-            style={{ marginTop: creator.cover_url ? "-2.5rem" : "0" }}
-          >
-            <AvatarImage src={profile.avatar_url || undefined} alt={profile.display_name || ""} />
-            <AvatarFallback className="text-xl sm:text-2xl">{initials || "?"}</AvatarFallback>
-          </Avatar>
-          <h1 className="mt-4 text-xl sm:text-2xl font-semibold text-foreground break-words max-w-full px-4">
-            {profile.display_name || username}
-          </h1>
-          {creator.headline && (
-            <p className="mt-1 text-sm sm:text-base text-muted-foreground break-words max-w-full px-4">
-              {creator.headline}
-            </p>
-          )}
+        This branch used to carry its own cover-avatar-name-bio-stats markup —
+        about fifty lines that were a near copy of UnifiedShopHeader and drifted
+        from it. Every improvement to the real header had to be made twice, and
+        in practice was made once: this copy had no handle, no social icons, and
+        no way for the owner to edit anything.
 
-          {creator.niche_tags && creator.niche_tags.length > 0 && (
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {creator.niche_tags.map((tag: string) => (
-                <Badge key={tag} variant="secondary">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          )}
-
-          {creator.bio && <p className="mt-6 max-w-xl text-sm text-muted-foreground break-words px-4">{creator.bio}</p>}
-
-          <div className="mt-6 flex flex-wrap gap-4 sm:gap-8 justify-center">
-            <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground">
-              <Package className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span>{productCount} products</span>
-            </div>
-            {showTotalSalesBadge && totalSales > 0 && (
-              <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground">
-                <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span>{totalSales} sales</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+        A creator with no published config is not a different KIND of page, only
+        a page whose settings are all defaults — so it renders the real header
+        with the real defaults. `showPlaceholder` stays off here because the
+        renderer passes no editor callbacks, so nothing editor-only leaks onto a
+        public page.
+      */}
+      <ShopHeaderRenderer
+        settings={defaultShopHeaderSettings}
+        creator={creator}
+        profile={profile}
+        products={products || []}
+        productCount={productCount}
+        ownerActions={buildOwnerActions(defaultShopHeaderSettings)}
+      />
 
       <SellerFooter />
     </div>
