@@ -44,19 +44,7 @@ export function EmptyTabPanel({ title, detail }: { title: string; detail: string
   )
 }
 
-export function StorefrontTabs({
-  tabs,
-  stripBackground,
-}: {
-  tabs: StorefrontTab[]
-  /**
-   * The strip is the bottom edge of the page's white header sheet — the cover,
-   * the profile and the tabs are one surface, and the panels below sit on the
-   * page colour. The page decides the colour because only it knows whether the
-   * creator has chosen one.
-   */
-  stripBackground?: string
-}) {
+export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
   const [active, setActive] = React.useState(tabs[0]?.id)
 
   // A single tab is not a choice; showing a lone "Home" button is noise.
@@ -76,7 +64,7 @@ export function StorefrontTabs({
         content they switch: the product grid below starts at the same edge, so
         the eye follows one vertical, not two.
       */}
-      <div style={stripBackground ? { background: stripBackground } : undefined}>
+      <div>
         <div className="mx-auto w-full max-w-[1100px] px-3 pt-1 sm:px-4 lg:px-6">
           <div className="flex gap-7" role="tablist">
             {tabs.map((tab) => {

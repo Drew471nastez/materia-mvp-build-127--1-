@@ -117,8 +117,8 @@ export function SocialMediaIcons({
       case "filled":
         return {
           className: cn(
-            "p-2 rounded-full transition-all",
-            "hover:opacity-80 hover:scale-110",
+            "p-2 rounded-full transition-opacity duration-150 ease-out",
+            "hover:opacity-80",
             "flex items-center justify-center",
           ),
           style: { backgroundColor: iconColor, backdropFilter: "blur(4px)" as const },
@@ -127,8 +127,8 @@ export function SocialMediaIcons({
       case "outlined":
         return {
           className: cn(
-            "p-2 rounded-full transition-all",
-            "hover:bg-white/20 hover:scale-110",
+            "p-2 rounded-full transition-opacity duration-150 ease-out",
+            "opacity-70 hover:opacity-100",
             "flex items-center justify-center",
             "border-2",
           ),
@@ -137,12 +137,25 @@ export function SocialMediaIcons({
         }
       default:
         return {
+          /**
+           * NO PADDING, NO SCALE, NO BACKGROUND ON HOVER.
+           *
+           * `p-2` put 8px of dead space around every mark, which is why the
+           * gap after the dot divider in the meta row looked bigger than the
+           * gap before it — the icon's own box was pushing it along. With the
+           * padding gone the row's `gap-x-3` is the only spacing, so both
+           * sides of the dot measure the same.
+           *
+           * Hover just darkens. The mark grew by 10% and grabbed a translucent
+           * background, which is a lot of movement for something the size of a
+           * word, and next to static text it read as a glitch. Opacity is the
+           * whole effect, eased over 150ms.
+           */
           className: cn(
-            "p-2 rounded-full transition-all",
-            "hover:bg-white/20 hover:scale-110",
-            "flex items-center justify-center",
+            "flex items-center justify-center opacity-70 transition-opacity duration-150 ease-out",
+            "hover:opacity-100",
           ),
-          style: { backdropFilter: "blur(4px)" as const },
+          style: undefined,
           iconColor: iconColor,
         }
     }
@@ -151,7 +164,7 @@ export function SocialMediaIcons({
   const containerConfig = getContainerStyle()
 
   return (
-    <div className={cn("flex items-center gap-0.5 flex-wrap", className)}>
+    <div className={cn("flex items-center gap-3 flex-wrap", className)}>
       {enabledPlatforms.map(({ key, Icon }) => {
         const link = socialLinks[key]
         if (!link?.url) return null

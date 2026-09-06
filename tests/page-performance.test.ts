@@ -1196,17 +1196,21 @@ check(
 )
 
 check(
-  "the creator page has surfaces, not one white sheet",
+  "the creator page is one colour with white things ON it, not a white sheet with a seam",
   (() => {
     /**
-     * Everything on a creator page is white — the subscribe bar, the header,
-     * the tab strip, every card — so on a white page there was nothing to see
-     * them against and the whole thing read as one undifferentiated sheet.
+     * THIS TOOK TWO GOES AND THE FIRST ONE WAS WORSE THAN THE PROBLEM.
      *
-     * The page is a very light grey; the bar, cover, profile and tab strip
-     * share one white surface above it. A creator who has chosen their own
-     * page colour still gets it edge to edge — `surfaceFor` returns undefined
-     * then, rather than cutting their colour in half with a white band.
+     * Everything on a creator page is white — the subscribe bar, the header,
+     * the tab strip, every card — so on a white page there is nothing to see
+     * any of it against. The first attempt gave the bar, cover, profile and
+     * tabs one white surface above a grey page, and what that produced was a
+     * hard horizontal seam across the middle: white above, grey below, reading
+     * as a rendering fault rather than as a design.
+     *
+     * So the whole page is the light grey and white is reserved for the things
+     * meant to sit ON it — the subscribe bar and the product cards. There is
+     * no header surface, and this check fails if one comes back.
      */
     const page = code("app/(marketing)/u/[username]/page.tsx")
     const tabs = code("components/storefront/storefront-tabs.tsx")
@@ -1216,9 +1220,75 @@ check(
       missing.push("the page background is back to plain white")
     if (/min-h-screen bg-background/.test(page))
       missing.push("a branch still paints the page with the default white background")
-    if (!/const surfaceFor = \(pageColour[^)]*\) => \(pageColour \? undefined : "#ffffff"\)/.test(page))
-      missing.push("a creator's own page colour is overpainted by the white surface, or the surface is gone")
-    if (!/stripBackground/.test(tabs)) missing.push("the tab strip is no longer part of the header surface")
+    if (/surfaceFor|stripBackground/.test(page) || /stripBackground/.test(tabs))
+      missing.push("the white header sheet is back — it puts a seam across the middle of the page")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "social marks hover by darkening, and the meta row's dots sit evenly",
+  (() => {
+    /**
+     * Two things that came from the same line of CSS.
+     *
+     * `p-2` put 8px of dead space around every mark, so in the meta row the
+     * gap after the dot divider measured wider than the gap before it — the
+     * icon's own box was pushing it along. Measured in a browser: 12px before
+     * and 20px after, now 12 and 12.
+     *
+     * `hover:scale-110` grew the mark by 10% and gave it a translucent
+     * background, which is a lot of movement for something the size of a word
+     * and read as a glitch beside static text. Hover is opacity alone —
+     * measured 0.7 to 1.0 with the box unchanged.
+     */
+    const icons = code("components/store-builder/social-media-icons.tsx")
+    const missing: string[] = []
+
+    if (/hover:scale-/.test(icons)) missing.push("the marks scale on hover again")
+    if (/hover:bg-white\/20/.test(icons)) missing.push("hover paints a background behind the mark again")
+    if (!/opacity-70 transition-opacity/.test(icons)) missing.push("hover no longer just darkens the mark")
+    if (/"p-2 rounded-full transition-all"/.test(icons))
+      missing.push("the marks carry their own padding again — it unbalances the dot dividers beside them")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the owner's menu goes to the real screens rather than rebuilding them",
+  (() => {
+    /**
+     * "Edit profile" opens a dialog because what it edits is small enough to
+     * finish in place. The three-dot menu is for what is not: managing
+     * products, laying the page out, reading the numbers. Those have whole
+     * screens in /app already, and a popover version of any of them on a
+     * public page would be a worse copy of a thing that already works.
+     *
+     * So it is a menu of destinations, and every destination has to be a route
+     * that exists — a menu item leading to a 404 is worse than no menu.
+     */
+    const menu = code("components/storefront/owner-menu.tsx")
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const missing: string[] = []
+
+    if (!/<OwnerMenu \/>/.test(page)) missing.push("the owner menu is not on the page")
+    // It must live inside buildOwnerActions, which is the only owner-gated slot.
+    const slot = page.match(/const buildOwnerActions[\s\S]*?\n  \}/)?.[0] ?? ""
+    if (!/OwnerMenu/.test(slot))
+      missing.push("the owner menu is outside the owner-only slot — every visitor would see it")
+
+    for (const href of ["/app/products", "/store-builder", "/app/analytics", "/app/settings"]) {
+      if (!menu.includes(`"${href}"`)) {
+        missing.push(`the menu no longer links to ${href}`)
+        continue
+      }
+      const route = href === "/store-builder" ? "app/store-builder/page.tsx" : `app${href}/page.tsx`
+      if (!existsSync(join(root, route))) missing.push(`${href} has no route behind it — the menu item 404s`)
+    }
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0

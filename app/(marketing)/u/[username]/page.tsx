@@ -13,6 +13,7 @@ import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { EditProfileButton } from "@/components/storefront/edit-profile-button"
+import { OwnerMenu } from "@/components/storefront/owner-menu"
 import { StorefrontTabs, EmptyTabPanel, type StorefrontTab } from "@/components/storefront/storefront-tabs"
 import { AllProductsGrid } from "@/components/storefront/all-products-grid"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
@@ -27,12 +28,18 @@ export const dynamic = "force-dynamic"
 const STOREFRONT_PAGE_BACKGROUND = "#f6f6f7"
 
 /**
- * The white sheet the subscribe bar, the cover, the profile and the tab strip
- * share. `undefined` when the creator has chosen their own page colour — their
- * choice then covers the whole page, as it did before, rather than being cut
- * in half by a white band they did not ask for.
+ * THERE IS NO WHITE HEADER SHEET. Read this before adding one back.
+ *
+ * The first attempt at giving this page some depth put the subscribe bar, the
+ * cover, the profile and the tab strip on one white surface above a grey page.
+ * What that actually produced was a hard horizontal seam across the middle of
+ * the page, white above and grey below, which looked like a rendering fault
+ * rather than a design.
+ *
+ * The whole page is the light grey. White is reserved for the things that are
+ * meant to sit ON it — the subscribe bar and the product cards — so those read
+ * as raised objects and everything else reads as background.
  */
-const surfaceFor = (pageColour?: string | null) => (pageColour ? undefined : "#ffffff")
 
 interface StorefrontPageProps {
   params: Promise<{ username: string }>
@@ -330,6 +337,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     if (!viewerIsOwner) return null
     const links = headerSettings?.socialLinks
     return (
+      <div className="flex items-center gap-2">
       <EditProfileButton
         displayName={profile.display_name || ""}
         bio={headerSettings?.bio || creator.bio || ""}
@@ -344,6 +352,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           spotify: links?.spotify?.url || "",
         }}
       />
+      {/* Everything that needs a whole screen rather than a dialog. */}
+      <OwnerMenu />
+      </div>
     )
   }
 
@@ -658,12 +669,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
         <TrackView type="store" creatorId={creator.id} />
 
-        {/*
-          One white sheet: the bar, the cover, the profile and the tab strip
-          below. Everything after it sits on the page colour, which is what
-          gives the cards and the panels an edge to be seen against.
-        */}
-        <div style={{ background: surfaceFor(pageBackgroundColor) }}>
         {subscribeBarSettings.visible && <SubscribeBar settings={subscribeBarSettings} creatorId={creator.id} />}
 
         <ShopHeaderRenderer
@@ -675,7 +680,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           globalSettings={globalSettings}
           ownerActions={buildOwnerActions(headerSettings)}
         />
-        </div>
 
         {(() => {
           // Separate About section to render last
@@ -762,7 +766,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             ),
           })
 
-          return <StorefrontTabs tabs={tabs} stripBackground={surfaceFor(pageBackgroundColor)} />
+          return <StorefrontTabs tabs={tabs} />
         })()}
 
         <SellerFooter />
