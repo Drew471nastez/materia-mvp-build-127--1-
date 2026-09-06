@@ -1884,11 +1884,19 @@ export function DashboardClient({
   // Content translateY: slides down while pulling, snaps back when done.
   // Small offset (34px) when refreshing — just enough to show the 20px spinner
   // with breathing room, matching the compact iOS-style indicator.
+  /**
+   * The gap held open while refreshing. Shared with the indicator so the ring is
+   * centred in the SAME gap the content opens — it used to be a literal 10px
+   * against this 34, which was never actually centred and would have drifted
+   * silently the moment either number was touched.
+   */
+  const REFRESH_HOLD = 34
+
   const contentTranslateY =
     pullPhase === "pulling" || pullPhase === "ready"
       ? pullDistance
       : pullPhase === "refreshing"
-        ? 34
+        ? REFRESH_HOLD
         : 0
 
   // Ultra-smooth spring-like ease for the snap-back / pin animation.
@@ -1996,7 +2004,12 @@ export function DashboardClient({
         layout space nor intercepts a tap meant for anything underneath it.
       */}
       <div className="relative">
-        <PullToRefreshIndicator pullDistance={pullDistance} phase={pullPhase} topOffset={0} />
+        <PullToRefreshIndicator
+          pullDistance={pullDistance}
+          phase={pullPhase}
+          topOffset={0}
+          refreshHold={REFRESH_HOLD}
+        />
 
         <div
           style={{

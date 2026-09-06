@@ -446,9 +446,22 @@ check(
     // Out of flow and untappable, so it can never displace or swallow a control.
     if (!/absolute[^"]*pointer-events-none/.test(indicator))
       missing.push("indicator: not absolute + pointer-events-none")
-    // Only the hidden idle state may sit above the anchor.
-    if (!/Math\.max\(\(pullDistance - size\) \/ 2, 0\)/.test(indicator))
-      missing.push("indicator: visible position not clamped to its anchor")
+    /**
+     * NO phase may place the ring above its anchor — including the exit.
+     *
+     * The exit used to slide it to -(size + 8) while the opacity was still
+     * fading, so at the END of a refresh it visibly rose over the purple bar.
+     * Parking off-screen was meant to stop it peeking; opacity 0 already does
+     * that, and the cost was an animation crossing the one element it had to
+     * stay clear of.
+     */
+    if (!/const translateY = phase === "idle" \? 0 : Math\.max\(\(gap - size\) \/ 2, 0\)/.test(indicator))
+      missing.push("indicator: a phase can still place the ring above its anchor")
+    if (/offScreen/.test(indicator))
+      missing.push("indicator: the off-screen exit is back")
+    // The ring must centre in the SAME gap the page holds open.
+    if (!/refreshHold/.test(indicator) || !/refreshHold=\{REFRESH_HOLD\}/.test(dash))
+      missing.push("dashboard/indicator: refresh gap not shared, positions can drift")
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),
