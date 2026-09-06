@@ -35,8 +35,18 @@ export interface StorefrontTab {
  */
 export function EmptyTabPanel({ title, detail }: { title: string; detail: string }) {
   return (
-    <div className="mx-auto w-full max-w-[1100px] px-3 py-16 sm:px-4 lg:px-6">
-      <div className="rounded-lg border border-dashed border-border p-10 text-center">
+    <div className="mx-auto w-full max-w-[1100px] px-3 pb-16 sm:px-4 lg:px-6">
+      {/*
+        `data-panel-spacing` OPTS OUT of the panel reset above.
+
+        That reset zeroes the top padding of a panel's first two levels so
+        every tab starts the same distance below the rule — necessary, because
+        a Home section carries its spacing as an inline style. But this box is
+        two levels deep, so the reset was stripping its `p-10` top as well and
+        the heading ended up sitting ON the dashed border with nothing above
+        it. The marker says "this padding is mine, leave it".
+      */}
+      <div data-panel-spacing className="rounded-lg border border-dashed border-border p-10 text-center">
         <p className="font-medium text-foreground">{title}</p>
         <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">{detail}</p>
       </div>
@@ -64,17 +74,22 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
       */}
       <div className="mx-auto w-full max-w-[1100px] px-3 pt-1 sm:px-4 lg:px-6">
         {/*
-          CENTRED ON A PHONE, left-aligned from `sm` up.
+          FULL WIDTH ON A PHONE, left-aligned from `sm` up.
 
-          Three short words in a 390px column read as centred whether you meant
-          it or not — pushed to the left edge they looked like the start of a
-          row that had lost its other half. On desktop they line up with the
-          grid below, where there is enough width for that to read as
-          deliberate.
+          Centring three short words in a 390px column still left them huddled
+          in the middle with dead rule either side, and the active underline —
+          the thing that says where you are — was as narrow as the word above
+          it. Etsy, and every phone tab bar that works, gives each tab an equal
+          share of the width: the underline then spans a third of the screen
+          and is unmissable, and the tap targets stop being word-sized.
+
+          On desktop they go back to their own widths and line up with the grid
+          below, where three stretched tabs across 1100px would read as a
+          navigation bar rather than as a filter on the content underneath.
         */}
         <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div
-            className="flex min-w-max justify-center gap-7 border-b border-border sm:justify-start"
+            className="flex w-full gap-0 border-b border-border sm:w-auto sm:min-w-max sm:justify-start sm:gap-7"
             role="tablist"
           >
             {tabs.map((tab) => {
@@ -88,7 +103,9 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
                   aria-controls={`storefront-panel-${tab.id}`}
                   onClick={() => setActive(tab.id)}
                   className={cn(
-                    "-mb-px whitespace-nowrap border-b-2 px-0.5 pb-3 pt-1 text-sm",
+                    // `flex-1` on a phone so the three share the width evenly;
+                    // `sm:flex-none` hands the width back to the words.
+                    "-mb-px flex-1 whitespace-nowrap border-b-2 px-0.5 pb-3 pt-1 text-center text-sm sm:flex-none sm:text-left",
                     "transition-[color,border-color] duration-200 ease-out",
                     selected
                       ? "border-foreground font-medium text-foreground"
@@ -134,26 +151,25 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
            * inline style beats a class. This is the one place allowed to
            * overrule it.
            */
-          className={cn(
-            "pt-8 [&>*:first-child]:!pt-0 [&>*:first-child>*:first-child]:!pt-0",
-            /**
-             * The switch used to be instantaneous, which reads as a jump
-             * rather than as a change — the old panel is simply replaced
-             * mid-blink. A short fade-and-rise on the incoming panel gives the
-             * eye something to follow.
-             *
-             * Only the panel arriving animates; the one leaving is hidden
-             * immediately, because animating both means a frame where neither
-             * is readable. `motion-reduce` turns it off entirely.
-             */
-            /**
-             * OPACITY ONLY, and short. The first version also rose 6px, which
-             * on a grid of product images reads as the cards jumping rather
-             * than as the panel arriving — the movement draws the eye to the
-             * pictures at exactly the moment they are least settled.
-             */
-            tab.id === active && "animate-[storefront-tab-in_140ms_ease-out] motion-reduce:animate-none",
-          )}
+          /**
+           * NO ENTRANCE ANIMATION. There were two, and both were the flash.
+           *
+           * A fade-in on the arriving panel means the outgoing one is hidden
+           * on the same frame the incoming one starts at `opacity: 0` — so
+           * every switch opened with a frame of empty page and the product
+           * cards appeared to blink into existence. Dropping the 6px rise
+           * first made it subtler without making it a different thing.
+           *
+           * Both panels are already rendered and already hold their images.
+           * Swapping which one is visible is genuinely instantaneous, and
+           * instantaneous is what "no flash" means. The movement that says a
+           * switch happened is the underline sliding under the tab you
+           * pressed, which is where the eye already is.
+           *
+           * The exception a fade would earn — content that has to be fetched —
+           * does not apply here and must not be reintroduced without one.
+           */
+          className='pt-8 [&>*:first-child:not([data-panel-spacing])]:!pt-0 [&>*:first-child>*:first-child:not([data-panel-spacing])]:!pt-0'
         >
           {tab.panel}
         </div>

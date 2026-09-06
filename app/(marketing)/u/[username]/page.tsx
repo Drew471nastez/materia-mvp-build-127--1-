@@ -864,30 +864,28 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           })
 
           /**
-           * Reviews earns a tab once there are any. The meta row claims a
-           * rating, and a claim a visitor cannot check is worth less than no
-           * claim — this is where the number goes to be checked.
-           */
-          if (creatorReviewCount > 0) {
-            tabs.push({
-              id: "reviews",
-              label: "Reviews",
-              panel: (
-                <ReviewsPanel reviews={reviewsForPanel} average={creatorRating} total={creatorReviewCount} />
-              ),
-            })
-          }
-
-          /**
-           * ABOUT IS NOT A TAB. It sits below the tab panels, so it is the last
-           * thing on the page whichever tab you are on — which is where an
-           * About belongs: you read it after looking at the work, not instead
-           * of looking at it. As a tab it was a destination competing with the
-           * products for a click it was never going to win.
+           * THREE TABS: Home, Products, Communities. Reviews and About are
+           * both below them.
+           *
+           * Reviews was a fourth tab, shown once a creator had any. It reads
+           * better at the foot of the page for the same reason About does —
+           * the meta row claims a rating, and the evidence for that claim
+           * belongs where a visitor arrives after looking at the work, not
+           * behind a tab that takes them away from it. It still only appears
+           * when there is something to show; an empty reviews block under
+           * every storefront is worse than none.
+           *
+           * ABOUT IS LAST, always. It is the last thing on the page whichever
+           * tab you are on — you read it after looking at the work, not
+           * instead of looking at it. As a tab it was a destination competing
+           * with the products for a click it was never going to win.
            */
           return (
             <>
               <StorefrontTabs tabs={tabs} />
+              {creatorReviewCount > 0 && (
+                <ReviewsPanel reviews={reviewsForPanel} average={creatorRating} total={creatorReviewCount} />
+              )}
               {about}
             </>
           )

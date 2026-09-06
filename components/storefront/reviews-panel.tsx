@@ -1,11 +1,17 @@
 "use client"
 
 /**
- * Every review across everything the creator sells, behind the Reviews tab.
+ * Every review across everything the creator sells, at the foot of the page.
  *
  * It exists because the meta row now claims a rating, and a claim a visitor
  * cannot check is worth less than no claim. "4.9 · 126 reviews" with nowhere
  * to read the 126 is a badge; with somewhere to read them it is evidence.
+ *
+ * NOT A TAB. It was one, and it read as a destination that took the visitor
+ * away from the products; the evidence for a rating belongs where they arrive
+ * after looking at the work, next to the About. So it renders below the tab
+ * panels — which means it needs its own heading, because nothing above it
+ * says what these stars are for any more.
  */
 
 import { Star } from "lucide-react"
@@ -60,6 +66,7 @@ export function ReviewsPanel({
 
   return (
     <div className="mx-auto w-full max-w-[1100px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">
+      <h2 className="mb-4 text-xl font-semibold text-foreground sm:text-2xl">Reviews</h2>
       <div className="mb-6 flex items-baseline gap-3">
         <span className="text-2xl font-semibold tracking-tight">{average.toFixed(1)}</span>
         <Stars rating={average} />

@@ -54,8 +54,17 @@ export function SortControl({
       <DropdownMenuTrigger
         aria-label={`Sort: ${SORT_LABELS[value]}`}
         className={cn(
-          "inline-flex shrink-0 items-center gap-2 rounded-full text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-          compact ? "h-9 w-9 justify-center border border-border" : "px-2 py-1",
+          "inline-flex shrink-0 items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+          /**
+           * A 7px corner, not a circle.
+           *
+           * A perfect circle beside the category pill read as a second pill
+           * with a letter missing — two fully-round shapes of different widths
+           * sitting in one row look like a mistake rather than a pair. A
+           * squared-off square says "button" instead, and the two shapes stop
+           * competing.
+           */
+          compact ? "h-9 w-9 justify-center rounded-[7px] border border-border" : "rounded-full px-2 py-1",
           className,
         )}
       >

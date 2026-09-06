@@ -1373,18 +1373,24 @@ check(
     if (!/border-foreground font-medium text-foreground/.test(tabs))
       missing.push("the active tab has no underline")
     if (!/rounded-full bg-black/.test(tabs) === false) missing.push("the pill track came back")
-    if (!/pt-8 \[&>\*:first-child\]:!pt-0 \[&>\*:first-child>\*:first-child\]:!pt-0/.test(tabs))
+    if (!/pt-8 \[&>\*:first-child:not\(\[data-panel-spacing\]\)\]:!pt-0/.test(tabs))
       missing.push("panels bring their own top space again — the content jumps between tabs")
-    if (!/animate-\[storefront-tab-in/.test(tabs)) missing.push("switching tabs is instant again")
-    if (!/motion-reduce:animate-none/.test(tabs)) missing.push("the tab animation ignores reduced-motion")
-    if (!/@keyframes storefront-tab-in/.test(css)) missing.push("the tab-switch keyframes are gone")
 
-    // About is deliberately NOT here — it lives below the panels now; its own
-    // guard covers that.
-    for (const label of ['label: "Home"', 'label: "Products"', 'label: "Communities"', 'label: "Reviews"']) {
+    /**
+     * EXACTLY THREE TABS. Reviews and About are both below them now: About
+     * because it is read after the work rather than instead of it, Reviews for
+     * the same reason — the evidence for the rating in the meta row belongs
+     * where the visitor lands, not behind a tab that takes them off the
+     * products. A fourth tab also costs each of the others a quarter of a
+     * phone's width instead of a third.
+     */
+    for (const label of ['label: "Home"', 'label: "Products"', 'label: "Communities"']) {
       if (!page.includes(label)) missing.push(`the ${label} tab is gone`)
     }
-    if (!/creatorReviewCount > 0/.test(page)) missing.push("the Reviews tab shows even with no reviews")
+    if (/label: "Reviews"|label: "About"/.test(page))
+      missing.push("there is a fourth tab again — Reviews and About belong at the foot of the page")
+    if (!/\{creatorReviewCount > 0 && \(\s*<ReviewsPanel/.test(page))
+      missing.push("the reviews block shows even when there are none to show")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -1392,7 +1398,7 @@ check(
 )
 
 check(
-  "Home and Products are the same width, and nothing overlaps the avatar on mobile",
+  "Home and Products are the same width",
   (() => {
     /**
      * TWO BUGS THAT ONLY SHOWED ON THE REAL PAGE.
@@ -1405,20 +1411,20 @@ check(
      * switched. Measured after: tabs, Home heading and Products grid all start
      * at the same x.
      *
-     * And the owner's controls were pinned bottom-right of the cover, where on
-     * a phone — 128px of cover against a 137px avatar straddling the bottom
-     * centre — they landed on top of the avatar. Verified at 390px: no overlap.
+     * Measured after, at 390px and 1180px: the tab strip, the Home heading and
+     * the Products grid all start and end at the same x.
+     *
+     * (Where the owner's controls sit — the other half of this bug — has a
+     * guard of its own further down, because the fix for it turned out to be a
+     * different kind of mistake.)
      */
     const renderer = code("components/store-builder/unified-section-renderer.tsx")
     const missing: string[] = []
 
     if (/const horizontalPadding = \d/.test(renderer))
       missing.push("the featured rail sets its own horizontal padding again — Home and Products will differ")
-
-    const slot = renderer.match(/\{ownerActions && \([\s\S]{0,240}?\)\}/)?.[0] ?? ""
-    if (!slot) missing.push("the owner-actions slot is gone from the cover")
-    else if (!/isMobile \? "top-\d/.test(slot))
-      missing.push("the owner's controls are back at the bottom on mobile, where the avatar is")
+    if (!/\{ownerActions && \(/.test(renderer))
+      missing.push("the owner-actions slot is gone from the cover")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -1751,32 +1757,83 @@ check(
     if (/rounded-full border px-3\.5 py-2 text-sm font-medium/.test(featured))
       missing.push("the mobile category chip row is back")
 
+    /**
+     * THE ICON BUTTON IS A 7px SQUARE, NOT A CIRCLE.
+     *
+     * A perfect circle beside the fully-rounded category pill read as a second
+     * pill with a letter missing: two round shapes of different widths in one
+     * row look like a mistake rather than a pair.
+     */
+    if (!/compact \? "h-9 w-9 justify-center rounded-\[7px\] border border-border"/.test(controls))
+      missing.push("the compact sort button is not a 7px square")
+
+    /**
+     * BOTH TABS COUNT CATEGORIES BY NAME.
+     *
+     * The rail used to key its counts by category ID and `continue` on any
+     * category without one, while the Products tab counted by name. On a
+     * storefront whose categories carry names but no id that produced an EMPTY
+     * list on Home and a full one on Products — the pill simply missing from
+     * one of the two tabs, on the same page, for the same products. Same key,
+     * both places, is what makes them agree rather than merely match today.
+     */
+    if (/if \(!c\?\.id\) continue/.test(featured))
+      missing.push("the featured rail counts categories by id again — the pill vanishes wherever ids are absent")
+    for (const [name, src] of [["the featured rail", featured], ["the products tab", grid]] as const) {
+      if (!/if \(!c\?\.name\) continue|if \(category\?\.name\)/.test(src))
+        missing.push(`${name} no longer counts categories by name`)
+    }
+
+    /**
+     * The builder still offers "Hide Category Filter". It was saved, and read
+     * by nothing, for as long as the rail had no filter to hide.
+     */
+    if (!/!settings\.hideCategoryFilter && \(/.test(featured))
+      missing.push("the builder's Hide Category Filter toggle is dead again")
+
+    /**
+     * Filtering happens on the click. It used to dim the grid to half opacity,
+     * wait 50ms, swap the products, then wait 150ms more to undim — a blink
+     * with nothing to look at during it.
+     */
+    if (/isAnimating/.test(featured))
+      missing.push("changing category dims the grid and waits again")
+
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),
 )
 
 check(
-  "About is not a tab, and the tabs fit three across a phone",
+  "About is not a tab, and the three tabs share a phone's width",
   (() => {
     /**
      * About sits BELOW the tab panels, so it is the last thing on the page
      * whichever tab you are on. As a tab it was a destination competing with
      * the products for a click it was never going to win.
      *
-     * Three tabs, centred on a phone — three short words pushed to the left of
-     * a 390px column read as the start of a row that lost its other half — and
-     * left-aligned from `sm` up, where they line up with the grid below.
+     * THE TABS ARE FULL WIDTH ON A PHONE. Centring them first — the previous
+     * attempt — still left three short words huddled in the middle of a 390px
+     * column with dead rule either side, and the active underline, the thing
+     * that says where you are, was as narrow as the word above it. Etsy, and
+     * every phone tab bar that works, gives each tab an equal share: measured
+     * at 390px, three tabs of 122px spanning the rule exactly. Desktop hands
+     * the width back to the words, where three stretched tabs across 1100px
+     * would read as site navigation rather than as a filter on the page.
      */
     const page = code("app/(marketing)/u/[username]/page.tsx")
     const tabs = code("components/storefront/storefront-tabs.tsx")
     const missing: string[] = []
 
     if (/label: "About"/.test(page)) missing.push("About is a tab again")
-    if (!/<StorefrontTabs tabs=\{tabs\} \/>\s*\{about\}/.test(page))
-      missing.push("About no longer renders after the tab panels on every tab")
-    if (!/justify-center gap-7 border-b border-border sm:justify-start/.test(tabs))
-      missing.push("the tabs are not centred on a phone")
+    // Below the panels, and last of everything below them — the reviews block
+    // now sits between the two.
+    if (!/<StorefrontTabs tabs=\{tabs\} \/>[\s\S]{0,400}?\{about\}\s*<\/>/.test(page))
+      missing.push("About no longer renders last, after the tab panels, on every tab")
+    if (!/className="flex w-full gap-0 border-b border-border sm:w-auto/.test(tabs))
+      missing.push("the tab strip no longer fills a phone's width")
+    if (!/"-mb-px flex-1 [^"]*sm:flex-none/.test(tabs))
+      missing.push("the tabs no longer share that width evenly — one long label would take more than its third")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -1784,20 +1841,30 @@ check(
 )
 
 check(
-  "switching tabs neither refetches nor moves the product cards",
+  "switching tabs does not flash: nothing refetches and nothing fades",
   (() => {
     /**
-     * Two ways this goes wrong, and it has been both.
+     * Three ways this has gone wrong, in order.
      *
      * Unmounting the inactive panel means every switch back rebuilds the
-     * sections and re-requests their images — measured: zero extra image
-     * requests across six switches, because the panels stay mounted.
+     * sections and re-requests their images. The panels stay mounted, and it
+     * is measured rather than assumed: zero extra image requests across six
+     * switches, at 390px and at 1180px.
      *
-     * And the arrival animation used to rise 6px as well as fade, which on a
-     * grid of product images reads as the cards jumping rather than as the
-     * panel arriving — the movement draws the eye to the pictures at exactly
-     * the moment they are least settled. Opacity only now, and 140ms.
-     * Measured: the panel's computed transform stays `none` throughout.
+     * Then the arrival animation rose 6px as well as fading, which on a grid
+     * of product images reads as the cards jumping rather than as the panel
+     * arriving.
+     *
+     * Then — with the rise gone — the fade itself was still the flash. The
+     * outgoing panel is hidden on the same frame the incoming one starts at
+     * `opacity: 0`, so every switch opened on a frame of empty page and the
+     * cards blinked into existence. Both panels are already rendered and
+     * already hold their images; swapping which is visible is instantaneous,
+     * and instantaneous is what "no flash" means. Measured: computed opacity
+     * 1.00 and transform `none` on every frame after the click.
+     *
+     * A fade would be earned by content that has to be FETCHED. That is not
+     * this, and it must not come back without it.
      */
     const tabs = code("components/storefront/storefront-tabs.tsx")
     const css = read("app/globals.css")
@@ -1805,13 +1872,63 @@ check(
 
     if (!/hidden=\{tab\.id !== active\}/.test(tabs))
       missing.push("inactive panels are unmounted again — every switch back refetches their images")
+    if (/animate-\[|animate-in|transition-opacity/.test(tabs))
+      missing.push("the panel animates on arrival again — the first frame of a fade-in is the flash")
+    if (/@keyframes storefront-tab-in/.test(css))
+      missing.push("the tab-switch keyframes are back")
 
-    const frames = css.match(/@keyframes storefront-tab-in \{[\s\S]*?\n\}/)?.[0] ?? ""
-    if (!frames) missing.push("the tab-switch keyframes are gone")
-    else if (/transform|translate/.test(frames))
-      missing.push("the switch moves the panel again — on a grid of images that reads as the cards jumping")
-    if (!/animate-\[storefront-tab-in_1\d\dms/.test(tabs))
-      missing.push("the switch animation is longer than a blink again")
+    /**
+     * THE PANEL RESET MUST NOT REACH INTO A BOX THAT OWNS ITS PADDING.
+     *
+     * The reset zeroes the top padding of a panel's first two levels so every
+     * tab starts the same distance below the rule — a Home section carries its
+     * spacing as an inline style, so it takes `!important` to overrule. But
+     * the Communities empty state is exactly two levels deep, so the reset
+     * stripped its `p-10` top too and "No communities yet" ended up sitting ON
+     * the dashed border. `data-panel-spacing` opts a box out; measured, the
+     * heading is 41px below the border rather than 0.
+     */
+    if (!/\[&>\*:first-child:not\(\[data-panel-spacing\]\)\]:!pt-0/.test(tabs))
+      missing.push("the panel reset no longer exempts boxes that own their padding")
+    if (!/<div data-panel-spacing className="rounded-lg border border-dashed/.test(tabs))
+      missing.push("the empty-tab box lost its opt-out — its heading will sit on the dashed border")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the owner's controls clear the avatar on a real phone",
+  (() => {
+    /**
+     * "Edit profile" plus the overflow menu is about 160px. The avatar
+     * straddles the bottom CENTRE of the cover, so a control pinned
+     * bottom-right on a 390px screen reaches back past the avatar's right edge
+     * and sits on top of it. It did, visibly, in the shipped app.
+     *
+     * IT WAS SUPPOSEDLY ALREADY FIXED. The first fix branched on the `isMobile`
+     * PROP — which is the store builder's phone-preview switch, not a fact
+     * about the device. The published page renders with it false whatever is
+     * asking, so on a real phone the branch chose the desktop position and the
+     * overlap survived a fix written specifically to remove it. Only CSS knows
+     * how wide the screen is; the prop is still honoured because the builder's
+     * preview frame is narrow while its viewport is not.
+     *
+     * Measured at 390px: actions at y=12 top-right, avatar at y=124 — no
+     * intersection on either axis. At 1180px they are 345px apart.
+     */
+    const header = code("components/store-builder/unified-section-renderer.tsx")
+    const missing: string[] = []
+
+    const block = header.match(/\{ownerActions && \([\s\S]{0,400}?\)\}/)?.[0] ?? ""
+    if (!block) missing.push("could not find the owner-actions block")
+    if (/isMobile \? "top-3 right-3" : "bottom-4 right-4"/.test(header))
+      missing.push("the position is chosen by the isMobile prop again — the published page always picks desktop")
+    if (!/"absolute right-3 top-3 z-\[6\]"/.test(block))
+      missing.push("the owner's controls no longer start at the top-right, where nothing else is")
+    if (!/!isMobile && "sm:bottom-4 sm:right-4 sm:top-auto"/.test(block))
+      missing.push("the desktop position is no longer a breakpoint")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0

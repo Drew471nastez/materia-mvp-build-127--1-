@@ -2166,9 +2166,19 @@ function UnifiedFeaturedProductsSection({
   // Get theme preset for mobile filter pills styling
   const themePreset = globalSettings?.themePreset || "default"
 
+  /**
+   * The selected category is a NAME here, as it is on the Products tab.
+   *
+   * It used to be an id, and `categoriesWithCounts` skipped any category
+   * without one — so on a storefront whose product categories carry names but
+   * no id, the Home tab computed an EMPTY category list and the selector
+   * rendered nothing, while the Products tab, which counts by name, showed
+   * `All (23)` right below it. Same page, same products, one tab with a filter
+   * and one without. Counting by name in both places is what makes them agree,
+   * rather than a lookup table that keeps them merely synchronised.
+   */
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<"recent" | "oldest" | "price-low" | "price-high" | "popular">("recent")
-  const [isAnimating, setIsAnimating] = useState(false)
   const [runtimeIsMobile, setRuntimeIsMobile] = useState(false)
   const sortTouch = useRef({
     startX: 0,
@@ -2243,15 +2253,18 @@ function UnifiedFeaturedProductsSection({
 
   const uiIsMobile = isMobile || runtimeIsMobile
 
-  // Handler for category changes with subtle animation
-  const handleCategoryChange = (categoryId: string | null) => {
-    if (categoryId === selectedCategory) return
-    setIsAnimating(true)
-    // Small delay to trigger animation
-    setTimeout(() => {
-      setSelectedCategory(categoryId)
-      setTimeout(() => setIsAnimating(false), 150)
-    }, 50)
+  /**
+   * Filtering happens on the click, not 50ms after it.
+   *
+   * This used to dim the grid to half opacity, wait, swap the products, then
+   * wait again to undim — a 200ms round trip during which the cards blinked.
+   * The blink was the whole effect: nothing moves, nothing crossfades, the
+   * images just go pale and come back. Applying the filter immediately is both
+   * faster and calmer.
+   */
+  const handleCategoryChange = (categoryName: string | null) => {
+    if (categoryName === selectedCategory) return
+    setSelectedCategory(categoryName)
   }
 
   const formatPrice = (cents: number) => {
@@ -2261,41 +2274,39 @@ function UnifiedFeaturedProductsSection({
     }).format(cents / 100)
   }
 
-  // ✅ Build categories from ALL product categories (not only first one)
-  const categoriesWithCounts = useMemo(() => {
-    if (!products || products.length === 0) return []
-    const map = new Map<string, { name: string; count: number }>()
+  /**
+   * The products this section is actually about, before any category filter.
+   *
+   * The counts and the "All (n)" total are both taken from THIS list rather
+   * than from every product the creator has: a rail configured to show six
+   * hand-picked products offering to filter twenty-three of them is a lie the
+   * grid below immediately contradicts.
+   */
+  const sectionProducts = useMemo(() => {
+    // ✅ show ALL products by default (no maxProducts)
+    if (settings.productIds && settings.productIds.length > 0) {
+      return products?.filter((p) => settings.productIds.includes(p.id)) || []
+    }
+    return products || []
+  }, [products, settings.productIds])
 
-    for (const p of products) {
-      const cats = p.categories || []
-      for (const c of cats) {
-        if (!c?.id) continue
-        const existing = map.get(c.id)
-        if (existing) existing.count++
-        else map.set(c.id, { name: c.name, count: 1 })
+  // ✅ Build categories from ALL product categories (not only first one),
+  // counted by NAME so this and the Products tab produce the same list.
+  const categoriesWithCounts = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const p of sectionProducts) {
+      for (const c of p.categories || []) {
+        if (!c?.name) continue
+        map.set(c.name, (map.get(c.name) ?? 0) + 1)
       }
     }
-
-    return Array.from(map.entries()).map(([id, v]) => ({ id, name: v.name, count: v.count }))
-  }, [products])
-
-  // The shared selector speaks in category NAMES, the section's own filtering
-  // in ids. One lookup keeps both honest rather than duplicating the state.
-  const selectedCategoryName = categoriesWithCounts.find((c) => c.id === selectedCategory)?.name ?? null
+    return Array.from(map, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count)
+  }, [sectionProducts])
 
   const filteredProducts = useMemo(() => {
-    // ✅ show ALL products by default (no maxProducts)
-    let result =
-      settings.productIds && settings.productIds.length > 0
-        ? products?.filter((p) => settings.productIds.includes(p.id))
-        : products
-
-    if (selectedCategory && result) {
-      result = result.filter((p) => (p.categories || []).some((c) => c.id === selectedCategory))
-    }
-
-    return result || []
-  }, [products, settings.productIds, selectedCategory])
+    if (!selectedCategory) return sectionProducts
+    return sectionProducts.filter((p) => (p.categories || []).some((c) => c.name === selectedCategory))
+  }, [sectionProducts, selectedCategory])
 
   const sortedProducts = useMemo(() => {
     const sorted = [...filteredProducts]
@@ -2321,7 +2332,7 @@ function UnifiedFeaturedProductsSection({
     return sorted
   }, [filteredProducts, sortBy])
 
-  const totalProducts = products?.length || 0
+  const totalProducts = sectionProducts.length
 
   // The sort labels live in components/storefront/catalog-controls, which both
   // this rail and the Products tab render. A second copy here is how the two
@@ -2380,16 +2391,31 @@ function UnifiedFeaturedProductsSection({
         most creators have two of, and it pushed the products — the thing the
         page exists for — into a narrower column and further from the eye.
 
-        The MOBILE pill row below is a different thing and stays: it costs no
-        horizontal room, and on a phone it is the only way to narrow a long
-        list. It keeps its `hideCategoryFilter` toggle. Desktop simply has no
-        category filter now, which is the trade that was asked for.
+        WHAT REPLACED IT is one pill in the header row — the same control the
+        Products tab uses, on both layouts rather than mobile only. It costs a
+        line rather than a column, and it still answers to the builder's
+        `hideCategoryFilter` toggle, which for a while it silently ignored: the
+        switch was in the sidebar, saved, and read by nothing.
       */}
       <div className="flex flex-col">
         {/* Main */}
         <div className="flex-1 min-w-0">
-          {/* Header */}
-          <div className="flex flex-col gap-3">
+          {/*
+            HEADING AND CONTROLS ON ONE ROW.
+
+            They were stacked, and with the category selector rendering nothing
+            the second row held a single icon button pushed to the far right —
+            a lone circle floating in its own band of white between the
+            headline and the first product, lined up with nothing on either
+            side. On one row the button has the headline to sit level with, and
+            the row reads as a header rather than as two things that failed to
+            meet.
+
+            It wraps rather than squeezing: a long headline on a narrow phone
+            puts the controls on their own line, still left-and-right against
+            the same edges as the grid below.
+          */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
             <h2
               className={cn(
                 "font-semibold",
@@ -2417,33 +2443,33 @@ function UnifiedFeaturedProductsSection({
               pill that opens a list rather than a row of chips that wraps to
               three lines and pushes the products off the screen.
             */}
-            <div className="flex items-center gap-3">
-              <CategorySelect
-                categories={categoriesWithCounts.map((c) => ({ name: c.name, count: c.count }))}
-                value={selectedCategoryName}
-                onChange={(name) => {
-                  const match = categoriesWithCounts.find((c) => c.name === name)
-                  handleCategoryChange(match ? match.id : null)
-                }}
-                total={totalProducts}
-              />
-              <div className="ml-auto">
-                <SortControl value={sortBy} onChange={setSortBy} compact className="sm:hidden" />
-                <SortControl value={sortBy} onChange={setSortBy} className="hidden sm:inline-flex" />
-              </div>
+            <div className="ml-auto flex items-center gap-2">
+              {!settings.hideCategoryFilter && (
+                <CategorySelect
+                  categories={categoriesWithCounts}
+                  value={selectedCategory}
+                  onChange={handleCategoryChange}
+                  total={totalProducts}
+                />
+              )}
+              {totalProducts > 1 && (
+                <>
+                  <SortControl value={sortBy} onChange={setSortBy} compact className="sm:hidden" />
+                  <SortControl value={sortBy} onChange={setSortBy} className="hidden sm:inline-flex" />
+                </>
+              )}
             </div>
           </div>
 
           {/* Grid - use uiIsMobile to determine layout */}
           <div
             className={cn(
-              "grid gap-4 mt-4 transition-opacity duration-150",
+              "grid gap-4 mt-5",
               uiIsMobile
                 ? (settings.mobileListing ?? 1) === 1
                   ? "grid-cols-1"
                   : "grid-cols-2"
                 : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
-              isAnimating && "opacity-50",
             )}
           >
             {sortedProducts.map((product) => {
@@ -2660,16 +2686,28 @@ export function UnifiedShopHeader({
             the two never collide.
           */}
           {/*
-            TOP-RIGHT ON MOBILE, bottom-right on desktop.
+            TOP-RIGHT ON A NARROW SCREEN, bottom-right once there is room.
 
-            The avatar straddles the bottom CENTRE of the cover, and on a phone
-            the cover is 128px tall while the avatar is 137px wide — so a
-            control pinned bottom-right lands on top of it. It did, visibly.
-            Desktop has the room; mobile does not, so up there it goes, where
-            nothing else is.
+            The avatar straddles the bottom CENTRE of the cover, so a control
+            pinned bottom-right has to clear it: "Edit profile" plus the menu
+            is about 150px, which on a 390px screen reaches back past the
+            avatar's right edge. It sat on top of it, visibly.
+
+            THIS IS A BREAKPOINT, NOT THE `isMobile` PROP. `isMobile` is the
+            store BUILDER's phone-preview switch — the published page renders
+            with it false whatever device is asking, so on a real phone this
+            branch was choosing the desktop position and the overlap survived
+            the fix that was supposed to remove it. Only CSS knows how wide the
+            screen actually is. The prop is still honoured, because the
+            builder's preview frame is narrow while its viewport is not.
           */}
           {ownerActions && (
-            <div className={cn("absolute z-[6]", isMobile ? "top-3 right-3" : "bottom-4 right-4")}>
+            <div
+              className={cn(
+                "absolute right-3 top-3 z-[6]",
+                !isMobile && "sm:bottom-4 sm:right-4 sm:top-auto",
+              )}
+            >
               {ownerActions}
             </div>
           )}
