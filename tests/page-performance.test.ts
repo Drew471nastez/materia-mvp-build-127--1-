@@ -492,6 +492,46 @@ check(
   })(),
 )
 
+check(
+  "the creator storefront's subscribe bar sticks on scroll up",
+  (() => {
+    /**
+     * THE BUG THIS EXISTS FOR, WHICH TOOK ME TWO GOES TO FIND.
+     *
+     * Sticky-on-scroll-up already existed and I "enabled" it by flipping the
+     * shared default in lib/store-builder/defaults.ts. Nothing changed, because
+     * the storefront page NEVER READS that default: it builds its own settings
+     * object with `savedSettings.enableStickyBar ?? false` hardcoded, and a
+     * second hardcoded false for creators with no config at all. Two fallbacks
+     * in a page, quietly overriding the file whose whole job is to hold them.
+     *
+     * So this asserts the page, not the defaults file. A creator who has
+     * explicitly switched sticky off still has `false` stored and keeps it —
+     * `??` only decides for the ones who never touched the toggle.
+     */
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const bar = code("components/store-builder/subscribe-bar.tsx")
+
+    const missing: string[] = []
+    if (/enableStickyBar:\s*savedSettings\.enableStickyBar \?\? false/.test(page))
+      missing.push("storefront: saved-config fallback is hardcoded to false again")
+    if (/enableStickyBar:\s*false/.test(page))
+      missing.push("storefront: no-config fallback is hardcoded to false again")
+    if (!/enableStickyBar:\s*savedSettings\.enableStickyBar \?\? true/.test(page))
+      missing.push("storefront: saved-config fallback no longer defaults to sticky")
+    // And the bar must still actually do something with it.
+    if (!/fixed left-0 right-0/.test(bar))
+      missing.push("subscribe bar: sticky mode no longer pins the bar")
+    if (!/!isVisible && settings\.enableStickyOnScrollUp && "-translate-y-full"/.test(bar))
+      missing.push("subscribe bar: no longer hides on scroll down")
+    // Smoothed, not per-event: this used to setState on every scroll frame.
+    if (!/requestAnimationFrame\(evaluate\)/.test(bar))
+      missing.push("subscribe bar: scroll handler is no longer frame-throttled")
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

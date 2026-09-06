@@ -353,8 +353,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         buttonColor: savedSettings.buttonColor || "#2563eb",
         buttonTextColor: savedSettings.buttonTextColor || "#ffffff",
         style: savedSettings.style || "style1",
-        enableStickyBar: savedSettings.enableStickyBar ?? false,
-        enableStickyOnScrollUp: savedSettings.enableStickyOnScrollUp ?? false,
+        // ?? true, not ?? false. This page hardcoded its own fallback, so the
+        // shared default in lib/store-builder/defaults.ts never reached the
+        // creator storefront at all — flipping it there changed nothing here,
+        // which is why the bar still did not stick.
+        //
+        // A creator who has explicitly turned sticky OFF still has `false`
+        // stored and keeps it; this only decides for the ones who never touched
+        // the toggle, which is everybody who has not gone looking for it.
+        enableStickyBar: savedSettings.enableStickyBar ?? true,
+        enableStickyOnScrollUp: savedSettings.enableStickyOnScrollUp ?? true,
         buttonStyle: savedSettings.buttonStyle || "style1",
       }
     }
@@ -375,8 +383,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       buttonColor: "#2563eb",
       buttonTextColor: "#ffffff",
       style: "style1" as const,
-      enableStickyBar: false,
-      enableStickyOnScrollUp: false,
+      // The no-config storefront gets the same behaviour as a configured one.
+      enableStickyBar: true,
+      enableStickyOnScrollUp: true,
       buttonStyle: "style1" as const,
     }
   }
