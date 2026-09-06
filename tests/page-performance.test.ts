@@ -1031,34 +1031,10 @@ check(
     const missing: string[] = []
     if (!slot) missing.push("the owner-actions slot is gone from the cover")
     else {
-      if (!/bottom-\d/.test(slot)) missing.push("the edit control is not anchored to the bottom of the cover")
-      if (/top-\d/.test(slot)) missing.push("the edit control is back at the top of the cover")
+      // Bottom-right on desktop, top-right on mobile — see the note on the
+      // slot for why the phone has to differ.
+      if (!/bottom-\d/.test(slot)) missing.push("the edit control is not anchored to the bottom on desktop")
       if (!/right-\d/.test(slot)) missing.push("the edit control is no longer right-aligned")
-    }
-    if (missing.length) console.log("        " + missing.join("\n        "))
-    return missing.length === 0
-  })(),
-)
-
-check(
-  "the tab strip is not a full-width rule across the page",
-  (() => {
-    /**
-     * The strip sat on a `border-b` spanning the whole 1100px column, which cut
-     * the page in half under a header that is centred and has no other hard
-     * edges in it. The only line now is the one under the active tab. Centred
-     * too, since everything above it — name, handle, bio, icons — is on the
-     * centre line. Measured in a browser: the tablist's border-bottom-width
-     * computes to 0px and its justify-content to center.
-     */
-    const tabs = code("components/storefront/storefront-tabs.tsx")
-    const list = tabs.match(/<div className="[^"]*" role="tablist">/)?.[0] ?? ""
-    const missing: string[] = []
-    if (!list) missing.push("the tablist element is gone")
-    else {
-      if (/border-b\b/.test(list)) missing.push("the full-width rule is back under the tabs")
-      // Left, lined up with the grid below it — not centred.
-      if (/justify-center/.test(list)) missing.push("the tabs are centred again, off the content's left edge")
     }
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -1449,36 +1425,78 @@ check(
 )
 
 check(
-  "the tab bar is navigation, and every tab opens at the same place",
+  "the tab bar is underlined tabs on a rule, and every tab opens at the same place",
   (() => {
     /**
-     * Home / Products / Communities under a 2px underline is the tab pattern
-     * of a settings screen — it says "sections of a form". A storefront is a
-     * place, so the bar is a pill track with the active destination filled in.
+     * THE SHAPE OF THIS CHANGED TWICE, so what is asserted is the shape that
+     * shipped, not the argument for it: underlined tabs sitting on a rule that
+     * spans the content column, the active one breaking the rule. The pill
+     * track came in between and went again.
      *
-     * And every panel now starts at the same distance from that bar. Each used
-     * to bring its own top space — a Home section carries the creator's
-     * spacing setting, the products grid had `py-8`, the empty states `py-16`
-     * — so the content jumped as you switched tabs. Measured before: 48px on
-     * Home against 32 on Products. Now 32, 32 and 32.
+     * What has NOT changed and must not: every panel starts at the same
+     * distance from the bar. Each used to bring its own top space — a Home
+     * section carries the creator's spacing setting, the products grid had
+     * `py-8`, the empty states `py-16` — so the content jumped as you
+     * switched. Measured 48px on Home against 32 on Products; now 32 across.
+     *
+     * And the switch is animated. Instant replacement reads as a jump rather
+     * than as a change; only the arriving panel moves, and `motion-reduce`
+     * turns it off.
      */
     const tabs = code("components/storefront/storefront-tabs.tsx")
     const page = code("app/(marketing)/u/[username]/page.tsx")
+    const css = read("app/globals.css")
     const missing: string[] = []
 
-    if (!/rounded-full bg-black\/\[0\.045\]/.test(tabs)) missing.push("the pill track is gone")
-    if (!/bg-foreground font-medium text-background/.test(tabs))
-      missing.push("the active tab is no longer filled in")
-    if (/border-b-2/.test(tabs)) missing.push("the settings-page underline is back")
+    if (!/border-b border-border" role="tablist"/.test(tabs)) missing.push("the tabs no longer sit on a rule")
+    if (!/border-foreground font-medium text-foreground/.test(tabs))
+      missing.push("the active tab has no underline")
+    if (!/rounded-full bg-black/.test(tabs) === false) missing.push("the pill track came back")
     if (!/pt-8 \[&>\*:first-child\]:!pt-0 \[&>\*:first-child>\*:first-child\]:!pt-0/.test(tabs))
       missing.push("panels bring their own top space again — the content jumps between tabs")
+    if (!/animate-\[storefront-tab-in/.test(tabs)) missing.push("switching tabs is instant again")
+    if (!/motion-reduce:animate-none/.test(tabs)) missing.push("the tab animation ignores reduced-motion")
+    if (!/@keyframes storefront-tab-in/.test(css)) missing.push("the tab-switch keyframes are gone")
 
     for (const label of ['label: "Home"', 'label: "Products"', 'label: "Communities"', 'label: "Reviews"', 'label: "About"']) {
       if (!page.includes(label)) missing.push(`the ${label} tab is gone`)
     }
-    // Reviews and About only when there is something behind them.
     if (!/creatorReviewCount > 0/.test(page)) missing.push("the Reviews tab shows even with no reviews")
     if (!/if \(about\) tabs\.push/.test(page)) missing.push("the About tab shows even with no About section")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "Home and Products are the same width, and nothing overlaps the avatar on mobile",
+  (() => {
+    /**
+     * TWO BUGS THAT ONLY SHOWED ON THE REAL PAGE.
+     *
+     * The Featured rail set `paddingLeft/Right: 8` as an INLINE style, and an
+     * inline style beats a class — so it replaced SectionContainer's
+     * responsive `px-3 sm:px-4 lg:px-6` outright. Home sat 8px from the edge
+     * while Products sat at 12 on mobile and 24 on desktop: two tabs of one
+     * page with different margins, and cards that changed width as you
+     * switched. Measured after: tabs, Home heading and Products grid all start
+     * at the same x.
+     *
+     * And the owner's controls were pinned bottom-right of the cover, where on
+     * a phone — 128px of cover against a 137px avatar straddling the bottom
+     * centre — they landed on top of the avatar. Verified at 390px: no overlap.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const missing: string[] = []
+
+    if (/const horizontalPadding = \d/.test(renderer))
+      missing.push("the featured rail sets its own horizontal padding again — Home and Products will differ")
+
+    const slot = renderer.match(/\{ownerActions && \([\s\S]{0,240}?\)\}/)?.[0] ?? ""
+    if (!slot) missing.push("the owner-actions slot is gone from the cover")
+    else if (!/isMobile \? "top-\d/.test(slot))
+      missing.push("the owner's controls are back at the bottom on mobile, where the avatar is")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -1677,6 +1695,86 @@ check(
 
     if (offenders.length) console.log("        " + offenders.join("\n        "))
     return offenders.length === 0
+  })(),
+)
+
+check(
+  "Save is always reachable, and a banner can be removed without a red button",
+  (() => {
+    /**
+     * The whole dialog used to scroll, so on a short window Save sat below the
+     * fold and you had to scroll a form you had just filled in to submit it.
+     * It is a column now — header, scrolling body, footer — and only the
+     * middle moves. Measured at 700px tall: the body scrolls 433px and the
+     * footer does not move a pixel while it does.
+     *
+     * `p-0 gap-0` on the content matters: with the base padding still on, the
+     * header keeps its padding while the body scrolls underneath it.
+     *
+     * On the images — an avatar has no empty state worth offering, but a
+     * banner does: plenty of pages look better without one. So the banner gets
+     * a remove control and the avatar does not, and it is a small dark disc
+     * that appears with the hover overlay rather than the old destructive-red
+     * button shouting danger about a photo somebody just chose.
+     */
+    const dialog = code("components/storefront/edit-profile-button.tsx")
+    const upload = code("components/app/image-upload.tsx")
+    const missing: string[] = []
+
+    if (!/flex max-h-\[85vh\] flex-col gap-0 overflow-hidden p-0/.test(dialog))
+      missing.push("the dialog scrolls as one piece again — Save goes below the fold")
+    if (!/min-h-0 flex-1 space-y-5 overflow-y-auto/.test(dialog))
+      missing.push("the dialog body is not the part that scrolls")
+    if (!/DialogFooter className="shrink-0/.test(dialog)) missing.push("the footer can be pushed off screen again")
+
+    // The banner may be removed; the avatar may not.
+    const banner = dialog.slice(dialog.indexOf('bucket="covers"'), dialog.indexOf('bucket="avatars"'))
+    const avatar = dialog.slice(dialog.indexOf('bucket="avatars"'))
+    if (!/allowRemove/.test(banner)) missing.push("the banner can no longer be removed")
+    if (/allowRemove/.test(avatar.slice(0, avatar.indexOf("/>"))))
+      missing.push("the avatar can be deleted — there is no profile without a picture")
+
+    if (!/aria-label="Remove image"/.test(upload)) missing.push("the remove control is gone")
+    /**
+     * Only the REPLACE-ONLY branch is checked. The old destructive button still
+     * exists for the uploader's other callers — product images and the like,
+     * where deleting really is the offer — and this is not the place to change
+     * that.
+     */
+    const replaceBranch = upload.slice(
+      upload.indexOf("if (value && replaceOnly)"),
+      upload.indexOf("if (value) {", upload.indexOf("if (value && replaceOnly)") + 10),
+    )
+    if (!replaceBranch) missing.push("the replace-only branch is gone")
+    else if (/variant="destructive"/.test(replaceBranch))
+      missing.push("the destructive red button is back on a replace-only image")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the name area does not repeat what is already on the page",
+  (() => {
+    /**
+     * The product count came off the meta row. It is the least interesting
+     * thing on that line — the products are directly below it, and the number
+     * is on the About section for anyone reading about the creator. What is
+     * left is what a visitor cannot get by scrolling: the rating and the
+     * following.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const header = renderer.slice(renderer.indexOf("function UnifiedShopHeader"))
+    const body = header.slice(0, header.indexOf("\nfunction ", 40))
+    const missing: string[] = []
+
+    if (/\{productCount\} products/.test(body)) missing.push("the product count is back in the name area")
+    if (!/reviewCount > 0 && reviewAverage > 0/.test(body)) missing.push("the rating left the meta row")
+    if (!/followerCount > 0/.test(body)) missing.push("the follower count left the meta row")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
   })(),
 )
 

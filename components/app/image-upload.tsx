@@ -31,6 +31,14 @@ interface ImageUploadProps {
   replaceOnly?: boolean
   /** Overlay label on hover, e.g. "Change banner". */
   replaceLabel?: string
+  /**
+   * Adds a quiet remove control alongside replace-only mode.
+   *
+   * An avatar has no empty state worth offering — a profile without a picture
+   * is not a thing anyone wants. A BANNER does: plenty of pages look better
+   * with none, so removing it is a real choice and needs a way to make it.
+   */
+  allowRemove?: boolean
 }
 
 export function ImageUpload({
@@ -43,6 +51,7 @@ export function ImageUpload({
   accept = "image/*",
   replaceOnly = false,
   replaceLabel = "Change image",
+  allowRemove = false,
 }: ImageUploadProps) {
   const isVideoMode = accept === "video/*"
   const [uploading, setUploading] = useState(false)
@@ -325,6 +334,26 @@ export function ImageUpload({
             </div>
             <span className="text-xs font-medium text-white/90">Uploading…</span>
           </div>
+        )}
+
+        {/*
+          The remove control, when there is one. A small dark disc with a thin
+          × — not the old destructive-red button, which shouted "danger" about
+          a photo somebody had just chosen. It appears with the hover overlay
+          rather than sitting on the image permanently.
+        */}
+        {allowRemove && !uploading && (
+          <button
+            type="button"
+            aria-label="Remove image"
+            onClick={(e) => {
+              e.stopPropagation()
+              void handleRemove()
+            }}
+            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:bg-black/75 focus-visible:opacity-100 focus-visible:outline-none group-hover:opacity-100"
+          >
+            <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+          </button>
         )}
 
         <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={handleFileSelect} />

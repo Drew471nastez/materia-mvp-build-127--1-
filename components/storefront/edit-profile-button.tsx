@@ -124,12 +124,22 @@ export function EditProfileButton({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
+        {/*
+          THE FOOTER IS STICKY, and that is why the scroll moved.
+
+          The whole dialog used to scroll, so on a short window Save was below
+          the fold and you had to scroll a form you had already filled in just
+          to submit it. Now the dialog is a column — header, scrolling body,
+          footer — and only the middle moves. `gap-0` and `p-0` because the
+          padding has to belong to the three parts separately, or the header
+          keeps its padding while the body scrolls under it.
+        */}
+        <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+          <DialogHeader className="border-b border-border px-6 py-4">
             <DialogTitle>Edit profile</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-5 py-2">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
             {/*
               Cover first, then the avatar sitting half over it — the same
               relationship they have on the page, so what you are editing looks
@@ -146,6 +156,7 @@ export function EditProfileButton({
                 value={cover || undefined}
                 onChange={(url) => setCover(url)}
                 replaceOnly
+                allowRemove
                 replaceLabel="Change banner"
               />
             </div>
@@ -209,7 +220,7 @@ export function EditProfileButton({
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 gap-2 border-t border-border bg-background px-6 py-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={saving}>
               Cancel
             </Button>

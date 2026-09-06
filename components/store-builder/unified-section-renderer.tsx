@@ -2150,7 +2150,17 @@ function UnifiedFeaturedProductsSection({
   viewerIsOwner?: boolean
 }) {
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
-  const horizontalPadding = 8
+  /**
+   * NO HORIZONTAL PADDING OF ITS OWN. This was 8, applied as an INLINE style,
+   * and an inline style beats a class — so it replaced SectionContainer's
+   * responsive `px-3 sm:px-4 lg:px-6` outright. The Featured rail sat 8px from
+   * the edge while the Products tab sat at 12px on mobile and 24px on desktop,
+   * so the two tabs of the same page had visibly different margins and the
+   * cards changed width as you switched.
+   *
+   * `undefined` leaves the container's own padding alone.
+   */
+  const horizontalPadding = undefined
 
   // Get theme preset for mobile filter pills styling
   const themePreset = globalSettings?.themePreset || "default"
@@ -2754,8 +2764,17 @@ export function UnifiedShopHeader({
             cover's own control, and the avatar straddles the bottom CENTRE so
             the two never collide.
           */}
+          {/*
+            TOP-RIGHT ON MOBILE, bottom-right on desktop.
+
+            The avatar straddles the bottom CENTRE of the cover, and on a phone
+            the cover is 128px tall while the avatar is 137px wide — so a
+            control pinned bottom-right lands on top of it. It did, visibly.
+            Desktop has the room; mobile does not, so up there it goes, where
+            nothing else is.
+          */}
           {ownerActions && (
-            <div className={cn("absolute z-[6]", isMobile ? "bottom-3 right-3" : "bottom-4 right-4")}>
+            <div className={cn("absolute z-[6]", isMobile ? "top-3 right-3" : "bottom-4 right-4")}>
               {ownerActions}
             </div>
           )}
@@ -3025,12 +3044,13 @@ export function UnifiedShopHeader({
             const parts: React.ReactNode[] = []
 
             if (settings.showStats) {
-              parts.push(
-                <span key="products" className="flex items-center gap-1.5">
-                  <Package className={cn(isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} />
-                  {productCount} products
-                </span>,
-              )
+              /*
+                NO PRODUCT COUNT HERE. It is the least interesting thing on the
+                line — the products themselves are directly below, and their
+                number is on the About section where somebody reading about the
+                creator might actually want it. What stays is what a visitor
+                cannot see by scrolling: the rating and the following.
+              */
 
               /**
                * The rating, and how many people it is made of. "4.9" on its own

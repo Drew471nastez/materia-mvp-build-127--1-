@@ -53,24 +53,18 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
   return (
     <>
       {/*
-        A PILL BAR, NOT AN UNDERLINE.
+        UNDERLINE TABS ON A RULE. The pills came first and went; this is what
+        was asked for in the end, and it is the shape the rest of the web uses
+        for exactly this job.
 
-        Home / Products / Communities with a 2px underline under the active one
-        is the tab pattern of a settings screen — it says "sections of a form".
-        A creator's storefront is a place, and the bar across the top of it
-        should read like navigation. So: one soft grey track with the active
-        destination filled in dark.
-
-        Still left-aligned, lined up with the grid below it. Still no
-        full-width rule — the track IS the shape, and a line under it as well
-        would be two competing horizontals.
-
-        The track scrolls rather than wraps on a narrow screen, so five
-        destinations never become two rows.
+        The rule runs the full width of the content column and the active tab
+        sits ON it, breaking it — which is what makes the selection read as a
+        position rather than as a highlight. The underline slides in width and
+        colour rather than snapping.
       */}
-      <div className="mx-auto w-full max-w-[1100px] px-3 sm:px-4 lg:px-6">
+      <div className="mx-auto w-full max-w-[1100px] px-3 pt-1 sm:px-4 lg:px-6">
         <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="inline-flex gap-1 rounded-full bg-black/[0.045] p-1" role="tablist">
+          <div className="flex min-w-max gap-7 border-b border-border" role="tablist">
             {tabs.map((tab) => {
               const selected = tab.id === active
               return (
@@ -82,10 +76,11 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
                   aria-controls={`storefront-panel-${tab.id}`}
                   onClick={() => setActive(tab.id)}
                   className={cn(
-                    "whitespace-nowrap rounded-full px-4 py-1.5 text-sm transition-colors duration-150",
+                    "-mb-px whitespace-nowrap border-b-2 px-0.5 pb-3 pt-1 text-sm",
+                    "transition-[color,border-color] duration-200 ease-out",
                     selected
-                      ? "bg-foreground font-medium text-background shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
+                      ? "border-foreground font-medium text-foreground"
+                      : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
                   )}
                 >
                   {tab.label}
@@ -127,7 +122,20 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
            * inline style beats a class. This is the one place allowed to
            * overrule it.
            */
-          className="pt-8 [&>*:first-child]:!pt-0 [&>*:first-child>*:first-child]:!pt-0"
+          className={cn(
+            "pt-8 [&>*:first-child]:!pt-0 [&>*:first-child>*:first-child]:!pt-0",
+            /**
+             * The switch used to be instantaneous, which reads as a jump
+             * rather than as a change — the old panel is simply replaced
+             * mid-blink. A short fade-and-rise on the incoming panel gives the
+             * eye something to follow.
+             *
+             * Only the panel arriving animates; the one leaving is hidden
+             * immediately, because animating both means a frame where neither
+             * is readable. `motion-reduce` turns it off entirely.
+             */
+            tab.id === active && "animate-[storefront-tab-in_220ms_ease-out] motion-reduce:animate-none",
+          )}
         >
           {tab.panel}
         </div>

@@ -1929,3 +1929,18 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
   animation-duration: 220ms !important;
   animation-timing-function: cubic-bezier(0.4, 0, 1, 1) !important;
 }
+/* ── Storefront tab switch ───────────────────────────────────────────────────
+   The incoming panel fades and rises a few pixels. Small on purpose: this runs
+   every time somebody changes tab, and anything longer than about 220ms starts
+   feeling like waiting rather than like motion.
+   ────────────────────────────────────────────────────────────────────────── */
+@keyframes storefront-tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
