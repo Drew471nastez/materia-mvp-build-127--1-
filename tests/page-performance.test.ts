@@ -1417,6 +1417,181 @@ check(
   })(),
 )
 
+check(
+  "the storefront page is not publicly cacheable now that it renders per-viewer",
+  (() => {
+    /**
+     * THIS ONE IS NOT COSMETIC.
+     *
+     * The page renders things decided from the SESSION: an Edit profile
+     * control, a creator menu, a three-dot menu on every card. It was still
+     * served with `public, s-maxage=300, stale-while-revalidate=600`, which
+     * tells a shared CDN it may hand ONE rendering to everybody — so the
+     * owner's rendering could be cached and served to visitors.
+     *
+     * The same header was why saving a profile appeared to do nothing:
+     * `router.refresh()` fetches the RSC payload, the edge returned the cached
+     * one, and the page only updated after a hard reload.
+     */
+    const config = read("next.config.mjs")
+    const block = config.match(/source: '\/u\/:username\*',[\s\S]{0,300}?\]/)?.[0] ?? ""
+    const missing: string[] = []
+    if (!block) missing.push("the /u/:username* header block is gone — check what replaced it")
+    else {
+      if (/public/.test(block))
+        missing.push("the creator page is publicly cacheable again — an owner's rendering can be served to visitors")
+      if (/s-maxage/.test(block)) missing.push("a shared-cache lifetime is back on a per-viewer page")
+      if (!/private/.test(block)) missing.push("the creator page is no longer marked private")
+    }
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the tab bar is navigation, and every tab opens at the same place",
+  (() => {
+    /**
+     * Home / Products / Communities under a 2px underline is the tab pattern
+     * of a settings screen — it says "sections of a form". A storefront is a
+     * place, so the bar is a pill track with the active destination filled in.
+     *
+     * And every panel now starts at the same distance from that bar. Each used
+     * to bring its own top space — a Home section carries the creator's
+     * spacing setting, the products grid had `py-8`, the empty states `py-16`
+     * — so the content jumped as you switched tabs. Measured before: 48px on
+     * Home against 32 on Products. Now 32, 32 and 32.
+     */
+    const tabs = code("components/storefront/storefront-tabs.tsx")
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const missing: string[] = []
+
+    if (!/rounded-full bg-black\/\[0\.045\]/.test(tabs)) missing.push("the pill track is gone")
+    if (!/bg-foreground font-medium text-background/.test(tabs))
+      missing.push("the active tab is no longer filled in")
+    if (/border-b-2/.test(tabs)) missing.push("the settings-page underline is back")
+    if (!/pt-8 \[&>\*:first-child\]:!pt-0 \[&>\*:first-child>\*:first-child\]:!pt-0/.test(tabs))
+      missing.push("panels bring their own top space again — the content jumps between tabs")
+
+    for (const label of ['label: "Home"', 'label: "Products"', 'label: "Communities"', 'label: "Reviews"', 'label: "About"']) {
+      if (!page.includes(label)) missing.push(`the ${label} tab is gone`)
+    }
+    // Reviews and About only when there is something behind them.
+    if (!/creatorReviewCount > 0/.test(page)) missing.push("the Reviews tab shows even with no reviews")
+    if (!/if \(about\) tabs\.push/.test(page)) missing.push("the About tab shows even with no About section")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the meta row's rating is weighted, and followers are real rows",
+  (() => {
+    /**
+     * A creator's rating is not the mean of their products' means: a five-star
+     * product with one review must not drag a four-star product with two
+     * hundred up to 4.5. It is weighted by how many reviews each product has,
+     * and products nobody has reviewed contribute nothing rather than a zero.
+     *
+     * The maths is lifted out of the page and RUN, because "4.9" is a claim
+     * about other people's opinions and getting it wrong is worse than not
+     * showing it.
+     *
+     * Followers are rows in `follows`, counted with `head: true` so the rows
+     * never travel — and the follow itself points at a PROFILE, not a creator
+     * row, because a person is the thing you follow.
+     */
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const api = code("app/api/follow/route.ts")
+    const missing: string[] = []
+
+    const src = page.match(/const reviewTotals = \(products \|\| \[\]\)\.reduce\([\s\S]*?\n  \)/)?.[0]
+    if (!src) {
+      missing.push("the rating aggregate is gone from the page")
+    } else {
+      // eslint-disable-next-line no-new-func
+      const totals = new Function(
+        "products",
+        `${src.replace("(products || [])", "products")}; return reviewTotals`,
+      ) as (p: unknown[]) => { count: number; weighted: number }
+      const rate = (p: unknown[]) => {
+        const t = totals(p)
+        return t.count > 0 ? t.weighted / t.count : 0
+      }
+      if (rate([]) !== 0) missing.push("a creator with no products has a rating")
+      if (rate([{ reviews_count: 0, reviews_average: 0 }]) !== 0) missing.push("an unreviewed product produces a rating")
+      // 200 reviews at 4.0 and 1 at 5.0 must land near 4.0, not near 4.5.
+      const weighted = rate([
+        { reviews_count: 200, reviews_average: 4 },
+        { reviews_count: 1, reviews_average: 5 },
+      ])
+      if (Math.abs(weighted - 4.005) > 0.01)
+        missing.push(`the rating is a mean of means, not weighted — got ${weighted.toFixed(3)}`)
+      // Unreviewed products must not dilute it.
+      const diluted = rate([
+        { reviews_count: 10, reviews_average: 5 },
+        { reviews_count: 0, reviews_average: 0 },
+      ])
+      if (diluted !== 5) missing.push(`unreviewed products are dragging the rating down — got ${diluted}`)
+    }
+
+    if (!/\.eq\("following_id", profile\.id\)/.test(page))
+      missing.push("followers are not counted against the profile the follow points at")
+    if (!/head: true/.test(page)) missing.push("the follower count is fetching rows instead of a count")
+
+    // The API must never take the follower from the body.
+    if (/follower_id: (body|target)/.test(api))
+      missing.push("follower_id comes from the request body — one account could make another follow")
+    if (!/follower_id: user\.id/.test(api)) missing.push("the follow is not attributed to the session user")
+    if (!/target === user\.id/.test(api)) missing.push("a creator can follow themselves and inflate their own count")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "an avatar can be changed but not emptied, and menus have no icons",
+  (() => {
+    /**
+     * There is no such thing as a profile with no picture, only one with a
+     * different picture — so the uploader for the avatar and the cover offers
+     * replacement and not deletion. A red destructive button in the corner of
+     * a photo you just chose reads as a warning about the photo.
+     *
+     * The image itself is the control, the old one stays visible under a
+     * progress wash while the new one uploads, and there is no delete at all.
+     *
+     * The menus lost their icons for the same reason: four rows that each say
+     * what they are do not need a picture as well.
+     */
+    const upload = code("components/app/image-upload.tsx")
+    const dialog = code("components/storefront/edit-profile-button.tsx")
+    const ownerMenu = code("components/storefront/owner-menu.tsx")
+    const cardMenu = code("components/storefront/product-owner-menu.tsx")
+    const missing: string[] = []
+
+    if (!/if \(value && replaceOnly\)/.test(upload))
+      missing.push("the uploader has no replace-only mode — the avatar gets a delete button again")
+    if ((dialog.match(/replaceOnly/g)?.length ?? 0) < 2)
+      missing.push("the avatar or the cover is back to a deletable upload")
+    if (!/Uploading…/.test(upload)) missing.push("uploading no longer shows progress over the old image")
+
+    // A menu of words. lucide is still imported for the trigger glyph itself.
+    for (const [name, src] of [
+      ["the owner menu", ownerMenu],
+      ["the product menu", cardMenu],
+    ] as const) {
+      const icons = src.match(/<(Package|LayoutTemplate|BarChart3|Settings|Pencil|ExternalLink)\b/g)
+      if (icons) missing.push(`${name} has icons on its items again (${icons.join(", ")})`)
+    }
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

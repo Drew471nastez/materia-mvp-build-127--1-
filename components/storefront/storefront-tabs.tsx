@@ -53,20 +53,24 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
   return (
     <>
       {/*
-        LEFT-ALIGNED, AND STILL NO FULL-WIDTH RULE.
+        A PILL BAR, NOT AN UNDERLINE.
 
-        The strip used to sit on a `border-b` spanning the whole 1100px column,
-        which cut the page in half under a header that is centred and has no
-        other hard edges in it. That rule is gone for good — the only line is
-        the one under the active tab, which is the line that means something.
+        Home / Products / Communities with a 2px underline under the active one
+        is the tab pattern of a settings screen — it says "sections of a form".
+        A creator's storefront is a place, and the bar across the top of it
+        should read like navigation. So: one soft grey track with the active
+        destination filled in dark.
 
-        The tabs themselves are back on the left, where they line up with the
-        content they switch: the product grid below starts at the same edge, so
-        the eye follows one vertical, not two.
+        Still left-aligned, lined up with the grid below it. Still no
+        full-width rule — the track IS the shape, and a line under it as well
+        would be two competing horizontals.
+
+        The track scrolls rather than wraps on a narrow screen, so five
+        destinations never become two rows.
       */}
-      <div>
-        <div className="mx-auto w-full max-w-[1100px] px-3 pt-1 sm:px-4 lg:px-6">
-          <div className="flex gap-7" role="tablist">
+      <div className="mx-auto w-full max-w-[1100px] px-3 sm:px-4 lg:px-6">
+        <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="inline-flex gap-1 rounded-full bg-black/[0.045] p-1" role="tablist">
             {tabs.map((tab) => {
               const selected = tab.id === active
               return (
@@ -78,10 +82,10 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
                   aria-controls={`storefront-panel-${tab.id}`}
                   onClick={() => setActive(tab.id)}
                   className={cn(
-                    "border-b-2 px-1 pb-2.5 pt-1 text-sm transition-colors",
+                    "whitespace-nowrap rounded-full px-4 py-1.5 text-sm transition-colors duration-150",
                     selected
-                      ? "border-foreground font-semibold text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground",
+                      ? "bg-foreground font-medium text-background shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {tab.label}
@@ -99,7 +103,32 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
         or typed into a panel is still there when they return.
       */}
       {tabs.map((tab) => (
-        <div key={tab.id} id={`storefront-panel-${tab.id}`} role="tabpanel" hidden={tab.id !== active}>
+        <div
+          key={tab.id}
+          id={`storefront-panel-${tab.id}`}
+          role="tabpanel"
+          hidden={tab.id !== active}
+          /**
+           * ONE TOP GAP FOR EVERY PANEL, forced.
+           *
+           * Each panel used to bring its own: the Home tab's first section
+           * carries a `paddingTop` from the creator's spacing settings, the
+           * Products grid had `py-8`, the empty states had `py-16`. So the
+           * distance from the tab bar to the content changed as you switched
+           * tabs — measured 48px on Home against 40px on Products — which
+           * reads as the page shifting under you.
+           *
+           * The gap is set HERE and the panel's own top padding is zeroed —
+           * two levels deep, because a Home section nests its spacing inside a
+           * SectionContainer and zeroing only the outer wrapper still left the
+           * inner 24px on top of this one.
+           *
+           * `!` because a section's padding arrives as an inline style, and an
+           * inline style beats a class. This is the one place allowed to
+           * overrule it.
+           */
+          className="pt-8 [&>*:first-child]:!pt-0 [&>*:first-child>*:first-child]:!pt-0"
+        >
           {tab.panel}
         </div>
       ))}

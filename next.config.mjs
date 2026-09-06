@@ -73,10 +73,26 @@ const nextConfig = {
         ],
       },
       {
-        // Creator store pages
+        /**
+         * Creator store pages — NOT PUBLICLY CACHEABLE ANY MORE.
+         *
+         * This page renders per-viewer content: the creator sees an "Edit
+         * profile" control, a menu, and a three-dot menu on every card, all
+         * decided from their session. `public, s-maxage=300` told the CDN it
+         * could hand one rendering to everybody — which at best meant an edit
+         * took five minutes to appear, and at worst meant the owner's
+         * rendering being served to visitors.
+         *
+         * It also made `router.refresh()` after saving a profile a no-op:
+         * the RSC payload came back from the edge unchanged, which is why
+         * changes did not show without a hard reload.
+         *
+         * `private` keeps it out of shared caches while still letting the
+         * browser reuse it within a page session.
+         */
         source: '/u/:username*',
         headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=600' },
+          { key: 'Cache-Control', value: 'private, no-cache, must-revalidate' },
         ],
       },
       {

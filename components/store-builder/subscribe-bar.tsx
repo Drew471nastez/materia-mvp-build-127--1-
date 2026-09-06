@@ -37,6 +37,12 @@ export interface SubscribeBarSettings {
   inputBackgroundColor?: string
   showAvatar?: boolean
   avatarUrl?: string
+  /**
+   * The creator's auth user id. Present only on the live storefront, where
+   * subscribing also follows; the builder canvas leaves it out so a preview
+   * cannot write to the follow graph.
+   */
+  creatorUserId?: string
   creatorName?: string
   style?: "style1" | "style2" | "style3"
   customCtaText?: string
@@ -402,6 +408,27 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, creatorId }),
         })
+      }
+
+      /**
+       * SUBSCRIBING ALSO FOLLOWS, when we know who is subscribing.
+       *
+       * The bar's job is "keep me posted about this creator", and a newsletter
+       * row alone cannot answer "who follows them" — a follow points at an auth
+       * user and an emailed address is not one. So a SIGNED-IN visitor gets
+       * both: the email list and the follow graph.
+       *
+       * Deliberately best-effort and not awaited into the success path. A
+       * signed-out visitor gets a 401 here and that is correct — they still
+       * subscribed, and telling them their subscription failed because they do
+       * not have an account would be a lie.
+       */
+      if (settings.creatorUserId) {
+        void fetch("/api/follow", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ creatorUserId: settings.creatorUserId, follow: true }),
+        }).catch(() => {})
       }
 
       setSubscribed(true)

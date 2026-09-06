@@ -41,6 +41,7 @@ import {
   Star,
   Heart,
   BadgeCheck,
+  Users,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -2598,6 +2599,20 @@ function UnifiedFeaturedProductsSection({
   )
 }
 
+/**
+ * 1.2K rather than 1237. Past a thousand the exact number stops being
+ * information and starts being noise on a line meant to be read at a glance.
+ */
+function formatCompactCount(value: number): string {
+  if (value < 1000) return String(value)
+  if (value < 1_000_000) {
+    const thousands = value / 1000
+    return `${thousands >= 100 ? Math.round(thousands) : thousands.toFixed(1).replace(/\.0$/, "")}K`
+  }
+  const millions = value / 1_000_000
+  return `${millions >= 100 ? Math.round(millions) : millions.toFixed(1).replace(/\.0$/, "")}M`
+}
+
 // ====== SHOP HEADER - UNIFIED ======
 export interface UnifiedShopHeaderProps {
   settings: ShopHeaderSettings
@@ -2621,6 +2636,14 @@ export interface UnifiedShopHeaderProps {
    * place the button can come from.
    */
   ownerActions?: React.ReactNode
+  /**
+   * Aggregates for the meta row. Passed in rather than derived here because
+   * the page already has them: a rating weighted across every product, and a
+   * follower count that is a query of its own.
+   */
+  reviewCount?: number
+  reviewAverage?: number
+  followerCount?: number
 }
 
 export function UnifiedShopHeader({
@@ -2638,6 +2661,9 @@ export function UnifiedShopHeader({
   onBioEdit,
   globalSettings,
   ownerActions,
+  reviewCount = 0,
+  reviewAverage = 0,
+  followerCount = 0,
 }: UnifiedShopHeaderProps) {
   const avatarSizeChoice = isMobile
     ? settings.mobileAvatarSizeChoice || "medium"
@@ -3006,6 +3032,34 @@ export function UnifiedShopHeader({
                 </span>,
               )
 
+              /**
+               * The rating, and how many people it is made of. "4.9" on its own
+               * is a number a buyer has no way to weigh — 4.9 from three people
+               * and 4.9 from three hundred are different claims — so the count
+               * travels with it. Absent entirely until somebody has reviewed
+               * something, for the same reason "0 sales" was.
+               */
+              if (reviewCount > 0 && reviewAverage > 0) {
+                parts.push(
+                  <span key="reviews" className="flex items-center gap-1.5">
+                    <Star className={cn("fill-current", isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} />
+                    {reviewAverage.toFixed(1)}
+                    <span className="opacity-70">
+                      {reviewCount} {reviewCount === 1 ? "review" : "reviews"}
+                    </span>
+                  </span>,
+                )
+              }
+
+              if (followerCount > 0) {
+                parts.push(
+                  <span key="followers" className="flex items-center gap-1.5">
+                    <Users className={cn(isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} />
+                    {formatCompactCount(followerCount)} {followerCount === 1 ? "follower" : "followers"}
+                  </span>,
+                )
+              }
+
               // Same rule as the About block: a sales count is only worth
               // printing once there is one. "0 sales" beside the creator's name
               // is among the first things a buyer reads about them.
@@ -3059,11 +3113,9 @@ export function UnifiedShopHeader({
               >
                 {parts.map((part, i) => (
                   <Fragment key={i}>
-                    {i > 0 && (
-                      <span aria-hidden className="opacity-40">
-                        ·
-                      </span>
-                    )}
+                    {/* A rule rather than a dot: with four facts on the line,
+                        dots read as punctuation inside a sentence. */}
+                    {i > 0 && <span aria-hidden className="h-3.5 w-px bg-current opacity-20" />}
                     {part}
                   </Fragment>
                 ))}

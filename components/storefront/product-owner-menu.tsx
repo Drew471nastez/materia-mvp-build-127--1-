@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Pencil, ExternalLink, BarChart3 } from "lucide-react"
+import { MoreHorizontal } from "lucide-react"
 
 export function ProductOwnerMenu({ productId, productHref }: { productId: string; productHref?: string }) {
   return (
@@ -38,25 +38,17 @@ export function ProductOwnerMenu({ productId, productHref }: { productId: string
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" sideOffset={6} className="w-52" onClick={(e) => e.stopPropagation()}>
-        <DropdownMenuItem asChild className="cursor-pointer gap-2.5">
+        {/* No icons — three short labels do not need pictures beside them. */}
+        <DropdownMenuItem asChild className="cursor-pointer">
           {/* /app/products/[id] redirects into the editor for that product. */}
-          <SmartLink href={`/app/products/${productId}`}>
-            <Pencil className="h-4 w-4 text-muted-foreground" />
-            Edit product
-          </SmartLink>
+          <SmartLink href={`/app/products/${productId}`}>Edit product</SmartLink>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild className="cursor-pointer gap-2.5">
-          <SmartLink href="/app/analytics">
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            View analytics
-          </SmartLink>
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <SmartLink href="/app/analytics">View analytics</SmartLink>
         </DropdownMenuItem>
         {productHref && (
-          <DropdownMenuItem asChild className="cursor-pointer gap-2.5">
-            <SmartLink href={productHref}>
-              <ExternalLink className="h-4 w-4 text-muted-foreground" />
-              Open product page
-            </SmartLink>
+          <DropdownMenuItem asChild className="cursor-pointer">
+            <SmartLink href={productHref}>Open product page</SmartLink>
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

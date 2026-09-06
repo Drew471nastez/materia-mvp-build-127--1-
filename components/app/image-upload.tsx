@@ -16,6 +16,21 @@ interface ImageUploadProps {
   aspectRatio?: "square" | "video" | "cover" | "compact"
   maxSizeMB?: number
   accept?: "image/*" | "video/*"
+  /**
+   * "You can change this, you cannot empty it."
+   *
+   * The default state puts a red destructive button in the corner of whatever
+   * you uploaded, which is the wrong offer for an avatar or a cover: there is
+   * no such thing as a profile with no picture, only one with a different
+   * picture. Deleting it leaves a hole nobody wanted, and a red button on a
+   * photo you just chose reads as a warning about the photo.
+   *
+   * With this set the image itself is the control — click it and pick another
+   * — and there is no delete at all.
+   */
+  replaceOnly?: boolean
+  /** Overlay label on hover, e.g. "Change banner". */
+  replaceLabel?: string
 }
 
 export function ImageUpload({
@@ -26,6 +41,8 @@ export function ImageUpload({
   aspectRatio = "video",
   maxSizeMB = 5,
   accept = "image/*",
+  replaceOnly = false,
+  replaceLabel = "Change image",
 }: ImageUploadProps) {
   const isVideoMode = accept === "video/*"
   const [uploading, setUploading] = useState(false)
@@ -257,6 +274,63 @@ export function ImageUpload({
     },
     [handleUpload],
   )
+
+  if (value && replaceOnly) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={replaceLabel}
+        onClick={() => !uploading && inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault()
+            if (!uploading) inputRef.current?.click()
+          }
+        }}
+        onDrop={handleDrop}
+        onDragOver={(e) => {
+          e.preventDefault()
+          setDragOver(true)
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault()
+          setDragOver(false)
+        }}
+        className={`group relative cursor-pointer overflow-hidden rounded-lg border transition-colors ${
+          dragOver ? "border-blue-500" : "border-border"
+        } ${aspectClasses[aspectRatio]}`}
+      >
+        <Image src={value || "/placeholder.svg"} alt="" fill className="object-cover" />
+
+        {/* The whole image is the button; the label only appears on hover so it
+            does not sit on top of the picture the rest of the time. */}
+        <div
+          className={`absolute inset-0 flex items-center justify-center bg-black/0 text-sm font-medium text-white opacity-0 transition-all duration-200 group-hover:bg-black/45 group-hover:opacity-100 group-focus-visible:bg-black/45 group-focus-visible:opacity-100 ${
+            dragOver ? "bg-black/45 opacity-100" : ""
+          }`}
+        >
+          {replaceLabel}
+        </div>
+
+        {/* Uploading: the old picture stays put under a dim wash and a bar,
+            rather than the frame emptying out and jumping back. */}
+        {uploading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/55 backdrop-blur-[1px]">
+            <div className="h-1 w-2/3 overflow-hidden rounded-full bg-white/25">
+              <div
+                className="h-full rounded-full bg-white transition-[width] duration-200 ease-out"
+                style={{ width: `${Math.max(progress, 8)}%` }}
+              />
+            </div>
+            <span className="text-xs font-medium text-white/90">Uploading…</span>
+          </div>
+        )}
+
+        <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={handleFileSelect} />
+      </div>
+    )
+  }
 
   if (value) {
     return (

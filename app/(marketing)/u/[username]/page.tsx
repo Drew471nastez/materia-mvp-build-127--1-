@@ -16,6 +16,7 @@ import { EditProfileButton } from "@/components/storefront/edit-profile-button"
 import { OwnerMenu } from "@/components/storefront/owner-menu"
 import { StorefrontTabs, EmptyTabPanel, type StorefrontTab } from "@/components/storefront/storefront-tabs"
 import { AllProductsGrid } from "@/components/storefront/all-products-grid"
+import { ReviewsPanel, type StorefrontReview } from "@/components/storefront/reviews-panel"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 import { deservesIndexing } from "@/lib/security/spam-signals"
 import {
@@ -302,6 +303,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     {
       data: { user: viewer },
     },
+    { count: followerCount },
+    { data: creatorReviews },
   ] = await Promise.all([
     supabase
       .from("products")
@@ -334,9 +337,61 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      * but a button that fails.
      */
     supabase.auth.getUser(),
+    /**
+     * How many people follow this creator. A follow points at their PROFILE
+     * rather than their creator row — a person is the thing you follow — so
+     * this counts against `profile.id`.
+     *
+     * `head: true` means the rows never travel; only the count does.
+     */
+    supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", profile.id),
+    /**
+     * The reviews behind the rating in the meta row. Capped, because the tab
+     * shows the most recent rather than the complete history and a creator
+     * with thousands should not send thousands down the wire to render two
+     * columns of cards.
+     */
+    supabase
+      .from("reviews")
+      .select("id, rating, comment, created_at, product:products(title, slug), buyer:profiles!buyer_id(display_name)")
+      .eq("creator_id", creator.id)
+      .order("created_at", { ascending: false })
+      .limit(30),
   ])
 
   const viewerIsOwner = !!viewer && viewer.id === profile.id
+
+  /**
+   * The creator's rating, across everything they sell.
+   *
+   * Each product carries its own count and average, so the creator's average is
+   * WEIGHTED by how many reviews each product has — a five-star product with
+   * one review must not drag a four-star product with two hundred up to 4.5.
+   * Products nobody has reviewed contribute nothing rather than a zero.
+   */
+  const reviewTotals = (products || []).reduce(
+    (acc, p) => {
+      const count = p.reviews_count || 0
+      if (count > 0) {
+        acc.count += count
+        acc.weighted += (p.reviews_average || 0) * count
+      }
+      return acc
+    },
+    { count: 0, weighted: 0 },
+  )
+  const creatorReviewCount = reviewTotals.count
+  const creatorRating = creatorReviewCount > 0 ? reviewTotals.weighted / creatorReviewCount : 0
+
+  const reviewsForPanel: StorefrontReview[] = (creatorReviews || []).map((review: any) => ({
+    id: review.id,
+    rating: review.rating,
+    comment: review.comment,
+    created_at: review.created_at,
+    productTitle: review.product?.title ?? null,
+    productSlug: review.product?.slug ?? null,
+    buyerName: review.buyer?.display_name ?? null,
+  }))
 
   /**
    * Built once and handed to whichever header branch renders, so the control
@@ -698,7 +753,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
         <TrackView type="store" creatorId={creator.id} />
 
-        {subscribeBarSettings.visible && <SubscribeBar settings={subscribeBarSettings} creatorId={creator.id} />}
+        {subscribeBarSettings.visible && <SubscribeBar settings={{ ...subscribeBarSettings, creatorUserId: profile.id }} creatorId={creator.id} />}
 
         <ShopHeaderRenderer
           settings={headerSettings}
@@ -708,6 +763,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           productCount={products?.length || 0}
           globalSettings={globalSettings}
           ownerActions={buildOwnerActions(headerSettings)}
+          reviewCount={creatorReviewCount}
+          reviewAverage={creatorRating}
+          followerCount={followerCount ?? 0}
         />
 
         {(() => {
@@ -717,6 +775,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             .sort((a, b) => a.order - b.order)
           const aboutSection = themedSections.find((s) => s.type === "about")
 
+          /**
+           * About moves OUT of Home and into its own tab. It used to be pinned
+           * last in the Home panel, below every other section, which is where
+           * nobody reads it — and with a tab bar across the top there is now
+           * somewhere obvious for it to live. It is only offered when the
+           * creator actually has an About section.
+           */
           const home = (
             <>
               {regularSections.map((section) => (
@@ -732,24 +797,24 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                 />
               ))}
 
-              {/* About section - always rendered last */}
-              {aboutSection && (
-                <SectionRenderer
-                  key={aboutSection.id}
-                  section={aboutSection}
-                  products={productsData}
-                  globalSettings={globalSettings}
-                  creatorName={profile.display_name || undefined}
-                  creatorUsername={profile.username}
-                  creatorAvatarUrl={profile.avatar_url}
-                  viewerIsOwner={viewerIsOwner}
-                  sellerMemberSince={profile.created_at}
-                  sellerTotalSales={totalSales}
-                  sellerProductsCount={productsCount}
-                />
-              )}
             </>
           )
+
+          const about = aboutSection ? (
+            <SectionRenderer
+              key={aboutSection.id}
+              section={aboutSection}
+              products={productsData}
+              globalSettings={globalSettings}
+              creatorName={profile.display_name || undefined}
+              creatorUsername={profile.username}
+              creatorAvatarUrl={profile.avatar_url}
+              viewerIsOwner={viewerIsOwner}
+              sellerMemberSince={profile.created_at}
+              sellerTotalSales={totalSales}
+              sellerProductsCount={productsCount}
+            />
+          ) : null
 
           /**
            * Both panels are rendered HERE, on the server, and handed to the tab
@@ -797,6 +862,23 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               />
             ),
           })
+
+          /**
+           * Reviews earns a tab once there are any. The meta row claims a
+           * rating, and a claim a visitor cannot check is worth less than no
+           * claim — this is where the number goes to be checked.
+           */
+          if (creatorReviewCount > 0) {
+            tabs.push({
+              id: "reviews",
+              label: "Reviews",
+              panel: (
+                <ReviewsPanel reviews={reviewsForPanel} average={creatorRating} total={creatorReviewCount} />
+              ),
+            })
+          }
+
+          if (about) tabs.push({ id: "about", label: "About", panel: about })
 
           return <StorefrontTabs tabs={tabs} />
         })()}
@@ -858,7 +940,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         <BackLabelSetter label={profile.display_name || username} />
       <TrackView type="store" creatorId={creator.id} />
 
-      {defaultSubscribeSettings.visible && <SubscribeBar settings={defaultSubscribeSettings} creatorId={creator.id} />}
+      {defaultSubscribeSettings.visible && <SubscribeBar settings={{ ...defaultSubscribeSettings, creatorUserId: profile.id }} creatorId={creator.id} />}
 
       {/*
         THE SAME HEADER AS THE CONFIGURED PAGE, not a second hand-written one.
@@ -882,6 +964,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         products={products || []}
         productCount={productCount}
         ownerActions={buildOwnerActions(defaultShopHeaderSettings)}
+        reviewCount={creatorReviewCount}
+        reviewAverage={creatorRating}
+        followerCount={followerCount ?? 0}
       />
 
       <SellerFooter />

@@ -22,13 +22,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Package, LayoutTemplate, BarChart3, Settings } from "lucide-react"
+import { MoreHorizontal } from "lucide-react"
 
+/**
+ * NO ICONS ON THE ITEMS. Four rows that each say what they are do not need a
+ * picture as well — the glyphs were decoration competing with the words, and a
+ * menu is read, not scanned by shape.
+ */
 const LINKS = [
-  { href: "/app/products", label: "Manage products", detail: "Add, edit and price", Icon: Package },
-  { href: "/store-builder", label: "Store builder", detail: "Lay out this page", Icon: LayoutTemplate },
-  { href: "/app/analytics", label: "Analytics", detail: "Views and sales", Icon: BarChart3 },
-  { href: "/app/settings", label: "Settings", detail: "Account and payouts", Icon: Settings },
+  { href: "/app/products", label: "Manage products", detail: "Add, edit and price" },
+  { href: "/store-builder", label: "Store builder", detail: "Lay out this page" },
+  { href: "/app/analytics", label: "Analytics", detail: "Views and sales" },
+  { href: "/app/settings", label: "Settings", detail: "Account and payouts" },
 ] as const
 
 export function OwnerMenu() {
@@ -46,10 +51,9 @@ export function OwnerMenu() {
           Only you can see this
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {LINKS.map(({ href, label, detail, Icon }) => (
-          <DropdownMenuItem key={href} asChild className="cursor-pointer gap-3 py-2">
+        {LINKS.map(({ href, label, detail }) => (
+          <DropdownMenuItem key={href} asChild className="cursor-pointer py-2">
             <SmartLink href={href}>
-              <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="flex flex-col">
                 <span className="text-sm">{label}</span>
                 <span className="text-xs text-muted-foreground">{detail}</span>

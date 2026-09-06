@@ -93,6 +93,13 @@ export function EditProfileButton({
         return
       }
       setOpen(false)
+      /**
+       * The server re-renders and the new name, bio, picture and links appear
+       * without a reload. This only actually works because /u/:username* is no
+       * longer served with `public, s-maxage=300` — the refreshed RSC payload
+       * used to come straight back from the edge, unchanged, which is why the
+       * page had to be hard-reloaded to show a save. See next.config.mjs.
+       */
       router.refresh()
     } catch {
       setError("Could not reach the server. Check your connection and try again.")
@@ -138,6 +145,8 @@ export function EditProfileButton({
                 aspectRatio="cover"
                 value={cover || undefined}
                 onChange={(url) => setCover(url)}
+                replaceOnly
+                replaceLabel="Change banner"
               />
             </div>
 
@@ -149,6 +158,8 @@ export function EditProfileButton({
                   aspectRatio="square"
                   value={avatar || undefined}
                   onChange={(url) => setAvatar(url)}
+                  replaceOnly
+                  replaceLabel="Change"
                 />
               </div>
             </div>
