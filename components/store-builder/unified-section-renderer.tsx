@@ -572,8 +572,13 @@ function UnifiedAboutSection({
           style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
         />
 
+        {/* max-w-[1180px] to match every other section on this page — the
+            payment-methods block directly below it in particular. This was
+            max-w-5xl (1024px), so on a wide screen its content sat 78px further
+            in on each side than the block beneath it, and the two headings did
+            not share a left edge. */}
         <div className={cn(
-          "flex max-w-5xl mx-auto flex-col gap-6 md:flex-row md:gap-12",
+          "flex max-w-[1180px] mx-auto w-full flex-col gap-6 md:flex-row md:gap-12",
           isMobile && "!flex-col !gap-6"
         )}>
           {/* Left Column - Seller Info */}
@@ -593,8 +598,12 @@ function UnifiedAboutSection({
 
             {/* Stats - Sales and Joined shown together, Products shown after */}
             <div className="flex gap-8">
-              {/* Sales - only shown when showSalesStats is true */}
-              {settings.showSalesStats && (
+              {/* Sales — the setting must be on AND there must be at least one.
+                  "SALES 0" is not a neutral fact on a storefront: it is among
+                  the first things a buyer reads about a seller and it says
+                  nothing a new shop wants said. Absent beats zero, and the stat
+                  appears on its own the moment a first sale lands. */}
+              {settings.showSalesStats && Number(displayTotalSales) > 0 && (
                 <div>
                   <p
                     className="text-xs uppercase tracking-wide mb-1"
