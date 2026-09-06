@@ -2748,8 +2748,6 @@ export function UnifiedShopHeader({
   const avatarImageUrl =
     settings.avatarUrl === "" ? undefined : settings.avatarUrl !== undefined ? settings.avatarUrl : profile?.avatar_url
 
-  const avatarKey = `avatar-${settings.avatarUrl ?? "default"}-${avatarImageUrl ?? "none"}`
-
   const initials = profile?.display_name
     ?.split(" ")
     .map((n) => n[0])
@@ -2854,9 +2852,21 @@ export function UnifiedShopHeader({
               marginTop: coverImageUrl ? (isMobile ? "-2.875rem" : "-3.75rem") : "0",
             }}
           >
+            {/*
+              NO `key` HERE. It used to be keyed on the avatar URL, which
+              forced a full remount every time the URL changed — and a remount
+              resets Radix's image-loading state, so the avatar dropped back to
+              grey initials and then popped to the photo. That was the flashing
+              in the builder canvas. Changing `src` alone already re-runs the
+              loader; the key bought nothing and cost a flash every time.
+
+              The fallback's delay (600ms, the shared default) is the other
+              half: a cached photo now paints with no initials in front of it.
+              `bg-gray-200` on the root keeps the circle a solid disc while it
+              decodes, so a slow image shows a plain shape rather than a hole.
+            */}
             <Avatar
-              key={avatarKey}
-              className="shadow-lg shrink-0"
+              className="shadow-lg shrink-0 bg-gray-200"
               style={{
                 width: `${avatarSize}px`,
                 height: `${avatarSize}px`,
@@ -2869,7 +2879,6 @@ export function UnifiedShopHeader({
                 <AvatarImage src={avatarImageUrl || "/placeholder.svg"} alt={profile?.display_name || ""} />
               ) : null}
               <AvatarFallback
-                delayMs={0}
                 className={cn("bg-gray-300 text-gray-700 font-semibold", isMobile ? "text-lg" : "text-xl sm:text-2xl")}
               >
                 {initials || "?"}

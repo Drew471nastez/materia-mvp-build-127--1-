@@ -652,6 +652,87 @@ check(
   })(),
 )
 
+check(
+  "avatars do not flash their initials before the photo",
+  (() => {
+    /**
+     * THE BUG: the profile avatar in the store-builder canvas flashed grey
+     * initials and popped, sometimes repeatedly.
+     *
+     * Three separate causes, all of them ours:
+     *
+     *   1. `<Avatar key={avatarKey}>` in the shop header, keyed on the avatar
+     *      URL. A key change is a REMOUNT, and a remount resets Radix's image
+     *      loading state — so the avatar dropped back to initials and popped
+     *      to the photo every time the URL changed. Changing `src` already
+     *      re-runs the loader; the key bought nothing and cost a flash.
+     *   2. `delayMs={0}` on the fallback — the explicit opposite of what stops
+     *      a flash. It says "show the initials immediately", so every mount
+     *      painted initials first even when the image was already cached.
+     *   3. Radix swaps to the fallback the instant `src` changes, so picking a
+     *      new avatar blinked initials for the whole download. AvatarImage now
+     *      decodes the new src on a detached Image and only then moves the DOM
+     *      src across.
+     *
+     * Verified in a real browser by counting the animation frames in which a
+     * fallback element existed: 0 on mount and 0 across a src change, while a
+     * broken URL and a missing image both still fall back to initials.
+     */
+    const avatar = code("components/ui/avatar.tsx")
+    const header = code("components/store-builder/unified-section-renderer.tsx")
+    const missing: string[] = []
+
+    // The default delay, read out of the source rather than pattern-matched.
+    const delay = Number(avatar.match(/delayMs = (\d+)/)?.[1] ?? 0)
+    if (!(delay > 0))
+      missing.push(`AvatarFallback's default delayMs is ${delay || "unset"} — initials paint before every image`)
+
+    // The src only moves once the replacement has decoded.
+    if (!/new window\.Image\(\)/.test(avatar) || !/setShown\(src\)/.test(avatar))
+      missing.push("AvatarImage no longer preloads — changing an avatar will blink to initials again")
+    if (!/src=\{shown\}/.test(avatar))
+      missing.push("AvatarImage renders the incoming src directly, so Radix sees a loading state again")
+
+    // And the store-builder header must not force a remount or re-arm the flash.
+    if (/key=\{avatarKey\}/.test(header))
+      missing.push("the shop-header avatar is keyed on its URL again — every change remounts and flashes")
+    if (/delayMs=\{0\}/.test(header))
+      missing.push("the shop-header avatar shows its fallback immediately again")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the store-builder canvas does not slice the corners off a selection ring",
+  (() => {
+    /**
+     * The canvas is `rounded-[20px] overflow-hidden` and its sections are
+     * square. Clipping is not rounding: a selected section draws `ring-inset`,
+     * which is a box-shadow following the SECTION's radius, so at each canvas
+     * corner the clip cut the ring's square corner clean off and the outline
+     * stopped dead, leaving a bare notch. Reproduced and photographed at 3x
+     * before and after.
+     *
+     * Giving the first and last sections the canvas's own radius makes the
+     * ring trace the same curve the clip does. All three canvas shells — the
+     * two skeletons and the real one — carry it, so the loading state and what
+     * replaces it have the same silhouette and the swap is not a visible
+     * change of shape.
+     */
+    const canvas = code("components/store-builder/preview-canvas.tsx")
+    const shells = canvas.match(/rounded-\[20px\]/g)?.length ?? 0
+    const rounded = canvas.match(/\[&>\*:first-child\]:rounded-t-\[20px\] \[&>\*:last-child\]:rounded-b-\[20px\]/g)?.length ?? 0
+    const missing: string[] = []
+    if (rounded < 3)
+      missing.push(`only ${rounded} of the 3 canvas shells round their edge sections — rings will be clipped square`)
+    if (shells < 3) missing.push("a canvas shell lost its own radius")
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

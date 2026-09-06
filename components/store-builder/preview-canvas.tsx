@@ -437,6 +437,9 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
           <div
             className={cn(
               "shadow-xl overflow-hidden",
+              // Same edge rounding as the real canvas, so the skeleton and the
+              // thing that replaces it have identical silhouettes.
+              "[&>*:first-child]:rounded-t-[20px] [&>*:last-child]:rounded-b-[20px]",
               isMobile ? "w-[375px] min-h-[667px] rounded-[20px]" : "w-full max-w-5xl rounded-[20px] ring-1 ring-border",
             )}
             style={{ backgroundColor: getLoadingBackground() }}
@@ -514,6 +517,9 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
         <div
           className={cn(
             "shadow-xl overflow-hidden",
+            // Same edge rounding as the real canvas, so the skeleton and the
+            // thing that replaces it have identical silhouettes.
+            "[&>*:first-child]:rounded-t-[20px] [&>*:last-child]:rounded-b-[20px]",
             isMobile ? "w-[375px] min-h-[667px] rounded-[20px]" : "w-full max-w-5xl rounded-[20px] ring-1 ring-border",
           )}
           style={{ backgroundColor: getLoadingBackground() }}
@@ -591,11 +597,23 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
   return (
     <div className={cn("min-h-full flex items-start justify-center bg-white dark:bg-zinc-950", isMobile ? "p-2" : "p-4 sm:p-6")}>
-      {/* Canvas - NO internal scrolling, corners preserved */}
+      {/*
+        Canvas - NO internal scrolling, corners preserved.
+
+        THE FIRST AND LAST SECTIONS GET THE CANVAS'S OWN RADIUS. `overflow-hidden`
+        clips them to the rounded rect, but clipping is not the same as rounding:
+        a selected section draws `ring-inset`, a box-shadow that follows the
+        SECTION's radius, and the sections are square. So at each canvas corner
+        the clip sliced the ring's square corner clean off and the outline just
+        stopped, leaving a bare notch — which is what "the corners get cut" is.
+        Giving the edge sections the matching radius makes the ring trace the
+        same curve the clip does.
+      */}
       <div
         ref={canvasRef}
         className={cn(
           "shadow-xl mx-auto relative flex flex-col rounded-[20px] ring-1 ring-border overflow-hidden",
+          "[&>*:first-child]:rounded-t-[20px] [&>*:last-child]:rounded-b-[20px]",
           isMobile ? "w-[375px]" : "w-full max-w-5xl",
         )}
         style={{
