@@ -35,8 +35,18 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
 
   return (
     <>
+      {/*
+        NO FULL-WIDTH RULE. The strip used to sit on a `border-b` spanning the
+        whole 1100px column, which cut the page in half under a header that is
+        centred and has no other hard edges in it. The only line now is the one
+        under the active tab, which is the line that means something.
+
+        Centred, too, for the same reason: the name, handle, bio and icons above
+        are all on the centre line, and a left-aligned pair of words with no rule
+        to anchor them reads as though it slipped.
+      */}
       <div className="mx-auto w-full max-w-[1100px] px-3 sm:px-4 lg:px-6">
-        <div className="flex gap-6 border-b border-border" role="tablist">
+        <div className="flex justify-center gap-8" role="tablist">
           {tabs.map((tab) => {
             const selected = tab.id === active
             return (
@@ -48,7 +58,7 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
                 aria-controls={`storefront-panel-${tab.id}`}
                 onClick={() => setActive(tab.id)}
                 className={cn(
-                  "-mb-px border-b-2 px-1 pb-3 pt-1 text-sm transition-colors",
+                  "border-b-2 px-1 pb-2.5 pt-1 text-sm transition-colors",
                   selected
                     ? "border-foreground font-semibold text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground",

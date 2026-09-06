@@ -24,7 +24,7 @@
  */
 
 import Image from "next/image"
-import { Package } from "lucide-react"
+import { Package, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface StorefrontProductCardProduct {
@@ -33,6 +33,10 @@ export interface StorefrontProductCardProduct {
   price_cents: number
   compare_at_cents?: number
   categories?: Array<{ name: string }> | null
+  // Denormalised onto the product row, so showing a rating on a card costs no
+  // extra query — the storefront already selects them with everything else.
+  reviews_count?: number | null
+  reviews_average?: number | null
 }
 
 export interface StorefrontProductCardProps {
@@ -60,14 +64,21 @@ export function StorefrontProductCard({
   const category = product.categories?.[0]?.name
   const byline = [creatorName, category].filter(Boolean).join(" · ")
 
+  /**
+   * A rating is only worth printing once somebody has left one. "0.0" or an
+   * empty row of grey stars under every card says the opposite of what a
+   * rating is for — it makes a new product look judged rather than new.
+   */
+  const reviewsCount = product.reviews_count ?? 0
+  const hasReviews = reviewsCount > 0 && (product.reviews_average ?? 0) > 0
+  const rating = hasReviews ? (product.reviews_average as number).toFixed(1) : null
+
   return (
     <>
-      {/*
-        4:5, not 16:9. A digital product's artwork is a cover — a pack shot, a
-        template preview — and letterboxing it into a landscape frame crops away
-        the part that sells it.
-      */}
-      <div className="relative aspect-[4/5] overflow-hidden rounded-t-lg bg-muted">
+      {/* 16:9. Tried 4:5 and it was worse — a portrait frame makes each card
+          tall enough that a three-across grid stops being scannable in one
+          screen, which is the whole job of the rail. */}
+      <div className="relative aspect-video overflow-hidden rounded-t-lg bg-muted">
         {product.thumbnail_url ? (
           /**
            * The opacity handling here was a real bug, not just clutter: a ref
@@ -112,14 +123,27 @@ export function StorefrontProductCard({
           {product.title}
         </div>
 
-        {/* Creator · Category, on one muted line. Empty when there is neither,
-            rather than an orphaned separator. */}
-        {byline && (
+        {/* Creator · Category, and the rating if there is one. Each part is
+            conditional on its own, so a product with no category and no reviews
+            renders no row at all rather than an orphaned separator. */}
+        {(byline || rating) && (
           <div
-            className={cn("mt-1 text-xs line-clamp-1", !textColor && "text-muted-foreground")}
+            className={cn("mt-1 flex items-center gap-1.5 text-xs", !textColor && "text-muted-foreground")}
             style={{ color: textColor ? `${textColor}99` : undefined }}
           >
-            {byline}
+            {byline && <span className="line-clamp-1">{byline}</span>}
+            {byline && rating && (
+              <span aria-hidden className="opacity-40">
+                |
+              </span>
+            )}
+            {rating && (
+              <span className="flex shrink-0 items-center gap-1">
+                <Star className="h-3 w-3 fill-current" aria-hidden />
+                <span className="sr-only">Rated </span>
+                {rating}
+              </span>
+            )}
           </div>
         )}
 

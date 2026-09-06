@@ -76,6 +76,9 @@ export interface ProductData {
   type?: string
   show_sales_badge?: boolean
   categories?: Array<{ id: string; name: string; slug: string; type: string | null }>
+  // Denormalised on the product row; the card shows a rating without a query.
+  reviews_count?: number | null
+  reviews_average?: number | null
   // Refund policy fields
   refund_policy_enabled?: boolean
   refund_policy_type?: 'no_refunds' | '7_day' | '14_day' | '30_day' | '6_month' | null
@@ -2338,59 +2341,18 @@ function UnifiedFeaturedProductsSection({
         paddingRight: horizontalPadding,
       }}
     >
-      <div className={cn("flex", uiIsMobile ? "flex-col" : "flex-col md:flex-row md:gap-8")}>
-        {/* Desktop sidebar - only show when NOT mobile AND category filter is not hidden */}
-        {!uiIsMobile && !settings.hideCategoryFilter && (
-          <div className="hidden md:block w-48 flex-shrink-0">
-            <nav className="space-y-1">
-              <button
-                onClick={() => handleCategoryChange(null)}
-                className={cn(
-                  "w-full flex items-center justify-between py-2 pr-3 text-sm transition-all duration-200 border-r-2",
-                  selectedCategory === null
-                    ? "font-medium"
-                    : "hover:opacity-80 border-transparent",
-                )}
-                style={{
-                  color: selectedCategory === null
-                    ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || undefined)
-                    : (settings.categoryFilterColors?.textColor || undefined),
-                  borderColor: selectedCategory === null
-                    ? (settings.categoryFilterColors?.borderColor || settings.colors?.textColor || undefined)
-                    : "transparent",
-                }}
-              >
-                <span>All</span>
-                <span style={{ color: settings.categoryFilterColors?.textColor || undefined }}>{totalProducts}</span>
-              </button>
+      {/*
+        THE LEFT-HAND CATEGORY RAIL IS GONE, and with it the two-column layout
+        it forced. It took 192px off every desktop storefront to list categories
+        most creators have two of, and it pushed the products — the thing the
+        page exists for — into a narrower column and further from the eye.
 
-              {categoriesWithCounts.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => handleCategoryChange(category.id)}
-                  className={cn(
-                    "w-full flex items-center justify-between py-2 pr-3 text-sm transition-all duration-200 border-r-2",
-                    selectedCategory === category.id
-                      ? "font-medium"
-                      : "hover:opacity-80 border-transparent",
-                  )}
-                  style={{
-                    color: selectedCategory === category.id
-                      ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || undefined)
-                      : (settings.categoryFilterColors?.textColor || undefined),
-                    borderColor: selectedCategory === category.id
-                      ? (settings.categoryFilterColors?.borderColor || settings.colors?.textColor || undefined)
-                      : "transparent",
-                  }}
-                >
-                  <span>{category.name}</span>
-                  <span style={{ color: settings.categoryFilterColors?.textColor || undefined }}>{category.count}</span>
-                </button>
-              ))}
-            </nav>
-          </div>
-        )}
-
+        The MOBILE pill row below is a different thing and stays: it costs no
+        horizontal room, and on a phone it is the only way to narrow a long
+        list. It keeps its `hideCategoryFilter` toggle. Desktop simply has no
+        category filter now, which is the trade that was asked for.
+      */}
+      <div className="flex flex-col">
         {/* Main */}
         <div className="flex-1 min-w-0">
           {/* Header */}
@@ -2999,17 +2961,24 @@ export function UnifiedShopHeader({
             SOCIAL ICONS — THE ONLY COPY ON THE PAGE. They were an overlay on
             the cover; see the note up there for why they moved.
 
-            `SocialMediaIcons` already returns null unless a platform is both
-            enabled AND has a URL, so "only if he added those" is decided by the
-            data, not by a toggle: a creator who has added nothing gets nothing,
-            with no empty row left behind.
+            NO `showSocialMedia` GATE. It was the same trap the sticky bar took
+            three attempts to escape: the builder's master toggle defaulted to
+            OFF and was written out on every save whether or not anyone touched
+            it, so essentially every stored config carries an explicit `false`
+            that never represented a decision — and creators who had filled in
+            their links saw no icons and no reason why.
+
+            The per-platform toggles are the real control and they still work.
+            `SocialMediaIcons` returns null unless a platform is both enabled
+            AND has a URL, so "only if he added those" is decided by the data: a
+            creator who has added nothing gets nothing, with no empty row left
+            behind, and one who has added links gets them without hunting for a
+            second switch.
 
             The colour follows the page text rather than the cover's white,
             which was invisible against a light background down here.
           */}
-          {(settings.showSocialMedia ?? true) &&
-            settings.socialLinks &&
-            (!isMobile || (settings.showSocialIconsOnMobile ?? true)) && (
+          {settings.socialLinks && (!isMobile || (settings.showSocialIconsOnMobile ?? true)) && (
               <div className={cn("flex justify-center", isMobile ? "mt-3" : "mt-4")}>
                 <SocialMediaIcons
                   socialLinks={settings.socialLinks}

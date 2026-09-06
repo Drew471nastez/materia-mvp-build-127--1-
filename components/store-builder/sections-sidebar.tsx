@@ -932,18 +932,26 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 <div className="rounded-lg border border-border p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5 flex-1 pr-4">
-                      <Label className="text-sm font-medium">Enable Social Media</Label>
+                      <Label className="text-sm font-medium">Social Media</Label>
                       <p className="text-xs text-muted-foreground">
-                        Show social icons on your cover image
+                        Icons appear under your bio for every link you fill in
                       </p>
                     </div>
-                    <Toggle
-                      checked={(headerSettings as ShopHeaderSettings).showSocialMedia ?? false}
-                      onCheckedChange={(checked) => updateHeaderSettings({ showSocialMedia: checked })}
-                    />
                   </div>
 
-                  {(headerSettings as ShopHeaderSettings).showSocialMedia && (
+                  {/*
+                    THE MASTER "Enable Social Media" TOGGLE IS GONE, and the two
+                    panels below no longer hide behind it.
+
+                    It defaulted to OFF and the builder wrote it out on every
+                    save whether or not anyone touched it — the same trap the
+                    sticky bar took three attempts to escape — so creators who
+                    had filled in their links saw no icons on their page and no
+                    reason why. The per-platform switches are the real control:
+                    a link with nothing in it renders nothing.
+                  */}
+
+                  {(
                     <div className="space-y-4 pt-2 border-t border-border">
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5 flex-1 pr-4">
@@ -992,7 +1000,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   )}
                 </div>
 
-                {(headerSettings as ShopHeaderSettings).showSocialMedia && (
+                {(
                   <div className="space-y-3">
                     <Label className="text-sm font-medium">Social Platforms</Label>
                     {(["instagram", "tiktok", "youtube", "twitter", "spotify"] as const).map((platform) => {
@@ -2450,14 +2458,9 @@ function ShopHeaderSettingsForm({
       <div className="space-y-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Social Media</h4>
 
-        <ToggleField
-          label="Show Social Media"
-          checked={settings.showSocialMedia ?? false}
-          onChange={(checked) => onChange({ showSocialMedia: checked })}
-          description="Display social media icons on your cover image"
-        />
-
-        {settings.showSocialMedia && (
+        {/* No master toggle here either — see the note in the header panel.
+            Filling a link in is what turns its icon on. */}
+        {(
           <div className="space-y-4 pt-2">
             <ToggleField
               label="Enable Social Icons on Mobile"

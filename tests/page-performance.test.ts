@@ -977,7 +977,8 @@ check(
     const missing: string[] = []
 
     // The shape.
-    if (!/aspect-\[4\/5\]/.test(card)) missing.push("the card image is not 4:5 any more")
+    if (!/aspect-video/.test(card)) missing.push("the card image is not 16:9 any more")
+    if (/aspect-\[4\/5\]/.test(card)) missing.push("the card is back to 4:5 — three of those stop fitting one screen")
     if (/\{product\.description\}/.test(card)) missing.push("the description is back on the card")
     if (/>PRODUCT|PRODUCT</.test(card)) missing.push("the type chip is back on the card")
     if (!/font-semibold tracking-tight/.test(card)) missing.push("the price is no longer 600 weight")
@@ -987,20 +988,51 @@ check(
     if (!/discountPercent/.test(card)) missing.push("the discount badge is gone")
     if (!/\[creatorName, category\]/.test(card)) missing.push("the Creator · Category line is gone")
 
+    /**
+     * The rating rule, run rather than pattern-matched: a rating is worth
+     * printing once somebody has left one, and "0.0" under a new product says
+     * the opposite of what a rating is for — it makes it look judged rather
+     * than new.
+     */
+    const decl = card.match(/const hasReviews = [^\n]+/)?.[0]
+    if (!decl) {
+      missing.push("the review gate is gone from the card")
+    } else {
+      // eslint-disable-next-line no-new-func
+      const hasReviews = new Function(
+        "product",
+        `const reviewsCount = product.reviews_count ?? 0; ${decl}; return hasReviews`,
+      ) as (p: Record<string, unknown>) => boolean
+      if (hasReviews({}) !== false) missing.push("a product with no review data shows a rating")
+      if (hasReviews({ reviews_count: 0, reviews_average: 0 }) !== false)
+        missing.push("a product with zero reviews shows a rating")
+      if (hasReviews({ reviews_count: 3, reviews_average: 0 }) !== false)
+        missing.push("a product with reviews but no average shows 0.0")
+      if (hasReviews({ reviews_count: 12, reviews_average: 5 }) !== true)
+        missing.push("a product WITH reviews does not show its rating")
+    }
+
     // Performance, and a bug that has been fixed once already.
     if (!/quality=\{72\}/.test(card) || !/sizes="/.test(card)) missing.push("the card image is unoptimised again")
     if (/el\.style\.opacity = "0"/.test(card))
       missing.push("the ref-driven opacity is back — a failed image leaves the card blank forever")
 
-    // One of it.
-    if ((card.match(/aspect-\[4\/5\]/g)?.length ?? 0) !== 1)
+    /**
+     * One of it. `aspect-video` alone is no longer a usable fingerprint — other
+     * sections legitimately use it — so what is matched is the card's own image
+     * container, class for class. A copy-paste of the card brings it along; an
+     * unrelated 16:9 box does not.
+     */
+    const IMAGE_BOX = /aspect-video overflow-hidden rounded-t-lg bg-muted/g
+    if ((card.match(IMAGE_BOX)?.length ?? 0) !== 1)
       missing.push("more than one card image block inside the card component")
     for (const [name, src] of [
       ["the featured rail", featured],
       ["the products tab", grid],
     ] as const) {
       if (!/<StorefrontProductCard/.test(src)) missing.push(`${name} no longer renders the shared card`)
-      if (/aspect-\[4\/5\]/.test(src)) missing.push(`${name} has its own copy of the card markup`)
+      if (IMAGE_BOX.test(src)) missing.push(`${name} has its own copy of the card markup`)
+      IMAGE_BOX.lastIndex = 0
     }
 
     if (missing.length) console.log("        " + missing.join("\n        "))
@@ -1068,6 +1100,91 @@ check(
       if (/top-\d/.test(slot)) missing.push("the edit control is back at the top of the cover")
       if (!/right-\d/.test(slot)) missing.push("the edit control is no longer right-aligned")
     }
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the tab strip is not a full-width rule across the page",
+  (() => {
+    /**
+     * The strip sat on a `border-b` spanning the whole 1100px column, which cut
+     * the page in half under a header that is centred and has no other hard
+     * edges in it. The only line now is the one under the active tab. Centred
+     * too, since everything above it — name, handle, bio, icons — is on the
+     * centre line. Measured in a browser: the tablist's border-bottom-width
+     * computes to 0px and its justify-content to center.
+     */
+    const tabs = code("components/storefront/storefront-tabs.tsx")
+    const list = tabs.match(/<div className="[^"]*" role="tablist">/)?.[0] ?? ""
+    const missing: string[] = []
+    if (!list) missing.push("the tablist element is gone")
+    else {
+      if (/border-b\b/.test(list)) missing.push("the full-width rule is back under the tabs")
+      if (!/justify-center/.test(list)) missing.push("the tabs are no longer centred under the profile")
+    }
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the featured section has no left-hand category rail",
+  (() => {
+    /**
+     * It took 192px off every desktop storefront to list categories most
+     * creators have two of, and pushed the products — the thing the page
+     * exists for — into a narrower column and further from the eye.
+     *
+     * The MOBILE pill row is a different thing and stays: it costs no
+     * horizontal room and on a phone it is the only way to narrow a long list.
+     * So this asserts the desktop rail specifically, not every mention of a
+     * category filter.
+     */
+    const src = code("components/store-builder/unified-section-renderer.tsx")
+    const featured = src.slice(src.indexOf("function UnifiedFeaturedProductsSection"))
+    const body = featured.slice(0, featured.indexOf("function ", 40))
+    const missing: string[] = []
+    if (/hidden md:block w-48/.test(body)) missing.push("the left category rail is back")
+    if (/md:flex-row md:gap-8/.test(body)) missing.push("the two-column layout the rail forced is back")
+    if (!/uiIsMobile && !settings\.hideCategoryFilter/.test(body))
+      missing.push("the mobile pill filter went too — that one was worth keeping")
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "social icons are not hidden behind a master toggle nobody set",
+  (() => {
+    /**
+     * Same trap the sticky bar took three attempts to escape. The builder's
+     * "Enable Social Media" switch defaulted to OFF and was written out on
+     * every save whether or not anyone touched it, so essentially every stored
+     * config carries an explicit `false` that never represented a decision —
+     * and creators who had filled in their links saw no icons and no reason
+     * why. Verified in a browser with `showSocialMedia: false` in the settings:
+     * three links in, three icons out.
+     *
+     * The per-platform switches remain the real control, and
+     * SocialMediaIcons still needs both `enabled` and a url, so a creator who
+     * has added nothing gets nothing.
+     */
+    const header = code("components/store-builder/unified-section-renderer.tsx")
+    const sidebar = code("components/store-builder/sections-sidebar.tsx")
+    const icons = code("components/store-builder/social-media-icons.tsx")
+    const missing: string[] = []
+
+    if (/showSocialMedia/.test(header))
+      missing.push("the storefront gates social icons on showSocialMedia again — a stored false will win")
+    if (/showSocialMedia/.test(sidebar))
+      missing.push("the master social toggle is back in the builder, and it defaults to off")
+    if (!/socialLinks\[key\]\?\.enabled && socialLinks\[key\]\?\.url/.test(icons))
+      missing.push("icons no longer require both a switch and a url — empty links will render")
+    if (!/enabledPlatforms\.length === 0\) return null/.test(icons))
+      missing.push("a creator with no links gets an empty icon row")
+
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),

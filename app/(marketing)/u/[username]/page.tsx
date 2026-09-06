@@ -361,6 +361,10 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       whats_included: p.whats_included,
       gallery_urls: p.gallery_urls,
       categories: p.product_categories?.map((pc: any) => pc.category).filter(Boolean) || [],
+      // Already on the row the select above returns — the card shows a rating
+      // for free, and only when there is one to show.
+      reviews_count: p.reviews_count,
+      reviews_average: p.reviews_average,
     })) || []
 
   // Helper function to build subscribe bar settings from published config or defaults
