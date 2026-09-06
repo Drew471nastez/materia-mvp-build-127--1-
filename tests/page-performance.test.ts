@@ -455,10 +455,35 @@ check(
      * that, and the cost was an animation crossing the one element it had to
      * stay clear of.
      */
-    if (!/const translateY = phase === "idle" \? 0 : Math\.max\(\(gap - size\) \/ 2, 0\)/.test(indicator))
-      missing.push("indicator: a phase can still place the ring above its anchor")
+    // Both offsets the ring can take are clamped at 0, so no phase — drag,
+    // refresh or exit — can place it above its anchor and over the bar.
+    if (!/Math\.max\(\(pullDistance - size\) \/ 2, 0\)/.test(indicator))
+      missing.push("indicator: the drag offset is not clamped to its anchor")
     if (/offScreen/.test(indicator))
       missing.push("indicator: the off-screen exit is back")
+    /**
+     * THE EXIT MUST CHANGE NOTHING BUT OPACITY AND SCALE.
+     *
+     * When the refresh finished, three things changed in the same instant while
+     * the ring was still visible for another 260ms: the spin animation was
+     * removed so the SVG snapped its rotation back to zero (the ring appearing
+     * to "go back in a circle"), the arc collapsed from three-quarters to
+     * nothing, and it slid up toward the bar. Clamping the offset did not fix
+     * any of that, because none of it was a position bug.
+     *
+     * The refreshing appearance is held for the length of the fade instead:
+     * `spinning` covers the exit, the dash length follows `spinning` rather than
+     * the phase, and the resting offset IS the refreshing offset, so the exit
+     * involves no movement at all.
+     */
+    if (!/const spinning = phase === "refreshing" \|\| exiting/.test(indicator))
+      missing.push("indicator: the spinner look is not held through the fade")
+    if (!/const progressDash = spinning/.test(indicator))
+      missing.push("indicator: the arc collapses when the refresh ends")
+    if (!/\.\.\.\(spinning \? \{ animation: "ptr-spin/.test(indicator))
+      missing.push("indicator: rotation snaps back to zero when the refresh ends")
+    if (!/const restingY = Math\.max\(\(refreshHold - size\) \/ 2, 0\)/.test(indicator))
+      missing.push("indicator: the exit does not rest where the refresh left it")
     // The ring must centre in the SAME gap the page holds open.
     if (!/refreshHold/.test(indicator) || !/refreshHold=\{REFRESH_HOLD\}/.test(dash))
       missing.push("dashboard/indicator: refresh gap not shared, positions can drift")

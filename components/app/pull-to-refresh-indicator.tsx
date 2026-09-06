@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect, useRef, useState } from "react"
+
 import { type PullPhase } from "@/hooks/use-pull-to-refresh"
 
 interface Props {
@@ -42,6 +44,47 @@ export function PullToRefreshIndicator({
 }: Props) {
   const progress = Math.min(pullDistance / threshold, 1)
 
+  /**
+   * ===========================================================================
+   *  THE EXIT KEEPS SPINNING, AND KEEPS STILL
+   * ===========================================================================
+   *
+   * The moment `phase` flipped to "idle", THREE things changed at once while the
+   * ring was still visible — the fade takes 260ms, so every one of them was on
+   * screen:
+   *
+   *   1. the spin animation was removed, so the SVG snapped its rotation back to
+   *      0deg — the ring visibly jerked BACKWARDS, which is what reads as it
+   *      "going back in a circle";
+   *   2. the arc collapsed from three-quarters of the ring to nothing, because
+   *      the dash length fell back to `circumference * progress` and progress is
+   *      0 once the pull distance resets;
+   *   3. it moved up toward the bar, because the resting offset was 0 while the
+   *      refreshing offset was 7.5.
+   *
+   * None of that is a position bug, which is why clamping the offset did not
+   * settle it. It is the ring changing what it IS at the same instant it starts
+   * disappearing.
+   *
+   * So the refreshing appearance is held for the length of the fade: it keeps
+   * spinning, keeps its arc, and does not move at all. It simply dims and
+   * shrinks away exactly where it stood.
+   */
+  const [exiting, setExiting] = useState(false)
+  const prevPhase = useRef<PullPhase>(phase)
+
+  useEffect(() => {
+    const wasRefreshing = prevPhase.current === "refreshing"
+    prevPhase.current = phase
+    if (!wasRefreshing || phase !== "idle") return
+    setExiting(true)
+    const t = window.setTimeout(() => setExiting(false), 320)
+    return () => window.clearTimeout(t)
+  }, [phase])
+
+  /** Looks like a spinner: while genuinely refreshing, and while fading out. */
+  const spinning = phase === "refreshing" || exiting
+
   // Ring geometry
   // 15% smaller than the original 22px
   const size = 19
@@ -65,8 +108,16 @@ export function PullToRefreshIndicator({
    * while refreshing — and on the way out it simply fades and shrinks where it
    * stands. There is no phase left in which it can overlap anything above it.
    */
-  const gap = phase === "refreshing" ? refreshHold : pullDistance
-  const translateY = phase === "idle" ? 0 : Math.max((gap - size) / 2, 0)
+  // The one resting offset, shared by the refreshing state and the fade that
+  // follows it, so the exit involves no vertical movement whatsoever. Clamped
+  // like every other phase, so it can never sit above its anchor.
+  const restingY = Math.max((refreshHold - size) / 2, 0)
+  const translateY =
+    phase === "refreshing" || exiting
+      ? restingY
+      : phase === "idle"
+        ? restingY
+        : Math.max((pullDistance - size) / 2, 0)
 
   const containerOpacity =
     phase === "refreshing"
@@ -74,12 +125,14 @@ export function PullToRefreshIndicator({
       : phase === "idle"
         ? 0
         : Math.min(progress * 1.4, 1)
+  // `exiting` deliberately does NOT hold the opacity up — the fade to 0 is the
+  // whole point of the exit. It holds the look and the position, nothing else.
 
   // Shrinks away on exit instead of sliding away, so the eye reads it as
   // settling rather than escaping upwards.
   const scale =
     phase === "idle"
-      ? 0.8
+      ? 0.82
       : phase === "ready"
         ? 1.06
         : phase === "refreshing"
@@ -89,10 +142,11 @@ export function PullToRefreshIndicator({
   const hasTransition = phase === "idle" || phase === "refreshing"
 
   // Progress arc (fills as you pull)
-  const progressDash =
-    phase === "refreshing"
-      ? circumference * 0.75  // fixed arc length while spinning
-      : circumference * progress
+  // Held across the fade too, so the arc does not collapse to nothing the
+  // instant the refresh ends.
+  const progressDash = spinning
+    ? circumference * 0.75  // fixed arc length while spinning
+    : circumference * progress
 
   return (
     <div
@@ -118,9 +172,9 @@ export function PullToRefreshIndicator({
         viewBox={`0 0 ${size} ${size}`}
         fill="none"
         style={{
-          ...(phase === "refreshing"
-            ? { animation: "ptr-spin 0.75s linear infinite" }
-            : {}),
+          // Kept running through the fade. Removing it mid-fade is what made the
+          // ring snap its rotation back to zero on screen.
+          ...(spinning ? { animation: "ptr-spin 0.75s linear infinite" } : {}),
         }}
       >
         {/* Track ring */}
