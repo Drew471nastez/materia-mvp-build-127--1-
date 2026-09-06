@@ -63,8 +63,20 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
         colour rather than snapping.
       */}
       <div className="mx-auto w-full max-w-[1100px] px-3 pt-1 sm:px-4 lg:px-6">
+        {/*
+          CENTRED ON A PHONE, left-aligned from `sm` up.
+
+          Three short words in a 390px column read as centred whether you meant
+          it or not — pushed to the left edge they looked like the start of a
+          row that had lost its other half. On desktop they line up with the
+          grid below, where there is enough width for that to read as
+          deliberate.
+        */}
         <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex min-w-max gap-7 border-b border-border" role="tablist">
+          <div
+            className="flex min-w-max justify-center gap-7 border-b border-border sm:justify-start"
+            role="tablist"
+          >
             {tabs.map((tab) => {
               const selected = tab.id === active
               return (
@@ -134,7 +146,13 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
              * immediately, because animating both means a frame where neither
              * is readable. `motion-reduce` turns it off entirely.
              */
-            tab.id === active && "animate-[storefront-tab-in_220ms_ease-out] motion-reduce:animate-none",
+            /**
+             * OPACITY ONLY, and short. The first version also rose 6px, which
+             * on a grid of product images reads as the cards jumping rather
+             * than as the panel arriving — the movement draws the eye to the
+             * pictures at exactly the moment they are least settled.
+             */
+            tab.id === active && "animate-[storefront-tab-in_140ms_ease-out] motion-reduce:animate-none",
           )}
         >
           {tab.panel}

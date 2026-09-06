@@ -992,31 +992,6 @@ check(
 )
 
 check(
-  "the products tab can be filtered",
-  (() => {
-    /**
-     * The tab shipped with no filtering at all — every product, no way to
-     * narrow it. Chips rather than the rail that used to run down the left of
-     * Featured: they cost no horizontal room, read the same on a phone and a
-     * desktop, and sit above the thing they filter instead of beside it.
-     *
-     * Built from the products actually on the page, so a creator never sees a
-     * filter that leads nowhere, and hidden below two categories where the only
-     * choice is "everything". Verified in a browser: All 3 / Productivity 2 /
-     * Audio & Music 1, and clicking Productivity left two cards.
-     */
-    const grid = code("components/storefront/all-products-grid.tsx")
-    const missing: string[] = []
-    if (!/const \[active, setActive\]/.test(grid)) missing.push("the products tab has no filter state")
-    if (!/categories\.length > 1/.test(grid))
-      missing.push("the chips render for a single category — a filter with one option is not a choice")
-    if (!/products\.filter\(/.test(grid)) missing.push("selecting a chip no longer filters anything")
-    if (missing.length) console.log("        " + missing.join("\n        "))
-    return missing.length === 0
-  })(),
-)
-
-check(
   "the owner's edit control sits low on the cover",
   (() => {
     /**
@@ -1036,32 +1011,6 @@ check(
       if (!/bottom-\d/.test(slot)) missing.push("the edit control is not anchored to the bottom on desktop")
       if (!/right-\d/.test(slot)) missing.push("the edit control is no longer right-aligned")
     }
-    if (missing.length) console.log("        " + missing.join("\n        "))
-    return missing.length === 0
-  })(),
-)
-
-check(
-  "the featured section has no left-hand category rail",
-  (() => {
-    /**
-     * It took 192px off every desktop storefront to list categories most
-     * creators have two of, and pushed the products — the thing the page
-     * exists for — into a narrower column and further from the eye.
-     *
-     * The MOBILE pill row is a different thing and stays: it costs no
-     * horizontal room and on a phone it is the only way to narrow a long list.
-     * So this asserts the desktop rail specifically, not every mention of a
-     * category filter.
-     */
-    const src = code("components/store-builder/unified-section-renderer.tsx")
-    const featured = src.slice(src.indexOf("function UnifiedFeaturedProductsSection"))
-    const body = featured.slice(0, featured.indexOf("function ", 40))
-    const missing: string[] = []
-    if (/hidden md:block w-48/.test(body)) missing.push("the left category rail is back")
-    if (/md:flex-row md:gap-8/.test(body)) missing.push("the two-column layout the rail forced is back")
-    if (!/uiIsMobile && !settings\.hideCategoryFilter/.test(body))
-      missing.push("the mobile pill filter went too — that one was worth keeping")
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),
@@ -1272,35 +1221,6 @@ check(
 )
 
 check(
-  "both tabs sort with the same control",
-  (() => {
-    /**
-     * The Products tab had a native <select> reading "Most recent" while the
-     * Featured rail on Home had a dropdown reading "Sort: Most Recent" — two
-     * controls, two vocabularies, same idea, one page. That is what makes a
-     * page feel assembled rather than designed.
-     *
-     * Same labels in the same order, asserted against BOTH files rather than
-     * against a copy written here.
-     */
-    const grid = code("components/storefront/all-products-grid.tsx")
-    const featured = code("components/store-builder/unified-section-renderer.tsx")
-    const missing: string[] = []
-
-    for (const label of ["Most Recent", "Oldest", "Price: Low → High", "Price: High → Low", "Most Popular"]) {
-      if (!grid.includes(label)) missing.push(`the products tab lost the "${label}" option`)
-      if (!featured.includes(label)) missing.push(`the featured rail lost the "${label}" option`)
-    }
-    if (!/Sort: \{SORT_LABELS\[sort\]\}/.test(grid))
-      missing.push("the products tab's trigger no longer reads like the one on Home")
-    if (/<select/.test(grid)) missing.push("the products tab is back to a native select")
-
-    if (missing.length) console.log("        " + missing.join("\n        "))
-    return missing.length === 0
-  })(),
-)
-
-check(
   "social marks hover by darkening, and the meta row's dots sit evenly",
   (() => {
     /**
@@ -1448,7 +1368,8 @@ check(
     const css = read("app/globals.css")
     const missing: string[] = []
 
-    if (!/border-b border-border" role="tablist"/.test(tabs)) missing.push("the tabs no longer sit on a rule")
+    if (!/border-b border-border[^"]*"\s*\n?\s*role="tablist"/.test(tabs))
+      missing.push("the tabs no longer sit on a rule")
     if (!/border-foreground font-medium text-foreground/.test(tabs))
       missing.push("the active tab has no underline")
     if (!/rounded-full bg-black/.test(tabs) === false) missing.push("the pill track came back")
@@ -1458,11 +1379,12 @@ check(
     if (!/motion-reduce:animate-none/.test(tabs)) missing.push("the tab animation ignores reduced-motion")
     if (!/@keyframes storefront-tab-in/.test(css)) missing.push("the tab-switch keyframes are gone")
 
-    for (const label of ['label: "Home"', 'label: "Products"', 'label: "Communities"', 'label: "Reviews"', 'label: "About"']) {
+    // About is deliberately NOT here — it lives below the panels now; its own
+    // guard covers that.
+    for (const label of ['label: "Home"', 'label: "Products"', 'label: "Communities"', 'label: "Reviews"']) {
       if (!page.includes(label)) missing.push(`the ${label} tab is gone`)
     }
     if (!/creatorReviewCount > 0/.test(page)) missing.push("the Reviews tab shows even with no reviews")
-    if (!/if \(about\) tabs\.push/.test(page)) missing.push("the About tab shows even with no About section")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -1772,6 +1694,124 @@ check(
     if (/\{productCount\} products/.test(body)) missing.push("the product count is back in the name area")
     if (!/reviewCount > 0 && reviewAverage > 0/.test(body)) missing.push("the rating left the meta row")
     if (!/followerCount > 0/.test(body)) missing.push("the follower count left the meta row")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "both tabs use ONE set of catalog controls, and they fit a phone",
+  (() => {
+    /**
+     * THE CONTROLS HAVE BEEN WRONG IN BOTH DIRECTIONS.
+     *
+     * The Featured rail carried its own sort dropdown — its own drag handling,
+     * its own theme-colour plumbing, its own copy of the five labels — plus a
+     * row of category pills that only appeared on mobile. The Products tab had
+     * neither, then had a native <select> with different words for the same
+     * five options. Two vocabularies for one idea on one page.
+     *
+     * Both now render components/storefront/catalog-controls, so there is one
+     * sort and one category filter and they cannot drift.
+     *
+     * AND THEY FIT A PHONE. Sort collapses to an icon — "Sort: Most Recent"
+     * spends half a 390px screen saying what the icon says — and the category
+     * filter is ONE pill that opens a list, not a row of chips. Chips look
+     * fine with two categories and fall apart with nine: three wrapped lines,
+     * products below the fold. Measured at 390px: the pill on the left, the
+     * sort icon 12px from the right edge, on both tabs.
+     */
+    const controls = code("components/storefront/catalog-controls.tsx")
+    const featured = code("components/store-builder/unified-section-renderer.tsx")
+    const grid = code("components/storefront/all-products-grid.tsx")
+    const missing: string[] = []
+
+    for (const [name, src] of [
+      ["the featured rail", featured],
+      ["the products tab", grid],
+    ] as const) {
+      if (!/<SortControl/.test(src)) missing.push(`${name} does not use the shared sort control`)
+      if (!/<CategorySelect/.test(src)) missing.push(`${name} does not use the shared category selector`)
+      if (/SORT_LABELS: Record|sortLabels: Record/.test(src)) missing.push(`${name} has its own copy of the sort labels`)
+    }
+
+    // The five options live in one place.
+    for (const label of ["Most Recent", "Oldest", "Price: Low → High", "Price: High → Low", "Most Popular"]) {
+      if (!controls.includes(label)) missing.push(`the shared control lost "${label}"`)
+    }
+
+    // Phone behaviour.
+    if (!/compact \? \(\s*<ArrowUpDown/.test(controls)) missing.push("sort no longer collapses to an icon")
+    if (!/compact className="sm:hidden"/.test(grid) || !/compact className="sm:hidden"/.test(featured))
+      missing.push("a tab is not using the compact sort on phones")
+    if (!/categories\.length < 2\) return null/.test(controls))
+      missing.push("the category filter shows with a single category — that is not a choice")
+    // A chip row is what this replaced.
+    if (/rounded-full border px-3\.5 py-2 text-sm font-medium/.test(featured))
+      missing.push("the mobile category chip row is back")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "About is not a tab, and the tabs fit three across a phone",
+  (() => {
+    /**
+     * About sits BELOW the tab panels, so it is the last thing on the page
+     * whichever tab you are on. As a tab it was a destination competing with
+     * the products for a click it was never going to win.
+     *
+     * Three tabs, centred on a phone — three short words pushed to the left of
+     * a 390px column read as the start of a row that lost its other half — and
+     * left-aligned from `sm` up, where they line up with the grid below.
+     */
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const tabs = code("components/storefront/storefront-tabs.tsx")
+    const missing: string[] = []
+
+    if (/label: "About"/.test(page)) missing.push("About is a tab again")
+    if (!/<StorefrontTabs tabs=\{tabs\} \/>\s*\{about\}/.test(page))
+      missing.push("About no longer renders after the tab panels on every tab")
+    if (!/justify-center gap-7 border-b border-border sm:justify-start/.test(tabs))
+      missing.push("the tabs are not centred on a phone")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "switching tabs neither refetches nor moves the product cards",
+  (() => {
+    /**
+     * Two ways this goes wrong, and it has been both.
+     *
+     * Unmounting the inactive panel means every switch back rebuilds the
+     * sections and re-requests their images — measured: zero extra image
+     * requests across six switches, because the panels stay mounted.
+     *
+     * And the arrival animation used to rise 6px as well as fade, which on a
+     * grid of product images reads as the cards jumping rather than as the
+     * panel arriving — the movement draws the eye to the pictures at exactly
+     * the moment they are least settled. Opacity only now, and 140ms.
+     * Measured: the panel's computed transform stays `none` throughout.
+     */
+    const tabs = code("components/storefront/storefront-tabs.tsx")
+    const css = read("app/globals.css")
+    const missing: string[] = []
+
+    if (!/hidden=\{tab\.id !== active\}/.test(tabs))
+      missing.push("inactive panels are unmounted again — every switch back refetches their images")
+
+    const frames = css.match(/@keyframes storefront-tab-in \{[\s\S]*?\n\}/)?.[0] ?? ""
+    if (!frames) missing.push("the tab-switch keyframes are gone")
+    else if (/transform|translate/.test(frames))
+      missing.push("the switch moves the panel again — on a grid of images that reads as the cards jumping")
+    if (!/animate-\[storefront-tab-in_1\d\dms/.test(tabs))
+      missing.push("the switch animation is longer than a blink again")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0

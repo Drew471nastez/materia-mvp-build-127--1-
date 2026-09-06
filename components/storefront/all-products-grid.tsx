@@ -9,35 +9,11 @@
  */
 
 import * as React from "react"
-import { ChevronDown, Package } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { cn } from "@/lib/utils"
+import { Package } from "lucide-react"
 import { StorefrontProductCard, type StorefrontCardProduct } from "./storefront-product-card"
+import { CategorySelect, SortControl, type SortKey } from "./catalog-controls"
 
 export type AllProductsGridProduct = StorefrontCardProduct
-
-type SortKey = "recent" | "oldest" | "price-low" | "price-high" | "popular"
-
-/**
- * THE SAME CONTROL AS THE FEATURED RAIL ON THE HOME TAB — same trigger, same
- * labels, same order. A visitor switching between the two tabs was getting two
- * different sort controls with two different vocabularies for the same idea,
- * which is the sort of thing that makes a page feel assembled rather than
- * designed. If you change these labels, change them in
- * UnifiedFeaturedProductsSection too.
- */
-const SORT_LABELS: Record<SortKey, string> = {
-  recent: "Most Recent",
-  oldest: "Oldest",
-  "price-low": "Price: Low → High",
-  "price-high": "Price: High → Low",
-  popular: "Most Popular",
-}
 
 export function AllProductsGrid({
   products,
@@ -108,50 +84,27 @@ export function AllProductsGrid({
   return (
     <div className="mx-auto w-full max-w-[1100px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">
       {/*
-        THE CONTROLS ARE ALWAYS HERE. Category chips only appear for a creator
-        who has more than one category — a filter with a single option is not a
-        choice — but that left the tab with nothing at all on it for everybody
-        else, which is what "there's no filtering, no nothing" was about. Sort
-        works for any number of products, so the row is never empty.
+        ONE ROW OF CONTROLS: the category selector on the left, sort on the
+        right — the same arrangement, and the same two components, as the
+        Featured rail on the Home tab.
+
+        The chip row that used to be here is gone. It looked fine with two
+        categories and fell apart with nine: three wrapped lines on a phone,
+        with the products pushed below the fold.
+
+        Sort collapses to an icon on a phone. "Sort: Most Recent" spends half
+        the width of a phone saying what the icon says.
       */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {categories.length > 1 && (
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <CategorySelect categories={categories} value={active} onChange={setActive} total={products.length} />
+        <div className="ml-auto">
+          {products.length > 1 && (
             <>
-              <FilterChip
-                label="All"
-                count={products.length}
-                active={active === null}
-                onClick={() => setActive(null)}
-              />
-              {categories.map((category) => (
-                <FilterChip
-                  key={category.name}
-                  label={category.name}
-                  count={category.count}
-                  active={active === category.name}
-                  onClick={() => setActive(category.name)}
-                />
-              ))}
+              <SortControl value={sort} onChange={setSort} compact className="sm:hidden" />
+              <SortControl value={sort} onChange={setSort} className="hidden sm:inline-flex" />
             </>
           )}
         </div>
-
-        {products.length > 1 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex w-auto shrink-0 items-center gap-2 rounded-md bg-transparent px-2 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none">
-              <span>Sort: {SORT_LABELS[sort]}</span>
-              <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
-                <DropdownMenuItem key={key} className="cursor-pointer" onClick={() => setSort(key)}>
-                  {SORT_LABELS[key]}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -167,32 +120,5 @@ export function AllProductsGrid({
         ))}
       </div>
     </div>
-  )
-}
-
-function FilterChip({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string
-  count: number
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-full border px-3 py-1.5 text-[13px] transition-colors",
-        active
-          ? "border-foreground bg-foreground text-background"
-          : "border-border text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {label} <span className="opacity-60">{count}</span>
-    </button>
   )
 }

@@ -50,6 +50,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ProductGallery } from "@/components/product/product-gallery"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { SocialMediaIcons } from "./social-media-icons"
+import { CategorySelect, SortControl } from "@/components/storefront/catalog-controls"
 import { StorefrontProductCard } from "@/components/storefront/storefront-product-card"
 import { avatarSizeMap } from "@/lib/store-builder/defaults"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -2278,6 +2279,10 @@ function UnifiedFeaturedProductsSection({
     return Array.from(map.entries()).map(([id, v]) => ({ id, name: v.name, count: v.count }))
   }, [products])
 
+  // The shared selector speaks in category NAMES, the section's own filtering
+  // in ids. One lookup keeps both honest rather than duplicating the state.
+  const selectedCategoryName = categoriesWithCounts.find((c) => c.id === selectedCategory)?.name ?? null
+
   const filteredProducts = useMemo(() => {
     // ✅ show ALL products by default (no maxProducts)
     let result =
@@ -2318,13 +2323,9 @@ function UnifiedFeaturedProductsSection({
 
   const totalProducts = products?.length || 0
 
-  const sortLabels: Record<typeof sortBy, string> = {
-    recent: "Most Recent",
-    oldest: "Oldest",
-    "price-low": "Price: Low → High",
-    "price-high": "Price: High → Low",
-    popular: "Most Popular",
-  }
+  // The sort labels live in components/storefront/catalog-controls, which both
+  // this rail and the Products tab render. A second copy here is how the two
+  // ended up with different words for the same five options.
 
   // ✅ Placeholder ONLY inside Store Builder canvas
   if (!products || products.length === 0) {
@@ -2388,12 +2389,7 @@ function UnifiedFeaturedProductsSection({
         {/* Main */}
         <div className="flex-1 min-w-0">
           {/* Header */}
-          <div
-            className={cn(
-              "flex gap-3",
-              uiIsMobile ? "flex-col" : "flex-col sm:flex-row sm:items-center sm:justify-between",
-            )}
-          >
+          <div className="flex flex-col gap-3">
             <h2
               className={cn(
                 "font-semibold",
@@ -2408,136 +2404,35 @@ function UnifiedFeaturedProductsSection({
               {settings.headline}
             </h2>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  id="sb-sort-trigger"
-                  onPointerDown={runtimeIsMobile ? onSortPointerDown : undefined}
-                  onPointerMove={runtimeIsMobile ? onSortPointerMove : undefined}
-                  onPointerUp={runtimeIsMobile ? onSortPointerUp : undefined}
-                  onPointerCancel={runtimeIsMobile ? onSortPointerCancel : undefined}
-                  onClick={runtimeIsMobile ? (e) => e.preventDefault() : undefined}
-                  className={cn(
-                    // ✅ Mobile: subtle themed button - no visible border, very subtle appearance
-                    runtimeIsMobile
-                      ? "inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all duration-200 touch-pan-y select-none active:scale-[0.98] hover:bg-foreground/5"
-                      : // ✅ Desktop: clean text control on the right
-                        "inline-flex w-auto items-center gap-2 rounded-md px-2 py-1 text-sm hover:opacity-80 bg-transparent",
-                    // Only apply default classes when no theme colors are set
-                    !settings.categoryFilterColors?.textColor && !runtimeIsMobile && "text-muted-foreground hover:text-foreground",
-                  )}
-                  style={{
-                    // Mobile: use theme-aware styling with subtle transparent background
-                    ...(runtimeIsMobile ? {
-                      backgroundColor: "transparent",
-                      color: settings.categoryFilterColors?.textColor || settings.colors?.textColor || undefined,
-                    } : {
-                      color: settings.categoryFilterColors?.textColor || undefined,
-                    }),
-                  }}
-                >
-                  <span>Sort: {sortLabels[sortBy]}</span>
-                  <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setSortBy("recent")}>Most Recent</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("oldest")}>Oldest</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("price-low")}>Price: Low → High</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("price-high")}>Price: High → Low</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("popular")}>Most Popular</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+            {/*
+              THE SAME TWO CONTROLS AS THE PRODUCTS TAB, from the same file.
 
-          {/* Mobile pills - only show when mobile AND category filter is not hidden */}
-          {uiIsMobile && !settings.hideCategoryFilter && (() => {
-            // Theme-specific mobile filter pill colors
-            const getMobilePillStyles = (isSelected: boolean) => {
-              // Default border color for unselected pills
-              const defaultUnselectedBorderColor = themePreset === "default"
-                ? "#e5e7eb" // Light gray for default theme
-                : (settings.categoryFilterColors?.borderColor ||
-                   (settings.categoryFilterColors?.textColor ? `${settings.categoryFilterColors.textColor}50` : undefined) ||
-                   (settings.colors?.textColor ? `${settings.colors.textColor}50` : undefined))
+              This section used to carry its own sort dropdown — with its own
+              drag handling, its own theme-colour plumbing and its own copy of
+              the five labels — and, below it, a row of category pills that only
+              appeared on mobile. The Products tab had neither, then had
+              different ones. Two vocabularies for one idea on one page.
 
-              if (isSelected) {
-                // Selected pill colors based on theme preset
-                switch (themePreset) {
-                  case "astrid":
-                    return {
-                      backgroundColor: "#404040", // Dark gray for Astrid
-                      color: "#ffffff",
-                      borderColor: "transparent",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                    }
-                  case "bubble":
-                    return {
-                      backgroundColor: "#8b5cf6", // Purple for Bubble
-                      color: "#ffffff",
-                      borderColor: "transparent",
-                      boxShadow: "0 2px 8px rgba(139,92,246,0.3)",
-                    }
-                  case "pink":
-                    return {
-                      backgroundColor: "#ec4899", // Pink for Pink theme
-                      color: "#ffffff",
-                      borderColor: "transparent",
-                      boxShadow: "0 2px 8px rgba(236,72,153,0.3)",
-                    }
-                  case "default":
-                    return {
-                      backgroundColor: "#000000", // Black for Default
-                      color: "#ffffff",
-                      borderColor: "transparent",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                    }
-                  default:
-                    // For other themes (cream, air, etc.), use the settings colors
-                    return {
-                      backgroundColor: settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || "rgba(255,255,255,0.9)",
-                      color: settings.productCardColors?.backgroundColor ||
-                             (settings.colors?.textColor?.includes("fff") ? "#000000" : "#ffffff"),
-                      borderColor: "transparent",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                    }
-                }
-              } else {
-                // Unselected pill colors
-                return {
-                  backgroundColor: "transparent",
-                  color: settings.categoryFilterColors?.textColor || settings.colors?.textColor || undefined,
-                  borderColor: defaultUnselectedBorderColor,
-                  boxShadow: undefined,
-                }
-              }
-            }
-
-            return (
-              <div className="mt-3">
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                  <button
-                    onClick={() => handleCategoryChange(null)}
-                    className="flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200 active:scale-[0.98]"
-                    style={getMobilePillStyles(selectedCategory === null)}
-                  >
-                    All <span className={selectedCategory === null ? "opacity-60" : "opacity-50"}>{totalProducts}</span>
-                  </button>
-
-                  {categoriesWithCounts.map((category) => (
-                    <button
-                      key={category.id}
-                      onClick={() => handleCategoryChange(category.id)}
-                      className="flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200 active:scale-[0.98]"
-                      style={getMobilePillStyles(selectedCategory === category.id)}
-                    >
-                      {category.name} <span className={selectedCategory === category.id ? "opacity-60" : "opacity-50"}>{category.count}</span>
-                    </button>
-                  ))}
-                </div>
+              Sort collapses to an icon on a phone; the category filter is one
+              pill that opens a list rather than a row of chips that wraps to
+              three lines and pushes the products off the screen.
+            */}
+            <div className="flex items-center gap-3">
+              <CategorySelect
+                categories={categoriesWithCounts.map((c) => ({ name: c.name, count: c.count }))}
+                value={selectedCategoryName}
+                onChange={(name) => {
+                  const match = categoriesWithCounts.find((c) => c.name === name)
+                  handleCategoryChange(match ? match.id : null)
+                }}
+                total={totalProducts}
+              />
+              <div className="ml-auto">
+                <SortControl value={sortBy} onChange={setSortBy} compact className="sm:hidden" />
+                <SortControl value={sortBy} onChange={setSortBy} className="hidden sm:inline-flex" />
               </div>
-            )
-          })()}
+            </div>
+          </div>
 
           {/* Grid - use uiIsMobile to determine layout */}
           <div

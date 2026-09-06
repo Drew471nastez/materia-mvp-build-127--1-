@@ -878,9 +878,19 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             })
           }
 
-          if (about) tabs.push({ id: "about", label: "About", panel: about })
-
-          return <StorefrontTabs tabs={tabs} />
+          /**
+           * ABOUT IS NOT A TAB. It sits below the tab panels, so it is the last
+           * thing on the page whichever tab you are on — which is where an
+           * About belongs: you read it after looking at the work, not instead
+           * of looking at it. As a tab it was a destination competing with the
+           * products for a click it was never going to win.
+           */
+          return (
+            <>
+              <StorefrontTabs tabs={tabs} />
+              {about}
+            </>
+          )
         })()}
 
         <SellerFooter />

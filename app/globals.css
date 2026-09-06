@@ -1937,10 +1937,8 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
 @keyframes storefront-tab-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
