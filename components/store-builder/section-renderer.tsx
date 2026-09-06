@@ -30,6 +30,7 @@ export function SectionRenderer({
   creatorName,
   creatorUsername,
   creatorAvatarUrl,
+  viewerIsOwner,
   productId,
   reviews,
   reviewsCount,
@@ -46,6 +47,7 @@ export function SectionRenderer({
   creatorName?: string
   creatorUsername?: string | null
   creatorAvatarUrl?: string | null
+  viewerIsOwner?: boolean
   productId?: string
   reviews?: any[]
   reviewsCount?: number
@@ -72,6 +74,7 @@ export function SectionRenderer({
       creatorName={creatorName}
       creatorUsername={creatorUsername}
       creatorAvatarUrl={creatorAvatarUrl}
+      viewerIsOwner={viewerIsOwner}
       productId={productId}
       reviews={reviews}
       reviewsCount={reviewsCount}

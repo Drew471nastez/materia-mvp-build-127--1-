@@ -125,6 +125,8 @@ export interface UnifiedSectionProps {
   // their store, so it needs the handle and the avatar as well as the name.
   creatorUsername?: string | null
   creatorAvatarUrl?: string | null
+  // Decided on the server from the session; gates the per-card owner menu.
+  viewerIsOwner?: boolean
   productId?: string
   reviews?: any[]
   reviewsCount?: number
@@ -1172,6 +1174,7 @@ export function UnifiedSectionRenderer({
   creatorName = "this creator",
   creatorUsername,
   creatorAvatarUrl,
+  viewerIsOwner,
   productId,
   reviews = [],
   reviewsCount = 0,
@@ -1255,6 +1258,7 @@ export function UnifiedSectionRenderer({
           creatorName={creatorName}
           creatorUsername={creatorUsername}
           creatorAvatarUrl={creatorAvatarUrl}
+          viewerIsOwner={viewerIsOwner}
         />
       )}
       {section.type === "more-from-seller" && (
@@ -2131,6 +2135,7 @@ function UnifiedFeaturedProductsSection({
   creatorName,
   creatorUsername,
   creatorAvatarUrl,
+  viewerIsOwner,
 }: {
   settings: FeaturedProductsSettings
   products?: ProductData[]
@@ -2141,6 +2146,7 @@ function UnifiedFeaturedProductsSection({
   creatorName?: string | null
   creatorUsername?: string | null
   creatorAvatarUrl?: string | null
+  viewerIsOwner?: boolean
 }) {
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
   const horizontalPadding = 8
@@ -2547,6 +2553,7 @@ function UnifiedFeaturedProductsSection({
                   creatorName={creatorName}
                   creatorUsername={creatorUsername}
                   creatorAvatarUrl={creatorAvatarUrl}
+                  isOwner={viewerIsOwner}
                 />
               )
 

@@ -16,6 +16,7 @@
  */
 
 import { ProductCard } from "@/components/explore/product-card"
+import { ProductOwnerMenu } from "./product-owner-menu"
 
 export interface StorefrontCardProduct {
   id: string
@@ -36,6 +37,12 @@ export interface StorefrontProductCardProps {
   creatorUsername?: string | null
   creatorAvatarUrl?: string | null
   priority?: boolean
+  /**
+   * Decided on the SERVER, from the session. When false the menu is not
+   * rendered at all — a visitor never receives it, rather than receiving it
+   * hidden.
+   */
+  isOwner?: boolean
 }
 
 export function StorefrontProductCard({
@@ -44,8 +51,9 @@ export function StorefrontProductCard({
   creatorUsername,
   creatorAvatarUrl,
   priority = false,
+  isOwner = false,
 }: StorefrontProductCardProps) {
-  return (
+  const card = (
     <ProductCard
       priority={priority}
       discoverLayout={false}
@@ -80,5 +88,18 @@ export function StorefrontProductCard({
         },
       }}
     />
+  )
+
+  if (!isOwner) return card
+
+  return (
+    // The menu floats over the card's own image corner. `relative` here rather
+    // than on the card so the shared component stays untouched.
+    <div className="relative">
+      {card}
+      <div className="absolute right-3 top-3 z-10">
+        <ProductOwnerMenu productId={product.id} productHref={product.slug ? `/p/${product.slug}` : undefined} />
+      </div>
+    </div>
   )
 }

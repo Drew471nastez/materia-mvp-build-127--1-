@@ -1196,32 +1196,128 @@ check(
 )
 
 check(
-  "the creator page is one colour with white things ON it, not a white sheet with a seam",
+  "the creator page is one colour, and nothing paints a white slab on it",
   (() => {
     /**
-     * THIS TOOK TWO GOES AND THE FIRST ONE WAS WORSE THAN THE PROBLEM.
+     * THIS TOOK THREE GOES AND TWO OF THEM MADE IT WORSE.
      *
      * Everything on a creator page is white — the subscribe bar, the header,
      * the tab strip, every card — so on a white page there is nothing to see
-     * any of it against. The first attempt gave the bar, cover, profile and
-     * tabs one white surface above a grey page, and what that produced was a
-     * hard horizontal seam across the middle: white above, grey below, reading
-     * as a rendering fault rather than as a design.
+     * any of it against.
      *
-     * So the whole page is the light grey and white is reserved for the things
-     * meant to sit ON it — the subscribe bar and the product cards. There is
-     * no header surface, and this check fails if one comes back.
+     *   1. Gave the bar, cover, profile and tabs one white surface above a
+     *      grey page. That drew a hard horizontal seam across the middle:
+     *      white above, grey below, reading as a rendering fault.
+     *   2. Made the whole page grey. Still a seam, from the other direction —
+     *      the THEME PRESETS set white explicitly (`pageBackgroundColor` and
+     *      `featuredProductsBackgroundColor` are both "#ffffff" in the
+     *      default), so the Featured section painted its own white slab under
+     *      the tab strip whatever the page did, and the cards on it had
+     *      nothing to be seen against.
+     *   3. A stored white means "nobody chose a colour" — because in practice
+     *      nobody did, it is what the preset carries. Any other colour is a
+     *      real decision and is left exactly alone.
+     *
+     * The rule is evaluated here, not pattern-matched, because the whole point
+     * is which inputs it treats as "unchosen".
      */
     const page = code("app/(marketing)/u/[username]/page.tsx")
     const tabs = code("components/storefront/storefront-tabs.tsx")
+    const surface = read("lib/store-builder/page-surface.ts")
     const missing: string[] = []
 
-    if (!/const STOREFRONT_PAGE_BACKGROUND = "#[0-9a-f]{6}"/i.test(page))
-      missing.push("the page background is back to plain white")
+    const src = surface.match(/const WHITE = new Set\([\s\S]*?\n\}/)?.[0]
+    if (!src) {
+      missing.push("the surface rule is gone — theme white will paint slabs again")
+    } else {
+      // eslint-disable-next-line no-new-func
+      const isInheritedWhite = new Function(
+        `${src.replace(/export /g, "").replace(/: string \| null \| undefined|\?: string \| null|: boolean/g, "")}; return isInheritedWhite`,
+      )() as (c?: string | null) => boolean
+
+      for (const unchosen of [undefined, null, "", "#fff", "#ffffff", "#FFFFFF", " white ", "transparent"]) {
+        if (!isInheritedWhite(unchosen as string)) missing.push(`${JSON.stringify(unchosen)} is treated as a chosen colour`)
+      }
+      for (const chosen of ["#0f0f0f", "#f8fafc", "#faf5ff", "rgb(12,12,12)"]) {
+        if (isInheritedWhite(chosen)) missing.push(`${chosen} is being thrown away — a creator's real choice`)
+      }
+    }
+
+    if (!/storefrontPageBackground\(pageBackgroundColor\)/.test(page))
+      missing.push("the page background no longer goes through the surface rule")
+    if (!/storefrontSectionBackground\(section\.settings\.colors\?\.backgroundColor\)/.test(page))
+      missing.push("section backgrounds no longer go through the rule — Featured will paint a white slab again")
     if (/min-h-screen bg-background/.test(page))
       missing.push("a branch still paints the page with the default white background")
     if (/surfaceFor|stripBackground/.test(page) || /stripBackground/.test(tabs))
       missing.push("the white header sheet is back — it puts a seam across the middle of the page")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the owner's per-card menu never reaches a visitor",
+  (() => {
+    /**
+     * A three-dot menu on each card, linking into that product's editor. It is
+     * gated the same way the header's controls are: the SERVER decides who is
+     * looking, and a visitor is never sent the component — not sent it hidden,
+     * not sent it behind a CSS rule. Verified in a browser: with the flag off
+     * there are no menu buttons and the string "/app/products" does not appear
+     * anywhere in the HTML.
+     *
+     * It links rather than edits, for the same reason the header menu does: a
+     * product has a whole editor in /app with uploads, variants, pricing and
+     * files in it, and a popover on a public page could only be a worse copy.
+     */
+    const card = code("components/storefront/storefront-product-card.tsx")
+    const menu = code("components/storefront/product-owner-menu.tsx")
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const missing: string[] = []
+
+    if (!/if \(!isOwner\) return card/.test(card))
+      missing.push("the per-card menu is rendered for everyone and hidden — a visitor receives it")
+    if (!/isOwner = false/.test(card)) missing.push("the per-card menu defaults to shown")
+    if (!/viewerIsOwner/.test(page)) missing.push("the page no longer passes who is looking down to the cards")
+
+    // The trigger must not navigate the card it sits on.
+    if (!/e\.preventDefault\(\)/.test(menu) || !/e\.stopPropagation\(\)/.test(menu))
+      missing.push("opening the menu navigates the card underneath it")
+
+    if (!menu.includes("/app/products/${productId}")) missing.push("Edit product no longer opens that product")
+    if (!existsSync(join(root, "app/app/products/[id]/page.tsx")))
+      missing.push("/app/products/[id] has no route behind it — Edit product 404s")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "both tabs sort with the same control",
+  (() => {
+    /**
+     * The Products tab had a native <select> reading "Most recent" while the
+     * Featured rail on Home had a dropdown reading "Sort: Most Recent" — two
+     * controls, two vocabularies, same idea, one page. That is what makes a
+     * page feel assembled rather than designed.
+     *
+     * Same labels in the same order, asserted against BOTH files rather than
+     * against a copy written here.
+     */
+    const grid = code("components/storefront/all-products-grid.tsx")
+    const featured = code("components/store-builder/unified-section-renderer.tsx")
+    const missing: string[] = []
+
+    for (const label of ["Most Recent", "Oldest", "Price: Low → High", "Price: High → Low", "Most Popular"]) {
+      if (!grid.includes(label)) missing.push(`the products tab lost the "${label}" option`)
+      if (!featured.includes(label)) missing.push(`the featured rail lost the "${label}" option`)
+    }
+    if (!/Sort: \{SORT_LABELS\[sort\]\}/.test(grid))
+      missing.push("the products tab's trigger no longer reads like the one on Home")
+    if (/<select/.test(grid)) missing.push("the products tab is back to a native select")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0

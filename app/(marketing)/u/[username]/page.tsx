@@ -18,6 +18,11 @@ import { StorefrontTabs, EmptyTabPanel, type StorefrontTab } from "@/components/
 import { AllProductsGrid } from "@/components/storefront/all-products-grid"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 import { deservesIndexing } from "@/lib/security/spam-signals"
+import {
+  STOREFRONT_PAGE_BACKGROUND,
+  storefrontPageBackground,
+  storefrontSectionBackground,
+} from "@/lib/store-builder/page-surface"
 
 export const dynamic = "force-dynamic"
 
@@ -25,20 +30,26 @@ export const dynamic = "force-dynamic"
  * The default page colour behind a creator's white surfaces. Light enough that
  * nobody would call the page grey, dark enough that a white card has an edge.
  */
-const STOREFRONT_PAGE_BACKGROUND = "#f6f6f7"
+
 
 /**
  * THERE IS NO WHITE HEADER SHEET. Read this before adding one back.
  *
  * The first attempt at giving this page some depth put the subscribe bar, the
  * cover, the profile and the tab strip on one white surface above a grey page.
- * What that actually produced was a hard horizontal seam across the middle of
- * the page, white above and grey below, which looked like a rendering fault
- * rather than a design.
+ * What that produced was a hard horizontal seam across the middle, white above
+ * and grey below, which looked like a rendering fault rather than a design.
  *
  * The whole page is the light grey. White is reserved for the things that are
  * meant to sit ON it — the subscribe bar and the product cards — so those read
  * as raised objects and everything else reads as background.
+ *
+ * The second seam came from the other direction: the theme presets set white
+ * EXPLICITLY (`pageBackgroundColor` and `featuredProductsBackgroundColor` are
+ * both "#ffffff" in the default), so the Featured section painted a white
+ * block under the tab strip whatever the page was doing. That is why the
+ * colours go through lib/store-builder/page-surface — a stored white means
+ * "nobody chose", any other colour is a real choice and is left alone.
  */
 
 interface StorefrontPageProps {
@@ -611,7 +622,25 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     }
 
     // Apply theme colors to all sections
-    const themedSections = applySectionThemeColors(publishedConfig.sections)
+    /**
+     * Every section's background goes through the surface rule after the theme
+     * has had its say. The presets set white explicitly, so without this the
+     * Featured block paints a white slab under the tab strip and the cards on
+     * it have nothing to be seen against — the seam the page colour was
+     * supposed to remove, arriving from the section instead.
+     *
+     * A section a creator actually coloured keeps that colour.
+     */
+    const themedSections = applySectionThemeColors(publishedConfig.sections).map((section) => ({
+      ...section,
+      settings: {
+        ...section.settings,
+        colors: {
+          ...section.settings.colors,
+          backgroundColor: storefrontSectionBackground(section.settings.colors?.backgroundColor),
+        },
+      },
+    }))
 
     const profilePageJsonLd = {
       "@context": "https://schema.org",
@@ -662,7 +691,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         <div
           className="min-h-screen overflow-x-hidden"
           style={{
-            background: pageBackgroundColor || STOREFRONT_PAGE_BACKGROUND,
+            background: storefrontPageBackground(pageBackgroundColor),
             color: pageTextColor || "var(--foreground)",
           }}
         >
@@ -699,6 +728,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                   creatorName={profile.display_name || undefined}
                   creatorUsername={profile.username}
                   creatorAvatarUrl={profile.avatar_url}
+                  viewerIsOwner={viewerIsOwner}
                 />
               ))}
 
@@ -712,6 +742,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                   creatorName={profile.display_name || undefined}
                   creatorUsername={profile.username}
                   creatorAvatarUrl={profile.avatar_url}
+                  viewerIsOwner={viewerIsOwner}
                   sellerMemberSince={profile.created_at}
                   sellerTotalSales={totalSales}
                   sellerProductsCount={productsCount}
@@ -741,6 +772,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                   creatorName={profile.display_name}
                   creatorUsername={profile.username}
                   creatorAvatarUrl={profile.avatar_url}
+                  isOwner={viewerIsOwner}
                 />
               ),
             })

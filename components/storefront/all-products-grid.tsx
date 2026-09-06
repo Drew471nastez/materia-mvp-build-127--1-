@@ -9,19 +9,34 @@
  */
 
 import * as React from "react"
-import { Package } from "lucide-react"
+import { ChevronDown, Package } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { StorefrontProductCard, type StorefrontCardProduct } from "./storefront-product-card"
 
 export type AllProductsGridProduct = StorefrontCardProduct
 
-type SortKey = "recent" | "price-low" | "price-high" | "rating"
+type SortKey = "recent" | "oldest" | "price-low" | "price-high" | "popular"
 
+/**
+ * THE SAME CONTROL AS THE FEATURED RAIL ON THE HOME TAB — same trigger, same
+ * labels, same order. A visitor switching between the two tabs was getting two
+ * different sort controls with two different vocabularies for the same idea,
+ * which is the sort of thing that makes a page feel assembled rather than
+ * designed. If you change these labels, change them in
+ * UnifiedFeaturedProductsSection too.
+ */
 const SORT_LABELS: Record<SortKey, string> = {
-  recent: "Most recent",
-  "price-low": "Price: low to high",
-  "price-high": "Price: high to low",
-  rating: "Top rated",
+  recent: "Most Recent",
+  oldest: "Oldest",
+  "price-low": "Price: Low → High",
+  "price-high": "Price: High → Low",
+  popular: "Most Popular",
 }
 
 export function AllProductsGrid({
@@ -29,11 +44,13 @@ export function AllProductsGrid({
   creatorName,
   creatorUsername,
   creatorAvatarUrl,
+  isOwner = false,
 }: {
   products: AllProductsGridProduct[]
   creatorName?: string | null
   creatorUsername?: string | null
   creatorAvatarUrl?: string | null
+  isOwner?: boolean
 }) {
   /**
    * Category filtering, which the tab had none of. Chips rather than the rail
@@ -68,8 +85,10 @@ export function AllProductsGrid({
         return list.sort((a, b) => a.price_cents - b.price_cents)
       case "price-high":
         return list.sort((a, b) => b.price_cents - a.price_cents)
-      case "rating":
-        return list.sort((a, b) => (b.reviews_average ?? 0) - (a.reviews_average ?? 0))
+      case "popular":
+        return list.sort((a, b) => (b.reviews_count ?? 0) - (a.reviews_count ?? 0))
+      case "oldest":
+        return list.reverse()
       default:
         return list
     }
@@ -119,20 +138,19 @@ export function AllProductsGrid({
         </div>
 
         {products.length > 1 && (
-          <label className="flex shrink-0 items-center gap-2 text-[13px] text-muted-foreground">
-            <span className="sr-only">Sort products</span>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-              className="cursor-pointer rounded-lg border border-border bg-transparent py-1.5 pl-2 pr-7 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-            >
-              {Object.entries(SORT_LABELS).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex w-auto shrink-0 items-center gap-2 rounded-md bg-transparent px-2 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none">
+              <span>Sort: {SORT_LABELS[sort]}</span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
+                <DropdownMenuItem key={key} className="cursor-pointer" onClick={() => setSort(key)}>
+                  {SORT_LABELS[key]}
+                </DropdownMenuItem>
               ))}
-            </select>
-          </label>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
@@ -144,6 +162,7 @@ export function AllProductsGrid({
             creatorName={creatorName}
             creatorUsername={creatorUsername}
             creatorAvatarUrl={creatorAvatarUrl}
+            isOwner={isOwner}
           />
         ))}
       </div>
