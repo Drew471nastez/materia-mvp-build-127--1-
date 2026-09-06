@@ -13,6 +13,8 @@ import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { EditProfileButton } from "@/components/storefront/edit-profile-button"
+import { StorefrontTabs, type StorefrontTab } from "@/components/storefront/storefront-tabs"
+import { AllProductsGrid } from "@/components/storefront/all-products-grid"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 import { deservesIndexing } from "@/lib/security/spam-signals"
 
@@ -641,7 +643,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             .sort((a, b) => a.order - b.order)
           const aboutSection = themedSections.find((s) => s.type === "about")
 
-          return (
+          const home = (
             <>
               {regularSections.map((section) => (
                 <SectionRenderer
@@ -668,6 +670,27 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               )}
             </>
           )
+
+          /**
+           * Both panels are rendered HERE, on the server, and handed to the tab
+           * strip as props. Switching tabs is then a visibility change — no
+           * fetch, no spinner, no second render of the sections — and Home is
+           * still in the first HTML the visitor and the crawler receive.
+           *
+           * The Products tab only earns its place once there is more than one
+           * product to show; below that it is a tab onto the thing already on
+           * screen. StorefrontTabs renders a lone panel bare, with no strip.
+           */
+          const tabs: StorefrontTab[] = [{ id: "home", label: "Home", panel: home }]
+          if (productsData.length > 1) {
+            tabs.push({
+              id: "products",
+              label: "Products",
+              panel: <AllProductsGrid products={productsData} creatorName={profile.display_name} />,
+            })
+          }
+
+          return <StorefrontTabs tabs={tabs} />
         })()}
 
         <SellerFooter />

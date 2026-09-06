@@ -46,6 +46,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ProductGallery } from "@/components/product/product-gallery"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { SocialMediaIcons } from "./social-media-icons"
+import { StorefrontProductCard } from "@/components/storefront/product-card"
 import { avatarSizeMap } from "@/lib/store-builder/defaults"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ReviewsList } from "@/components/reviews/reviews-list"
@@ -1239,6 +1240,7 @@ export function UnifiedSectionRenderer({
           isPreviewMode={isPreviewMode}
           isEditorCanvas={!!onSelect}
           globalSettings={globalSettings}
+          creatorName={creatorName}
         />
       )}
       {section.type === "more-from-seller" && (
@@ -2112,6 +2114,7 @@ function UnifiedFeaturedProductsSection({
   isPreviewMode,
   isEditorCanvas = false,
   globalSettings,
+  creatorName,
 }: {
   settings: FeaturedProductsSettings
   products?: ProductData[]
@@ -2119,6 +2122,7 @@ function UnifiedFeaturedProductsSection({
   isPreviewMode?: boolean
   isEditorCanvas?: boolean
   globalSettings?: GlobalStoreSettings
+  creatorName?: string | null
 }) {
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
   const horizontalPadding = 8
@@ -2561,88 +2565,14 @@ function UnifiedFeaturedProductsSection({
               const cardBorderColor = settings.productCardColors?.borderColor || (cardTextColor ? `${cardTextColor}20` : undefined)
 
               const content = (
-                <>
-                  <div className="aspect-video bg-muted relative overflow-hidden rounded-t-lg">
-                    {product.thumbnail_url ? (
-                      /**
-                       * The opacity handling here was a real bug, not just
-                       * clutter: a ref set the image to opacity 0 whenever it
-                       * was not already complete, and only the onLoad handler
-                       * put it back. If the image FAILED — a dead URL, an
-                       * offline moment — onLoad never fires and the card was
-                       * left permanently blank with no way to recover.
-                       *
-                       * The fade is pure CSS now, so a broken image shows the
-                       * placeholder rather than a hole, and `quality` plus
-                       * accurate `sizes` mean the browser fetches roughly the
-                       * pixels it will actually paint instead of a full-size
-                       * original scaled down in the card.
-                       */
-                      <Image
-                        src={product.thumbnail_url || "/placeholder.svg"}
-                        alt={product.title}
-                        fill
-                        loading="lazy"
-                        quality={72}
-                        className="object-cover animate-[card-img-in_320ms_ease-out] transition-transform duration-500 [@media(hover:hover)]:group-hover:scale-105"
-                        sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 30vw"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center">
-                        <Package className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-4">
-                    {/* Title only — no type chip, no description. A grid of
-                        cards is scanned, not read, and "PRODUCT" above every
-                        one of them is a word that never distinguishes anything. */}
-                    <div
-                      className={cn(
-                        "font-medium leading-snug line-clamp-2",
-                        !cardTextColor && "text-foreground",
-                      )}
-                      style={{ color: cardTextColor || undefined }}
-                    >
-                      {product.title}
-                    </div>
-
-                    {settings.showPrice && (
-                      <div className="mt-2 flex items-baseline gap-2">
-                        {/* 600, not 700: the price should be the firmest thing
-                            on the card without shouting over the title. */}
-                        <span
-                          className={cn(
-                            "text-sm font-semibold tracking-tight",
-                            !cardPriceColor && "text-foreground",
-                          )}
-                          style={{ color: cardPriceColor || undefined }}
-                        >
-                          {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
-                        </span>
-                        {/* Shown whenever the product HAS one. It used to also
-                            require settings.showCompareAtPrice, so a creator who
-                            had entered a compare-at price still saw no discount
-                            unless they found a second toggle — the saving simply
-                            did not appear. A price to compare against is the
-                            creator saying "show this". */}
-                        {product.compare_at_cents != null &&
-                          product.compare_at_cents > product.price_cents && (
-                            <span
-                              className={cn(
-                                "text-xs line-through",
-                                !cardPriceColor && "text-muted-foreground/70",
-                              )}
-                              style={{ color: cardPriceColor ? `${cardPriceColor}99` : undefined }}
-                            >
-                              {formatPrice(product.compare_at_cents)}
-                            </span>
-                          )}
-                      </div>
-                    )}
-                  </div>
-                </>
+                <StorefrontProductCard
+                  product={product}
+                  formatPrice={formatPrice}
+                  creatorName={creatorName}
+                  showPrice={settings.showPrice}
+                  textColor={cardTextColor}
+                  priceColor={cardPriceColor}
+                />
               )
 
               if (isPreviewMode) {
@@ -2828,8 +2758,18 @@ export function UnifiedShopHeader({
 
             They are rendered in ONE place. Do not add a second copy here.
           */}
+          {/*
+            Bottom-right of the cover, not top-right. Up there it sat level with
+            whatever the page has above the cover — the subscribe bar's own
+            button, in practice — and read as part of that row rather than as
+            something belonging to the banner. Down here it is clearly the
+            cover's own control, and the avatar straddles the bottom CENTRE so
+            the two never collide.
+          */}
           {ownerActions && (
-            <div className={cn("absolute z-[6]", isMobile ? "top-2 right-2" : "top-4 right-4")}>{ownerActions}</div>
+            <div className={cn("absolute z-[6]", isMobile ? "bottom-3 right-3" : "bottom-4 right-4")}>
+              {ownerActions}
+            </div>
           )}
 
           {!isPreviewMode && onSelect && (

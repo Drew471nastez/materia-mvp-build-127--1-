@@ -948,37 +948,126 @@ check(
 )
 
 check(
-  "featured product cards stay stripped down",
+  "there is ONE product card, and it is the one that was asked for",
   (() => {
     /**
-     * Asked for repeatedly, so it is pinned: no type chip, no description, the
-     * compare-at price whenever the product HAS one (it used to need a second
-     * toggle nobody found, so an entered discount simply did not appear), and
-     * a 600-weight price that is the firmest thing on the card without
-     * shouting over the title.
+     * THE SHAPE, asked for more than once and pinned so it stops drifting:
      *
-     * The image carries `quality` and real `sizes` so the browser fetches
-     * roughly the pixels it will paint, and no ref-driven opacity — that was a
-     * real bug, not clutter: a failed image never fired onLoad and the card
-     * stayed permanently blank.
+     *     4:5 image, discount badge if there is one
+     *     Product name
+     *     Creator · Category
+     *     €29   €230
+     *
+     * No type chip — "PRODUCT" over every card in a grid of products is a word
+     * that never distinguishes anything. No description: a grid is scanned, not
+     * read. Price at 600, firm without shouting over the title.
+     *
+     * AND ONE OF IT. The Featured rail and the Products tab render the same
+     * component. The way this goes wrong is that somebody needs a second grid,
+     * copies the markup, and the two drift until they are visibly different
+     * products from different sites on the same page — which is the exact
+     * failure this file already carries two other guards for.
+     *
+     * Measured in a browser: the image box came back at 0.800, which is 4:5,
+     * and a $92-from-$230 product produced "60% off".
      */
-    const src = code("components/store-builder/unified-section-renderer.tsx")
-    const featured = src.slice(src.indexOf("function UnifiedFeaturedProductsSection"))
-    const card = featured.slice(0, featured.indexOf("function ", 40))
+    const card = code("components/storefront/product-card.tsx")
+    const featured = code("components/store-builder/unified-section-renderer.tsx")
+    const grid = code("components/storefront/all-products-grid.tsx")
     const missing: string[] = []
 
-    if (/\{product\.description\}/.test(card)) missing.push("the description is back on the featured card")
-    if (/PRODUCT/.test(card)) missing.push("the type chip is back on the featured card")
+    // The shape.
+    if (!/aspect-\[4\/5\]/.test(card)) missing.push("the card image is not 4:5 any more")
+    if (/\{product\.description\}/.test(card)) missing.push("the description is back on the card")
+    if (/>PRODUCT|PRODUCT</.test(card)) missing.push("the type chip is back on the card")
     if (!/font-semibold tracking-tight/.test(card)) missing.push("the price is no longer 600 weight")
     if (/settings\.showCompareAtPrice/.test(card))
       missing.push("the compare-at price is gated on a toggle again — entered discounts will not show")
-    if (!/product\.compare_at_cents > product\.price_cents/.test(card))
-      missing.push("the compare-at price is gone from the featured card")
-    if (!/quality=\{72\}/.test(card) || !/sizes="/.test(card))
-      missing.push("the card image is unoptimised again")
+    if (!/compare_at_cents > product\.price_cents/.test(card)) missing.push("the compare-at price is gone")
+    if (!/discountPercent/.test(card)) missing.push("the discount badge is gone")
+    if (!/\[creatorName, category\]/.test(card)) missing.push("the Creator · Category line is gone")
+
+    // Performance, and a bug that has been fixed once already.
+    if (!/quality=\{72\}/.test(card) || !/sizes="/.test(card)) missing.push("the card image is unoptimised again")
     if (/el\.style\.opacity = "0"/.test(card))
       missing.push("the ref-driven opacity is back — a failed image leaves the card blank forever")
 
+    // One of it.
+    if ((card.match(/aspect-\[4\/5\]/g)?.length ?? 0) !== 1)
+      missing.push("more than one card image block inside the card component")
+    for (const [name, src] of [
+      ["the featured rail", featured],
+      ["the products tab", grid],
+    ] as const) {
+      if (!/<StorefrontProductCard/.test(src)) missing.push(`${name} no longer renders the shared card`)
+      if (/aspect-\[4\/5\]/.test(src)) missing.push(`${name} has its own copy of the card markup`)
+    }
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the storefront tabs cost nothing to switch, and claim nothing that does not exist",
+  (() => {
+    /**
+     * Both panels are rendered ON THE SERVER and handed to the tab strip as
+     * props, so switching is a visibility change — no fetch, no spinner, no
+     * second render of the sections — and Home is in the first HTML a visitor
+     * or a crawler receives. A tab strip that fetches its panel on click would
+     * undo every batching fix above it in this file.
+     *
+     * Inactive panels stay MOUNTED and hidden. Unmounting them would rebuild
+     * the sections and re-request their images on every switch back.
+     *
+     * The design also has a "Communities" tab — a paid membership a creator
+     * sells. Storelib has no such thing: `community_posts` is the creator's own
+     * dashboard feed, not something anyone joins or is charged for. So there is
+     * no tab for it, and this asserts none was invented, because a tab onto an
+     * empty panel is worse than no tab. The list is data so that the day paid
+     * communities exist they get a tab by appearing in it.
+     */
+    const tabs = code("components/storefront/storefront-tabs.tsx")
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const missing: string[] = []
+
+    if (/fetch\(|useEffect/.test(tabs))
+      missing.push("the tab strip fetches or runs an effect — panels are server-rendered props")
+    if (!/hidden=\{tab\.id !== active\}/.test(tabs))
+      missing.push("inactive panels are unmounted instead of hidden — every switch back rebuilds them")
+    if (!/if \(tabs\.length < 2\) return/.test(tabs))
+      missing.push("a lone tab renders a strip — that is a button onto what is already on screen")
+
+    if (!/label: "Home"/.test(page)) missing.push("the Home tab is gone")
+    if (!/label: "Products"/.test(page)) missing.push("the Products tab is gone")
+    if (/label: "Communities"/.test(page))
+      missing.push("a Communities tab was added with no feature behind it — it would open an empty panel")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the owner's edit control sits low on the cover",
+  (() => {
+    /**
+     * Top-right put it level with whatever the page has above the cover — the
+     * subscribe bar's own button, in practice — so it read as part of that row
+     * rather than as the banner's own control. The avatar straddles the bottom
+     * CENTRE, so bottom-right is clear of it. Measured in a browser: the
+     * button's top edge falls in the lower half of the cover.
+     */
+    const header = code("components/store-builder/unified-section-renderer.tsx")
+    const slot = header.match(/\{ownerActions && \([\s\S]{0,320}?\)\}/)?.[0] ?? ""
+    const missing: string[] = []
+    if (!slot) missing.push("the owner-actions slot is gone from the cover")
+    else {
+      if (!/bottom-\d/.test(slot)) missing.push("the edit control is not anchored to the bottom of the cover")
+      if (/top-\d/.test(slot)) missing.push("the edit control is back at the top of the cover")
+      if (!/right-\d/.test(slot)) missing.push("the edit control is no longer right-aligned")
+    }
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),
