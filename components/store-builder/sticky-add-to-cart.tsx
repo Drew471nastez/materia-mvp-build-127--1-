@@ -111,7 +111,12 @@ export function EditorStickyAddToCart({
     if (onSelect) onSelect()
   }
 
-  const PriceBadge = () => (
+  /*
+    ELEMENTS AND A PLAIN FUNCTION, NOT COMPONENTS — see subscribe-bar.tsx.
+    An arrow component declared in a render body is a new type every render,
+    so React remounts its whole subtree each time instead of updating it.
+  */
+  const priceBadge = (
     <span
       className={cn(
         "font-bold shrink-0",
@@ -136,7 +141,7 @@ export function EditorStickyAddToCart({
   // Use textColor from settings if available, otherwise derive from background
   const contentTextColor = settings.textColor || (isDarkBg ? "#ffffff" : undefined)
 
-  const StarsDisplay = () => {
+  const starsDisplay = (() => {
     if (!hasReviews) return null
     return (
       <div className="flex items-center gap-1 shrink-0">
@@ -160,7 +165,7 @@ export function EditorStickyAddToCart({
         </span>
       </div>
     )
-  }
+  })()
 
   return (
     <>
@@ -187,7 +192,7 @@ export function EditorStickyAddToCart({
         )}
       >
         <div className={cn("flex items-center min-w-0 flex-1", isMobile ? "gap-3" : "gap-4")}>
-          <PriceBadge />
+          {priceBadge}
           <p
             className={cn("font-medium truncate", isMobile ? "text-sm" : "text-[15px]")}
             style={{ color: contentTextColor }}
@@ -198,7 +203,7 @@ export function EditorStickyAddToCart({
 
         <div className={cn("flex items-center shrink-0", isMobile ? "gap-4" : "gap-5")}>
           {/* Stars only show on DESKTOP in editor */}
-          {!isMobile && <StarsDisplay />}
+          {!isMobile && starsDisplay}
           <Button
             size="sm"
             type="button"
@@ -388,7 +393,12 @@ export function LiveStickyAddToCart({
     }
   }
 
-  const PriceBadge = ({ isDesktop = false }: { isDesktop?: boolean }) => (
+  /*
+    ELEMENTS AND A PLAIN FUNCTION, NOT COMPONENTS — see subscribe-bar.tsx.
+    An arrow component declared in a render body is a new type every render,
+    so React remounts its whole subtree each time instead of updating it.
+  */
+  const priceBadge = (isDesktop = false) => (
     <span
       className={cn(
         "font-bold shrink-0",
@@ -413,7 +423,7 @@ export function LiveStickyAddToCart({
   // Use textColor from settings if available, otherwise derive from background
   const contentTextColor = settings.textColor || (isDarkBg ? "#ffffff" : undefined)
 
-  const StarsDisplay = () => {
+  const starsDisplay = (() => {
     if (!hasReviews) return null
     return (
       <div className="flex items-center gap-1 shrink-0">
@@ -437,7 +447,7 @@ export function LiveStickyAddToCart({
         </span>
       </div>
     )
-  }
+  })()
 
   return (
     <>
@@ -469,7 +479,7 @@ export function LiveStickyAddToCart({
       >
         <div className="mx-auto w-full flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <PriceBadge />
+            {priceBadge(false)}
             <p
               className="text-sm font-medium truncate"
               style={{ color: contentTextColor }}
@@ -498,7 +508,7 @@ export function LiveStickyAddToCart({
       <div className="hidden sm:block py-3.5 px-[15px]">
         <div className="mx-auto w-full max-w-[1150px] flex items-center justify-between gap-5">
           <div className="flex items-center gap-4 min-w-0 flex-1">
-            <PriceBadge isDesktop />
+            {priceBadge(true)}
             <p
               className="text-[15px] font-semibold truncate"
               style={{ color: contentTextColor }}
@@ -507,7 +517,7 @@ export function LiveStickyAddToCart({
             </p>
           </div>
           <div className="flex items-center gap-5 shrink-0">
-            <StarsDisplay />
+            {starsDisplay}
             <Button
               type="button"
               size="sm"

@@ -317,9 +317,17 @@ export function ProductCreatorBar({
     }
   }
 
+  /*
+    ELEMENTS, NOT COMPONENTS — see the same note in subscribe-bar.tsx.
+
+    Declared as arrow components in a render body, each of these was a new
+    component type on every render, so React remounted the whole layout —
+    and the creator avatar's <img> with it — every time anything in the
+    builder re-rendered. As values, React updates them in place.
+  */
   // Mobile layout for store builder preview (375px canvas on desktop)
   // Fits within 375px without overflow
-  const EditorMobileLayout = () => (
+  const editorMobileLayout = (
     <div className="w-full py-4 px-3">
       <div className="flex items-center gap-2 w-full">
         <a
@@ -385,7 +393,7 @@ export function ProductCreatorBar({
   // COMPACT Mobile layout - for actual phone viewing store builder
   // Matches the desktop mobile preview style but fits on real phone screens
   // No seller name (no space), just avatar + input + full button
-  const CompactMobileLayout = () => (
+  const compactMobileLayout = (
     <form onSubmit={handleSubmit} className="w-full px-3 py-3.5">
       <div className="flex items-center gap-2 w-full justify-center">
         <a
@@ -450,7 +458,7 @@ export function ProductCreatorBar({
   )
 
   // Desktop layout for store builder preview
-  const DesktopLayout = () => (
+  const desktopLayout = (
     <div className={cn("py-[calc(0.625rem+5px)] px-4 sm:px-5")}>
       <div className={cn("mx-auto w-full", EDITOR_DESKTOP_MAX_W)}>
         <div className="w-full flex items-center justify-between gap-4">
@@ -529,11 +537,11 @@ export function ProductCreatorBar({
         <>
           {/* On actual small screens (real phone), show compact layout */}
           <div className="block sm:hidden">
-            <CompactMobileLayout />
+            {compactMobileLayout}
           </div>
           {/* On actual large screens (desktop with mobile preview), show original mobile layout */}
           <div className="hidden sm:block">
-            <EditorMobileLayout />
+            {editorMobileLayout}
           </div>
         </>
       ) : (
@@ -541,10 +549,10 @@ export function ProductCreatorBar({
         // But if actual viewport is small (real phone editing desktop view), show compact
         <>
           <div className="block sm:hidden">
-            <CompactMobileLayout />
+            {compactMobileLayout}
           </div>
           <div className="hidden sm:block">
-            <DesktopLayout />
+            {desktopLayout}
           </div>
         </>
       )}

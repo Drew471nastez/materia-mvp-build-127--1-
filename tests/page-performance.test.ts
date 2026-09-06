@@ -733,6 +733,75 @@ check(
   })(),
 )
 
+check(
+  "no store-builder component is declared inside another one's render",
+  (() => {
+    /**
+     * THE BUG BEHIND "the avatar flashes and glitches randomly when I click".
+     *
+     * subscribe-bar.tsx declared `const MobileContent = () => (…)` and
+     * `const DesktopContent = () => (…)` in its render body and rendered them
+     * as `<MobileContent />`. A function declared in a render body is a NEW
+     * component type on every render, and React reconciles by type — so every
+     * re-render of the bar unmounted the entire subtree and mounted a fresh
+     * one. The avatar's <img> was destroyed and recreated each time, and every
+     * click anywhere in the builder re-renders the canvas.
+     *
+     * Proven in a browser both ways, by tagging the <img> node and forcing two
+     * re-renders: the tagged node was GONE with the inner components, and
+     * survives without them.
+     *
+     * The same shape was in product-creator-bar.tsx (three layouts, another
+     * avatar), sticky-add-to-cart.tsx, and the rich-text editor's 13 toolbar
+     * buttons. Elements and plain values reconcile in place; components
+     * declared per-render never can.
+     *
+     * The check is deliberately whole-directory: this is a defect class, not
+     * four bugs, and the next one will arrive in a file that is not listed.
+     */
+    const dir = "components/store-builder"
+    const offenders: string[] = []
+
+    for (const file of readdirSync(join(root, dir))) {
+      if (!file.endsWith(".tsx")) continue
+      const src = code(`${dir}/${file}`)
+      const lines = src.split("\n")
+      for (let i = 0; i < lines.length; i++) {
+        // Indented => nested inside something (a render body). A capitalised
+        // binding is a component by convention.
+        const m = lines[i].match(/^\s+(?:const|let)\s+([A-Z][A-Za-z0-9_]*)\s*=/)
+        if (!m) continue
+        const name = m[1]
+
+        // Is the right-hand side a FUNCTION EXPRESSION? `const Icon = tab.icon`
+        // holds a component someone else declared and keeps a stable identity —
+        // that is fine and must not be flagged. Only a function written here is
+        // a new type per render.
+        const rhs = lines[i].slice(lines[i].indexOf("=") + 1).trim()
+        const inlineFn = /^(async\s+)?(\(|function\b|[A-Za-z_$][\w$]*\s*=>)/.test(rhs) && /=>|\bfunction\b/.test(rhs)
+        // Props destructured across lines put the arrow further down, which is
+        // exactly how the toolbar button was written.
+        const opensParams = /^(async\s+)?\(\{?$/.test(rhs)
+        const continued =
+          opensParams &&
+          lines.slice(i + 1, i + 12).some((l) => /^\s*\}?\)\s*(:[^=]*)?=>/.test(l) || /\bfunction\b/.test(l))
+        if (!inlineFn && !continued) continue
+
+        // A stable identity is fine: memoised, or picked out of a map/import.
+        if (/useMemo|useCallback|React\.memo|\bmemo\(/.test(lines[i])) continue
+
+        // Only a problem if it is actually RENDERED as a component.
+        if (!new RegExp(`<${name}[\\s/>]`).test(src)) continue
+
+        offenders.push(`${dir}/${file}:${i + 1}  ${name} — remounts its whole subtree every render`)
+      }
+    }
+
+    if (offenders.length) console.log("        " + offenders.join("\n        "))
+    return offenders.length === 0
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

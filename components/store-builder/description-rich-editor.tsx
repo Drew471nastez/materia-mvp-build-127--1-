@@ -1472,40 +1472,57 @@ export function DescriptionRichEditor({
     }
   }, [handleContentChange])
 
-  // Toolbar button component - fixed for single click
-  const ToolbarButton = ({
-    onClick,
-    active = false,
-    children,
-    title,
-  }: {
-    onClick: () => void
-    active?: boolean
-    children: React.ReactNode
-    title?: string
-  }) => (
-    <button
-      type="button"
-      onMouseDown={(e) => {
-        e.preventDefault() // Prevent focus loss from editor
-      }}
-      onClick={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        onClick()
-      }}
-      title={title}
-      className={cn(
-        "p-1.5 sm:p-2 rounded transition-colors",
-        !active && "hover:opacity-80"
-      )}
-      style={{
-        backgroundColor: active ? hoverBgColor : "transparent",
-        color: active ? accentColor : fgColor,
-      }}
-    >
-      {children}
-    </button>
+  /*
+    Toolbar button component - fixed for single click.
+
+    WRAPPED IN useMemo SO ITS IDENTITY IS STABLE. React reconciles by component
+    type, and a function declared plainly in a render body is a new type every
+    render — which unmounted and remounted all 13 toolbar buttons on every
+    keystroke. Same defect that made the store-builder avatar flash; see the
+    note in subscribe-bar.tsx.
+
+    The closure over the theme colours is why this is memoised rather than
+    hoisted to module scope: identity only changes when a colour does.
+  */
+  const ToolbarButton = React.useMemo(
+    () =>
+      function ToolbarButton({
+        onClick,
+        active = false,
+        children,
+        title,
+      }: {
+        onClick: () => void
+        active?: boolean
+        children: React.ReactNode
+        title?: string
+      }) {
+        return (
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault() // Prevent focus loss from editor
+          }}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onClick()
+          }}
+          title={title}
+          className={cn(
+            "p-1.5 sm:p-2 rounded transition-colors",
+            !active && "hover:opacity-80"
+          )}
+          style={{
+            backgroundColor: active ? hoverBgColor : "transparent",
+            color: active ? accentColor : fgColor,
+          }}
+        >
+          {children}
+        </button>
+        )
+      },
+    [hoverBgColor, accentColor, fgColor],
   )
 
   const iconSize = isMobile ? "h-4 w-4" : "h-5 w-5"

@@ -676,8 +676,25 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
     }
   }
 
+  /*
+    THESE ARE ELEMENTS, NOT COMPONENTS. DO NOT TURN THEM BACK INTO `() => (...)`.
+
+    They used to be declared as arrow components in this render body and
+    rendered as `<... />`. A function declared inside a render body is a NEW
+    component type on every render, and React reconciles by type — so every
+    single re-render of this bar unmounted the whole subtree and mounted a
+    fresh one. The avatar's <img> was destroyed and recreated each time, which
+    is why the profile picture in the store-builder canvas flashed and
+    "glitched randomly when I click things": every click re-renders the canvas.
+
+    Someone had already noticed the symptom and memoised the avatar ELEMENTS
+    further up to stop it. That could never work — a memoised element is still
+    thrown away when the component it sits inside is remounted.
+
+    As plain values the element type stays `div`, so React updates in place.
+  */
   // Mobile layout content
-  const MobileContent = () => (
+  const mobileContent = (
     <div className="flex flex-col items-center gap-2">
       {/* Custom placeholder color styles */}
       {placeholderStyleCSS && <style dangerouslySetInnerHTML={{ __html: placeholderStyleCSS }} />}
@@ -721,7 +738,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
   )
 
   // Desktop layout content
-  const DesktopContent = () => (
+  const desktopContent = (
     <>
       {/* Custom placeholder color styles */}
       {placeholderStyleCSS && <style dangerouslySetInnerHTML={{ __html: placeholderStyleCSS }} />}
@@ -822,7 +839,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
         color: textColor,
       }}
     >
-      {isMobile ? <MobileContent /> : <DesktopContent />}
+      {isMobile ? mobileContent : desktopContent}
     </div>
   )
 }
