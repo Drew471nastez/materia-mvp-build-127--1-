@@ -139,10 +139,34 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     })
   }
 
-  const subscribeBarSettings =
+  /**
+   * The preview has to agree with the live storefront, so it applies the same
+   * two rules as app/(marketing)/u/[username]/page.tsx:
+   *
+   *   - the bar always renders (its visibility toggle is gone), and
+   *   - sticky is on unless the creator has actually moved the switch, which
+   *     `stickyBarChoiceMade` is what records — a stored `false` on its own
+   *     is a default that got saved past, not a decision.
+   *
+   * Without this a creator who has an old `visible: false` or the legacy
+   * `enableStickyBar: false` sees one thing here and a different thing on
+   * their page.
+   */
+  const rawSubscribeBar =
     currentPageType === "shop"
       ? (draftConfig.headerSettings as ShopHeaderSettings).subscribeBar || defaultSubscribeBarSettings
       : null
+
+  const subscribeBarSettings = rawSubscribeBar
+    ? {
+        ...rawSubscribeBar,
+        visible: true,
+        enableStickyBar: rawSubscribeBar.stickyBarChoiceMade ? (rawSubscribeBar.enableStickyBar ?? true) : true,
+        enableStickyOnScrollUp: rawSubscribeBar.stickyBarChoiceMade
+          ? (rawSubscribeBar.enableStickyOnScrollUp ?? true)
+          : true,
+      }
+    : null
 
   const headerSettings = draftConfig.headerSettings as ShopHeaderSettings
   const avatarUrl =
@@ -681,9 +705,11 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               ) : null
             })()}
 
-            {/* Subscribe Bar - Always render inside canvas when visible
-                Uses CSS sticky positioning which works within the scrollable canvas */}
-            {subscribeBarSettings?.visible && (
+            {/* Subscribe Bar - always rendered on the shop page (it has no
+                visibility toggle any more; `subscribeBarSettings` is null for
+                other page types). Uses CSS sticky positioning, which works
+                within the scrollable canvas. */}
+            {subscribeBarSettings && (
               <EditorSubscribeBar
                 settings={
                   {

@@ -4071,25 +4071,32 @@ function SubscribeBarSettingsForm({
 
   return (
     <div className="space-y-6">
-      <ToggleField
-        label="Show Subscribe Bar"
-        checked={safeSettings.visible}
-        onChange={(checked) => onChange({ visible: checked })}
-        description="Display newsletter signup bar above the header"
-      />
+      {/*
+        There is no "Show Subscribe Bar" toggle any more. The bar is the one
+        control on a creator page with a job to do — it always renders, and
+        the storefront ignores any `visible: false` still sitting in an old
+        saved config. What follows tunes it; nothing here can turn it off.
+      */}
 
       <ToggleField
         label="Enable Sticky Bar"
-        checked={safeSettings.enableStickyBar ?? false}
-        onChange={(checked) => onChange({ enableStickyBar: checked })}
+        /*
+          Defaults to ON. Reading `?? true` is only half of it — see
+          `stickyBarChoiceMade` in SubscribeBarSettings for why a stored
+          `false` cannot be trusted until a creator has actually touched this.
+          Moving either switch records the choice, and from then on the
+          storefront honours it exactly, off included.
+        */
+        checked={safeSettings.stickyBarChoiceMade ? (safeSettings.enableStickyBar ?? true) : true}
+        onChange={(checked) => onChange({ enableStickyBar: checked, stickyBarChoiceMade: true })}
         description="Bar sticks to top when scrolling"
       />
 
-      {safeSettings.enableStickyBar && (
+      {(safeSettings.stickyBarChoiceMade ? (safeSettings.enableStickyBar ?? true) : true) && (
         <ToggleField
           label="Enable Sticky on Scroll Up"
-          checked={safeSettings.enableStickyOnScrollUp ?? false}
-          onChange={(checked) => onChange({ enableStickyOnScrollUp: checked })}
+          checked={safeSettings.stickyBarChoiceMade ? (safeSettings.enableStickyOnScrollUp ?? true) : true}
+          onChange={(checked) => onChange({ enableStickyOnScrollUp: checked, stickyBarChoiceMade: true })}
           description="Bar smoothly appears when scrolling up, hides when scrolling down"
         />
       )}

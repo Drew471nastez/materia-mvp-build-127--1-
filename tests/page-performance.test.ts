@@ -493,40 +493,100 @@ check(
 )
 
 check(
-  "the creator storefront's subscribe bar sticks on scroll up",
+  "the creator storefront's subscribe bar sticks on scroll up, and stays toggleable",
   (() => {
     /**
-     * THE BUG THIS EXISTS FOR, WHICH TOOK ME TWO GOES TO FIND.
+     * THIS TOOK FOUR ATTEMPTS. THE HISTORY IS THE POINT.
      *
-     * Sticky-on-scroll-up already existed and I "enabled" it by flipping the
-     * shared default in lib/store-builder/defaults.ts. Nothing changed, because
-     * the storefront page NEVER READS that default: it builds its own settings
-     * object with `savedSettings.enableStickyBar ?? false` hardcoded, and a
-     * second hardcoded false for creators with no config at all. Two fallbacks
-     * in a page, quietly overriding the file whose whole job is to hold them.
+     *   1. Flipped the default in lib/store-builder/defaults.ts. Nothing
+     *      changed — the storefront page never reads that file, it builds its
+     *      own settings object.
+     *   2. Changed the page's fallback to `?? true`. Nothing changed — the
+     *      builder writes the toggle out on every save whether or not anyone
+     *      touched it, and it defaulted to off, so nearly every stored config
+     *      holds an explicit `false`. `false ?? true` is `false`.
+     *   3. Hardcoded `true` in the page. The bar stuck — and the builder's
+     *      toggle stopped meaning anything, which was not acceptable.
+     *   4. `stickyBarChoiceMade`: the flag the builder sets the first time a
+     *      creator actually moves the switch. Absent -> platform default (on).
+     *      Present -> the stored value is honoured exactly, `false` included.
      *
-     * So this asserts the page, not the defaults file. A creator who has
-     * explicitly switched sticky off still has `false` stored and keeps it —
-     * `??` only decides for the ones who never touched the toggle.
+     * So the assertion is a property, not a shape: an untouched config must
+     * come out sticky, and a config the creator switched off must come out
+     * off. Both are evaluated below against the real expression lifted from
+     * the page, so a future edit that breaks either one fails here.
      */
     const page = code("app/(marketing)/u/[username]/page.tsx")
     const bar = code("components/store-builder/subscribe-bar.tsx")
+    const sidebar = code("components/store-builder/sections-sidebar.tsx")
+    const preview = code("components/store-builder/preview-canvas.tsx")
+    const migrations = readdirSync(join(root, "supabase/migrations"))
+      .map((f) => readFileSync(join(root, "supabase/migrations", f), "utf8"))
+      .join("\n")
 
     const missing: string[] = []
+
     /**
-     * `?? true` was not enough and this is the third attempt. The builder writes
-     * the toggle out whether or not anyone touched it, so nearly every saved
-     * config carries an explicit `false` — and `false ?? true` is `false`. The
-     * storefront decides outright now, so what is asserted is that no `false`
-     * survives anywhere in this page's subscribe settings.
+     * THE PAGE'S OWN EXPRESSION IS LIFTED OUT AND RUN. Not a copy of it.
+     *
+     * The first version of this check declared its own `decide()` alongside
+     * and asserted that — which passes no matter what the page does. I proved
+     * that by reverting the page to the naive `?? true` and to the hardcoded
+     * `true`, and it stayed green through both. A test that restates the
+     * logic tests nothing; that is the same class of mistake as asserting a
+     * code shape instead of a property, which is what let attempt 3 through.
+     *
+     * So: extract `stickyDefaults` from the source, strip the TS annotation,
+     * evaluate it, and put the four cases that matter through the real thing.
      */
+    const decl = page.match(/const stickyDefaults = \(saved[^)]*\) =>[\s\S]*?\n\n/)?.[0]
+    if (!decl) {
+      missing.push("storefront: stickyDefaults is gone — the sticky decision moved or was inlined")
+    } else {
+      const src = decl.replace(/saved\?: [^)]*\)/, "saved)").trim()
+      // eslint-disable-next-line no-new-func
+      const decide = new Function(`${src}; return stickyDefaults`)() as (
+        saved?: Record<string, unknown>,
+      ) => { enableStickyBar: boolean }
+
+      const sticky = (saved?: Record<string, unknown>) => decide(saved).enableStickyBar
+
+      if (sticky(undefined) !== true) missing.push("a storefront with no saved config is not sticky")
+      if (sticky({}) !== true) missing.push("an untouched saved config is not sticky")
+      if (sticky({ enableStickyBar: false }) !== true)
+        missing.push("a legacy stored false (no explicit choice) still wins — the whole bug")
+      if (sticky({ enableStickyBar: false, stickyBarChoiceMade: true }) !== false)
+        missing.push("a creator who switched sticky off is being overridden — the toggle is dead again")
+      if (sticky({ enableStickyBar: true, stickyBarChoiceMade: true }) !== true)
+        missing.push("a creator who switched sticky on is being overridden")
+    }
+
     if (/enableStickyBar:\s*(savedSettings\.enableStickyBar \?\? )?false/.test(page))
       missing.push("storefront: sticky can be false again — a stored false will win")
-    if (/enableStickyOnScrollUp:\s*(savedSettings\.enableStickyOnScrollUp \?\? )?false/.test(page))
-      missing.push("storefront: scroll-up reveal can be false again")
-    if ((page.match(/enableStickyBar:\s*true/g)?.length ?? 0) < 2)
-      missing.push("storefront: both subscribe-settings branches must pin the bar")
-    // And the bar must still actually do something with it.
+    // The bar itself: both branches of the builder pin `visible`, so a stale
+    // `visible: false` in somebody's saved config cannot hide it any more.
+    if (/visible:\s*savedSettings\.visible/.test(page))
+      missing.push("storefront: the bar reads a `visible` the builder can no longer set")
+    if ((page.match(/visible:\s*true/g)?.length ?? 0) < 2)
+      missing.push("storefront: both subscribe-settings branches must render the bar")
+
+    // ── The toggle must still exist and still record the choice ─────────────
+    if (!/stickyBarChoiceMade:\s*true/.test(sidebar))
+      missing.push("store builder: the sticky toggle no longer records that a choice was made")
+    if (!/label="Enable Sticky Bar"/.test(sidebar))
+      missing.push("store builder: the sticky toggle is gone — creators must be able to switch it off")
+
+    // ── The bar itself is not optional any more ─────────────────────────────
+    if (/description="Display newsletter signup bar above the header"/.test(sidebar))
+      missing.push("store builder: the subscribe-bar visibility toggle is back")
+    if (/subscribeBarSettings\?\.visible &&/.test(preview))
+      missing.push("store builder preview: still gates the bar on a `visible` that can no longer be set")
+
+    // ── The migration that normalises the legacy rows ───────────────────────
+    if (!/stickyBarChoiceMade/.test(migrations))
+      missing.push("no migration backfills the legacy stored false")
+
+    // ── And the bar must still actually do something with it ────────────────
     if (!/fixed left-0 right-0/.test(bar))
       missing.push("subscribe bar: sticky mode no longer pins the bar")
     if (!/!isVisible && settings\.enableStickyOnScrollUp && "-translate-y-full"/.test(bar))
@@ -534,6 +594,59 @@ check(
     // Smoothed, not per-event: this used to setState on every scroll frame.
     if (!/requestAnimationFrame\(evaluate\)/.test(bar))
       missing.push("subscribe bar: scroll handler is no longer frame-throttled")
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "BodyScrollRestorer cannot slam Radix overlays shut",
+  (() => {
+    /**
+     * THE BUG: EVERY <Select> ON THE PLATFORM WAS BROKEN, FOR MONTHS.
+     *
+     * Opening a Radix Select mounts its content through react-remove-scroll,
+     * which puts `data-scroll-locked` on <html>. BodyScrollRestorer's
+     * MutationObserver fired on that; its `hasOpenOverlay()` knew only about
+     * dialogs and sheets, so it decided the lock was orphaned and ran
+     * `repair()` — which dispatches a synthetic window `resize`. Radix Select
+     * registers `window.addEventListener("resize", close)`. Click a select,
+     * it opens, and one microtask later this component closed it again.
+     *
+     * Dropdowns and popovers survived because they reposition on resize
+     * rather than closing, which is exactly why it looked select-specific.
+     *
+     * Verified in a real browser before and after: trigger `data-state`
+     * stayed "closed" on click before the fix, "open" after.
+     */
+    const restorer = code("components/body-scroll-restorer.tsx")
+    const select = code("components/ui/select.tsx")
+    const missing: string[] = []
+
+    // Every layer that legitimately locks scroll has to be recognised.
+    for (const marker of [
+      "data-radix-popper-content-wrapper",
+      "select-content",
+      "dialog-content",
+      "sheet-content",
+    ]) {
+      if (!restorer.includes(marker))
+        missing.push(`overlay detection no longer covers ${marker} — its layers will be force-closed`)
+    }
+
+    // repair() must be inert when nothing is stuck or an overlay owns the lock.
+    if (!/function repair\(\)\s*\{\s*if \(!isScrollLocked\(\) \|\| hasOpenOverlay\(\)\) return/.test(restorer))
+      missing.push("repair() runs unconditionally again — it will fire a resize into a working page")
+
+    // The synthetic resize is the actual weapon; it must stay behind repair().
+    const dispatches = restorer.match(/dispatchEvent\(new Event\("resize"\)\)/g)?.length ?? 0
+    if (dispatches !== 1)
+      missing.push(`expected exactly one synthetic resize behind the guard, found ${dispatches}`)
+
+    // The other half of the store-builder report: 93px-wide selects.
+    if (/flex w-fit items-center justify-between/.test(select))
+      missing.push("SelectTrigger is back to w-fit — every select in the app shrinks to its text")
+
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),

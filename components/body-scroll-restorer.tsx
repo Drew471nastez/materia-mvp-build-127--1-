@@ -11,7 +11,59 @@ import { usePathname } from "next/navigation"
  *
  * Uses a MutationObserver to catch scroll locks that get re-applied
  * AFTER initial cleanup (e.g., by react-remove-scroll during teardown).
+ *
+ * ===========================================================================
+ *  THIS COMPONENT ONCE BROKE EVERY <Select> ON THE PLATFORM. READ THIS.
+ * ===========================================================================
+ *
+ * Opening a Radix Select mounts its content through react-remove-scroll,
+ * which puts `data-scroll-locked` on <html>. The attribute observer below
+ * fired, `hasOpenOverlay()` only knew about dialogs and sheets, so it
+ * concluded the lock was orphaned and ran `repair()` — which dispatches a
+ * synthetic window `resize`. Radix Select closes itself on `resize`
+ * (react-select's content registers `window.addEventListener("resize", close)`).
+ *
+ * So: click a select, it opens, and one microtask later this component
+ * closed it. Every select, on every page, since the observer was added.
+ * Dropdowns and popovers survived only because they reposition on resize
+ * instead of closing, which is why the bug looked select-specific.
+ *
+ * Two rules keep it fixed:
+ *
+ *   1. `hasOpenOverlay()` must recognise EVERY layer that legitimately locks
+ *      scroll — not just the two that were in the file when it was written.
+ *      If you add an overlay primitive, add its marker to OVERLAY_SELECTOR.
+ *   2. Nothing here may run while an overlay is open, and the synthetic
+ *      resize only goes out when a lock was actually found and cleared.
+ *      A `resize` that nobody asked for is not free: it closes selects,
+ *      re-runs every resize listener in the app, and re-measures layout.
  */
+
+/**
+ * Every marker that means "a real overlay is mounted right now".
+ *
+ * `[data-radix-popper-content-wrapper]` is the generic one — Radix wraps all
+ * popper-positioned content in it (select, dropdown, popover, context menu,
+ * menubar, hover card, tooltip), so new primitives are covered without an
+ * edit here. The explicit slots cover the layers that are NOT popper-based
+ * (dialog, alert dialog, sheet) plus vaul drawers and cmdk dialogs.
+ *
+ * Content stays mounted through the close animation, so this also stops us
+ * yanking the lock out mid-exit.
+ */
+const OVERLAY_SELECTOR = [
+  "[data-radix-popper-content-wrapper]",
+  '[data-slot="dialog-content"]',
+  '[data-slot="sheet-content"]',
+  '[data-slot="alert-dialog-content"]',
+  '[data-slot="select-content"]',
+  '[data-slot="dropdown-menu-content"]',
+  '[data-slot="popover-content"]',
+  "[data-vaul-drawer]",
+  "[cmdk-dialog]",
+  '[role="dialog"]',
+  '[role="alertdialog"]',
+].join(", ")
 
 function isScrollLocked(): boolean {
   const html = document.documentElement
@@ -28,12 +80,7 @@ function isScrollLocked(): boolean {
 }
 
 function hasOpenOverlay(): boolean {
-  // Check if any Radix dialog/sheet content is currently in the DOM.
-  // This covers both open state AND close animation (content stays mounted
-  // during exit animation), so we don't yank scroll-lock mid-animation.
-  return !!document.querySelector(
-    '[data-slot="dialog-content"], [data-slot="sheet-content"]'
-  )
+  return !!document.querySelector(OVERLAY_SELECTOR)
 }
 
 function cleanScrollLocks() {
@@ -109,19 +156,18 @@ function forceScrollRecalculation() {
   window.scrollTo(0, window.scrollY)
 }
 
+/**
+ * Clears a stuck scroll lock — and does NOTHING when there is nothing stuck.
+ *
+ * The early return is the whole point. Before it, `repair()` ran on every
+ * navigation and on six timers afterwards, each one dispatching a synthetic
+ * resize into a page that was working fine. Now the resize only goes out
+ * behind an actual lock we just removed.
+ */
 function repair() {
+  if (!isScrollLocked() || hasOpenOverlay()) return
   cleanScrollLocks()
   forceScrollRecalculation()
-}
-
-/**
- * Runs cleanup only when scroll IS locked AND no dialog/sheet is open.
- * Safe to call frequently — it's a no-op when scroll is fine.
- */
-function guardedRepair() {
-  if (isScrollLocked() && !hasOpenOverlay()) {
-    repair()
-  }
 }
 
 export function BodyScrollRestorer() {
@@ -139,7 +185,7 @@ export function BodyScrollRestorer() {
     // react-remove-scroll's teardown can fire after our timers, re-adding
     // data-scroll-locked to <html>. The observer catches that immediately.
     const attrObserver = new MutationObserver(() => {
-      guardedRepair()
+      repair()
     })
 
     attrObserver.observe(document.documentElement, {
@@ -159,11 +205,7 @@ export function BodyScrollRestorer() {
     const childObserver = new MutationObserver(() => {
       if (isScrollLocked() && !hasOpenOverlay()) {
         // Small delay to let react-remove-scroll finish its own teardown
-        setTimeout(() => {
-          if (isScrollLocked() && !hasOpenOverlay()) {
-            repair()
-          }
-        }, 100)
+        setTimeout(repair, 100)
       }
     })
 

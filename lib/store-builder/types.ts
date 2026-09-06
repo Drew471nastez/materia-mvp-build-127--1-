@@ -252,6 +252,24 @@ export interface SubscribeBarSettings extends BaseSectionSettings {
   style: "style1" | "style2" | "style3"
   enableStickyBar?: boolean // When on, bar sticks to top when scrolling
   enableStickyOnScrollUp?: boolean // When on, bar only shows when scrolling up (smooth behavior)
+  /**
+   * Set the first time a creator moves the sticky toggle themselves.
+   *
+   * `enableStickyBar` alone cannot carry the default, because the builder
+   * writes the whole settings object out on every save whether or not anyone
+   * touched that switch — and it defaulted to OFF for as long as it existed.
+   * So essentially every stored config on the platform holds an explicit
+   * `false` that never represented a decision, and `?? true` cannot see past
+   * it (`false ?? true` is `false`).
+   *
+   * This flag is what tells the two apart: absent means "nobody has chosen,
+   * use the platform default (sticky on)", present means "this creator
+   * decided, honour `enableStickyBar` exactly as stored — including off".
+   *
+   * The migration in supabase/migrations that backfills the legacy `false`s
+   * sets this too, so it stops mattering once that has run everywhere.
+   */
+  stickyBarChoiceMade?: boolean
   buttonStyle?: "style1" | "style2" | "style3" | "style4" // Button text style preset
 }
 

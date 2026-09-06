@@ -323,10 +323,42 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const buildSubscribeBarSettings = (headerSettings?: ShopHeaderSettings) => {
     const savedSettings = headerSettings?.subscribeBar
 
+    /**
+     * The sticky default, and why it is not just `?? true`.
+     *
+     * The builder writes the whole settings object out on every save whether
+     * or not anyone touched the sticky switch, and that switch defaulted to
+     * OFF for as long as it existed — so essentially every stored config on
+     * the platform carries an explicit `false` that never represented a
+     * decision. `?? true` cannot see past it: `false ?? true` is `false`.
+     * That is why the last two attempts at this changed nothing on the live
+     * page.
+     *
+     * `stickyBarChoiceMade` is the flag that separates a real choice from a
+     * default that got saved past. Absent -> nobody has chosen, the platform
+     * default (sticky, revealed on scroll up) applies. Present -> this
+     * creator moved the switch themselves, and their value is honoured
+     * exactly, `false` included. The builder sets it on either sticky
+     * toggle; the migration backfills it for configs that predate it.
+     */
+    const stickyDefaults = (saved?: ShopHeaderSettings["subscribeBar"]) =>
+      saved?.stickyBarChoiceMade
+        ? {
+            enableStickyBar: saved.enableStickyBar ?? true,
+            enableStickyOnScrollUp: saved.enableStickyOnScrollUp ?? true,
+          }
+        : { enableStickyBar: true, enableStickyOnScrollUp: true }
+
     // If there are saved settings from store builder, use them
     if (savedSettings) {
       return {
-        visible: savedSettings.visible ?? true,
+        /**
+         * ALWAYS VISIBLE. The "Show Subscribe Bar" toggle was deleted from the
+         * builder — the bar is the one control on a creator page with a job to
+         * do, and it is not optional. Old configs still hold `visible: false`;
+         * this ignores them on purpose.
+         */
+        visible: true,
 
         // ✅ IMPORTANT:
         // - if customCtaText is empty -> bar uses style text
@@ -353,35 +385,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         buttonColor: savedSettings.buttonColor || "#2563eb",
         buttonTextColor: savedSettings.buttonTextColor || "#ffffff",
         style: savedSettings.style || "style1",
-        /**
-         * STICKY IS DECIDED HERE, NOT BY THE STORED SETTING. Read the history
-         * before changing this back.
-         *
-         * The toggle has defaulted to OFF for as long as it has existed, and the
-         * builder writes the value out whether or not anyone touched it — so
-         * essentially every saved config on the platform carries an explicit
-         * `false`. `?? true` therefore fixed nothing for anybody who had ever
-         * opened the builder, which is why the bar still did not stick after the
-         * last two attempts: `false ?? true` is `false`.
-         *
-         * There is no way to tell a deliberate "off" from a default that was
-         * saved past. So the public storefront decides: the subscribe bar is the
-         * one control on a creator page with a job to do, and a subscribe field
-         * that has scrolled away cannot do it. It is pinned, and revealed on
-         * scroll up so it stays out of the way while somebody reads.
-         *
-         * THE COST, STATED PLAINLY: the builder's sticky toggle no longer
-         * changes the public page. To give it back its meaning, the stored
-         * values need migrating (an UPDATE over store_builder_configs setting
-         * the two flags true) and this can go back to reading the setting.
-         */
-        enableStickyBar: true,
-        enableStickyOnScrollUp: true,
+        ...stickyDefaults(savedSettings),
         buttonStyle: savedSettings.buttonStyle || "style1",
       }
     }
 
     return {
+      // Always visible — see the note above.
       visible: true,
       customCtaText: "",
       text: "",
@@ -397,9 +407,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       buttonColor: "#2563eb",
       buttonTextColor: "#ffffff",
       style: "style1" as const,
-      // The no-config storefront gets the same behaviour as a configured one.
-      enableStickyBar: true,
-      enableStickyOnScrollUp: true,
+      // A storefront with no saved config has certainly made no choice, so it
+      // gets the platform default like everyone else.
+      ...stickyDefaults(undefined),
       buttonStyle: "style1" as const,
     }
   }
