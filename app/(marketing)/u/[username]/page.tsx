@@ -353,16 +353,30 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         buttonColor: savedSettings.buttonColor || "#2563eb",
         buttonTextColor: savedSettings.buttonTextColor || "#ffffff",
         style: savedSettings.style || "style1",
-        // ?? true, not ?? false. This page hardcoded its own fallback, so the
-        // shared default in lib/store-builder/defaults.ts never reached the
-        // creator storefront at all — flipping it there changed nothing here,
-        // which is why the bar still did not stick.
-        //
-        // A creator who has explicitly turned sticky OFF still has `false`
-        // stored and keeps it; this only decides for the ones who never touched
-        // the toggle, which is everybody who has not gone looking for it.
-        enableStickyBar: savedSettings.enableStickyBar ?? true,
-        enableStickyOnScrollUp: savedSettings.enableStickyOnScrollUp ?? true,
+        /**
+         * STICKY IS DECIDED HERE, NOT BY THE STORED SETTING. Read the history
+         * before changing this back.
+         *
+         * The toggle has defaulted to OFF for as long as it has existed, and the
+         * builder writes the value out whether or not anyone touched it — so
+         * essentially every saved config on the platform carries an explicit
+         * `false`. `?? true` therefore fixed nothing for anybody who had ever
+         * opened the builder, which is why the bar still did not stick after the
+         * last two attempts: `false ?? true` is `false`.
+         *
+         * There is no way to tell a deliberate "off" from a default that was
+         * saved past. So the public storefront decides: the subscribe bar is the
+         * one control on a creator page with a job to do, and a subscribe field
+         * that has scrolled away cannot do it. It is pinned, and revealed on
+         * scroll up so it stays out of the way while somebody reads.
+         *
+         * THE COST, STATED PLAINLY: the builder's sticky toggle no longer
+         * changes the public page. To give it back its meaning, the stored
+         * values need migrating (an UPDATE over store_builder_configs setting
+         * the two flags true) and this can go back to reading the setting.
+         */
+        enableStickyBar: true,
+        enableStickyOnScrollUp: true,
         buttonStyle: savedSettings.buttonStyle || "style1",
       }
     }

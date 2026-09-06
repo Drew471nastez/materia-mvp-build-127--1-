@@ -3003,7 +3003,10 @@ export function UnifiedShopHeader({
                 <span>{productCount} products</span>
               </div>
 
-              {creator?.show_total_sales_badge && settings.showTotalSalesBadge && (
+              {/* Same rule as the About block: a sales count is only worth
+                  printing once there is one. "0 sales" beside the creator's
+                  name is among the first things a buyer reads about them. */}
+              {creator?.show_total_sales_badge && settings.showTotalSalesBadge && Number(totalSales) > 0 && (
                 <div
                   className={cn(
                     "flex items-center gap-2",

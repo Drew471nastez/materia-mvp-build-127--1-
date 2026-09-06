@@ -513,12 +513,19 @@ check(
     const bar = code("components/store-builder/subscribe-bar.tsx")
 
     const missing: string[] = []
-    if (/enableStickyBar:\s*savedSettings\.enableStickyBar \?\? false/.test(page))
-      missing.push("storefront: saved-config fallback is hardcoded to false again")
-    if (/enableStickyBar:\s*false/.test(page))
-      missing.push("storefront: no-config fallback is hardcoded to false again")
-    if (!/enableStickyBar:\s*savedSettings\.enableStickyBar \?\? true/.test(page))
-      missing.push("storefront: saved-config fallback no longer defaults to sticky")
+    /**
+     * `?? true` was not enough and this is the third attempt. The builder writes
+     * the toggle out whether or not anyone touched it, so nearly every saved
+     * config carries an explicit `false` — and `false ?? true` is `false`. The
+     * storefront decides outright now, so what is asserted is that no `false`
+     * survives anywhere in this page's subscribe settings.
+     */
+    if (/enableStickyBar:\s*(savedSettings\.enableStickyBar \?\? )?false/.test(page))
+      missing.push("storefront: sticky can be false again — a stored false will win")
+    if (/enableStickyOnScrollUp:\s*(savedSettings\.enableStickyOnScrollUp \?\? )?false/.test(page))
+      missing.push("storefront: scroll-up reveal can be false again")
+    if ((page.match(/enableStickyBar:\s*true/g)?.length ?? 0) < 2)
+      missing.push("storefront: both subscribe-settings branches must pin the bar")
     // And the bar must still actually do something with it.
     if (!/fixed left-0 right-0/.test(bar))
       missing.push("subscribe bar: sticky mode no longer pins the bar")
