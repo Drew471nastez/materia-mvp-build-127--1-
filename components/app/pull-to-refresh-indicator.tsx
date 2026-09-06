@@ -40,12 +40,17 @@ export function PullToRefreshIndicator({ pullDistance, phase, threshold = 72, to
   // Vertical position follows pull; pinned when refreshing; off-screen when idle.
   // During pulling/ready, center the indicator in the revealed gap (0 → pullDistance)
   // so it never overlaps the announcement bar that starts at y=pullDistance.
+  // While VISIBLE the indicator never rises above its anchor: it is centred in
+  // the gap the pull reveals, but clamped at 0 so a short pull (gap smaller than
+  // the ring) cannot lift it over whatever sits above — the purple announcement
+  // bar, in the dashboard's case. Only the hidden `idle` state goes negative,
+  // and that is how it parks off-screen at opacity 0.
   const translateY =
     phase === "refreshing"
       ? 10
       : phase === "idle"
         ? offScreen
-        : Math.max((pullDistance - size) / 2, offScreen)
+        : Math.max((pullDistance - size) / 2, 0)
 
   const containerOpacity =
     phase === "refreshing"

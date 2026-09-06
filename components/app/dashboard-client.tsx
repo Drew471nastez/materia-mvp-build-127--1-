@@ -1904,21 +1904,17 @@ export function DashboardClient({
       ref={scrollRef}
       className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container relative app-page-enter"
     >
-      {/* Pull-to-refresh indicator floats above content */}
-      {/* topOffset=0 positions the indicator in the gap between the fixed header
-          and the announcement bar — the bar slides down with content on pull,
-          revealing that gap, and the indicator appears perfectly centred within it */}
-      <PullToRefreshIndicator pullDistance={pullDistance} phase={pullPhase} topOffset={0} />
+      {/*
+        ANNOUNCEMENT BAR — ANCHORED, AND OUTSIDE THE PULL WRAPPER.
 
-      {/* Content wrapper that slides down during pull */}
-      <div
-        style={{
-          transform: `translateY(${contentTranslateY}px)`,
-          transition: contentTransition,
-          willChange: "transform",
-        }}
-      >
-      {/* Announcement Bar */}
+        It used to sit INSIDE the sliding content, so pulling to refresh pushed
+        the purple bar down the screen and opened a white gap between it and the
+        header, with the spinner sitting in that gap — above the bar, detached
+        from the page, over nothing. That is the thing that looked broken.
+
+        The bar stays put now. Only what is below it moves, so the gap the
+        spinner lives in opens UNDER the bar, where a refresh indicator belongs.
+      */}
       <div className="bg-[#8b5cf6] text-white">
         <div className="py-2 px-4 md:py-2.5">
           <div
@@ -1990,6 +1986,25 @@ export function DashboardClient({
           />
         </div>
       </div>
+
+      {/*
+        Everything below the anchored bar. `relative` makes this the positioning
+        context for the indicator, so topOffset=0 means "the top of the area
+        under the purple bar" rather than "the top of the page".
+
+        The indicator is absolute and pointer-events-none, so it neither takes up
+        layout space nor intercepts a tap meant for anything underneath it.
+      */}
+      <div className="relative">
+        <PullToRefreshIndicator pullDistance={pullDistance} phase={pullPhase} topOffset={0} />
+
+        <div
+          style={{
+            transform: `translateY(${contentTranslateY}px)`,
+            transition: contentTransition,
+            willChange: "transform",
+          }}
+        >
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {copyNotice && (
@@ -2687,7 +2702,8 @@ export function DashboardClient({
           }
         }
       `}</style>
-      </div>{/* end content translateY wrapper */}
+        </div>{/* end content translateY wrapper */}
+      </div>{/* end below-the-bar area that hosts the pull indicator */}
 
       {/* Bottom sheets rendered OUTSIDE transform wrapper — iOS position:fixed requires no ancestor transform */}
       <TimeframeBottomSheet

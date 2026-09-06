@@ -416,6 +416,44 @@ check(
   "        app/(marketing)/layout.tsx + conditional-header.tsx",
 )
 
+check(
+  "the pull-to-refresh spinner sits under the announcement bar and disturbs nothing",
+  (() => {
+    /**
+     * The bar used to be INSIDE the sliding content, so a pull pushed the purple
+     * bar down the screen and opened a white gap between it and the header, with
+     * the spinner floating in that gap above the bar, over nothing.
+     *
+     * The bar is anchored now and only what is below it moves, so the gap opens
+     * UNDER the bar. Three things have to hold, and the order is one of them:
+     * the bar must be rendered BEFORE the indicator's positioning context, or
+     * "topOffset from the top" means the top of the page again.
+     */
+    const dash = read("components/app/dashboard-client.tsx")
+    const indicator = code("components/app/pull-to-refresh-indicator.tsx")
+
+    const barAt = dash.indexOf('bg-[#8b5cf6] text-white')
+    const indicatorAt = dash.indexOf("<PullToRefreshIndicator")
+    const slideAt = dash.indexOf("translateY(${contentTranslateY}px)")
+
+    const missing: string[] = []
+    if (barAt < 0 || indicatorAt < 0 || slideAt < 0) missing.push("dashboard: bar, indicator or slide wrapper not found")
+    else {
+      if (!(barAt < indicatorAt)) missing.push("dashboard: spinner renders above the announcement bar")
+      // The bar must not be inside the thing that moves.
+      if (!(barAt < slideAt)) missing.push("dashboard: announcement bar is inside the sliding wrapper again")
+    }
+    // Out of flow and untappable, so it can never displace or swallow a control.
+    if (!/absolute[^"]*pointer-events-none/.test(indicator))
+      missing.push("indicator: not absolute + pointer-events-none")
+    // Only the hidden idle state may sit above the anchor.
+    if (!/Math\.max\(\(pullDistance - size\) \/ 2, 0\)/.test(indicator))
+      missing.push("indicator: visible position not clamped to its anchor")
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")
