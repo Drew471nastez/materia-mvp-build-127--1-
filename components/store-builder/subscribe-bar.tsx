@@ -228,20 +228,45 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
       return
     }
 
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY
+    /**
+     * Smoothed on purpose. The previous version called setIsVisible() on EVERY
+     * scroll event — a React re-render per scroll frame even when the answer had
+     * not changed — and flipped on a single pixel of movement, so the bar
+     * flickered in and out during the small jitter of a touch scroll or a
+     * trackpad's momentum.
+     *
+     * Three things fix that: the work is read once per animation frame rather
+     * than per event, a direction only counts once it exceeds a few pixels, and
+     * state is only set when the answer actually changes.
+     */
+    const DELTA = 6      // ignore jitter smaller than this
+    const TOP_ZONE = 50  // always visible near the top of the page
+    let ticking = false
 
-      // Show when scrolling up or at top
-      if (currentScrollY < lastScrollY.current || currentScrollY < 50) {
-        setIsVisible(true)
-      } else {
-        // Hide when scrolling down
-        setIsVisible(false)
+    const evaluate = () => {
+      ticking = false
+      const y = Math.max(window.scrollY, 0)
+      const moved = y - lastScrollY.current
+
+      if (y < TOP_ZONE) {
+        setIsVisible((v) => (v ? v : true))
+        lastScrollY.current = y
+        return
       }
+      if (Math.abs(moved) < DELTA) return   // too small to mean anything
 
-      lastScrollY.current = currentScrollY
+      const next = moved < 0                // moving up → show
+      setIsVisible((v) => (v === next ? v : next))
+      lastScrollY.current = y
     }
 
+    const handleScroll = () => {
+      if (ticking) return
+      ticking = true
+      window.requestAnimationFrame(evaluate)
+    }
+
+    lastScrollY.current = Math.max(window.scrollY, 0)
     window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
   }, [settings.enableStickyBar, settings.enableStickyOnScrollUp])

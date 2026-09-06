@@ -1217,8 +1217,16 @@ export const defaultSubscribeBarSettings: SubscribeBarSettings = {
   showAvatar: true,
   position: "top",
   style: "style1",
-  enableStickyBar: false, // Sticky disabled by default
-  enableStickyOnScrollUp: false, // Sticky on scroll up disabled by default
+  // Sticky, and revealed on scroll up. The bar is the one thing on a creator
+  // page with a job to do, and a subscribe field that has scrolled away cannot
+  // do it. Reveal-on-scroll-up rather than always-pinned so it is out of the way
+  // while somebody is reading down the page.
+  //
+  // A creator who has already saved a config keeps whatever they saved; this is
+  // the value for anyone who has never touched the toggle. Both remain settings
+  // in the builder's subscribe-bar panel.
+  enableStickyBar: true,
+  enableStickyOnScrollUp: true,
   buttonStyle: "style1", // Default button style
   spacing: {
     paddingTop: 12,

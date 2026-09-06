@@ -2555,14 +2555,28 @@ function UnifiedFeaturedProductsSection({
                 <>
                   <div className="aspect-video bg-muted relative overflow-hidden rounded-t-lg">
                     {product.thumbnail_url ? (
+                      /**
+                       * The opacity handling here was a real bug, not just
+                       * clutter: a ref set the image to opacity 0 whenever it
+                       * was not already complete, and only the onLoad handler
+                       * put it back. If the image FAILED — a dead URL, an
+                       * offline moment — onLoad never fires and the card was
+                       * left permanently blank with no way to recover.
+                       *
+                       * The fade is pure CSS now, so a broken image shows the
+                       * placeholder rather than a hole, and `quality` plus
+                       * accurate `sizes` mean the browser fetches roughly the
+                       * pixels it will actually paint instead of a full-size
+                       * original scaled down in the card.
+                       */
                       <Image
                         src={product.thumbnail_url || "/placeholder.svg"}
                         alt={product.title}
                         fill
-                        className="object-cover transition-all duration-500 [@media(hover:hover)]:group-hover:scale-105"
-                        ref={el => { if (el && !(el as any).complete) (el as any).style.opacity = "0" }}
-                        onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        loading="lazy"
+                        quality={72}
+                        className="object-cover animate-[card-img-in_320ms_ease-out] transition-transform duration-500 [@media(hover:hover)]:group-hover:scale-105"
+                        sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 30vw"
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center">
@@ -2572,9 +2586,12 @@ function UnifiedFeaturedProductsSection({
                   </div>
 
                   <div className="p-4">
+                    {/* Title only — no type chip, no description. A grid of
+                        cards is scanned, not read, and "PRODUCT" above every
+                        one of them is a word that never distinguishes anything. */}
                     <div
                       className={cn(
-                        "font-medium truncate",
+                        "font-medium leading-snug line-clamp-2",
                         !cardTextColor && "text-foreground",
                       )}
                       style={{ color: cardTextColor || undefined }}
@@ -2583,23 +2600,30 @@ function UnifiedFeaturedProductsSection({
                     </div>
 
                     {settings.showPrice && (
-                      <div className="mt-2 flex items-center gap-2">
+                      <div className="mt-2 flex items-baseline gap-2">
+                        {/* 600, not 700: the price should be the firmest thing
+                            on the card without shouting over the title. */}
                         <span
                           className={cn(
-                            "text-sm",
-                            !cardPriceColor && "text-muted-foreground",
+                            "text-sm font-semibold tracking-tight",
+                            !cardPriceColor && "text-foreground",
                           )}
                           style={{ color: cardPriceColor || undefined }}
                         >
                           {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
                         </span>
-                        {settings.showCompareAtPrice &&
-                          product.compare_at_cents &&
+                        {/* Shown whenever the product HAS one. It used to also
+                            require settings.showCompareAtPrice, so a creator who
+                            had entered a compare-at price still saw no discount
+                            unless they found a second toggle — the saving simply
+                            did not appear. A price to compare against is the
+                            creator saying "show this". */}
+                        {product.compare_at_cents != null &&
                           product.compare_at_cents > product.price_cents && (
                             <span
                               className={cn(
-                                "text-sm line-through",
-                                !cardPriceColor && "text-muted-foreground/60",
+                                "text-xs line-through",
+                                !cardPriceColor && "text-muted-foreground/70",
                               )}
                               style={{ color: cardPriceColor ? `${cardPriceColor}99` : undefined }}
                             >

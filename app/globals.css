@@ -244,6 +244,13 @@ html.capacitor body {
      Used on Next.js loading.tsx root divs (which are rendered by the
      framework synchronously during streaming): the animation-delay gates
      visibility so fast navigations never see a skeleton flash. */
+  /* Product card thumbnails fade in as they decode, in CSS rather than through
+     a JS onLoad handler — a handler never fires for an image that fails, which
+     used to leave the card permanently blank instead of showing a placeholder. */
+  @keyframes card-img-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
   @keyframes skeleton-reveal {
     from { opacity: 0; }
     to { opacity: 1; }
