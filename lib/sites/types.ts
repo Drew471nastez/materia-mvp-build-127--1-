@@ -29,12 +29,6 @@ export interface Site {
   templateId: string | null
   settings: SiteSettings
   publishedDeploymentId: string | null
-  /** Bumped on every write. The compare-and-swap token, and what tells a
-   *  cover whether it is still current. */
-  revision: number
-  /** The revision the stored cover was built from. Null means never built,
-   *  which reads the same as stale. */
-  previewRevision: number | null
   createdAt: string
   updatedAt: string
 }

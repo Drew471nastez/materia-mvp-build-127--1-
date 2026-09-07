@@ -320,7 +320,7 @@ check(
 
     // Free is the floor and Pro is the ceiling; anything else is a mistake
     // somebody will only notice when a paying customer is refused.
-    if (siteLimits("free").maxSites !== 1) missing.push("the Free plan no longer includes exactly one site")
+    if (siteLimits("free").maxSites !== 2) missing.push("the Free plan no longer includes exactly two sites")
     if (!siteLimits("pro").customDomain) missing.push("Pro cannot connect a domain")
     if (siteLimits("free").customDomain) missing.push("Free can connect a domain")
     if (siteLimits("free").customCode) missing.push("Free can inject custom code")
@@ -332,8 +332,12 @@ check(
     // write five slightly different upgrade prompts.
     if (siteGate("free", "customDomain") === null) missing.push("Free is not gated on custom domains")
     if (siteGate("pro", "customDomain") !== null) missing.push("Pro is gated on custom domains")
-    if (siteCountGate("free", 1) === null) missing.push("Free may create a second site")
-    if (siteCountGate("free", 0) !== null) missing.push("Free may not create its first site")
+    // Gated AT the limit, allowed below it — written against the limit
+    // rather than a literal, so raising it does not need three edits.
+    const freeMax = siteLimits("free").maxSites
+    if (siteCountGate("free", freeMax) === null) missing.push("Free may exceed its site limit")
+    if (siteCountGate("free", freeMax - 1) !== null)
+      missing.push("Free may not create a site while under its limit")
     if (sitePageGate("free", siteLimits("free").maxPages) === null)
       missing.push("the page limit is not enforced")
 
@@ -2769,7 +2773,10 @@ check(
   (() => {
     const cover = strip(read("lib/sites/cover.ts"))
     return (
-      /site\.previewRevision === revision/.test(cover) &&
+      /previewRevision === revision/.test(cover) &&
+      // read on its own, so a database without the column yet loses the
+      // cached cover rather than the whole dashboard
+      /await siteRevisions\(site\.id\)/.test(cover) &&
       /preview_revision: revision/.test(cover) &&
       // stored BEFORE the marker: a marker claiming an upload that failed
       // would be trusted by the next reader and show a blank card
@@ -2918,6 +2925,83 @@ check(
       /const creatorId = await currentCreatorId\(\)/.test(body) &&
       /if \(!creatorId\) return \[\]/.test(body) &&
       /\.eq\("creator_id", creatorId\)/.test(body)
+    )
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("A failed read is never reported as an empty account")
+// ---------------------------------------------------------------------------
+
+/**
+ * THE BUG THAT TOOK THREE ATTEMPTS TO FIND.
+ *
+ * `preview_revision` was added to the shared column list for the card covers.
+ * SQL in this project is applied BY HAND from the generated paste files, so
+ * the code went live before the column existed — and PostgREST does not fail
+ * politely: the whole select errors with "column ... does not exist" and
+ * returns no rows.
+ *
+ * `listSites` then did `const { data } = ...`, dropping `error` on the floor,
+ * and `?? []` turned a broken query into an empty account. A creator with a
+ * published site was shown an invitation to build their first one, while
+ * `createSite` — which counts with `select("id")` and so never touched the
+ * missing column — could still see the site and refused to make another. The
+ * gate and the list disagreed because only one of them was asking for a
+ * column that was not there.
+ *
+ * Both halves are guarded here: the shared list stays on settled columns, and
+ * a failed query is never silently an empty one.
+ */
+check(
+  "the shared column list does not carry a freshly-added column",
+  (() => {
+    const projects = read("lib/sites/projects.ts")
+    const columns = projects.match(/const COLUMNS =\s*\n?\s*"([^"]+)"/)?.[1] ?? ""
+    return columns.length > 0 && !/preview_revision/.test(columns)
+  })(),
+)
+
+check(
+  "a query failure is distinguishable from an empty account",
+  (() => {
+    const projects = strip(read("lib/sites/projects.ts"))
+    const at = projects.indexOf("export async function listSites")
+    const body = projects.slice(at, projects.indexOf("\n}", at))
+    return (
+      /const \{ data, error \} =/.test(body) &&
+      /if \(error\)/.test(body) &&
+      /throw new SitesUnavailableError/.test(body)
+    )
+  })(),
+)
+
+check(
+  "the dashboard says which of the two happened",
+  (() => {
+    const page = strip(read("app/app/sites/page.tsx"))
+    return (
+      /SitesUnavailableError/.test(page) &&
+      /We could not load your sites/.test(page) &&
+      // and an unexpected error is still allowed to surface, not swallowed
+      /throw thrown/.test(page)
+    )
+  })(),
+)
+
+/**
+ * The covers read their own columns, so a database that has not run the
+ * migration loses the cached picture rather than the whole dashboard.
+ */
+check(
+  "a missing cover column degrades the cover, not the account",
+  (() => {
+    const projects = strip(read("lib/sites/projects.ts"))
+    const at = projects.indexOf("export async function siteRevisions")
+    const body = projects.slice(at, projects.indexOf("\n}", at))
+    return (
+      /preview_revision/.test(body) &&
+      /if \(error \|\| !data\) return \{ revision: 1, previewRevision: null \}/.test(body)
     )
   })(),
 )

@@ -4,7 +4,7 @@ import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SmartLink } from "@/components/smart-link"
 import { SitesDashboard } from "@/components/sites/sites-dashboard"
-import { listSites } from "@/lib/sites/projects"
+import { listSites, SitesUnavailableError } from "@/lib/sites/projects"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { currentCreatorId } from "@/lib/sites/projects"
 import { siteCountGate } from "@/lib/sites/plan"
@@ -16,7 +16,22 @@ export const metadata: Metadata = {
 }
 
 export default async function SitesPage() {
-  const sites = await listSites()
+  /**
+   * "You have no sites" and "we could not read your sites" are different
+   * sentences, and showing the first for the second reason tells somebody
+   * their work is gone. It is worth the extra branch: this exact conflation
+   * is what made a creator with a published site stare at an invitation to
+   * build their first one.
+   */
+  let sites: Awaited<ReturnType<typeof listSites>> = []
+  let unavailable = false
+  try {
+    sites = await listSites()
+  } catch (thrown) {
+    if (!(thrown instanceof SitesUnavailableError)) throw thrown
+    unavailable = true
+  }
+
   const creatorId = await currentCreatorId()
   const plan = creatorId ? await creatorSitePlan(creatorId) : "free"
   const gate = siteCountGate(plan, sites.length)
@@ -50,7 +65,17 @@ export default async function SitesPage() {
         </p>
       )}
 
-      <SitesDashboard sites={sites} canCreate={gate} />
+      {unavailable ? (
+        <div className="rounded-[10px] border border-destructive/30 bg-destructive/5 px-4 py-6 text-center">
+          <p className="text-sm font-medium">We could not load your sites just now.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Nothing has been lost — this is a problem reading them, not a problem with them.
+            Refresh in a moment, and if it keeps happening the server logs will say why.
+          </p>
+        </div>
+      ) : (
+        <SitesDashboard sites={sites} canCreate={gate} />
+      )}
     </div>
   )
 }

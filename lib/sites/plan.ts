@@ -35,7 +35,7 @@ export interface SiteLimits {
 
 const LIMITS: Record<SitePlan, SiteLimits> = {
   free: {
-    maxSites: 1,
+    maxSites: 2,
     maxPages: 5,
     customDomain: false,
     removeBranding: false,

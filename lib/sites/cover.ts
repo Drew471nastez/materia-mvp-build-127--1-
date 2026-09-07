@@ -35,7 +35,7 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { bundleProject } from "./bundle"
 import { previewDocument } from "./preview-document"
-import { readProject } from "./projects"
+import { readProject, siteRevisions } from "./projects"
 import { DEPLOYMENT_BUCKET } from "./publish"
 import type { Site } from "./types"
 
@@ -63,8 +63,15 @@ export async function siteCover(site: Site): Promise<string> {
   const admin = createAdminClient()
   const path = coverPath(site.id)
 
-  const revision = site.revision ?? 1
-  const isFresh = site.previewRevision === revision
+  /**
+   * Read here rather than carried on `Site`, because `preview_revision` is a
+   * recent column and this project applies SQL by hand — putting it in the
+   * shared column list took the whole dashboard down on any database where
+   * the migration had not been run. If it is missing, this reports "never
+   * built" and the cover is simply rebuilt each time.
+   */
+  const { revision, previewRevision } = await siteRevisions(site.id)
+  const isFresh = previewRevision === revision
 
   if (isFresh) {
     const { data } = await admin.storage.from(DEPLOYMENT_BUCKET).download(path)

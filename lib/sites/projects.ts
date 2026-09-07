@@ -41,15 +41,32 @@ function toSite(row: SiteRow): Site {
     templateId: row.template_id,
     settings: (row.settings as Site["settings"]) ?? {},
     publishedDeploymentId: row.published_deployment_id,
-    revision: (row as { revision?: number }).revision ?? 1,
-    previewRevision: (row as { preview_revision?: number | null }).preview_revision ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
 }
 
+/**
+ * ONLY COLUMNS THAT HAVE EXISTED FOR A WHILE.
+ *
+ * SQL in this project is applied BY HAND, from the generated paste files, so
+ * the code is always live before the schema it expects. Adding a brand-new
+ * column to this shared list therefore breaks every reader until somebody
+ * remembers to run the migration — and PostgREST does not fail politely: the
+ * whole select errors with "column ... does not exist" and returns no rows.
+ *
+ * That is not hypothetical. `preview_revision` was added here for the card
+ * covers, and on a database where that migration had not been run yet the
+ * dashboard reported that a creator with a published site had no sites at
+ * all — while `createSite`, which counts with `select("id")`, could still see
+ * it and refused to make another. The gate and the list disagreed because one
+ * of them was asking for a column that was not there.
+ *
+ * Anything newer than this list is read by the one feature that needs it, and
+ * read defensively — see `siteRevisions` below.
+ */
 const COLUMNS =
-  "id, creator_id, name, slug, status, template_id, settings, published_deployment_id, revision, preview_revision, created_at, updated_at"
+  "id, creator_id, name, slug, status, template_id, settings, published_deployment_id, created_at, updated_at"
 
 /**
  * The signed-in user's creator id, or null if they are not one.
@@ -65,22 +82,82 @@ const COLUMNS =
  */
 export { currentCreatorId }
 
+/**
+ * Thrown when the sites query itself failed, as opposed to succeeding and
+ * finding nothing. The difference matters more than almost anything else on
+ * this screen: one of them means "make your first site" and the other means
+ * "your work is fine, we could not read it just now", and showing the first
+ * message for the second reason tells somebody their site is gone.
+ */
+export class SitesUnavailableError extends Error {}
+
 export async function listSites(): Promise<Site[]> {
   const creatorId = await currentCreatorId()
   if (!creatorId) return []
 
   const supabase = await createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("sites")
     .select(COLUMNS)
     .eq("creator_id", creatorId)
     .order("updated_at", { ascending: false })
+
+  /**
+   * `const { data } = ...` — dropping `error` on the floor — is how a schema
+   * mismatch turned into an empty dashboard for a creator who had a published
+   * site. Supabase returns null data WITH an error, and `?? []` made that
+   * indistinguishable from an empty account.
+   */
+  if (error) {
+    console.error("[listSites] query failed:", error.message)
+    throw new SitesUnavailableError(error.message)
+  }
+
   return ((data as SiteRow[] | null) ?? []).map(toSite)
+}
+
+/**
+ * The two revision numbers the card covers need, read on their own and
+ * tolerantly.
+ *
+ * Separate from COLUMNS on purpose: `preview_revision` is recent, this project
+ * applies SQL by hand, and a cover is a picture. If the column is not there
+ * yet the honest answer is "there is no stored cover", which makes the feature
+ * rebuild every time — slower, and completely correct — instead of taking the
+ * dashboard down with it.
+ */
+export async function siteRevisions(
+  siteId: string,
+): Promise<{ revision: number; previewRevision: number | null }> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("sites")
+    .select("revision, preview_revision")
+    .eq("id", siteId)
+    .maybeSingle()
+
+  if (error || !data) return { revision: 1, previewRevision: null }
+
+  const row = data as { revision?: number; preview_revision?: number | null }
+  return { revision: row.revision ?? 1, previewRevision: row.preview_revision ?? null }
 }
 
 export async function getSite(siteId: string): Promise<Site | null> {
   const supabase = await createClient()
-  const { data } = await supabase.from("sites").select(COLUMNS).eq("id", siteId).maybeSingle()
+  const { data, error } = await supabase
+    .from("sites")
+    .select(COLUMNS)
+    .eq("id", siteId)
+    .maybeSingle()
+
+  // A site that is not the caller's reads as absent under RLS, which is the
+  // right answer. A query that FAILED is not the same thing, and returning
+  // null for it would render "site not found" over a site that is fine.
+  if (error) {
+    console.error("[getSite] query failed:", error.message)
+    throw new SitesUnavailableError(error.message)
+  }
+
   return data ? toSite(data as SiteRow) : null
 }
 
