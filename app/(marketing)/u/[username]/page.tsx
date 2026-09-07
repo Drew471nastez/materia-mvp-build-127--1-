@@ -417,6 +417,18 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           youtube: links?.youtube?.url || "",
           twitter: links?.twitter?.url || "",
           spotify: links?.spotify?.url || "",
+          facebook: links?.facebook?.url || "",
+          linkedin: links?.linkedin?.url || "",
+          twitch: links?.twitch?.url || "",
+        }}
+        display={{
+          showReviews: headerSettings?.showReviews,
+          showFollowers: headerSettings?.showFollowers,
+          // The sales badge needs both flags to be on, so the switch has to
+          // show the AND of them or it lies about its own state.
+          showTotalSalesBadge:
+            (headerSettings?.showTotalSalesBadge ?? true) && (creator.show_total_sales_badge ?? true),
+          showSocialMedia: headerSettings?.showSocialMedia,
         }}
       />
       {/* Everything that needs a whole screen rather than a dialog. */}

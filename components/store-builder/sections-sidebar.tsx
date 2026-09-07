@@ -136,6 +136,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { SocialLinksEditor } from "@/components/social/social-links-editor"
+import { MediaItemsEditor } from "@/components/social/media-items-editor"
 import { SOCIAL_PLATFORM_KEYS, type SocialPlatformKey } from "@/lib/social/platforms"
 import {
   Tooltip,
@@ -4288,169 +4289,12 @@ function ReviewsSettingsForm({
   )
 }
 
-// Helper function to extract YouTube video ID
-function extractYouTubeIdForThumbnail(url: string): string | null {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-    /^([a-zA-Z0-9_-]{11})$/, // Direct video ID
-  ]
-  for (const pattern of patterns) {
-    const match = url.match(pattern)
-    if (match) return match[1]
-  }
-  return null
-}
-
-// Sortable Media Item Component
-function SortableMediaItem({
-  item,
-  onRemove,
-  onUpdateCaption,
-}: {
-  item: AboutMediaItem
-  onRemove: (id: string) => void
-  onUpdateCaption: (id: string, caption: string) => void
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: item.id,
-  })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
-
-  // YouTube embeds do NOT generate thumbnails - pure embed only
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "border rounded-lg p-2 space-y-2 bg-background",
-        isDragging && "opacity-50 shadow-lg z-50"
-      )}
-    >
-      <div className="relative aspect-video rounded-lg overflow-hidden bg-muted group">
-        {/* Drag handle */}
-        <button
-          {...attributes}
-          {...listeners}
-          className="absolute top-1 left-1 w-6 h-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center z-10 cursor-grab touch-none"
-          aria-label="Drag to reorder"
-        >
-          <GripVertical className="w-3 h-3 text-white" />
-        </button>
-
-        {item.type === "image" ? (
-          <img
-            src={item.url}
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          // YouTube embed - show actual video thumbnail with play button
-          <div className="relative w-full h-full">
-            {(() => {
-              const videoId = extractYouTubeIdForThumbnail(item.url)
-              return videoId ? (
-                <>
-                  <img
-                    src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
-                    alt="YouTube video thumbnail"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                    <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
-                      <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-1" />
-                    </div>
-                  </div>
-                  <div className="absolute bottom-1 left-1 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-medium">
-                    YouTube
-                  </div>
-                </>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-900">
-                  <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
-                    <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-1" />
-                  </div>
-                </div>
-              )
-            })()}
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={() => onRemove(item.id)}
-          className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
-        >
-          <X className="w-3 h-3 text-white" />
-        </button>
-      </div>
-      {/* Caption Input */}
-      <Input
-        value={item.caption || ""}
-        onChange={(e) => onUpdateCaption(item.id, e.target.value)}
-        placeholder="Add caption (optional)"
-        className="h-8 text-xs"
-      />
-    </div>
-  )
-}
-
-// Media Items List with Drag and Drop
-function MediaItemsList({
-  mediaItems,
-  onRemove,
-  onReorder,
-  onUpdateCaption,
-}: {
-  mediaItems: AboutMediaItem[]
-  onRemove: (id: string) => void
-  onReorder: (items: AboutMediaItem[]) => void
-  onUpdateCaption: (id: string, caption: string) => void
-}) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (over && active.id !== over.id) {
-      const oldIndex = mediaItems.findIndex((item) => item.id === active.id)
-      const newIndex = mediaItems.findIndex((item) => item.id === over.id)
-      const newItems = arrayMove(mediaItems, oldIndex, newIndex)
-      onReorder(newItems)
-    }
-  }
-
-  return (
-    <div className="space-y-3 pt-2">
-      <Label className="text-xs text-muted-foreground">Added Media ({mediaItems.length})</Label>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={mediaItems.map((item) => item.id)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-3">
-            {mediaItems.map((item) => (
-              <SortableMediaItem
-                key={item.id}
-                item={item}
-                onRemove={onRemove}
-                onUpdateCaption={onUpdateCaption}
-              />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
-    </div>
-  )
-}
+/**
+ * The media list — thumbnails, captions and drag-to-reorder — moved to
+ * components/social/media-items-editor, which the storefront's own story
+ * dialog now uses too. It was the fourth copy of the YouTube regex, and the
+ * storefront's version of this list was a column of raw Supabase URLs.
+ */
 
 function AboutSettingsForm({
   settings,
@@ -4647,20 +4491,17 @@ function AboutSettingsForm({
           )
         })()}
 
-        {/* Media Items List with Captions - Drag and Drop Enabled */}
-        {settings.mediaItems && settings.mediaItems.length > 0 && (
-          <MediaItemsList
-            mediaItems={settings.mediaItems}
-            onRemove={removeMediaItem}
-            onReorder={(newItems) => onChange({ mediaItems: newItems })}
-            onUpdateCaption={(id, caption) => {
-              const updatedItems = (settings.mediaItems || []).map(item =>
-                item.id === id ? { ...item, caption } : item
-              )
-              onChange({ mediaItems: updatedItems })
-            }}
-          />
-        )}
+        {/*
+          The same editor the storefront's story dialog uses — thumbnails,
+          captions, drag-to-reorder, and an editable link on a video. One
+          component: the two lists were the same data with different
+          affordances, and the worse one was the one creators saw on their own
+          page.
+        */}
+        <MediaItemsEditor
+          items={settings.mediaItems || []}
+          onChange={(mediaItems) => onChange({ mediaItems })}
+        />
       </div>
     </div>
   )

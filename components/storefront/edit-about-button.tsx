@@ -24,9 +24,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ImageUpload } from "@/components/app/image-upload"
-import { Loader2, Pencil, Plus, Trash2, Youtube } from "lucide-react"
+import { Loader2, Pencil, Plus } from "lucide-react"
 import type { AboutMediaItem } from "@/lib/store-builder/types"
-import { youTubeWatchUrl } from "@/lib/social/youtube"
+import { parseVideoUrl } from "@/lib/social/video"
+import { MediaItemsEditor } from "@/components/social/media-items-editor"
 
 const MAX_MEDIA = 8
 
@@ -49,7 +50,7 @@ export function EditAboutButton({ headline, story, media }: EditAboutButtonProps
   const [title, setTitle] = React.useState(headline)
   const [text, setText] = React.useState(story)
   const [items, setItems] = React.useState<AboutMediaItem[]>(media)
-  const [youtube, setYoutube] = React.useState("")
+  const [video, setVideo] = React.useState("")
 
   // Reopening after a cancel shows what is saved, not what was abandoned.
   React.useEffect(() => {
@@ -57,22 +58,23 @@ export function EditAboutButton({ headline, story, media }: EditAboutButtonProps
     setTitle(headline)
     setText(story)
     setItems(media)
-    setYoutube("")
+    setVideo("")
     setError(null)
   }, [open, headline, story, media])
 
-  const addYouTube = () => {
-    // The same function the API uses, so the field cannot accept something the
-    // server will then silently drop.
-    const url = youTubeWatchUrl(youtube)
-    if (!url) {
-      setError("That does not look like a YouTube link.")
+  const addVideo = () => {
+    // The same parser the API uses, so the field cannot accept something the
+    // server will then silently drop — and it understands Vimeo, which a
+    // YouTube-only rule turned into a blank black rectangle on the page.
+    const parsed = parseVideoUrl(video)
+    if (!parsed) {
+      setError("Paste a YouTube or Vimeo link.")
       return
     }
     if (items.length >= MAX_MEDIA) return
     setError(null)
-    setItems((list) => [...list, { id: newId(), type: "youtube", url }])
-    setYoutube("")
+    setItems((list) => [...list, { id: newId(), type: "video", url: parsed.url }])
+    setVideo("")
   }
 
   const save = async () => {
@@ -153,32 +155,13 @@ export function EditAboutButton({ headline, story, media }: EditAboutButtonProps
                 </span>
               </div>
 
-              {items.length > 0 && (
-                <ul className="space-y-2">
-                  {items.map((item) => (
-                    <li
-                      key={item.id}
-                      className="flex items-center gap-3 rounded-lg border border-border px-3 py-2"
-                    >
-                      {item.type === "youtube" ? (
-                        <Youtube className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={item.url} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
-                      )}
-                      <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{item.url}</span>
-                      <button
-                        type="button"
-                        onClick={() => setItems((list) => list.filter((m) => m.id !== item.id))}
-                        aria-label="Remove"
-                        className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {/*
+                The shared editor: thumbnails, captions, drag-to-reorder, and
+                an editable link on a video. This was a column of raw Supabase
+                storage URLs — which tell a creator nothing they can act on,
+                take the whole width doing it, and look like an error message.
+              */}
+              <MediaItemsEditor items={items} onChange={setItems} />
 
               {items.length < MAX_MEDIA && (
                 <>
@@ -191,18 +174,18 @@ export function EditAboutButton({ headline, story, media }: EditAboutButtonProps
                   />
                   <div className="flex gap-2">
                     <Input
-                      value={youtube}
+                      value={video}
                       maxLength={300}
-                      onChange={(e) => setYoutube(e.target.value)}
+                      onChange={(e) => setVideo(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault()
-                          addYouTube()
+                          addVideo()
                         }
                       }}
-                      placeholder="Paste a YouTube link"
+                      placeholder="Paste a YouTube or Vimeo link"
                     />
-                    <Button type="button" variant="outline" onClick={addYouTube} disabled={!youtube.trim()}>
+                    <Button type="button" variant="outline" onClick={addVideo} disabled={!video.trim()}>
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>

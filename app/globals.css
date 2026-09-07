@@ -1921,6 +1921,27 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
 
 /* ── Website-builder Add-Section modal close animation ──
    Overrides the base dialog duration so close feels smoother. */
+/* ── Images are not draggable ─────────────────────────────────────────────────
+   Dragging a picture out of a page is a browser default from the era of
+   desktop wallpapers, and on a storefront it is only ever an accident: a
+   half-second press on a product photo detaches a ghost of it and follows the
+   cursor, which on a touchpad happens while scrolling and reads as the page
+   coming apart. It also lets somebody drag a creator's work onto their
+   desktop without so much as a right click.
+
+   `user-select: none` is deliberately NOT here — text stays selectable, and
+   the caption under an image is text.
+
+   Scoped to img and picture rather than everything, because a real drag
+   handle (the media reorder list) has to keep working; those set
+   `draggable={false}` on their own <img> and drag their card instead.
+   ────────────────────────────────────────────────────────────────────────── */
+img,
+picture {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
 [data-wb-add-section-modal][data-state="open"] {
   animation-duration: 260ms !important;
   animation-timing-function: cubic-bezier(0.2, 0, 0, 1) !important;

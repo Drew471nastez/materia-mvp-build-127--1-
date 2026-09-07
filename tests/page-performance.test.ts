@@ -20,7 +20,7 @@
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
 import { join } from "node:path"
-import { youTubeWatchUrl } from "@/lib/social/youtube"
+import { parseVideoUrl } from "@/lib/social/video"
 import { OFFERED_SOCIAL_PLATFORM_KEYS, resolveSocialInput } from "@/lib/social/platforms"
 import { toPublicHttpUrl } from "@/lib/url/public-url"
 import { isOptimizableImage, optimizedImageUrl, PORTRAIT_QUALITY } from "@/lib/images/optimized-url"
@@ -2600,7 +2600,7 @@ check(
       missing.push("the About editor is not gated on the viewer being the owner")
     if (!/<EditAboutButton\b/.test(page)) missing.push("the storefront no longer offers the About editor")
     if (!/\{ownerActions\}/.test(renderer)) missing.push("the About section has nowhere to render the owner's control")
-    for (const field of ["ea-headline", "ea-story", "Paste a YouTube link"]) {
+    for (const field of ["ea-headline", "ea-story", "Paste a YouTube or Vimeo link"]) {
       if (!about.includes(field)) missing.push(`the story editor lost its ${field} field`)
     }
     if (!/bucket="store-builder-images"/.test(about)) missing.push("the story editor cannot add images")
@@ -2621,32 +2621,16 @@ check(
      * accepting something the server then silently drops. The real function is
      * run rather than matched, because what it accepts is the whole point.
      */
+    /**
+     * The YouTube assertions that were here have moved, and grown. There are
+     * now two providers and one parser for both — see "there is one video
+     * parser, one media editor, and no raw storage URLs in either". This check
+     * had asserted that a Vimeo link must be REFUSED, which was true when
+     * YouTube was the only option and is exactly backwards now.
+     */
     for (const [name, src] of [["the story dialog", about], ["the API route", api]] as const) {
-      // The positive assertion is the load-bearing one: "no second pattern"
-      // only catches a copy that happens to spell the host the same way, which
-      // a break-test proved by writing one that did not.
-      // The positive assertion is the load-bearing one, and it is enough: a
-      // second pattern that still defers to this call cannot decide anything.
-      // (A "no other mention of youtube" check flagged the <Youtube> icon and
-      // the word in a placeholder — a rule that cannot tell a use from a
-      // mention is a rule that forbids naming the thing.)
-      if (!/youTubeWatchUrl\(/.test(src)) missing.push(`${name} no longer uses the shared YouTube rule`)
-    }
-    const canonical = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    for (const link of [
-      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      "https://www.youtube.com/watch?list=x&v=dQw4w9WgXcQ",
-      "https://youtu.be/dQw4w9WgXcQ?t=42",
-      "https://youtube.com/shorts/dQw4w9WgXcQ",
-      "https://www.youtube.com/embed/dQw4w9WgXcQ",
-      "https://www.youtube.com/live/dQw4w9WgXcQ",
-      "dQw4w9WgXcQ",
-    ]) {
-      const got = youTubeWatchUrl(link)
-      if (got !== canonical) missing.push(`${link} normalises to ${got} instead of the watch URL`)
-    }
-    for (const bad of ["not a link", "https://vimeo.com/12345", "", "https://youtube.com/watch?v=short"]) {
-      if (youTubeWatchUrl(bad) !== null) missing.push(`"${bad}" was accepted as a YouTube video`)
+      if (!/parseVideoUrl|canonicalVideoUrl/.test(src))
+        missing.push(`${name} no longer uses the shared video parser`)
     }
 
     if (missing.length) console.log("        " + missing.join("\n        "))
@@ -2713,6 +2697,203 @@ check(
       if (Number(desktop) > 18) missing.push(`the desktop mark is ${desktop}px again — too heavy for a solid glyph`)
       if (Number(mobile) > 16) missing.push(`the mobile mark is ${mobile}px again`)
     }
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "there is one video parser, one media editor, and no raw storage URLs in either",
+  (() => {
+    /**
+     * THE FOURTH AND FIFTH COPIES. Two YouTube regexes were merged last week
+     * and two more were still out there: one in the About renderer, 400 lines
+     * from anything related and the one that decided what a visitor actually
+     * saw, and one in the store builder's media list. Five copies of the same
+     * eleven characters.
+     *
+     * AND NOT ONLY YOUTUBE. Pasting a Vimeo link produced a YouTube embed of
+     * nothing — a black rectangle on a creator's page, saved without
+     * complaint. Verified: watch URLs with a playlist param, youtu.be with a
+     * timestamp, /shorts/, /embed/, /live/ and a bare id all resolve to one
+     * YouTube watch URL; vimeo.com, player.vimeo.com and a channels URL all
+     * resolve to one Vimeo URL; anything else is refused.
+     *
+     * THE MEDIA LIST WAS TWO EDITORS. The builder's sidebar had thumbnails,
+     * captions and drag-to-reorder; the storefront's story dialog had a column
+     * of raw Supabase storage URLs and a delete button — which is what a
+     * creator saw when editing their own page. Same data, same job, and the
+     * worse one was the one they used. Verified in a browser: thumbnails,
+     * provider badges, an editable link on a video, drag from position 1 to 3
+     * reorders, and no storage URL anywhere in the dialog.
+     */
+    const editor = code("components/social/media-items-editor.tsx")
+    const dialog = code("components/storefront/edit-about-button.tsx")
+    const sidebar = code("components/store-builder/sections-sidebar.tsx")
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const api = code("app/api/creator-profile/route.ts")
+    const missing: string[] = []
+
+    // One parser, used everywhere a video link is read or written.
+    for (const [name, src] of [
+      ["the media editor", editor],
+      ["the story dialog", dialog],
+      ["the About renderer", renderer],
+      ["the API route", api],
+    ] as const) {
+      if (!/parseVideoUrl|videoEmbedUrl|canonicalVideoUrl/.test(src))
+        missing.push(`${name} no longer uses the shared video parser`)
+    }
+    for (const [name, src] of [
+      ["the About renderer", renderer],
+      ["the store builder sidebar", sidebar],
+    ] as const) {
+      if (/function extractYouTubeId/.test(src)) missing.push(`${name} has its own YouTube parser again`)
+    }
+
+    const yt = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    for (const link of [
+      yt,
+      "https://www.youtube.com/watch?list=x&v=dQw4w9WgXcQ",
+      "https://youtu.be/dQw4w9WgXcQ?t=42",
+      "https://youtube.com/shorts/dQw4w9WgXcQ",
+      "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      "https://www.youtube.com/live/dQw4w9WgXcQ",
+      "dQw4w9WgXcQ",
+    ]) {
+      const got = parseVideoUrl(link)
+      if (got?.url !== yt) missing.push(`${link} → ${got?.url ?? "null"}, expected ${yt}`)
+    }
+    const vimeo = "https://vimeo.com/76979871"
+    for (const link of [
+      vimeo,
+      "https://player.vimeo.com/video/76979871",
+      "https://vimeo.com/channels/staffpicks/76979871",
+      "https://vimeo.com/video/76979871",
+    ]) {
+      const got = parseVideoUrl(link)
+      if (got?.url !== vimeo) missing.push(`${link} → ${got?.url ?? "null"}, expected ${vimeo}`)
+      // The provider name too: renaming the key left its patterns in place, so
+      // a break-test that renamed it changed nothing a url-only check could see.
+      if (got?.provider !== "vimeo") missing.push(`${link} reports provider "${got?.provider}"`)
+    }
+    for (const bad of ["not a link", "https://example.com/x", "", "https://youtube.com/watch?v=short"]) {
+      if (parseVideoUrl(bad) !== null) missing.push(`"${bad}" was accepted as a video`)
+    }
+    // The embed must not be the watch URL — an iframe pointed at a watch page
+    // renders YouTube's consent wall, not the video.
+    if (!parseVideoUrl(yt)?.embedUrl.includes("/embed/")) missing.push("the YouTube embed URL is not an embed URL")
+    if (!parseVideoUrl(vimeo)?.embedUrl.includes("player.vimeo.com")) missing.push("the Vimeo embed URL is wrong")
+
+    // One editor, in both places.
+    if (!/<MediaItemsEditor\b/.test(dialog)) missing.push("the story dialog builds its own media list again")
+    if (!/<MediaItemsEditor\b/.test(sidebar)) missing.push("the store builder builds its own media list again")
+    if (/item\.url\}<\/span>/.test(dialog)) missing.push("the story dialog prints raw URLs again")
+    if (!/useSortable\(/.test(editor)) missing.push("media items can no longer be reordered")
+    if (!/aria-label="Video link"/.test(editor)) missing.push("a video's link is no longer editable in place")
+
+    /**
+     * IMAGES ARE NOT DRAGGABLE OUT OF A PAGE. A half-second press on a product
+     * photo detaches a ghost of it and follows the cursor, which on a touchpad
+     * happens while scrolling and reads as the page coming apart.
+     */
+    const css = read("app/globals.css")
+    if (!/-webkit-user-drag: none/.test(css)) missing.push("images can be dragged out of the page again")
+    if (/user-select: none/.test(css.slice(css.indexOf("-webkit-user-drag") - 300, css.indexOf("-webkit-user-drag") + 200)))
+      missing.push("the no-drag rule also stopped text being selectable")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the meta row's items toggle one at a time, and the sales badge has one switch",
+  (() => {
+    /**
+     * `showStats` was all-or-nothing, so a creator who wanted their followers
+     * shown and their rating hidden had to choose between everything and
+     * nothing. Each item is its own switch now, and each is treated as ON when
+     * absent — every stored config predates them, and somebody who has never
+     * opened the control has not asked for anything to disappear.
+     *
+     * THE SALES BADGE HAS TWO FLAGS and the renderer requires both:
+     * `creators.show_total_sales_badge` AND `headerSettings.showTotalSalesBadge`.
+     * One switch has to write both or it is a control that appears not to
+     * work — the same bug as the per-platform social `enabled` switch and the
+     * sticky bar, for the third time.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const dialog = code("components/storefront/edit-profile-button.tsx")
+    const api = code("app/api/creator-profile/route.ts")
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const missing: string[] = []
+
+    if (!/\(settings\.showReviews \?\? true\)/.test(renderer))
+      missing.push("the rating is not individually toggleable, or defaults to hidden")
+    if (!/\(settings\.showFollowers \?\? true\)/.test(renderer))
+      missing.push("followers are not individually toggleable, or default to hidden")
+
+    for (const label of ["Rating and reviews", "Followers", "Sales count", "Social links"]) {
+      if (!dialog.includes(label)) missing.push(`the profile dialog has no "${label}" switch`)
+    }
+    if (!/display: shown/.test(dialog)) missing.push("the switches are not sent when saving")
+
+    if (!/creatorUpdate\.show_total_sales_badge = display\.showTotalSalesBadge/.test(api))
+      missing.push("the sales switch writes only one of the two flags — it will appear not to work")
+    if (!/\(headerSettings\?\.showTotalSalesBadge \?\? true\) && \(creator\.show_total_sales_badge \?\? true\)/.test(page))
+      missing.push("the sales switch does not show the AND of both flags, so it lies about its own state")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the backfill fixes what is stale and leaves what was chosen",
+  (() => {
+    /**
+     * Most of this week's creator-page work was rendering, and rendering needs
+     * no migration. Three things are stored and predate a feature, so the page
+     * cannot infer what the creator wanted: a config with no About section at
+     * all (those pages end at the product grid, with no way to add one from
+     * the page because the editor attaches to a section that is not there),
+     * the legacy `type: "youtube"` media label, and the three social platforms
+     * added later.
+     *
+     * WHAT IT DELIBERATELY DOES NOT TOUCH is the interesting half. The
+     * headline stays "Featured Products" in the column even though the rail
+     * renders "Featured", because the rail treats only the old shipped default
+     * as unchosen AT RENDER TIME — so a creator who deliberately typed
+     * "Featured Products" keeps it. Rewriting the column would take that
+     * choice away permanently and leave no way to tell the two apart.
+     */
+    const sql = read("supabase/migrations/20260909_creator_page_backfill.sql").replace(/^\s*--.*$/gm, "")
+    const missing: string[] = []
+
+    if (!/'type', 'about'/.test(sql)) missing.push("configs with no About section are no longer given one")
+    if (!/'\{sections\}'/.test(sql)) missing.push("the backfill does not write into the sections array")
+    if (!/'"video"'/.test(sql)) missing.push("legacy youtube media items are not relabelled")
+    for (const platform of ["facebook", "linkedin", "twitch"]) {
+      if (!sql.includes(`'${platform}'`)) missing.push(`${platform} is not backfilled into socialLinks`)
+    }
+    // Both configs, or a creator's live page and their draft disagree.
+    for (const column of ["draft_config", "published_config"]) {
+      if (!new RegExp(`SET ${column} =`).test(sql)) missing.push(`${column} is not backfilled`)
+    }
+
+    /**
+     * The distinction the first version of this guard missed: the new About
+     * section's DEFAULTS legitimately contain an empty headline and a padding
+     * value — that is what a default is. What must not happen is rewriting the
+     * ones already stored, which is a jsonb_set at those paths.
+     */
+    if (/'\{settings,headline\}'/.test(sql))
+      missing.push("the backfill rewrites a stored headline — that choice belongs to the creator, at render time")
+    if (/'\{settings,spacing,padding/.test(sql))
+      missing.push("the backfill rewrites the rail's padding — the renderer already ignores it")
+    if (/DROP|DELETE FROM|TRUNCATE/i.test(sql)) missing.push("the backfill removes data")
+
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),

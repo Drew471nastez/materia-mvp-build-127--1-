@@ -29,7 +29,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import type { AboutMediaItem, ShopHeaderSettings, SocialLinksConfig } from "@/lib/store-builder/types"
 import { SOCIAL_PLATFORM_KEYS, resolveSocialInput, type SocialPlatformKey } from "@/lib/social/platforms"
 import { toPublicHttpUrl } from "@/lib/url/public-url"
-import { youTubeWatchUrl } from "@/lib/social/youtube"
+import { canonicalVideoUrl } from "@/lib/social/video"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -122,8 +122,8 @@ export async function PATCH(request: NextRequest) {
         .slice(0, MAX_ABOUT_MEDIA)
         .map((item) => {
           const m = item as Record<string, unknown>
-          const type = m.type === "youtube" ? "youtube" : "image"
-          const url = type === "youtube" ? youTubeWatchUrl(m.url) : cleanUrl(m.url)
+          const type = m.type === "image" ? "image" : "video"
+          const url = type === "video" ? canonicalVideoUrl(m.url) : cleanUrl(m.url)
           if (!url) return null
           return {
             id: typeof m.id === "string" && m.id ? m.id.slice(0, 64) : `m-${Math.random().toString(36).slice(2, 10)}`,
@@ -133,6 +133,21 @@ export async function PATCH(request: NextRequest) {
           } as AboutMediaItem
         })
         .filter((m): m is AboutMediaItem => m !== null)
+    }
+    return Object.keys(out).length > 0 ? out : undefined
+  })()
+
+  /**
+   * What the meta row shows. Booleans only — a missing key means "leave it as
+   * it was", so the dialog can send one switch without resetting the others.
+   */
+  const display = (() => {
+    const raw = body.display
+    if (!raw || typeof raw !== "object") return undefined
+    const value = raw as Record<string, unknown>
+    const out: Record<string, boolean> = {}
+    for (const key of ["showReviews", "showFollowers", "showTotalSalesBadge", "showSocialMedia"]) {
+      if (typeof value[key] === "boolean") out[key] = value[key] as boolean
     }
     return Object.keys(out).length > 0 ? out : undefined
   })()
@@ -165,6 +180,16 @@ export async function PATCH(request: NextRequest) {
   const creatorUpdate: Record<string, unknown> = {}
   if (bio !== undefined) creatorUpdate.bio = bio
   if (coverUrl !== undefined) creatorUpdate.cover_url = coverUrl
+  /**
+   * THE SALES BADGE HAS TWO FLAGS and the renderer requires both:
+   * `creators.show_total_sales_badge` AND `headerSettings.showTotalSalesBadge`.
+   * A control that writes one of them is a control that appears not to work,
+   * which is the same bug as the per-platform social `enabled` switch and the
+   * sticky bar. One switch, both flags, written together.
+   */
+  if (display?.showTotalSalesBadge !== undefined) {
+    creatorUpdate.show_total_sales_badge = display.showTotalSalesBadge
+  }
 
   if (Object.keys(creatorUpdate).length > 0) {
     const { error } = await supabase.from("creators").update(creatorUpdate).eq("id", creator.id)
@@ -222,6 +247,7 @@ export async function PATCH(request: NextRequest) {
     if ("socialLinks" in body) {
       next.socialLinks = buildSocialLinks(body.socialLinks, header.socialLinks)
     }
+    if (display) Object.assign(next, display)
     return { ...cfg, headerSettings: next, sections: mergeAbout(cfg.sections) }
   }
 

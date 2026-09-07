@@ -301,7 +301,14 @@ export interface ReviewsSettings extends BaseSectionSettings {
 // About media item (image or YouTube embed)
 export interface AboutMediaItem {
   id: string
-  type: "image" | "youtube"
+  /**
+   * `"youtube"` is the LEGACY label for a video and still arrives from stored
+   * rows written before Vimeo was supported. New items are written as
+   * `"video"`, and the provider is derived from the URL by lib/social/video —
+   * so adding a provider does not mean migrating every row that predates it.
+   * Nothing should branch on which of the two a video says.
+   */
+  type: "image" | "youtube" | "video"
   url: string
   caption?: string // Optional caption text for the media item
 }
@@ -393,6 +400,18 @@ export interface ShopHeaderSettings {
   showNicheTags: boolean
   showStats: boolean
   showTotalSalesBadge: boolean
+  /**
+   * The meta row's three items, individually. `showStats` is the master and
+   * these sit under it — a creator who wants their followers shown and their
+   * rating hidden had no way to say so, because the only control was
+   * all-or-nothing.
+   *
+   * Optional and treated as true when absent: every stored config predates
+   * them, and a creator who has never opened the control has not asked for
+   * anything to disappear.
+   */
+  showReviews?: boolean
+  showFollowers?: boolean
   showCategory?: boolean // Toggle to show/hide profile category badge
   showSocialMedia?: boolean
   showSocialIconsOnMobile?: boolean // Added toggle for mobile social icons

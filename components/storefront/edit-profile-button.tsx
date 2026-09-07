@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ImageUpload } from "@/components/app/image-upload"
 import { Pencil, Loader2 } from "lucide-react"
@@ -37,6 +38,17 @@ export interface EditProfileButtonProps {
   avatarUrl?: string | null
   coverUrl?: string | null
   socialLinks: Partial<Record<PlatformKey, string>>
+  /**
+   * What the meta row under the name currently shows. Absent means true — every
+   * stored config predates these, and a creator who has never opened the
+   * control has not asked for anything to disappear.
+   */
+  display?: {
+    showReviews?: boolean
+    showFollowers?: boolean
+    showTotalSalesBadge?: boolean
+    showSocialMedia?: boolean
+  }
 }
 
 export function EditProfileButton({
@@ -46,6 +58,7 @@ export function EditProfileButton({
   avatarUrl,
   coverUrl,
   socialLinks,
+  display,
 }: EditProfileButtonProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
@@ -57,6 +70,12 @@ export function EditProfileButton({
   const [avatar, setAvatar] = React.useState<string | null>(avatarUrl ?? null)
   const [cover, setCover] = React.useState<string | null>(coverUrl ?? null)
   const [links, setLinks] = React.useState<Record<string, string>>(() => ({ ...socialLinks }))
+  const [shown, setShown] = React.useState<Record<string, boolean>>(() => ({
+    showReviews: display?.showReviews ?? true,
+    showFollowers: display?.showFollowers ?? true,
+    showTotalSalesBadge: display?.showTotalSalesBadge ?? true,
+    showSocialMedia: display?.showSocialMedia ?? true,
+  }))
 
   // Reopening after a cancel should show what is saved, not what was abandoned.
   React.useEffect(() => {
@@ -66,8 +85,14 @@ export function EditProfileButton({
     setAvatar(avatarUrl ?? null)
     setCover(coverUrl ?? null)
     setLinks({ ...socialLinks })
+    setShown({
+      showReviews: display?.showReviews ?? true,
+      showFollowers: display?.showFollowers ?? true,
+      showTotalSalesBadge: display?.showTotalSalesBadge ?? true,
+      showSocialMedia: display?.showSocialMedia ?? true,
+    })
     setError(null)
-  }, [open, displayName, bio, avatarUrl, coverUrl, socialLinks])
+  }, [open, displayName, bio, avatarUrl, coverUrl, socialLinks, display])
 
   const save = async () => {
     setSaving(true)
@@ -82,6 +107,7 @@ export function EditProfileButton({
           avatarUrl: avatar,
           coverUrl: cover,
           socialLinks: links,
+          display: shown,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -220,6 +246,46 @@ export function EditProfileButton({
                 value={links}
                 onChange={(key, next) => setLinks((l) => ({ ...l, [key]: next }))}
               />
+            </div>
+
+            {/*
+              WHAT THE LINE UNDER YOUR NAME SHOWS.
+              
+              There was one switch for all of it — `showStats` — so a creator
+              who wanted their followers shown and their rating hidden had to
+              choose between everything and nothing. Each item is its own now.
+
+              Each row says what it does rather than naming the field, because
+              "showTotalSalesBadge" is a column name and "Sales count" is what
+              a person is deciding about.
+            */}
+            <div className="space-y-3">
+              <Label>Show on your profile</Label>
+              <div className="divide-y divide-border rounded-lg border border-border">
+                {(
+                  [
+                    ["showReviews", "Rating and reviews"],
+                    ["showFollowers", "Followers"],
+                    ["showTotalSalesBadge", "Sales count"],
+                    ["showSocialMedia", "Social links"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label
+                    key={key}
+                    className="flex cursor-pointer items-center justify-between gap-4 px-3 py-2.5 text-sm"
+                  >
+                    <span>{label}</span>
+                    <Switch
+                      checked={shown[key] ?? true}
+                      onCheckedChange={(next) => setShown((s) => ({ ...s, [key]: next }))}
+                    />
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Anything with nothing behind it stays hidden either way — no rating shows until
+                somebody reviews you.
+              </p>
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}

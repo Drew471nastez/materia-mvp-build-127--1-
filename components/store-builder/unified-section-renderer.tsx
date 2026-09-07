@@ -43,6 +43,7 @@ const LEGACY_FEATURED_HEADLINE = "Featured Products"
 import { StorefrontProductCard } from "@/components/storefront/storefront-product-card"
 import { avatarSizeMap } from "@/lib/store-builder/defaults"
 import { isOptimizableImage, optimizedImageUrl, PORTRAIT_QUALITY } from "@/lib/images/optimized-url"
+import { videoEmbedUrl } from "@/lib/social/video"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ReviewsList } from "@/components/reviews/reviews-list"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -733,12 +734,18 @@ function UnifiedAboutSection({
                               onLoad={() => handleMediaLoad(item.id)}
                             />
                           ) : (
-                            <iframe
-                              src={`https://www.youtube.com/embed/${extractYouTubeId(item.url)}`}
-                              className="w-full h-full"
-                              allowFullScreen
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            />
+                            (() => {
+                              const embed = videoEmbedUrl(item.url)
+                              return embed ? (
+                                <iframe
+                                  src={embed}
+                                  title={item.caption || "Video"}
+                                  className="w-full h-full"
+                                  allowFullScreen
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                />
+                              ) : null
+                            })()
                           )}
                         </div>
                       ))}
@@ -1159,18 +1166,13 @@ export function ProductAboutSection({
   )
 }
 
-// Helper function to extract YouTube video ID
-function extractYouTubeId(url: string): string | null {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-    /^([a-zA-Z0-9_-]{11})$/, // Direct video ID
-  ]
-  for (const pattern of patterns) {
-    const match = url.match(pattern)
-    if (match) return match[1]
-  }
-  return null
-}
+/**
+ * The third copy of the YouTube regex used to live here, 400 lines from
+ * anything that looked related — and it was the one that decided what a
+ * visitor actually saw. Parsing now happens in lib/social/video, which also
+ * understands Vimeo; a stored link that no longer parses renders nothing
+ * rather than an iframe pointed at a guess.
+ */
 
 // Unified Section Renderer - used by BOTH editor preview and live pages
 export function UnifiedSectionRenderer({
@@ -2947,7 +2949,7 @@ export function UnifiedShopHeader({
                * travels with it. Absent entirely until somebody has reviewed
                * something, for the same reason "0 sales" was.
                */
-              if (reviewCount > 0 && reviewAverage > 0) {
+              if ((settings.showReviews ?? true) && reviewCount > 0 && reviewAverage > 0) {
                 parts.push(
                   <span key="reviews" className="flex items-center gap-1.5">
                     <Star className={cn("fill-current", isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} />
@@ -2959,7 +2961,7 @@ export function UnifiedShopHeader({
                 )
               }
 
-              if (followerCount > 0) {
+              if ((settings.showFollowers ?? true) && followerCount > 0) {
                 parts.push(
                   <span key="followers" className="flex items-center gap-1.5">
                     <Users className={cn(isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} />
