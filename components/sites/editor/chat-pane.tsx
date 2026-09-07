@@ -73,6 +73,7 @@ const TOOL_LABELS: Record<string, string> = {
   delete_file: "Deleted",
   run_build: "Built the site",
   read_build_errors: "Checked the errors",
+  update_manifest: "Noted for next time",
 }
 
 export function ChatPane({

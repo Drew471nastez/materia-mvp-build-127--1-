@@ -24,6 +24,9 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { appendExchange, type ChatStep } from "../chat"
+import { describeManifest, mergeManifest, readManifest, writeManifest } from "../manifest"
+import { describeProject } from "./context"
+import { classifyIntent, intentInstruction } from "./intent"
 import { siteLimits, type SitePlan } from "../plan"
 import { readProject, saveFiles } from "../projects"
 import type { ProjectFiles } from "../types"
@@ -93,6 +96,28 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
 
   const workspace = new ProjectWorkspace(files)
 
+  /**
+   * WHAT THE AGENT KNOWS BEFORE IT STARTS.
+   *
+   * Two halves, and the split is deliberate. The manifest holds what cannot be
+   * read out of the code — the business, the audience, decisions already made.
+   * The facts are derived from the files THIS RUN, so the palette and the
+   * component list in the prompt are the real ones and cannot describe a
+   * design that has since been changed.
+   *
+   * Reading the manifest is allowed to fail: it lives in a column added by a
+   * migration this project applies by hand, so a database without it yet means
+   * the agent works with derived facts alone — which is still far more than
+   * the single sentence it used to get.
+   */
+  const manifest = await readManifest(siteId).catch(() => null)
+  const intent = classifyIntent(prompt)
+  const context = {
+    manifest: describeManifest(manifest),
+    facts: describeProject(files),
+    intent: intentInstruction(intent),
+  }
+
   // The loop's events are forwarded as they happen; its RETURN value is the
   // verdict. `for await` would discard the return, so the iterator is driven
   // by hand.
@@ -133,7 +158,7 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
   // request's, but a test or a future caller may pass a real one.
   if (signal) signal.addEventListener("abort", () => cancelled.abort(), { once: true })
 
-  const loop = agentLoop({ provider, model, prompt, workspace, esbuild, signal: cancelled.signal })
+  const loop = agentLoop({ provider, model, prompt, workspace, esbuild, context, signal: cancelled.signal })
   let step = await loop.next()
   while (!step.done) {
     if (step.value.type === "tool") steps.push({ name: step.value.name, detail: step.value.detail })
@@ -158,6 +183,18 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
         changedFiles = [...workspace.changed]
         yield { type: "files", paths: changedFiles }
       }
+    }
+
+    /**
+     * Project memory is committed with the work, not before it.
+     *
+     * A run that failed or was stopped saved no files, and a note describing
+     * changes that were never written would make the next run reason about a
+     * site that does not exist. Failing to save the note is not worth failing
+     * the run over — the edit is the thing the creator asked for.
+     */
+    if (status === "succeeded" && workspace.manifestUpdate) {
+      await writeManifest(siteId, mergeManifest(manifest, workspace.manifestUpdate)).catch(() => false)
     }
   }
 

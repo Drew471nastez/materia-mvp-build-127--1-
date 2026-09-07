@@ -87,6 +87,59 @@ export const TOOL_SPECS: ToolSpec[] = [
     },
   },
   {
+    /**
+     * Recording something durable about the project.
+     *
+     * Deliberately awkward to use for trivia: every field is optional, the
+     * description says what does not belong, and there is one `decision`
+     * rather than a list — an agent that can append five notes at once will.
+     * The value of this record is entirely in its signal-to-noise; a decision
+     * list full of "made the hero bigger" crowds out "the client insists on
+     * no stock photography", which is the entry that actually stops the next
+     * run getting it wrong.
+     */
+    name: "update_manifest",
+    description:
+      "Record something durable about this project that could not be worked out by reading the code: what the business is, who it is for, the design direction in words, or a decision the creator should never have to repeat. Do NOT call this for ordinary edits — a change you just made is not a project decision. Call it at most once per run, and only when something lasting was established. Send null for anything you are not setting.",
+    /**
+     * EVERY FIELD IS REQUIRED AND NULLABLE, which looks redundant and is not.
+     *
+     * These fields are all genuinely optional — a run usually establishes one
+     * of them at most. But OpenAI's strict mode requires `additionalProperties:
+     * false` AND every declared property listed in `required`, so "optional"
+     * cannot be expressed by omission; it is expressed as a type that includes
+     * null. Getting this wrong is not a subtle degradation: the request is
+     * rejected at the API with a 400, on the first real prompt, for every
+     * creator at once.
+     */
+    parameters: {
+      type: "object",
+      properties: {
+        business: {
+          type: ["string", "null"],
+          description: "The business or brand this site is for.",
+        },
+        purpose: { type: ["string", "null"], description: "What the site is for, in one sentence." },
+        audience: { type: ["string", "null"], description: "Who the site is for." },
+        siteType: {
+          type: ["string", "null"],
+          description: "landing page, portfolio, store, agency site, funnel, and so on.",
+        },
+        designDirection: {
+          type: ["string", "null"],
+          description: "The visual direction in words, e.g. 'warm, editorial, generous whitespace'.",
+        },
+        decision: {
+          type: ["string", "null"],
+          description:
+            "One lasting decision the creator has made, phrased so a future run can obey it — 'keep the header dark on every page', 'copy stays in German'.",
+        },
+      },
+      required: ["business", "purpose", "audience", "siteType", "designDirection", "decision"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "run_build",
     description:
       "Bundle the project and report whether it compiles. Run this after your edits and fix anything it reports before finishing.",
@@ -109,6 +162,15 @@ export class ProjectWorkspace {
   readonly deleted = new Set<string>()
   private lastBuild: BuildResult | null = null
 
+  /**
+   * What the agent asked to remember about the project, if anything.
+   *
+   * Held here and committed by the caller after a SUCCESSFUL run, exactly like
+   * the files are — so a run that fails or is stopped does not leave a note
+   * behind describing work that was never saved.
+   */
+  manifestUpdate: Record<string, string> | null = null
+
   constructor(files: ProjectFiles) {
     this.files = { ...files }
   }
@@ -127,6 +189,22 @@ export class ProjectWorkspace {
     const content = typeof args.content === "string" ? args.content : ""
 
     switch (name) {
+      case "update_manifest": {
+        const fields = ["business", "purpose", "audience", "siteType", "designDirection", "decision"]
+        const update: Record<string, string> = {}
+        for (const field of fields) {
+          const value = args[field]
+          if (typeof value === "string" && value.trim()) update[field] = value.trim()
+        }
+        if (Object.keys(update).length === 0) {
+          return "Nothing recorded — send at least one field, and only if something durable was established."
+        }
+        // Merged rather than replaced: two calls in one run should not make
+        // the second silently discard the first.
+        this.manifestUpdate = { ...(this.manifestUpdate ?? {}), ...update }
+        return "Recorded."
+      }
+
       case "list_files":
         return sortedPaths(this.files)
           .map((p) => `${p} (${this.files[p].length} chars)`)

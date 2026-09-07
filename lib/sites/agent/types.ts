@@ -21,6 +21,7 @@ export type AgentToolName =
   | "delete_file"
   | "run_build"
   | "read_build_errors"
+  | "update_manifest"
 
 export interface ToolSpec {
   name: AgentToolName

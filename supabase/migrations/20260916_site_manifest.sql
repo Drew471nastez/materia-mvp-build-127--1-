@@ -1,0 +1,33 @@
+-- ============================================================
+-- Storelib AI — what the project IS, remembered between runs
+-- ============================================================
+--
+-- The agent used to start every run with a generic system prompt
+-- and the creator's one sentence. Nothing told it what the site
+-- was for, who it was for, or what had already been decided — so
+-- it re-derived all of that from the files each time and, being a
+-- fresh reader every time, kept arriving somewhere slightly
+-- different. Ask for a testimonials section twice and you get two
+-- visual languages.
+--
+-- WHAT GOES IN HERE, AND WHAT DELIBERATELY DOES NOT.
+--
+-- Only things that CANNOT be read back out of the code: what the
+-- business is, who it serves, the design direction in words, and
+-- the decisions a creator has already made ("keep the header
+-- dark", "no stock photography").
+--
+-- Colours, fonts, spacing and radii are NOT stored here even
+-- though they are part of the project's identity. They live in
+-- src/styles.css as tokens, and that file is the truth. A copy in
+-- this column would be a second truth that goes stale the first
+-- time somebody edits a token — and a manifest that confidently
+-- states the wrong primary colour is worse than no manifest,
+-- because the agent would trust it. Those facts are derived fresh
+-- from the files on every run instead.
+--
+-- jsonb rather than columns: the shape will change as the product
+-- learns what is worth remembering, and this is read by exactly
+-- one consumer that already tolerates missing keys.
+ALTER TABLE sites
+  ADD COLUMN IF NOT EXISTS manifest JSONB;

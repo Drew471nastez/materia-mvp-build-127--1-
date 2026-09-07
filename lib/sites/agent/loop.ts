@@ -47,6 +47,91 @@ Rules:
 - After you finish editing, call run_build. If it reports errors, fix them and build again. Do not finish on a failing build.
 - When you are done, reply with one or two plain sentences saying what you changed. No preamble, no markdown headings, no code in the reply.`
 
+/**
+ * THE RULES THAT MAKE AN EXISTING PROJECT A PROJECT, RATHER THAN A PROMPT.
+ *
+ * Added only when the site already has files. A brand-new site has nothing to
+ * preserve, and telling a model to match a design language that does not exist
+ * yet produces a timid first generation.
+ *
+ * These are written as prohibitions with reasons attached, because "be
+ * consistent" is agreeable and unactionable — a model will accept it and then
+ * still reach for a font it likes. Naming the specific failure ("do not
+ * introduce a second way of doing something the project already does") is what
+ * changes the output.
+ */
+const PRESERVATION_RULES = `
+YOU ARE CONTINUING AN EXISTING PROJECT.
+
+This site already exists and someone has already made decisions about it. You
+are the developer who has been working on it since the first day, not a new one
+seeing it for the first time. The project is the source of truth; the request
+is a change to it.
+
+PRESERVE EVERYTHING THAT WAS NOT ASKED ABOUT. Before you change anything,
+read enough to know what is already there — what the site is, how it is built,
+what its components are and how they are styled. Then make the SMALLEST change
+that satisfies the request.
+
+Never do any of these unless the request actually requires it:
+- change fonts, colours, spacing, radii or any other token
+- restyle or rewrite a component that works
+- reorganise files, rename things, or "clean up" code you happened to read
+- remove functionality, change page structure, or alter responsive behaviour
+- replace a working approach with one you would have chosen
+
+Reuse before you invent. If the project has a button style, a card, a
+container width, a section rhythm — use it. New content must be
+indistinguishable in style from what is already there. Introducing a second way
+of doing something the project already does is the specific failure to avoid:
+it is how a site ends up with two button styles and three spacing scales.
+
+If you believe something existing is wrong, say so in your reply. Do not
+silently fix it.
+`
+
+export interface ProjectContext {
+  /** Stated intent that cannot be read out of the code. */
+  manifest: string
+  /** Facts derived from the files themselves, fresh this run. */
+  facts: string
+  /** How much of the project this request is permission to touch. */
+  intent: string
+}
+
+/**
+ * The system prompt for one run.
+ *
+ * The base rules are constant; everything after them is this project, this
+ * request. An empty project gets the base prompt unchanged — see
+ * PRESERVATION_RULES for why a first generation should not be told to preserve
+ * anything.
+ */
+export function buildSystemPrompt(context: ProjectContext | null): string {
+  if (!context || !context.facts) return SYSTEM_PROMPT
+
+  const sections = [SYSTEM_PROMPT, PRESERVATION_RULES]
+
+  if (context.manifest) {
+    sections.push(`WHAT THIS PROJECT IS\n${context.manifest}`)
+  }
+
+  sections.push(`WHAT IS ALREADY BUILT\n${context.facts}`)
+  sections.push(`THIS REQUEST\n${context.intent}`)
+
+  /**
+   * Recording durable facts is opt-in and explicitly narrow. An agent invited
+   * to "keep notes" writes a paragraph after every run, and a decision list
+   * full of "changed the button colour" is noise that crowds out the entries
+   * that matter.
+   */
+  sections.push(
+    `PROJECT MEMORY\nIf this conversation established something durable about the project — what the business is, who it is for, the design direction, or a decision the creator should never have to repeat — call update_manifest once with just that. Do not call it for ordinary edits; "made the hero bigger" is not a project decision.`,
+  )
+
+  return sections.join("\n\n")
+}
+
 export interface LoopResult {
   status: "succeeded" | "failed" | "refused"
   /** What to show the creator. Prose, never a stack trace. */
@@ -62,6 +147,11 @@ export interface LoopInput {
   model: string
   prompt: string
   workspace: ProjectWorkspace
+  /**
+   * What this project is and how much of it this request may touch. Null for a
+   * brand-new site, which has nothing to preserve yet.
+   */
+  context?: ProjectContext | null
   /** esbuild for `run_build` — browser wasm or the Node build, either works. */
   esbuild: unknown
   signal?: AbortSignal
@@ -69,7 +159,7 @@ export interface LoopInput {
 }
 
 export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, LoopResult> {
-  const { provider, model, prompt, workspace, esbuild, signal } = input
+  const { provider, model, prompt, workspace, esbuild, signal, context } = input
   const maxTurns = input.maxTurns ?? MAX_TURNS
 
   const turns: AgentTurn[] = [{ role: "user", content: prompt }]
@@ -92,7 +182,7 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
       turnCount = attempt
       const turn = await provider.complete({
         model,
-        system: SYSTEM_PROMPT,
+        system: buildSystemPrompt(context ?? null),
         /**
          * A COPY. The loop keeps appending to `turns`, and handing over the
          * live array means the provider's view of the conversation changes

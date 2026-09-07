@@ -1258,14 +1258,29 @@ check(
   "the tool list is exactly the closed set, with nothing that reaches outside",
   (() => {
     const names = [...toolSource.matchAll(/^\s{4}name: "([a-z_]+)",$/gm)].map((m) => m[1])
+    /**
+     * `update_manifest` is the only addition to this set, and it earns its
+     * place by NOT being like the others: it touches no file, opens no
+     * connection and runs nothing. It writes a few strings into a field on the
+     * workspace, which the caller persists after a successful run. The
+     * boundary this test guards — the agent cannot reach outside the project —
+     * is unchanged by it.
+     */
     const expected = [
       "list_files", "read_file", "write_file", "create_file",
-      "delete_file", "run_build", "read_build_errors",
+      "delete_file", "update_manifest", "run_build", "read_build_errors",
     ]
     const forbidden = ["run_sql", "install_package", "fetch_url", "exec", "bash", "http_request"]
+
+    // and the recording tool really is inert: no filesystem, no network
+    const at = toolSource.indexOf('case "update_manifest"')
+    const handler = toolSource.slice(at, toolSource.indexOf("case \"list_files\"", at))
+    const reachesOut = /fetch\(|require\(|import\(|this\.files\[|createClient/.test(handler)
+
     return (
       names.join() === expected.join() &&
-      forbidden.every((f) => !new RegExp(`name: "${f}"`).test(toolSource))
+      forbidden.every((f) => !new RegExp(`name: "${f}"`).test(toolSource)) &&
+      !reachesOut
     )
   })(),
 )
@@ -3002,6 +3017,156 @@ check(
     return (
       /preview_revision/.test(body) &&
       /if \(error \|\| !data\) return \{ revision: 1, previewRevision: null \}/.test(body)
+    )
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("An existing project is continued, not regenerated")
+// ---------------------------------------------------------------------------
+
+/**
+ * THE BEHAVIOUR THIS REPLACES.
+ *
+ * Every run began with a constant system prompt and the creator's one
+ * sentence — `turns = [{ role: "user", content: prompt }]` — so the model knew
+ * nothing about the business, the audience, or any decision already made. It
+ * re-derived the design from the files each time, and a fresh reader every
+ * time keeps arriving somewhere slightly different. Ask for a testimonials
+ * section twice and you get two visual languages.
+ */
+check(
+  "the agent is told what the project is before it edits it",
+  (() => {
+    const loop = strip(read("lib/sites/agent/loop.ts"))
+    const run = strip(read("lib/sites/agent/run.ts"))
+    return (
+      /system: buildSystemPrompt\(context \?\? null\)/.test(loop) &&
+      !/system: SYSTEM_PROMPT,/.test(loop) &&
+      /const manifest = await readManifest\(siteId\)/.test(run) &&
+      /facts: describeProject\(files\)/.test(run)
+    )
+  })(),
+)
+
+/**
+ * A brand-new site has nothing to preserve, and telling a model to match a
+ * design language that does not exist yet makes a first generation timid.
+ * Verified by rendering the real prompt for an empty project: it comes back
+ * byte-identical to the base.
+ */
+check(
+  "a first generation is not told to preserve a project that is not there",
+  (() => {
+    const loop = strip(read("lib/sites/agent/loop.ts"))
+    const context = strip(read("lib/sites/agent/context.ts"))
+    return (
+      /if \(!context \|\| !context\.facts\) return SYSTEM_PROMPT/.test(loop) &&
+      /if \(paths\.length === 0\) return ""/.test(context)
+    )
+  })(),
+)
+
+/**
+ * THE SPLIT THAT KEEPS THE MEMORY HONEST.
+ *
+ * Colours, fonts and spacing are NOT stored in the manifest even though they
+ * are part of the project's identity — they live in src/styles.css, and that
+ * file is the truth. A stored copy becomes a second truth that goes stale the
+ * first time somebody edits a token, and a manifest confidently stating the
+ * wrong primary colour is worse than none, because the agent would believe it.
+ * Anything the files can answer is derived fresh on every run.
+ */
+check(
+  "design facts are derived from the files, never remembered",
+  (() => {
+    const manifest = strip(read("lib/sites/manifest.ts"))
+    const shape = manifest.slice(
+      manifest.indexOf("export interface ProjectManifest"),
+      manifest.indexOf("}", manifest.indexOf("export interface ProjectManifest")),
+    )
+    // the stored record must not carry anything the stylesheet owns
+    const forbidden = ["color", "colour", "font", "spacing", "radius", "palette", "typography"]
+    if (forbidden.some((word) => shape.toLowerCase().includes(word))) return false
+
+    const context = strip(read("lib/sites/agent/context.ts"))
+    return (
+      /export function designTokens/.test(context) &&
+      /export function fontFamilies/.test(context) &&
+      /export function componentNames/.test(context)
+    )
+  })(),
+)
+
+/**
+ * The expensive mistake is only in one direction: treating a small edit as
+ * licence to redesign throws away work somebody liked, while treating a
+ * redesign too conservatively produces a change that is merely too small.
+ * So the default is the cautious one and widening it takes explicit words.
+ *
+ * The trigger phrases are narrow on purpose — "new" alone appears in "add a
+ * new section", "redo" in "redo the spacing on the hero". Verified against 20
+ * real phrasings including those traps.
+ */
+check(
+  "the default posture is the smallest change",
+  (() => {
+    const intent = strip(read("lib/sites/agent/intent.ts"))
+    const at = intent.indexOf("export function classifyIntent")
+    const body = intent.slice(at, intent.indexOf("\n}", at))
+    if (!/return "edit"\s*$/m.test(body)) return false
+    // a bare "new" or "redo" must never be enough to escalate
+    const phrases = intent.slice(0, at)
+    return !/"new"/.test(phrases) && !/"redo"/.test(phrases) && !/"change"/.test(phrases)
+  })(),
+)
+
+check(
+  "the preservation rules name the specific failures, not just 'be consistent'",
+  (() => {
+    const loop = read("lib/sites/agent/loop.ts")
+    const at = loop.indexOf("const PRESERVATION_RULES")
+    const body = loop.slice(at, loop.indexOf("`\n", loop.indexOf("`", at) + 1))
+    return (
+      /SMALLEST change/.test(body) &&
+      /change fonts, colours, spacing, radii/.test(body) &&
+      /remove functionality, change page structure/.test(body) &&
+      /Reuse before you invent/.test(body) &&
+      // and it must not silently "fix" things it was not asked about
+      /Do not\s+silently fix it/.test(body.replace(/\n/g, " "))
+    )
+  })(),
+)
+
+/**
+ * Memory is committed with the work. A run that failed or was stopped saved no
+ * files, and a note describing changes that were never written would make the
+ * next run reason about a site that does not exist.
+ */
+check(
+  "project memory is saved only when the work was",
+  (() => {
+    const run = strip(read("lib/sites/agent/run.ts"))
+    return /if \(status === "succeeded" && workspace\.manifestUpdate\)/.test(run)
+  })(),
+)
+
+/**
+ * Not in the shared column list, and that is the whole point: SQL here is
+ * applied by hand, so a column added in code is live before it exists in the
+ * database. Putting `preview_revision` in that list once already reported that
+ * a creator with a published site had no sites at all.
+ */
+check(
+  "a database without the manifest column loses memory, not the run",
+  (() => {
+    const manifest = strip(read("lib/sites/manifest.ts"))
+    const projects = read("lib/sites/projects.ts")
+    const at = manifest.indexOf("export async function readManifest")
+    const body = manifest.slice(at, manifest.indexOf("\n}", at))
+    return (
+      /if \(error \|\| !data\) return null/.test(body) &&
+      !/manifest/.test(projects.match(/const COLUMNS =\s*\n?\s*"([^"]+)"/)?.[1] ?? "")
     )
   })(),
 )
