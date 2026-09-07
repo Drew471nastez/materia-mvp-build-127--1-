@@ -295,6 +295,26 @@ END;
 $$;
 
 -- ── updated_at ───────────────────────────────────────────────
+--
+-- DEFINED HERE, not assumed. The trigger below calls
+-- update_updated_at_column(), which is created by 20260127 — a marketplace
+-- migration that is in NEITHER paste-me file. On a database that has not run
+-- it, the CREATE TRIGGER fails, and because the Supabase SQL editor stops at
+-- the first error, everything after this point never runs: the agent ledger,
+-- the publishing schema, the storage bucket. Publishing then fails with no
+-- clue as to why, which is precisely the bug this file was fixing.
+--
+-- CREATE OR REPLACE is safe when it already exists: same name, same body,
+-- and the marketplace's own triggers keep working because the definition
+-- below is character-for-character what they already call.
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $update_updated_at$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$update_updated_at$ language 'plpgsql';
+
 DO $$
 DECLARE
   t TEXT;

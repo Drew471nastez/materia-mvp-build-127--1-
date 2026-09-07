@@ -155,9 +155,121 @@ export function buildCreatorPageSql() {
   return parts.join("\n")
 }
 
+/**
+ * ===========================================================================
+ *  THE SECOND FILE: supabase/sql/RUN_SITES_PUBLISHING.sql
+ * ===========================================================================
+ *
+ * The same three sources as sections 8-10 above, on their own.
+ *
+ * WHY A SECOND FILE. The big one is 2,400 lines, and all but the last three
+ * sections are theme and creator-page schema that a database running this
+ * platform already has. When publishing is the thing that is broken, asking
+ * somebody to re-paste the whole history to fix it is asking them to re-run
+ * forty statements to reach three — and every one of those is another chance
+ * for the paste to stop somewhere and take the part they actually needed
+ * with it. That is the exact failure this whole thing came from.
+ *
+ * It is GENERATED FROM THE SAME FILES, so the two can never disagree:
+ * tests/sql-aggregate.test.ts asserts both contain their sources verbatim.
+ */
+const SITES_SECTIONS = SECTIONS.slice(-3)
+
+const SITES_HEADER = `-- ###########################################################################
+--  STORELIB AI — SITES, THE AGENT LEDGER, AND PUBLISHING
+-- ###########################################################################
+--  Select all, copy, paste into the Supabase SQL editor, press Run.
+--
+--  This is the part that makes the Publish button work. If publishing says
+--  "Publishing is not set up on this deployment yet", this is the file.
+--
+--  GENERATED, never hand-edited. Regenerate with
+--
+--      node scripts/build-creator-page-sql.mjs
+--
+--  IDEMPOTENT. Run it as many times as you like — every statement guards
+--  itself, and running it on a database that already has all of this changes
+--  nothing. Verified by running it twice in a row on a real Postgres 16.
+--
+--  PREREQUISITE: public.creators must exist. Nothing else is required —
+--  custom_domains is linked only if it happens to be there.
+--
+--  WHAT IT CREATES:
+${SITES_SECTIONS.map(([, title], i) => `--    ${i + 1}. ${title}`).join("\n")}
+--
+--  It is safe to run this even if you have already run
+--  RUN_CREATOR_PAGE_AND_SITES.sql. They share these three sections.
+-- ###########################################################################
+
+`
+
+const sitesParts = [SITES_HEADER]
+
+SITES_SECTIONS.forEach(([path, title], i) => {
+  const body = readFileSync(join(ROOT, path), "utf8").trimEnd()
+  sitesParts.push(
+    "",
+    "",
+    "-- ###########################################################################",
+    `--  SECTION ${i + 1}: ${title}`,
+    `--  source: ${path}`,
+    "-- ###########################################################################",
+    "",
+    body,
+    "",
+  )
+})
+
+/**
+ * The check, and it checks the STORAGE BUCKET too.
+ *
+ * The tables can all be present and publishing still fail, because uploads go
+ * to a bucket that a separate statement creates. A check that reads only
+ * to_regclass would report success on a database that cannot publish.
+ */
+sitesParts.push(
+  "",
+  "",
+  `-- ###########################################################################
+--  DONE — every column below should read true.
+--  A false is the piece that is still missing.
+-- ###########################################################################
+notify pgrst, 'reload schema';
+
+select
+  to_regclass('public.sites')              is not null as sites,
+  to_regclass('public.site_files')         is not null as files,
+  to_regclass('public.site_versions')      is not null as versions,
+  to_regclass('public.site_deployments')   is not null as deployments,
+  to_regclass('public.site_agent_runs')    is not null as cost_ledger,
+  to_regclass('public.site_chat_messages') is not null as chat_history,
+  exists (select 1 from information_schema.columns
+           where table_schema='public' and table_name='site_deployments'
+             and column_name in ('slug','is_live','storage_prefix','version_label')
+           having count(*) = 4)                          as publish_columns,
+  exists (select 1 from information_schema.columns
+           where table_schema='public' and table_name='sites'
+             and column_name in ('revision','published_revision')
+           having count(*) = 2)                          as revision_columns,
+  exists (select 1 from storage.buckets
+           where id = 'site-deployments')                as storage_bucket,
+  (select count(*) from pg_proc
+    where proname='site_commit_files') = 1               as commit_function,
+  exists (select 1 from pg_indexes where schemaname='public'
+           and indexname='uniq_site_deployments_live')   as one_live_per_site;
+`,
+)
+
+export function buildSitesPublishingSql() {
+  return sitesParts.join("\n")
+}
+
 const OUT = join(ROOT, "supabase/sql/RUN_CREATOR_PAGE_AND_SITES.sql")
+const SITES_OUT = join(ROOT, "supabase/sql/RUN_SITES_PUBLISHING.sql")
 
 if (process.argv[1] && process.argv[1].endsWith("build-creator-page-sql.mjs")) {
   writeFileSync(OUT, buildCreatorPageSql(), "utf8")
   console.log(`wrote supabase/sql/RUN_CREATOR_PAGE_AND_SITES.sql (${SECTIONS.length} sections)`)
+  writeFileSync(SITES_OUT, buildSitesPublishingSql(), "utf8")
+  console.log(`wrote supabase/sql/RUN_SITES_PUBLISHING.sql (${SITES_SECTIONS.length} sections)`)
 }

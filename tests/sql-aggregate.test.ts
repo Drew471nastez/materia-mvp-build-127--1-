@@ -454,6 +454,99 @@ check(
   })(),
 )
 
+// ---------------------------------------------------------------------------
+console.log("\nRUN_SITES_PUBLISHING.sql — the file that fixes a broken publish")
+// ---------------------------------------------------------------------------
+/**
+ * The focused paste. Same three sources as the last three sections of the big
+ * file, so the two can never disagree about what publishing needs.
+ *
+ * It exists because the big file is 2,400 lines of mostly-unrelated schema,
+ * and every extra statement between an operator and the three they need is
+ * another place for a paste to stop and take the publishing schema with it.
+ */
+const PUBLISH_AGGREGATE = "supabase/sql/RUN_SITES_PUBLISHING.sql"
+const PUBLISH_SECTIONS = [
+  "supabase/migrations/20260910_sites_projects.sql",
+  "supabase/migrations/20260911_site_agent_runs.sql",
+  "supabase/migrations/20260912_site_publishing.sql",
+]
+
+const publishAggregate = read(PUBLISH_AGGREGATE)
+let publishPreviousEnd = -1
+let publishInOrder = true
+
+for (const path of PUBLISH_SECTIONS) {
+  const body = read(path).trimEnd()
+  const at = publishAggregate.indexOf(body)
+  check(`${path} appears verbatim`, at !== -1, at === -1 ? "      rebuild: node scripts/build-creator-page-sql.mjs" : undefined)
+  if (at !== -1) {
+    if (at < publishPreviousEnd) publishInOrder = false
+    publishPreviousEnd = at + body.length
+  }
+}
+
+check("the publishing sections are in dependency order", publishInOrder)
+
+check(
+  "it is the same three sources the big file ends with",
+  PUBLISH_SECTIONS.every((path) => SITES_SECTIONS.slice(-3).includes(path)) &&
+    PUBLISH_SECTIONS.length === 3,
+)
+
+/**
+ * THE CHECK MUST CHECK THE BUCKET.
+ *
+ * Every table can be present and publishing still fail, because uploads go to
+ * a storage bucket that a separate statement creates. A verification query
+ * that reads only to_regclass would report success on a database that cannot
+ * publish — which is worse than printing nothing at all.
+ */
+check(
+  "the printed check covers the columns, the function and the bucket",
+  [
+    "as publish_columns",
+    "as revision_columns",
+    "as storage_bucket",
+    "as commit_function",
+    "as one_live_per_site",
+    "as chat_history",
+  ].every((token) => publishAggregate.includes(token)),
+)
+
+/**
+ * A DEPENDENCY THAT IS IN NEITHER PASTE FILE.
+ *
+ * update_updated_at_column() is created by 20260127, a marketplace migration
+ * neither aggregate includes. The sites migration used to just call it, so on
+ * a database without it the CREATE TRIGGER failed — and since the Supabase SQL
+ * editor stops at the first error, the agent ledger, the publishing schema and
+ * the storage bucket after it were never created. Caught by running the file
+ * standalone, not by reading it.
+ */
+check(
+  "the sites migration defines the updated_at helper rather than assuming it",
+  (() => {
+    const sql = read("supabase/migrations/20260910_sites_projects.sql")
+    const defined = sql.indexOf("CREATE OR REPLACE FUNCTION public.update_updated_at_column()")
+    const used = sql.indexOf("EXECUTE FUNCTION update_updated_at_column()")
+    // Both must exist before comparing: indexOf returns -1, and -1 < n is true.
+    return defined > -1 && used > -1 && defined < used
+  })(),
+)
+
+check(
+  "neither paste file depends on a migration it does not carry",
+  (() => {
+    // The helper is the only cross-file function call the sites schema makes.
+    // If a second one appears, this fails and someone looks at it.
+    const bodies = PUBLISH_SECTIONS.map((p) => read(p)).join("\n")
+    const calls = bodies.match(/EXECUTE FUNCTION (\w+)\(/g) ?? []
+    const names = new Set(calls.map((c) => c.replace(/EXECUTE FUNCTION (\w+)\(/, "$1")))
+    return [...names].every((name) => bodies.includes(`FUNCTION public.${name}()`) || bodies.includes(`FUNCTION ${name}()`))
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
