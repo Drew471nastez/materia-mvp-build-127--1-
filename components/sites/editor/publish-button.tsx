@@ -23,8 +23,10 @@ import { cn } from "@/lib/utils"
 
 export type PublishState =
   | { kind: "unpublished" }
-  | { kind: "publishing" }
-  | { kind: "live"; url: string; stale: boolean }
+  /** `startedAt` drives the running count — publishing a real site takes long
+   *  enough that a spinner with no number reads as "stuck". */
+  | { kind: "publishing"; startedAt: number }
+  | { kind: "live"; url: string; stale: boolean; tookMs?: number }
   | { kind: "failed"; message: string; details?: string[] }
 
 export function PublishButton({
@@ -58,6 +60,49 @@ export function PublishButton({
   const live = state.kind === "live"
   const busy = state.kind === "publishing"
 
+  /**
+   * Seconds since the button was pressed.
+   *
+   * A spinner alone gives no way to tell "working" from "hung", and publishing
+   * is the one action here that reaches a build, a storage upload and a
+   * database write — the slowest thing in the editor and the one somebody is
+   * most anxious about. A number that moves is the difference between waiting
+   * and wondering.
+   */
+  /**
+   * How long the last publish took, shown for a few seconds afterwards.
+   *
+   * The confirmation is the point: "Live" alone looks identical whether the
+   * button was pressed a second ago or a week ago, so somebody who has just
+   * published and is not sure it worked has nothing to read. A duration is
+   * proof that something actually happened, and it gets out of the way.
+   */
+  const tookMs = state.kind === "live" ? state.tookMs : undefined
+  const [showTook, setShowTook] = React.useState(false)
+
+  React.useEffect(() => {
+    if (tookMs === undefined) return
+    setShowTook(true)
+    const timer = setTimeout(() => setShowTook(false), 6000)
+    return () => clearTimeout(timer)
+  }, [tookMs])
+
+  const startedAt = state.kind === "publishing" ? state.startedAt : null
+  const [elapsed, setElapsed] = React.useState(0)
+
+  React.useEffect(() => {
+    if (startedAt === null) {
+      setElapsed(0)
+      return
+    }
+    // Tenths, because a publish that finishes in under a second should not
+    // read as "0s" — it should read as fast.
+    const tick = () => setElapsed((Date.now() - startedAt) / 1000)
+    tick()
+    const timer = setInterval(tick, 100)
+    return () => clearInterval(timer)
+  }, [startedAt])
+
   return (
     <div className="relative" onPointerDown={(event) => event.stopPropagation()}>
       <button
@@ -78,12 +123,18 @@ export function PublishButton({
         {busy ? (
           <>
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            <span className={cn(compact && "sr-only")}>Publishing…</span>
+            <span className={cn(compact && "sr-only")}>
+              Publishing… {elapsed.toFixed(1)}s
+            </span>
           </>
         ) : live && !state.stale ? (
           <>
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            <span className={cn(compact && "sr-only")}>Live</span>
+            <span className={cn(compact && "sr-only")}>
+              {showTook && tookMs !== undefined
+                ? `Live · ${(tookMs / 1000).toFixed(1)}s`
+                : "Live"}
+            </span>
           </>
         ) : live && state.stale ? (
           <>

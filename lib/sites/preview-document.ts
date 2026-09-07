@@ -155,6 +155,7 @@ export function publishedDocument({
   siteId,
   title,
   description,
+  version,
 }: {
   code: string
   css?: string
@@ -162,6 +163,21 @@ export function publishedDocument({
   siteId: string
   title?: string
   description?: string
+  /**
+   * The revision these assets were built from, stamped onto their URLs.
+   *
+   * `/app.js` is a STABLE path whose contents change on every publish, and it
+   * was served `immutable` for a year — the strongest cache promise there is,
+   * strong enough that browsers will not revalidate it on a hard reload. So a
+   * creator published new code and every visitor who had ever loaded the site,
+   * and the CDN in front of them, kept running the old bundle. Publishing
+   * appeared to do nothing.
+   *
+   * Stamping the version makes that promise true: a new publish is a new URL,
+   * and the old one is never asked for again. Republishing without editing
+   * keeps the same version, so an unchanged site correctly stays cached.
+   */
+  version?: string | number
 }): string {
   const importMap = {
     imports: {
@@ -172,6 +188,10 @@ export function publishedDocument({
       "react-dom/client": `${VENDOR_PREFIX}/react-dom-client.js`,
     },
   }
+
+  // Empty when no version is supplied, so a caller that does not know its
+  // revision still produces a working document rather than "?v=undefined".
+  const assetVersion = version === undefined || version === null ? "" : `?v=${encodeURIComponent(String(version))}`
 
   const head = html?.match(/<head[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? ""
   const declaredTitle = title ?? head.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim()
@@ -185,8 +205,8 @@ export function publishedDocument({
 ${description ? `<meta name="description" content="${escapeAttribute(description)}" />\n` : ""}<meta property="og:title" content="${escapeAttribute(declaredTitle || "Site")}" />
 ${description ? `<meta property="og:description" content="${escapeAttribute(description)}" />\n` : ""}<meta name="twitter:card" content="summary_large_image" />
 <script type="importmap">${JSON.stringify(importMap)}</script>
-${css ? '<link rel="stylesheet" href="./app.css" />' : ""}
-<script type="module" src="./app.js"></script>
+${css ? `<link rel="stylesheet" href="./app.css${assetVersion}" />` : ""}
+<script type="module" src="./app.js${assetVersion}"></script>
 </head>
 <body>
 ${bodyFromHtml(html)}

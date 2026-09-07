@@ -174,6 +174,8 @@ async function ensureSlug(site: Site): Promise<string> {
 export async function buildStatic(
   files: ProjectFiles,
   siteId: string,
+  /** Stamped onto the asset URLs so a new publish is a new URL. */
+  version?: string | number,
 ): Promise<{ ok: true; output: Record<string, string> } | { ok: false; errors: string[] }> {
   const esbuild = await import("esbuild")
   const result = await bundleProject(esbuild as never, files)
@@ -193,6 +195,7 @@ export async function buildStatic(
       css: result.css,
       html: files["index.html"],
       siteId,
+      version,
     }),
     "app.js": result.code ?? "",
   }
@@ -257,7 +260,17 @@ export async function publishSite(site: Site): Promise<PublishResult> {
     return { ok: false, error: "This site has no files to publish." }
   }
 
-  const built = await buildStatic(files, site.id)
+  // Read the revision we are building FROM, before anything is built or
+  // written, so the record says which version is live rather than which was
+  // current when the upload finished — and so the asset URLs can carry it.
+  const { data: current } = await admin
+    .from("sites")
+    .select("revision")
+    .eq("id", site.id)
+    .maybeSingle()
+  const revision = (current as { revision: number } | null)?.revision ?? 1
+
+  const built = await buildStatic(files, site.id, `r${revision}`)
   if (built.ok === false) {
     return {
       ok: false,
@@ -267,16 +280,6 @@ export async function publishSite(site: Site): Promise<PublishResult> {
   }
 
   const slug = await ensureSlug(site)
-
-  // Read the revision we are building FROM, before anything is written, so
-  // the record says which version is live rather than which was current when
-  // the upload finished.
-  const { data: current } = await admin
-    .from("sites")
-    .select("revision")
-    .eq("id", site.id)
-    .maybeSingle()
-  const revision = (current as { revision: number } | null)?.revision ?? 1
 
   const { data: created, error: createError } = await admin
     .from("site_deployments")

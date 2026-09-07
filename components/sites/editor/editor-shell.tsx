@@ -103,7 +103,8 @@ export function EditorShell({
   }, [])
 
   const publish = React.useCallback(async () => {
-    setPublishState({ kind: "publishing" })
+    const startedAt = Date.now()
+    setPublishState({ kind: "publishing", startedAt })
     try {
       const response = await fetch(`/api/sites/${site.id}/publish`, { method: "POST" })
       const body = await response.json().catch(() => ({}))
@@ -115,7 +116,7 @@ export function EditorShell({
         })
         return
       }
-      setPublishState({ kind: "live", url: body.url, stale: false })
+      setPublishState({ kind: "live", url: body.url, stale: false, tookMs: Date.now() - startedAt })
     } catch {
       setPublishState({ kind: "failed", message: "Could not reach the server." })
     }

@@ -3401,6 +3401,93 @@ check(
   })(),
 )
 
+// ---------------------------------------------------------------------------
+section("Publishing actually reaches the visitor")
+// ---------------------------------------------------------------------------
+
+/**
+ * THE BUG THAT MADE PUBLISHING LOOK BROKEN.
+ *
+ * /app.js was a STABLE path whose contents changed on every publish, served
+ * `max-age=31536000, immutable`. `immutable` is the strongest cache promise
+ * there is — browsers honour it so completely they will not revalidate even on
+ * a hard reload. So a creator published new code and every visitor who had
+ * ever loaded the site, plus the CDN in front of them, kept running the old
+ * bundle. For a year.
+ *
+ * Reproduced in a real browser against those exact headers: publish, reload,
+ * reload again — still the old build. With the version stamped onto the URL,
+ * the new build arrives on the first reload.
+ */
+check(
+  "a new publish produces new asset URLs, so `immutable` is honest",
+  (() => {
+    const doc = strip(read("lib/sites/preview-document.ts"))
+    const publish = strip(read("lib/sites/publish.ts"))
+    return (
+      /const assetVersion =/.test(doc) &&
+      /href="\.\/app\.css\$\{assetVersion\}"/.test(doc) &&
+      /src="\.\/app\.js\$\{assetVersion\}"/.test(doc) &&
+      // and the publish supplies it, so the URL changes when the site does
+      /buildStatic\(files, site\.id, `r\$\{revision\}`\)/.test(publish)
+    )
+  })(),
+)
+
+/**
+ * The revision has to be read BEFORE the build now, because the document being
+ * built carries it. Reading it afterwards would stamp the assets with a
+ * version the HTML was not built from.
+ */
+check(
+  "the version is known before the document that carries it is written",
+  (() => {
+    const publish = strip(read("lib/sites/publish.ts"))
+    const at = publish.indexOf("export async function publishSite")
+    const body = publish.slice(at)
+    const readsRevision = body.indexOf('.select("revision")')
+    const builds = body.indexOf("await buildStatic(")
+    return readsRevision > -1 && builds > readsRevision
+  })(),
+)
+
+/**
+ * `stale-while-revalidate=86400` serves the PREVIOUS page for up to
+ * twenty-four hours after it expires — and the person most likely to look
+ * immediately after a publish is the creator who just pressed the button. A
+ * day of "I published and nothing changed" is the wrong trade for a builder.
+ */
+check(
+  "the html cannot be a day out of date after a publish",
+  (() => {
+    const route = strip(read("app/(sites)/site/[slug]/[[...path]]/route.ts"))
+    const swr = route.match(/stale-while-revalidate=(\d+)/)?.[1]
+    const sMaxAge = route.match(/s-maxage=(\d+)/)?.[1]
+    return swr !== undefined && sMaxAge !== undefined && Number(swr) <= 60 && Number(sMaxAge) <= 30
+  })(),
+)
+
+/**
+ * A spinner alone gives no way to tell "working" from "hung", and publishing
+ * is the slowest thing in the editor — a build, a storage upload and a
+ * database write — and the one somebody is most anxious about.
+ */
+check(
+  "publishing shows how long it has been going, and how long it took",
+  (() => {
+    const button = strip(read("components/sites/editor/publish-button.tsx"))
+    const shell = strip(read("components/sites/editor/editor-shell.tsx"))
+    return (
+      /kind: "publishing"; startedAt: number/.test(button) &&
+      /Publishing… \{elapsed\.toFixed\(1\)\}s/.test(button) &&
+      /setInterval\(tick, 100\)/.test(button) &&
+      /Live · \$\{\(tookMs \/ 1000\)\.toFixed\(1\)\}s/.test(button) &&
+      /setPublishState\(\{ kind: "publishing", startedAt \}\)/.test(shell) &&
+      /tookMs: Date\.now\(\) - startedAt/.test(shell)
+    )
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

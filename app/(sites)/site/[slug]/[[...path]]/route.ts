@@ -218,13 +218,27 @@ export async function GET(
       ...SECURITY_HEADERS,
       "Content-Type": contentTypeFor(objectPath),
       /**
-       * HTML is revalidated often so a publish appears quickly; everything
-       * else lives under an immutable, deployment-scoped prefix and can be
-       * cached for a year. `stale-while-revalidate` means even the HTML miss
-       * is served instantly from the edge while the new copy is fetched.
+       * THE HTML IS THE ONLY THING THAT MAY GO STALE, AND ONLY BRIEFLY.
+       *
+       * This was `s-maxage=60, stale-while-revalidate=86400`, which serves the
+       * PREVIOUS page for up to twenty-four hours after it expires — and the
+       * person most likely to look immediately after a publish is the creator
+       * who just pressed the button. A day of "I published and nothing
+       * changed" to save an origin hit is the wrong trade for a builder.
+       *
+       * Ten seconds still absorbs a burst of traffic; the short revalidate
+       * window keeps the edge fast without lying about what is current.
+       *
+       * Everything else really is immutable now — the asset URLs carry the
+       * revision they were built from (see publishedDocument), so a new
+       * publish produces a new URL rather than new bytes at an old one. Before
+       * that, /app.js was a stable path served `immutable` for a year, which
+       * browsers honour so completely they will not revalidate it on a hard
+       * reload: a creator published new code and every visitor who had ever
+       * loaded the site kept running the old bundle.
        */
       "Cache-Control": isHtml
-        ? "public, s-maxage=60, stale-while-revalidate=86400"
+        ? "public, s-maxage=10, stale-while-revalidate=30"
         : "public, max-age=31536000, immutable",
     },
   })
