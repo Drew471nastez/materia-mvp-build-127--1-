@@ -18,6 +18,8 @@
  */
 
 import type { ProjectWorkspace } from "./tools"
+import { looksLikeQuestion, openSteps, refuseToFinish } from "./plan"
+import type { Budget } from "./complexity"
 import { TOOL_SPECS } from "./tools"
 import {
   ZERO_USAGE,
@@ -46,6 +48,9 @@ Rules:
 - You may import ONLY react, react-dom and react-dom/client. No other package is available and none can be installed. Write what you need by hand.
 - Styling is plain CSS in src/styles.css, which defines design tokens at the top (--bg, --text, --primary, --radius, …). Change a token to restyle the whole site; add rules for anything new. There is no Tailwind and no CSS framework.
 - After you finish editing, call run_build. If it reports errors, fix them and build again. Do not finish on a failing build.
+- Use search_code to find where something lives instead of reading files one by one. Prefer replace_in_file over write_file for a small change — write_file replaces the whole file, and every full rewrite is a chance to drop something that was already right.
+- A SUCCESSFUL TOOL CALL IS NOT A COMPLETED TASK. Before you stop, compare the project as it now stands against what was actually asked for. If the request was broad, one edited component is not an answer to it.
+- Do not ask the creator for anything you could find out by reading the project. Look first.
 - When you are done, reply with one or two plain sentences saying what you changed. No preamble, no markdown headings, no code in the reply.`
 
 /**
@@ -191,15 +196,18 @@ export interface LoopInput {
   esbuild: unknown
   signal?: AbortSignal
   maxTurns?: number
+  /** How much room this request gets, and what is expected in it. */
+  budget?: Budget
 }
 
 export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, LoopResult> {
   const { provider, model, prompt, workspace, esbuild, signal, context } = input
-  const maxTurns = input.maxTurns ?? MAX_TURNS
+  const maxTurns = input.maxTurns ?? input.budget?.maxTurns ?? MAX_TURNS
 
   const turns: AgentTurn[] = [{ role: "user", content: prompt }]
   let usage: TokenUsage = ZERO_USAGE
   let turnCount = 0
+  let refusals = 0
   let message = ""
   let status: LoopResult["status"] = "failed"
   let error: string | null = "The edit did not finish."
@@ -251,10 +259,35 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
 
       if (turn.toolCalls.length === 0) {
         /**
-         * A turn with no tool calls is the model saying it is done — which it
-         * can do at any point, including before it has changed anything. That
-         * is a finished run with nothing in it, not a failure.
+         * A TURN WITH NO TOOL CALLS IS A CLAIM, NOT A FACT.
+         *
+         * This used to be taken at face value: the model went quiet, the run
+         * was recorded as succeeded, and that was that. It could happen at any
+         * point — after one edit, after none — which is exactly how "make this
+         * much more complete and premium" turned into a single CSS change and
+         * a confident summary.
+         *
+         * The claim is now checked against what the agent itself said it would
+         * do and against whether the project builds. If it does not hold up,
+         * the reason goes back in as a turn and the run continues.
          */
+        const refusal = refuseToFinish({
+          plan: workspace.plan,
+          requiresPlan: input.budget?.requiresPlan ?? false,
+          minSteps: input.budget?.minSteps ?? 0,
+          buildOk: workspace.buildOk,
+          changedAnything: workspace.changed.size > 0 || workspace.deleted.size > 0,
+          isQuestion: looksLikeQuestion(prompt),
+          refusals,
+        })
+
+        if (refusal) {
+          refusals += 1
+          yield { type: "state", state: "verifying" }
+          turns.push({ role: "user", content: refusal })
+          continue
+        }
+
         message = turn.text.trim()
         status = "succeeded"
         error = null
@@ -268,6 +301,33 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
         const output = await workspace.execute(call.name, call.argumentsJson, esbuild)
         results.push({ id: call.id, output })
         yield { type: "tool", name: call.name, detail: describeCall(call.argumentsJson) }
+
+        /**
+         * The plan is re-sent whenever it moves, so the editor's checklist is
+         * the run's real state rather than a guess assembled from tool names.
+         */
+        if (call.name === "set_plan" || call.name === "complete_step") {
+          yield {
+            type: "plan",
+            steps: workspace.plan.steps.map((step) => ({ title: step.title, done: step.done })),
+          }
+        }
+
+        /**
+         * State follows what the agent is actually doing. Reading and
+         * searching is inspecting; building is verifying; building AFTER a red
+         * build is repairing, which is the one a creator most wants to see —
+         * it is the difference between "it broke" and "it is fixing it".
+         */
+        if (call.name === "run_build" || call.name === "read_build_errors") {
+          yield { type: "state", state: workspace.buildOk === false ? "repairing" : "verifying" }
+        } else if (call.name === "set_plan") {
+          yield { type: "state", state: "planning" }
+        } else if (call.name === "list_files" || call.name === "read_file" || call.name === "search_code") {
+          yield { type: "state", state: "inspecting" }
+        } else {
+          yield { type: "state", state: "executing" }
+        }
       }
       turns.push({ role: "tool", results })
 

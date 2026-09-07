@@ -27,6 +27,7 @@ import "server-only"
  */
 
 import { filePathError, MAX_FILES_PER_PROJECT, MAX_FILE_BYTES } from "../file-path"
+import { completeStep, emptyPlan, setSteps, type RunPlan } from "./plan"
 import { bundleProject, formatBuildErrors } from "../bundle"
 import { sortedPaths } from "../starter"
 import type { BuildResult, ProjectFiles } from "../types"
@@ -157,6 +158,82 @@ export const TOOL_SPECS: ToolSpec[] = [
     },
   },
   {
+    /**
+     * SEARCHING BEATS READING EVERYTHING.
+     *
+     * Without this the only way to find where something lives is to read files
+     * until it turns up, which spends turns on discovery that should be spent
+     * on work — and on a project of any size, runs out of budget before the
+     * editing starts.
+     */
+    name: "search_code",
+    description:
+      "Find which files contain a string — a component name, a class, a piece of copy, an import. Returns each match with its file and line. Use this to locate things instead of reading files one by one.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Literal text to find. Not a regular expression." },
+      },
+      required: ["query"],
+      additionalProperties: false,
+    },
+  },
+  {
+    /**
+     * A surgical alternative to rewriting a whole file. `write_file` replaces
+     * everything, so a one-line change re-sends the entire component and every
+     * such rewrite is a chance to drop something that was already right.
+     */
+    name: "replace_in_file",
+    description:
+      "Replace an exact string in a file, leaving the rest untouched. Prefer this over write_file for a small change. The old text must appear EXACTLY once — if it appears more than once, include more surrounding lines to make it unique.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string" },
+        old: { type: "string", description: "The exact text to replace, including indentation." },
+        new: { type: "string", description: "What to put there instead." },
+      },
+      required: ["path", "old", "new"],
+      additionalProperties: false,
+    },
+  },
+  {
+    /**
+     * The plan is what the run is later held to. Writing it is not paperwork:
+     * it is the agent stating what "done" means for this request, before it
+     * has any incentive to define it as whatever it happens to have finished.
+     */
+    name: "set_plan",
+    description:
+      "State what you are going to do, as a list of short steps in the creator's language ('Rebuild the hero', 'Add testimonials', 'Fix the mobile nav'). Call this before you start editing on anything but a trivial change. You may call it again to revise the plan — steps already completed stay completed.",
+    parameters: {
+      type: "object",
+      properties: {
+        steps: {
+          type: "array",
+          items: { type: "string" },
+          description: "The steps, in the order you intend to do them.",
+        },
+      },
+      required: ["steps"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "complete_step",
+    description:
+      "Mark one plan step finished, using its text. Call this as you go, not all at the end — it is what tells the creator where the run has got to.",
+    parameters: {
+      type: "object",
+      properties: {
+        step: { type: "string", description: "The step you have finished." },
+      },
+      required: ["step"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "run_build",
     description:
       "Bundle the project and report whether it compiles. Run this after your edits and fix anything it reports before finishing.",
@@ -215,6 +292,18 @@ export class ProjectWorkspace {
    */
   manifestUpdate: Record<string, string> | null = null
 
+  /**
+   * What the agent said it would do, and how far it has got.
+   *
+   * Held on the workspace beside the file changes because it has the same
+   * lifetime as them: it belongs to one run, and the caller reads it when the
+   * run resolves. The loop consults it to decide whether finishing is allowed.
+   */
+  plan: RunPlan = emptyPlan()
+
+  /** The last build's verdict, or null if the agent has not built. */
+  buildOk: boolean | null = null
+
   constructor(files: ProjectFiles) {
     this.files = { ...files }
   }
@@ -233,6 +322,94 @@ export class ProjectWorkspace {
     const content = typeof args.content === "string" ? args.content : ""
 
     switch (name) {
+      case "search_code": {
+        const query = typeof args.query === "string" ? args.query : ""
+        if (!query.trim()) return "Send something to search for."
+
+        const needle = query.toLowerCase()
+        const hits: string[] = []
+        for (const path of sortedPaths(this.files)) {
+          const lines = this.files[path].split("\n")
+          for (let i = 0; i < lines.length; i++) {
+            if (!lines[i].toLowerCase().includes(needle)) continue
+            hits.push(`${path}:${i + 1}: ${lines[i].trim().slice(0, 160)}`)
+            // Capped so one common word cannot fill the turn with matches.
+            if (hits.length >= 60) break
+          }
+          if (hits.length >= 60) break
+        }
+
+        if (hits.length === 0) return `No file contains "${query}".`
+        return `${hits.length} match${hits.length === 1 ? "" : "es"} for "${query}":\n${hits.join("\n")}`
+      }
+
+      case "replace_in_file": {
+        const invalid = filePathError(path)
+        if (invalid) return `Cannot edit "${path}": ${invalid}`
+        const file = this.files[path]
+        if (file === undefined) return this.noSuchFile(path)
+
+        const oldText = typeof args.old === "string" ? args.old : ""
+        const newText = typeof args.new === "string" ? args.new : ""
+        if (!oldText) return "Send the exact text to replace."
+
+        /**
+         * Refused when the text appears more than once. Replacing the first of
+         * several identical strings is a silent, plausible-looking corruption
+         * — the file still compiles and the wrong line changed.
+         */
+        const first = file.indexOf(oldText)
+        if (first === -1) {
+          return `That text is not in "${path}". Read the file again — it may have changed, or the indentation may differ.`
+        }
+        if (file.indexOf(oldText, first + 1) !== -1) {
+          return `That text appears more than once in "${path}". Include more surrounding lines so it matches exactly one place.`
+        }
+
+        const updated = file.slice(0, first) + newText + file.slice(first + oldText.length)
+        const tooBig = fileSizeError(path, updated)
+        if (tooBig) return tooBig
+
+        this.files[path] = updated
+        this.changed.add(path)
+        this.deleted.delete(path)
+        return `Edited ${path} (${oldText.split("\n").length} line${
+          oldText.split("\n").length === 1 ? "" : "s"
+        } replaced).`
+      }
+
+      case "set_plan": {
+        const raw = Array.isArray(args.steps) ? args.steps : []
+        const titles = raw.filter((t): t is string => typeof t === "string")
+        if (titles.length === 0) return "Send at least one step."
+
+        this.plan = setSteps(this.plan, titles)
+        return `Plan set — ${this.plan.steps.length} step${
+          this.plan.steps.length === 1 ? "" : "s"
+        }:\n${this.plan.steps
+          .map((s, i) => `  ${i + 1}. ${s.done ? "[done] " : ""}${s.title}`)
+          .join("\n")}`
+      }
+
+      case "complete_step": {
+        const step = typeof args.step === "string" ? args.step : ""
+        if (!step.trim()) return "Which step?"
+
+        const result = completeStep(this.plan, step)
+        if (!result.found) {
+          const open = this.plan.steps.filter((s) => !s.done)
+          return open.length === 0
+            ? "Every step is already marked complete."
+            : `No open step matches "${step}". Open steps:\n${open.map((s) => `  - ${s.title}`).join("\n")}`
+        }
+
+        this.plan = result.plan
+        const left = this.plan.steps.filter((s) => !s.done)
+        return left.length === 0
+          ? "That was the last step. Build if you have not, then finish."
+          : `Done. ${left.length} left:\n${left.map((s) => `  - ${s.title}`).join("\n")}`
+      }
+
       case "update_manifest": {
         const fields = [
           "business",
@@ -320,6 +497,12 @@ export class ProjectWorkspace {
 
       case "run_build": {
         this.lastBuild = await bundleProject(esbuild as never, this.files)
+        /**
+         * Recorded, not just returned. The completion gate needs to know
+         * whether this project compiles — a run may not finish on a red build,
+         * and "the model said it built" is not the same as it having built.
+         */
+        this.buildOk = this.lastBuild.ok
         return formatBuildErrors(this.lastBuild)
       }
 

@@ -22,6 +22,10 @@ export type AgentToolName =
   | "run_build"
   | "read_build_errors"
   | "update_manifest"
+  | "search_code"
+  | "replace_in_file"
+  | "set_plan"
+  | "complete_step"
 
 export interface ToolSpec {
   name: AgentToolName
@@ -127,4 +131,22 @@ export type AgentEvent =
   | { type: "files"; paths: string[] }
   | { type: "message"; text: string }
   | { type: "done"; runId: string; costUsd: number; turns: number; filesChanged: string[] }
+  /**
+   * WHERE THE RUN IS, in words the editor can show without interpreting.
+   *
+   * Deliberately a small closed set rather than free text: the panel renders
+   * these, and a state nobody anticipated would render as nothing. This is
+   * status, never reasoning — what the agent is DOING is useful to watch, what
+   * it is thinking is not something to put on screen.
+   */
+  | {
+      type: "state"
+      state: "inspecting" | "planning" | "executing" | "verifying" | "repairing"
+    }
+  /**
+   * The plan and its progress, re-sent whenever either changes. The whole list
+   * each time rather than a delta — it is a dozen short strings, and a client
+   * that missed one delta would show a checklist that never matches the run.
+   */
+  | { type: "plan"; steps: Array<{ title: string; done: boolean }> }
   | { type: "error"; message: string }

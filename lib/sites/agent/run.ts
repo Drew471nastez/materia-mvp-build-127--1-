@@ -35,6 +35,7 @@ import {
 } from "../manifest"
 import { describeProject } from "./context"
 import { classifyIntent, intentInstruction } from "./intent"
+import { budgetInstruction, classifyComplexity } from "./complexity"
 import { siteLimits, type SitePlan } from "../plan"
 import { readProject, saveFiles } from "../projects"
 import type { ProjectFiles } from "../types"
@@ -171,10 +172,16 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
    */
   const manifest = stored ?? (await seedManifest(siteId).catch(() => null))
   const intent = classifyIntent(prompt)
+  /**
+   * How much room this request gets. A flat twelve turns for everything is
+   * what made a broad ask produce one small edit: a model that senses it is
+   * running out of room stops early, rationally.
+   */
+  const budget = classifyComplexity(prompt)
   const context = {
     manifest: describeManifest(manifest),
     facts: describeProject(files, assets),
-    intent: intentInstruction(intent),
+    intent: `${intentInstruction(intent)}\n\n${budgetInstruction(budget)}`,
     // A thin brain asks this run to fill it in — it is reading the code anyway.
     thin: manifestIsThin(manifest),
   }
@@ -219,7 +226,16 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
   // request's, but a test or a future caller may pass a real one.
   if (signal) signal.addEventListener("abort", () => cancelled.abort(), { once: true })
 
-  const loop = agentLoop({ provider, model, prompt, workspace, esbuild, context, signal: cancelled.signal })
+  const loop = agentLoop({
+    provider,
+    model,
+    prompt,
+    workspace,
+    esbuild,
+    context,
+    budget,
+    signal: cancelled.signal,
+  })
   let step = await loop.next()
   while (!step.done) {
     if (step.value.type === "tool") steps.push({ name: step.value.name, detail: step.value.detail })

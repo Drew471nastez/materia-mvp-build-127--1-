@@ -327,7 +327,7 @@ section("What the model is told")
   check(
     "the tool list handed to the provider is the closed set",
     first.tools.map((t) => t.name).join() ===
-      "list_files,read_file,write_file,create_file,delete_file,update_manifest,run_build,read_build_errors",
+      "list_files,read_file,write_file,create_file,delete_file,update_manifest,search_code,replace_in_file,set_plan,complete_step,run_build,read_build_errors",
   )
   check(
     "every tool schema is strict-mode legal",
@@ -349,10 +349,23 @@ section("What the model is told")
 }
 
 {
-  // The history has to accumulate, or the model re-reads the same file forever.
+  /**
+   * The history has to accumulate, or the model re-reads the same file forever.
+   *
+   * The scenario writes and builds rather than only reading, because a run
+   * that was TOLD to do something and changed nothing is now refused — the
+   * completion gate would add a turn and this test would be measuring the
+   * gate instead of the history.
+   */
   const { provider } = await run([
     { calls: [["list_files", {}]] },
-    { calls: [["read_file", { path: "src/App.tsx" }]] },
+    {
+      calls: [
+        ["read_file", { path: "src/App.tsx" }],
+        ["write_file", { path: "src/App.tsx", content: GOOD_APP }],
+        ["run_build", {}],
+      ],
+    },
     { text: "done" },
   ])
   const lengths = provider.requests.map((r) => r.turns.length)

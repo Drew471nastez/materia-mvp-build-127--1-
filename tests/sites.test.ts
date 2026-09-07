@@ -1266,9 +1266,17 @@ check(
      * boundary this test guards — the agent cannot reach outside the project —
      * is unchanged by it.
      */
+    /**
+     * Four tools were added for the agent loop upgrade, and each earns its
+     * place the same way `update_manifest` does — by not reaching outside the
+     * project. `search_code` reads the in-memory workspace, `replace_in_file`
+     * edits it through the same path rule every other writer uses, and the two
+     * plan tools touch nothing but a list of strings.
+     */
     const expected = [
       "list_files", "read_file", "write_file", "create_file",
-      "delete_file", "update_manifest", "run_build", "read_build_errors",
+      "delete_file", "update_manifest", "search_code", "replace_in_file",
+      "set_plan", "complete_step", "run_build", "read_build_errors",
     ]
     const forbidden = ["run_sql", "install_package", "fetch_url", "exec", "bash", "http_request"]
 
@@ -4039,6 +4047,198 @@ check(
       /if \(value\) base\[key\] = value/.test(body) &&
       /seen\.has\(add\.toLowerCase\(\)\)/.test(body) &&
       /slice\(-MAX_DECISIONS\)/.test(body)
+    )
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("The agent cannot declare victory early")
+// ---------------------------------------------------------------------------
+
+/**
+ * THE BUG, AND THE ONE LINE THAT CAUSED IT.
+ *
+ * `if (turn.toolCalls.length === 0) { status = "succeeded" }` — a turn with no
+ * tool calls was read as "the model is finished", and the loop believed it.
+ * The comment beside it admitted the model could do this "at any point,
+ * including before it has changed anything". Asked to make a site much more
+ * complete and premium, it changed one section, went quiet, and the run was
+ * recorded as a success.
+ *
+ * Silence is a claim, not a fact. It is now checked against the plan the agent
+ * itself wrote and against whether the project builds, and the reason is fed
+ * back as a turn so the run continues rather than ending.
+ */
+check(
+  "going quiet is checked, not believed",
+  (() => {
+    const loop = strip(read("lib/sites/agent/loop.ts"))
+    const at = loop.indexOf("if (turn.toolCalls.length === 0)")
+    const body = loop.slice(at, loop.indexOf("break\n      }", at))
+    return (
+      /const refusal = refuseToFinish\(/.test(body) &&
+      /turns\.push\(\{ role: "user", content: refusal \}\)/.test(body) &&
+      /continue/.test(body) &&
+      // and the refusal is counted, so a stuck model cannot be looped forever
+      /refusals \+= 1/.test(body)
+    )
+  })(),
+)
+
+/**
+ * Every way a run can be unfinished, refused with an instruction rather than
+ * an error — this text goes back INTO the run, so it is the difference between
+ * the model knowing what to do next and the model apologising.
+ */
+check(
+  "a run may not end with its own plan outstanding, or on a red build",
+  (() => {
+    const plan = strip(read("lib/sites/agent/plan.ts"))
+    const at = plan.indexOf("export function refuseToFinish")
+    const body = plan.slice(at)
+    return (
+      /You have not written a plan/.test(body) &&
+      /needs at least \$\{state\.minSteps\}/.test(body) &&
+      /These steps are still open/.test(body) &&
+      /You have not changed anything/.test(body) &&
+      /never built/.test(body) &&
+      /Do not finish on a failing build/.test(body)
+    )
+  })(),
+)
+
+/**
+ * A question is answered by reading and replying. Demanding an edit would
+ * refuse a run that did exactly what was asked — while a run that was TOLD to
+ * do something and changed nothing is the original bug wearing a different
+ * hat.
+ */
+check(
+  "answering a question is not mistaken for doing nothing",
+  (() => {
+    const plan = strip(read("lib/sites/agent/plan.ts"))
+    const loop = strip(read("lib/sites/agent/loop.ts"))
+    return (
+      /export function looksLikeQuestion/.test(plan) &&
+      /if \(!state\.changedAnything && !state\.isQuestion\)/.test(plan) &&
+      /isQuestion: looksLikeQuestion\(prompt\)/.test(loop)
+    )
+  })(),
+)
+
+/**
+ * A model that cannot satisfy the gate after a couple of corrections is stuck,
+ * and grinding it until the turn budget runs out turns a partial result into a
+ * failed run and bills for the difference.
+ */
+check(
+  "a stuck run is released rather than ground down",
+  (() => {
+    const plan = strip(read("lib/sites/agent/plan.ts"))
+    return /if \(state\.refusals >= MAX_REFUSALS\) return null/.test(plan) && /MAX_REFUSALS = 2/.test(plan)
+  })(),
+)
+
+/**
+ * A flat twelve turns for everything is what made a broad ask produce one
+ * small edit: a model that senses it is running out of room stops early,
+ * rationally. Checked against twelve real phrasings.
+ */
+check(
+  "the budget scales with what was asked",
+  (() => {
+    const c = strip(read("lib/sites/agent/complexity.ts"))
+    const run = strip(read("lib/sites/agent/run.ts"))
+    return (
+      /small: \{ complexity: "small", maxTurns: 12, requiresPlan: false/.test(c) &&
+      /medium: \{ complexity: "medium", maxTurns: 24, requiresPlan: true/.test(c) &&
+      /large: \{ complexity: "large", maxTurns: 40, requiresPlan: true, minSteps: 6 \}/.test(c) &&
+      /const budget = classifyComplexity\(prompt\)/.test(run)
+    )
+  })(),
+)
+
+/**
+ * A noun names WHERE the work is, never how much of it there is. "hero",
+ * "footer" and "pricing" were on the medium list, which made "make the hero
+ * text white" — a one-word change — ask for a plan and twenty-four turns.
+ */
+check(
+  "a bare component name does not inflate a small request",
+  (() => {
+    const c = read("lib/sites/agent/complexity.ts")
+    const medium = c.slice(c.indexOf("const MEDIUM = ["), c.indexOf("const BUDGETS:"))
+    return (
+      !/^\s*"hero",/m.test(medium) &&
+      !/^\s*"footer",/m.test(medium) &&
+      !/^\s*"navbar",/m.test(medium) &&
+      !/^\s*"pricing",/m.test(medium) &&
+      // the verbs that DO mean substantial work are still there
+      /"redesign"/.test(medium) && /"rebuild"/.test(medium)
+    )
+  })(),
+)
+
+/**
+ * Searching beats reading everything: without it the only way to find where
+ * something lives is to open files until it turns up, which spends the budget
+ * on discovery instead of work.
+ */
+check(
+  "the agent can search, and edit without rewriting whole files",
+  (() => {
+    const tools = strip(read("lib/sites/agent/tools.ts"))
+    return (
+      /case "search_code"/.test(tools) &&
+      /case "replace_in_file"/.test(tools) &&
+      (() => {
+        /**
+         * Scoped to the HANDLER, not the whole file — the tool description
+         * also contains the words "appears more than once", so a
+         * whole-file match passed even with the check deleted. Replacing the
+         * first of several identical strings is a silent, plausible-looking
+         * corruption: the file still compiles and the wrong line changed.
+         */
+        const at = tools.indexOf('case "replace_in_file"')
+        const body = tools.slice(at, tools.indexOf('case "set_plan"', at))
+        return (
+          /file\.indexOf\(oldText, first \+ 1\) !== -1/.test(body) &&
+          /const tooBig = fileSizeError\(path, updated\)/.test(body)
+        )
+      })()
+    )
+  })(),
+)
+
+/**
+ * The build verdict is RECORDED, not just returned. "The model said it built"
+ * is not the same as it having built, and the gate needs the difference.
+ */
+check(
+  "the gate knows whether the project actually compiles",
+  (() => {
+    const tools = strip(read("lib/sites/agent/tools.ts"))
+    const at = tools.indexOf('case "run_build"')
+    const body = tools.slice(at, tools.indexOf("case \"read_build_errors\"", at))
+    return /this\.buildOk = this\.lastBuild\.ok/.test(body)
+  })(),
+)
+
+/**
+ * Status, never reasoning. What the agent is DOING is useful to watch; what it
+ * is thinking is not something to put on screen.
+ */
+check(
+  "the run streams where it has got to, and its checklist",
+  (() => {
+    const types = strip(read("lib/sites/agent/types.ts"))
+    const loop = strip(read("lib/sites/agent/loop.ts"))
+    return (
+      /type: "state"/.test(types) &&
+      /"inspecting" \| "planning" \| "executing" \| "verifying" \| "repairing"/.test(types) &&
+      /type: "plan"; steps: Array<\{ title: string; done: boolean \}>/.test(types) &&
+      /yield \{\s*type: "plan"/.test(loop) &&
+      /state: workspace\.buildOk === false \? "repairing" : "verifying"/.test(loop)
     )
   })(),
 )
