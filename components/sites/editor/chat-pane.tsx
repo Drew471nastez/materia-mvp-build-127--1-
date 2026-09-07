@@ -342,7 +342,15 @@ export function ChatPane({
      * merge this side does not know how to do.
      */
     const [chat] = await Promise.all([
-      fetch(`/api/sites/${siteId}/chat`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      /**
+       * THE CHAT ENDPOINT MATTERS. If it fails, the transcript of the run
+       * is saved server-side but not shown to the user — so it looks like
+       * nothing happened. Handle the failure explicitly rather than
+       * swallowing it.
+       */
+      fetch(`/api/sites/${siteId}/chat`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Chat endpoint ${r.status}`))))
+        .catch((e) => { console.error("Chat reload failed:", e); return null }),
       onFilesChanged([]),
     ])
     return chat as { messages?: StoredMessage[] } | null

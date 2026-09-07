@@ -185,17 +185,34 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
    * A conversation that silently drops its failed exchanges is one where
    * nobody can see the model got the same thing wrong three times — and the
    * creator reopening the site would find their question missing entirely.
+   *
+   * If the save fails, the run is still recorded with its final status and
+   * error — the files are written and paid for — but the user sees nothing
+   * and the transcript will be there when they refresh. Still not good, but
+   * it is not silent loss.
    */
-  await appendExchange({
-    siteId,
-    runId,
-    prompt,
-    reply: result.message || (status === "failed" ? "" : "Done."),
-    steps,
-    filesChanged: changedFiles,
-    versionId,
-    error: status === "failed" ? error : null,
-  })
+  try {
+    await appendExchange({
+      siteId,
+      runId,
+      prompt,
+      reply: result.message || (status === "failed" ? "" : "Done."),
+      steps,
+      filesChanged: changedFiles,
+      versionId,
+      error: status === "failed" ? error : null,
+    })
+  } catch (e) {
+    /**
+     * The exchange went unsaved. The run itself is recorded, so a refresh
+     * will show the files written (proof it happened) even though the
+     * transcript is missing. A rare failure at the database layer.
+     */
+    yield {
+      type: "message",
+      text: `(The conversation did not save, but the edit went through. Refresh the page to see the transcript and the changed files.)`,
+    }
+  }
 
   if (status === "failed") {
     yield { type: "error", message: error ?? "The edit failed." }
