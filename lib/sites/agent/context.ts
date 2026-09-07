@@ -25,6 +25,7 @@
  * removes the step most likely to be skipped.
  */
 
+import type { SiteAsset } from "../assets"
 import type { ProjectFiles } from "../types"
 
 const STYLES = "src/styles.css"
@@ -77,7 +78,7 @@ export function componentNames(files: ProjectFiles): string[] {
  * and telling the model to match a design language that does not exist yet
  * would make a first generation timid.
  */
-export function describeProject(files: ProjectFiles): string {
+export function describeProject(files: ProjectFiles, assets: SiteAsset[] = []): string {
   const paths = Object.keys(files).sort()
   if (paths.length === 0) return ""
 
@@ -110,6 +111,25 @@ export function describeProject(files: ProjectFiles): string {
 
   if (fonts.length) {
     sections.push(`Typography in use:\n${fonts.map((f) => `  ${f}`).join("\n")}`)
+  }
+
+  /**
+   * THE CREATOR'S OWN MEDIA, by the URL that actually serves it.
+   *
+   * Without this the model has no idea an upload happened, so it does what it
+   * has always done and invents a stock photograph — and the creator watches
+   * their own photo be ignored in favour of somebody else's. Listing the real
+   * URLs is what turns "use the image I uploaded" into something the model can
+   * actually carry out.
+   */
+  if (assets.length) {
+    sections.push(
+      `Media the creator has uploaded — use these URLs directly, and prefer them over any stock image:\n` +
+        assets
+          .slice(0, 40)
+          .map((a) => `  ${a.name} (${a.mime}) → ${a.url}`)
+          .join("\n"),
+    )
   }
 
   return sections.join("\n\n")

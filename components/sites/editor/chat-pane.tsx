@@ -16,7 +16,7 @@
  */
 
 import * as React from "react"
-import { ArrowUp, Check, FileCode, Hammer, Loader2, RotateCcw, Sparkles, Square, TriangleAlert } from "lucide-react"
+import { ArrowUp, Check, FileCode, Hammer, ImagePlus, Loader2, RotateCcw, Sparkles, Square, TriangleAlert } from "lucide-react"
 
 import { StorelibMark } from "@/components/storelib-mark"
 
@@ -94,6 +94,62 @@ export function ChatPane({
   const [busy, setBusy] = React.useState(false)
   const [reconnecting, setReconnecting] = React.useState(false)
   const [historyError, setHistoryError] = React.useState(false)
+
+  /**
+   * ATTACHING MEDIA, the way every builder does it: drop it on the composer or
+   * paste it from the clipboard.
+   *
+   * The file uploads IMMEDIATELY rather than waiting for the message to be
+   * sent. A creator who drops a photo and then closes the tab should still find
+   * it on the site next time — and a message that carries a half-uploaded file
+   * is a message that can fail for a reason that has nothing to do with what
+   * they asked for.
+   *
+   * The URL is then appended to the draft, which is what tells the model the
+   * picture exists. Nothing else in the run knows about clipboards.
+   */
+  const [uploading, setUploading] = React.useState(0)
+  const [uploadError, setUploadError] = React.useState<string | null>(null)
+  const [dropping, setDropping] = React.useState(false)
+
+  const attach = React.useCallback(
+    async (files: File[]) => {
+      const media = files.filter((f) => f.size > 0)
+      if (media.length === 0) return
+
+      setUploadError(null)
+      setUploading((n) => n + media.length)
+
+      for (const file of media) {
+        try {
+          const body = new FormData()
+          body.append("file", file)
+          const response = await fetch(`/api/sites/${siteId}/assets`, { method: "POST", body })
+          const json = (await response.json().catch(() => ({}))) as {
+            asset?: { name: string; url: string }
+            error?: string
+          }
+
+          if (!response.ok || !json.asset) {
+            setUploadError(json.error ?? "That file could not be uploaded.")
+            continue
+          }
+
+          // Appended rather than replacing the draft: somebody who has already
+          // typed "put this in the hero" should not lose the sentence.
+          const { name, url } = json.asset
+          setDraft((previous) => `${previous.trimEnd()}${previous.trim() ? "\n" : ""}${name}: ${url}`.trimStart())
+        } catch {
+          setUploadError("That file could not be uploaded.")
+        } finally {
+          setUploading((n) => n - 1)
+        }
+      }
+
+      fieldRef.current?.focus()
+    },
+    [siteId],
+  )
   const fieldRef = React.useRef<HTMLTextAreaElement>(null)
   const bottomRef = React.useRef<HTMLDivElement>(null)
 
@@ -656,11 +712,41 @@ export function ChatPane({
       </div>
 
       <div className="shrink-0 p-3">
-        <div className="overflow-hidden rounded-[11px] border border-border bg-background focus-within:border-foreground/25">
+        {uploadError && (
+          <p className="mb-2 rounded-[9px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {uploadError}
+          </p>
+        )}
+
+        <div
+          onDragOver={(event) => {
+            event.preventDefault()
+            setDropping(true)
+          }}
+          onDragLeave={() => setDropping(false)}
+          onDrop={(event) => {
+            event.preventDefault()
+            setDropping(false)
+            void attach([...event.dataTransfer.files])
+          }}
+          className={cn(
+            "overflow-hidden rounded-[11px] border bg-background transition-colors",
+            dropping
+              ? "border-foreground/40 bg-muted/40"
+              : "border-border focus-within:border-foreground/25",
+          )}
+        >
           <textarea
             ref={fieldRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
+            onPaste={(event) => {
+              // A screenshot on the clipboard arrives as a file with no name.
+              const files = [...event.clipboardData.files]
+              if (files.length === 0) return
+              event.preventDefault()
+              void attach(files)
+            }}
             onKeyDown={(event) => {
               // Enter sends, Shift+Enter is a newline — the convention every
               // chat surface uses, so it is what people's hands already do.
@@ -675,7 +761,34 @@ export function ChatPane({
             className="w-full resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60"
           />
 
-          <div className="flex items-center justify-end px-3 pb-2.5">
+          <div className="flex items-center justify-between gap-2 px-3 pb-2.5">
+            <label
+              className={cn(
+                "flex h-7 cursor-pointer items-center gap-1.5 rounded-full px-2 text-[11px] text-muted-foreground transition-colors",
+                "hover:bg-muted hover:text-foreground",
+                uploading > 0 && "pointer-events-none opacity-60",
+              )}
+              title="Add an image or video"
+            >
+              {uploading > 0 ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <ImagePlus className="h-3.5 w-3.5" />
+              )}
+              {uploading > 0 ? "Uploading…" : "Attach"}
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/mp4,video/webm,audio/mpeg,application/pdf"
+                className="sr-only"
+                onChange={(event) => {
+                  void attach([...(event.target.files ?? [])])
+                  // Cleared so choosing the SAME file twice still fires.
+                  event.target.value = ""
+                }}
+              />
+            </label>
+
             {busy ? (
               <button
                 type="button"

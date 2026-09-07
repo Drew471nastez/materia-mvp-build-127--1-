@@ -3056,8 +3056,11 @@ check(
     return (
       /system: buildSystemPrompt\(context \?\? null\)/.test(loop) &&
       !/system: SYSTEM_PROMPT,/.test(loop) &&
-      /const manifest = await readManifest\(siteId\)/.test(run) &&
-      /facts: describeProject\(files\)/.test(run)
+      // loaded alongside the assets now, so match the call rather than the
+      // assignment it used to sit in
+      /readManifest\(siteId\)/.test(run) &&
+      /const \[manifest, assets\] = await Promise\.all/.test(run) &&
+      /facts: describeProject\(files, assets\)/.test(run)
     )
   })(),
 )
@@ -3719,6 +3722,166 @@ check(
     return (
       /IMAGES AND MEDIA are referenced by URL/.test(loop) &&
       /Never inline a picture, a video or a font as a base64 data: URI/.test(loop)
+    )
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("Uploaded media")
+// ---------------------------------------------------------------------------
+
+/**
+ * `site_assets` existed since the projects migration and NO CODE HAD EVER
+ * WRITTEN TO IT. So there was no way to put a picture on a site, and a model
+ * asked for one did the only thing available to it — inlined the image as a
+ * base64 data URI, blew the per-file limit, and took the entire edit down with
+ * it. This is the half that was missing: somewhere for the bytes to live.
+ *
+ * Text in the database, binary in object storage, referenced by URL — the
+ * shape Bolt, Lovable and v0 all land on, because you otherwise pay database
+ * prices for CDN work.
+ */
+check(
+  "media is stored as bytes in a bucket and a row that points at them",
+  (() => {
+    const assets = strip(read("lib/sites/assets.ts"))
+    const migration = read("supabase/migrations/20260917_site_asset_uploads.sql")
+    return (
+      /ASSET_BUCKET = "site-assets"/.test(assets) &&
+      /storage\.buckets/.test(migration) &&
+      /site_assets_public_read/.test(migration) &&
+      // the row records where the bytes went and how to reach them
+      /storage_key: key/.test(assets) &&
+      /url,/.test(assets)
+    )
+  })(),
+)
+
+/**
+ * SVG IS ABSENT ON PURPOSE. An SVG is a document, not a picture: it can carry
+ * `<script>` and is served as image/svg+xml from a URL with our name on it.
+ * Hosting somebody else's executable document is not a feature — and a creator
+ * loses nothing, because an inline <svg> written into a component already
+ * works and is already sandboxed by the site's own CSP.
+ *
+ * Checked against eleven real cases: photos, video and fonts allowed; SVG,
+ * HTML, JS, a renamed executable, an empty file and an oversized video all
+ * refused.
+ */
+check(
+  "nothing executable can be uploaded",
+  (() => {
+    const assets = read("lib/sites/assets.ts")
+    const allowed = assets.slice(assets.indexOf("const ALLOWED"), assets.indexOf("export interface SiteAsset"))
+    return (
+      !/svg/i.test(allowed) &&
+      !/text\/html/.test(allowed) &&
+      !/javascript/.test(allowed) &&
+      // the stored extension comes from our table, never from the filename
+      /\$\{ALLOWED\[mime\]\}/.test(assets)
+    )
+  })(),
+)
+
+/**
+ * The stored key is a UUID, so a name is never reused, a file behind a URL
+ * never changes, and nothing a creator types can be read as a path.
+ */
+check(
+  "an uploaded file cannot collide, traverse, or be renamed into something else",
+  (() => {
+    const assets = strip(read("lib/sites/assets.ts"))
+    const at = assets.indexOf("function storageKey")
+    const body = assets.slice(at, assets.indexOf("\n}", at))
+    return (
+      /crypto\.randomUUID\(\)/.test(body) &&
+      /sites\/\$\{siteId\}\//.test(body) &&
+      !/filename/.test(body)
+    )
+  })(),
+)
+
+/**
+ * Bytes without a row are invisible: nobody can see them, delete them, or
+ * account for them. If the record fails to write, the object goes with it.
+ */
+check(
+  "a failed record does not leave bytes behind",
+  (() => {
+    const assets = strip(read("lib/sites/assets.ts"))
+    const at = assets.indexOf("if (rowError || !row)")
+    const body = assets.slice(at, assets.indexOf("return { ok: false", at))
+    return /storage\.from\(ASSET_BUCKET\)\.remove\(\[key\]\)/.test(body)
+  })(),
+)
+
+/**
+ * Ownership is proved through the signed-in user's client so RLS answers it,
+ * and only then does the write go through the admin client — a creator who
+ * could write to the bucket directly could put a file under another creator's
+ * prefix and have it served from an address with our name on it.
+ */
+check(
+  "uploads prove ownership before they touch the bucket",
+  (() => {
+    const route = strip(read("app/api/sites/[siteId]/assets/route.ts"))
+    const post = route.slice(route.indexOf("export async function POST"))
+    const resolved = post.indexOf("await resolveSite(siteId)")
+    const uploaded = post.indexOf("await uploadAsset(")
+    return resolved > -1 && uploaded > resolved && /if \(!found\.ok\) return found\.response/.test(post)
+  })(),
+)
+
+/**
+ * Refused on the DECLARED size before the body is read. Reading a 400MB upload
+ * to discover it is too big is how a route gets killed by its own memory limit
+ * instead of answering.
+ */
+check(
+  "an oversized upload is refused before it is read into memory",
+  (() => {
+    const route = strip(read("app/api/sites/[siteId]/assets/route.ts"))
+    const refusal = route.indexOf("file.size > MAX_ASSET_BYTES")
+    const read_ = route.indexOf("await file.arrayBuffer()")
+    return refusal > -1 && read_ > refusal && /status: 413/.test(route)
+  })(),
+)
+
+/**
+ * Without this the model has no idea an upload happened, so it invents a stock
+ * photograph and the creator watches their own picture be ignored.
+ */
+check(
+  "the agent is told which media the creator uploaded",
+  (() => {
+    const context = strip(read("lib/sites/agent/context.ts"))
+    const run = strip(read("lib/sites/agent/run.ts"))
+    return (
+      /assets: SiteAsset\[\] = \[\]/.test(context) &&
+      /prefer them over any stock image/.test(context) &&
+      /listAssets\(siteId\)/.test(run) &&
+      /describeProject\(files, assets\)/.test(run)
+    )
+  })(),
+)
+
+/**
+ * Dropped or pasted, the file uploads IMMEDIATELY rather than riding along
+ * with the message. Somebody who attaches a photo and closes the tab should
+ * still find it next time, and a message carrying a half-uploaded file can
+ * fail for a reason that has nothing to do with what they asked for.
+ */
+check(
+  "media can be dropped or pasted, and uploads on the spot",
+  (() => {
+    const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+    return (
+      /onDrop=/.test(pane) &&
+      /onPaste=/.test(pane) &&
+      /event\.clipboardData\.files/.test(pane) &&
+      /\/assets`, \{ method: "POST", body \}/.test(pane) &&
+      // and the URL joins the draft without eating what was already typed
+      /previous\.trimEnd\(\)/.test(pane)
     )
   })(),
 )

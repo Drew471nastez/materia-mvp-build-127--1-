@@ -24,6 +24,7 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { completeExchange, startExchange, type ChatStep } from "../chat"
+import { listAssets } from "../assets"
 import { describeManifest, mergeManifest, readManifest, writeManifest } from "../manifest"
 import { describeProject } from "./context"
 import { classifyIntent, intentInstruction } from "./intent"
@@ -140,11 +141,14 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
    * the agent works with derived facts alone — which is still far more than
    * the single sentence it used to get.
    */
-  const manifest = await readManifest(siteId).catch(() => null)
+  const [manifest, assets] = await Promise.all([
+    readManifest(siteId).catch(() => null),
+    listAssets(siteId).catch(() => []),
+  ])
   const intent = classifyIntent(prompt)
   const context = {
     manifest: describeManifest(manifest),
-    facts: describeProject(files),
+    facts: describeProject(files, assets),
     intent: intentInstruction(intent),
   }
 
