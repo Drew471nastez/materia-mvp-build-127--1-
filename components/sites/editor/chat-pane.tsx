@@ -16,7 +16,7 @@
  */
 
 import * as React from "react"
-import { ArrowUp, Check, FileCode, Hammer, Loader2, Sparkles, TriangleAlert } from "lucide-react"
+import { ArrowUp, Check, FileCode, Hammer, Loader2, RotateCcw, Sparkles, TriangleAlert } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import type { AgentEvent } from "@/lib/sites/agent/types"
@@ -35,6 +35,10 @@ interface Exchange {
   error?: string
   filesChanged: string[]
   running: boolean
+  /** The snapshot taken before this run, so it can be undone. */
+  runId?: string
+  versionId?: string
+  undone?: boolean
 }
 
 const SUGGESTIONS = [
@@ -56,10 +60,13 @@ const TOOL_LABELS: Record<string, string> = {
 export function ChatPane({
   siteId,
   siteName,
+  openingBrief,
   onFilesChanged,
 }: {
   siteId: string
   siteName: string
+  /** From the New Site flow — sent once, automatically, on first mount. */
+  openingBrief?: string
   onFilesChanged: (paths: string[]) => void
 }) {
   const [exchanges, setExchanges] = React.useState<Exchange[]>([])
@@ -166,6 +173,9 @@ export function ChatPane({
             } else if (event.type === "error") {
               const message = event.message
               patch((e) => ({ ...e, running: false, error: message }))
+            } else if (event.type === "started") {
+              const { runId, versionId } = event
+              patch((e) => ({ ...e, runId, versionId: versionId ?? undefined }))
             } else if (event.type === "done") {
               patch((e) => ({ ...e, running: false }))
             }
@@ -179,6 +189,38 @@ export function ChatPane({
       }
     },
     [busy, onFilesChanged, siteId],
+  )
+
+  /**
+   * The New Site brief, sent once.
+   *
+   * A ref rather than state, and checked before the send: React runs effects
+   * twice in development Strict Mode, and the second run would start a second
+   * generation — two full runs against the model, two bills, and two sets of
+   * edits racing each other into the same files.
+   */
+  const briefSent = React.useRef(false)
+  React.useEffect(() => {
+    if (briefSent.current || !openingBrief?.trim()) return
+    briefSent.current = true
+    void send(openingBrief)
+  }, [openingBrief, send])
+
+  const undo = React.useCallback(
+    async (exchangeId: string, versionId: string) => {
+      const response = await fetch(`/api/sites/${siteId}/restore`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId }),
+      })
+      if (!response.ok) return
+      const body = (await response.json()) as { paths?: string[] }
+      setExchanges((previous) =>
+        previous.map((e) => (e.id === exchangeId ? { ...e, undone: true } : e)),
+      )
+      onFilesChanged(body.paths ?? [])
+    },
+    [onFilesChanged, siteId],
   )
 
   return (
@@ -242,10 +284,23 @@ export function ChatPane({
                 {exchange.reply && <p className="text-sm leading-relaxed text-muted-foreground">{exchange.reply}</p>}
 
                 {exchange.filesChanged.length > 0 && (
-                  <p className="flex items-center gap-1.5 text-xs text-emerald-500">
-                    <Check className="h-3 w-3 shrink-0" />
-                    {exchange.filesChanged.length} file{exchange.filesChanged.length === 1 ? "" : "s"} changed
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <p className="flex items-center gap-1.5 text-xs text-emerald-500">
+                      <Check className="h-3 w-3 shrink-0" />
+                      {exchange.filesChanged.length} file{exchange.filesChanged.length === 1 ? "" : "s"} changed
+                    </p>
+                    {exchange.versionId && !exchange.undone && (
+                      <button
+                        type="button"
+                        onClick={() => void undo(exchange.id, exchange.versionId as string)}
+                        className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        Undo
+                      </button>
+                    )}
+                    {exchange.undone && <span className="text-xs text-muted-foreground">Undone</span>}
+                  </div>
                 )}
 
                 {exchange.error && (

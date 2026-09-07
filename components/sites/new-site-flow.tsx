@@ -90,7 +90,17 @@ export function NewSiteFlow() {
         setError(typeof data.error === "string" ? data.error : "Could not create the site.")
         return
       }
-      router.push(`/sites/${data.site.id}`)
+      /**
+       * The brief rides into the editor, which sends it as the first message.
+       *
+       * Generation deliberately does NOT happen inside the create request: it
+       * takes a minute, and a POST that hangs for a minute is a POST that
+       * times out on someone's phone with a site half-made and no way back to
+       * it. This way the site exists first, and the build is something you
+       * watch happen.
+       */
+      const brief = payload.prompt?.trim()
+      router.push(brief ? `/sites/${data.site.id}?brief=${encodeURIComponent(brief)}` : `/sites/${data.site.id}`)
     } catch {
       setError("Could not reach the server. Check your connection and try again.")
     } finally {

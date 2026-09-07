@@ -1016,12 +1016,24 @@ section("A run cannot spend money silently, break a site, or exceed a plan")
 
 const runSource = read("lib/sites/agent/run.ts")
 
+/**
+ * The DECISIONS moved to lib/sites/agent/loop.ts and are covered by
+ * tests/agent-loop.test.ts, which RUNS them — the turn cap, the build gate,
+ * refusals and token accumulation are all driven with a scripted provider and
+ * a real esbuild rather than pattern-matched here. Two of those checks caught
+ * real bugs the moment they existed: a turn counter that reported 13 against a
+ * cap of 12, and a live conversation array handed to the provider and then
+ * mutated under it.
+ *
+ * What stays here is the ORDER of the things around the loop, because that
+ * order is what cannot be observed from the loop's own result.
+ */
 check(
   "the quota is checked before the first token is spent",
   (() => {
     const quota = runSource.indexOf("monthlyQuotaError(creatorId, plan)")
-    const firstCall = runSource.indexOf("provider.complete(")
-    return quota !== -1 && firstCall !== -1 && quota < firstCall
+    const loop = runSource.indexOf("agentLoop({")
+    return quota !== -1 && loop !== -1 && quota < loop
   })(),
 )
 
@@ -1029,63 +1041,62 @@ check(
   "the snapshot is taken before anything is edited",
   (() => {
     const snap = runSource.indexOf("await snapshot(")
-    const loop = runSource.indexOf("provider.complete(")
-    const save = runSource.indexOf("saveFiles(")
-    return snap < loop && snap < save
+    const loop = runSource.indexOf("agentLoop({")
+    const save = runSource.indexOf("await saveFiles(")
+    return snap !== -1 && snap < loop && snap < save
   })(),
 )
 
 /**
- * The prompt asks the model not to finish on a red build. This is what happens
- * when it does anyway: saving a project that does not compile replaces a
- * working site with a broken one, and the creator's next look at their own
- * page is an error overlay.
+ * The loop's verdict is what decides. Anything other than an exact
+ * `status === "succeeded"` — a truthy check, a "not failed" — would save the
+ * output of a refused run or a capped one.
  */
 check(
-  "a failing build blocks the save",
+  "only a succeeded run is saved",
   (() => {
-    // The whole CONDITION, not just the substring. The first version of this
-    // matched "build && !build.ok" inside "false && build && !build.ok" — it
-    // passed against a gate that had been switched off, which is the one
-    // mutation it exists to catch.
-    const live = /if \(status === "succeeded" && build && !build\.ok\) \{\s*\n\s*status = "failed"/
-    const gate = runSource.search(live)
+    const gate = runSource.indexOf('if (status === "succeeded") {')
     const save = runSource.indexOf("await saveFiles(")
-    return gate !== -1 && save !== -1 && gate < save && /did not compile/.test(runSource)
+    return gate !== -1 && save !== -1 && gate < save
   })(),
-)
-
-check(
-  "the loop has a hard turn cap",
-  /MAX_TURNS = \d+/.test(runSource) && /turnCount <= MAX_TURNS/.test(runSource),
 )
 
 /**
  * A run that cost money and left no row is a bill nobody can explain. The
- * record is written after the try/catch, not inside the success path.
+ * record is written after the loop returns, on every path out of it.
  */
 check(
-  "the run is recorded even when it fails",
+  "the run is recorded whatever the outcome",
   (() => {
-    const katch = runSource.indexOf("} catch (thrown) {")
     const record = runSource.indexOf('.from("site_agent_runs")\n    .update(')
-    return katch !== -1 && record !== -1 && record > katch
+    const errorExit = runSource.indexOf('if (status === "failed") {')
+    // The failure exit comes AFTER the record, so a failed run is written too.
+    return record !== -1 && errorExit !== -1 && record < errorExit
   })(),
 )
 
 check(
-  "tokens are recorded before a turn can throw them away",
+  "a refusal is a status the database will accept",
+  read("supabase/migrations/20260911_site_agent_runs.sql").includes("'refused'"),
+)
+
+/**
+ * Snapshots without a restore are a promise nobody can collect on. "The AI
+ * broke my site" needs a button, not a row in a table.
+ */
+check(
+  "a snapshot can actually be restored, through the same rules as an edit",
   (() => {
-    const accumulate = runSource.indexOf("usage = addUsage(usage, turn.usage)")
-    const refusal = runSource.indexOf('turn.stop === "refusal"')
-    return accumulate !== -1 && accumulate < refusal
+    const restore = runSource.slice(runSource.indexOf("export async function restoreVersion"))
+    return (
+      restore.length > 0 &&
+      // The USER's client, so RLS proves ownership — the admin client would
+      // happily restore somebody else's version.
+      restore.includes("await createClient()") &&
+      !restore.includes("createAdminClient()") &&
+      restore.includes("saveFiles(siteId, files)")
+    )
   })(),
-)
-
-check(
-  "a refusal is its own outcome, not a failure",
-  /status: "running" \| "succeeded" \| "failed" \| "refused"|"succeeded" \| "failed" \| "refused"/.test(runSource) &&
-    read("supabase/migrations/20260911_site_agent_runs.sql").includes("'refused'"),
 )
 
 // ---------------------------------------------------------------------------
@@ -1159,6 +1170,98 @@ check(
       // The worker no longer carries its own copy of the build call.
       !/esbuild\.build\(/.test(worker)
     )
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("Creating a site with a brief actually builds one")
+// ---------------------------------------------------------------------------
+
+/**
+ * The New Site flow has always taken a brief and stored it on
+ * `settings.brief`, where nothing read it. "Describe your site" that produces
+ * an empty starter is the feature not existing.
+ */
+check(
+  "the brief is carried into the editor, not just stored",
+  (() => {
+    const flow = read("components/sites/new-site-flow.tsx")
+    const page = read("app/sites/[siteId]/page.tsx")
+    const shell = read("components/sites/editor/editor-shell.tsx")
+    return (
+      /brief=\$\{encodeURIComponent\(brief\)\}/.test(flow) &&
+      /searchParams: Promise<\{ brief\?: string \}>/.test(page) &&
+      /openingBrief=\{brief\}/.test(page) &&
+      shell.includes("openingBrief")
+    )
+  })(),
+)
+
+/**
+ * Generation deliberately does NOT happen inside the create request. It takes
+ * a minute, and a POST that hangs for a minute times out on a phone with a
+ * site half-made and no way back to it.
+ */
+check(
+  "the create request does not block on generation",
+  (() => {
+    const route = read("app/api/sites/route.ts")
+    return !/agentLoop|runAgent|openAIProvider/.test(route)
+  })(),
+)
+
+/**
+ * React runs effects twice in development Strict Mode. Without the guard, the
+ * second run starts a second generation: two full runs against the model, two
+ * bills, and two sets of edits racing into the same files.
+ */
+check(
+  "the opening brief cannot be sent twice",
+  (() => {
+    const chat = read("components/sites/editor/chat-pane.tsx")
+    return /briefSent = React\.useRef\(false\)/.test(chat) && /if \(briefSent\.current \|\|/.test(chat)
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("An edit can be taken back")
+// ---------------------------------------------------------------------------
+
+check(
+  "the snapshot id reaches the client on the FIRST event, not the last",
+  (() => {
+    const types = read("lib/sites/agent/types.ts")
+    const runFile = read("lib/sites/agent/run.ts")
+    // On `started`, so a run that half-succeeds — the one somebody most wants
+    // to take back — can still be undone.
+    return (
+      /\{ type: "started"; runId: string; versionId: string \| null; model: string \}/.test(types) &&
+      runFile.includes('yield { type: "started", runId, versionId, model }')
+    )
+  })(),
+)
+
+check(
+  "restoring goes through the same validation and RLS as an edit",
+  (() => {
+    const route = read("app/api/sites/[siteId]/restore/route.ts")
+    const runFile = read("lib/sites/agent/run.ts")
+    const restore = runFile.slice(runFile.indexOf("export async function restoreVersion"))
+    return (
+      route.includes("restoreVersion(siteId, versionId)") &&
+      restore.includes("saveFiles(siteId, files)") &&
+      // The USER's client — the admin one would restore anybody's version.
+      !restore.includes("createAdminClient()")
+    )
+  })(),
+)
+
+check(
+  "an empty or missing snapshot is refused rather than wiping the site",
+  (() => {
+    const runFile = read("lib/sites/agent/run.ts")
+    const restore = runFile.slice(runFile.indexOf("export async function restoreVersion"))
+    return /Object\.keys\(files\)\.length === 0/.test(restore) && /cannot be restored/.test(restore)
   })(),
 )
 

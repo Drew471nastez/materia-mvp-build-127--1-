@@ -24,8 +24,20 @@ export async function generateMetadata({ params }: { params: Promise<{ siteId: s
   return { title: site ? `${site.name} — Storelib AI` : "Storelib AI" }
 }
 
-export default async function SiteEditorPage({ params }: { params: Promise<{ siteId: string }> }) {
+export default async function SiteEditorPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ siteId: string }>
+  searchParams: Promise<{ brief?: string }>
+}) {
   const { siteId } = await params
+  /**
+   * The brief from the New Site flow. Present exactly once, on the first
+   * arrival, and the editor sends it as the opening message — which is what
+   * makes "describe your site" produce a site rather than a stored string.
+   */
+  const { brief } = await searchParams
 
   const supabase = await createClient()
   const {
@@ -41,5 +53,5 @@ export default async function SiteEditorPage({ params }: { params: Promise<{ sit
   const site = await getSite(siteId)
   if (!site) notFound()
 
-  return <EditorShell site={site} initialFiles={await readProject(siteId)} />
+  return <EditorShell site={site} initialFiles={await readProject(siteId)} openingBrief={brief} />
 }

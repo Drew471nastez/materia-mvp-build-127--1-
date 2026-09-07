@@ -45,19 +45,29 @@ function existingFile(path) {
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === "server-only") return { url: EMPTY_MODULE, shortCircuit: true }
 
+  /**
+   * A `?query` suffix is the standard way to ask Node for a FRESH instance of
+   * a module — which a test needs when the module reads an environment
+   * variable once, at construction. It has to come off before the path is
+   * looked up on disk and go back on the resolved URL, or the second import
+   * returns the cached first one and the test silently checks nothing.
+   */
+  const query = specifier.includes("?") ? specifier.slice(specifier.indexOf("?")) : ""
+  const bare = query ? specifier.slice(0, specifier.indexOf("?")) : specifier
+
   // The project's own alias. tsc resolves `@/…` for type checking and then
   // emits it untouched, so Node would look for a package called "@/lib".
-  if (specifier.startsWith("@/") && OUT) {
-    const found = existingFile(join(OUT, specifier.slice(2)))
-    if (found) return { url: pathToFileURL(found).href, shortCircuit: true }
+  if (bare.startsWith("@/") && OUT) {
+    const found = existingFile(join(OUT, bare.slice(2)))
+    if (found) return { url: pathToFileURL(found).href + query, shortCircuit: true }
   }
 
   // Extensionless relative imports, which is how tsc emits them.
-  if (specifier.startsWith(".") && context.parentURL?.startsWith("file:")) {
+  if (bare.startsWith(".") && context.parentURL?.startsWith("file:")) {
     const parentDir = new URL(".", context.parentURL)
-    const candidate = new URL(specifier, parentDir)
+    const candidate = new URL(bare, parentDir)
     const found = existingFile(candidate.pathname)
-    if (found) return { url: pathToFileURL(found).href, shortCircuit: true }
+    if (found) return { url: pathToFileURL(found).href + query, shortCircuit: true }
   }
 
   return nextResolve(specifier, context)

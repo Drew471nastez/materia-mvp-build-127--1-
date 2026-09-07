@@ -1,22 +1,20 @@
 import "server-only"
 
 /**
- * The agent loop.
+ * One agent run, end to end: quota, snapshot, the loop, the save, the record.
  *
- * Provider-independent by construction: it speaks only the types in ./types
- * and is handed an `AgentProvider`. Swapping models or vendors touches
- * ./openai-provider and ./models, never this file.
- *
- * The order below is the whole safety story, and each step is before the next
- * for a reason:
+ * The DECISIONS are all in ./loop — the turn cap, the build gate, what counts
+ * as a refusal — so they can be driven by a test with a scripted provider.
+ * What is left here is the order things happen in, and that order is itself
+ * the safety story:
  *
  *   1. QUOTA, before any token is spent. A limit enforced after the request is
  *      a limit that bills you for the request it refused.
  *   2. SNAPSHOT, before the first edit. Taken after, it has already lost the
  *      version somebody wants back.
- *   3. THE LOOP, with a hard turn cap. A model that will not stop is a bill.
+ *   3. THE LOOP.
  *   4. SAVE, only what changed, through the same validation and RLS a human
- *      edit uses.
+ *      edit uses — and only if the loop succeeded.
  *   5. RECORD, with tokens as the provider reported them.
  *
  * Step 5 runs even when 3 or 4 fail. A run that cost money and left no row is
@@ -28,34 +26,10 @@ import { createClient } from "@/lib/supabase/server"
 import { siteLimits, type SitePlan } from "../plan"
 import { readProject, saveFiles } from "../projects"
 import type { ProjectFiles } from "../types"
+import { agentLoop } from "./loop"
 import { chooseModel, costOf } from "./models"
-import { TOOL_SPECS, ProjectWorkspace } from "./tools"
-import {
-  ZERO_USAGE,
-  addUsage,
-  type AgentEvent,
-  type AgentProvider,
-  type AgentTurn,
-  type TokenUsage,
-} from "./types"
-
-/**
- * The model gets this many round trips. Reached, the run stops and says so.
- *
- * Twelve is enough for read-a-few-files, edit, build, fix, build; a model still
- * going at thirteen is looping, and every extra turn resends the whole history.
- */
-const MAX_TURNS = 12
-
-const SYSTEM_PROMPT = `You edit a small React website that is a real Vite project. The files ARE the site — there is no other representation of it.
-
-Rules:
-- Call list_files first. Never guess a path.
-- read_file before you rewrite a file. write_file replaces the WHOLE file — send complete contents, never a fragment or a diff.
-- You may import ONLY react, react-dom and react-dom/client. No other package is available and none can be installed. Write what you need by hand.
-- Styling is plain CSS in src/styles.css, which defines design tokens at the top (--bg, --text, --primary, --radius, …). Change a token to restyle the whole site; add rules for anything new. There is no Tailwind and no CSS framework.
-- After you finish editing, call run_build. If it reports errors, fix them and build again. Do not finish on a failing build.
-- When you are done, reply with one or two plain sentences saying what you changed. No preamble, no markdown headings, no code in the reply.`
+import { ProjectWorkspace } from "./tools"
+import type { AgentEvent, AgentProvider } from "./types"
 
 export interface RunInput {
   siteId: string
@@ -114,136 +88,64 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
     return
   }
 
-  yield { type: "started", runId, model }
+  yield { type: "started", runId, versionId, model }
 
   const workspace = new ProjectWorkspace(files)
-  const turns: AgentTurn[] = [{ role: "user", content: prompt }]
-  let usage: TokenUsage = ZERO_USAGE
-  let turnCount = 0
-  let finalMessage = ""
-  let status: "succeeded" | "failed" | "refused" = "failed"
-  let error: string | null = null
 
-  try {
-    for (turnCount = 1; turnCount <= MAX_TURNS; turnCount++) {
-      const turn = await provider.complete({
-        model,
-        system: SYSTEM_PROMPT,
-        turns,
-        tools: TOOL_SPECS,
-        maxOutputTokens: 32_000,
-        signal,
-      })
+  // The loop's events are forwarded as they happen; its RETURN value is the
+  // verdict. `for await` would discard the return, so the iterator is driven
+  // by hand.
+  const loop = agentLoop({ provider, model, prompt, workspace, esbuild, signal })
+  let step = await loop.next()
+  while (!step.done) {
+    yield step.value
+    step = await loop.next()
+  }
+  const result = step.value
 
-      // Accumulated FIRST. A turn that then throws still cost money, and the
-      // record has to say so.
-      usage = addUsage(usage, turn.usage)
+  let status = result.status
+  let error = result.error
+  let changedFiles: string[] = []
 
-      if (turn.stop === "refusal") {
-        status = "refused"
-        finalMessage = turn.text || "I can't help with that."
-        break
-      }
-
-      turns.push({
-        role: "assistant",
-        content: turn.text,
-        toolCalls: turn.toolCalls,
-        raw: turn.raw,
-      })
-
-      if (turn.text.trim()) yield { type: "thinking", text: turn.text.trim() }
-
-      if (turn.toolCalls.length === 0) {
-        finalMessage = turn.text.trim()
-        status = "succeeded"
-        break
-      }
-
-      const results = []
-      for (const call of turn.toolCalls) {
-        const output = await workspace.execute(call.name, call.argumentsJson, esbuild)
-        results.push({ id: call.id, output })
-        yield { type: "tool", name: call.name, detail: describe(call.name, call.argumentsJson) }
-      }
-      turns.push({ role: "tool", results })
-
-      if (turnCount === MAX_TURNS) {
-        error = "The edit took too many steps and was stopped."
+  if (status === "succeeded") {
+    const changed = workspace.changedFiles()
+    if (Object.keys(changed).length > 0) {
+      const saved = await saveFiles(siteId, changed)
+      if (!saved.ok) {
         status = "failed"
+        error = saved.error
+      } else {
+        changedFiles = [...workspace.changed]
+        yield { type: "files", paths: changedFiles }
       }
     }
-
-    /**
-     * Nothing is written if the last build failed.
-     *
-     * The prompt tells the model not to finish on a red build; this is what
-     * happens when it does anyway. Saving a project that does not compile
-     * replaces a working site with a broken one, and the creator's next view
-     * of their own page is an error overlay.
-     */
-    const build = workspace.buildResult
-    if (status === "succeeded" && build && !build.ok) {
-      status = "failed"
-      error = "The edit did not compile, so nothing was changed."
-    }
-
-    if (status === "succeeded") {
-      const changed = workspace.changedFiles()
-      if (Object.keys(changed).length > 0) {
-        const saved = await saveFiles(siteId, changed)
-        if (!saved.ok) {
-          status = "failed"
-          error = saved.error
-        } else {
-          yield { type: "files", paths: [...workspace.changed] }
-        }
-      }
-    }
-  } catch (thrown) {
-    status = "failed"
-    error = thrown instanceof Error ? thrown.message : "The edit failed."
   }
 
-  const cost = costOf(model, usage)
-  const changedFiles = status === "succeeded" ? [...workspace.changed] : []
+  const cost = costOf(model, result.usage)
 
   await admin
     .from("site_agent_runs")
     .update({
       status,
-      input_tokens: usage.inputTokens,
-      cached_input_tokens: usage.cachedInputTokens,
-      cache_write_tokens: usage.cacheWriteTokens,
-      output_tokens: usage.outputTokens,
+      input_tokens: result.usage.inputTokens,
+      cached_input_tokens: result.usage.cachedInputTokens,
+      cache_write_tokens: result.usage.cacheWriteTokens,
+      output_tokens: result.usage.outputTokens,
       cost_usd: cost.usd,
-      turns: turnCount,
+      turns: result.turns,
       files_changed: changedFiles,
       error,
       finished_at: new Date().toISOString(),
     })
     .eq("id", runId)
 
-  if (status === "succeeded") {
-    if (finalMessage) yield { type: "message", text: finalMessage }
-    yield { type: "done", runId, costUsd: cost.usd, turns: turnCount, filesChanged: changedFiles }
-  } else if (status === "refused") {
-    yield { type: "message", text: finalMessage }
-    yield { type: "done", runId, costUsd: cost.usd, turns: turnCount, filesChanged: [] }
-  } else {
+  if (status === "failed") {
     yield { type: "error", message: error ?? "The edit failed." }
+    return
   }
-}
 
-/** A one-line description of a call, for the UI. Never the file contents. */
-function describe(name: string, argumentsJson: string): string {
-  try {
-    const args = JSON.parse(argumentsJson || "{}")
-    if (typeof args.path === "string") return args.path
-  } catch {
-    /* a malformed call is still worth showing by name */
-  }
-  return ""
+  if (result.message) yield { type: "message", text: result.message }
+  yield { type: "done", runId, costUsd: cost.usd, turns: result.turns, filesChanged: changedFiles }
 }
 
 /**
@@ -296,4 +198,39 @@ async function openRun(row: {
     .single()
 
   return (data as { id: string } | null)?.id ?? null
+}
+
+/**
+ * Put a site back the way a snapshot found it.
+ *
+ * Snapshots without a restore are a promise nobody can collect on: "the AI
+ * broke my site" needs a button, not a row in a table. Every file in the
+ * snapshot is written back through `saveFiles`, so the restore obeys the same
+ * validation and the same RLS an ordinary edit does.
+ */
+export type RestoreResult = { ok: true; paths: string[] } | { ok: false; error: string }
+
+export async function restoreVersion(siteId: string, versionId: string): Promise<RestoreResult> {
+  const supabase = await createClient()
+
+  // Read through the USER's client, not the admin one: RLS is what proves the
+  // caller owns this version, and the admin client would restore anybody's.
+  const { data } = await supabase
+    .from("site_versions")
+    .select("id, site_id, snapshot")
+    .eq("id", versionId)
+    .eq("site_id", siteId)
+    .maybeSingle()
+
+  const row = data as { snapshot: ProjectFiles } | null
+  if (!row?.snapshot) return { ok: false, error: "That version is not available." }
+
+  const files = row.snapshot
+  if (typeof files !== "object" || Array.isArray(files) || Object.keys(files).length === 0) {
+    return { ok: false, error: "That version is empty and cannot be restored." }
+  }
+
+  const saved = await saveFiles(siteId, files)
+  if (!saved.ok) return { ok: false, error: saved.error }
+  return { ok: true, paths: Object.keys(files) }
 }

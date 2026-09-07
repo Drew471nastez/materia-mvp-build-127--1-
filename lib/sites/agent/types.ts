@@ -114,7 +114,13 @@ export interface AgentProvider {
 
 /** What the client sees while a run is in flight, one JSON object per line. */
 export type AgentEvent =
-  | { type: "started"; runId: string; model: string }
+  /**
+   * `versionId` is the snapshot taken before this run, and it is on the FIRST
+   * event on purpose: Undo has to be offerable the moment a run starts
+   * changing things, not only if it finishes cleanly. A run that half-succeeds
+   * is exactly the one somebody wants to take back.
+   */
+  | { type: "started"; runId: string; versionId: string | null; model: string }
   | { type: "thinking"; text: string }
   | { type: "tool"; name: string; detail: string }
   | { type: "files"; paths: string[] }

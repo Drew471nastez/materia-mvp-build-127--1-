@@ -47,7 +47,16 @@ type Pane = "chat" | "preview" | "code"
 
 const AUTOSAVE_MS = 1200
 
-export function EditorShell({ site, initialFiles }: { site: Site; initialFiles: ProjectFiles }) {
+export function EditorShell({
+  site,
+  initialFiles,
+  openingBrief,
+}: {
+  site: Site
+  initialFiles: ProjectFiles
+  /** From the New Site flow: sent as the first message, once. */
+  openingBrief?: string
+}) {
   const [files, setFiles] = React.useState<ProjectFiles>(initialFiles)
   const [pane, setPane] = React.useState<Pane>("preview")
   const [activePath, setActivePath] = React.useState<string | null>(
@@ -223,7 +232,12 @@ export function EditorShell({ site, initialFiles }: { site: Site; initialFiles: 
       {/* ─────────────────────────── the work ─────────────────────────── */}
       <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(320px,380px)_1fr]">
         <div className={cn("min-h-0 md:block", pane === "chat" ? "block" : "hidden")}>
-          <ChatPane siteId={site.id} siteName={site.name} onFilesChanged={adoptAgentChanges} />
+          <ChatPane
+            siteId={site.id}
+            siteName={site.name}
+            openingBrief={openingBrief}
+            onFilesChanged={adoptAgentChanges}
+          />
         </div>
 
         <div className={cn("min-h-0", pane === "chat" ? "hidden md:block" : "block")}>
