@@ -414,6 +414,31 @@ export async function proxy(request: NextRequest) {
     // Create rewrite response
     supabaseResponse = NextResponse.rewrite(rewriteUrl)
     supabaseResponse.headers.set("x-seller-subdomain", username)
+
+    /**
+     * THE STOREFRONT IS PER-VIEWER, ON THIS PATH TOO.
+     *
+     * `next.config.mjs` sets `private, no-cache, must-revalidate` for
+     * `/u/:username*`, with a comment explaining why: the page renders an Edit
+     * button, owner menus and a follow state that depend on who is asking, and
+     * caching it shared serves one visitor's rendering to another. It also
+     * made `router.refresh()` after a save a no-op, because the refreshed RSC
+     * payload came straight back from the edge unchanged.
+     *
+     * THAT RULE NEVER APPLIED HERE. `headers()` matches the path the browser
+     * asked for, and on `andrew.storelib.com` that path is `/` — which has its
+     * own rule, `public, s-maxage=3600, stale-while-revalidate=7200`, meant
+     * for the marketing landing page. So every storefront reached by its own
+     * subdomain — which is most of them — was edge-cached for an hour, and
+     * saving a profile appeared to do nothing until the hour was up.
+     *
+     * The rewrite is the only place that knows this request is a storefront,
+     * so the header belongs here. `/l/` keeps its own caching: a link-in-bio
+     * page has no per-viewer content.
+     */
+    if (rewritePath.startsWith("/u/")) {
+      supabaseResponse.headers.set("Cache-Control", "private, no-cache, must-revalidate")
+    }
     if (isCustomDomain) {
       supabaseResponse.headers.set("x-custom-domain", host.split(":")[0])
     }

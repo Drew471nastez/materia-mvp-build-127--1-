@@ -50,7 +50,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ProductGallery } from "@/components/product/product-gallery"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { SocialMediaIcons } from "./social-media-icons"
-import { CategorySelect, SortControl } from "@/components/storefront/catalog-controls"
+import { CatalogHeader, CategorySelect, SortControl } from "@/components/storefront/catalog-controls"
 import { StorefrontProductCard } from "@/components/storefront/storefront-product-card"
 import { avatarSizeMap } from "@/lib/store-builder/defaults"
 import { isOptimizableImage, optimizedImageUrl, PORTRAIT_QUALITY } from "@/lib/images/optimized-url"
@@ -2399,68 +2399,48 @@ function UnifiedFeaturedProductsSection({
         {/* Main */}
         <div className="flex-1 min-w-0">
           {/*
-            HEADING AND CONTROLS ON ONE ROW.
+            THE SAME HEADER COMPONENT THE PRODUCTS TAB USES.
 
-            They were stacked, and with the category selector rendering nothing
-            the second row held a single icon button pushed to the far right —
-            a lone circle floating in its own band of white between the
-            headline and the first product, lined up with nothing on either
-            side. On one row the button has the headline to sit level with, and
-            the row reads as a header rather than as two things that failed to
-            meet.
+            This was its own `flex flex-wrap` row with its own `mt-5` on the
+            grid below it, and the Products tab had its own with `mb-5`. Two
+            numbers that had to be kept equal by hand — and even equal, the
+            rows only lined up while both happened to be 36px tall. A heading
+            that wrapped, or a long category name, moved one tab's cards and
+            not the other's, and switching tab jumped the grid. One component,
+            one fixed row height, one margin.
 
-            It wraps rather than squeezing: a long headline on a narrow phone
-            puts the controls on their own line, still left-and-right against
-            the same edges as the grid below.
+            The controls themselves are shared too: this section used to carry
+            its own sort dropdown, with its own drag handling, its own theme
+            plumbing and its own copy of the five labels.
           */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <h2
-              className={cn(
-                "font-semibold",
-                // Also a CSS breakpoint now: the JS one made the heading
-                // resize a frame after hydration, which is a shift nobody
-                // asked for on a page that has just finished loading.
-                isMobile ? "text-lg" : "text-lg sm:text-xl lg:text-2xl",
-                !settings.colors?.textColor && "text-foreground",
-              )}
-              style={{
-                textAlign: settings.typography?.textAlign,
-                color: settings.colors?.textColor || undefined,
-              }}
-            >
-              {settings.headline}
-            </h2>
-
-            {/*
-              THE SAME TWO CONTROLS AS THE PRODUCTS TAB, from the same file.
-
-              This section used to carry its own sort dropdown — with its own
-              drag handling, its own theme-colour plumbing and its own copy of
-              the five labels — and, below it, a row of category pills that only
-              appeared on mobile. The Products tab had neither, then had
-              different ones. Two vocabularies for one idea on one page.
-
-              Sort collapses to an icon on a phone; the category filter is one
-              pill that opens a list rather than a row of chips that wraps to
-              three lines and pushes the products off the screen.
-            */}
-            <div className="ml-auto flex items-center gap-2">
-              {!settings.hideCategoryFilter && (
-                <CategorySelect
-                  categories={categoriesWithCounts}
-                  value={selectedCategory}
-                  onChange={handleCategoryChange}
-                  total={totalProducts}
-                />
-              )}
-              {totalProducts > 1 && (
-                <>
-                  <SortControl value={sortBy} onChange={setSortBy} compact className="sm:hidden" />
-                  <SortControl value={sortBy} onChange={setSortBy} className="hidden sm:inline-flex" />
-                </>
-              )}
-            </div>
-          </div>
+          <CatalogHeader
+            title={settings.headline}
+            titleClassName={cn(
+              // A CSS breakpoint, not the JS one that used to live here: that
+              // resized the heading a frame after hydration.
+              isMobile ? "text-lg" : "text-lg sm:text-xl lg:text-2xl",
+              !settings.colors?.textColor && "text-foreground",
+            )}
+            titleStyle={{
+              textAlign: settings.typography?.textAlign,
+              color: settings.colors?.textColor || undefined,
+            }}
+          >
+            {!settings.hideCategoryFilter && (
+              <CategorySelect
+                categories={categoriesWithCounts}
+                value={selectedCategory}
+                onChange={handleCategoryChange}
+                total={totalProducts}
+              />
+            )}
+            {totalProducts > 1 && (
+              <>
+                <SortControl value={sortBy} onChange={setSortBy} compact className="sm:hidden" />
+                <SortControl value={sortBy} onChange={setSortBy} className="hidden sm:inline-flex" />
+              </>
+            )}
+          </CatalogHeader>
 
           {/*
             THE SAME BREAKPOINTS AS THE PRODUCTS TAB, because they are the same
@@ -2486,7 +2466,7 @@ function UnifiedFeaturedProductsSection({
           */}
           <div
             className={cn(
-              "grid gap-4 mt-5",
+              "grid gap-4",
               (settings.mobileListing ?? 1) === 1 ? "grid-cols-1" : "grid-cols-2",
               !isMobile && "sm:grid-cols-2 lg:grid-cols-3",
             )}

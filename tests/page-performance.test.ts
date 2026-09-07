@@ -987,7 +987,7 @@ check(
       ["the featured rail", featured],
       ["the products tab", grid],
     ] as const) {
-      if (!/<StorefrontProductCard/.test(src)) missing.push(`${name} no longer renders the shared card`)
+      if (!/<StorefrontProductCard\b/.test(src)) missing.push(`${name} no longer renders the shared card`)
     }
     // `?layout=discover` tells the product page it was reached from a browse
     // surface. A creator's own storefront is not that.
@@ -1093,8 +1093,25 @@ check(
     const header = code("components/store-builder/unified-section-renderer.tsx")
     const missing: string[] = []
 
-    if (!/stroke: "currentColor"/.test(icons)) missing.push("the marks are not stroked in currentColor any more")
-    if (/fill="#|fill={color}/.test(icons)) missing.push("a mark is painted with a fixed fill again")
+    /**
+     * THE MARKS COME FROM SIMPLE ICONS, not from anyone's hand.
+     *
+     * They used to be drawn here — `<path d="M14.2 3v11.6a4.4 4.4 0 1 1-4.4…" />`,
+     * an approximation of a TikTok note, in a codebase that already depends on
+     * react-icons, which ships Simple Icons: the reference set every brand
+     * takes its own mark from. Approximating a logo by eye is wrong the way a
+     * misspelt company name is wrong — nobody can say which curve is off,
+     * everybody can see it is not the real one. The X mark in particular
+     * changed in 2023 and the drawn version was three strokes hoping.
+     *
+     * Verified in a browser: all seven marks in the dialog render the exact
+     * same path data as the seven on the page.
+     */
+    if (!/from "react-icons\/si"/.test(icons))
+      missing.push("the brand marks are hand-drawn again instead of coming from Simple Icons")
+    if (/<path d="M/.test(icons)) missing.push("there is hand-drawn path data in the icon module again")
+    if (!/color = "currentColor"/.test(icons))
+      missing.push("the marks no longer default to currentColor — they will not follow the page's colour")
     if (!/iconColor = "currentColor"/.test(row))
       missing.push("the default icon colour is a fixed value again — it will vanish on a dark page")
     if (/iconColor=\{settings\.textsColor/.test(header))
@@ -1418,16 +1435,32 @@ check(
       missing.push("the gap below a panel is unowned again — each tab ends at a different height")
 
     /**
-     * ONE distance from the rule to the first card, on both tabs. The Featured
-     * rail's `mt-5` and the grid's `mb-6` put them 88px and 92px down. Four
-     * pixels is nothing to describe and plainly visible to switch between: the
-     * whole grid steps down on the way to Products and back up on the way home.
+     * ONE COMPONENT OWNS THE DISTANCE from the rule to the first card.
+     *
+     * It was two numbers — the Featured rail's `mt-5` against the grid's
+     * `mb-6`, then `mb-5` — that had to be kept equal by hand. And even equal,
+     * the tabs only lined up while both header rows happened to be 36px tall,
+     * which was true because the compact sort button is 36px and nothing else
+     * in the row was taller. A heading that wrapped, or a long category name,
+     * moved one tab's cards and not the other's.
+     *
+     * CatalogHeader is `min-h-9 mb-5` in one place both tabs render, so the
+     * distance is the same by construction. Measured at 390 / 700 / 1180, and
+     * again after replacing the headline with one long enough to have wrapped:
+     * 88px on both tabs every time.
      */
-    const railGap = code("components/store-builder/unified-section-renderer.tsx").match(/"grid gap-4 mt-(\d)"/)?.[1]
-    const gridGap = code("components/storefront/all-products-grid.tsx").match(/"mb-(\d) flex items-center justify-between/)?.[1]
-    if (!railGap || !gridGap) missing.push("could not find the gap above the cards on both tabs")
-    else if (railGap !== gridGap)
-      missing.push(`the two tabs put their first card at different heights again (${railGap} vs ${gridGap})`)
+    const controls = code("components/storefront/catalog-controls.tsx")
+    const rail = code("components/store-builder/unified-section-renderer.tsx")
+    const productsGrid = code("components/storefront/all-products-grid.tsx")
+    if (!/mb-5 flex min-h-9 items-center/.test(controls))
+      missing.push("CatalogHeader no longer fixes its own height and margin")
+    for (const [name, src] of [["the featured rail", rail], ["the products tab", productsGrid]] as const) {
+      // `\b`, or a renamed `<CatalogHeaderX` satisfies the check — which is
+      // exactly how a break-test caught this guard being loose, twice.
+      if (!/<CatalogHeader\b/.test(src)) missing.push(`${name} builds its own header row again`)
+    }
+    if (/"grid gap-4 mt-\d"/.test(rail))
+      missing.push("the featured grid has taken its top margin back — the two tabs will drift again")
 
     /**
      * EXACTLY THREE TABS. Reviews and About are both below them now: About
@@ -1809,8 +1842,8 @@ check(
       ["the featured rail", featured],
       ["the products tab", grid],
     ] as const) {
-      if (!/<SortControl/.test(src)) missing.push(`${name} does not use the shared sort control`)
-      if (!/<CategorySelect/.test(src)) missing.push(`${name} does not use the shared category selector`)
+      if (!/<SortControl\b/.test(src)) missing.push(`${name} does not use the shared sort control`)
+      if (!/<CategorySelect\b/.test(src)) missing.push(`${name} does not use the shared category selector`)
       if (/SORT_LABELS: Record|sortLabels: Record/.test(src)) missing.push(`${name} has its own copy of the sort labels`)
     }
 
@@ -2351,6 +2384,59 @@ check(
       missing.push("the featured grid no longer steps at sm and lg")
     if (!/"grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"/.test(grid))
       missing.push("the Products grid changed its steps — the two must match")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "a storefront is never edge-cached, on either path it is reached by",
+  (() => {
+    /**
+     * THE FIX WAS ONLY HALF APPLIED, AND THE MISSING HALF WAS THE COMMON PATH.
+     *
+     * next.config.mjs sets `private, no-cache, must-revalidate` for
+     * `/u/:username*`, with a comment saying why: the page renders an Edit
+     * button, owner menus and a follow state that all depend on who is asking,
+     * so a shared cache serves one visitor's rendering to another — and it
+     * made `router.refresh()` after a save a no-op, because the refreshed RSC
+     * payload came straight back from the edge unchanged.
+     *
+     * But `headers()` matches THE PATH THE BROWSER ASKED FOR, and most
+     * storefronts are reached at `andrew.storelib.com`, where that path is
+     * `/`. `/` has its own rule — `public, s-maxage=3600` — meant for the
+     * marketing landing page. So the subdomain storefront was edge-cached for
+     * an hour, shared across visitors, and a saved profile stayed invisible
+     * until the hour was up. That is the "I still have to refresh manually".
+     *
+     * proxy.ts is the only place that knows a request is a storefront, because
+     * it is the thing rewriting `/` to `/u/{username}`. Verified separately
+     * that router.refresh() itself works: a force-dynamic server component
+     * re-rendered with a new value on click.
+     */
+    const proxy = code("proxy.ts")
+    const config = read("next.config.mjs")
+    const missing: string[] = []
+
+    if (!/rewritePath\.startsWith\("\/u\/"\)/.test(proxy))
+      missing.push("the proxy no longer recognises a storefront rewrite")
+    if (!/supabaseResponse\.headers\.set\("Cache-Control", "private, no-cache, must-revalidate"\)/.test(proxy))
+      missing.push("a subdomain storefront is edge-cacheable again — saves will not show, and one viewer's page can be served to another")
+
+    // The direct path keeps its own rule.
+    const uRule = config.match(/source: '\/u\/:username\*',\s*headers: \[\s*\{ key: 'Cache-Control', value: '([^']*)'/)?.[1]
+    if (!uRule) missing.push("the /u/:username* cache rule is gone")
+    else if (!/private/.test(uRule) || !/no-cache/.test(uRule))
+      missing.push(`/u/:username* is publicly cacheable again: ${uRule}`)
+
+    /**
+     * And the save still asks for the re-render. Without this the header would
+     * only mean the NEXT navigation was fresh.
+     */
+    const dialog = code("components/storefront/edit-profile-button.tsx")
+    if (!/router\.refresh\(\)/.test(dialog))
+      missing.push("saving a profile no longer refreshes the page")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0

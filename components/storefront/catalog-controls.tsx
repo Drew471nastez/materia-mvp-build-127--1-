@@ -151,3 +151,46 @@ export function CategorySelect({
     </DropdownMenu>
   )
 }
+
+/**
+ * The row above a product grid: an optional title on the left, the filter and
+ * the sort on the right, and a FIXED HEIGHT.
+ *
+ * The two tabs kept ending up a few pixels apart above their first card, and
+ * each time the fix was to make two separate numbers agree — `mt-5` on the
+ * Featured rail against `mb-6`, then `mb-5`, on the Products grid. They then
+ * matched only by coincidence: both rows happened to be 36px tall, because the
+ * compact sort button is 36px and nothing else in the row was taller. Anything
+ * that changed one row's height — a heading that wraps on a narrow phone, a
+ * category named something long, a second control — moved that tab's cards and
+ * not the other's, and switching tab jumped the grid.
+ *
+ * `min-h-9` and one margin, in one component both tabs render, makes the
+ * distance from the tab bar to the first card the same by construction rather
+ * than by two numbers that have to be kept equal by hand. A title is optional
+ * and does not change the height: at `text-lg`/`sm:text-xl` its line box is
+ * 28-32px inside a 36px row.
+ */
+export function CatalogHeader({
+  title,
+  titleClassName,
+  titleStyle,
+  children,
+}: {
+  title?: React.ReactNode
+  titleClassName?: string
+  titleStyle?: React.CSSProperties
+  /** The controls. They sit at the right on every screen. */
+  children: React.ReactNode
+}) {
+  return (
+    <div className="mb-5 flex min-h-9 items-center gap-x-4">
+      {title ? (
+        <h2 className={cn("min-w-0 truncate font-semibold text-foreground", titleClassName)} style={titleStyle}>
+          {title}
+        </h2>
+      ) : null}
+      <div className="ml-auto flex shrink-0 items-center gap-2">{children}</div>
+    </div>
+  )
+}

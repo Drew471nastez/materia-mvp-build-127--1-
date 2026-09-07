@@ -11,7 +11,7 @@
 import * as React from "react"
 import { Package } from "lucide-react"
 import { StorefrontProductCard, type StorefrontCardProduct } from "./storefront-product-card"
-import { CategorySelect, SortControl, type SortKey } from "./catalog-controls"
+import { CatalogHeader, CategorySelect, SortControl, type SortKey } from "./catalog-controls"
 
 export type AllProductsGridProduct = StorefrontCardProduct
 
@@ -84,37 +84,26 @@ export function AllProductsGrid({
   return (
     <div className="mx-auto w-full max-w-[1100px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">
       {/*
-        ONE ROW OF CONTROLS: the category selector on the left, sort on the
-        right — the same arrangement, and the same two components, as the
-        Featured rail on the Home tab.
+        THE SAME HEADER COMPONENT THE FEATURED RAIL USES — category selector on
+        the left, sort on the right, one fixed row height. The two tabs used to
+        each own their spacing and matched only while their rows happened to be
+        the same height; see the note on CatalogHeader.
 
         The chip row that used to be here is gone. It looked fine with two
         categories and fell apart with nine: three wrapped lines on a phone,
-        with the products pushed below the fold.
-
-        Sort collapses to an icon on a phone. "Sort: Most Recent" spends half
-        the width of a phone saying what the icon says.
+        with the products pushed below the fold. Sort collapses to an icon on a
+        phone, because "Sort: Most Recent" spends half the width of a phone
+        saying what the icon says.
       */}
-      {/*
-        `mb-5`, matching the Featured rail's `mt-5` — not `mb-6`.
-
-        The two tabs put their first card 88px and 92px below the rule. Four
-        pixels is nothing to describe and plainly visible to switch between:
-        the whole grid steps down as you move to Products and back up as you
-        return, which reads as the page being rebuilt rather than as a filter
-        changing.
-      */}
-      <div className="mb-5 flex items-center justify-between gap-3">
+      <CatalogHeader>
         <CategorySelect categories={categories} value={active} onChange={setActive} total={products.length} />
-        <div className="ml-auto">
-          {products.length > 1 && (
-            <>
-              <SortControl value={sort} onChange={setSort} compact className="sm:hidden" />
-              <SortControl value={sort} onChange={setSort} className="hidden sm:inline-flex" />
-            </>
-          )}
-        </div>
-      </div>
+        {products.length > 1 && (
+          <>
+            <SortControl value={sort} onChange={setSort} compact className="sm:hidden" />
+            <SortControl value={sort} onChange={setSort} className="hidden sm:inline-flex" />
+          </>
+        )}
+      </CatalogHeader>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {shown.map((product) => (
