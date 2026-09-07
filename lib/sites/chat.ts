@@ -32,10 +32,13 @@ export interface StoredMessage {
   createdAt: string
 }
 
+/** Thrown when the transcript could not be read, as opposed to being empty. */
+export class ChatUnavailableError extends Error {}
+
 /** The whole conversation for a site, oldest first. RLS decides visibility. */
 export async function readChat(siteId: string): Promise<StoredMessage[]> {
   const supabase = await createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("site_chat_messages")
     .select("id, role, content, steps, files_changed, version_id, error, created_at")
     .eq("site_id", siteId)
@@ -61,6 +64,20 @@ export async function readChat(siteId: string): Promise<StoredMessage[]> {
     created_at: string
   }
 
+  /**
+   * A FAILED READ IS NOT AN EMPTY CONVERSATION.
+   *
+   * `const { data } = ...` with `?? []` made a broken query indistinguishable
+   * from a site nobody has talked to — the transcript would be sitting in the
+   * table, unreadable, while the editor showed a blank pane and the creator
+   * concluded their history had been thrown away. Throwing sends it to the
+   * route, which answers with a status instead of a lie.
+   */
+  if (error) {
+    console.error("[readChat] query failed:", error.message)
+    throw new ChatUnavailableError(error.message)
+  }
+
   // Back into reading order: the query asked for the newest, the transcript
   // is read oldest-first.
   return ((data as Row[] | null) ?? []).reverse().map((row) => ({
@@ -76,17 +93,60 @@ export async function readChat(siteId: string): Promise<StoredMessage[]> {
 }
 
 /**
- * One exchange: what was asked, and what happened.
+ * The question, recorded before anything is attempted.
+ *
+ * ---------------------------------------------------------------------------
+ *  WHY THIS IS SEPARATE FROM THE ANSWER
+ * ---------------------------------------------------------------------------
+ * Both rows used to be written together, once, at the very END of a run. For
+ * the thirty to ninety seconds a run takes, the creator's prompt existed only
+ * in React state — and it was lost outright on every path that never reached
+ * that final write. There were seven: the monthly quota being spent, a project
+ * with no files, the run row failing to open, the loop throwing, the process
+ * being replaced mid-run by a deploy, a refresh during the run, and the
+ * one-run-per-site guard refusing a second send.
+ *
+ * On all of them the creator watched their sentence vanish, which is why the
+ * chat felt like it was not saving anything: it genuinely was not, until the
+ * very last moment, and only if nothing went wrong.
+ *
+ * The prompt is now durable the instant it is accepted. Whatever happens next
+ * — including nothing at all — it is still there on reload.
+ */
+export async function startExchange(input: {
+  siteId: string
+  prompt: string
+}): Promise<string | null> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from("site_chat_messages")
+    .insert({ site_id: input.siteId, role: "user", content: input.prompt })
+    .select("id")
+    .maybeSingle()
+
+  if (error) {
+    // Not fatal. Losing the transcript is bad; refusing to do the work the
+    // creator asked for because we could not write a log line is worse.
+    console.error("[startExchange] could not record the prompt:", error.message)
+    return null
+  }
+  return (data as { id: string } | null)?.id ?? null
+}
+
+/**
+ * What happened, recorded against the question that was already saved.
+ *
+ * Written on EVERY path out, including failures. A conversation that silently
+ * drops its failed exchanges is one where nobody can see the model got the
+ * same thing wrong three times.
  *
  * The admin client, because the agent route already proved ownership by
- * reading the site through the user's client, and because a failed run must
- * still be recorded — a conversation that silently drops its failures is one
- * where nobody can see the model kept getting the same thing wrong.
+ * reading the site through the user's client.
  */
-export async function appendExchange(input: {
+export async function completeExchange(input: {
   siteId: string
+  userMessageId: string | null
   runId: string | null
-  prompt: string
   reply: string
   steps: ChatStep[]
   filesChanged: string[]
@@ -94,28 +154,27 @@ export async function appendExchange(input: {
   error: string | null
 }): Promise<void> {
   const admin = createAdminClient()
-  const now = Date.now()
 
-  await admin.from("site_chat_messages").insert([
-    {
-      site_id: input.siteId,
-      run_id: input.runId,
-      role: "user",
-      content: input.prompt,
-      created_at: new Date(now).toISOString(),
-    },
-    {
-      site_id: input.siteId,
-      run_id: input.runId,
-      role: "assistant",
-      content: input.reply,
-      steps: input.steps,
-      files_changed: input.filesChanged,
-      version_id: input.versionId,
-      error: input.error,
-      // A millisecond later, so `order by created_at` can never put the reply
-      // before the question it answers.
-      created_at: new Date(now + 1).toISOString(),
-    },
-  ])
+  await admin.from("site_chat_messages").insert({
+    site_id: input.siteId,
+    run_id: input.runId,
+    role: "assistant",
+    content: input.reply,
+    steps: input.steps,
+    files_changed: input.filesChanged,
+    version_id: input.versionId,
+    error: input.error,
+  })
+
+  /**
+   * The question was saved before the run existed, so it has no run_id yet.
+   * Backfilling keeps the pair addressable as one exchange — and a failure
+   * here costs a foreign key, not the transcript.
+   */
+  if (input.userMessageId && input.runId) {
+    await admin
+      .from("site_chat_messages")
+      .update({ run_id: input.runId })
+      .eq("id", input.userMessageId)
+  }
 }

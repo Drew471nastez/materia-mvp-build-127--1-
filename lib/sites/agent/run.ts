@@ -23,7 +23,7 @@ import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { appendExchange, type ChatStep } from "../chat"
+import { completeExchange, startExchange, type ChatStep } from "../chat"
 import { describeManifest, mergeManifest, readManifest, writeManifest } from "../manifest"
 import { describeProject } from "./context"
 import { classifyIntent, intentInstruction } from "./intent"
@@ -70,15 +70,45 @@ export async function monthlyQuotaError(creatorId: string, plan: SitePlan): Prom
 export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
   const { siteId, creatorId, plan, prompt, provider, esbuild, signal } = input
 
+  /**
+   * THE PROMPT IS SAVED BEFORE ANYTHING IS ATTEMPTED.
+   *
+   * Not after the quota check, not after the files load, not at the end with
+   * the reply — first. Everything below this line can fail, and on every one
+   * of those paths the creator's sentence stays in the transcript where they
+   * can see what they asked for and try again.
+   */
+  const userMessageId = await startExchange({ siteId, prompt })
+
+  /**
+   * Every early exit answers the question it just recorded, so the transcript
+   * never holds a prompt with nothing after it. Written as a helper because
+   * there are four such exits and one of them being forgotten is exactly how
+   * a dangling prompt gets shipped.
+   */
+  const failEarly = async (message: string): Promise<AgentEvent> => {
+    await completeExchange({
+      siteId,
+      userMessageId,
+      runId: null,
+      reply: "",
+      steps: [],
+      filesChanged: [],
+      versionId: null,
+      error: message,
+    }).catch(() => {})
+    return { type: "error", message }
+  }
+
   const quota = await monthlyQuotaError(creatorId, plan)
   if (quota) {
-    yield { type: "error", message: quota }
+    yield await failEarly(quota)
     return
   }
 
   const files = await readProject(siteId)
   if (Object.keys(files).length === 0) {
-    yield { type: "error", message: "This site has no files to edit." }
+    yield await failEarly("This site has no files to edit.")
     return
   }
 
@@ -88,7 +118,7 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
   const versionId = await snapshot(siteId, files, prompt)
   const runId = await openRun({ siteId, creatorId, versionId, prompt, provider: provider.id, model })
   if (!runId) {
-    yield { type: "error", message: "Could not start. Try again." }
+    yield await failEarly("Could not start. Try again.")
     return
   }
 
@@ -229,10 +259,10 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
    * it is not silent loss.
    */
   try {
-    await appendExchange({
+    await completeExchange({
       siteId,
+      userMessageId,
       runId,
-      prompt,
       reply: result.message || (status === "failed" ? "" : "Done."),
       steps,
       filesChanged: changedFiles,

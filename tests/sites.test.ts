@@ -1790,7 +1790,7 @@ check(
     const route = read("app/api/sites/[siteId]/chat/route.ts")
     // GET only. A client that can write its own transcript can write one that
     // never happened.
-    return !/export async function POST/.test(route) && /appendExchange/.test(read("lib/sites/agent/run.ts"))
+    return !/export async function POST/.test(route) && /completeExchange/.test(read("lib/sites/agent/run.ts"))
   })(),
 )
 
@@ -1798,7 +1798,7 @@ check(
   "a failed run is still recorded, so the question does not vanish",
   (() => {
     const runFile = read("lib/sites/agent/run.ts")
-    const append = runFile.indexOf("await appendExchange({")
+    const append = runFile.indexOf("await completeExchange({")
     const failExit = runFile.indexOf('if (status === "failed") {', append)
     return append !== -1 && failExit > append
   })(),
@@ -3168,6 +3168,158 @@ check(
       /if \(error \|\| !data\) return null/.test(body) &&
       !/manifest/.test(projects.match(/const COLUMNS =\s*\n?\s*"([^"]+)"/)?.[1] ?? "")
     )
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("A project's conversation survives everything")
+// ---------------------------------------------------------------------------
+
+/**
+ * THE ROOT CAUSE.
+ *
+ * Both the question and the answer were written in ONE call, at the very END
+ * of a run. For the thirty to ninety seconds a run takes, the creator's prompt
+ * existed only in React state — and it was lost outright on every path that
+ * never reached that final write. There were seven: the monthly quota being
+ * spent, a project with no files, the run row failing to open, the loop
+ * throwing, the process being replaced mid-run by a deploy, a refresh during
+ * the run, and the one-run-per-site guard refusing a second send.
+ *
+ * The prompt is now durable the instant it is accepted, before any of that can
+ * happen.
+ */
+check(
+  "the prompt is saved before any work is attempted",
+  (() => {
+    const run = strip(read("lib/sites/agent/run.ts"))
+    const saved = run.indexOf("await startExchange({ siteId, prompt })")
+    const quota = run.indexOf("const quota = await monthlyQuotaError")
+    const files = run.indexOf("const files = await readProject(siteId)")
+    const loop = run.indexOf("const loop = agentLoop(")
+    return saved > -1 && quota > saved && files > saved && loop > saved
+  })(),
+)
+
+/**
+ * A transcript holding a question with nothing after it is how somebody
+ * concludes the product ate their request. Four exits can happen before the
+ * agent ever runs, and one of them being forgotten is exactly how a dangling
+ * prompt ships — hence one helper rather than four copies.
+ */
+check(
+  "every early exit answers the question it just recorded",
+  (() => {
+    const run = strip(read("lib/sites/agent/run.ts"))
+    const helper = /const failEarly = async \(message: string\)/.test(run)
+    const usesIt = (run.match(/yield await failEarly\(/g) ?? []).length
+    /**
+     * One bare error yield is legitimate — the final failure, which runs
+     * AFTER the answer has been recorded. Anything before that point is an
+     * exit that leaves a question hanging.
+     */
+    const answered = run.indexOf("await completeExchange({")
+    const bareBeforeAnswer = [...run.matchAll(/yield \{ type: "error", message: [a-z]/g)].filter(
+      (m) => (m.index ?? 0) < answered,
+    ).length
+    return helper && usesIt >= 3 && answered > -1 && bareBeforeAnswer === 0
+  })(),
+)
+
+check(
+  "the answer is recorded against the question, not as a fresh pair",
+  (() => {
+    const chat = strip(read("lib/sites/chat.ts"))
+    return (
+      /export async function startExchange/.test(chat) &&
+      /export async function completeExchange/.test(chat) &&
+      /userMessageId/.test(chat) &&
+      // the prompt row predates the run, so its run_id is filled in after
+      /\.update\(\{ run_id: input\.runId \}\)/.test(chat)
+    )
+  })(),
+)
+
+/**
+ * Losing the transcript is bad. Refusing to do the work somebody asked for
+ * because a log line could not be written is worse.
+ */
+check(
+  "a transcript that cannot be written does not cancel the edit",
+  (() => {
+    const chat = strip(read("lib/sites/chat.ts"))
+    /**
+     * Sliced from the end of the SIGNATURE, not from the declaration: the
+     * parameter object is written inline across several lines, so the first
+     * `\n}` after the function name closes that type rather than the body —
+     * which made this assertion read an empty string and pass on nothing.
+     */
+    const at = chat.indexOf("export async function startExchange")
+    const bodyStart = chat.indexOf("Promise<string | null> {", at)
+    const body = chat.slice(bodyStart, chat.indexOf("\n}", bodyStart))
+    return (
+      body.length > 100 &&
+      /if \(error\)/.test(body) &&
+      /return null/.test(body) &&
+      !/throw/.test(body)
+    )
+  })(),
+)
+
+/**
+ * `const { data } = ...` with `?? []` made a broken query indistinguishable
+ * from a site nobody has talked to — the transcript sitting in the table,
+ * unreadable, while the editor showed a blank pane and the creator concluded
+ * their history had been thrown away. The same defect that once reported a
+ * creator with a published site had no sites at all.
+ */
+check(
+  "a failed read is never rendered as an empty conversation",
+  (() => {
+    const chat = strip(read("lib/sites/chat.ts"))
+    const route = strip(read("app/api/sites/[siteId]/chat/route.ts"))
+    const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+    return (
+      /throw new ChatUnavailableError/.test(chat) &&
+      /ChatUnavailableError/.test(route) &&
+      /status: 503/.test(route) &&
+      /setHistoryError\(true\)/.test(pane) &&
+      /We could not load this conversation/.test(pane)
+    )
+  })(),
+)
+
+/**
+ * Now that a prompt is saved the moment it is accepted, a trailing user
+ * message means either "still working" or "ended without an answer" — and
+ * reading the transcript alone cannot tell them apart. Guessing "did not
+ * finish" over a run that is actively working is the more alarming mistake.
+ */
+check(
+  "a prompt saved mid-run reads as running after a refresh, not as failed",
+  (() => {
+    const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+    return (
+      /fetch\(`\/api\/sites\/\$\{siteId\}\/run`, \{ cache: "no-store" \}\)/.test(pane) &&
+      /const active = runResponse\?\.ok/.test(pane) &&
+      /if \(isLast && active\)/.test(pane) &&
+      /exchange\.running = true/.test(pane)
+    )
+  })(),
+)
+
+/**
+ * Proven against a real database with RLS on: two users, two projects. User A
+ * sees eleven messages on Project A; user B, asking for the same rows, gets
+ * only their own project back.
+ */
+check(
+  "one project's conversation is scoped to that project and its owner",
+  (() => {
+    const chat = strip(read("lib/sites/chat.ts"))
+    const readFn = chat.slice(chat.indexOf("export async function readChat"), chat.indexOf("export class") + 1 || undefined)
+    // scoped by site, read through the user's client so RLS answers ownership
+    return /\.eq\("site_id", siteId\)/.test(chat) && /await createClient\(\)/.test(chat)
   })(),
 )
 

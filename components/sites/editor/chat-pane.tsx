@@ -93,6 +93,7 @@ export function ChatPane({
   const [draft, setDraft] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [reconnecting, setReconnecting] = React.useState(false)
+  const [historyError, setHistoryError] = React.useState(false)
   const fieldRef = React.useRef<HTMLTextAreaElement>(null)
   const bottomRef = React.useRef<HTMLDivElement>(null)
 
@@ -151,10 +152,37 @@ export function ChatPane({
     let cancelled = false
     void (async () => {
       try {
-        const response = await fetch(`/api/sites/${siteId}/chat`)
-        if (!response.ok) return
-        const body = (await response.json()) as { messages?: StoredMessage[] }
+        /**
+         * The transcript AND whether a run is in flight, together.
+         *
+         * A prompt is now saved the moment it is accepted, so a trailing user
+         * message with no reply has two possible meanings: the run is still
+         * going, or it ended without recording one. Reading the transcript
+         * alone cannot tell them apart, and guessing "did not finish" over a
+         * run that is actively working is the more alarming of the two wrong
+         * answers.
+         */
+        const [chatResponse, runResponse] = await Promise.all([
+          fetch(`/api/sites/${siteId}/chat`, { cache: "no-store" }),
+          fetch(`/api/sites/${siteId}/run`, { cache: "no-store" }).catch(() => null),
+        ])
+
+        if (!chatResponse.ok) {
+          /**
+           * 503 means the transcript could not be READ, not that there is
+           * none. Saying so is the difference between "we cannot reach your
+           * history right now" and letting somebody believe it was deleted.
+           */
+          if (!cancelled && chatResponse.status === 503) setHistoryError(true)
+          return
+        }
+
+        const body = (await chatResponse.json()) as { messages?: StoredMessage[] }
         if (cancelled || !body.messages?.length) return
+
+        const active = runResponse?.ok
+          ? ((await runResponse.json()) as { running?: boolean }).running === true
+          : false
 
         const restored: Exchange[] = []
         for (const message of body.messages) {
@@ -165,7 +193,6 @@ export function ChatPane({
               steps: [],
               filesChanged: [],
               running: false,
-              error: "This edit did not finish.",
             })
             continue
           }
@@ -181,6 +208,22 @@ export function ChatPane({
           open.versionId = message.versionId ?? undefined
           open.error = message.error ?? undefined
         }
+        /**
+         * Only the LAST exchange can be unanswered — a run is one at a time —
+         * so anything earlier without a reply really did end without one.
+         */
+        for (let i = 0; i < restored.length; i++) {
+          const exchange = restored[i]
+          if (exchange.reply !== undefined || exchange.error !== undefined) continue
+          const isLast = i === restored.length - 1
+          if (isLast && active) {
+            exchange.running = true
+            exchange.reconnecting = true
+          } else {
+            exchange.error = "This edit did not finish."
+          }
+        }
+
         setExchanges(restored)
       } finally {
         if (!cancelled) setLoadingHistory(false)
@@ -504,6 +547,20 @@ export function ChatPane({
             <Loader2 className="h-3 w-3 animate-spin" />
             Loading the conversation…
           </p>
+        ) : historyError ? (
+          /**
+           * The transcript could not be READ. Showing the "describe a change"
+           * invitation here would tell somebody their conversation is gone
+           * when it is sitting in the table, unreadable — and nothing they do
+           * next would bring it back, because there is nothing wrong with it.
+           */
+          <div className="rounded-[10px] border border-destructive/30 bg-destructive/5 px-3 py-4">
+            <p className="text-sm font-medium">We could not load this conversation.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Nothing has been lost — this is a problem reading it, not a problem with it. Refresh in
+              a moment. You can still send a new message.
+            </p>
+          </div>
         ) : exchanges.length === 0 ? (
           <div className="space-y-5">
             <p className="text-sm leading-relaxed text-muted-foreground">
