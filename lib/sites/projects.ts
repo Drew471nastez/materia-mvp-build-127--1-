@@ -62,8 +62,15 @@ export async function currentCreatorId(): Promise<string | null> {
 }
 
 export async function listSites(): Promise<Site[]> {
+  const creatorId = await currentCreatorId()
+  if (!creatorId) return []
+
   const supabase = await createClient()
-  const { data } = await supabase.from("sites").select(COLUMNS).order("updated_at", { ascending: false })
+  const { data } = await supabase
+    .from("sites")
+    .select(COLUMNS)
+    .eq("creator_id", creatorId)
+    .order("updated_at", { ascending: false })
   return ((data as SiteRow[] | null) ?? []).map(toSite)
 }
 
