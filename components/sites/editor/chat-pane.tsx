@@ -18,6 +18,8 @@
 import * as React from "react"
 import { ArrowUp, Check, FileCode, Hammer, Loader2, RotateCcw, Sparkles, Square, TriangleAlert } from "lucide-react"
 
+import { StorelibMark } from "@/components/storelib-mark"
+
 import { cn } from "@/lib/utils"
 import type { AgentEvent } from "@/lib/sites/agent/types"
 
@@ -50,6 +52,11 @@ interface Exchange {
   runId?: string
   versionId?: string
   undone?: boolean
+  /**
+   * The stream died but the run did not. Shown as "still working" rather than
+   * as a failure, because the agent is finishing server-side.
+   */
+  reconnecting?: boolean
 }
 
 const SUGGESTIONS = [
@@ -84,6 +91,7 @@ export function ChatPane({
   const [loadingHistory, setLoadingHistory] = React.useState(true)
   const [draft, setDraft] = React.useState("")
   const [busy, setBusy] = React.useState(false)
+  const [reconnecting, setReconnecting] = React.useState(false)
   const fieldRef = React.useRef<HTMLTextAreaElement>(null)
   const bottomRef = React.useRef<HTMLDivElement>(null)
 
@@ -92,18 +100,23 @@ export function ChatPane({
    *
    * The loop has always taken an AbortSignal and nothing ever gave it one, so
    * a run that went wrong could only be waited out — up to twelve turns of a
-   * model doing the wrong thing, billed. Aborting the fetch closes the
-   * response stream, which is what the route's `request.signal` is watching.
+   * model doing the wrong thing, billed.
    *
-   * What is already saved stays saved: the agent writes once, at the end, so
-   * a stopped run has written nothing and the site is untouched.
+   * STOP IS TWO THINGS NOW. The run no longer dies with the connection — that
+   * is the whole point of the change — so closing the stream would leave the
+   * agent working. Stop therefore asks the server to cancel, which the run
+   * reads between turns, and then stops listening.
+   *
+   * The request goes first. If it fails, we have not stopped anything and
+   * saying so is better than a button that lies.
    */
   const abortRef = React.useRef<AbortController | null>(null)
 
   const stop = React.useCallback(() => {
+    void fetch(`/api/sites/${siteId}/run`, { method: "DELETE" }).catch(() => {})
     abortRef.current?.abort()
     abortRef.current = null
-  }, [])
+  }, [siteId])
 
   /**
    * The field grows with the text instead of scrolling inside fixed rows.
@@ -272,19 +285,151 @@ export function ChatPane({
         // connection" when they pressed the button is the editor blaming the
         // network for something they did on purpose.
         const stopped = thrown instanceof DOMException && thrown.name === "AbortError"
-        patch((e) => ({
-          ...e,
-          running: false,
-          error: stopped ? "Stopped. Nothing was changed." : "Lost the connection. Nothing was changed.",
-        }))
+        if (stopped) {
+          // Still literally true after the run was decoupled from the
+          // connection: cancellation is checked BETWEEN turns and the files
+          // are written once at the end, so a stopped run has saved nothing.
+          patch((e) => ({ ...e, running: false, error: "Stopped. Nothing was changed." }))
+        } else {
+          /**
+           * THE CONNECTION DROPPED, WHICH IS NOT THE SAME AS THE WORK STOPPING.
+           *
+           * This used to say "Lost the connection. Nothing was changed." — and
+           * it was true, because the run was wired to die with the socket. It
+           * is not any more: the agent finishes and saves server-side. Telling
+           * somebody their edit was discarded when it is being written as they
+           * read the sentence is the worst version of this message.
+           *
+           * The exchange stays marked running and the watcher below picks it
+           * back up.
+           */
+          patch((e) => ({ ...e, running: true, error: undefined, reconnecting: true }))
+          setReconnecting(true)
+          return
+        }
       } finally {
         abortRef.current = null
         setBusy(false)
-        patch((e) => ({ ...e, running: false }))
       }
     },
     [busy, onFilesChanged, siteId],
   )
+
+  /**
+   * REATTACHING TO A RUN THAT OUTLIVED ITS CONNECTION.
+   *
+   * The agent no longer stops when the browser goes away, so the editor has
+   * to be able to find its way back to a run in progress. Three moments
+   * matter, and they are the three ways a phone actually loses a stream:
+   * opening the editor again, returning to a backgrounded tab, and the
+   * network coming back.
+   *
+   * A poll rather than a second stream. Reconnecting to a half-consumed
+   * NDJSON response is not something fetch can do — there is no offset to
+   * resume from — and the question being asked here is small enough that
+   * asking it every few seconds costs less than the machinery to avoid it.
+   *
+   * `document.hidden` is checked because a backgrounded tab is throttled to
+   * roughly one timer a minute; polling while hidden buys nothing and the
+   * visibility listener covers the return.
+   */
+  const reloadAfterRun = React.useCallback(async () => {
+    const [chat, files] = await Promise.all([
+      fetch(`/api/sites/${siteId}/chat`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/sites/${siteId}/files`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ])
+    if (files?.files) onFilesChanged(Object.keys(files.files as Record<string, string>))
+    return chat as { messages?: StoredMessage[] } | null
+  }, [onFilesChanged, siteId])
+
+  React.useEffect(() => {
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    const check = async () => {
+      if (stopped || document.hidden) return
+      try {
+        const response = await fetch(`/api/sites/${siteId}/run`, { cache: "no-store" })
+        if (!response.ok) return
+        const body = (await response.json()) as { running: boolean; prompt?: string }
+
+        if (body.running) {
+          setReconnecting(true)
+          setBusy(true)
+          // Show the prompt that is being worked on even on a fresh load,
+          // where this tab never saw it sent.
+          setExchanges((previous) =>
+            previous.some((e) => e.running)
+              ? previous
+              : [
+                  ...previous,
+                  {
+                    id: `active-${siteId}`,
+                    prompt: body.prompt ?? "",
+                    steps: [],
+                    filesChanged: [],
+                    running: true,
+                    reconnecting: true,
+                  },
+                ],
+          )
+          timer = setTimeout(() => void check(), 3000)
+          return
+        }
+
+        /**
+         * Nothing is running. If this tab thought otherwise, the run finished
+         * while it was away — so the transcript and the files are re-read and
+         * the placeholder is replaced by what actually happened.
+         */
+        if (reconnecting) {
+          setReconnecting(false)
+          setBusy(false)
+          const chat = await reloadAfterRun()
+          const last = chat?.messages?.filter((m) => m.role === "assistant").at(-1)
+          setExchanges((previous) =>
+            previous.map((e) =>
+              e.running
+                ? {
+                    ...e,
+                    running: false,
+                    reconnecting: false,
+                    reply: last?.content || "Done.",
+                    filesChanged: last?.filesChanged ?? e.filesChanged,
+                    versionId: last?.versionId ?? e.versionId,
+                    error: last?.error ?? undefined,
+                    steps: last?.steps?.length
+                      ? last.steps.map((t) => ({
+                          id: crypto.randomUUID(),
+                          kind: "tool" as const,
+                          label: `${TOOL_LABELS[t.name] ?? t.name}${t.detail ? ` ${t.detail}` : ""}`,
+                        }))
+                      : e.steps,
+                  }
+                : e,
+            ),
+          )
+        }
+      } catch {
+        // Offline. The `online` listener below is what resumes this.
+        if (!stopped) timer = setTimeout(() => void check(), 5000)
+      }
+    }
+
+    void check()
+    const onVisible = () => { if (!document.hidden) void check() }
+    document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("online", onVisible)
+    window.addEventListener("focus", onVisible)
+
+    return () => {
+      stopped = true
+      if (timer) clearTimeout(timer)
+      document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("online", onVisible)
+      window.removeEventListener("focus", onVisible)
+    }
+  }, [reconnecting, reloadAfterRun, siteId])
 
   /**
    * The New Site brief, sent once.
@@ -331,7 +476,10 @@ export function ChatPane({
   return (
     <div className="flex h-full min-h-0 flex-col bg-sidebar md:border-r md:border-border">
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-4">
-        <Sparkles className="h-4 w-4 text-muted-foreground" />
+        {/* The product's own mark, not a generic sparkle. This header is the
+            first thing on screen on a phone, where it is the only branding
+            the editor shows at all. */}
+        <StorelibMark className="h-4 w-4 shrink-0" />
         <span className="text-sm font-medium">Storelib AI</span>
       </div>
 
@@ -385,9 +533,18 @@ export function ChatPane({
                 )}
 
                 {exchange.running && (
+                  /**
+                   * Two different truths, and saying the wrong one is what
+                   * made this feel unreliable. "Working…" is the stream
+                   * arriving. The second line is the stream gone while the
+                   * run continues on the server — the moment a creator used
+                   * to be told their edit had been thrown away.
+                   */
                   <p className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    Working…
+                    {exchange.reconnecting
+                      ? "Still working — you can close this and come back."
+                      : "Working…"}
                   </p>
                 )}
 

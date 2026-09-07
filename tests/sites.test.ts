@@ -2493,6 +2493,150 @@ check(
   })(),
 )
 
+// ---------------------------------------------------------------------------
+section("A run outlives the connection that started it")
+// ---------------------------------------------------------------------------
+
+/**
+ * THE BUG A CREATOR ACTUALLY FELT.
+ *
+ * The agent route handed `request.signal` to the loop, making the browser's
+ * connection the agent's abort signal. Locking a phone, switching apps, a
+ * tunnel, a dropped bar — any of them aborted the run, and because files are
+ * saved in one transaction at the END, two minutes of work vanished. The
+ * editor then said "Lost the connection. Nothing was changed.", which was
+ * true, and was the problem.
+ */
+check(
+  "the client's connection is not the agent's abort signal",
+  (() => {
+    const route = strip(read("app/api/sites/[siteId]/agent/route.ts"))
+    return !/signal: request\.signal/.test(route)
+  })(),
+)
+
+check(
+  "a reader that goes away does not end the run",
+  (() => {
+    const route = strip(read("app/api/sites/[siteId]/agent/route.ts"))
+    const at = route.indexOf("const send = (event: AgentEvent)")
+    const body = route.slice(at, at + 400)
+    // enqueue throws once the stream is closed; that must stop the talking,
+    // not the working.
+    return /try \{/.test(body) && /listening = false/.test(body) && /if \(!listening\) return/.test(body)
+  })(),
+)
+
+/**
+ * Stop has to travel between requests. A module-scope registry works
+ * perfectly in development and never in production, where the process that
+ * reads the flag is rarely the one that wrote it.
+ */
+check(
+  "stopping is a row the run reads between turns",
+  (() => {
+    const run = strip(read("lib/sites/agent/run.ts"))
+    const migration = read("supabase/migrations/20260914_durable_agent_runs.sql")
+    return (
+      /cancel_requested/.test(run) &&
+      /const stopIfCancelled = async/.test(run) &&
+      /await stopIfCancelled\(\)/.test(run) &&
+      /ADD COLUMN IF NOT EXISTS cancel_requested/.test(migration)
+    )
+  })(),
+)
+
+check(
+  "the editor can ask whether a run is still going, and stop it",
+  (() => {
+    const route = strip(read("app/api/sites/[siteId]/run/route.ts"))
+    return (
+      /export async function GET/.test(route) &&
+      /export async function DELETE/.test(route) &&
+      /site_active_run/.test(route) &&
+      /cancel_requested: true/.test(route) &&
+      // a late Stop must not rewrite a run that already finished
+      /\.eq\("status", "running"\)/.test(route)
+    )
+  })(),
+)
+
+/**
+ * A run left at 'running' by a dead process would spin the editor forever.
+ * maxDuration is 300 seconds, so nothing legitimate is still going after a
+ * quarter of an hour.
+ */
+check(
+  "an abandoned run stops counting as active",
+  (() => {
+    const migration = read("supabase/migrations/20260914_durable_agent_runs.sql")
+    return /INTERVAL '15 minutes'/.test(migration) && /status = 'running'/.test(migration)
+  })(),
+)
+
+check(
+  "the editor reattaches on the three ways a phone loses a stream",
+  (() => {
+    const chat = strip(read("components/sites/editor/chat-pane.tsx"))
+    return (
+      /addEventListener\("visibilitychange"/.test(chat) &&
+      /addEventListener\("online"/.test(chat) &&
+      /addEventListener\("focus"/.test(chat) &&
+      // and it does not poll a backgrounded tab, which is throttled anyway
+      /document\.hidden/.test(chat)
+    )
+  })(),
+)
+
+check(
+  "a dropped stream no longer claims the work was discarded",
+  (() => {
+    const chat = strip(read("components/sites/editor/chat-pane.tsx"))
+    return (
+      !/Lost the connection\. Nothing was changed\./.test(chat) &&
+      /reconnecting: true/.test(chat) &&
+      /Still working/.test(chat)
+    )
+  })(),
+)
+
+check(
+  "Stop asks the server, rather than only closing the stream",
+  (() => {
+    const chat = strip(read("components/sites/editor/chat-pane.tsx"))
+    const at = chat.indexOf("const stop = React.useCallback")
+    const body = chat.slice(at, chat.indexOf("}, [", at))
+    return /\/run`, \{ method: "DELETE" \}/.test(body) && /abortRef\.current\?\.abort\(\)/.test(body)
+  })(),
+)
+
+/**
+ * The mark is drawn inline so it is on screen at first paint with no request
+ * and no broken-image box. It had one definition inside a modal and was about
+ * to get a second in the editor.
+ */
+check(
+  "the editor header carries the Storelib mark, defined once",
+  (() => {
+    const chat = strip(read("components/sites/editor/chat-pane.tsx"))
+    // Search for the label AFTER the header opens. "Storelib AI" appears
+    // earlier in the file, so an unanchored indexOf returns the first hit and
+    // the slice runs backwards into an empty string that matches nothing.
+    const opens = chat.indexOf("h-11 shrink-0 items-center")
+    if (opens === -1) return false
+    const label = chat.indexOf("Storelib AI", opens)
+    if (label === -1) return false
+    if (!/StorelibMark/.test(chat.slice(opens, label))) return false
+    // exactly one definition in the tree
+    // The mark itself, identified by its own artwork rather than by "an svg" —
+    // the modal is full of other icons.
+    const MARK = /viewBox="0 0 200 200"[\s\S]*?fill="#8B56FA"/
+    const files = ["components/storelib-mark.tsx", "components/onepage/onboarding-modal.tsx"]
+    const definitions = files.filter((f) => MARK.test(read(f)))
+    return definitions.length === 1 && definitions[0] === "components/storelib-mark.tsx"
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

@@ -101,11 +101,44 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
   // to show what the model DID and not only what it said — "read Hero.tsx,
   // edited Hero.tsx, built the site" is the part a creator scrolls back for.
   const steps: ChatStep[] = []
-  const loop = agentLoop({ provider, model, prompt, workspace, esbuild, signal })
+
+  /**
+   * STOP IS A ROW, NOT A SOCKET.
+   *
+   * The caller's `signal` used to be the browser's connection, so locking a
+   * phone or switching apps aborted the run — and because the files are saved
+   * in one go at the end, the work vanished. The connection is no longer
+   * allowed to decide.
+   *
+   * Cancelling therefore has to survive leaving one request and arriving in
+   * another: the Stop button writes `cancel_requested` and this reads it
+   * between turns. A module-scope Map would work perfectly in development and
+   * never in production, where the process that reads the flag is rarely the
+   * one that wrote it.
+   *
+   * Between turns, not inside one: a turn is a single model call plus its
+   * tools, and tearing that in half is how a half-written file happens.
+   */
+  const cancelled = new AbortController()
+  const stopIfCancelled = async () => {
+    const { data } = await admin
+      .from("site_agent_runs")
+      .select("cancel_requested")
+      .eq("id", runId)
+      .maybeSingle()
+    if ((data as { cancel_requested: boolean } | null)?.cancel_requested) cancelled.abort()
+  }
+
+  // An external signal still stops the run — the route no longer passes the
+  // request's, but a test or a future caller may pass a real one.
+  if (signal) signal.addEventListener("abort", () => cancelled.abort(), { once: true })
+
+  const loop = agentLoop({ provider, model, prompt, workspace, esbuild, signal: cancelled.signal })
   let step = await loop.next()
   while (!step.done) {
     if (step.value.type === "tool") steps.push({ name: step.value.name, detail: step.value.detail })
     yield step.value
+    await stopIfCancelled()
     step = await loop.next()
   }
   const result = step.value

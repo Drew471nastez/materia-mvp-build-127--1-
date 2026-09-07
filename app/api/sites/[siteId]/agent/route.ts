@@ -93,8 +93,29 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (event: AgentEvent) =>
-        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`))
+      /**
+       * THE READER LEAVING IS NOT AN ERROR.
+       *
+       * A phone locking, a tab closing, a tunnel, a switch to another app —
+       * each ends the response stream, and `enqueue` on a closed controller
+       * throws. That throw used to escape into the catch below and end the
+       * run, so the work of the last two minutes was discarded on the last
+       * turn before it would have been saved.
+       *
+       * Once nobody is listening we stop talking and let the run finish. The
+       * files are still written, the transcript is still recorded, and the
+       * creator who comes back finds the edit made instead of "nothing was
+       * changed."
+       */
+      let listening = true
+      const send = (event: AgentEvent) => {
+        if (!listening) return
+        try {
+          controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`))
+        } catch {
+          listening = false
+        }
+      }
 
       try {
         for await (const event of runAgent({
@@ -104,7 +125,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
           prompt,
           provider: openAIProvider,
           esbuild,
-          signal: request.signal,
+          /**
+           * NOT `request.signal`. The client's connection is not permission
+           * to keep working — Stop is an explicit act, and it travels through
+           * `cancel_requested` so it survives the trip between requests.
+           */
         })) {
           send(event)
         }
@@ -117,7 +142,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
               : "The edit failed. Nothing was changed.",
         })
       } finally {
-        controller.close()
+        // Closing an already-closed controller throws too, and by this point
+        // the run has finished and been recorded — there is nothing left to
+        // fail at.
+        try {
+          controller.close()
+        } catch {
+          /* the reader was already gone */
+        }
       }
     },
   })
