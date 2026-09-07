@@ -131,10 +131,24 @@ CREATE TABLE IF NOT EXISTS site_template_purchases (
 -- cannot say WHICH of a creator's sites a domain serves. One
 -- nullable column, and a null keeps today's meaning: the
 -- creator's storefront.
-ALTER TABLE custom_domains
-  ADD COLUMN IF NOT EXISTS install_id UUID REFERENCES store_theme_installs(id) ON DELETE CASCADE;
-
-CREATE INDEX IF NOT EXISTS idx_custom_domains_install ON custom_domains (install_id);
+--
+-- GUARDED, because custom_domains is created by an older migration
+-- (20260211) and this file is also shipped inside the paste-once
+-- aggregate. The Supabase SQL editor ABORTS THE WHOLE PASTE at the
+-- first error, so an ALTER against a table that is not there yet
+-- would silently take every later section down with it — including
+-- the publishing schema. Domains are optional; publishing is not.
+DO $custom_domains_install$
+BEGIN
+  IF to_regclass('public.custom_domains') IS NULL THEN
+    RAISE NOTICE 'custom_domains not present; skipping the install_id link';
+    RETURN;
+  END IF;
+  ALTER TABLE custom_domains
+    ADD COLUMN IF NOT EXISTS install_id UUID REFERENCES store_theme_installs(id) ON DELETE CASCADE;
+  CREATE INDEX IF NOT EXISTS idx_custom_domains_install ON custom_domains (install_id);
+END;
+$custom_domains_install$;
 
 -- ── 9. RLS ───────────────────────────────────────────────────
 --

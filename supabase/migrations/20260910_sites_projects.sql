@@ -233,10 +233,20 @@ CREATE INDEX IF NOT EXISTS idx_sci_collection ON site_collection_items (collecti
 -- custom_domains already has DNS verification, SSL status and
 -- resolution wired into proxy.ts. A second domain system would be a
 -- second set of DNS instructions to keep correct.
-ALTER TABLE custom_domains
-  ADD COLUMN IF NOT EXISTS site_id UUID REFERENCES sites(id) ON DELETE CASCADE;
-
-CREATE INDEX IF NOT EXISTS idx_custom_domains_site ON custom_domains (site_id);
+-- Guarded for the same reason as the install_id link above: this runs
+-- inside the paste-once aggregate, and one error there aborts every
+-- section after it — which is how a publishing schema goes missing.
+DO $custom_domains_site$
+BEGIN
+  IF to_regclass('public.custom_domains') IS NULL THEN
+    RAISE NOTICE 'custom_domains not present; skipping the site_id link';
+    RETURN;
+  END IF;
+  ALTER TABLE custom_domains
+    ADD COLUMN IF NOT EXISTS site_id UUID REFERENCES sites(id) ON DELETE CASCADE;
+  CREATE INDEX IF NOT EXISTS idx_custom_domains_site ON custom_domains (site_id);
+END;
+$custom_domains_site$;
 
 -- ── RLS ──────────────────────────────────────────────────────
 --

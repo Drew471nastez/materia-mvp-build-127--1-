@@ -2007,6 +2007,130 @@ check(
   })(),
 )
 
+// ---------------------------------------------------------------------------
+section("Publishing fails loudly, and says the thing that is actually wrong")
+// ---------------------------------------------------------------------------
+
+/**
+ * A REAL FAILURE, NOT A HYPOTHETICAL. Publishing returned "Could not start the
+ * publish. Try again." for a schema that was missing — advice that could never
+ * work, on an error the code had in its hand and threw away. The Postgres
+ * message was `column "slug" of relation "site_deployments" does not exist`,
+ * which names both the cause and the fix.
+ */
+check(
+  "publishSite runs a preflight BEFORE it builds anything",
+  (() => {
+    const src = strip(read("lib/sites/publish.ts"))
+    if (!/export async function publishPreflight\(\)/.test(src)) return false
+
+    const body = src.slice(src.indexOf("export async function publishSite"))
+    const preflight = body.indexOf("publishPreflight(")
+    const build = body.indexOf("buildStatic(")
+    // indexOf returns -1, and -1 < anything is true — assert both are present
+    // before comparing them, or this passes on a file missing both.
+    return preflight > -1 && build > -1 && preflight < build
+  })(),
+)
+
+check(
+  "the preflight names each missing precondition separately",
+  (() => {
+    const src = strip(read("lib/sites/publish.ts"))
+    const fn = src.slice(src.indexOf("export async function publishPreflight"), src.indexOf("export async function publishSite"))
+    return (
+      /site_deployments/.test(fn) &&
+      /is_live, slug, storage_prefix, version_label/.test(fn) &&
+      /revision, published_revision/.test(fn) &&
+      /getBucket\(DEPLOYMENT_BUCKET\)/.test(fn) &&
+      /RUN_CREATOR_PAGE_AND_SITES\.sql/.test(fn)
+    )
+  })(),
+)
+
+check(
+  "the deployment-insert error is surfaced, never discarded",
+  (() => {
+    const src = strip(read("lib/sites/publish.ts"))
+    // The old text promised a retry would help. It could not.
+    if (/Could not start the publish\. Try again\./.test(src)) return false
+    const after = src.slice(src.indexOf("const deploymentId"))
+    const guard = after.slice(0, after.indexOf("}\n\n"))
+    return /createError\?\.message/.test(guard) && /details:/.test(guard)
+  })(),
+)
+
+check(
+  "an upload failure reports which file failed",
+  (() => {
+    const src = strip(read("lib/sites/publish.ts"))
+    return (
+      /throw new Error\(`\$\{path\}: \$\{error\.message\}`\)/.test(src) &&
+      !/Could not upload the site\. Try again\./.test(src)
+    )
+  })(),
+)
+
+check(
+  "the publish route and button carry details through to the screen",
+  (() => {
+    const route = strip(read("app/api/sites/[siteId]/publish/route.ts"))
+    const shell = strip(read("components/sites/editor/editor-shell.tsx"))
+    const button = strip(read("components/sites/editor/publish-button.tsx"))
+    return (
+      /details: result\.details/.test(route) &&
+      /details: body\.details/.test(shell) &&
+      /state\.details/.test(button)
+    )
+  })(),
+)
+
+/**
+ * THE ABORT THAT HID THE SCHEMA.
+ *
+ * RUN_CREATOR_PAGE_AND_SITES.sql is pasted into the Supabase SQL editor, which
+ * STOPS AT THE FIRST ERROR. An ALTER against custom_domains — a table an older
+ * migration owns — therefore took every later section down with it, publishing
+ * included, and the only symptom was a publish button that failed.
+ */
+check(
+  "every custom_domains ALTER is guarded by an existence check",
+  (() => {
+    const files = ["supabase/migrations/20260908_storelib_sites.sql", "supabase/migrations/20260910_sites_projects.sql"]
+    return files.every((f) => {
+      const sql = read(f).replace(/^\s*--.*$/gm, "")
+      const alters = sql.match(/ALTER TABLE (public\.)?custom_domains/g) ?? []
+      if (alters.length === 0) return false
+      const guards = sql.match(/to_regclass\('public\.custom_domains'\) IS NULL/g) ?? []
+      return guards.length >= alters.length
+    })
+  })(),
+)
+
+check(
+  "the pasted aggregate carries the whole publishing schema",
+  (() => {
+    const sql = readFileSync(join(root, "supabase/sql/RUN_CREATOR_PAGE_AND_SITES.sql"), "utf8")
+    return [
+      "site-deployments",
+      "version_label",
+      "storage_prefix",
+      "published_revision",
+      "site_chat_messages",
+      "site_commit_files",
+      "uniq_site_deployments_live",
+    ].every((token) => sql.includes(token))
+  })(),
+)
+
+check(
+  "the aggregate is generated, so it cannot drift from the migrations",
+  (() => {
+    const script = read("scripts/build-creator-page-sql.mjs")
+    return /20260912_site_publishing/.test(script) && /RUN_CREATOR_PAGE_AND_SITES\.sql/.test(script)
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

@@ -62,6 +62,50 @@ export type PublishResult =
   | { ok: false; error: string; details?: string[] }
 
 /**
+ * Is this deployment able to publish at all?
+ *
+ * Run BEFORE any work, because the two things that can be missing are missing
+ * for the whole platform, not for one site: the publishing migration, and the
+ * storage bucket it creates. Without this the first symptom is a Postgres
+ * "column does not exist" swallowed into "Try again" — advice that can never
+ * work, on an error that has nothing to do with the person reading it.
+ *
+ * Both checks are probes rather than information_schema queries, because
+ * PostgREST does not expose information_schema and a probe tests the thing
+ * that actually has to work.
+ */
+export async function publishPreflight(): Promise<string | null> {
+  const admin = createAdminClient()
+
+  // Columns the publish INSERT writes. `head: true` fetches no rows — this is
+  // asking the schema a question, not reading anybody's data.
+  const { error: schemaError } = await admin
+    .from("site_deployments")
+    .select("is_live, slug, storage_prefix, version_label", { head: true, count: "exact" })
+    .limit(1)
+
+  if (schemaError) {
+    return "Publishing is not set up on this deployment yet — the database is missing the publishing tables. Paste supabase/sql/RUN_CREATOR_PAGE_AND_SITES.sql into the Supabase SQL editor."
+  }
+
+  const { error: revisionError } = await admin
+    .from("sites")
+    .select("revision, published_revision", { head: true, count: "exact" })
+    .limit(1)
+
+  if (revisionError) {
+    return "Publishing is not set up on this deployment yet — the database is missing the publishing columns. Paste supabase/sql/RUN_CREATOR_PAGE_AND_SITES.sql into the Supabase SQL editor."
+  }
+
+  const { data: bucket } = await admin.storage.getBucket(DEPLOYMENT_BUCKET)
+  if (!bucket) {
+    return `Publishing is not set up on this deployment yet — the "${DEPLOYMENT_BUCKET}" storage bucket does not exist. Paste supabase/sql/RUN_CREATOR_PAGE_AND_SITES.sql into the Supabase SQL editor.`
+  }
+
+  return null
+}
+
+/**
  * The address this site publishes at, allocated once and then kept.
  *
  * Kept, because the URL is the thing people share. Renaming a site must not
@@ -169,6 +213,9 @@ async function ensureVendorAssets(): Promise<void> {
 export async function publishSite(site: Site): Promise<PublishResult> {
   const admin = createAdminClient()
 
+  const notReady = await publishPreflight()
+  if (notReady) return { ok: false, error: notReady }
+
   const files = await readProject(site.id)
   if (Object.keys(files).length === 0) {
     return { ok: false, error: "This site has no files to publish." }
@@ -208,7 +255,24 @@ export async function publishSite(site: Site): Promise<PublishResult> {
 
   const deploymentId = (created as { id: string } | null)?.id
   if (createError || !deploymentId) {
-    return { ok: false, error: "Could not start the publish. Try again." }
+    /**
+     * The real reason, not "try again".
+     *
+     * This used to discard `createError` entirely and return advice that could
+     * never work — the failure was a schema problem and retrying it forever
+     * would not have fixed it. The message is the creator's own site's error
+     * about our own schema; there is nothing here belonging to anybody else.
+     */
+    console.error("[sites/publish] could not create deployment row", {
+      siteId: site.id,
+      code: createError?.code,
+      message: createError?.message,
+    })
+    return {
+      ok: false,
+      error: "Could not start the publish.",
+      details: createError?.message ? [createError.message] : undefined,
+    }
   }
 
   // Immutable prefix. Every publish gets its own, so the previous one keeps
@@ -231,7 +295,7 @@ export async function publishSite(site: Site): Promise<PublishResult> {
           // file at this exact path can never change.
           cacheControl: "31536000",
         })
-      if (error) throw new Error(error.message)
+      if (error) throw new Error(`${path}: ${error.message}`)
     }
   } catch (thrown) {
     await admin
@@ -242,7 +306,9 @@ export async function publishSite(site: Site): Promise<PublishResult> {
         finished_at: new Date().toISOString(),
       })
       .eq("id", deploymentId)
-    return { ok: false, error: "Could not upload the site. Try again." }
+    const detail = thrown instanceof Error ? thrown.message : String(thrown)
+    console.error("[sites/publish] upload failed", { siteId: site.id, detail })
+    return { ok: false, error: "Could not upload the site.", details: [detail] }
   }
 
   /**

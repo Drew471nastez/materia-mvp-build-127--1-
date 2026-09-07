@@ -1484,10 +1484,24 @@ CREATE TABLE IF NOT EXISTS site_template_purchases (
 -- cannot say WHICH of a creator's sites a domain serves. One
 -- nullable column, and a null keeps today's meaning: the
 -- creator's storefront.
-ALTER TABLE custom_domains
-  ADD COLUMN IF NOT EXISTS install_id UUID REFERENCES store_theme_installs(id) ON DELETE CASCADE;
-
-CREATE INDEX IF NOT EXISTS idx_custom_domains_install ON custom_domains (install_id);
+--
+-- GUARDED, because custom_domains is created by an older migration
+-- (20260211) and this file is also shipped inside the paste-once
+-- aggregate. The Supabase SQL editor ABORTS THE WHOLE PASTE at the
+-- first error, so an ALTER against a table that is not there yet
+-- would silently take every later section down with it — including
+-- the publishing schema. Domains are optional; publishing is not.
+DO $custom_domains_install$
+BEGIN
+  IF to_regclass('public.custom_domains') IS NULL THEN
+    RAISE NOTICE 'custom_domains not present; skipping the install_id link';
+    RETURN;
+  END IF;
+  ALTER TABLE custom_domains
+    ADD COLUMN IF NOT EXISTS install_id UUID REFERENCES store_theme_installs(id) ON DELETE CASCADE;
+  CREATE INDEX IF NOT EXISTS idx_custom_domains_install ON custom_domains (install_id);
+END;
+$custom_domains_install$;
 
 -- ── 9. RLS ───────────────────────────────────────────────────
 --
@@ -1965,10 +1979,20 @@ CREATE INDEX IF NOT EXISTS idx_sci_collection ON site_collection_items (collecti
 -- custom_domains already has DNS verification, SSL status and
 -- resolution wired into proxy.ts. A second domain system would be a
 -- second set of DNS instructions to keep correct.
-ALTER TABLE custom_domains
-  ADD COLUMN IF NOT EXISTS site_id UUID REFERENCES sites(id) ON DELETE CASCADE;
-
-CREATE INDEX IF NOT EXISTS idx_custom_domains_site ON custom_domains (site_id);
+-- Guarded for the same reason as the install_id link above: this runs
+-- inside the paste-once aggregate, and one error there aborts every
+-- section after it — which is how a publishing schema goes missing.
+DO $custom_domains_site$
+BEGIN
+  IF to_regclass('public.custom_domains') IS NULL THEN
+    RAISE NOTICE 'custom_domains not present; skipping the site_id link';
+    RETURN;
+  END IF;
+  ALTER TABLE custom_domains
+    ADD COLUMN IF NOT EXISTS site_id UUID REFERENCES sites(id) ON DELETE CASCADE;
+  CREATE INDEX IF NOT EXISTS idx_custom_domains_site ON custom_domains (site_id);
+END;
+$custom_domains_site$;
 
 -- ── RLS ──────────────────────────────────────────────────────
 --
