@@ -1,227 +1,199 @@
-# Storelib Sites — architecture proposal
+# Storelib Sites — architecture
 
-Written after reading the existing code, not from the brief. The short version:
+> **This replaces the previous version of this document.** That one proposed
+> building Sites on the website-builder's section-JSON engine. This brief rules
+> that out in as many words — *"Do NOT create a second giant visual-builder JSON
+> architecture"*, *"The website's REAL CODE is the source of truth"* — so the
+> design below is a different product with a different data model. §8 says what
+> happens to the work already merged under the old design.
 
-**Storelib already has ~70% of Sites. It is called the website builder, and the
-brief describes it almost exactly.** Building Sites as a new system beside it
-would produce two section registries, two schema formats, two renderers and two
-publish pipelines — which is the failure mode this codebase has already been
-paying down all week. Sites should be the website builder, opened up.
+## 1. What Sites is now
 
-This document says what exists, what is genuinely missing, and the order to
-build it in.
+An AI-first code editor that happens to produce websites. Closer to Bolt than
+to Webflow: chat on the left, a live preview on the right, real files
+underneath, and a small visual editor that patches those files rather than a
+parallel model.
 
----
-
-## 1. What already exists
-
-### The engine (`components/website-builder`, `lib/website-builder`, `themes/`)
-
-| Brief asks for | Already built |
-| --- | --- |
-| "constrained metadata system that tells the editor what can be visually edited" | `themes/default/sections/<type>.json` — one schema per section, assembled by `lib/website-builder/section-schemas.ts`. This *is* the editable-component schema, and it is already data rather than code. |
-| Section library with categories and presets | `themes/default/manifest.json` — `section_order`, `SECTION_CATEGORIES`, `ADDABLE_SECTIONS`, `STRUCTURE_SECTIONS`. |
-| Section renderers | **51** of them under `sections/renderers/*`, dispatched by a data registry (`sections/registry.ts`) rather than a switch — deliberately, so a packaged theme can ship its own registry. |
-| Global theme settings (colours, fonts, radius, width, spacing) | `lib/website-builder/theme-settings-schema.ts`, stored per install in `store_theme_settings`. |
-| Draft vs published | Every table carries the split: `settings`/`draft_settings`, `sections`/`draft_sections`. |
-| Templates with author, price, category, version | `themes` table: `is_free`, `price_cents`, `author`, `category`, `tags`, `preview_image_url`, `version`, `is_built_in`. |
-| "Advanced code mode", export, import | `store_theme_custom_files` shadows theme files by path; `/website-builder/code/[installId]`; export + import routes exist. |
-| Publish history | `theme_publish_history` with a JSONB snapshot per publish. |
-| Autosave, duplicate, reorder | Sections API takes a whole array per page; duplicate route exists. |
-
-### The platform Sites must reuse, not rebuild
-
-- **Auth / ownership** — every website-builder table is RLS'd through
-  `creators.user_id = auth.uid()`. Reuse verbatim.
-- **Custom domains** — `custom_domains` with DNS `verification_token`,
-  `status`, `ssl_status`, plus `/api/domains/{check,verify,resolve,cleanup}`
-  and resolution already wired into `proxy.ts`. **Do not build a second domain
-  system.**
-- **Uploads** — `components/app/image-upload.tsx` → Supabase Storage, now with
-  browser-side downscaling (`lib/images/compress.ts`) and a year of cache.
-- **Products** — `products` + the checkout flow. Sites blocks must reference
-  product ids, never copy product rows.
-- **Plans** — `free | growth | pro`, resolved by
-  `resolveSellerPlan()` in `lib/billing/fee-calculator.ts`.
-- **Analytics** — `app/api/analytics`, `daily_rollups`, partitioned event
-  tables.
-- **Subdomain routing** — `proxy.ts` already rewrites `{name}.storelib.com` to
-  a page and resolves custom domains.
+The section-based website builder stays exactly where it is and keeps powering
+creator storefronts. The two are different products that happen to both make
+web pages; merging them would give both the worst of the other.
 
 ---
 
-## 2. What is actually missing
+## 2. The one decision everything else follows from: where does the build run?
 
-Five things. Everything else in the brief is either built or a variation on
-something built.
+The brief asks for three things that pull against each other:
 
-### 2.1 Pages are not pages
+- `run_build` and `read_build_errors` as agent tools, and a preview that
+  refreshes after every file change;
+- *"Avoid permanent servers/containers for each user"*;
+- *"Published websites should be static/CDN-friendly."*
 
-`store_theme_pages` has `page_key TEXT` and `UNIQUE(install_id, page_key)`, and
-the sections API already accepts **any** key (`z.string().min(1).max(64)`). So
-the *storage* is multi-page today.
+Three ways to resolve it:
 
-What is missing is everything around it:
+| | How | Why not |
+| --- | --- | --- |
+| **WebContainers** (what Bolt uses) | A Node runtime in the browser | Commercially licensed; ~50MB; needs `Cross-Origin-Isolation` headers site-wide, which would change every existing Storelib page; does not work in the iOS/Android webview Storelib ships |
+| **Server build per change** | A container or function per keystroke | The cost model the brief explicitly rules out |
+| **esbuild-wasm in a worker** ✅ | Bundle the user's files in the browser, ~30–80ms | Cannot `npm install` or run Vite plugins — the dependency set must be fixed |
 
-- no `title`, `slug`, `seo`, `sort_order`, `is_homepage` columns;
-- both public routes hardcode `.eq("page_key", "home")` —
-  `app/(marketing)/w/[username]/page.tsx:123` and
-  `app/(marketing)/[sellername]/page.tsx:214`. **Only the home page is ever
-  served.** There is no route that can render a second page.
+**The recommendation is esbuild-wasm in a web worker for the editor, and one
+short-lived serverless invocation on Publish.**
 
-This is the single largest gap, and it is a routing + metadata change, not a
-schema rewrite. That is a good position to be in.
+The constraint it imposes is the one the brief already asked for: *"Keep the
+initial supported stack constrained. Do not allow arbitrary backend runtimes."*
+React, react-dom and `@storelib/site` are pre-bundled and served as ESM from the
+CDN; the user's files are bundled in-browser into a single module; the preview
+iframe pulls both through an import map. No install step, no container, no cost
+per keystroke, and `run_build` is a function call that returns esbuild's
+diagnostics — which is exactly the shape the agent tool needs.
 
-### 2.2 A site is not an entity
+Publishing runs the same bundle server-side once, writes the output to Storage,
+and serves it statically from then on.
 
-Today a "site" is *the creator's storefront theme*: one published install per
-creator (`uniq_sti_creator_published`), served at `/w/{username}`. Sites needs
-a site to have its own name, its own subdomain, and to allow more than one per
-creator on paid plans.
-
-`store_theme_installs` is already 90% of `sites` — it has `name`, `status`,
-`is_custom`, `parent_install_id`, `sort_order`. It needs a slug/subdomain and
-the per-creator-published constraint relaxed to per-*site*.
-
-### 2.3 No restore
-
-`theme_publish_history` stores snapshots but nothing reads them back. Undo/redo
-and version history need a restore path.
-
-### 2.4 No Storelib community / commerce blocks beyond products
-
-`product` and `product_list` sections exist. `community`, `community_cta`,
-`creator_profile`, `checkout_button` do not.
-
-### 2.5 No forms, no per-site analytics, no integrations, no template purchases
-
-None of these exist. All are additive.
+**Vite is the project's shape, not its runtime.** Projects are laid out as Vite
+projects — `src/`, `index.html`, `vite.config.ts`, a real `package.json` — so
+that "Export" and, later, GitHub sync produce something a developer can `npm
+install && npm run dev` on their own machine. The editor just does not run Vite
+itself.
 
 ---
 
-## 3. Proposed data model
+## 3. Data model
 
-Additive migrations only. **No renames, no drops** — the storefront, the public
-`/w/` route and the editor all read these tables today.
+Files are the source of truth. No section JSON anywhere in this feature.
 
-```sql
--- Sites identity, on the existing install row
-ALTER TABLE store_theme_installs
-  ADD COLUMN slug TEXT,                     -- {slug}.storelib.site
-  ADD COLUMN kind TEXT NOT NULL DEFAULT 'storefront'
-    CHECK (kind IN ('storefront', 'site')),
-  ADD COLUMN published_version_id UUID,
-  ADD COLUMN settings JSONB NOT NULL DEFAULT '{}';   -- favicon, language, scripts
-CREATE UNIQUE INDEX ON store_theme_installs (slug) WHERE slug IS NOT NULL;
-
--- Pages become real pages
-ALTER TABLE store_theme_pages
-  ADD COLUMN title TEXT,
-  ADD COLUMN seo JSONB NOT NULL DEFAULT '{}',
-  ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0,
-  ADD COLUMN is_homepage BOOLEAN NOT NULL DEFAULT false;
--- page_key stays as the slug; it is already unique per install.
-
--- New tables
-site_versions          (id, install_id, snapshot, label, created_by, created_at)
-site_form_submissions  (id, install_id, page_key, fields JSONB, created_at)
-site_integrations      (id, install_id, provider, config JSONB, secret_ref)
-site_template_purchases(id, theme_id, buyer_id, price_cents, purchased_at)
-
--- Domains: link the existing table to a site rather than a second system
-ALTER TABLE custom_domains ADD COLUMN install_id UUID REFERENCES store_theme_installs(id);
+```
+sites                  id, creator_id, name, slug, status, template_id,
+                       settings, published_deployment_id, created_at, updated_at
+site_files             id, site_id, path, content, created_at, updated_at
+                       UNIQUE (site_id, path)        -- read_file/write_file are one row
+site_versions          id, site_id, snapshot JSONB, label, created_by, created_at
+site_deployments       id, site_id, version_id, status, output_path, error, created_at
+site_domains           id, site_id, domain, status, verification_token, ...
+site_assets            id, site_id, path, storage_key, mime, bytes
+site_integrations      id, site_id, provider, config JSONB, secret_ref
+site_forms             id, site_id, name, fields JSONB
+site_form_submissions  id, form_id, site_id, fields JSONB, created_at
+site_collections       id, site_id, name, slug, schema JSONB
+site_collection_items  id, collection_id, data JSONB, sort_order
 ```
 
-`kind` is what keeps this safe. Every existing row is a `storefront` and
-behaves exactly as it does today; Sites creates rows with `kind = 'site'`, and
-the per-creator-published uniqueness index is narrowed to
-`WHERE status = 'published' AND kind = 'storefront'`.
+Text files live in `site_files` because a project is a few dozen small files and
+the agent's whole vocabulary is per-path reads and writes. Binary assets go to
+Supabase Storage with a row in `site_assets` — the same buckets and the same
+upload path the rest of Storelib already uses.
+
+Every table is tenant-scoped through `sites.creator_id → creators.user_id =
+auth.uid()`, which is the shape every `store_theme_*` table already uses.
+
+**Site Collections are why the AI never touches SQL.** *"Create a real estate
+site where I can add properties"* becomes a row in `site_collections` with a
+JSONB schema and rows in `site_collection_items` — not `CREATE TABLE`. The agent
+gets `create_collection` and `add_collection_field`; it does not get a database
+connection.
 
 ---
 
-## 4. Routing
+## 4. What already exists and gets reused
 
-| URL | Renders |
+| Need | Reuse |
 | --- | --- |
-| `/w/{username}` | unchanged — the creator's storefront theme, home page |
-| `/s/{siteSlug}` and `/s/{siteSlug}/{...page}` | a Sites site, any page |
-| `{siteSlug}.storelib.site` | rewritten to `/s/{siteSlug}` in `proxy.ts` |
-| `{customdomain}` | resolved by the existing domain logic, then as above |
-
-The public renderer is `SectionRenderer` in both cases. One renderer.
-
-**Static-first**, as the brief asks: `/s/[slug]/[[...page]]` should be
-`generateStaticParams` + `revalidate`, not `force-dynamic` (which is what
-`/w/[username]` is today). A published site is the same bytes for every
-visitor, so it can be cached at the edge — unlike the creator storefront, which
-renders per-viewer and is deliberately `private, no-cache`.
+| Auth, ownership, RLS | `creators.user_id = auth.uid()`, unchanged |
+| Custom domains | `custom_domains` with DNS verification, already resolved in `proxy.ts` — add a `site_id` |
+| Uploads | `components/app/image-upload.tsx` → Storage, with the browser-side downscaling added this week |
+| Plans and gating | `resolveSellerPlan`, plus `lib/sites/plan.ts` from the previous slice, which survives unchanged |
+| Products / communities | Referenced by id through the Site API. Never copied |
+| Subdomain routing | `proxy.ts` already rewrites `{name}.storelib.com` |
+| Dashboard shell | `components/app/sidebar.tsx`, `AppLayoutWrapper` |
+| Design system | shadcn/ui as used everywhere else |
 
 ---
 
-## 5. Editor
+## 5. New surface
 
-`app/website-builder/editor/[installId]/page.tsx` is **5,896 lines in one
-file**. It is the largest risk in this plan.
+```
+app/app/sites/                    dashboard, new-site flow, settings
+app/sites/[siteId]/               the editor (its own route, outside /app's chrome)
+app/api/sites/…                   projects, files, build, publish, agent
+lib/sites/                        types, plan gates (exists), project ops, starter templates
+components/sites/                 dashboard cards, editor shell, chat, file tree
+```
 
-Do not extend it and do not rewrite it. Build the Sites editor as a new shell
-that composes the *existing* pieces — `SectionRenderer`, the section schemas,
-the settings schema — with a pages rail the current editor does not have. The
-two editors then share the engine and not the shell, and the old one keeps
-working for storefronts while the new one proves itself.
-
-Layout, per the brief: left rail (Pages / Sections / Site), centre preview,
-right inspector driven by the section JSON schema, AI bar along the bottom.
-
----
-
-## 6. Risks
-
-1. **The 5,896-line editor.** Any change to it is high-blast-radius. Mitigated
-   by not touching it.
-2. **`page_key = "home"` is hardcoded in two public routes.** Adding pages
-   without fixing these makes pages that exist and cannot be visited.
-3. **RLS + the admin client.** `store_theme_*` is owner-only, so the public
-   route uses `createAdminClient()` to read a published install. Every new
-   public Sites read must be equally narrow — filtered to `status='published'`
-   — or it becomes a way to read anyone's drafts.
-4. **`uniq_sti_creator_published`** will block a second published site until it
-   is narrowed to `kind = 'storefront'`.
-5. **Editor JS must not ship to published sites.** The brief calls this out and
-   it is real: the editor is a client bundle, `SectionRenderer` is not. Keep the
-   published route free of any editor import.
-6. **Custom scripts and AI-authored code** are the security boundary. Anything
-   user-supplied belongs in a sandboxed iframe or a CSP'd island, never inline
-   in the page shell.
+The editor lives outside `/app` deliberately: it is a full-viewport tool with
+its own chrome, and `/app`'s sidebar and mobile nav would fight it.
 
 ---
 
-## 7. Phases
+## 6. Security
 
-**Phase 1 — foundation** (data model + gating + the pieces with no UI risk)
-1. Migration: the columns and tables in §3.
-2. `lib/sites/` — types, queries, slug rules, plan limits.
-3. Public route `/s/[slug]/[[...page]]`, static-first.
-4. `proxy.ts` rewrite for `*.storelib.site`.
-
-**Phase 2 — the product surface**
-5. Sites dashboard, New Site flow, template picker.
-6. Editor shell: pages rail, section list, preview, inspector.
-7. Inline text + image editing.
-8. Publish.
-
-**Phase 3 — Storelib blocks**
-9. `community`, `community_cta`, `creator_profile`, `checkout_button`
-   sections, plus the Digital Product and Community templates that use them.
-
-**Phase 4 — AI, versions, forms, marketplace, Shopify.**
+- **The generated site never gets Supabase credentials.** Dynamic features go
+  through `@storelib/site` → Storelib Site API → Supabase. The site's bundle
+  holds a public site id and nothing else.
+- **The preview iframe is `sandbox="allow-scripts"` without
+  `allow-same-origin`**, so user code runs on a null origin and cannot read the
+  editor's session, cookies or storage. That also gives the CSS isolation the
+  brief asks for, free.
+- **BYOK keys are encrypted at rest and never reach the client.** The agent runs
+  server-side; the browser sends a prompt and receives a diff.
+- **No arbitrary server-side code in V1.** A project is client-rendered React;
+  there is no server runtime for a generated site to occupy.
 
 ---
 
-## 8. What this proposal deliberately does not do
+## 7. Risks
 
-- No new section format. The `themes/default/sections/*.json` schema is the
-  format.
-- No second renderer, no second registry, no second settings schema.
-- No drag-and-drop canvas, no absolute positioning — matching the brief.
-- No Shopify work until a Storelib-only site is genuinely good.
-- No touching `app/website-builder/editor/[installId]/page.tsx`.
+1. **esbuild-wasm is the bet.** If a template ever needs a dependency outside
+   the pre-bundled set, it cannot be added without a server build. Mitigated by
+   fixing the stack now and treating "add a dependency" as a Phase 3 feature
+   with a real answer, not a hack.
+2. **Source mapping for the visual editor** needs a Babel JSX transform that
+   stamps `data-storelib-loc` onto elements at build time, and an AST patch on
+   write. Not Phase 1, but the transform has to exist in the bundler from the
+   start or retrofitting it means rebuilding every project.
+3. **Agent context.** *"Do not send the entire repository to the AI for every
+   request"* is a correctness requirement, not an optimisation: a 40-file
+   project blows the budget and the model starts editing the wrong file. The
+   agent gets `list_files`/`search_files` and reads on demand.
+4. **A broken AI edit must be recoverable.** Snapshot before every agent run,
+   not after.
+5. **Publishing must not serve the editor's JavaScript.** Two separate
+   entry points, enforced by a test.
+
+---
+
+## 8. What happens to the previous design
+
+Merged last turn under the section-JSON design:
+
+- `supabase/migrations/20260908_storelib_sites.sql` — **keep**. It is additive,
+  and the one genuinely important thing in it is narrowing
+  `uniq_sti_creator_published` to storefronts, which was a real latent bug: a
+  creator could otherwise end up with two published storefronts and a live page
+  that changed by itself. The `kind`/`slug` columns become unused; they are
+  harmless and removing them is a destructive migration for no gain.
+- `lib/sites/plan.ts`, `lib/sites/slug.ts` — **keep and use**. Plan gates and
+  hostname rules are the same either way.
+- `lib/sites/types.ts`, `lib/sites/queries.ts` — **replaced**. They describe
+  sections.
+- `app/(marketing)/s/[slug]/[[...page]]` — **repointed**, not deleted. Same URL
+  shape; it serves built static output instead of rendering sections.
+
+---
+
+## 9. Phases
+
+**Phase 1 — the vertical slice**
+1. Migration and the project persistence layer.
+2. Sites dashboard, New Site (AI / Template / Blank), nav entry.
+3. The React/Vite starter as real files.
+4. Editor shell: chat pane, preview, code.
+5. esbuild-wasm bundler in a worker; preview iframe; build errors.
+6. Publish: serverless build → Storage → static serve.
+
+**Phase 2** — visual editing with source mapping, `@storelib/site`, products and
+communities in the agent's vocabulary.
+
+**Phase 3** — forms, collections, the Data tab, templates.
+
+**Phase 4** — Shopify, third-party templates, GitHub sync.

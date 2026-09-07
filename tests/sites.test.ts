@@ -43,40 +43,50 @@ const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
 
 // ---------------------------------------------------------------------------
-section("Sites reuses the website-builder engine rather than forking it")
+section("Sites is a code project, and the website builder is not involved")
 // ---------------------------------------------------------------------------
 
 check(
-  "there is exactly one section registry, and Sites does not add a second",
+  "files are the source of truth — no second section model",
   (() => {
+    /**
+     * THIS REPLACED AN EARLIER DESIGN. Sites was first proposed as an
+     * extension of the website builder's section-JSON engine; the brief that
+     * followed ruled that out in as many words — "the website's REAL CODE is
+     * the source of truth", "do NOT create a second giant visual-builder JSON
+     * architecture" — so the data model is files.
+     *
+     * The failure mode this guards is the one that makes visual builders rot:
+     * two representations of what a page says, and whichever one the user did
+     * not just edit becoming silently stale. There is one, and it is the
+     * files.
+     */
     const missing: string[] = []
-    if (!existsSync(join(root, "components/website-builder/sections/registry.ts")))
-      missing.push("the section registry is gone")
+    const types = read("lib/sites/types.ts")
 
-    // A second registry, renderer set or schema assembler under lib/sites or
-    // components/sites is the fork this whole design exists to avoid.
-    for (const dir of ["lib/sites", "components/sites"]) {
-      const full = join(root, dir)
-      if (!existsSync(full)) continue
-      const walk = (d: string): string[] =>
-        readdirSync(d, { withFileTypes: true }).flatMap((e) =>
-          e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)],
-        )
-      for (const file of walk(full)) {
-        const src = readFileSync(file, "utf8")
-        if (/SECTION_REGISTRY\s*[:=]/.test(src))
-          missing.push(`${file.replace(root + "/", "")} declares its own section registry`)
-        if (/interface SectionInstance|type SectionInstance\s*=/.test(src))
-          missing.push(`${file.replace(root + "/", "")} redefines SectionInstance`)
-        if (/interface SectionSchema|type SectionSchema\s*=/.test(src))
-          missing.push(`${file.replace(root + "/", "")} redefines SectionSchema`)
-      }
+    if (/SectionInstance|SectionSchema|website-builder/.test(types))
+      missing.push("Sites types reach into the website builder again — they are different products")
+    if (!/ProjectFiles/.test(types)) missing.push("a project is no longer a set of files")
+
+    // The starter is a real Vite project, so Export and GitHub sync have
+    // something a developer can run without a translation step.
+    const starter = read("lib/sites/starter.ts")
+    for (const path of ["package.json", "vite.config.ts", "index.html", "src/main.tsx", "src/App.tsx"]) {
+      if (!starter.includes(`"${path}"`)) missing.push(`the starter has no ${path}`)
     }
 
-    // And the types Sites does use must be the builder's own.
-    const types = read("lib/sites/types.ts")
-    if (!/from "@\/lib\/website-builder\/types"/.test(types))
-      missing.push("lib/sites/types does not import the builder's section types")
+    /**
+     * THE DEPENDENCY SET IS FIXED. The editor bundles in the browser with
+     * esbuild-wasm — no install step, no container, no cost per keystroke —
+     * and that only works while the imports are ones we pre-bundle. A starter
+     * that quietly grows a dependency is a starter that cannot be previewed.
+     */
+    const pkg = starter.slice(starter.indexOf('"package.json"'), starter.indexOf('"vite.config.ts"'))
+    for (const dep of ["react", "react-dom"]) {
+      if (!pkg.includes(dep)) missing.push(`the starter no longer depends on ${dep}`)
+    }
+    if (/tailwind|styled-components|@emotion|framer-motion/.test(pkg))
+      missing.push("the starter grew a dependency the in-browser bundler cannot resolve")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -84,22 +94,56 @@ check(
 )
 
 check(
-  "the schema-driven section library is still the editable-metadata system",
+  "a project cannot be created broken, and the plan gate is not only in the UI",
   (() => {
+    /**
+     * A site row with no files is not a site — it renders an empty editor and
+     * confuses whoever opens it next. There is no transaction across the two
+     * inserts, so the compensation is explicit and must stay.
+     *
+     * And the count gate lives in createSite rather than the route, so it
+     * applies to every caller: this route, a future agent action, an import.
+     * A check written in a route handler is a check the next entry point
+     * forgets — which is exactly how the sales badge ended up with two flags.
+     */
+    const projects = read("lib/sites/projects.ts")
+    const api = read("app/api/sites/route.ts")
     const missing: string[] = []
-    // The brief asks for "a constrained metadata system that tells the editor
-    // what can be visually edited". It exists: one JSON schema per section.
-    const manifest = join(root, "themes/default/manifest.json")
-    const sections = join(root, "themes/default/sections")
-    if (!existsSync(manifest)) missing.push("themes/default/manifest.json is gone")
-    if (!existsSync(sections)) missing.push("themes/default/sections is gone")
-    else if (readdirSync(sections).filter((f) => f.endsWith(".json")).length < 40)
-      missing.push("the section schema set has shrunk — something is being replaced rather than reused")
 
-    const assembler = read("lib/website-builder/section-schemas.ts")
-    if (!/themes\/default\/manifest\.json/.test(assembler))
-      missing.push("the schema assembler no longer reads the manifest")
+    if (!/if \(filesError\)/.test(projects) || !/from\("sites"\)\.delete\(\)/.test(projects))
+      missing.push("a failed file insert can leave a site row with no project")
+    if (!/siteCountGate\(plan, count \?\? 0\)/.test(projects))
+      missing.push("the plan gate is no longer enforced where sites are created")
+    if (/siteCountGate/.test(api))
+      missing.push("the route re-implements the gate instead of relying on createSite")
 
+    /**
+     * The slug is claimed at creation, not at publish. It is the address, and
+     * people say it out loud long before they publish — discovering at the
+     * last step that it is taken is the worst possible moment.
+     */
+    if (!/availableSlug/.test(projects)) missing.push("a site no longer gets an address until publish")
+
+    // Only the admin client can read another creator's rows; this module must
+    // never reach for it, or RLS stops being the access control.
+    if (/createAdminClient/.test(projects))
+      missing.push("the project layer uses the admin client — RLS is no longer what protects a project")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "Storelib AI is reachable from the dashboard",
+  (() => {
+    const sidebar = read("components/app/sidebar.tsx")
+    const missing: string[] = []
+    if (!/href: "\/app\/sites", label: "Storelib AI"/.test(sidebar))
+      missing.push("Storelib AI is not in the left-hand nav")
+    // And findable by search, which is how half the dashboard is navigated.
+    if ((sidebar.match(/Storelib AI/g) || []).length < 3)
+      missing.push("Storelib AI is missing from the search lists")
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),
@@ -273,6 +317,107 @@ check(
       if (!siteLimits(tier)) missing.push(`Sites has no limits for the "${tier}" tier`)
     }
 
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("A project's tables are tenant-scoped, and nothing is world-readable")
+// ---------------------------------------------------------------------------
+
+check(
+  "every site table is reachable only through its owner",
+  (() => {
+    /**
+     * A project holds a creator's unreleased work. A public read on
+     * `site_files` is a way to read everybody's drafts by guessing an id, and
+     * the shape that prevents it is the one every store_theme_* table already
+     * uses: reach the row through its site, the site through creators,
+     * creators through auth.uid().
+     *
+     * Published sites are served from built static output, by a route that
+     * filters to published — not by opening these tables up.
+     */
+    const sql = read("supabase/migrations/20260910_sites_projects.sql").replace(/^\s*--.*$/gm, "")
+    const missing: string[] = []
+
+    const tables = [
+      "site_files", "site_versions", "site_deployments", "site_assets",
+      "site_integrations", "site_forms", "site_form_submissions",
+      "site_collections", "site_collection_items",
+    ]
+    /**
+     * Scoped to the RLS loop's own array, not the whole file. Checking the
+     * file found `site_files` in the updated_at trigger list and reported it
+     * as protected while its policy was gone — a break-test caught that, and
+     * it is the difference between asserting a table is guarded and asserting
+     * its name appears somewhere.
+     */
+    const rlsArray = sql.slice(sql.indexOf("FOREACH t IN ARRAY ARRAY["), sql.indexOf("]", sql.indexOf("FOREACH t IN ARRAY ARRAY[")))
+    for (const t of tables) {
+      if (!new RegExp(`CREATE TABLE IF NOT EXISTS ${t}\\b`).test(sql)) missing.push(`${t} is missing`)
+      if (!rlsArray.includes(`'${t}'`)) missing.push(`${t} is not in the RLS loop`)
+    }
+    if (!/ALTER TABLE sites ENABLE ROW LEVEL SECURITY/.test(sql)) missing.push("sites has no row-level security")
+    if (/USING \(true\)/.test(sql)) missing.push("something is world-readable")
+
+    /**
+     * ONE ROW PER FILE, keyed by path. read_file and write_file are then
+     * single-row operations rather than fetch-blob / mutate / write-blob —
+     * which is also what stops two concurrent edits clobbering each other.
+     */
+    if (!/UNIQUE \(site_id, path\)/.test(sql)) missing.push("files are no longer addressable by path")
+
+    /**
+     * THE AI NEVER WRITES SQL. "Create a real estate site where I can add
+     * properties" becomes a collection with a JSONB schema, not CREATE TABLE.
+     * If these two tables ever go, the pressure to hand the agent DDL comes
+     * straight back.
+     */
+    if (!/site_collections/.test(sql) || !/site_collection_items/.test(sql))
+      missing.push("collections are gone — custom data would need the AI to write SQL")
+
+    // Domains are the existing system with a pointer, not a second one.
+    if (!/ALTER TABLE custom_domains/.test(sql))
+      missing.push("Sites has its own domain system instead of reusing custom_domains")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the editor's code never ships to a visitor's site",
+  (() => {
+    /**
+     * The brief calls this out and it is real: the editor is a large client
+     * bundle — Monaco, the bundler, the chat — and a published site is static
+     * output. One import of an editor component from a public route ships all
+     * of it to every visitor of every site.
+     *
+     * Enforced structurally rather than by care: public routes live under
+     * app/(marketing), the editor under app/sites and components/sites.
+     */
+    const missing: string[] = []
+    const publicDirs = ["app/(marketing)"]
+    const walk = (d: string): string[] => {
+      const full = join(root, d)
+      if (!existsSync(full)) return []
+      return readdirSync(full, { withFileTypes: true }).flatMap((e) =>
+        e.isDirectory() ? walk(join(d, e.name)) : d + "/" + e.name,
+      )
+    }
+    for (const dir of publicDirs) {
+      for (const file of walk(dir)) {
+        if (!/\.tsx?$/.test(file)) continue
+        const src = readFileSync(join(root, file), "utf8")
+        if (/from "@\/components\/sites\//.test(src))
+          missing.push(`${file} imports the Sites editor into a public route`)
+        if (/monaco|esbuild-wasm/.test(src))
+          missing.push(`${file} pulls the editor toolchain into a public route`)
+      }
+    }
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),

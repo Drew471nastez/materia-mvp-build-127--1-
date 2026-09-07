@@ -2,7 +2,7 @@ import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
-import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
+import { PageSections } from "@/components/website-builder/sections/PageSections"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 export const dynamic = "force-dynamic"
@@ -151,29 +151,17 @@ export default async function WebsitePublicPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Header sections */}
-      {sections.filter(s => s.type === "header").map((section) => (
-        <SectionRenderer key={section.id} section={section} theme={themeSettings} />
-      ))}
+      {/*
+        Ordering and the empty state live in PageSections, which is the one
+        place that decides a header renders first and a footer last whatever
+        order they were saved in.
 
-      {/* Body sections — natural flow, no flex filler that creates a visible gap */}
-      {sections.filter(s => s.type !== "header" && s.type !== "footer").map((section) => (
-        <SectionRenderer key={section.id} section={section} theme={themeSettings} />
-      ))}
-
-      {sections.length === 0 && (
-        <div className="min-h-[50vh] flex items-center justify-center">
-          <div className="text-center text-gray-400">
-            <p className="text-lg font-medium">This website is being set up</p>
-            <p className="text-sm mt-1">Check back soon!</p>
-          </div>
-        </div>
-      )}
-
-      {/* Footer sections */}
-      {sections.filter(s => s.type === "footer").map((section) => (
-        <SectionRenderer key={section.id} section={section} theme={themeSettings} />
-      ))}
+        WHICH sections stays here, because this route and a published Site
+        differ on purpose: the storefront falls back to `draft_sections` so an
+        owner who has never published still sees their work, and a public Site
+        must not, because that would serve every visitor unpublished edits.
+      */}
+      <PageSections sections={sections} theme={themeSettings} emptyDetail="Check back soon!" />
     </div>
   )
 }

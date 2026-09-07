@@ -1,113 +1,88 @@
 /**
- * Storelib Sites — the types the rest of the feature is written against.
+ * Storelib Sites — a site is a code project.
  *
- * A Site is a `store_theme_installs` row with `kind = 'site'`. It is the same
- * row a storefront theme uses, and that is deliberate: the section schemas, the
- * 51 renderers, the registry, the theme settings and the draft/published split
- * are all already built against it. See docs/storelib-sites.md.
+ * Files are the source of truth. There is no section model here and there must
+ * not become one: the moment a second representation of "what the page says"
+ * exists, the visual editor and the AI start disagreeing about which is
+ * current, and the answer is always whichever one the user did not just edit.
  *
- * Nothing here redefines a section or a section schema. `SectionInstance` and
- * `ThemeSettingsValues` come from lib/website-builder/types, unchanged — a
- * second definition of either is how two renderers start.
+ * See docs/storelib-sites.md.
  */
 
-import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
-
-export type SiteKind = "storefront" | "site"
 export type SiteStatus = "draft" | "published" | "unpublished"
+export type DeploymentStatus = "queued" | "building" | "ready" | "failed"
 
-/**
- * Free-text settings that belong to the SITE rather than to its theme.
- *
- * Theme settings — colours, fonts, radius, container width — already have a
- * schema in lib/website-builder/theme-settings-schema.ts and live in
- * `store_theme_settings`. These are the things that are true of the site
- * whatever theme it wears.
- */
 export interface SiteSettings {
   faviconUrl?: string
-  language?: string
-  seo?: {
-    title?: string
-    description?: string
-    socialImageUrl?: string
-  }
-  /**
-   * Pro only, and sandboxed at render. Never interpolated into the page shell:
-   * anything a creator can type here is something an attacker can type into
-   * a bought template, so it renders inside a constrained island or not at all.
-   */
-  customHeadScripts?: string
-  /** Free plan shows "Built with Storelib"; Pro may turn it off. */
+  seo?: { title?: string; description?: string; socialImageUrl?: string }
+  /** Pro only. Free sites carry "Built with Storelib". */
   hideBranding?: boolean
 }
 
 export interface Site {
   id: string
   creatorId: string
-  themeId: string
-  kind: SiteKind
   name: string
-  /** `{slug}.storelib.site`. Null for storefronts, which live at /w/{username}. */
+  /** `{slug}.storelib.site`. Null until the first publish. */
   slug: string | null
   status: SiteStatus
+  templateId: string | null
   settings: SiteSettings
-  publishedVersionId: string | null
-  publishedAt: string | null
-  sortOrder: number
+  publishedDeploymentId: string | null
   createdAt: string
   updatedAt: string
 }
 
-export interface SitePageSeo {
-  title?: string
-  description?: string
-  socialImageUrl?: string
-  noindex?: boolean
+/** One text file. Binary lives in Storage with a row in `site_assets`. */
+export interface SiteFile {
+  path: string
+  content: string
+}
+
+/** A whole project, as the bundler and the agent see it. */
+export type ProjectFiles = Record<string, string>
+
+export interface SiteDeployment {
+  id: string
+  siteId: string
+  status: DeploymentStatus
+  outputPath: string | null
+  /** Developer detail. Never shown to a creator without them asking for it. */
+  error: string | null
+  createdAt: string
+  finishedAt: string | null
 }
 
 /**
- * A page. `key` is the URL slug and the storage key at once — it is already
- * `UNIQUE(install_id, page_key)`, which is exactly the constraint a slug needs,
- * so there is no second column to keep in step with it.
+ * What the agent is allowed to do, named once.
+ *
+ * This is a closed list on purpose: "the AI can edit your website" is a
+ * sentence that has to mean something bounded, and the bound is here rather
+ * than in a prompt. Nothing in it reaches a database, a shell or a network.
  */
-export interface SitePage {
-  id: string
-  installId: string
-  /** URL slug. The homepage's key is conventionally "home" but nothing reads that. */
-  key: string
-  title: string
-  seo: SitePageSeo
-  sortOrder: number
-  isHomepage: boolean
-  /** Published sections. What a visitor gets. */
-  sections: SectionInstance[]
-  /** Unsaved editor state. Null once published. */
-  draftSections: SectionInstance[] | null
+export type AgentTool =
+  | "list_files"
+  | "read_file"
+  | "search_files"
+  | "write_file"
+  | "create_file"
+  | "delete_file"
+  | "apply_patch"
+  | "run_build"
+  | "read_build_errors"
+
+export interface BuildError {
+  file?: string
+  line?: number
+  column?: number
+  message: string
 }
 
-/** What a published site needs to render, in one object. */
-export interface PublishedSite {
-  site: Site
-  theme: ThemeSettingsValues
-  page: SitePage
-  /** Every page, for navigation. Sections omitted — this is for menus. */
-  pages: Array<Pick<SitePage, "key" | "title" | "sortOrder" | "isHomepage">>
-}
-
-export interface SiteVersion {
-  id: string
-  installId: string
-  label: string | null
-  createdBy: string | null
-  createdAt: string
-}
-
-export interface SiteFormSubmission {
-  id: string
-  installId: string
-  pageKey: string | null
-  sectionId: string | null
-  fields: Record<string, string>
-  createdAt: string
+export interface BuildResult {
+  ok: boolean
+  /** The bundled ESM module, when it built. */
+  code?: string
+  errors: BuildError[]
+  warnings: BuildError[]
+  durationMs: number
 }
