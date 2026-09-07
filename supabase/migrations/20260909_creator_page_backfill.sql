@@ -88,6 +88,13 @@ $$;
 
 -- ── 2. Video media items get their real label ────────────────
 --
+-- COALESCE around the outer jsonb_agg is not decoration. `jsonb_agg` over an
+-- empty set returns NULL, and `jsonb_set(config, '{sections}', NULL)` returns
+-- NULL for the WHOLE COLUMN — a config wiped rather than updated. The WHERE
+-- clause makes that unreachable today, since a config containing
+-- "type":"youtube" necessarily has a section; but the guard costs nothing and
+-- the failure it prevents is a creator's page disappearing.
+--
 -- `type: "youtube"` used to mean "a video", and now that Vimeo works
 -- the honest label is "video". The renderer reads both — nothing
 -- branches on which — so this is cosmetic, and it is here so the two
@@ -98,7 +105,7 @@ $$;
 UPDATE store_builder_configs
 SET draft_config = jsonb_set(
       draft_config, '{sections}',
-      (SELECT jsonb_agg(
+      (SELECT COALESCE(jsonb_agg(
          CASE WHEN s->>'type' = 'about'
            THEN jsonb_set(s, '{settings,mediaItems}', (
              SELECT COALESCE(jsonb_agg(
@@ -106,7 +113,7 @@ SET draft_config = jsonb_set(
              ), '[]'::jsonb)
              FROM jsonb_array_elements(COALESCE(s->'settings'->'mediaItems', '[]'::jsonb)) m
            ))
-           ELSE s END)
+           ELSE s END), '[]'::jsonb)
        FROM jsonb_array_elements(draft_config->'sections') s))
 WHERE page_type = 'shop'
   AND draft_config ? 'sections'
@@ -115,7 +122,7 @@ WHERE page_type = 'shop'
 UPDATE store_builder_configs
 SET published_config = jsonb_set(
       published_config, '{sections}',
-      (SELECT jsonb_agg(
+      (SELECT COALESCE(jsonb_agg(
          CASE WHEN s->>'type' = 'about'
            THEN jsonb_set(s, '{settings,mediaItems}', (
              SELECT COALESCE(jsonb_agg(
@@ -123,7 +130,7 @@ SET published_config = jsonb_set(
              ), '[]'::jsonb)
              FROM jsonb_array_elements(COALESCE(s->'settings'->'mediaItems', '[]'::jsonb)) m
            ))
-           ELSE s END)
+           ELSE s END), '[]'::jsonb)
        FROM jsonb_array_elements(published_config->'sections') s))
 WHERE page_type = 'shop'
   AND published_config ? 'sections'
