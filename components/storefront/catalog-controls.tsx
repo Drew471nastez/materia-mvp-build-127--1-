@@ -197,8 +197,8 @@ export function CatalogHeader({
   title?: React.ReactNode
   titleClassName?: string
   titleStyle?: React.CSSProperties
-  /** The controls. They sit at the right on every screen. */
-  children: React.ReactNode
+  /** The controls, if the tab has any. They sit at the right on every screen. */
+  children?: React.ReactNode
 }) {
   return (
     <div className="mb-5 flex min-h-9 items-center gap-x-4">
@@ -207,7 +207,13 @@ export function CatalogHeader({
           {title}
         </h2>
       ) : null}
-      <div className="ml-auto flex shrink-0 items-center gap-2">{children}</div>
+      {/*
+        No controls, no box for them — the Home rail is a heading and nothing
+        else. `min-h-9` above is what keeps its row the same height as the
+        Products tab's, so the two tabs still put their first card at the same
+        distance from the tab strip.
+      */}
+      {children ? <div className="ml-auto flex shrink-0 items-center gap-2">{children}</div> : null}
     </div>
   )
 }

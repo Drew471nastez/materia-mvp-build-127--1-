@@ -28,26 +28,6 @@ export interface StorefrontTab {
 }
 
 /**
- * Lets a panel move the visitor to another tab.
- *
- * The Home rail shows a few products and then says "View all products →",
- * which has to land on the Products tab — but the rail is a store-builder
- * section that also renders on a product page and inside the builder canvas,
- * where there are no tabs at all. A context is null in those places, so the
- * link simply is not offered rather than being a dead control.
- */
-interface StorefrontTabsApi {
-  select: (id: string) => void
-  ids: string[]
-}
-
-const StorefrontTabsContext = React.createContext<StorefrontTabsApi | null>(null)
-
-export function useStorefrontTabs(): StorefrontTabsApi | null {
-  return React.useContext(StorefrontTabsContext)
-}
-
-/**
  * Shown by a tab that has nothing behind it yet.
  *
  * Communities is on the page because it was asked for, with the feature not
@@ -135,18 +115,21 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
     }
   }, [active, tabs.length])
 
-  const api = React.useMemo<StorefrontTabsApi>(
-    () => ({ select: setActive, ids: tabs.map((t) => t.id) }),
-    [tabs],
-  )
+  /**
+   * NO CONTEXT FOR SWITCHING TABS FROM INSIDE A PANEL.
+   *
+   * There was one, for a "View all products →" link on the Home rail. The link
+   * is gone — the tab strip is directly above it saying "Products", and a
+   * second control two inches below the first is not a shortcut — so the
+   * context had no consumers, which makes it the kind of plumbing that reads
+   * as a feature and is a no-op.
+   */
 
   // A single tab is not a choice; showing a lone "Home" button is noise.
-  if (tabs.length < 2) {
-    return <StorefrontTabsContext.Provider value={api}>{tabs[0]?.panel ?? null}</StorefrontTabsContext.Provider>
-  }
+  if (tabs.length < 2) return <>{tabs[0]?.panel ?? null}</>
 
   return (
-    <StorefrontTabsContext.Provider value={api}>
+    <>
       {/*
         UNDERLINE TABS ON A RULE. The pills came first and went; this is what
         was asked for in the end, and it is the shape the rest of the web uses
@@ -305,6 +288,6 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
           {tab.panel}
         </div>
       ))}
-    </StorefrontTabsContext.Provider>
+    </>
   )
 }

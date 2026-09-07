@@ -23,7 +23,7 @@ import type {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, BadgeCheck, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Download, Facebook, Files, Heart, Infinity, Link2, Package, Share2, ShoppingBag, Star, Users, X } from "lucide-react"
+import { BadgeCheck, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Download, Facebook, Files, Heart, Infinity, Link2, Package, Share2, ShoppingBag, Star, Users, X } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -32,7 +32,6 @@ import { ProductGallery } from "@/components/product/product-gallery"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { SocialMediaIcons } from "./social-media-icons"
 import { CatalogHeader } from "@/components/storefront/catalog-controls"
-import { useStorefrontTabs } from "@/components/storefront/storefront-tabs"
 
 /**
  * The headline this section shipped with. Anything still set to it was never
@@ -2229,8 +2228,6 @@ function UnifiedFeaturedProductsSection({
    */
   const headline = settings.headline === LEGACY_FEATURED_HEADLINE ? "Featured" : settings.headline
 
-  const tabsApi = useStorefrontTabs()
-  const canViewAll = !!tabsApi?.ids.includes("products")
 
   // The sort labels live in components/storefront/catalog-controls, which both
   // this rail and the Products tab render. A second copy here is how the two
@@ -2304,13 +2301,13 @@ function UnifiedFeaturedProductsSection({
             It used to carry the same sort and category controls the Products
             tab has, which is two of everything on one page: the visitor sorts
             here, switches tab, and finds a different sort. A rail that shows
-            some products and points at the tab that shows all of them has one
-            job, and the tab keeps the controls.
+            the creator's products and leaves the browsing to the tab named
+            after it has one job.
 
-            "View all products" only appears when there is a Products tab to
-            send anyone to — on a product page, or inside the builder canvas,
-            the context is null and the link is not offered rather than being
-            a dead control.
+            It briefly carried a "View all products →" link as well. The tab
+            strip is directly above it saying "Products" — a second control
+            two inches below the first, doing the same thing, is not a
+            shortcut. The heading is the whole header now.
           */}
           <CatalogHeader
             title={headline}
@@ -2324,18 +2321,7 @@ function UnifiedFeaturedProductsSection({
               textAlign: settings.typography?.textAlign,
               color: settings.colors?.textColor || undefined,
             }}
-          >
-            {canViewAll && (
-              <button
-                type="button"
-                onClick={() => tabsApi?.select("products")}
-                className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-foreground transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-              >
-                View all products
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            )}
-          </CatalogHeader>
+          />
 
           {/*
             THE SAME BREAKPOINTS AS THE PRODUCTS TAB, because they are the same

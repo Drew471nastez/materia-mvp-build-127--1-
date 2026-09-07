@@ -2493,41 +2493,65 @@ check(
 )
 
 check(
-  "Home points at Products rather than repeating it",
+  "Home is a heading, and the category pill only pretends to be a menu when it is one",
   (() => {
     /**
-     * Home reads "Featured … View all products →"; Products reads "Products …
-     * All (n) … Sort: Most Recent". Two headers with different jobs, in one
-     * component so their heights and margins cannot drift apart.
+     * TWO HEADERS WITH DIFFERENT JOBS, in one component so their heights and
+     * margins cannot drift apart. Home reads "Featured" and nothing else;
+     * Products reads "Products … All (n) … Sort: Most Recent". Measured: both
+     * rows 36px, so the first card sits the same distance below the tab strip
+     * on either tab.
      *
-     * "View all products" needs to reach the tab strip's state, and the rail
-     * is a store-builder section that also renders on a product page and in
-     * the builder canvas — so the context is null there and the link is not
-     * offered rather than being a dead control. Verified: clicking it selects
-     * the Products tab and shows its panel.
+     * HOME HAD A "View all products →" LINK for one commit. The tab strip is
+     * directly above it saying "Products" — a second control two inches below
+     * the first, doing the same thing, is not a shortcut. It went, and the
+     * context that let a panel switch tabs went with it: plumbing with no
+     * consumers reads as a feature and is a no-op.
      *
-     * "Featured", not "Featured Products", because the word Products is now
-     * the tab beside it AND the link at the other end of the same row. The
-     * creator's own headline still wins; only the value nobody chose — the old
-     * shipped default — is replaced, which is the same "did anyone actually
-     * decide this" rule the sticky bar uses.
+     * "Featured", not "Featured Products", because Products is now the tab
+     * beside it. A creator's own headline still wins; only the value nobody
+     * chose — the old shipped default — is replaced, the same "did anyone
+     * actually decide this" rule the sticky bar uses.
+     *
+     * THE PILL IS A MENU ONLY WHEN THERE IS SOMETHING TO BROWSE. With
+     * categories it lists them with their counts and filters the grid —
+     * verified: All (6) / Bags (3) / Tees (2) / Templates (1), choosing Tees
+     * leaves 2 cards and relabels the pill, choosing All restores 6. With
+     * none it is a plain label in the same pill: same shape, same count, no
+     * chevron, not clickable. A control that opens a list containing only what
+     * it already says is a small lie about what it does.
      */
     const rail = code("components/store-builder/unified-section-renderer.tsx")
     const grid = code("components/storefront/all-products-grid.tsx")
     const tabs = code("components/storefront/storefront-tabs.tsx")
+    const controls = code("components/storefront/catalog-controls.tsx")
     const missing: string[] = []
 
     if (!/const LEGACY_FEATURED_HEADLINE = "Featured Products"/.test(rail))
       missing.push("the old default headline is no longer recognised, so stores still set to it keep saying it")
     if (!/settings\.headline === LEGACY_FEATURED_HEADLINE \? "Featured" : settings\.headline/.test(rail))
       missing.push("the rail no longer prefers the creator's own headline over the old default")
-    if (!/View all products/.test(rail)) missing.push("the rail no longer points at the Products tab")
-    if (!/tabsApi\?\.select\("products"\)/.test(rail)) missing.push("View all products does not switch tabs")
-    if (!/const canViewAll = !!tabsApi\?\.ids\.includes\("products"\)/.test(rail))
-      missing.push("the link is offered even where there is no Products tab to reach")
-    if (!/export function useStorefrontTabs/.test(tabs))
-      missing.push("the tab strip no longer exposes a way to switch tabs")
     if (!/title="Products"/.test(grid)) missing.push("the Products tab lost its title")
+
+    // The rail is a heading. Nothing else belongs in its header.
+    if (/View all products/.test(rail)) missing.push("the rail duplicates the Products tab as a link again")
+    if (/useStorefrontTabs|StorefrontTabsContext/.test(rail + tabs))
+      missing.push("the switch-tabs-from-a-panel plumbing is back with nothing using it")
+    if (!/<CatalogHeader\s+title=\{headline\}[\s\S]{0,400}?\/>/.test(rail))
+      missing.push("the rail's header has grown controls again — the Products tab owns those")
+
+    // The header row keeps its height with no controls in it, or the two tabs
+    // stop lining up.
+    if (!/mb-5 flex min-h-9 items-center/.test(controls))
+      missing.push("CatalogHeader no longer fixes its height — an empty Home header would collapse and the tabs would disagree")
+    if (!/\{children \? <div className="ml-auto/.test(controls))
+      missing.push("an empty controls box is rendered when a tab has none")
+
+    // Menu when there is something to choose, label when there is not.
+    if (!/if \(categories\.length === 0\) \{\s*return <span className=\{triggerClass\}>/.test(controls))
+      missing.push("with no categories the pill is a menu again, opening a list of one")
+    if (/categories\.length < 2\) return null/.test(controls))
+      missing.push("the category pill hides itself again, taking the product count with it")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
