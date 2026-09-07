@@ -13,7 +13,7 @@
 import { notFound, redirect } from "next/navigation"
 
 import { EditorShell } from "@/components/sites/editor/editor-shell"
-import { getSite, readProject, siteRevision } from "@/lib/sites/projects"
+import { getSite, readProject, siteRevisions } from "@/lib/sites/projects"
 import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -53,13 +53,30 @@ export default async function SiteEditorPage({
   const site = await getSite(siteId)
   if (!site) notFound()
 
-  const [files, revision] = await Promise.all([readProject(siteId), siteRevision(siteId)])
+  const [files, revisions] = await Promise.all([readProject(siteId), siteRevisions(siteId)])
+
+  /**
+   * IS WHAT IS LIVE BEHIND WHAT IS ON SCREEN?
+   *
+   * The editor used to assume "no" on every load — staleness was only ever set
+   * by an edit made in the current session. So editing, closing the tab and
+   * coming back showed a button reading "Live" over a draft that had never
+   * been published, which is precisely how somebody ends up staring at a
+   * hero in the editor that the live site has never seen.
+   *
+   * Both numbers already existed: `revision` moves on every write,
+   * `published_revision` records what the last publish was built from. Nothing
+   * had ever compared them.
+   */
+  const behind =
+    revisions.publishedRevision !== null && revisions.revision !== revisions.publishedRevision
 
   return (
     <EditorShell
       site={site}
       initialFiles={files}
-      initialRevision={revision ?? 1}
+      initialRevision={revisions.revision}
+      initiallyBehind={behind}
       openingBrief={brief}
     />
   )

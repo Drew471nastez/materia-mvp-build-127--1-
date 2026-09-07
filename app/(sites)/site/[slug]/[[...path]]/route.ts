@@ -57,6 +57,29 @@ const SECURITY_HEADERS: Record<string, string> = {
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https://fonts.gstatic.com",
     "connect-src 'self' https:",
+    /**
+     * MEDIA AND EMBEDS, and leaving them out was a real defect rather than an
+     * oversight in wording.
+     *
+     * Neither directive was declared, so both fell back to `default-src
+     * 'self'` — and a page is not obviously missing a directive it never
+     * mentions. The editor preview enforces no policy at all, so a video
+     * background, a YouTube embed or a Google Map worked perfectly while
+     * building and was silently blank the moment it went live. Confirmed in a
+     * real browser against this exact header: an mp4, an mp3 and an iframe
+     * embed all refused by `default-src 'self'`.
+     *
+     * These are the site types Storelib is for — landing pages, funnels,
+     * agency sites, portfolios — and an embedded video or booking widget is
+     * ordinary content on every one of them.
+     *
+     * https: only, never http:, so a page cannot quietly downgrade a visitor
+     * to an unencrypted request. Framed pages defend themselves with their own
+     * frame-ancestors; ours stays 'none' below, so this permits a Storelib site
+     * to embed, never to be embedded.
+     */
+    "media-src 'self' data: blob: https:",
+    "frame-src 'self' https:",
     "frame-ancestors 'none'",
     "base-uri 'none'",
     "form-action 'self'",

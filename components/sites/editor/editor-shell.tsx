@@ -55,12 +55,16 @@ export function EditorShell({
   site,
   initialFiles,
   initialRevision,
+  initiallyBehind,
   openingBrief,
 }: {
   site: Site
   initialFiles: ProjectFiles
   /** The version these files came from. See `revision` below. */
   initialRevision: number
+  /** The live build is behind the current draft — computed from the site's
+   *  revision against the one the last publish was built from. */
+  initiallyBehind: boolean
   /** From the New Site flow: sent as the first message, once. */
   openingBrief?: string
 }) {
@@ -84,7 +88,11 @@ export function EditorShell({
    */
   const [publishState, setPublishState] = React.useState<PublishState>(
     site.status === "published" && site.slug
-      ? { kind: "live", url: publishedUrl(site.slug), stale: false }
+      ? // `initiallyBehind` compares the site's current revision against the
+        // one the last publish was built from. Hard-coding `false` here meant
+        // reopening a site with unpublished edits showed "Live" over a draft
+        // the live page had never seen.
+        { kind: "live", url: publishedUrl(site.slug), stale: initiallyBehind }
       : { kind: "unpublished" },
   )
 

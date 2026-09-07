@@ -1912,7 +1912,7 @@ check(
       // A ref, so the save reads the current value rather than the one
       // captured when its timer was scheduled.
       /const revision = React\.useRef\(initialRevision\)/.test(shell) &&
-      /initialRevision=\{revision \?\? 1\}/.test(page)
+      /initialRevision=\{revisions\.revision\}/.test(page)
     )
   })(),
 )
@@ -3016,7 +3016,7 @@ check(
     const body = projects.slice(at, projects.indexOf("\n}", at))
     return (
       /preview_revision/.test(body) &&
-      /if \(error \|\| !data\) return \{ revision: 1, previewRevision: null \}/.test(body)
+      /if \(error \|\| !data\) return \{ revision: 1, previewRevision: null, publishedRevision: null \}/.test(body)
     )
   })(),
 )
@@ -3320,6 +3320,84 @@ check(
     const readFn = chat.slice(chat.indexOf("export async function readChat"), chat.indexOf("export class") + 1 || undefined)
     // scoped by site, read through the user's client so RLS answers ownership
     return /\.eq\("site_id", siteId\)/.test(chat) && /await createClient\(\)/.test(chat)
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("The editor and the live site agree")
+// ---------------------------------------------------------------------------
+
+/**
+ * NEITHER DIRECTIVE WAS DECLARED, so both fell back to `default-src 'self'` —
+ * and a policy is not obviously missing a directive it never mentions. The
+ * editor preview enforces no policy at all, so a video background, a YouTube
+ * embed or an embedded map worked perfectly while building and was silently
+ * blank the moment it went live.
+ *
+ * Confirmed in a real browser against the exact header: an mp4, an mp3 and an
+ * iframe embed all refused by `default-src 'self'`, and all three allowed
+ * after. These are ordinary content on landing pages, funnels and agency
+ * sites — the things Storelib is for.
+ */
+check(
+  "a published site can play video and embed what a landing page embeds",
+  (() => {
+    const route = strip(read("app/(sites)/site/[slug]/[[...path]]/route.ts"))
+    const csp = route.slice(route.indexOf("Content-Security-Policy"), route.indexOf("X-Content-Type-Options"))
+    return (
+      /"media-src 'self' data: blob: https:"/.test(csp) &&
+      /"frame-src 'self' https:"/.test(csp) &&
+      // https only — a page must not be able to downgrade a visitor to http
+      !/media-src[^"]*http:/.test(csp) &&
+      !/frame-src[^"]*http:/.test(csp) &&
+      // and a Storelib page still may not itself be framed
+      /"frame-ancestors 'none'"/.test(csp)
+    )
+  })(),
+)
+
+/**
+ * Staleness used to be set only by an edit made in the CURRENT session, and
+ * initialised to false on every load. Editing, closing the tab and coming back
+ * showed a button reading "Live" over a draft that had never been published —
+ * which is exactly how somebody ends up looking at a hero in the editor that
+ * the live site has never seen.
+ *
+ * Both numbers already existed. Nothing had ever compared them.
+ */
+check(
+  "reopening a site with unpublished edits does not claim to be live",
+  (() => {
+    const page = strip(read("app/sites/[siteId]/page.tsx"))
+    const shell = strip(read("components/sites/editor/editor-shell.tsx"))
+    return (
+      /revisions\.publishedRevision !== null && revisions\.revision !== revisions\.publishedRevision/.test(page) &&
+      /initiallyBehind={behind}/.test(page) &&
+      /stale: initiallyBehind/.test(shell) &&
+      // `stale: false` immediately after a successful publish is correct — it
+      // is only the INITIAL state that must not assume everything is live.
+      !/publishedUrl\(site\.slug\), stale: false/.test(shell)
+    )
+  })(),
+)
+
+/**
+ * `published_revision` is read beside the others and tolerantly, never added
+ * to the shared column list — putting `preview_revision` there once already
+ * reported that a creator with a published site had no sites at all.
+ */
+check(
+  "the publish comparison cannot take the editor down with it",
+  (() => {
+    const projects = read("lib/sites/projects.ts")
+    const columns = projects.match(/const COLUMNS =\s*\n?\s*"([^"]+)"/)?.[1] ?? ""
+    const at = projects.indexOf("export async function siteRevisions")
+    const body = projects.slice(at, projects.indexOf("\n}", projects.indexOf("Promise<{", at)))
+    return (
+      !/published_revision/.test(columns) &&
+      /published_revision/.test(body) &&
+      /if \(error \|\| !data\) return \{ revision: 1, previewRevision: null, publishedRevision: null \}/.test(body)
+    )
   })(),
 )
 

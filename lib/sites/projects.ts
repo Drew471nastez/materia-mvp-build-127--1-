@@ -128,18 +128,26 @@ export async function listSites(): Promise<Site[]> {
  */
 export async function siteRevisions(
   siteId: string,
-): Promise<{ revision: number; previewRevision: number | null }> {
+): Promise<{ revision: number; previewRevision: number | null; publishedRevision: number | null }> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("sites")
-    .select("revision, preview_revision")
+    .select("revision, preview_revision, published_revision")
     .eq("id", siteId)
     .maybeSingle()
 
-  if (error || !data) return { revision: 1, previewRevision: null }
+  if (error || !data) return { revision: 1, previewRevision: null, publishedRevision: null }
 
-  const row = data as { revision?: number; preview_revision?: number | null }
-  return { revision: row.revision ?? 1, previewRevision: row.preview_revision ?? null }
+  const row = data as {
+    revision?: number
+    preview_revision?: number | null
+    published_revision?: number | null
+  }
+  return {
+    revision: row.revision ?? 1,
+    previewRevision: row.preview_revision ?? null,
+    publishedRevision: row.published_revision ?? null,
+  }
 }
 
 export async function getSite(siteId: string): Promise<Site | null> {
