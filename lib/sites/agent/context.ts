@@ -72,6 +72,36 @@ export function componentNames(files: ProjectFiles): string[] {
 }
 
 /**
+ * Routes the project actually serves.
+ *
+ * Derived, like the components and the tokens, because a stored list of pages
+ * is wrong the moment somebody adds one — and the files can always answer.
+ * Read from the router if there is one, and otherwise from the page-shaped
+ * files, which is what a small Vite project usually has instead.
+ */
+export function pageNames(files: ProjectFiles): string[] {
+  const routes = new Set<string>()
+
+  for (const [path, source] of Object.entries(files)) {
+    if (!/\.(tsx|jsx)$/.test(path)) continue
+    // <Route path="/about" …>, which is how a router declares one.
+    for (const match of source.matchAll(/path\s*=\s*["'`]([^"'`]+)["'`]/g)) {
+      const route = match[1].trim()
+      if (route.startsWith("/")) routes.add(route)
+    }
+  }
+
+  if (routes.size === 0) {
+    for (const path of Object.keys(files)) {
+      const match = path.match(/^src\/pages\/([^/]+)\.(tsx|jsx)$/)
+      if (match) routes.add(`/${match[1].toLowerCase()}`)
+    }
+  }
+
+  return [...routes].sort().slice(0, 30)
+}
+
+/**
  * A compact description of the project, for the system prompt.
  *
  * Returns "" for an empty project — a brand-new site has nothing to preserve,
@@ -97,6 +127,11 @@ export function describeProject(files: ProjectFiles, assets: SiteAsset[] = []): 
         .join("\n") +
       (paths.length > MAX_FILES_SHOWN ? `\n  …and ${paths.length - MAX_FILES_SHOWN} more` : ""),
   )
+
+  const pages = pageNames(files)
+  if (pages.length) {
+    sections.push(`Pages this site serves:\n  ${pages.join(", ")}`)
+  }
 
   if (components.length) {
     sections.push(`Existing components (reuse these before writing new ones):\n  ${components.join(", ")}`)

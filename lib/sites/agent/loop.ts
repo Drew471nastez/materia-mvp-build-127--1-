@@ -92,6 +92,8 @@ silently fix it.
 `
 
 export interface ProjectContext {
+  /** Nothing durable has been recorded about this project yet. */
+  thin?: boolean
   /** Stated intent that cannot be read out of the code. */
   manifest: string
   /** Facts derived from the files themselves, fresh this run. */
@@ -126,8 +128,40 @@ export function buildSystemPrompt(context: ProjectContext | null): string {
    * full of "changed the button colour" is noise that crowds out the entries
    * that matter.
    */
+  /**
+   * WHICH SOURCE WINS WHEN THEY DISAGREE.
+   *
+   * The recorded understanding is a summary, and a summary drifts: somebody
+   * changes a palette by hand, or an earlier run described the site before it
+   * became something else. A model that trusts the note over the file will
+   * "match the existing style" against a style that is no longer there.
+   *
+   * Stated as an order rather than a warning, because "be careful" is not
+   * something a model can act on and a ranking is.
+   */
   sections.push(
-    `PROJECT MEMORY\nIf this conversation established something durable about the project — what the business is, who it is for, the design direction, or a decision the creator should never have to repeat — call update_manifest once with just that. Do not call it for ordinary edits; "made the hero bigger" is not a project decision.`,
+    `WHEN SOURCES DISAGREE, in this order:\n` +
+      `  1. What the creator just asked for.\n` +
+      `  2. The code as it is now — this is the site, and it is always right about itself.\n` +
+      `  3. The recorded understanding above.\n` +
+      `  4. Anything else you infer.\n` +
+      `If the record contradicts the files, the files win and you say so in your reply.`,
+  )
+
+  if (context.thin) {
+    /**
+     * Asked only when there is nothing recorded, and only on a run that is
+     * already reading the project — so establishing what the site IS costs no
+     * extra call and no extra turn. Asking every run would spend a tool call
+     * restating what is already written down.
+     */
+    sections.push(
+      `NOTHING DURABLE IS RECORDED ABOUT THIS PROJECT YET.\nYou are reading its code regardless. Before you finish, call update_manifest ONCE with what the project plainly is — the business, who it is for, what kind of site it is, and the design direction in a few words. State only what the project actually shows you; leave a field out rather than guessing at it.`,
+    )
+  }
+
+  sections.push(
+    `PROJECT MEMORY\nIf this conversation established something durable about the project — what the business is, who it is for, the design direction, what the site is FOR, how it should sound, or a decision the creator should never have to repeat — call update_manifest once with just that. Do not call it for ordinary edits; "made the hero bigger" is not a project decision.`,
   )
 
   return sections.join("\n\n")

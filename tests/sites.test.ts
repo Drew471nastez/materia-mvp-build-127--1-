@@ -3059,7 +3059,7 @@ check(
       // loaded alongside the assets now, so match the call rather than the
       // assignment it used to sit in
       /readManifest\(siteId\)/.test(run) &&
-      /const \[manifest, assets\] = await Promise\.all/.test(run) &&
+      /const \[stored, assets\] = await Promise\.all/.test(run) &&
       /facts: describeProject\(files, assets\)/.test(run)
     )
   })(),
@@ -3882,6 +3882,163 @@ check(
       /\/assets`, \{ method: "POST", body \}/.test(pane) &&
       // and the URL joins the draft without eating what was already typed
       /previous\.trimEnd\(\)/.test(pane)
+    )
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("The project's durable understanding")
+// ---------------------------------------------------------------------------
+
+/**
+ * THE GAP THAT MADE THE RECORD USELESS FOR MOST PROJECTS.
+ *
+ * The manifest only ever filled in when the model volunteered a call to
+ * `update_manifest`. A site built before it existed — or one where it simply
+ * never came up — had nothing recorded, permanently, which was the state most
+ * projects were actually in.
+ *
+ * The seed reads the first thing the creator ever said. For a site built from
+ * "a barber shop in Frankfurt" that sentence IS its purpose, and it is more
+ * accurate than anything inferred from the code because it is what they asked
+ * for. One indexed query, no model call.
+ */
+check(
+  "a project that has never been described gets a first draft for free",
+  (() => {
+    const manifest = strip(read("lib/sites/manifest.ts"))
+    const run = strip(read("lib/sites/agent/run.ts"))
+    const at = manifest.indexOf("export async function seedManifest")
+    const body = manifest.slice(at, manifest.indexOf("\n}", manifest.indexOf("Promise<ProjectManifest | null>", at)))
+    return (
+      /\.eq\("role", "user"\)/.test(body) &&
+      /\.order\("created_at", \{ ascending: true \}\)/.test(body) &&
+      /\.limit\(1\)/.test(body) &&
+      /const manifest = stored \?\? \(await seedManifest\(siteId\)/.test(run)
+    )
+  })(),
+)
+
+/**
+ * A seed is a starting point for THIS run's prompt, not a fact. Persisting a
+ * guess before the model has looked at the project would put low-confidence
+ * text exactly where future runs go looking for something trustworthy — which
+ * is why the write-back merges against `stored`, not against the seed.
+ */
+check(
+  "a guess is never written back as though it were established",
+  (() => {
+    const run = strip(read("lib/sites/agent/run.ts"))
+    return /writeManifest\(siteId, mergeManifest\(stored, workspace\.manifestUpdate\)\)/.test(run)
+  })(),
+)
+
+/**
+ * Asked only when there is nothing recorded, and only on a run already reading
+ * the project — so establishing what the site IS costs no extra call and no
+ * extra turn. Asking every run would spend a tool call restating what is
+ * already written down.
+ */
+check(
+  "a thin record asks this run to fill it, a full one does not",
+  (() => {
+    const manifest = strip(read("lib/sites/manifest.ts"))
+    const loop = strip(read("lib/sites/agent/loop.ts"))
+    const run = strip(read("lib/sites/agent/run.ts"))
+    return (
+      /export function manifestIsThin/.test(manifest) &&
+      /return filled < 2/.test(manifest) &&
+      /thin: manifestIsThin\(manifest\)/.test(run) &&
+      /if \(context\.thin\)/.test(loop) &&
+      /NOTHING DURABLE IS RECORDED ABOUT THIS PROJECT YET/.test(loop)
+    )
+  })(),
+)
+
+/**
+ * A summary drifts: somebody changes a palette by hand, or an earlier run
+ * described the site before it became something else. A model that trusts the
+ * note over the file will "match the existing style" against a style that is
+ * no longer there. Stated as an ORDER rather than a warning, because "be
+ * careful" is not something a model can act on and a ranking is.
+ */
+check(
+  "the code outranks the record when they disagree",
+  (() => {
+    const loop = read("lib/sites/agent/loop.ts")
+    const at = loop.indexOf("WHEN SOURCES DISAGREE")
+    const body = loop.slice(at, at + 700)
+    return (
+      at > -1 &&
+      /1\. What the creator just asked for/.test(body) &&
+      /2\. The code as it is now/.test(body) &&
+      /3\. The recorded understanding/.test(body) &&
+      /the files win/.test(body)
+    )
+  })(),
+)
+
+/**
+ * COLOURS AND TYPOGRAPHY ARE STILL NOT STORED, and that is the point. They
+ * live in src/styles.css, which is the truth; a copy in the record becomes a
+ * second truth that goes stale the first time somebody edits a token, and a
+ * record confidently stating the wrong primary colour is worse than none
+ * because the model would believe it. Pages and components are derived for the
+ * same reason — a stored list is wrong the moment somebody adds one.
+ */
+check(
+  "anything the files can answer is not remembered",
+  (() => {
+    const manifest = read("lib/sites/manifest.ts")
+    const shape = manifest.slice(
+      manifest.indexOf("export interface ProjectManifest"),
+      manifest.indexOf("}", manifest.indexOf("export interface ProjectManifest")),
+    )
+    const forbidden = ["color", "colour", "font", "spacing", "radius", "palette", "pages", "components"]
+    if (forbidden.some((w) => shape.toLowerCase().includes(w))) return false
+
+    const context = strip(read("lib/sites/agent/context.ts"))
+    return /export function pageNames/.test(context) && /export function componentNames/.test(context)
+  })(),
+)
+
+/**
+ * The two fields a project cannot tell you about itself: what it is FOR, and
+ * how it should sound. Neither is recoverable from the code at any price.
+ */
+check(
+  "what the site is for, and how it sounds, are recordable",
+  (() => {
+    const manifest = strip(read("lib/sites/manifest.ts"))
+    const tools = strip(read("lib/sites/agent/tools.ts"))
+    return (
+      /primaryGoal\?: string/.test(manifest) &&
+      /tone\?: string/.test(manifest) &&
+      /primaryGoal: \{/.test(tools) &&
+      /tone: \{/.test(tools) &&
+      // strict mode still needs every declared property required
+      /"primaryGoal",/.test(tools) &&
+      /"tone",/.test(tools)
+    )
+  })(),
+)
+
+/**
+ * Supplying one field must not erase the rest, decisions must not repeat, and
+ * the list must not grow without bound until it crowds the prompt it exists to
+ * inform. Verified behaviourally against the real functions.
+ */
+check(
+  "the record merges rather than overwrites, and stays small",
+  (() => {
+    const manifest = strip(read("lib/sites/manifest.ts"))
+    const at = manifest.indexOf("export function mergeManifest")
+    const body = manifest.slice(at, manifest.indexOf("\n}", manifest.indexOf("): ProjectManifest {", at)))
+    return (
+      /const base: ProjectManifest = \{ \.\.\.\(current \?\? \{\}\) \}/.test(body) &&
+      /if \(value\) base\[key\] = value/.test(body) &&
+      /seen\.has\(add\.toLowerCase\(\)\)/.test(body) &&
+      /slice\(-MAX_DECISIONS\)/.test(body)
     )
   })(),
 )

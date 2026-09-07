@@ -38,6 +38,10 @@ export interface ProjectManifest {
   business?: string
   /** Who it is for. */
   audience?: string
+  /** What the site is meant to make happen — enquiries, bookings, sales. */
+  primaryGoal?: string
+  /** How it should sound — "plain and direct", "warm", "playful". */
+  tone?: string
   /** landing page, portfolio, store, agency site, funnel… */
   siteType?: string
   /** The design direction in words — "warm, editorial, lots of air". */
@@ -74,7 +78,15 @@ export function mergeManifest(
 ): ProjectManifest {
   const base: ProjectManifest = { ...(current ?? {}) }
 
-  for (const key of ["purpose", "business", "audience", "siteType", "designDirection"] as const) {
+  for (const key of [
+    "purpose",
+    "business",
+    "audience",
+    "siteType",
+    "primaryGoal",
+    "tone",
+    "designDirection",
+  ] as const) {
     const value = trim(incoming[key])
     if (value) base[key] = value
   }
@@ -131,6 +143,56 @@ export async function writeManifest(siteId: string, manifest: ProjectManifest): 
   return true
 }
 
+/**
+ * Is there enough here to be worth calling a project's understanding?
+ *
+ * A manifest with a purpose and nothing else is the shape a bootstrap leaves
+ * behind; one with a business, an audience and a design direction has actually
+ * been filled in. The distinction decides whether this run is asked to
+ * establish the rest.
+ */
+export function manifestIsThin(manifest: ProjectManifest | null): boolean {
+  if (!manifest) return true
+  const filled = [
+    manifest.business,
+    manifest.audience,
+    manifest.siteType,
+    manifest.designDirection,
+  ].filter(Boolean).length
+  return filled < 2
+}
+
+/**
+ * The cheapest possible first draft, written without asking a model anything.
+ *
+ * A project created from "build me a barber shop in Frankfurt" already contains
+ * its own purpose — it is the sentence that made it. Reading the first thing
+ * the creator ever said costs one indexed query and is more accurate than
+ * anything inferred from the code, because it is what they actually asked for.
+ *
+ * Everything else is left blank on purpose. The next run reads the code anyway,
+ * so having it fill in the rest costs nothing extra; guessing here would only
+ * put low-confidence text where the model would otherwise look and find
+ * nothing.
+ */
+export async function seedManifest(siteId: string): Promise<ProjectManifest | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("site_chat_messages")
+    .select("content")
+    .eq("site_id", siteId)
+    .eq("role", "user")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) return null
+  const brief = (data as { content?: string } | null)?.content?.trim()
+  if (!brief) return null
+
+  return { purpose: brief.slice(0, MAX_FIELD), updatedAt: new Date().toISOString() }
+}
+
 /** The manifest as the model should read it. Empty string when there is none. */
 export function describeManifest(manifest: ProjectManifest | null): string {
   if (!manifest) return ""
@@ -138,6 +200,8 @@ export function describeManifest(manifest: ProjectManifest | null): string {
   if (manifest.business) lines.push(`Business: ${manifest.business}`)
   if (manifest.purpose) lines.push(`Purpose: ${manifest.purpose}`)
   if (manifest.audience) lines.push(`Audience: ${manifest.audience}`)
+  if (manifest.primaryGoal) lines.push(`What it is for: ${manifest.primaryGoal}`)
+  if (manifest.tone) lines.push(`Tone: ${manifest.tone}`)
   if (manifest.siteType) lines.push(`Site type: ${manifest.siteType}`)
   if (manifest.designDirection) lines.push(`Design direction: ${manifest.designDirection}`)
   if (manifest.decisions?.length) {

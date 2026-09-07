@@ -25,7 +25,14 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { completeExchange, startExchange, type ChatStep } from "../chat"
 import { listAssets } from "../assets"
-import { describeManifest, mergeManifest, readManifest, writeManifest } from "../manifest"
+import {
+  describeManifest,
+  manifestIsThin,
+  mergeManifest,
+  readManifest,
+  seedManifest,
+  writeManifest,
+} from "../manifest"
 import { describeProject } from "./context"
 import { classifyIntent, intentInstruction } from "./intent"
 import { siteLimits, type SitePlan } from "../plan"
@@ -141,15 +148,35 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
    * the agent works with derived facts alone — which is still far more than
    * the single sentence it used to get.
    */
-  const [manifest, assets] = await Promise.all([
+  const [stored, assets] = await Promise.all([
     readManifest(siteId).catch(() => null),
     listAssets(siteId).catch(() => []),
   ])
+
+  /**
+   * A PROJECT THAT HAS NEVER BEEN DESCRIBED GETS A FIRST DRAFT, FREE.
+   *
+   * The manifest only ever filled in when the model volunteered a call to
+   * `update_manifest`, so a site built before this existed — or one where it
+   * never came up — had no understanding recorded at all, permanently. That is
+   * the state most projects were actually in.
+   *
+   * The seed reads the first thing the creator ever said, which for a site
+   * built from "a barber shop in Frankfurt" IS its purpose, more accurately
+   * than anything inferred from the code. One indexed query, no model call.
+   *
+   * It is not written back here. A seed is a starting point for THIS run's
+   * prompt; persisting a guess before the model has looked at the project
+   * would put low-confidence text somewhere future runs would trust.
+   */
+  const manifest = stored ?? (await seedManifest(siteId).catch(() => null))
   const intent = classifyIntent(prompt)
   const context = {
     manifest: describeManifest(manifest),
     facts: describeProject(files, assets),
     intent: intentInstruction(intent),
+    // A thin brain asks this run to fill it in — it is reading the code anyway.
+    thin: manifestIsThin(manifest),
   }
 
   // The loop's events are forwarded as they happen; its RETURN value is the
@@ -228,7 +255,7 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
      * the run over — the edit is the thing the creator asked for.
      */
     if (status === "succeeded" && workspace.manifestUpdate) {
-      await writeManifest(siteId, mergeManifest(manifest, workspace.manifestUpdate)).catch(() => false)
+      await writeManifest(siteId, mergeManifest(stored, workspace.manifestUpdate)).catch(() => false)
     }
   }
 

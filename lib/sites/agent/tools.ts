@@ -121,6 +121,14 @@ export const TOOL_SPECS: ToolSpec[] = [
         },
         purpose: { type: ["string", "null"], description: "What the site is for, in one sentence." },
         audience: { type: ["string", "null"], description: "Who the site is for." },
+        primaryGoal: {
+          type: ["string", "null"],
+          description: "What the site is meant to make happen — enquiries, bookings, sales, signups.",
+        },
+        tone: {
+          type: ["string", "null"],
+          description: "How it should sound — 'plain and direct', 'warm', 'playful'.",
+        },
         siteType: {
           type: ["string", "null"],
           description: "landing page, portfolio, store, agency site, funnel, and so on.",
@@ -135,7 +143,16 @@ export const TOOL_SPECS: ToolSpec[] = [
             "One lasting decision the creator has made, phrased so a future run can obey it — 'keep the header dark on every page', 'copy stays in German'.",
         },
       },
-      required: ["business", "purpose", "audience", "siteType", "designDirection", "decision"],
+      required: [
+        "business",
+        "purpose",
+        "audience",
+        "siteType",
+        "primaryGoal",
+        "tone",
+        "designDirection",
+        "decision",
+      ],
       additionalProperties: false,
     },
   },
@@ -217,7 +234,16 @@ export class ProjectWorkspace {
 
     switch (name) {
       case "update_manifest": {
-        const fields = ["business", "purpose", "audience", "siteType", "designDirection", "decision"]
+        const fields = [
+          "business",
+          "purpose",
+          "audience",
+          "siteType",
+          "primaryGoal",
+          "tone",
+          "designDirection",
+          "decision",
+        ]
         const update: Record<string, string> = {}
         for (const field of fields) {
           const value = args[field]
