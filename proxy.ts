@@ -286,36 +286,79 @@ async function lookupDomainOwnerUsername(host: string): Promise<string | null> {
 }
 
 /**
- * Retire the old `.storelib.com` session cookies.
+ * Retire the old `.storelib.com` session cookies — once.
  *
  * Sessions created before the cookie became host-only still carry
  * Domain=.storelib.com, which means every published site can still read
- * them. Rewriting the app is not enough on its own — the old cookie sits in
+ * them. Rewriting the app is not enough on its own: the old cookie sits in
  * the browser until something expires it, so this does.
  *
  * IT MUST NOT LOG ANYBODY OUT. The value is written back host-only in the
  * same response, so the browser ends up holding exactly one cookie with the
- * same session in it. Raw `Set-Cookie` headers rather than `response.cookies
- * .set`, because that API is keyed by name and would overwrite the host-only
- * cookie we just wrote instead of adding a second directive beside it.
+ * same session in it. Raw `Set-Cookie` headers rather than
+ * `response.cookies.set`, because that API is keyed by name and would
+ * overwrite the host-only cookie we just wrote instead of adding a second
+ * directive beside it.
+ *
+ * ONCE, and this is the reason for the marker. A request cannot tell which
+ * domain an incoming cookie was set for — the browser sends name and value
+ * and nothing else — so without a marker this re-issues every auth cookie on
+ * every response for the rest of the deployment's life: several hundred
+ * wasted bytes on every navigation, and a Set-Cookie on responses that had no
+ * business carrying one. The marker is host-only, so it is written on the
+ * same host whose cookies were just fixed.
  */
+const HOST_ONLY_MARKER = "sb-host-only"
+
 function retireDomainScopedCookies(response: NextResponse, request: NextRequest): void {
   if (MAIN_DOMAIN.includes("localhost")) return
+  if (request.cookies.has(HOST_ONLY_MARKER)) return
 
-  for (const cookie of request.cookies.getAll()) {
-    if (!cookie.name.startsWith("sb-")) continue
+  // The marker's own name begins with "sb-", so it is excluded explicitly
+  // rather than by a prefix that happens to match it.
+  const auth = request.cookies
+    .getAll()
+    .filter((c) => c.name.startsWith("sb-") && c.name !== HOST_ONLY_MARKER)
+  if (auth.length === 0) return
 
-    // Re-issue host-only, so the session survives the deletion below.
-    response.headers.append(
-      "Set-Cookie",
-      `${cookie.name}=${cookie.value}; Path=/; Secure; SameSite=Lax`,
-    )
-    // and expire the domain-scoped one that published sites could read.
+  for (const cookie of auth) {
+    /**
+     * THE RE-ISSUE IS CONDITIONAL, and both conditions are bugs that were
+     * caught by watching real response headers rather than reading this.
+     *
+     * Supabase's own handler runs first and mutates `request.cookies` — so by
+     * the time this runs, an invalid or signed-out session reads back as an
+     * EMPTY value. Writing that produced `sb-…-auth-token=` with no expiry:
+     * an empty cookie sat where the response had just deleted one, which at
+     * best is litter and at worst fights a sign-out.
+     *
+     * And when the response is already setting this cookie, it is setting it
+     * host-only (see the writer below), so re-issuing it here would only
+     * overwrite a fresher value with a staler one.
+     */
+    const alreadySet = response.cookies.get(cookie.name) !== undefined
+    if (cookie.value && !alreadySet) {
+      response.headers.append(
+        "Set-Cookie",
+        `${cookie.name}=${cookie.value}; Path=/; Secure; SameSite=Lax`,
+      )
+    }
+
+    // The expiry is UNCONDITIONAL. This is the whole point of the function:
+    // the domain-scoped copy is the one every published site can read, and it
+    // has to go whether or not the session is still good.
     response.headers.append(
       "Set-Cookie",
       `${cookie.name}=; Domain=.${MAIN_DOMAIN}; Path=/; Max-Age=0; Secure; SameSite=Lax`,
     )
   }
+
+  // A year, because the migration is finished for this browser once the old
+  // cookie is gone and there is nothing left to re-check.
+  response.headers.append(
+    "Set-Cookie",
+    `${HOST_ONLY_MARKER}=1; Path=/; Max-Age=31536000; Secure; SameSite=Lax`,
+  )
 }
 
 export async function proxy(request: NextRequest) {

@@ -137,7 +137,7 @@ async function ensureSlug(site: Site): Promise<string> {
     const { count } = await admin
       .from("sites")
       .select("id", { count: "exact", head: true })
-      .ilike("slug", candidate)
+      .eq("slug", candidate.toLowerCase())
     if ((count ?? 0) > 0) return true
 
     /**
@@ -153,8 +153,17 @@ async function ensureSlug(site: Site): Promise<string> {
     const { count: usernameCount } = await admin
       .from("profiles")
       .select("id", { count: "exact", head: true })
-      .ilike("username", candidate)
-    return (usernameCount ?? 0) > 0
+      .eq("username", candidate.toLowerCase())
+    if ((usernameCount ?? 0) > 0) return true
+
+    // ...and by creator slug, the OTHER way storelib.com/<name> resolves.
+    // Reserving only usernames would leave every slug-addressed creator's
+    // name free for a stranger to publish on.
+    const { count: creatorCount } = await admin
+      .from("creators")
+      .select("id", { count: "exact", head: true })
+      .eq("slug", candidate.toLowerCase())
+    return (creatorCount ?? 0) > 0
   })
 
   await admin.from("sites").update({ slug }).eq("id", site.id)

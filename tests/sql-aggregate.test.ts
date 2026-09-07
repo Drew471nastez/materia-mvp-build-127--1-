@@ -248,6 +248,7 @@ const SITES_SECTIONS = [
   "supabase/migrations/20260910_sites_projects.sql",
   "supabase/migrations/20260911_site_agent_runs.sql",
   "supabase/migrations/20260912_site_publishing.sql",
+  "supabase/migrations/20260913_site_lookup_indexes.sql",
 ]
 
 console.log("\nRUN_CREATOR_PAGE_AND_SITES.sql is a faithful concatenation")
@@ -470,6 +471,7 @@ const PUBLISH_SECTIONS = [
   "supabase/migrations/20260910_sites_projects.sql",
   "supabase/migrations/20260911_site_agent_runs.sql",
   "supabase/migrations/20260912_site_publishing.sql",
+  "supabase/migrations/20260913_site_lookup_indexes.sql",
 ]
 
 const publishAggregate = read(PUBLISH_AGGREGATE)
@@ -490,8 +492,8 @@ check("the publishing sections are in dependency order", publishInOrder)
 
 check(
   "it is the same three sources the big file ends with",
-  PUBLISH_SECTIONS.every((path) => SITES_SECTIONS.slice(-3).includes(path)) &&
-    PUBLISH_SECTIONS.length === 3,
+  PUBLISH_SECTIONS.every((path) => SITES_SECTIONS.slice(-4).includes(path)) &&
+    PUBLISH_SECTIONS.length === 4,
 )
 
 /**

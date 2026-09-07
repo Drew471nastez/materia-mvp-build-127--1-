@@ -106,9 +106,30 @@ export async function GET(
    * whole platform, so it is resolved before the slug lookup.
    */
   const requested = (path ?? []).join("/")
-  const isVendor = slug === "_vendor"
-  const objectPath = isVendor
-    ? `_vendor/${requested}`
+
+  /**
+   * THE SHARED RUNTIME, whichever subdomain asks for it.
+   *
+   * Every published page's import map points at `/_vendor/react-{version}/`,
+   * an absolute path — so the browser requests it from the SITE'S OWN host:
+   * andrewrullz.storelib.com/_vendor/react-19.2.0/react.js. The proxy rewrites
+   * that to /site/andrewrullz/_vendor/..., which means the slug is the site
+   * and `_vendor` is the first path segment.
+   *
+   * This used to test `slug === "_vendor"`, which only ever matched the
+   * path-shaped address the sites domain had before. On a subdomain nothing
+   * matched, the runtime was looked for inside the site's own deployment
+   * prefix where it has never been, and React 404'd — every published site a
+   * blank page. Compiles, typechecks, serves nothing.
+   *
+   * The prefix is version-stamped and platform-owned, so resolving it ahead
+   * of the site's own files cannot shadow anything a creator wrote.
+   */
+  const wantsVendor = slug === "_vendor" || (path ?? [])[0] === "_vendor"
+  const objectPath = wantsVendor
+    ? slug === "_vendor"
+      ? `_vendor/${requested}`
+      : requested
     : await livePrefix(admin, slug).then((prefix) => (prefix ? `${prefix}/${requested || "index.html"}` : null))
 
   if (!objectPath) {
@@ -122,7 +143,7 @@ export async function GET(
      * with this username gets a permanent redirect to where their page lives
      * now; only a name belonging to nobody is a 404.
      */
-    if (!isVendor) {
+    if (!wantsVendor) {
       const moved = await creatorPathFor(admin, slug)
       if (moved) {
         return NextResponse.redirect(`https://${SITES_HOST}/${moved}${requested ? `/${requested}` : ""}`, 301)
@@ -156,33 +177,56 @@ export async function GET(
 /**
  * Does a creator own this name?
  *
+ * BOTH WAYS A CREATOR PAGE IS ADDRESSED. `storelib.com/<name>` resolves by
+ * `profiles.username` OR by `creators.slug` — see app/(marketing)/
+ * [sellername]/page.tsx, which tries the profile first and falls back to the
+ * creator slug. Checking only the first would 404 the old subdomain of every
+ * creator who is addressed by the second.
+ *
  * Reads through the admin client because the visitor is a stranger: RLS would
- * correctly show them nothing, and the answer here is a public username that
- * anybody can already see at storelib.com/<name>. Nothing else about the
- * creator is read or returned.
+ * correctly show them nothing, and the answer is a public name anybody can
+ * already see in the URL. Nothing else about the creator is read or returned.
  */
 async function creatorPathFor(
   admin: ReturnType<typeof createAdminClient>,
   name: string,
 ): Promise<string | null> {
-  const { data } = await admin
+  const { data: profile } = await admin
     .from("profiles")
     .select("username")
-    .ilike("username", name)
+    .eq("username", name.toLowerCase())
     .maybeSingle()
 
-  return (data as { username: string } | null)?.username ?? null
+  const username = (profile as { username: string } | null)?.username
+  if (username) return username
+
+  const { data: creator } = await admin
+    .from("creators")
+    .select("slug")
+    .eq("slug", name.toLowerCase())
+    .maybeSingle()
+
+  return (creator as { slug: string } | null)?.slug ?? null
 }
 
 async function livePrefix(
   admin: ReturnType<typeof createAdminClient>,
   slug: string,
 ): Promise<string | null> {
+  /**
+   * `eq` on a lowercased slug, not `ilike`.
+   *
+   * ILIKE cannot use an index, so this was a sequential scan of every
+   * deployment on the platform on every cache miss — 9.25ms across 20,000
+   * sites, measured, growing with the table. Slugs are written lowercase at
+   * the source, so an exact match is the same question asked in a form the
+   * index in 20260913 can answer: 0.05ms.
+   */
   const { data } = await admin
     .from("site_deployments")
     .select("storage_prefix")
     .eq("is_live", true)
-    .ilike("slug", slug)
+    .eq("slug", slug.toLowerCase())
     .maybeSingle()
   return (data as { storage_prefix: string | null } | null)?.storage_prefix ?? null
 }

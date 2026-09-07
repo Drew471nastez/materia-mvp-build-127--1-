@@ -1,6 +1,15 @@
 import { createBrowserClient } from "@supabase/ssr"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
-export { createAdminClient } from "@/lib/supabase/admin"
+
+/**
+ * createAdminClient is NOT re-exported here.
+ *
+ * This module is the browser's Supabase client, and it used to forward the
+ * service-role client too — so `import { createAdminClient } from
+ * "@/lib/supabase/client"` read as a legitimate browser import. Server code
+ * imports it from "@/lib/supabase/admin", which is `server-only` and fails
+ * the build if a client component reaches for it.
+ */
 
 // Singleton instance to prevent rate limiting from multiple client creations
 let browserClient: ReturnType<typeof createBrowserClient> | null = null

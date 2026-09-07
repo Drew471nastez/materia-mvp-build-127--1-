@@ -2212,6 +2212,11 @@ check(
   })(),
 )
 
+/**
+ * BOTH WAYS a creator page is addressed. storelib.com/<name> resolves by
+ * profiles.username OR creators.slug, so checking one 404s the old subdomain
+ * of every creator addressed by the other.
+ */
 check(
   "old creator subdomains redirect to the path instead of dying",
   (() => {
@@ -2219,6 +2224,9 @@ check(
     return (
       /async function creatorPathFor/.test(route) &&
       /from\("profiles"\)/.test(route) &&
+      /from\("creators"\)/.test(route) &&
+      /eq\("username", name\.toLowerCase\(\)\)/.test(route) &&
+      /eq\("slug", name\.toLowerCase\(\)\)/.test(route) &&
       /NextResponse\.redirect\([^)]*301\)/.test(route)
     )
   })(),
@@ -2256,7 +2264,12 @@ check(
     const src = strip(read("lib/sites/publish.ts"))
     const at = src.indexOf("async function ensureSlug")
     const body = src.slice(at, src.indexOf("\n}", at))
-    return /from\("profiles"\)/.test(body) && /ilike\("username", candidate\)/.test(body)
+    return (
+      /eq\("username", candidate\.toLowerCase\(\)\)/.test(body) &&
+      // and creators.slug, the other way storelib.com/<name> resolves
+      /eq\("slug", candidate\.toLowerCase\(\)\)/.test(body) &&
+      /from\("creators"\)/.test(body)
+    )
   })(),
 )
 
@@ -2292,6 +2305,86 @@ check(
       "components/sites/sites-dashboard.tsx",
       "proxy.ts",
     ].every((f) => !read(f).includes("storelib.site"))
+  })(),
+)
+
+/**
+ * THE BLANK-PAGE BUG.
+ *
+ * Every published page's import map points at `/_vendor/react-{version}/`,
+ * an absolute path, so the browser asks the SITE'S OWN host for it. The route
+ * tested `slug === "_vendor"`, which only matched the path-shaped address the
+ * sites domain had before subdomains. On andrewrullz.storelib.com the slug is
+ * the site and `_vendor` is the first path segment, so nothing matched, React
+ * was looked for inside the site's own deployment prefix, and every published
+ * site served a blank page. It compiled, typechecked and passed every test.
+ */
+check(
+  "the shared React runtime resolves from a site subdomain",
+  (() => {
+    const route = strip(read("app/(sites)/site/[slug]/[[...path]]/route.ts"))
+    return (
+      /const wantsVendor = slug === "_vendor" \|\| \(path \?\? \[\]\)\[0\] === "_vendor"/.test(route) &&
+      !/const isVendor = slug === "_vendor"$/m.test(route) &&
+      // and a missing vendor file must not fall through to the creator redirect
+      /if \(!wantsVendor\) \{/.test(route)
+    )
+  })(),
+)
+
+/**
+ * ILIKE cannot use an index. Resolving a subdomain to its live deployment was
+ * a sequential scan of every deployment on the platform, on every cache miss:
+ * measured at 9.25ms across 20,000 sites against Postgres 16, against 0.05ms
+ * once it is an indexed equality.
+ */
+check(
+  "the visitor's lookup is an indexed equality, not a scan",
+  (() => {
+    const route = strip(read("app/(sites)/site/[slug]/[[...path]]/route.ts"))
+    const publish = strip(read("lib/sites/publish.ts"))
+    const migration = read("supabase/migrations/20260913_site_lookup_indexes.sql")
+    return (
+      !/\.ilike\(/.test(route) &&
+      !/\.ilike\(/.test(publish) &&
+      /\.eq\("slug", slug\.toLowerCase\(\)\)/.test(route) &&
+      /idx_site_deployments_live_slug_lookup/.test(migration) &&
+      /WHERE is_live/.test(migration)
+    )
+  })(),
+)
+
+/**
+ * The service-role key bypasses every RLS policy. The rule used to be a
+ * comment saying "NEVER import this in client components", and the browser
+ * module re-exported it anyway — so the import that the comment forbade was
+ * the one the module offered.
+ */
+check(
+  "the admin client cannot be reached from the browser",
+  (() => {
+    const admin = read("lib/supabase/admin.ts")
+    const client = strip(read("lib/supabase/client.ts"))
+    return (
+      /^import "server-only"$/m.test(admin) &&
+      !/export \{ createAdminClient \}/.test(client)
+    )
+  })(),
+)
+
+check(
+  "the cookie migration runs once, and never resurrects a cleared session",
+  (() => {
+    const proxy = strip(read("proxy.ts"))
+    const at = proxy.indexOf("function retireDomainScopedCookies")
+    const body = proxy.slice(at, proxy.indexOf("\n}\n", at))
+    return (
+      /HOST_ONLY_MARKER/.test(body) &&
+      /request\.cookies\.has\(HOST_ONLY_MARKER\)/.test(body) &&
+      // an empty value is a sign-out in progress, not a session to re-issue
+      /if \(cookie\.value && !alreadySet\)/.test(body) &&
+      /c\.name !== HOST_ONLY_MARKER/.test(body)
+    )
   })(),
 )
 

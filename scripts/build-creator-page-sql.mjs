@@ -63,6 +63,7 @@ const SECTIONS = [
   ["supabase/migrations/20260910_sites_projects.sql", "Storelib AI: sites, files, versions, deployments"],
   ["supabase/migrations/20260911_site_agent_runs.sql", "Storelib AI: what the agent did, and what it cost"],
   ["supabase/migrations/20260912_site_publishing.sql", "Publishing, chat history, and one writer per site"],
+  ["supabase/migrations/20260913_site_lookup_indexes.sql", "The lookup every visitor pays for"],
 ]
 
 const HEADER = `-- ###########################################################################
@@ -173,7 +174,7 @@ export function buildCreatorPageSql() {
  * It is GENERATED FROM THE SAME FILES, so the two can never disagree:
  * tests/sql-aggregate.test.ts asserts both contain their sources verbatim.
  */
-const SITES_SECTIONS = SECTIONS.slice(-3)
+const SITES_SECTIONS = SECTIONS.slice(-4)
 
 const SITES_HEADER = `-- ###########################################################################
 --  STORELIB AI — SITES, THE AGENT LEDGER, AND PUBLISHING
