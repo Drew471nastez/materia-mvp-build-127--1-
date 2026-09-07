@@ -36,7 +36,7 @@ import { ArrowLeft, AlertCircle, Check, Code2, Download, Eye, History, Loader2, 
 
 import { SmartLink } from "@/components/smart-link"
 import { cn } from "@/lib/utils"
-import { SITES_HOST } from "@/lib/sites/public-host"
+import { publishedUrl } from "@/lib/sites/public-host"
 import type { ProjectFiles, Site } from "@/lib/sites/types"
 import { ChatPane } from "./chat-pane"
 import { CodePane } from "./code-pane"
@@ -84,7 +84,7 @@ export function EditorShell({
    */
   const [publishState, setPublishState] = React.useState<PublishState>(
     site.status === "published" && site.slug
-      ? { kind: "live", url: `https://${SITES_HOST}/${site.slug}`, stale: false }
+      ? { kind: "live", url: publishedUrl(site.slug), stale: false }
       : { kind: "unpublished" },
   )
 

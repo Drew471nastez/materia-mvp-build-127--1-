@@ -23,7 +23,7 @@ export interface Site {
   id: string
   creatorId: string
   name: string
-  /** `{slug}.storelib.site`. Null until the first publish. */
+  /** `{slug}.storelib.com`. Null until the first publish. */
   slug: string | null
   status: SiteStatus
   templateId: string | null

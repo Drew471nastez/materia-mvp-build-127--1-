@@ -20,12 +20,15 @@ function isLocalhost(): boolean {
 }
 
 /**
- * Get cookie domain for cross-subdomain support
- * Returns ".storelib.com" format for production
+ * HOST-ONLY, deliberately — see the long note in lib/supabase/server.ts.
+ *
+ * This cookie is readable from JavaScript (that is how createBrowserClient
+ * restores a session), and AI-built sites are published on
+ * <slug>.storelib.com. Scoping it to `.storelib.com` would hand every
+ * published page the login tokens of every visitor who has one.
  */
-function getCookieDomain(): string | undefined {
-  if (isLocalhost()) return undefined
-  return `.${getMainDomain()}`
+function getCookieDomain(): undefined {
+  return undefined
 }
 
 /**

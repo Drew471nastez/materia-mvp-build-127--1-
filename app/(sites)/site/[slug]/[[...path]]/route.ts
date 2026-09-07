@@ -79,11 +79,23 @@ export async function GET(
    * configured correctly is one config change from unsafe.
    */
   const host = (request.headers.get("host") || "").split(":")[0].toLowerCase()
-  const onSitesDomain = host === SITES_HOST || host.endsWith(`.${SITES_HOST}`)
-  // localhost keeps working in development, where there is no second domain
+
+  /**
+   * A SUBDOMAIN, and never the apex.
+   *
+   * `host.endsWith(".storelib.com")` is true for andrewrullz.storelib.com and
+   * false for storelib.com, which is the whole distinction: the apex is the
+   * dashboard, and serving a generated page there would put somebody else's
+   * JavaScript on the origin that holds the session. Comparing against the
+   * apex as well — the shape this guard had when sites lived on their own
+   * domain — would now match storelib.com itself and hand out exactly that.
+   */
+  const onSiteSubdomain =
+    host.endsWith(`.${SITES_HOST}`) && host.slice(0, -(SITES_HOST.length + 1)).split(".").length === 1
+  // localhost keeps working in development, where there are no subdomains
   // and no dashboard session worth stealing.
   const isLocal = host === "localhost" || host.endsWith(".localhost") || host.startsWith("127.")
-  if (!onSitesDomain && !isLocal) return notFound()
+  if (!onSiteSubdomain && !isLocal) return notFound()
 
   const { slug, path } = await context.params
   const admin = createAdminClient()
@@ -99,7 +111,25 @@ export async function GET(
     ? `_vendor/${requested}`
     : await livePrefix(admin, slug).then((prefix) => (prefix ? `${prefix}/${requested || "index.html"}` : null))
 
-  if (!objectPath) return notFound()
+  if (!objectPath) {
+    /**
+     * No site here — but this address used to mean something.
+     *
+     * <name>.storelib.com was the creator storefront before AI-built sites
+     * took the subdomains. Those links are in bios, posts and search results,
+     * and answering them with "Site not found" would break every one of them
+     * for a change that has nothing to do with the person clicking. A creator
+     * with this username gets a permanent redirect to where their page lives
+     * now; only a name belonging to nobody is a 404.
+     */
+    if (!isVendor) {
+      const moved = await creatorPathFor(admin, slug)
+      if (moved) {
+        return NextResponse.redirect(`https://${SITES_HOST}/${moved}${requested ? `/${requested}` : ""}`, 301)
+      }
+    }
+    return notFound()
+  }
 
   const { data, error } = await admin.storage.from(DEPLOYMENT_BUCKET).download(objectPath)
   if (error || !data) return notFound()
@@ -121,6 +151,27 @@ export async function GET(
         : "public, max-age=31536000, immutable",
     },
   })
+}
+
+/**
+ * Does a creator own this name?
+ *
+ * Reads through the admin client because the visitor is a stranger: RLS would
+ * correctly show them nothing, and the answer here is a public username that
+ * anybody can already see at storelib.com/<name>. Nothing else about the
+ * creator is read or returned.
+ */
+async function creatorPathFor(
+  admin: ReturnType<typeof createAdminClient>,
+  name: string,
+): Promise<string | null> {
+  const { data } = await admin
+    .from("profiles")
+    .select("username")
+    .ilike("username", name)
+    .maybeSingle()
+
+  return (data as { username: string } | null)?.username ?? null
 }
 
 async function livePrefix(

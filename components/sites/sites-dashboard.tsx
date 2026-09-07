@@ -116,7 +116,7 @@ function SiteCard({ site }: { site: Site }) {
             <DropdownMenuContent align="end">
               {site.status === "published" && site.slug && (
                 <DropdownMenuItem asChild>
-                  <a href={`https://${site.slug}.storelib.site`} target="_blank" rel="noreferrer">
+                  <a href={publishedUrl(site.slug)} target="_blank" rel="noreferrer">
                     <ExternalLink className="mr-2 h-4 w-4" />
                     Open site
                   </a>

@@ -9,25 +9,30 @@ function getMainDomain(): string {
 }
 
 /**
- * Determine the cookie domain based on the current request host.
+ * HOST-ONLY. The session cookie belongs to storelib.com and nothing else.
  *
- * Only set an explicit `.storelib.com` domain when the browser is actually
- * on a storelib.com host (apex or subdomain).  On Vercel preview deployments
- * (e.g. xxx.vercel.app) or localhost, leave the domain undefined so the
- * cookie defaults to the current host — otherwise the browser silently
- * rejects the cookie (wrong domain) and PKCE code-verifier is lost.
+ * ---------------------------------------------------------------------------
+ *  WHY THIS IS NOT `.storelib.com` ANY MORE
+ * ---------------------------------------------------------------------------
+ * AI-built sites are published at <slug>.storelib.com, and those pages carry
+ * JavaScript written by a model from a creator's prompt — code we cannot
+ * vouch for. A cookie scoped to `.storelib.com` is sent to EVERY host under
+ * it, and this one cannot be httpOnly because the browser Supabase client
+ * reads it from JavaScript to restore a session.
+ *
+ * Those two facts together meant any published site could read
+ * `document.cookie` and take the access and refresh tokens of every
+ * signed-in Storelib user who visited it. Not a theoretical leak — an
+ * account takeover anybody could ship through the site builder.
+ *
+ * Returning undefined makes the cookie host-only: set by storelib.com, sent
+ * only to storelib.com. Nothing else on the platform needs it wider —
+ * creator storefronts are paths (storelib.com/andrewrullz), and custom
+ * domains are separate registrable domains that never received this cookie
+ * in the first place. www is redirected to the apex by the proxy so there is
+ * only ever one host holding a session.
  */
-function getCookieDomain(requestHost: string, mainDomain: string): string | undefined {
-  const isLocalhost = mainDomain.includes("localhost") || requestHost.includes("localhost")
-  if (isLocalhost) return undefined
-
-  // Only set cross-subdomain cookie when on the actual production domain
-  const hostWithoutPort = requestHost.split(":")[0]
-  if (hostWithoutPort === mainDomain || hostWithoutPort.endsWith(`.${mainDomain}`)) {
-    return `.${mainDomain}`
-  }
-
-  // Vercel preview deployments, other domains — let cookie default to request host
+function getCookieDomain(_requestHost: string, _mainDomain: string): undefined {
   return undefined
 }
 

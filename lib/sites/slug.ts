@@ -1,7 +1,7 @@
 /**
  * Site slugs and page slugs.
  *
- * A site slug becomes a hostname — `{slug}.storelib.site` — so it is bound by
+ * A site slug becomes a hostname — `{slug}.storelib.com` — so it is bound by
  * DNS rules, not by what looks tidy: lowercase, letters/digits/hyphens, no
  * leading or trailing hyphen, 3–63 characters. A page slug becomes a path
  * segment and may be a little freer, but not much, because it is also the

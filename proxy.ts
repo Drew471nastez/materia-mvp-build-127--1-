@@ -6,23 +6,20 @@ import { NextResponse, type NextRequest } from "next/server"
 const MAIN_DOMAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
 
 /**
- * Where AI-built sites are published.
+ * Where AI-built sites are published: <slug>.storelib.com.
  *
- * A SEPARATE REGISTRABLE DOMAIN, and that is the whole point of it. Two
- * reasons, either of which is sufficient:
+ * Creator pages are PATHS (storelib.com/andrewrullz) and AI-built sites are
+ * SUBDOMAINS (andrewrullz.storelib.com). One address space each, so neither
+ * can claim the other's.
  *
- *  1. `storelib.com/<name>` is already taken. `[sellername]` catches every
- *     root path, so storelib.com/andrew is Andrew's storefront today —
- *     publishing generated sites there would collide with every creator on
- *     the platform and the router could not tell them apart.
- *
- *  2. A generated page on storelib.com would be SAME-ORIGIN with the
- *     dashboard: its JavaScript could read the signed-in session out of
- *     cookies and localStorage and act as that person. The sites are written
- *     by a model from user prompts, so "the page is trustworthy" is not an
- *     assumption available to us. A different eTLD+1 makes it structural.
+ * A subdomain is not a security boundary on its own — cookies scoped to
+ * `.storelib.com` reach every host under it. What makes this safe is that the
+ * session cookie is HOST-ONLY (see lib/supabase/server.ts and the cookie
+ * writer at the bottom of this file). Published pages carry model-written
+ * JavaScript and the Supabase cookie is readable from JavaScript by design,
+ * so a domain-scoped session would be readable by every site we host.
  */
-const SITES_DOMAIN = process.env.NEXT_PUBLIC_SITES_HOST || "storelib.site"
+const SITES_DOMAIN = process.env.NEXT_PUBLIC_SITES_HOST || MAIN_DOMAIN
 
 // Domains that should NOT be treated as seller subdomains
 const EXCLUDED_SUBDOMAINS = ["www", "app", "api", "admin", "dashboard", "localhost"]
@@ -288,42 +285,87 @@ async function lookupDomainOwnerUsername(host: string): Promise<string | null> {
   }
 }
 
+/**
+ * Retire the old `.storelib.com` session cookies.
+ *
+ * Sessions created before the cookie became host-only still carry
+ * Domain=.storelib.com, which means every published site can still read
+ * them. Rewriting the app is not enough on its own — the old cookie sits in
+ * the browser until something expires it, so this does.
+ *
+ * IT MUST NOT LOG ANYBODY OUT. The value is written back host-only in the
+ * same response, so the browser ends up holding exactly one cookie with the
+ * same session in it. Raw `Set-Cookie` headers rather than `response.cookies
+ * .set`, because that API is keyed by name and would overwrite the host-only
+ * cookie we just wrote instead of adding a second directive beside it.
+ */
+function retireDomainScopedCookies(response: NextResponse, request: NextRequest): void {
+  if (MAIN_DOMAIN.includes("localhost")) return
+
+  for (const cookie of request.cookies.getAll()) {
+    if (!cookie.name.startsWith("sb-")) continue
+
+    // Re-issue host-only, so the session survives the deletion below.
+    response.headers.append(
+      "Set-Cookie",
+      `${cookie.name}=${cookie.value}; Path=/; Secure; SameSite=Lax`,
+    )
+    // and expire the domain-scoped one that published sites could read.
+    response.headers.append(
+      "Set-Cookie",
+      `${cookie.name}=; Domain=.${MAIN_DOMAIN}; Path=/; Max-Age=0; Secure; SameSite=Lax`,
+    )
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
+
+  const bareHost = host.split(":")[0].toLowerCase()
+
+  /**
+   * ── One host holds the session ────────────────────────────────────────────
+   *
+   * www is redirected to the apex before anything reads a cookie. With
+   * host-only cookies, www.storelib.com and storelib.com would otherwise each
+   * hold a SEPARATE session — sign in on one and you are a stranger on the
+   * other, which reads as a broken login rather than a redirect somebody
+   * forgot.
+   */
+  if (bareHost === `www.${MAIN_DOMAIN}`) {
+    const canonical = new URL(`https://${MAIN_DOMAIN}`)
+    canonical.pathname = pathname
+    canonical.search = search
+    return NextResponse.redirect(canonical, { status: 301 })
+  }
 
   /**
    * ── Published sites ───────────────────────────────────────────────────────
    *
    * FIRST, before anything else touches the request. Nothing below this point
    * should ever run for a visitor to somebody's published website: not the
-   * Supabase session read, not the seller-subdomain rewrite, not the native
-   * app gate. A stranger reading a static page must not cost a session lookup,
-   * and — more importantly — the dashboard's cookie handling must never run on
-   * a request from a domain that serves generated code.
+   * Supabase session read, not the native app gate. A stranger reading a
+   * static page must not cost a session lookup, and the dashboard's cookie
+   * handling must never run on a request serving generated code.
    *
-   * Two shapes resolve, so a wildcard certificate is optional rather than
-   * required on day one:
-   *   storelib.site/andrew        → /site/andrew
-   *   andrew.storelib.site/       → /site/andrew
+   *   andrewrullz.storelib.com/      → /site/andrewrullz
+   *   andrewrullz.storelib.com/about → /site/andrewrullz/about
+   *
+   * A subdomain that is NOT a published site is not a dead end: the route
+   * looks for a creator with that username and sends them to
+   * storelib.com/<name>, so links to the old creator subdomains keep working.
    */
-  const bareHost = host.split(":")[0].toLowerCase()
-  if (bareHost === SITES_DOMAIN || bareHost.endsWith(`.${SITES_DOMAIN}`)) {
-    const url = request.nextUrl.clone()
+  if (bareHost.endsWith(`.${SITES_DOMAIN}`)) {
+    const subdomain = bareHost.slice(0, -(SITES_DOMAIN.length + 1))
 
-    if (bareHost === SITES_DOMAIN) {
-      const [slug, ...rest] = pathname.split("/").filter(Boolean)
-      // The bare domain with no slug is not a site; send it somewhere real
-      // rather than serving a 404 that looks like a broken deployment.
-      if (!slug) return NextResponse.redirect(new URL("https://storelib.com"))
-      url.pathname = `/site/${slug}${rest.length ? `/${rest.join("/")}` : ""}`
-    } else {
-      const subdomain = bareHost.slice(0, -(SITES_DOMAIN.length + 1))
-      if (subdomain.includes(".")) return new NextResponse("Not found", { status: 404 })
+    // Multi-level (a.b.storelib.com) is nobody's site, and the reserved
+    // names below are the platform's own.
+    if (!subdomain.includes(".") && !EXCLUDED_SUBDOMAINS.includes(subdomain)) {
+      const url = request.nextUrl.clone()
       url.pathname = `/site/${subdomain}${pathname === "/" ? "" : pathname}`
+      return NextResponse.rewrite(url)
     }
-
-    return NextResponse.rewrite(url)
   }
 
   // ── The native app never shows the marketing site ──────────────────────────
@@ -357,7 +399,15 @@ export async function proxy(request: NextRequest) {
   }
 
   // Extract username from subdomain
-  let username = extractUsernameFromHost(host)
+  /**
+   * Only custom domains name a creator now.
+   *
+   * <name>.storelib.com used to rewrite to a creator storefront; it is an
+   * AI-built site's address today, handled above. The old links are not
+   * dropped — a subdomain with no site behind it redirects to
+   * storelib.com/<name>, which is where creator pages live.
+   */
+  let username: string | null = null
   let isCustomDomain = false
 
   // If no subdomain match, check if it's a custom domain
@@ -549,11 +599,12 @@ export async function proxy(request: NextRequest) {
         cookiesToSet.forEach(({ name, value, options }) => {
           supabaseResponse.cookies.set(name, value, {
             ...options,
-            // Set domain to root domain for subdomain sharing (e.g., .storelib.com)
-            domain: isLocalhost ? undefined : `.${MAIN_DOMAIN}`,
-            // Ensure secure in production
+            // HOST-ONLY. This used to be `.${MAIN_DOMAIN}` for subdomain
+            // sharing, which now means every published site at
+            // <slug>.storelib.com would be sent the session — and could read
+            // it, because this cookie is readable from JavaScript by design.
+            domain: undefined,
             secure: !isLocalhost,
-            // Allow cookies to be sent with same-site requests
             sameSite: "lax",
           })
         })
@@ -612,6 +663,11 @@ export async function proxy(request: NextRequest) {
       " https://hooks.stripe.com",
     )
   }
+
+  // Last thing before the response leaves: retire any `.storelib.com` session
+  // cookie this browser is still carrying, re-issued host-only so nobody is
+  // signed out by the change.
+  retireDomainScopedCookies(supabaseResponse, request)
 
   return supabaseResponse
 }

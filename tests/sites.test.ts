@@ -1579,30 +1579,36 @@ const siteRoute = read("app/(sites)/site/[slug]/[[...path]]/route.ts")
  * ===========================================================================
  *
  * `app/(marketing)/[sellername]` catches every root path, so storelib.com/x is
- * already somebody's storefront: publishing there would collide with every
- * creator on the platform. And generated JavaScript on storelib.com would be
- * SAME-ORIGIN with the dashboard, able to read the signed-in session out of
- * cookies and storage. The sites are written by a model from user prompts, so
- * "the page is trustworthy" is not an assumption available to us.
+ * already somebody's storefront. Creator pages keep the paths and AI-built
+ * sites take the SUBDOMAINS — andrewrullz.storelib.com — so the two address
+ * spaces never overlap.
+ *
+ * The apex is not a sites host and must never become one: generated
+ * JavaScript on storelib.com itself would be same-origin with the dashboard.
  */
 check(
-  "published sites are served from a separate registrable domain",
+  "published sites are served from a subdomain, never the apex",
   (() => {
     const host = strip(publishSource).match(/NEXT_PUBLIC_SITES_HOST \|\| "([^"]+)"/)?.[1]
-    return Boolean(host) && host !== "storelib.com" && !host!.endsWith(".storelib.com")
+    return (
+      Boolean(host) &&
+      /export function publishedHost\(slug: string\): string \{\s*return `\$\{slug\}\.\$\{SITES_HOST\}`/.test(
+        strip(publishSource),
+      )
+    )
   })(),
 )
 
 check(
-  "the proxy resolves that domain before it touches the session",
+  "the proxy resolves a site subdomain before it touches the session",
   (() => {
-    const proxy = read("proxy.ts")
-    const sitesBlock = proxy.indexOf("bareHost === SITES_DOMAIN")
+    const proxy = strip(read("proxy.ts"))
+    const sitesBlock = proxy.indexOf("bareHost.endsWith(`.${SITES_DOMAIN}`)")
     const session = proxy.indexOf("createServerClient(")
     // Ahead of the Supabase client, so a stranger reading a static page never
     // costs a session lookup and the dashboard's cookie handling never runs
-    // on a request from the domain that serves generated code.
-    return sitesBlock !== -1 && (session === -1 || sitesBlock < proxy.indexOf("const bareHost") + 100000)
+    // on a request from a host that serves generated code.
+    return sitesBlock > -1 && session > -1 && sitesBlock < session
   })(),
 )
 
@@ -1840,22 +1846,28 @@ section("Five bugs that were shipped, and are not any more")
 /**
  * 1. The domain separation was defeated by a URL.
  *
- * The proxy rewrites storelib.site/<slug> to /site/<slug>, and a rewrite is
+ * The proxy rewrites <slug>.storelib.com to /site/<slug>, and a rewrite is
  * invisible to the browser — but the path is not secret. Anyone could type
  * storelib.com/site/andrew and be served a generated page ON THE DASHBOARD
- * ORIGIN, where its JavaScript can read the signed-in session. The whole
- * argument for a second domain, undone by a link.
+ * ORIGIN, where its JavaScript can read the signed-in session.
+ *
+ * `host === SITES_HOST` was the right guard when sites had their own domain
+ * and is a hole now that SITES_HOST is storelib.com: it matches the apex.
  */
 check(
   "a published site refuses to answer on the dashboard origin",
   (() => {
-    const route = read("app/(sites)/site/[slug]/[[...path]]/route.ts")
-    const guard = route.indexOf("const onSitesDomain")
+    const route = strip(read("app/(sites)/site/[slug]/[[...path]]/route.ts"))
+    const guard = route.indexOf("const onSiteSubdomain")
     const firstRead = route.indexOf("await context.params")
     return (
-      guard !== -1 &&
-      /host === SITES_HOST \|\| host\.endsWith\(`\.\$\{SITES_HOST\}`\)/.test(route) &&
-      /if \(!onSitesDomain && !isLocal\) return notFound\(\)/.test(route) &&
+      guard > -1 &&
+      firstRead > -1 &&
+      /host\.endsWith\(`\.\$\{SITES_HOST\}`\)/.test(route) &&
+      // a single label: andrewrullz.storelib.com yes, storelib.com no
+      /split\("\."\)\.length === 1/.test(route) &&
+      !/host === SITES_HOST/.test(route) &&
+      /if \(!onSiteSubdomain && !isLocal\) return notFound\(\)/.test(route) &&
       // Checked before the route does anything at all.
       guard < firstRead
     )
@@ -2128,6 +2140,158 @@ check(
   (() => {
     const script = read("scripts/build-creator-page-sql.mjs")
     return /20260912_site_publishing/.test(script) && /RUN_CREATOR_PAGE_AND_SITES\.sql/.test(script)
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("A site subdomain must not be able to read the session")
+// ---------------------------------------------------------------------------
+
+/**
+ * THE INVARIANT THE WHOLE ARRANGEMENT RESTS ON.
+ *
+ * Sites are published at <slug>.storelib.com, and those pages carry
+ * JavaScript written by a model from a creator's prompt. The Supabase session
+ * cookie is readable from JavaScript by design — createBrowserClient reads it
+ * to restore a session, so it cannot be httpOnly.
+ *
+ * Scope that cookie to `.storelib.com` and every published site can read
+ * `document.cookie` and take the access and refresh tokens of every signed-in
+ * visitor: an account takeover shippable through the site builder. It is
+ * asserted here rather than remembered.
+ */
+check(
+  "no session cookie is scoped to the whole domain",
+  (() => {
+    return ["lib/supabase/server.ts", "lib/supabase/client.ts", "proxy.ts"].every((f) => {
+      const src = strip(read(f))
+      return (
+        !/domain:\s*(isLocalhost\s*\?[^,]*:\s*)?`\.\$\{(MAIN_DOMAIN|mainDomain)\}`/.test(src) &&
+        !/domain:\s*"\.[a-z]/i.test(src) &&
+        !/return\s*`\.\$\{(getMainDomain\(\)|mainDomain|MAIN_DOMAIN)\}`/.test(src)
+      )
+    })
+  })(),
+)
+
+check(
+  "both Supabase clients return an undefined cookie domain",
+  (() => {
+    const server = strip(read("lib/supabase/server.ts"))
+    const client = strip(read("lib/supabase/client.ts"))
+    return (
+      /function getCookieDomain\([^)]*\): undefined \{\s*return undefined/.test(server) &&
+      /function getCookieDomain\(\): undefined \{\s*return undefined/.test(client)
+    )
+  })(),
+)
+
+/**
+ * A cookie merely stopped from being written is not gone. Sessions created
+ * before the change still carry Domain=.storelib.com and stay readable by
+ * every published site until something expires them.
+ */
+check(
+  "legacy domain-scoped cookies are retired without logging anyone out",
+  (() => {
+    const proxy = strip(read("proxy.ts"))
+    const at = proxy.indexOf("function retireDomainScopedCookies")
+    if (at === -1) return false
+    const body = proxy.slice(at, proxy.indexOf("\n}", at))
+    const reissue = body.indexOf("Path=/; Secure")
+    const expire = body.indexOf("Max-Age=0")
+    // The host-only re-issue must come FIRST: expiring on its own signs
+    // people out of a session that was working a second earlier.
+    return (
+      reissue > -1 &&
+      expire > -1 &&
+      reissue < expire &&
+      /headers\.append\(/.test(body) &&
+      proxy.includes("retireDomainScopedCookies(supabaseResponse, request)")
+    )
+  })(),
+)
+
+check(
+  "old creator subdomains redirect to the path instead of dying",
+  (() => {
+    const route = strip(read("app/(sites)/site/[slug]/[[...path]]/route.ts"))
+    return (
+      /async function creatorPathFor/.test(route) &&
+      /from\("profiles"\)/.test(route) &&
+      /NextResponse\.redirect\([^)]*301\)/.test(route)
+    )
+  })(),
+)
+
+check(
+  "www is redirected to the apex, so only one host holds a session",
+  (() => {
+    const proxy = strip(read("proxy.ts"))
+    const at = proxy.indexOf("bareHost === `www.${MAIN_DOMAIN}`")
+    return at > -1 && /status: 301/.test(proxy.slice(at, at + 400))
+  })(),
+)
+
+check(
+  "reserved and multi-level subdomains are not sites",
+  (() => {
+    const proxy = strip(read("proxy.ts"))
+    const at = proxy.indexOf("bareHost.endsWith(`.${SITES_DOMAIN}`)")
+    if (at === -1) return false
+    const block = proxy.slice(at, at + 700)
+    return /!subdomain\.includes\("\."\)/.test(block) && /EXCLUDED_SUBDOMAINS\.includes\(subdomain\)/.test(block)
+  })(),
+)
+
+/**
+ * storelib.com/andrewrullz is a creator and andrewrullz.storelib.com is a
+ * site, so one word names two different people's things. Without this a
+ * stranger publishes on a creator's name by titling their site after them —
+ * and shadows the redirect that keeps that creator's old links working.
+ */
+check(
+  "a site cannot take a creator's username as its address",
+  (() => {
+    const src = strip(read("lib/sites/publish.ts"))
+    const at = src.indexOf("async function ensureSlug")
+    const body = src.slice(at, src.indexOf("\n}", at))
+    return /from\("profiles"\)/.test(body) && /ilike\("username", candidate\)/.test(body)
+  })(),
+)
+
+/**
+ * ONE function builds the address.
+ *
+ * The editor built it by hand as `https://${SITES_HOST}/${slug}` — the path
+ * shape — and kept doing so after sites moved to subdomains, so the Publish
+ * panel offered a link to a creator page that was not the site. A second
+ * place that formats a URL is a second place to be wrong about what the URL
+ * is.
+ */
+check(
+  "nobody hand-builds a published address",
+  (() => {
+    const files = [
+      "components/sites/editor/editor-shell.tsx",
+      "components/sites/editor/publish-button.tsx",
+      "components/sites/sites-dashboard.tsx",
+    ]
+    return files.every((f) => !/`https:\/\/\$\{SITES_HOST\}/.test(strip(read(f))))
+  })(),
+)
+
+check(
+  "nothing still points at the retired sites domain",
+  (() => {
+    return [
+      "lib/sites/public-host.ts",
+      "lib/sites/publish.ts",
+      "lib/sites/slug.ts",
+      "lib/sites/types.ts",
+      "components/sites/sites-dashboard.tsx",
+      "proxy.ts",
+    ].every((f) => !read(f).includes("storelib.site"))
   })(),
 )
 

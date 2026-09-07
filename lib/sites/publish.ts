@@ -43,18 +43,29 @@ export const DEPLOYMENT_BUCKET = "site-deployments"
 /**
  * Where published sites answer.
  *
- * A SEPARATE REGISTRABLE DOMAIN, not a path or subdomain of storelib.com.
- * `storelib.com/<name>` is already the creator storefront — `[sellername]`
- * catches every root path — so publishing there would collide with every
- * existing creator. And generated JavaScript on storelib.com would be
- * same-origin with the dashboard: able to read the signed-in session out of
- * cookies and storage and act as that person. A different eTLD+1 makes that
- * structurally impossible rather than a rule somebody has to remember.
+ * A SUBDOMAIN OF THE MAIN DOMAIN: andrewrullz.storelib.com. Creator pages
+ * keep the paths — storelib.com/andrewrullz — so the two never collide.
+ *
+ * The apex is NOT a sites host. `storelib.com/<name>` is the creator
+ * storefront and always has been; serving generated pages there would both
+ * collide with every creator and put somebody else's JavaScript on the
+ * dashboard's own origin.
+ *
+ * WHAT MAKES THE SUBDOMAIN SAFE is that the session cookie is host-only. A
+ * cookie scoped to `.storelib.com` reaches every subdomain, and the browser
+ * Supabase client reads its cookie from JavaScript, so it cannot be
+ * httpOnly — a domain-scoped session would be readable by every page we
+ * publish. lib/supabase/server.ts and client.ts keep it host-only, and
+ * tests/sites.test.ts fails if that changes.
  */
-export const SITES_HOST = process.env.NEXT_PUBLIC_SITES_HOST || "storelib.site"
+export const SITES_HOST = process.env.NEXT_PUBLIC_SITES_HOST || "storelib.com"
+
+export function publishedHost(slug: string): string {
+  return `${slug}.${SITES_HOST}`
+}
 
 export function publishedUrl(slug: string): string {
-  return `https://${SITES_HOST}/${slug}`
+  return `https://${publishedHost(slug)}`
 }
 
 export type PublishResult =
@@ -127,7 +138,23 @@ async function ensureSlug(site: Site): Promise<string> {
       .from("sites")
       .select("id", { count: "exact", head: true })
       .ilike("slug", candidate)
-    return (count ?? 0) > 0
+    if ((count ?? 0) > 0) return true
+
+    /**
+     * A CREATOR'S USERNAME IS TAKEN TOO.
+     *
+     * Creator pages are storelib.com/andrewrullz and AI sites are
+     * andrewrullz.storelib.com, so the same word names two different people's
+     * things. Letting a stranger publish a site on another creator's name is
+     * an impersonation anybody could perform by naming their site after them
+     * — and it would shadow the redirect that keeps that creator's old
+     * subdomain links working.
+     */
+    const { count: usernameCount } = await admin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .ilike("username", candidate)
+    return (usernameCount ?? 0) > 0
   })
 
   await admin.from("sites").update({ slug }).eq("id", site.id)
