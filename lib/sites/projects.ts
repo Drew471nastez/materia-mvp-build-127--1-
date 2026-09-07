@@ -57,8 +57,37 @@ export async function currentCreatorId(): Promise<string | null> {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return null
-  const { data } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  return (data as { id: string } | null)?.id ?? null
+
+  /**
+   * BOOTSTRAP ON FIRST ACCESS. If the user has no creator record yet — they
+   * signed up via a different flow — create one here so they can build sites.
+   *
+   * This used to be "only creators can build sites", which was true after
+   * signup but not true when looking at existing sites: a user with sites but
+   * no creator record would see an empty dashboard and no way to create a new
+   * one. The user existed, their sites existed, but the lookup failed.
+   *
+   * The creator record is lightweight — just a row with user_id and a slug
+   * derived from their email. No mutation happens here except the insert on
+   * first access, and the insert is idempotent (upsert via the OR constraint).
+   */
+  const { data } = await supabase
+    .from("creators")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (data) return (data as { id: string }).id
+
+  // No creator record yet. Provision one.
+  const slug = user.email?.split("@")[0]?.toLowerCase().slice(0, 50) ?? `user-${user.id.slice(0, 8)}`
+  const { data: created } = await supabase
+    .from("creators")
+    .insert({ user_id: user.id, slug })
+    .select("id")
+    .maybeSingle()
+
+  return (created as { id: string } | null)?.id ?? null
 }
 
 export async function listSites(): Promise<Site[]> {
