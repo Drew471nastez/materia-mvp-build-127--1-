@@ -21,8 +21,10 @@
 
 import { type NextRequest, NextResponse } from "next/server"
 
+import { resolveSite } from "@/lib/sites/resolve"
+
 import { createAdminClient } from "@/lib/supabase/admin"
-import { getSite } from "@/lib/sites/projects"
+import { } from "@/lib/sites/projects"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -34,8 +36,9 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ si
 
   // RLS decides. A site somebody else owns reads as absent, so there is no
   // separate ownership check here to forget.
-  const site = await getSite(siteId)
-  if (!site) return NextResponse.json({ error: "Site not found." }, { status: 404 })
+  const found = await resolveSite(siteId)
+  if (!found.ok) return found.response
+  const site = found.site
 
   const admin = createAdminClient()
   const { data } = await admin.rpc("site_active_run", { p_site_id: siteId })
@@ -52,8 +55,9 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ si
 export async function DELETE(_request: NextRequest, context: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await context.params
 
-  const site = await getSite(siteId)
-  if (!site) return NextResponse.json({ error: "Site not found." }, { status: 404 })
+  const found = await resolveSite(siteId)
+  if (!found.ok) return found.response
+  const site = found.site
 
   const admin = createAdminClient()
 

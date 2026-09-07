@@ -10,7 +10,9 @@
 
 import { type NextRequest, NextResponse } from "next/server"
 
-import { getSite } from "@/lib/sites/projects"
+import { resolveSite } from "@/lib/sites/resolve"
+
+import { } from "@/lib/sites/projects"
 import { publishSite, unpublishSite } from "@/lib/sites/publish"
 import { publishRateLimit } from "@/lib/sites/rate-limit"
 
@@ -22,8 +24,9 @@ export const maxDuration = 120
 export async function POST(_request: NextRequest, context: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await context.params
 
-  const site = await getSite(siteId)
-  if (!site) return NextResponse.json({ error: "Site not found." }, { status: 404 })
+  const found = await resolveSite(siteId)
+  if (!found.ok) return found.response
+  const site = found.site
 
   // Before the build. Each publish is a bundle plus an upload of every file,
   // and a stuck button should cost one wasted minute rather than a bill.
@@ -46,8 +49,9 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ s
 export async function DELETE(_request: NextRequest, context: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await context.params
 
-  const site = await getSite(siteId)
-  if (!site) return NextResponse.json({ error: "Site not found." }, { status: 404 })
+  const found = await resolveSite(siteId)
+  if (!found.ok) return found.response
+  const site = found.site
 
   await unpublishSite(siteId)
   return NextResponse.json({ ok: true })

@@ -2829,8 +2829,21 @@ check(
   "a cover is private to its owner",
   (() => {
     const route = strip(read("app/api/sites/[siteId]/cover/route.ts"))
-    // getSite reads through the signed-in user's client, so RLS answers
-    return /const site = await getSite\(siteId\)/.test(route) && /status: 404/.test(route)
+    const resolve = strip(read("lib/sites/resolve.ts"))
+    /**
+     * The read still goes through the signed-in user's client, so RLS answers
+     * ownership — it just goes through `resolveSite` now, which also keeps a
+     * broken read from being reported as "not found". Absent and not-yours
+     * deliberately share one answer: confirming a stranger's site exists is
+     * information they should not get.
+     */
+    return (
+      /const found = await resolveSite\(siteId, "text"\)/.test(route) &&
+      /if \(!found\.ok\) return found\.response/.test(route) &&
+      /getSite\(siteId\)/.test(resolve) &&
+      /status: 404/.test(resolve) &&
+      /status: 503/.test(resolve)
+    )
   })(),
 )
 
@@ -3468,22 +3481,177 @@ check(
 )
 
 /**
- * A spinner alone gives no way to tell "working" from "hung", and publishing
- * is the slowest thing in the editor — a build, a storage upload and a
- * database write — and the one somebody is most anxious about.
+ * A SPINNER ALONE cannot be told apart from a stall, and publishing is the
+ * slowest thing in the editor — a build, a storage upload and a database
+ * write. The first attempt at fixing that was a running seconds count, and it
+ * was the wrong idea: a number ticking up is something to watch, and watching
+ * it makes four seconds feel like ten.
+ *
+ * A travelling sliver says the same thing — working, not stalled — without
+ * asking anyone to read anything. It travels rather than fills because the
+ * duration is genuinely unknown, and a bar creeping toward an edge it cannot
+ * reach is a promise the publish cannot keep.
  */
 check(
-  "publishing shows how long it has been going, and how long it took",
+  "publishing shows that it is working, without a number to watch",
   (() => {
     const button = strip(read("components/sites/editor/publish-button.tsx"))
+    const css = read("app/globals.css")
+    return (
+      /storelib-indeterminate/.test(button) &&
+      /@keyframes storelib-indeterminate/.test(css) &&
+      // the sliver needs a positioning context and must not spill out
+      /relative flex h-8 items-center gap-1\.5 overflow-hidden/.test(button) &&
+      // no counting, anywhere
+      !/toFixed\(1\)/.test(button) &&
+      !/setInterval/.test(button) &&
+      !/elapsed/.test(button) &&
+      !/tookMs/.test(button)
+    )
+  })(),
+)
+
+/**
+ * Motion here is decoration — the label already says what is happening — so it
+ * is switched off for anyone who has asked their system for less of it.
+ */
+check(
+  "the publishing motion respects a reduced-motion preference",
+  (() => {
+    const css = read("app/globals.css")
+    const at = css.indexOf("@media (prefers-reduced-motion: reduce)", css.indexOf("storelib-indeterminate"))
+    return at > -1 && /animation: none/.test(css.slice(at, at + 260))
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("The editor's top bar")
+// ---------------------------------------------------------------------------
+
+/**
+ * The device switcher and the reload used to sit in a second strip under the
+ * top bar, above the frame. They belong beside the address they act on — that
+ * is the row somebody reads when they want to know what they are looking at
+ * and how to change it. Two strips to say one thing is one strip too many.
+ */
+check(
+  "the preview's controls sit beside the address they act on",
+  (() => {
+    const shell = strip(read("components/sites/editor/editor-shell.tsx"))
+    const pane = strip(read("components/sites/editor/preview-pane.tsx"))
+    return (
+      // moved up
+      /Monitor/.test(shell) && /Tablet/.test(shell) && /Smartphone/.test(shell) &&
+      /setPreviewNonce/.test(shell) &&
+      // and gone from below, rather than living in both places
+      !/setViewport/.test(pane) &&
+      !/RefreshCw/.test(pane)
+    )
+  })(),
+)
+
+/**
+ * The pane is controlled now. State owned in two places is state that
+ * disagrees with itself the first time somebody changes one of them.
+ */
+check(
+  "the preview holds no opinion of its own about size or reloading",
+  (() => {
+    const pane = strip(read("components/sites/editor/preview-pane.tsx"))
+    return (
+      /viewport: Viewport/.test(pane) &&
+      /nonce: number/.test(pane) &&
+      !/React\.useState<Viewport>/.test(pane) &&
+      !/const \[nonce, setNonce\]/.test(pane)
+    )
+  })(),
+)
+
+/**
+ * An anchor pointing at a site that has never been published is a promise the
+ * product cannot keep, so the address is text until there is something at the
+ * other end of it.
+ */
+check(
+  "the address is only a link once there is a live site behind it",
+  (() => {
     const shell = strip(read("components/sites/editor/editor-shell.tsx"))
     return (
-      /kind: "publishing"; startedAt: number/.test(button) &&
-      /Publishing… \{elapsed\.toFixed\(1\)\}s/.test(button) &&
-      /setInterval\(tick, 100\)/.test(button) &&
-      /Live · \$\{\(tookMs \/ 1000\)\.toFixed\(1\)\}s/.test(button) &&
-      /setPublishState\(\{ kind: "publishing", startedAt \}\)/.test(shell) &&
-      /tookMs: Date\.now\(\) - startedAt/.test(shell)
+      /publishedAddress \?\? "Not published yet"/.test(shell) &&
+      /publishedAddress && publishState\.kind === "live" \?/.test(shell) &&
+      /site\.slug \? publishedUrl\(site\.slug\)/.test(shell)
+    )
+  })(),
+)
+
+/**
+ * Collapsing the chat has to REMOVE the column, not hide it — hiding leaves a
+ * gap where the chat used to be and the preview never reflows into the space,
+ * which is the whole reason to collapse it.
+ */
+check(
+  "collapsing the chat gives the preview the width",
+  (() => {
+    const shell = strip(read("components/sites/editor/editor-shell.tsx"))
+    return (
+      /chatCollapsed \? "md:grid-cols-\[1fr\]" : "md:grid-cols-\[minmax\(320px,380px\)_1fr\]"/.test(shell) &&
+      /PanelLeftClose/.test(shell) &&
+      /PanelLeftOpen/.test(shell)
+    )
+  })(),
+)
+
+/**
+ * Six icon buttons in one row. Writing the same classes six times is how one
+ * of them ends up a pixel taller than its neighbours after a hurried edit.
+ */
+check(
+  "the bar's icon buttons are one component, not six copies",
+  (() => {
+    const shell = read("components/sites/editor/editor-shell.tsx")
+    const uses = (shell.match(/<BarButton/g) ?? []).length
+    return /function BarButton\(/.test(shell) && uses >= 4
+  })(),
+)
+
+/**
+ * `getSite` throws now when the query itself fails, because a read that broke
+ * is not a site that is absent. That made four routes able to 500 on a
+ * database hiccup — publish, export, cover and run — each needing the same
+ * try/catch, and the fifth one written next year would not have had it.
+ */
+check(
+  "no site route answers a broken read with a crash",
+  (() => {
+    const routes = ["publish", "export", "cover", "run"]
+    return routes.every((name) => {
+      const route = strip(read(`app/api/sites/[siteId]/${name}/route.ts`))
+      // resolved through the one helper, never by calling getSite directly
+      return /resolveSite\(/.test(route) && !/await getSite\(/.test(route)
+    })
+  })(),
+)
+
+/**
+ * `headers()` in next.config matches the path the BROWSER asked for, and on a
+ * site subdomain that path is `/` — which carries the marketing landing page's
+ * rule, `s-maxage=3600, stale-while-revalidate=7200`. Config headers win over
+ * a route handler's, so every published homepage was edge-cached for an hour
+ * and served stale for two more: up to three hours of "I published and nothing
+ * changed", silently defeating the ten-second window the site route asks for.
+ *
+ * The same trap already caught storefronts once. The rewrite is the only place
+ * that knows the request is a site, so the header belongs there.
+ */
+check(
+  "the landing page's cache rule cannot swallow a site homepage",
+  (() => {
+    const proxy = strip(read("proxy.ts"))
+    const at = proxy.indexOf("url.pathname = `/site/${subdomain}")
+    const body = proxy.slice(at, proxy.indexOf("return rewritten", at) + 20)
+    return (
+      /if \(pathname === "\/"\)/.test(body) &&
+      /rewritten\.headers\.set\("Cache-Control", "public, s-maxage=10, stale-while-revalidate=30"\)/.test(body)
     )
   })(),
 )

@@ -9,14 +9,14 @@
  */
 
 import * as React from "react"
-import { AlertCircle, Monitor, RefreshCw, Smartphone, Tablet } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 
 import { previewDocument, previewPlaceholder } from "@/lib/sites/preview-document"
 import { cn } from "@/lib/utils"
 import type { BuildError } from "@/lib/sites/types"
 import type { BundleState } from "./use-bundler"
 
-type Viewport = "desktop" | "tablet" | "phone"
+export type Viewport = "desktop" | "tablet" | "phone"
 
 const WIDTHS: Record<Viewport, string> = {
   desktop: "100%",
@@ -29,10 +29,27 @@ interface RuntimeError {
   stack: string
 }
 
-export function PreviewPane({ build, html }: { build: BundleState; html?: string }) {
-  const [viewport, setViewport] = React.useState<Viewport>("desktop")
+/**
+ * The frame only. Its controls now live in the editor's top bar, beside the
+ * address they act on — a device switcher and a reload button belong next to
+ * the thing being addressed, not stacked in a second strip under it.
+ *
+ * Controlled rather than stateful: `viewport` and `nonce` are owned by the
+ * shell so the bar can drive them. `nonce` remounts the iframe, which is what
+ * a reload actually is here.
+ */
+export function PreviewPane({
+  build,
+  html,
+  viewport,
+  nonce,
+}: {
+  build: BundleState
+  html?: string
+  viewport: Viewport
+  nonce: number
+}) {
   const [runtimeError, setRuntimeError] = React.useState<RuntimeError | null>(null)
-  const [nonce, setNonce] = React.useState(0)
   const frameRef = React.useRef<HTMLIFrameElement>(null)
 
   /**
@@ -67,38 +84,6 @@ export function PreviewPane({ build, html }: { build: BundleState; html?: string
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-sidebar">
-      <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border px-2 sm:px-3">
-        <div className="hidden items-center gap-1 sm:flex">
-          {([["desktop", Monitor], ["tablet", Tablet], ["phone", Smartphone]] as const).map(([key, Icon]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setViewport(key)}
-              aria-label={key}
-              aria-pressed={viewport === key}
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-[7px] text-muted-foreground transition-colors",
-                viewport === key ? "bg-muted text-foreground" : "hover:bg-muted/60",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <BuildStatus build={build} />
-          <button
-            type="button"
-            onClick={() => setNonce((n) => n + 1)}
-            aria-label="Reload preview"
-            className="flex h-8 w-8 items-center justify-center rounded-[7px] text-muted-foreground transition-colors hover:bg-muted/60"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
       <div className="relative min-h-0 flex-1 overflow-auto p-0 sm:p-4">
         <div
           className="mx-auto h-full overflow-hidden border-border bg-white shadow-sm transition-[width] sm:rounded-[10px] sm:border"
@@ -127,7 +112,7 @@ export function PreviewPane({ build, html }: { build: BundleState; html?: string
   )
 }
 
-function BuildStatus({ build }: { build: BundleState }) {
+export function BuildStatus({ build }: { build: BundleState }) {
   if (build.status === "building") return <span className="text-xs text-muted-foreground">Building…</span>
   if (build.status === "ok") {
     return (

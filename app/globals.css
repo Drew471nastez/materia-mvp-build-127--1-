@@ -1950,3 +1950,40 @@ picture {
   animation-duration: 220ms !important;
   animation-timing-function: cubic-bezier(0.4, 0, 1, 1) !important;
 }
+
+/*
+ * The publishing indicator.
+ *
+ * A running seconds count was the first attempt and it was the wrong idea: a
+ * number ticking up is something to watch, and watching it makes four seconds
+ * feel like ten. This is the same information — it is working, it has not
+ * stalled — without asking anyone to read anything.
+ *
+ * A sliver that travels rather than a bar that fills, because the duration is
+ * genuinely unknown: a bar creeping toward an edge it cannot reach is a
+ * promise the publish cannot keep.
+ */
+@keyframes storelib-indeterminate {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.storelib-indeterminate::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 25%;
+  border-radius: inherit;
+  background: currentColor;
+  animation: storelib-indeterminate 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Motion is decoration here — the label already says what is happening. */
+@media (prefers-reduced-motion: reduce) {
+  .storelib-indeterminate::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.35;
+  }
+}

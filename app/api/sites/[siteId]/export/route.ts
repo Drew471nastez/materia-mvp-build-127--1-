@@ -9,7 +9,9 @@
 
 import { type NextRequest, NextResponse } from "next/server"
 
-import { getSite, readProject } from "@/lib/sites/projects"
+import { resolveSite } from "@/lib/sites/resolve"
+
+import { readProject } from "@/lib/sites/projects"
 import { toSiteSlug } from "@/lib/sites/slug"
 import { createZip } from "@/lib/sites/zip"
 
@@ -20,8 +22,9 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ si
   const { siteId } = await context.params
 
   // RLS decides: a site somebody else owns reads as absent.
-  const site = await getSite(siteId)
-  if (!site) return NextResponse.json({ error: "Site not found." }, { status: 404 })
+  const found = await resolveSite(siteId)
+  if (!found.ok) return found.response
+  const site = found.site
 
   const files = await readProject(siteId)
   if (Object.keys(files).length === 0) {

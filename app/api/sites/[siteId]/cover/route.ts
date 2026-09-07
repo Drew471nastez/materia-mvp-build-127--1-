@@ -16,7 +16,9 @@
 
 import { type NextRequest, NextResponse } from "next/server"
 
-import { getSite } from "@/lib/sites/projects"
+import { resolveSite } from "@/lib/sites/resolve"
+
+import { } from "@/lib/sites/projects"
 import { siteCover } from "@/lib/sites/cover"
 
 export const dynamic = "force-dynamic"
@@ -27,8 +29,9 @@ export const maxDuration = 60
 export async function GET(_request: NextRequest, context: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await context.params
 
-  const site = await getSite(siteId)
-  if (!site) return new NextResponse("Not found", { status: 404 })
+  const found = await resolveSite(siteId, "text")
+  if (!found.ok) return found.response
+  const site = found.site
 
   const html = await siteCover(site)
 

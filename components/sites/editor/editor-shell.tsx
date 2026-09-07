@@ -32,7 +32,25 @@
  */
 
 import * as React from "react"
-import { ArrowLeft, AlertCircle, Check, Code2, Download, Eye, History, Loader2, MessageSquare } from "lucide-react"
+import {
+  ArrowLeft,
+  AlertCircle,
+  Check,
+  Code2,
+  Download,
+  ExternalLink,
+  Eye,
+  History,
+  Loader2,
+  Maximize2,
+  MessageSquare,
+  Monitor,
+  PanelLeftClose,
+  PanelLeftOpen,
+  RefreshCw,
+  Smartphone,
+  Tablet,
+} from "lucide-react"
 
 import { SmartLink } from "@/components/smart-link"
 import { cn } from "@/lib/utils"
@@ -40,7 +58,7 @@ import { publishedUrl } from "@/lib/sites/public-host"
 import type { ProjectFiles, Site } from "@/lib/sites/types"
 import { ChatPane } from "./chat-pane"
 import { CodePane } from "./code-pane"
-import { PreviewPane } from "./preview-pane"
+import { BuildStatus, PreviewPane, type Viewport } from "./preview-pane"
 import { PublishButton, type PublishState } from "./publish-button"
 import { HistoryPanel } from "./history-panel"
 import { SiteSheet } from "./site-sheet"
@@ -103,8 +121,7 @@ export function EditorShell({
   }, [])
 
   const publish = React.useCallback(async () => {
-    const startedAt = Date.now()
-    setPublishState({ kind: "publishing", startedAt })
+    setPublishState({ kind: "publishing" })
     try {
       const response = await fetch(`/api/sites/${site.id}/publish`, { method: "POST" })
       const body = await response.json().catch(() => ({}))
@@ -116,7 +133,7 @@ export function EditorShell({
         })
         return
       }
-      setPublishState({ kind: "live", url: body.url, stale: false, tookMs: Date.now() - startedAt })
+      setPublishState({ kind: "live", url: body.url, stale: false })
     } catch {
       setPublishState({ kind: "failed", message: "Could not reach the server." })
     }
@@ -250,6 +267,22 @@ export function EditorShell({
     return () => window.removeEventListener("beforeunload", onBeforeUnload)
   }, [])
 
+  /**
+   * The preview's own controls, owned here so the top bar can drive them —
+   * a device switcher and a reload belong beside the address they act on,
+   * not stacked in a second strip underneath it.
+   */
+  const [viewport, setViewport] = React.useState<Viewport>("desktop")
+  const [previewNonce, setPreviewNonce] = React.useState(0)
+  const [chatCollapsed, setChatCollapsed] = React.useState(false)
+
+  /**
+   * The site's address, without the scheme — it is read, not clicked, in the
+   * bar. Null until the site has a slug, because a site that has never been
+   * published has no address to show and inventing one would be a promise.
+   */
+  const publishedAddress = site.slug ? publishedUrl(site.slug).replace(/^https:\/\//, "") : null
+
   const workPane = pane === "code" ? "code" : "preview"
 
   return (
@@ -261,12 +294,24 @@ export function EditorShell({
         "overscroll-none",
       )}
     >
-      {/* ─────────────────────────── top bar ─────────────────────────── */}
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
+      {/* ─────────────────────────── top bar ───────────────────────────
+        *
+        * Four groups, left to right: WHERE YOU ARE (mark, name, save state),
+        * WHAT YOU ARE LOOKING AT (history, chat toggle, Preview/Code), THE
+        * PAGE ITSELF (its address and the controls that act on it), and WHAT
+        * YOU CAN DO WITH IT (download, publish).
+        *
+        * The device switcher and the reload used to sit in a second strip
+        * under this one, above the frame. They belong beside the address they
+        * act on — that is the row a person reads when they want to know what
+        * they are looking at and how to change it.
+        */}
+      <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border px-2 sm:gap-2 sm:px-3">
+        {/* ── where you are ── */}
         <SmartLink
           href="/app/sites"
           aria-label="Back to Sites"
-          className="flex shrink-0 items-center gap-1.5 rounded-[8px] p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex shrink-0 items-center rounded-[8px] p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4 sm:hidden" />
           {/*
@@ -291,18 +336,114 @@ export function EditorShell({
           <SaveBadge state={saveState} error={saveError} />
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          {/* Desktop only: on a phone these live in the sheet, where they
-              have room for a label and a real tap target. */}
-          <button
-            type="button"
+        {/* ── what you are looking at ── */}
+        <div className="ml-1 hidden items-center gap-0.5 md:flex">
+          <BarButton
+            icon={History}
+            label="Version history"
             onClick={() => setHistoryOpen(true)}
-            aria-label="Version history"
-            title="Version history"
-            className="hidden h-8 w-8 items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
-          >
-            <History className="h-4 w-4" />
-          </button>
+          />
+          <BarButton
+            icon={chatCollapsed ? PanelLeftOpen : PanelLeftClose}
+            label={chatCollapsed ? "Show the chat" : "Hide the chat"}
+            onClick={() => setChatCollapsed((v) => !v)}
+          />
+        </div>
+
+        <div className="ml-1 hidden items-center gap-0.5 rounded-[9px] bg-muted p-0.5 md:flex">
+          {([["preview", "Preview", Eye], ["code", "Code", Code2]] as const).map(([key, label, Icon]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setPane(key)}
+              aria-pressed={workPane === key}
+              className={cn(
+                "flex h-7 items-center gap-1.5 rounded-[7px] px-2.5 text-xs transition-colors",
+                workPane === key
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── the page itself ──
+          * The address is the site's own, and it is only a link once there is
+          * something at the other end: an anchor pointing at a site that has
+          * never been published is a promise the product cannot keep.
+          */}
+        <div className="ml-2 hidden min-w-0 flex-1 items-center gap-1 rounded-[9px] border border-border bg-muted/40 pl-3 pr-1 md:flex">
+          <span className="truncate text-xs text-muted-foreground" title={publishedAddress ?? undefined}>
+            {publishedAddress ?? "Not published yet"}
+          </span>
+
+          <div className="ml-auto flex shrink-0 items-center gap-0.5">
+            <BuildStatus build={build} />
+
+            <BarButton
+              icon={RefreshCw}
+              label="Reload the preview"
+              onClick={() => setPreviewNonce((n) => n + 1)}
+              disabled={workPane !== "preview"}
+            />
+
+            {/* The device switcher acts on the preview, so it is dimmed when
+                the Code pane is showing rather than silently doing nothing. */}
+            <span className="mx-0.5 hidden h-4 w-px bg-border lg:block" />
+            <div className="hidden items-center gap-0.5 lg:flex">
+              {([["desktop", Monitor], ["tablet", Tablet], ["phone", Smartphone]] as const).map(
+                ([key, Icon]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setPane("preview")
+                      setViewport(key)
+                    }}
+                    aria-label={key}
+                    aria-pressed={viewport === key}
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-[7px] transition-colors",
+                      viewport === key && workPane === "preview"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                  </button>
+                ),
+              )}
+            </div>
+
+            <BarButton
+              icon={Maximize2}
+              label="Full screen preview"
+              onClick={() => {
+                setPane("preview")
+                setChatCollapsed(true)
+              }}
+            />
+
+            {publishedAddress && publishState.kind === "live" ? (
+              <a
+                href={publishState.url}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Open the live site"
+                title="Open the live site"
+                className="flex h-7 w-7 items-center justify-center rounded-[7px] text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            ) : null}
+          </div>
+        </div>
+
+        {/* ── what you can do with it ── */}
+        <div className="ml-auto flex items-center gap-1.5 md:ml-2">
           <a
             href={`/api/sites/${site.id}/export`}
             aria-label="Download project"
@@ -320,27 +461,6 @@ export function EditorShell({
           <span className="hidden md:block">
             <PublishButton state={publishState} onPublish={() => void publish()} />
           </span>
-
-          {/* Desktop: Preview / Code over one pane. Mobile has the bottom bar. */}
-          <div className="hidden items-center gap-0.5 rounded-[8px] bg-muted p-0.5 md:flex">
-            {([["preview", "Preview", Eye], ["code", "Code", Code2]] as const).map(([key, label, Icon]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setPane(key)}
-                aria-pressed={workPane === key}
-                className={cn(
-                  "flex h-7 items-center gap-1.5 rounded-[6px] px-2.5 text-xs transition-colors",
-                  workPane === key
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {label}
-              </button>
-            ))}
-          </div>
         </div>
       </header>
 
@@ -361,8 +481,29 @@ export function EditorShell({
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(320px,380px)_1fr]">
-        <div className={cn("min-h-0 md:block", pane === "chat" ? "block" : "hidden")}>
+      {/*
+        * Collapsing the chat gives the preview the whole width, which is what
+        * somebody wants the moment they stop describing and start looking. The
+        * column is removed from the grid rather than hidden, so the preview
+        * actually reflows into the space instead of leaving a gap where the
+        * chat used to be.
+        *
+        * Desktop only: on a phone the two are separate screens already, and
+        * the bottom bar is how you move between them.
+        */}
+      <div
+        className={cn(
+          "grid min-h-0 flex-1 grid-cols-1",
+          chatCollapsed ? "md:grid-cols-[1fr]" : "md:grid-cols-[minmax(320px,380px)_1fr]",
+        )}
+      >
+        <div
+          className={cn(
+            "min-h-0",
+            chatCollapsed ? "md:hidden" : "md:block",
+            pane === "chat" ? "block" : "hidden",
+          )}
+        >
           <ChatPane
             siteId={site.id}
             siteName={site.name}
@@ -373,7 +514,7 @@ export function EditorShell({
 
         <div className={cn("min-h-0", pane === "chat" ? "hidden md:block" : "block")}>
           {workPane === "preview" ? (
-            <PreviewPane build={build} html={files["index.html"]} />
+            <PreviewPane build={build} html={files["index.html"]} viewport={viewport} nonce={previewNonce} />
           ) : (
             <CodePane files={files} activePath={activePath} onSelect={setActivePath} onChange={editFile} />
           )}
@@ -424,6 +565,42 @@ export function EditorShell({
         onRestored={() => void adoptAgentChanges()}
       />
     </div>
+  )
+}
+
+/**
+ * One icon button in the top bar.
+ *
+ * Six of these, and writing the same seven Tailwind classes six times is how
+ * one of them ends up a pixel taller than its neighbours after somebody edits
+ * it in a hurry.
+ */
+function BarButton({
+  icon: Icon,
+  label,
+  onClick,
+  disabled,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  onClick: () => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "flex h-7 w-7 items-center justify-center rounded-[7px] text-muted-foreground transition-colors",
+        "hover:bg-background hover:text-foreground",
+        "disabled:pointer-events-none disabled:opacity-40",
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </button>
   )
 }
 

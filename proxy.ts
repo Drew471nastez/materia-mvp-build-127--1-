@@ -482,7 +482,35 @@ export async function proxy(request: NextRequest) {
     if (!subdomain.includes(".") && !EXCLUDED_SUBDOMAINS.includes(subdomain)) {
       const url = request.nextUrl.clone()
       url.pathname = `/site/${subdomain}${pathname === "/" ? "" : pathname}`
-      return NextResponse.rewrite(url)
+      const rewritten = NextResponse.rewrite(url)
+
+      /**
+       * THE LANDING PAGE'S CACHE RULE WAS EATING EVERY SITE HOMEPAGE.
+       *
+       * `headers()` in next.config matches the path the BROWSER asked for, and
+       * on drew.storelib.com that path is `/` — which has a rule meant for the
+       * marketing site: `public, s-maxage=3600, stale-while-revalidate=7200`.
+       * Config headers win over the ones a route handler sets, so every
+       * published homepage was edge-cached for an hour and served stale for two
+       * more after that. Up to three hours of "I published and nothing
+       * changed", and it silently defeated the ten-second window the site route
+       * asks for.
+       *
+       * This is the same trap that already caught storefronts — see the
+       * `/u/` rewrite below, which carries the same comment. The rewrite is the
+       * only place that knows this request is a site, so the header belongs
+       * here.
+       *
+       * Only the homepage needs it: `/` is the one config source a site path
+       * can collide with, and matching the route's own value keeps the two
+       * from drifting apart. Assets keep the route's immutable caching, which
+       * is what makes a version-stamped bundle worth stamping.
+       */
+      if (pathname === "/") {
+        rewritten.headers.set("Cache-Control", "public, s-maxage=10, stale-while-revalidate=30")
+      }
+
+      return rewritten
     }
   }
 
