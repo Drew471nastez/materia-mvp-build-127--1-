@@ -48,8 +48,12 @@ function coverPath(siteId: string): string {
  * A site that has never built, or whose build fails. Shown rather than a
  * broken frame: a creator mid-edit with a syntax error should see a calm
  * placeholder on their dashboard, not a stack trace and not a blank hole.
+ *
+ * Exported because the ROUTE needs it too. Its 404, its 503 and any
+ * unexpected throw all end up in the same iframe as this, and every one of
+ * them has to be a document — see the route for what an empty body cost.
  */
-function placeholder(reason: string): string {
+export function coverPlaceholder(reason: string): string {
   return `<!doctype html><html lang="en"><meta charset="utf-8">
 <style>
   html,body{height:100%;margin:0}
@@ -82,11 +86,11 @@ export async function siteCover(site: Site): Promise<string> {
   }
 
   const files = await readProject(site.id)
-  if (Object.keys(files).length === 0) return placeholder("Nothing here yet")
+  if (Object.keys(files).length === 0) return coverPlaceholder("Nothing here yet")
 
   const esbuild = await import("esbuild")
   const built = await bundleProject(esbuild as never, files)
-  if (!built.ok) return placeholder("This site does not build right now")
+  if (!built.ok) return coverPlaceholder("This site does not build right now")
 
   const html = previewDocument({
     code: built.code ?? "",

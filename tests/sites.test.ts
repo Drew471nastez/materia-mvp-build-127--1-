@@ -2849,10 +2849,20 @@ check(
      * broken read from being reported as "not found". Absent and not-yours
      * deliberately share one answer: confirming a stranger's site exists is
      * information they should not get.
+     *
+     * What this route may NOT do any more is hand back resolveSite's response
+     * unchanged. That object is shared with four JSON routes and carries no
+     * framing policy, and returning it from a route that IS framed is what put
+     * "storelib.com refused to connect." on the dashboard. It still refuses —
+     * it just refuses with a document the card can paint.
      */
     return (
       /const found = await resolveSite\(siteId, "text"\)/.test(route) &&
-      /if \(!found\.ok\) return found\.response/.test(route) &&
+      /if \(!found\.ok\) \{/.test(route) &&
+      // refused before the site is ever touched
+      route.indexOf("if (!found.ok)") < route.indexOf("siteCover(found.site)") &&
+      !/return found\.response/.test(route) &&
+      /const status = found\.response\.status/.test(route) &&
       /getSite\(siteId\)/.test(resolve) &&
       /status: 404/.test(resolve) &&
       /status: 503/.test(resolve)
@@ -4630,6 +4640,139 @@ check(
       tools.every((name) => new RegExp(`^\\s*${name}:`, "m").test(block)) &&
       // and the harness's own step, which is not a tool the model calls
       /compact_context:/.test(block)
+    )
+  })(),
+)
+
+// ===========================================================================
+section("Nothing on this domain may answer a frame with a browser error page")
+// ===========================================================================
+
+/**
+ * "storelib.com refused to connect.", in the middle of a site card.
+ *
+ * vercel.json sets `X-Frame-Options: DENY` on every path — a sound default
+ * from before anything here was framed. A browser ignores it when the response
+ * also carries `frame-ancestors`, which is why the cover's SUCCESS path
+ * worked. Its failure paths came from `resolveSite`, which is shared by five
+ * routes and knows nothing about framing, so they carried no CSP at all — and
+ * the blanket header nothing overrode took effect.
+ *
+ * The shape is what made it hard to see: THE WORSE THINGS WENT, THE UGLIER THE
+ * FAILURE. Exactly when a site could not be read — which, while the
+ * dashboard's own query was broken, was every card — the creator got a browser
+ * error page with our domain in it instead of a blank card.
+ *
+ * Measured in Chromium, because the precedence is a "SHOULD" in the spec:
+ *
+ *   RENDERED  frame-ancestors 'self' + X-Frame-Options: DENY
+ *   BLOCKED   a 404 with no CSP     + X-Frame-Options: DENY
+ *   RENDERED  a 404 that carries frame-ancestors 'self'
+ *
+ * So: every response a framed route can produce carries the framing policy,
+ * and every one of them has a body worth rendering.
+ */
+
+/** Every `<iframe src=…>` in the app, with the file it lives in. */
+function iframeSources(): Array<{ file: string; src: string }> {
+  const roots = ["components", "app"]
+  const found: Array<{ file: string; src: string }> = []
+
+  const walk = (dir: string): string[] => {
+    if (!existsSync(dir)) return []
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) return walk(full)
+      return entry.name.endsWith(".tsx") || entry.name.endsWith(".ts") ? [full] : []
+    })
+  }
+
+  for (const root of roots) {
+    for (const file of walk(join(process.cwd(), root))) {
+      const source = readFileSync(file, "utf8")
+      // The src can be several lines below the tag in formatted JSX.
+      for (const match of source.matchAll(/<iframe\b[\s\S]{0,400}?\ssrc=\{?["'`]([^"'`]*)/g)) {
+        found.push({ file: file.replace(`${process.cwd()}/`, ""), src: match[1] })
+      }
+    }
+  }
+  return found
+}
+
+check(
+  "the only iframe pointing at our own domain is the site cover",
+  (() => {
+    // A src is ours when it is a path rather than a URL. Everything else in
+    // this app is YouTube, Spotify, Calendly or a PDF — somebody else's
+    // headers, and none of our business.
+    const ours = iframeSources().filter((f) => f.src.startsWith("/"))
+    return ours.length === 1 && ours[0].src.startsWith("/api/sites/") && ours[0].src.endsWith("/cover")
+  })(),
+  JSON.stringify(iframeSources().filter((f) => f.src.startsWith("/"))),
+)
+
+check(
+  "the cover answers every request with the framing policy on it",
+  (() => {
+    /**
+     * STRIPPED. This route's own doc comment quotes `frame-ancestors 'self'`
+     * four times while explaining the bug, so a raw read matched the
+     * explanation and passed with the directive deleted from the headers.
+     */
+    const route = strip(read("app/api/sites/[siteId]/cover/route.ts"))
+
+    /**
+     * ONE place builds a response. A second one is exactly how the headers
+     * went missing the first time — the failure path was somebody else's
+     * object, returned unchanged.
+     */
+    const built = route.match(/new NextResponse\(|NextResponse\.json\(|new Response\(/g) ?? []
+
+    return (
+      built.length === 1 &&
+      /frame-ancestors 'self'/.test(route) &&
+      // never hands back resolveSite's framing-unaware response
+      !/return found\.response/.test(route) &&
+      // and an unexpected throw is a placeholder, not a framework error page
+      /catch/.test(route) &&
+      /coverPlaceholder/.test(route)
+    )
+  })(),
+)
+
+check(
+  "and every one of those answers is a document, never an empty body",
+  (() => {
+    const route = strip(read("app/api/sites/[siteId]/cover/route.ts"))
+    const cover = read("lib/sites/cover.ts")
+    /**
+     * A framed response with nothing in it is a blank hole rather than a blank
+     * card, and there is no way to tell the two apart from the outside — so
+     * the placeholder is what every failure returns.
+     */
+    const returns = [...route.matchAll(/return cover\(([^,)]*)/g)].map((m) => m[1].trim())
+    return (
+      returns.length >= 3 &&
+      returns.every((argument) => /coverPlaceholder|siteCover/.test(argument)) &&
+      /export function coverPlaceholder/.test(cover) &&
+      // the placeholder really is a document a browser will paint
+      /<!doctype html>/i.test(cover)
+    )
+  })(),
+)
+
+check(
+  "a stranger's card and an empty card are the same bytes",
+  (() => {
+    const route = strip(read("app/api/sites/[siteId]/cover/route.ts"))
+    /**
+     * 404 covers both "does not exist" and "is not yours", and the words shown
+     * must not separate them — a card that said "not yours" would confirm a
+     * site exists to somebody who cannot see it.
+     */
+    return (
+      /status === 503 \? "Not available just now" : "Nothing here yet"/.test(route) &&
+      !/not yours|does not exist|forbidden/i.test(route)
     )
   })(),
 )
