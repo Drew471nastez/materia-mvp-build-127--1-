@@ -91,58 +91,23 @@ UPDATE store_theme_pages SET title = 'Home' WHERE page_key = 'home' AND title IS
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_stp_install_homepage
   ON store_theme_pages (install_id) WHERE is_homepage;
 
--- ── 4. Versions you can restore ──────────────────────────────
+
+
+-- ── 4-6. REMOVED: site_versions, site_form_submissions,
+--         site_integrations ─────────────────────────────────────
 --
--- theme_publish_history already snapshots on publish, but nothing
--- reads it back, so there is no undo. This is the restorable
--- record: a full snapshot of settings + every page, taken on
--- publish and before each AI edit.
-CREATE TABLE IF NOT EXISTS site_versions (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  install_id  UUID NOT NULL REFERENCES store_theme_installs(id) ON DELETE CASCADE,
-  snapshot    JSONB NOT NULL,
-  label       TEXT,
-  created_by  UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_site_versions_install
-  ON site_versions (install_id, created_at DESC);
-
--- ── 5. Form submissions ──────────────────────────────────────
+-- These three were designed for the section-JSON architecture this
+-- migration was written under, and they keyed off `install_id`.
+-- 20260910_sites_projects creates tables with the SAME THREE NAMES
+-- keyed off `site_id`, because a site is now a project of files and
+-- not a theme install (docs/storelib-sites.md §8).
 --
--- A contact_form section exists and renders; nothing receives it.
--- Deliberately not a CRM: who submitted, from which page, what
--- they typed.
-CREATE TABLE IF NOT EXISTS site_form_submissions (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  install_id  UUID NOT NULL REFERENCES store_theme_installs(id) ON DELETE CASCADE,
-  page_key    TEXT,
-  section_id  TEXT,
-  fields      JSONB NOT NULL DEFAULT '{}',
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_sfs_install
-  ON site_form_submissions (install_id, created_at DESC);
-
--- ── 6. Integrations ──────────────────────────────────────────
---
--- `config` is for what the page may see. A Shopify Storefront
--- access token is NOT that: `secret_ref` names a server-side
--- secret, and the token itself never lands in this column, never
--- reaches the client, and never appears in a published page.
-CREATE TABLE IF NOT EXISTS site_integrations (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  install_id  UUID NOT NULL REFERENCES store_theme_installs(id) ON DELETE CASCADE,
-  provider    TEXT NOT NULL,
-  config      JSONB NOT NULL DEFAULT '{}',
-  secret_ref  TEXT,
-  enabled     BOOLEAN NOT NULL DEFAULT true,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (install_id, provider)
-);
+-- CREATE TABLE IF NOT EXISTS does not reconcile a shape — it skips.
+-- So on any database that ran this file first, 20260910 silently got
+-- the wrong three tables and then failed outright building an index
+-- on a `site_id` column that was never there. Nothing ever read these,
+-- so they are gone from here rather than renamed, and 20260910 cleans
+-- up after a database that already created them.
 
 -- ── 7. Template purchases ────────────────────────────────────
 --
@@ -173,44 +138,18 @@ CREATE INDEX IF NOT EXISTS idx_custom_domains_install ON custom_domains (install
 
 -- ── 9. RLS ───────────────────────────────────────────────────
 --
+-- Only site_template_purchases is created here now, so only it
+-- needs a policy. A buyer reads their own purchases; writes are
+-- server-side only, after payment — there is no client-side
+-- insert policy, and that omission is the point.
+ALTER TABLE site_template_purchases ENABLE ROW LEVEL SECURITY;
+--
 -- The same shape every store_theme_* table already uses: reach
 -- the row through its install, the install through creators, and
 -- creators through auth.uid(). Nothing here is publicly readable
 -- — published sites are served by the admin client through a
 -- route that filters to status='published', exactly as
 -- /w/{username} already does.
-ALTER TABLE site_versions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE site_form_submissions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE site_integrations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE site_template_purchases ENABLE ROW LEVEL SECURITY;
-
-DO $$
-DECLARE
-  t TEXT;
-  owned TEXT := '
-    install_id IN (
-      SELECT sti.id FROM store_theme_installs sti
-      JOIN creators c ON c.id = sti.creator_id
-      WHERE c.user_id = auth.uid()
-    )';
-BEGIN
-  FOREACH t IN ARRAY ARRAY['site_versions', 'site_form_submissions', 'site_integrations']
-  LOOP
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t AND policyname = t || '_select_own') THEN
-      EXECUTE format('CREATE POLICY %I ON %I FOR SELECT USING (%s)', t || '_select_own', t, owned);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t AND policyname = t || '_insert_own') THEN
-      EXECUTE format('CREATE POLICY %I ON %I FOR INSERT WITH CHECK (%s)', t || '_insert_own', t, owned);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t AND policyname = t || '_update_own') THEN
-      EXECUTE format('CREATE POLICY %I ON %I FOR UPDATE USING (%s)', t || '_update_own', t, owned);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t AND policyname = t || '_delete_own') THEN
-      EXECUTE format('CREATE POLICY %I ON %I FOR DELETE USING (%s)', t || '_delete_own', t, owned);
-    END IF;
-  END LOOP;
-END;
-$$;
 
 -- A buyer reads their own purchases. Writes are server-side only,
 -- after payment — there is no client-side insert policy, and that
@@ -224,13 +163,3 @@ BEGIN
 END;
 $$;
 
--- ── 10. updated_at ───────────────────────────────────────────
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'site_integrations_updated_at') THEN
-    CREATE TRIGGER site_integrations_updated_at
-      BEFORE UPDATE ON site_integrations
-      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-  END IF;
-END;
-$$;

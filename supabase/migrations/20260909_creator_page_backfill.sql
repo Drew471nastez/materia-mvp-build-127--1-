@@ -56,7 +56,7 @@ BEGIN
     WHERE page_type = 'shop'
   LOOP
     -- draft
-    IF r.draft_config ? 'sections'
+    IF jsonb_typeof(r.draft_config -> 'sections') = 'array'
        AND NOT EXISTS (
          SELECT 1 FROM jsonb_array_elements(r.draft_config->'sections') s
          WHERE s->>'type' = 'about'
@@ -70,7 +70,7 @@ BEGIN
     END IF;
 
     -- published
-    IF r.published_config ? 'sections'
+    IF jsonb_typeof(r.published_config -> 'sections') = 'array'
        AND NOT EXISTS (
          SELECT 1 FROM jsonb_array_elements(r.published_config->'sections') s
          WHERE s->>'type' = 'about'
@@ -87,6 +87,12 @@ END;
 $$;
 
 -- ── 2. Video media items get their real label ────────────────
+--
+-- The filter is a jsonb test and NOT `config::text LIKE '%"type":"youtube"%'`,
+-- which is what this originally said and which MATCHED NOTHING, EVER:
+-- Postgres renders jsonb back to text with a space after every colon, so
+-- the stored form is `"type": "youtube"` and the pattern never hit. The
+-- whole section was a no-op on every database it had ever run against.
 --
 -- COALESCE around the outer jsonb_agg is not decoration. `jsonb_agg` over an
 -- empty set returns NULL, and `jsonb_set(config, '{sections}', NULL)` returns
@@ -114,10 +120,15 @@ SET draft_config = jsonb_set(
              FROM jsonb_array_elements(COALESCE(s->'settings'->'mediaItems', '[]'::jsonb)) m
            ))
            ELSE s END), '[]'::jsonb)
-       FROM jsonb_array_elements(draft_config->'sections') s))
+       FROM jsonb_array_elements(draft_config -> 'sections') s))
 WHERE page_type = 'shop'
-  AND draft_config ? 'sections'
-  AND draft_config::text LIKE '%"type":"youtube"%';
+  AND jsonb_typeof(draft_config -> 'sections') = 'array'
+  AND EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(draft_config -> 'sections') s,
+         jsonb_array_elements(COALESCE(s -> 'settings' -> 'mediaItems', '[]'::jsonb)) m
+    WHERE m ->> 'type' = 'youtube'
+  );
 
 UPDATE store_builder_configs
 SET published_config = jsonb_set(
@@ -131,10 +142,15 @@ SET published_config = jsonb_set(
              FROM jsonb_array_elements(COALESCE(s->'settings'->'mediaItems', '[]'::jsonb)) m
            ))
            ELSE s END), '[]'::jsonb)
-       FROM jsonb_array_elements(published_config->'sections') s))
+       FROM jsonb_array_elements(published_config -> 'sections') s))
 WHERE page_type = 'shop'
-  AND published_config ? 'sections'
-  AND published_config::text LIKE '%"type":"youtube"%';
+  AND jsonb_typeof(published_config -> 'sections') = 'array'
+  AND EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(published_config -> 'sections') s,
+         jsonb_array_elements(COALESCE(s -> 'settings' -> 'mediaItems', '[]'::jsonb)) m
+    WHERE m ->> 'type' = 'youtube'
+  );
 
 -- ── 3. The social platforms added later ──────────────────────
 --

@@ -18,6 +18,55 @@
 -- shape every store_theme_* table already uses.
 -- ============================================================
 
+-- ── First: clean up after the previous design ────────────────
+--
+-- An earlier version of 20260908_storelib_sites created
+-- site_versions, site_form_submissions and site_integrations keyed
+-- off `install_id`, for the section-JSON architecture that this
+-- feature replaced. The three names below are the same. CREATE
+-- TABLE IF NOT EXISTS would skip them, leaving a database with the
+-- wrong three tables and every Storelib AI write failing on a
+-- missing `site_id`.
+--
+-- Dropping is guarded three ways, because a DROP TABLE in a
+-- migration deserves to be: the table must have `install_id`, must
+-- NOT already have `site_id`, and must be EMPTY. Nothing ever wrote
+-- to them — no code path existed — so empty is the expected state,
+-- and a row means something happened that this migration has no
+-- business guessing about. In that case it leaves the table alone
+-- and raises, so a human looks.
+DO $reconcile$
+DECLARE
+  t TEXT;
+  n BIGINT;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['site_versions', 'site_form_submissions', 'site_integrations']
+  LOOP
+    CONTINUE WHEN to_regclass('public.' || t) IS NULL;
+
+    CONTINUE WHEN NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = t AND column_name = 'install_id'
+    );
+
+    CONTINUE WHEN EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = t AND column_name = 'site_id'
+    );
+
+    EXECUTE format('SELECT count(*) FROM public.%I', t) INTO n;
+    IF n > 0 THEN
+      RAISE EXCEPTION
+        'public.% has the old install_id shape and % row(s) in it. Storelib AI needs a site_id-keyed table of the same name. Move or delete those rows, then re-run this migration.',
+        t, n;
+    END IF;
+
+    EXECUTE format('DROP TABLE public.%I', t);
+    RAISE NOTICE 'Dropped empty legacy table public.% (install_id shape).', t;
+  END LOOP;
+END;
+$reconcile$;
+
 -- ── sites ────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS sites (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -216,6 +216,240 @@ check(
   })(),
 )
 
+/**
+ * ===========================================================================
+ *  THE SECOND PASTE FILE: CREATOR PAGE, STORE BUILDER, STORELIB AI
+ * ===========================================================================
+ *
+ * Same contract as RUN_EVERYTHING, and it exists because a paste of the five
+ * "pending" migrations died on its second statement with
+ *
+ *   ERROR: 42P01: relation "public.store_builder_configs" does not exist
+ *
+ * — a table roughly thirty call sites read and write, and that NOTHING IN THIS
+ * REPOSITORY CREATED. It had been made by hand in the Supabase dashboard, so
+ * migrations that indexed it and back-filled it ran fine against the one
+ * database that happened to have it and failed everywhere else.
+ *
+ * The checks below are the invariants that were actually violated, not a
+ * restatement of the file's shape.
+ */
+const SITES_AGGREGATE = "supabase/sql/RUN_CREATOR_PAGE_AND_SITES.sql"
+
+/** Duplicated from the generator, deliberately — see the note on SECTIONS. */
+const SITES_SECTIONS = [
+  "supabase/migrations/20260317000000_website_builder.sql",
+  "supabase/migrations/20260407_website_builder_public_read_hardened.sql",
+  "supabase/migrations/20260115_store_builder_configs_baseline.sql",
+  "supabase/migrations/20260731_follows.sql",
+  "supabase/migrations/20260906_subscribe_bar_sticky_default.sql",
+  "supabase/migrations/20260908_storelib_sites.sql",
+  "supabase/migrations/20260909_creator_page_backfill.sql",
+  "supabase/migrations/20260910_sites_projects.sql",
+]
+
+console.log("\nRUN_CREATOR_PAGE_AND_SITES.sql is a faithful concatenation")
+
+const sitesAggregate = read(SITES_AGGREGATE)
+let sitesPreviousEnd = -1
+let sitesInOrder = true
+
+for (const path of SITES_SECTIONS) {
+  const body = read(path).trimEnd()
+  const at = sitesAggregate.indexOf(body)
+  check(`${path} appears verbatim`, at !== -1, at === -1 ? "      rebuild: node scripts/build-creator-page-sql.mjs" : undefined)
+  if (at !== -1) {
+    if (at < sitesPreviousEnd) sitesInOrder = false
+    sitesPreviousEnd = at + body.length
+  }
+}
+
+check("the sites sections are in the declared dependency order", sitesInOrder)
+
+/**
+ * The ordering rule that the original failure was made of. The baseline
+ * CREATES store_builder_configs; two later migrations UPDATE it. Reversed,
+ * the paste dies on its first UPDATE and every section after it is skipped.
+ */
+const baseline = "supabase/migrations/20260115_store_builder_configs_baseline.sql"
+check(
+  "the config tables are created before anything back-fills them",
+  (() => {
+    const created = sitesAggregate.indexOf(read(baseline).trimEnd())
+    const sticky = sitesAggregate.indexOf(read("supabase/migrations/20260906_subscribe_bar_sticky_default.sql").trimEnd())
+    const page = sitesAggregate.indexOf(read("supabase/migrations/20260909_creator_page_backfill.sql").trimEnd())
+    return created !== -1 && created < sticky && created < page
+  })(),
+)
+
+/**
+ * And the same rule one level up: 20260908 ALTERs store_theme_installs, which
+ * only the website_builder migration creates.
+ */
+check(
+  "the theme tables are created before anything alters them",
+  sitesAggregate.indexOf(read("supabase/migrations/20260317000000_website_builder.sql").trimEnd()) <
+    sitesAggregate.indexOf(read("supabase/migrations/20260908_storelib_sites.sql").trimEnd()),
+)
+
+/**
+ * ===========================================================================
+ *  THE BASELINE MUST NOT TOUCH A LIVE DATABASE'S SECURITY
+ * ===========================================================================
+ *
+ * Production configured RLS on these tables by hand, months ago, and this
+ * repository cannot see what those policies say. An unconditional
+ * ENABLE ROW LEVEL SECURITY would take every creator page offline in one
+ * statement. So the security block runs only where there are no policies at
+ * all — which is the signature of a table this migration just created.
+ */
+// Comments stripped: this file EXPLAINS what it must not do, and a guard
+// that reads its own explanation as a violation is not a guard.
+const baselineSql = read(baseline).replace(/^\s*--.*$/gm, "")
+
+check(
+  "the baseline never enables RLS outside the guarded block",
+  (() => {
+    const guarded = baselineSql.slice(baselineSql.indexOf("$baseline_rls$"))
+    const all = baselineSql.match(/ENABLE ROW LEVEL SECURITY/g) ?? []
+    const inside = guarded.match(/ENABLE ROW LEVEL SECURITY/g) ?? []
+    return all.length > 0 && all.length === inside.length
+  })(),
+)
+
+check(
+  "and it skips a table that already has policies",
+  /CONTINUE WHEN EXISTS \(\s*SELECT 1 FROM pg_policies/.test(baselineSql),
+)
+
+check(
+  "the baseline drops nothing",
+  !/\bDROP\s+(TABLE|COLUMN|POLICY|CONSTRAINT)\b/i.test(baselineSql.replace(/--[^\n]*/g, "")),
+)
+
+/**
+ * A unique index on a table that already holds duplicates fails, and this
+ * migration must never be the thing that stops a deployment. It checks first
+ * and reports instead — picking which of two configs is real is a judgement
+ * call, not a migration.
+ */
+check(
+  "the unique indexes are only created when the data already satisfies them",
+  /RAISE WARNING/.test(baselineSql) && /HAVING count\(\*\) > 1/.test(baselineSql),
+)
+
+/**
+ * ===========================================================================
+ *  THE THREE TABLE NAMES THE TWO SITES MIGRATIONS BOTH WANTED
+ * ===========================================================================
+ *
+ * 20260908 was written under the section-JSON design and created
+ * site_versions / site_form_submissions / site_integrations keyed off
+ * `install_id`. 20260910 creates the same three names keyed off `site_id`.
+ * CREATE TABLE IF NOT EXISTS does not reconcile a shape — it SKIPS — so on any
+ * database that ran the first, the second silently got the wrong tables and
+ * then died building an index on a column that was never there.
+ */
+const older = read("supabase/migrations/20260908_storelib_sites.sql").replace(/^\s*--.*$/gm, "")
+const newer = read("supabase/migrations/20260910_sites_projects.sql").replace(/^\s*--.*$/gm, "")
+const COLLIDING = ["site_versions", "site_form_submissions", "site_integrations"]
+
+check(
+  "only one of the two sites migrations creates the colliding tables",
+  COLLIDING.every((t) => !new RegExp(String.raw`CREATE TABLE IF NOT EXISTS ${t}\b`, "i").test(older)),
+)
+
+check(
+  "and the survivor keys them off site_id",
+  COLLIDING.every((t) => new RegExp(String.raw`CREATE TABLE IF NOT EXISTS ${t}\s*\(`, "i").test(newer)) &&
+    // `install_id` appears in the reconcile block by necessity — that block
+    // exists to FIND the old shape. What must not carry it is anything the
+    // migration creates, so the check starts after the reconcile block ends.
+    !newer.slice(newer.indexOf("$reconcile$;")).includes("install_id"),
+)
+
+/**
+ * A DROP TABLE in a migration earns its guards. All three, because any one of
+ * them alone would let it destroy a table it does not understand.
+ */
+check(
+  "the legacy drop refuses a table that is not empty",
+  /RAISE EXCEPTION/.test(newer) && /row\(s\) in it/.test(newer),
+)
+
+check(
+  "the legacy drop requires the old shape and the absence of the new one",
+  /column_name = 'install_id'/.test(newer) && /column_name = 'site_id'/.test(newer),
+)
+
+/**
+ * ===========================================================================
+ *  A FILTER THAT MATCHES NOTHING IS WORSE THAN NO FILTER
+ * ===========================================================================
+ *
+ * The video relabel was gated on `config::text LIKE '%"type":"youtube"%'`.
+ * Postgres renders jsonb back to text with a SPACE after every colon, so the
+ * stored form is `"type": "youtube"` and the pattern never matched — the
+ * section had been a no-op on every database it ever ran against, and looked
+ * completely fine.
+ */
+const backfill = read("supabase/migrations/20260909_creator_page_backfill.sql").replace(/^\s*--.*$/gm, "")
+
+check(
+  "the backfill does not filter jsonb by matching its text rendering",
+  !/::text\s+LIKE/i.test(backfill),
+)
+
+check(
+  "it tests the document instead",
+  /jsonb_array_elements\([^)]*mediaItems/.test(backfill) && /m ->> 'type' = 'youtube'/.test(backfill),
+)
+
+/**
+ * jsonb_array_elements() ERRORS on a value that is not an array, and
+ * `config ? 'sections'` says only that the key exists. One config with
+ * `"sections": {}` would abort the whole migration.
+ */
+check(
+  "every array walk checks it is walking an array",
+  (() => {
+    const walks = backfill.split("jsonb_array_elements(").length - 1
+    const typed = (backfill.match(/jsonb_typeof\([^)]*-> 'sections'\) = 'array'/g) ?? []).length
+    return walks > 0 && typed === 4
+  })(),
+)
+
+/**
+ * jsonb_agg over an empty set returns NULL, and jsonb_set(col, path, NULL)
+ * returns NULL for the WHOLE COLUMN — a creator's page wiped rather than
+ * updated.
+ */
+check(
+  "no jsonb_agg reaches jsonb_set without a COALESCE",
+  (() => {
+    const aggs = backfill.split("jsonb_agg(").length - 1
+    const coalesced = (backfill.match(/COALESCE\(jsonb_agg\(/g) ?? []).length
+    return aggs > 0 && aggs === coalesced
+  })(),
+)
+
+check(
+  "the sites paste file says it is generated, and how to regenerate it",
+  /build-creator-page-sql\.mjs/.test(sitesAggregate),
+)
+
+check(
+  "it ends with a check row an operator can read, after the schema reload",
+  (() => {
+    const reload = sitesAggregate.lastIndexOf("notify pgrst, 'reload schema';")
+    return (
+      reload > sitesPreviousEnd &&
+      sitesAggregate.lastIndexOf("as creator_page_configs") > reload &&
+      sitesAggregate.includes("as legacy_shape_gone")
+    )
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

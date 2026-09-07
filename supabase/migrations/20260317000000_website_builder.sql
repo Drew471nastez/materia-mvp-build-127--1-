@@ -102,150 +102,268 @@ CREATE TABLE IF NOT EXISTS theme_publish_history (
 );
 
 -- ── 7. RLS Policies ──────────────────────────────────────────
+--
+-- Each CREATE POLICY is guarded rather than dropped-and-recreated.
+-- This file has to be safe to re-run against a database that already
+-- has these tables, and DROP POLICY on a live table opens a window —
+-- however short — where the table is readable by anyone the GRANTs
+-- allow. A skip has no such window.
 
 -- themes: public read, no write from clients
 ALTER TABLE themes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "themes_select_all" ON themes FOR SELECT USING (true);
+DO $pol_themes_select_all$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'themes' AND policyname = 'themes_select_all') THEN
+  CREATE POLICY "themes_select_all" ON themes FOR SELECT USING (true);
+  END IF;
+END;
+$pol_themes_select_all$;
 
 -- store_theme_installs
 ALTER TABLE store_theme_installs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "sti_select_own" ON store_theme_installs
-  FOR SELECT USING (
-    creator_id IN (
-      SELECT id FROM creators WHERE user_id = auth.uid()
-    )
-  );
+DO $pol_sti_select_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_installs' AND policyname = 'sti_select_own') THEN
+  CREATE POLICY "sti_select_own" ON store_theme_installs
+    FOR SELECT USING (
+      creator_id IN (
+        SELECT id FROM creators WHERE user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_sti_select_own$;
 
-CREATE POLICY "sti_insert_own" ON store_theme_installs
-  FOR INSERT WITH CHECK (
-    creator_id IN (
-      SELECT id FROM creators WHERE user_id = auth.uid()
-    )
-  );
+DO $pol_sti_insert_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_installs' AND policyname = 'sti_insert_own') THEN
+  CREATE POLICY "sti_insert_own" ON store_theme_installs
+    FOR INSERT WITH CHECK (
+      creator_id IN (
+        SELECT id FROM creators WHERE user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_sti_insert_own$;
 
-CREATE POLICY "sti_update_own" ON store_theme_installs
-  FOR UPDATE USING (
-    creator_id IN (
-      SELECT id FROM creators WHERE user_id = auth.uid()
-    )
-  );
+DO $pol_sti_update_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_installs' AND policyname = 'sti_update_own') THEN
+  CREATE POLICY "sti_update_own" ON store_theme_installs
+    FOR UPDATE USING (
+      creator_id IN (
+        SELECT id FROM creators WHERE user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_sti_update_own$;
 
-CREATE POLICY "sti_delete_own" ON store_theme_installs
-  FOR DELETE USING (
-    creator_id IN (
-      SELECT id FROM creators WHERE user_id = auth.uid()
-    )
-  );
+DO $pol_sti_delete_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_installs' AND policyname = 'sti_delete_own') THEN
+  CREATE POLICY "sti_delete_own" ON store_theme_installs
+    FOR DELETE USING (
+      creator_id IN (
+        SELECT id FROM creators WHERE user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_sti_delete_own$;
 
 -- store_theme_settings
 ALTER TABLE store_theme_settings ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "sts_select_own" ON store_theme_settings
-  FOR SELECT USING (
-    install_id IN (
-      SELECT sti.id FROM store_theme_installs sti
-      JOIN creators c ON c.id = sti.creator_id
-      WHERE c.user_id = auth.uid()
-    )
-  );
+DO $pol_sts_select_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_settings' AND policyname = 'sts_select_own') THEN
+  CREATE POLICY "sts_select_own" ON store_theme_settings
+    FOR SELECT USING (
+      install_id IN (
+        SELECT sti.id FROM store_theme_installs sti
+        JOIN creators c ON c.id = sti.creator_id
+        WHERE c.user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_sts_select_own$;
 
-CREATE POLICY "sts_insert_own" ON store_theme_settings
-  FOR INSERT WITH CHECK (
-    install_id IN (
-      SELECT sti.id FROM store_theme_installs sti
-      JOIN creators c ON c.id = sti.creator_id
-      WHERE c.user_id = auth.uid()
-    )
-  );
+DO $pol_sts_insert_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_settings' AND policyname = 'sts_insert_own') THEN
+  CREATE POLICY "sts_insert_own" ON store_theme_settings
+    FOR INSERT WITH CHECK (
+      install_id IN (
+        SELECT sti.id FROM store_theme_installs sti
+        JOIN creators c ON c.id = sti.creator_id
+        WHERE c.user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_sts_insert_own$;
 
-CREATE POLICY "sts_update_own" ON store_theme_settings
-  FOR UPDATE USING (
-    install_id IN (
-      SELECT sti.id FROM store_theme_installs sti
-      JOIN creators c ON c.id = sti.creator_id
-      WHERE c.user_id = auth.uid()
-    )
-  );
+DO $pol_sts_update_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_settings' AND policyname = 'sts_update_own') THEN
+  CREATE POLICY "sts_update_own" ON store_theme_settings
+    FOR UPDATE USING (
+      install_id IN (
+        SELECT sti.id FROM store_theme_installs sti
+        JOIN creators c ON c.id = sti.creator_id
+        WHERE c.user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_sts_update_own$;
 
 -- store_theme_pages
 ALTER TABLE store_theme_pages ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "stp_select_own" ON store_theme_pages
-  FOR SELECT USING (
-    install_id IN (
-      SELECT sti.id FROM store_theme_installs sti
-      JOIN creators c ON c.id = sti.creator_id
-      WHERE c.user_id = auth.uid()
-    )
-  );
+DO $pol_stp_select_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_pages' AND policyname = 'stp_select_own') THEN
+  CREATE POLICY "stp_select_own" ON store_theme_pages
+    FOR SELECT USING (
+      install_id IN (
+        SELECT sti.id FROM store_theme_installs sti
+        JOIN creators c ON c.id = sti.creator_id
+        WHERE c.user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_stp_select_own$;
 
-CREATE POLICY "stp_insert_own" ON store_theme_pages
-  FOR INSERT WITH CHECK (
-    install_id IN (
-      SELECT sti.id FROM store_theme_installs sti
-      JOIN creators c ON c.id = sti.creator_id
-      WHERE c.user_id = auth.uid()
-    )
-  );
+DO $pol_stp_insert_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_pages' AND policyname = 'stp_insert_own') THEN
+  CREATE POLICY "stp_insert_own" ON store_theme_pages
+    FOR INSERT WITH CHECK (
+      install_id IN (
+        SELECT sti.id FROM store_theme_installs sti
+        JOIN creators c ON c.id = sti.creator_id
+        WHERE c.user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_stp_insert_own$;
 
-CREATE POLICY "stp_update_own" ON store_theme_pages
-  FOR UPDATE USING (
-    install_id IN (
-      SELECT sti.id FROM store_theme_installs sti
-      JOIN creators c ON c.id = sti.creator_id
-      WHERE c.user_id = auth.uid()
-    )
-  );
+DO $pol_stp_update_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_pages' AND policyname = 'stp_update_own') THEN
+  CREATE POLICY "stp_update_own" ON store_theme_pages
+    FOR UPDATE USING (
+      install_id IN (
+        SELECT sti.id FROM store_theme_installs sti
+        JOIN creators c ON c.id = sti.creator_id
+        WHERE c.user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_stp_update_own$;
 
 -- store_theme_custom_files
 ALTER TABLE store_theme_custom_files ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "stcf_select_own" ON store_theme_custom_files
-  FOR SELECT USING (
-    install_id IN (
-      SELECT sti.id FROM store_theme_installs sti
-      JOIN creators c ON c.id = sti.creator_id
-      WHERE c.user_id = auth.uid()
-    )
-  );
+DO $pol_stcf_select_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_custom_files' AND policyname = 'stcf_select_own') THEN
+  CREATE POLICY "stcf_select_own" ON store_theme_custom_files
+    FOR SELECT USING (
+      install_id IN (
+        SELECT sti.id FROM store_theme_installs sti
+        JOIN creators c ON c.id = sti.creator_id
+        WHERE c.user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_stcf_select_own$;
 
-CREATE POLICY "stcf_insert_own" ON store_theme_custom_files
-  FOR INSERT WITH CHECK (
-    install_id IN (
-      SELECT sti.id FROM store_theme_installs sti
-      JOIN creators c ON c.id = sti.creator_id
-      WHERE c.user_id = auth.uid()
-    )
-  );
+DO $pol_stcf_insert_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_custom_files' AND policyname = 'stcf_insert_own') THEN
+  CREATE POLICY "stcf_insert_own" ON store_theme_custom_files
+    FOR INSERT WITH CHECK (
+      install_id IN (
+        SELECT sti.id FROM store_theme_installs sti
+        JOIN creators c ON c.id = sti.creator_id
+        WHERE c.user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_stcf_insert_own$;
 
-CREATE POLICY "stcf_update_own" ON store_theme_custom_files
-  FOR UPDATE USING (
-    install_id IN (
-      SELECT sti.id FROM store_theme_installs sti
-      JOIN creators c ON c.id = sti.creator_id
-      WHERE c.user_id = auth.uid()
-    )
-  );
+DO $pol_stcf_update_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_custom_files' AND policyname = 'stcf_update_own') THEN
+  CREATE POLICY "stcf_update_own" ON store_theme_custom_files
+    FOR UPDATE USING (
+      install_id IN (
+        SELECT sti.id FROM store_theme_installs sti
+        JOIN creators c ON c.id = sti.creator_id
+        WHERE c.user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_stcf_update_own$;
 
-CREATE POLICY "stcf_delete_own" ON store_theme_custom_files
-  FOR DELETE USING (
-    install_id IN (
-      SELECT sti.id FROM store_theme_installs sti
-      JOIN creators c ON c.id = sti.creator_id
-      WHERE c.user_id = auth.uid()
-    )
-  );
+DO $pol_stcf_delete_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'store_theme_custom_files' AND policyname = 'stcf_delete_own') THEN
+  CREATE POLICY "stcf_delete_own" ON store_theme_custom_files
+    FOR DELETE USING (
+      install_id IN (
+        SELECT sti.id FROM store_theme_installs sti
+        JOIN creators c ON c.id = sti.creator_id
+        WHERE c.user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_stcf_delete_own$;
 
 -- theme_publish_history
 ALTER TABLE theme_publish_history ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "tph_select_own" ON theme_publish_history
-  FOR SELECT USING (
-    creator_id IN (
-      SELECT id FROM creators WHERE user_id = auth.uid()
-    )
-  );
+DO $pol_tph_select_own$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'theme_publish_history' AND policyname = 'tph_select_own') THEN
+  CREATE POLICY "tph_select_own" ON theme_publish_history
+    FOR SELECT USING (
+      creator_id IN (
+        SELECT id FROM creators WHERE user_id = auth.uid()
+      )
+    );
+  END IF;
+END;
+$pol_tph_select_own$;
 
 -- ── 8. Seed: Built-in Themes ─────────────────────────────────
 

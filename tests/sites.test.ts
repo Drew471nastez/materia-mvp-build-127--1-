@@ -199,12 +199,24 @@ check(
       missing.push("existing home pages are not backfilled as the homepage")
     if (!/uniq_stp_install_homepage/.test(sql)) missing.push("a site may have two homepages")
 
-    // Every new table is owner-scoped through the same join the existing
-    // store_theme_* tables use. A public read here is a way to read drafts.
-    for (const table of ["site_versions", "site_form_submissions", "site_integrations", "site_template_purchases"]) {
-      if (!new RegExp(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`).test(sql))
-        missing.push(`${table} has no row-level security`)
+    /**
+     * site_versions, site_form_submissions and site_integrations USED to be
+     * created here, keyed off `install_id`. 20260910_sites_projects creates
+     * the same three names keyed off `site_id`, and CREATE TABLE IF NOT EXISTS
+     * skips rather than reconciles — so a database that ran this file first
+     * got the wrong three tables and 20260910 then died on a missing
+     * `site_id`. They belong to exactly one migration now, and this asserts it
+     * is not this one. (tests/sql-aggregate.test.ts checks the other half.)
+     */
+    for (const table of ["site_versions", "site_form_submissions", "site_integrations"]) {
+      if (new RegExp(`CREATE TABLE IF NOT EXISTS ${table}\\b`).test(sql))
+        missing.push(`${table} is created here as well as in 20260910`)
     }
+
+    // What this migration does still own is owner-scoped through the same
+    // join every store_theme_* table uses.
+    if (!/ALTER TABLE site_template_purchases ENABLE ROW LEVEL SECURITY/.test(sql))
+      missing.push("site_template_purchases has no row-level security")
     if (/USING \(true\)/.test(sql)) missing.push("something in the migration is world-readable")
 
     /**
@@ -354,7 +366,16 @@ check(
      * it is the difference between asserting a table is guarded and asserting
      * its name appears somewhere.
      */
-    const rlsArray = sql.slice(sql.indexOf("FOREACH t IN ARRAY ARRAY["), sql.indexOf("]", sql.indexOf("FOREACH t IN ARRAY ARRAY[")))
+    /**
+     * Anchored past the RLS heading, not on the file's FIRST FOREACH. The
+     * legacy-cleanup block at the top of that migration is also a
+     * `FOREACH t IN ARRAY ARRAY[...]`, over the three tables it drops — so an
+     * unanchored slice read the DROP list and reported six protected tables as
+     * unprotected. Which is the correct answer to the wrong question.
+     */
+    const rlsAt = sql.indexOf("ALTER TABLE sites ENABLE ROW LEVEL SECURITY")
+    const loopAt = sql.indexOf("FOREACH t IN ARRAY ARRAY[", rlsAt)
+    const rlsArray = rlsAt === -1 || loopAt === -1 ? "" : sql.slice(loopAt, sql.indexOf("]", loopAt))
     for (const t of tables) {
       if (!new RegExp(`CREATE TABLE IF NOT EXISTS ${t}\\b`).test(sql)) missing.push(`${t} is missing`)
       if (!rlsArray.includes(`'${t}'`)) missing.push(`${t} is not in the RLS loop`)
