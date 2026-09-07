@@ -20,6 +20,8 @@
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
 import { join } from "node:path"
+import { OFFERED_SOCIAL_PLATFORM_KEYS, resolveSocialInput } from "@/lib/social/platforms"
+import { toPublicHttpUrl } from "@/lib/url/public-url"
 import { isOptimizableImage, optimizedImageUrl, PORTRAIT_QUALITY } from "@/lib/images/optimized-url"
 import { stripComments } from "./_source"
 
@@ -920,31 +922,36 @@ check(
     if (!/\.eq\("id", user\.id\)/.test(api))
       missing.push("the profile update is not scoped to the signed-in user")
 
-    // Run the real cleaner.
-    const src = api.match(/function cleanUrl[\s\S]*?\n\}/)?.[0]
-    if (!src) {
-      missing.push("cleanUrl is gone — social URLs reach the page unchecked")
-    } else {
-      // The constants it closes over come from the same file, so they are
-      // lifted with it rather than restated here — a copy would drift.
-      const consts = api.match(/^const MAX_URL = \d+$/m)?.[0] ?? ""
-      if (!consts) missing.push("MAX_URL is gone from the save route — social URLs have no length bound")
-      // eslint-disable-next-line no-new-func
-      const cleanUrl = new Function(
-        `${consts}; ${src.replace(/: unknown/g, "").replace(/: string \| null/g, "")}; return cleanUrl`,
-      )() as (v: unknown) => string | null
-      if (cleanUrl("javascript:alert(1)") !== null) missing.push("cleanUrl lets a javascript: URL through")
-      // Not just the payload that happens to be an invalid port: one that
-      // parses cleanly as a URL is the case that would actually reach an href.
-      if (cleanUrl("javascript:void(0)") !== null) missing.push("cleanUrl lets a parseable javascript: URL through")
-      if (cleanUrl("data:text/html,<script>") !== null) missing.push("cleanUrl lets a data: URL through")
-      if (cleanUrl("vbscript:msgbox") !== null) missing.push("cleanUrl lets a vbscript: URL through")
-      if (cleanUrl("   ") !== null) missing.push("cleanUrl turns blank input into a link")
-      if (cleanUrl("notaurl") !== null) missing.push("cleanUrl accepts something with no host")
-      if (cleanUrl("instagram.com/me") !== "https://instagram.com/me")
-        missing.push("cleanUrl no longer accepts a bare host and adds https")
-      if (cleanUrl("https://x.com/me") !== "https://x.com/me") missing.push("cleanUrl mangles a valid https URL")
-    }
+    /**
+     * RUN THE REAL CLEANER — the module now, not a copy lifted out of the file
+     * with a regex and `new Function`. That trick worked while cleanUrl was
+     * self-contained and broke the moment it delegated, which is the honest
+     * signal that it was testing a transcription rather than the code.
+     */
+    if (!/cleanUrl\(body\.avatarUrl\)/.test(api) || !/cleanUrl\(body\.coverUrl\)/.test(api))
+      missing.push("the image URLs reach the page unchecked")
+
+    if (toPublicHttpUrl("javascript:alert(1)") !== null) missing.push("a javascript: URL gets through")
+    // Not just the payload that happens to be an invalid port: one that parses
+    // cleanly as a URL is the case that would actually reach an href.
+    if (toPublicHttpUrl("javascript:void(0)") !== null) missing.push("a parseable javascript: URL gets through")
+    if (toPublicHttpUrl("data:text/html,<script>") !== null) missing.push("a data: URL gets through")
+    if (toPublicHttpUrl("vbscript:msgbox") !== null) missing.push("a vbscript: URL gets through")
+    if (toPublicHttpUrl("   ") !== null) missing.push("blank input becomes a link")
+    if (toPublicHttpUrl("notaurl") !== null) missing.push("something with no host is accepted")
+    /**
+     * `../../evil` has slashes, so it is treated as a URL; it then parses with
+     * a hostname of `..`, which contains a dot — and "contains a dot" was the
+     * whole hostname check. `https://../evil` was saved and rendered. Found by
+     * a test feeding the resolver its own edge cases.
+     */
+    if (toPublicHttpUrl("../../evil") !== null) missing.push("a relative path is accepted as a hostname")
+    if (toPublicHttpUrl("https://../x") !== null) missing.push("`..` is accepted as a hostname")
+    if (toPublicHttpUrl("https://x./y") !== null) missing.push("a trailing-dot host with no TLD is accepted")
+    if (toPublicHttpUrl("instagram.com/me") !== "https://instagram.com/me")
+      missing.push("a bare host with a path is no longer accepted")
+    if (toPublicHttpUrl("https://x.com/me") !== "https://x.com/me") missing.push("a valid https URL is mangled")
+    if (toPublicHttpUrl("x".repeat(400)) !== null) missing.push("the length bound is gone")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -1079,13 +1086,16 @@ check(
      * on white, grey on black, and a creator's own text colour without anyone
      * passing one. Screenshotted on both backgrounds.
      */
-    const icons = code("components/store-builder/social-media-icons.tsx")
+    // The marks moved to components/social so the dialog could use the same
+    // ones; the row that renders them, and its colour default, did not.
+    const icons = code("components/social/platform-icons.tsx")
+    const row = code("components/store-builder/social-media-icons.tsx")
     const header = code("components/store-builder/unified-section-renderer.tsx")
     const missing: string[] = []
 
     if (!/stroke: "currentColor"/.test(icons)) missing.push("the marks are not stroked in currentColor any more")
     if (/fill="#|fill={color}/.test(icons)) missing.push("a mark is painted with a fixed fill again")
-    if (!/iconColor = "currentColor"/.test(icons))
+    if (!/iconColor = "currentColor"/.test(row))
       missing.push("the default icon colour is a fixed value again — it will vanish on a dark page")
     if (/iconColor=\{settings\.textsColor/.test(header))
       missing.push("the header passes a hardcoded colour again instead of letting the row decide")
@@ -1696,7 +1706,26 @@ check(
       missing.push("the dialog scrolls as one piece again — Save goes below the fold")
     if (!/min-h-0 flex-1 space-y-5 overflow-y-auto/.test(dialog))
       missing.push("the dialog body is not the part that scrolls")
-    if (!/DialogFooter className="shrink-0/.test(dialog)) missing.push("the footer can be pushed off screen again")
+    if (!/DialogFooter className="grid shrink-0/.test(dialog))
+      missing.push("the footer can be pushed off screen again")
+
+    /**
+     * CANCEL LEFT, SAVE RIGHT, EQUAL WIDTHS.
+     *
+     * DialogFooter's default is `sm:justify-end`, which put both buttons in
+     * the right-hand corner sized to their own words — "Cancel" narrower than
+     * "Save", the pair huddled in the corner of a 512px dialog with a stretch
+     * of empty white beside them, and the destructive choice nearer the middle
+     * where a thumb lands. A two-column grid gives them the width and puts
+     * each at the end it belongs to.
+     */
+    if (!/grid-cols-2 gap-3 border-t/.test(dialog))
+      missing.push("the footer buttons are not two equal columns")
+    if (!/sm:justify-stretch/.test(dialog))
+      missing.push("DialogFooter's sm:justify-end is winning again — the buttons will bunch up on the right")
+    const buttons = dialog.match(/<Button[\s\S]*?Cancel[\s\S]*?<\/Button>[\s\S]*?<Button[\s\S]*?Save/)?.[0] ?? ""
+    if ((buttons.match(/className="w-full"/g) || []).length < 2)
+      missing.push("one of the footer buttons no longer fills its column")
 
     // The banner may be removed; the avatar may not.
     const banner = dialog.slice(dialog.indexOf('bucket="covers"'), dialog.indexOf('bucket="avatars"'))
@@ -2176,6 +2205,152 @@ check(
       missing.push("the leave-alone list is declared but never consulted")
     if (!/while \(width > targetWidth \* 2/.test(compress))
       missing.push("the stepwise halving is gone — a 4032px photo resampled in one draw aliases badly")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "there is one list of social platforms, and a handle is a handle",
+  (() => {
+    /**
+     * THERE WERE FIVE COPIES. The edit-profile dialog, the store builder's
+     * header panel, the store builder's social-icons panel, the storefront's
+     * icon row, and the API route — each with its own order, its own labels,
+     * and its own idea of what you were allowed to type. Adding a platform
+     * meant finding all five; missing one meant a field a creator could fill
+     * in that saved nothing, or an icon on the page with nothing behind it.
+     *
+     * `enabled` was removed for exactly this reason and this is the same bug
+     * one level up.
+     *
+     * AND "Username or URL" WAS A LIE. The old rule prefixed https:// onto
+     * anything without a scheme and then required a dot in the hostname, so
+     * `andrew.rullz` — an ordinary Instagram handle, and the one in the report
+     * — was saved as `https://andrew.rullz/`, a link to a domain that does not
+     * exist. `andrewrullz`, with no dot, was rejected silently: the field just
+     * emptied itself on save. The real function is run here, because what it
+     * accepts is the whole of what the placeholder promises.
+     */
+    const dialog = code("components/storefront/edit-profile-button.tsx")
+    const sidebar = code("components/store-builder/sections-sidebar.tsx")
+    const row = code("components/store-builder/social-media-icons.tsx")
+    const api = code("app/api/creator-profile/route.ts")
+    const missing: string[] = []
+
+    // Nobody may declare their own list any more.
+    for (const [name, src] of [
+      ["the edit-profile dialog", dialog],
+      ["the store builder sidebar", sidebar],
+      ["the storefront icon row", row],
+      ["the API route", api],
+    ] as const) {
+      if (/\["instagram", "tiktok"|"instagram" as const, Icon|instagram: "Instagram"/.test(src))
+        missing.push(`${name} has its own copy of the platform list again`)
+    }
+    // `\b` matters: without it a renamed `<SocialLinksEditorX` satisfies the
+    // check, which is exactly how a break-test found this guard was loose.
+    if (!/<SocialLinksEditor\b/.test(dialog)) missing.push("the dialog no longer uses the shared editor")
+    if ((sidebar.match(/<SocialLinksEditor\b/g) || []).length < 2)
+      missing.push("the store builder has gone back to hand-rolling its social inputs")
+
+    // The seven that were asked for, in order.
+    const expected = ["tiktok", "instagram", "facebook", "youtube", "linkedin", "twitter", "twitch"]
+    if (JSON.stringify([...OFFERED_SOCIAL_PLATFORM_KEYS]) !== JSON.stringify(expected))
+      missing.push(`the offered platforms changed: ${OFFERED_SOCIAL_PLATFORM_KEYS.join(", ")}`)
+
+    // A handle becomes that platform's profile, on every platform.
+    const handles: Array<[string, string]> = [
+      ["instagram", "https://www.instagram.com/andrew.rullz"],
+      ["tiktok", "https://www.tiktok.com/@andrew.rullz"],
+      ["youtube", "https://www.youtube.com/@andrew.rullz"],
+      ["twitter", "https://x.com/andrew.rullz"],
+      ["facebook", "https://www.facebook.com/andrew.rullz"],
+      ["linkedin", "https://www.linkedin.com/in/andrew.rullz"],
+      ["twitch", "https://www.twitch.tv/andrew.rullz"],
+    ]
+    for (const [key, want] of handles) {
+      const got = resolveSocialInput(key as never, "andrew.rullz")
+      if (got !== want) missing.push(`a ${key} handle resolves to ${got} instead of ${want}`)
+    }
+    if (resolveSocialInput("instagram" as never, "@andrew") !== "https://www.instagram.com/andrew")
+      missing.push("a leading @ is no longer stripped from a handle")
+    if (resolveSocialInput("instagram" as never, "andrewrullz") !== "https://www.instagram.com/andrewrullz")
+      missing.push("a handle with no dot is rejected again — the field empties itself on save")
+
+    // A real URL is still a URL.
+    if (resolveSocialInput("instagram" as never, "instagram.com/andrew") !== "https://instagram.com/andrew")
+      missing.push("a pasted URL is no longer kept as one")
+
+    /**
+     * The protocol allowlist is the point of this function: these end up in an
+     * href on a public page. They carry a scheme, so they never reach the
+     * handle branch — but the handle branch must not become a way around it.
+     */
+    for (const nasty of [
+      "javascript:alert(1)",
+      "javascript:void(0)",
+      "data:text/html,<script>",
+      "vbscript:msgbox",
+      "JavaScript:alert(1)",
+    ]) {
+      if (resolveSocialInput("instagram" as never, nasty) !== null)
+        missing.push(`resolveSocialInput lets ${nasty} through`)
+    }
+    // And a handle cannot reshape the URL it is pasted into.
+    for (const nasty of ["../../evil", "a?x=1", "a#b", "a\\b"]) {
+      const got = resolveSocialInput("instagram" as never, nasty)
+      if (got !== null && !got.startsWith("https://www.instagram.com/"))
+        missing.push(`the handle "${nasty}" escaped its platform: ${got}`)
+    }
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "both product grids break at the same widths",
+  (() => {
+    /**
+     * TWO DEFINITIONS OF "MOBILE" ON ONE PAGE.
+     *
+     * The Featured rail picked its column count from a JS media query at
+     * `max-width: 768px`; the Products tab used Tailwind's `sm:`, which is
+     * 640px. Between those two numbers the tabs disagreed — measured at 700px,
+     * Home drew ONE column of 668px cards and Products drew TWO of 326px, so
+     * switching tab halved every card and pulled the grid up by more than a
+     * screen: 2472px of grid against 922px. Measured after, at 600 / 700 / 760
+     * / 800 / 1100: identical column count, card width and grid height on both
+     * tabs at every one.
+     *
+     * One of the two being JavaScript is what kept it hidden — it only showed
+     * in a window that happened to be that wide, and it also meant the first
+     * paint was always the desktop layout with a phone re-laying-out a frame
+     * later.
+     *
+     * The creator's `mobileListing` choice is still the phone layout; it is
+     * the base class now, with the same `sm:`/`lg:` steps above it that the
+     * Products grid has. `isMobile` — the builder's phone preview, where the
+     * frame is narrow but the viewport is not — is the one case CSS cannot
+     * see, so it is the one case still branched on.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const grid = code("components/storefront/all-products-grid.tsx")
+    const missing: string[] = []
+
+    const featured = renderer.slice(renderer.indexOf("function UnifiedFeaturedProductsSection"))
+    const body = featured.slice(0, featured.search(/\n(export )?function /) + 1 || undefined)
+
+    if (/matchMedia/.test(body))
+      missing.push("the featured rail decides its layout in JavaScript again — it will disagree with the Products tab between the two breakpoints")
+    if (/runtimeIsMobile|uiIsMobile/.test(body))
+      missing.push("the JS 'is this mobile' flag is back in the featured rail")
+    if (!/!isMobile && "sm:grid-cols-2 lg:grid-cols-3"/.test(body))
+      missing.push("the featured grid no longer steps at sm and lg")
+    if (!/"grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"/.test(grid))
+      missing.push("the Products grid changed its steps — the two must match")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0

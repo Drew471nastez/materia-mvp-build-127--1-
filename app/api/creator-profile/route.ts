@@ -27,55 +27,40 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 import type { ShopHeaderSettings, SocialLinksConfig } from "@/lib/store-builder/types"
+import { SOCIAL_PLATFORM_KEYS, resolveSocialInput, type SocialPlatformKey } from "@/lib/social/platforms"
+import { toPublicHttpUrl } from "@/lib/url/public-url"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
-const PLATFORMS = ["instagram", "tiktok", "youtube", "twitter", "spotify"] as const
-type Platform = (typeof PLATFORMS)[number]
+// The list lives in lib/social/platforms. It used to be a third copy — the
+// dialog had one, the icons had one, and this had one, so a platform added in
+// two of the three was a field a creator could fill in that never appeared.
+const PLATFORMS = SOCIAL_PLATFORM_KEYS
+type Platform = SocialPlatformKey
 
 const MAX_NAME = 60
 const MAX_BIO = 500
 const MAX_URL = 300
 
 /**
- * A social link is a public profile URL and nothing else. `javascript:` and
- * `data:` URLs are rendered into an href on a public page, so they are exactly
- * the thing to keep out — protocol is checked against an allowlist rather than
- * a blocklist, and anything unparseable is rejected rather than passed through.
+ * An avatar or cover URL. Rendered into a `src` on a public page, so it goes
+ * through the same allowlist a social link does — see lib/url/public-url.ts,
+ * which is where the `javascript:` refusal and the "a hostname is not just a
+ * string with a dot in it" rule both live.
+ *
+ * Social links do NOT come through here any more: they go to
+ * resolveSocialInput, which understands a bare handle as well as a URL.
  */
 function cleanUrl(raw: unknown): string | null {
-  if (typeof raw !== "string") return null
-  const value = raw.trim()
-  if (!value) return null
-  if (value.length > MAX_URL) return null
-  /**
-   * A scheme the creator typed is honoured only if it is http(s). Anything
-   * else — javascript:, data:, vbscript: — is refused here rather than being
-   * prefixed into something that happens not to parse. It did happen not to
-   * parse, which is not the same as being rejected on purpose: `javascript:`
-   * survived the prefixing only because "alert(1)" is an invalid port, and a
-   * payload that parsed would have gone straight into an href on a public page.
-   */
-  const scheme = value.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase()
-  if (scheme && scheme !== "http" && scheme !== "https") return null
-
-  const withScheme = scheme ? value : `https://${value}`
-  try {
-    const url = new URL(withScheme)
-    if (url.protocol !== "http:" && url.protocol !== "https:") return null
-    if (!url.hostname.includes(".")) return null
-    return url.toString()
-  } catch {
-    return null
-  }
+  return toPublicHttpUrl(raw, MAX_URL)
 }
 
 function buildSocialLinks(input: unknown, existing?: SocialLinksConfig): SocialLinksConfig {
   const source = (input && typeof input === "object" ? input : {}) as Record<string, unknown>
   const out = {} as SocialLinksConfig
   for (const key of PLATFORMS) {
-    const url = cleanUrl(source[key])
+    const url = resolveSocialInput(key, source[key])
     // `enabled` is kept only because the stored shape has the field; nothing
     // reads it any more. A URL is what shows an icon, and clearing the field
     // is what removes it — see the note in social-media-icons.tsx.
@@ -84,7 +69,10 @@ function buildSocialLinks(input: unknown, existing?: SocialLinksConfig): SocialL
   // Anything the caller did not mention at all keeps whatever was stored.
   if (existing) {
     for (const key of PLATFORMS) {
-      if (!(key in source)) out[key] = existing[key] ?? out[key]
+      // `existing[key]` is optional for the platforms added after the shape
+      // was first written, so a stored config from before them has nothing
+      // there — which is what `?? out[key]` is for.
+      if (!(key in source)) out[key] = existing[key] ?? out[key]!
     }
   }
   return out

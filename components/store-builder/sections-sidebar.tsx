@@ -135,6 +135,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { SocialLinksEditor } from "@/components/social/social-links-editor"
+import { SOCIAL_PLATFORM_KEYS, type SocialPlatformKey } from "@/lib/social/platforms"
 import {
   Tooltip,
   TooltipContent,
@@ -1000,71 +1002,38 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   )}
                 </div>
 
-                {(
-                  <div className="space-y-3">
-                    <Label className="text-sm font-medium">Social Platforms</Label>
-                    {(["instagram", "tiktok", "youtube", "twitter", "spotify"] as const).map((platform) => {
-                      const platformNames: Record<typeof platform, string> = {
-                        instagram: "Instagram",
-                        tiktok: "TikTok",
-                        youtube: "YouTube",
-                        twitter: "X (Twitter)",
-                        spotify: "Spotify",
-                      }
-                      const shopHeader = headerSettings as ShopHeaderSettings
-                      const socialLinks = shopHeader.socialLinks || {
-                        instagram: { enabled: true, url: "" },
-                        tiktok: { enabled: true, url: "" },
-                        youtube: { enabled: true, url: "" },
-                        twitter: { enabled: true, url: "" },
-                        spotify: { enabled: false, url: "" },
-                      }
-
-                      return (
-                        <div key={platform} className="space-y-2 rounded-lg border border-border p-3">
-                          {/*
-                            NO PER-PLATFORM TOGGLE. Typing a URL in is what
-                            turns the icon on and clearing the field is what
-                            turns it off — one control, visible from the page.
-                            Before, a link could be invisible because of this
-                            switch, or the master one above it, with no way to
-                            tell which.
-                          */}
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm font-normal">{platformNames[platform]}</Label>
-                          </div>
-                          {(
-                            <Input
-                              value={socialLinks[platform].url}
-                              onChange={(e) => {
-                                let value = e.target.value
-                                // Auto-convert @username to full URL for Instagram and TikTok
-                                if (platform === "instagram" && value.startsWith("@")) {
-                                  value = `https://instagram.com/${value.replace("@", "")}`
-                                } else if (platform === "tiktok" && value.startsWith("@")) {
-                                  value = `https://tiktok.com/@${value.replace("@", "")}`
-                                }
-                                const newSocialLinks = {
-                                  ...socialLinks,
-                                  [platform]: { ...socialLinks[platform], url: value },
-                                }
-                                updateHeaderSettings({ socialLinks: newSocialLinks })
-                              }}
-                              placeholder={
-                                platform === "instagram" ? "@username or https://instagram.com/..." :
-                                platform === "tiktok" ? "@username or https://tiktok.com/..." :
-                                platform === "youtube" ? "https://youtube.com/@username" :
-                                platform === "twitter" ? "https://x.com/..." :
-                                `https://${platform}.com/...`
-                              }
-                              className="h-8 text-sm"
-                            />
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
+                {/*
+                  ONE EDITOR, shared with the storefront's own Edit-profile
+                  dialog and with the social panel further down this same file.
+                  This block used to be its own copy of the platform list, with
+                  its own placeholders and an @-handle rule that applied to
+                  Instagram and TikTok and nothing else. NO PER-PLATFORM
+                  TOGGLE: typing a link in is what turns the icon on, clearing
+                  it is what turns it off.
+                */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Social Platforms</Label>
+                  {(() => {
+                    const shopHeader = headerSettings as ShopHeaderSettings
+                    const socialLinks = shopHeader.socialLinks || ({} as SocialLinksConfig)
+                    return (
+                      <SocialLinksEditor
+                        compact
+                        value={Object.fromEntries(
+                          SOCIAL_PLATFORM_KEYS.map((key) => [key, socialLinks[key]?.url || ""]),
+                        )}
+                        onChange={(key, url) =>
+                          updateHeaderSettings({
+                            socialLinks: {
+                              ...socialLinks,
+                              [key]: { ...socialLinks[key], url, enabled: !!url.trim() },
+                            },
+                          })
+                        }
+                      />
+                    )
+                  })()}
+                </div>
               </>
             )}
 
@@ -2150,36 +2119,8 @@ function ShopHeaderSettingsForm({
     }
   }
 
-  const validateSocialUrl = (platform: keyof SocialLinksConfig, url: string): string | null => {
-    if (!url) return null
-    const patterns: Record<keyof SocialLinksConfig, RegExp> = {
-      instagram: /instagram\.com/i,
-      tiktok: /tiktok\.com/i,
-      youtube: /youtube\.com|youtu\.be/i,
-      twitter: /x\.com|twitter\.com/i,
-      spotify: /spotify\.com/i,
-    }
-    if (!patterns[platform].test(url)) {
-      const platformNames: Record<keyof SocialLinksConfig, string> = {
-        instagram: "Instagram",
-        tiktok: "TikTok",
-        youtube: "YouTube",
-        twitter: "X (Twitter)",
-        spotify: "Spotify",
-      }
-      return `URL doesn't appear to be a ${platformNames[platform]} link`
-    }
-    return null
-  }
-
   // Initialize social links if not present
-  const socialLinks: SocialLinksConfig = settings.socialLinks || {
-    instagram: { enabled: true, url: "" },
-    tiktok: { enabled: true, url: "" },
-    youtube: { enabled: true, url: "" },
-    twitter: { enabled: true, url: "" },
-    spotify: { enabled: false, url: "" },
-  }
+  const socialLinks: SocialLinksConfig = settings.socialLinks || ({} as SocialLinksConfig)
 
   /**
    * The URL is the only field anything writes now. `enabled` used to be
@@ -2188,7 +2129,7 @@ function ShopHeaderSettingsForm({
    * option nobody is supposed to use. The field survives in the stored shape
    * for old configs; nothing reads it.
    */
-  const handleSocialLinkChange = (platform: keyof SocialLinksConfig, url: string) => {
+  const handleSocialLinkChange = (platform: SocialPlatformKey, url: string) => {
     onChange({
       socialLinks: {
         ...socialLinks,
@@ -2474,44 +2415,21 @@ function ShopHeaderSettingsForm({
               onChange={(value) => onChange({ socialMediaIconColor: value })}
             />
 
-            <div className="space-y-3">
-              {(["instagram", "tiktok", "youtube", "twitter", "spotify"] as const).map((platform) => {
-                const platformNames: Record<typeof platform, string> = {
-                  instagram: "Instagram",
-                  tiktok: "TikTok",
-                  youtube: "YouTube",
-                  twitter: "X (Twitter)",
-                  spotify: "Spotify",
-                }
-                const warning = validateSocialUrl(platform, socialLinks[platform].url)
+            {/*
+              The same editor again — this was the fifth copy of the list.
 
-                return (
-                  <div key={platform} className="space-y-2">
-                    {/* No per-platform toggle — see the note in the header
-                        panel. The URL field is the only control. */}
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-normal">{platformNames[platform]}</Label>
-                    </div>
-                    {(
-                      <div className="space-y-1">
-                        <Input
-                          value={socialLinks[platform].url}
-                          onChange={(e) => handleSocialLinkChange(platform, e.target.value)}
-                          placeholder={`https://${platform === "twitter" ? "x" : platform}.com/...`}
-                          className="h-8 text-sm"
-                        />
-                        {warning && (
-                          <div className="flex items-center gap-1.5 text-xs text-amber-600">
-                            <AlertCircle className="h-3 w-3" />
-                            {warning}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+              THE AMBER "URL doesn't appear to be an Instagram link" WARNING IS
+              GONE WITH IT. It matched the hostname against a regex, so a
+              perfectly good `instagr.am/x` short link was flagged and a
+              nonsense `instagram.com.evil.tld` was not; and it was only a
+              warning, so it stopped nobody. What a link has to be is decided
+              on the server, where it is stored.
+            */}
+            <SocialLinksEditor
+              compact
+              value={Object.fromEntries(SOCIAL_PLATFORM_KEYS.map((key) => [key, socialLinks[key]?.url || ""]))}
+              onChange={handleSocialLinkChange}
+            />
           </div>
         )}
       </div>

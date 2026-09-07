@@ -1278,6 +1278,9 @@ export const defaultShopHeaderSettings: ShopHeaderSettings = {
     youtube: { enabled: true, url: "" },
     twitter: { enabled: true, url: "" },
     spotify: { enabled: false, url: "" },
+    facebook: { enabled: false, url: "" },
+    linkedin: { enabled: false, url: "" },
+    twitch: { enabled: false, url: "" },
   },
   faviconUrl: undefined,
   colors: {

@@ -30,12 +30,23 @@ export interface SocialMediaLink {
   url: string
 }
 
+/**
+ * The three added later are optional because every stored config predates
+ * them: making them required would mean every existing row failed to typecheck
+ * against its own shape. Readers already use `socialLinks[key]?.url`.
+ *
+ * The keys themselves are declared in lib/social/platforms.ts — that is the
+ * list the editor, the icons and the API all read.
+ */
 export interface SocialLinksConfig {
   instagram: SocialMediaLink
   tiktok: SocialMediaLink
   youtube: SocialMediaLink
   twitter: SocialMediaLink
   spotify: SocialMediaLink
+  facebook?: SocialMediaLink
+  linkedin?: SocialMediaLink
+  twitch?: SocialMediaLink
 }
 
 // Navigation link for header

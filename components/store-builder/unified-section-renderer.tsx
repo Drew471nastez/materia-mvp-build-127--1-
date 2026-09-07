@@ -2187,7 +2187,7 @@ function UnifiedFeaturedProductsSection({
    */
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<"recent" | "oldest" | "price-low" | "price-high" | "popular">("recent")
-  const [runtimeIsMobile, setRuntimeIsMobile] = useState(false)
+
   const sortTouch = useRef({
     startX: 0,
     startY: 0,
@@ -2242,24 +2242,14 @@ function UnifiedFeaturedProductsSection({
     }
   }
 
-  useEffect(() => {
-    // If parent already forces mobile (Store Builder preview), trust it.
-    if (isMobile) {
-      setRuntimeIsMobile(true)
-      return
-    }
-
-    // Otherwise detect real viewport (published site on phone)
-    const mq = window.matchMedia("(max-width: 768px)")
-    const update = () => setRuntimeIsMobile(mq.matches)
-
-    update()
-    mq.addEventListener?.("change", update)
-
-    return () => mq.removeEventListener?.("change", update)
-  }, [isMobile])
-
-  const uiIsMobile = isMobile || runtimeIsMobile
+  /**
+   * The `matchMedia("(max-width: 768px)")` that used to live here is gone.
+   *
+   * It decided the column count, and Tailwind's `sm:` decided the Products
+   * tab's — two breakpoints 128px apart for one grid. It also ran in an
+   * effect, so the first paint was always the desktop layout and a phone
+   * re-laid-out a frame later. Both are CSS now.
+   */
 
   /**
    * Filtering happens on the click, not 50ms after it.
@@ -2427,7 +2417,10 @@ function UnifiedFeaturedProductsSection({
             <h2
               className={cn(
                 "font-semibold",
-                uiIsMobile ? "text-lg" : "text-xl sm:text-2xl",
+                // Also a CSS breakpoint now: the JS one made the heading
+                // resize a frame after hydration, which is a shift nobody
+                // asked for on a page that has just finished loading.
+                isMobile ? "text-lg" : "text-lg sm:text-xl lg:text-2xl",
                 !settings.colors?.textColor && "text-foreground",
               )}
               style={{
@@ -2469,15 +2462,33 @@ function UnifiedFeaturedProductsSection({
             </div>
           </div>
 
-          {/* Grid - use uiIsMobile to determine layout */}
+          {/*
+            THE SAME BREAKPOINTS AS THE PRODUCTS TAB, because they are the same
+            grid of the same products on the same page.
+
+            The column count used to come from a JS media query at
+            `max-width: 768px`, while the Products tab used Tailwind's `sm:` at
+            640px. BETWEEN THOSE TWO NUMBERS THE TABS DISAGREED: measured at
+            700px, Home drew one column of 668px cards and Products drew two of
+            326px, so switching tab halved every card and pulled the grid up by
+            more than a screen — 2472px of grid against 922px. That is the
+            "product card row moves up for no reason".
+
+            Two definitions of "mobile" on one page is the bug; one of them
+            being JavaScript is what made it invisible until a window happened
+            to be that wide. The creator's `mobileListing` choice still decides
+            the phone layout — it is now the base class, with `sm:` and `lg:`
+            taking over above it, exactly as the Products grid does.
+
+            `isMobile` is the builder's explicit phone preview, where the frame
+            is narrow but the viewport is not, so CSS cannot see it. That one
+            case still has to be told.
+          */}
           <div
             className={cn(
               "grid gap-4 mt-5",
-              uiIsMobile
-                ? (settings.mobileListing ?? 1) === 1
-                  ? "grid-cols-1"
-                  : "grid-cols-2"
-                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+              (settings.mobileListing ?? 1) === 1 ? "grid-cols-1" : "grid-cols-2",
+              !isMobile && "sm:grid-cols-2 lg:grid-cols-3",
             )}
           >
             {sortedProducts.map((product) => {

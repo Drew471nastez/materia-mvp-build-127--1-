@@ -22,16 +22,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ImageUpload } from "@/components/app/image-upload"
 import { Pencil, Loader2 } from "lucide-react"
+import { SocialLinksEditor } from "@/components/social/social-links-editor"
+import type { SocialPlatformKey } from "@/lib/social/platforms"
 
-const PLATFORMS = [
-  { key: "instagram", label: "Instagram", placeholder: "instagram.com/yourhandle" },
-  { key: "tiktok", label: "TikTok", placeholder: "tiktok.com/@yourhandle" },
-  { key: "youtube", label: "YouTube", placeholder: "youtube.com/@yourchannel" },
-  { key: "twitter", label: "X / Twitter", placeholder: "x.com/yourhandle" },
-  { key: "spotify", label: "Spotify", placeholder: "open.spotify.com/artist/…" },
-] as const
-
-type PlatformKey = (typeof PLATFORMS)[number]["key"]
+// The platforms, their order and their icons all come from
+// lib/social/platforms and components/social. This file used to carry its own
+// list with its own placeholder text — one of five such lists.
+type PlatformKey = SocialPlatformKey
 
 export interface EditProfileButtonProps {
   displayName: string
@@ -202,29 +199,47 @@ export function EditProfileButton({
               <Label>Social links</Label>
               {/* Leave one empty to remove it — the icon disappears with it. */}
               <p className="text-xs text-muted-foreground">
-                Only the ones you fill in appear on your page. Clear a field to remove it.
+                Only the ones you fill in appear on your page. A username or a full link both work.
               </p>
-              {PLATFORMS.map((platform) => (
-                <div key={platform.key} className="grid grid-cols-[92px_1fr] items-center gap-3">
-                  <span className="text-sm text-muted-foreground">{platform.label}</span>
-                  <Input
-                    value={links[platform.key] || ""}
-                    maxLength={300}
-                    placeholder={platform.placeholder}
-                    onChange={(e) => setLinks((l) => ({ ...l, [platform.key]: e.target.value }))}
-                  />
-                </div>
-              ))}
+              <SocialLinksEditor
+                value={links}
+                onChange={(key, next) => setLinks((l) => ({ ...l, [key]: next }))}
+              />
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
 
-          <DialogFooter className="shrink-0 gap-2 border-t border-border bg-background px-6 py-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+          {/*
+            TWO EQUAL BUTTONS, Cancel on the left and Save on the right.
+
+            DialogFooter's default is `sm:justify-end`, which put both of them
+            in the right-hand corner sized to their own words — so "Cancel" was
+            narrower than "Save", the pair sat in the corner of a 512px dialog
+            with a stretch of empty white beside them, and the destructive
+            choice was the one nearer the middle. A grid gives them the width
+            and puts each at the end it belongs to: leaving on the left, the
+            thing you came to do on the right, under your thumb on a phone.
+
+            `sm:justify-*` is overridden explicitly because the footer applies
+            it at that breakpoint and a grid quietly loses to it otherwise.
+          */}
+          <DialogFooter className="grid shrink-0 grid-cols-2 gap-3 border-t border-border bg-background px-6 py-4 sm:flex-none sm:justify-stretch">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => setOpen(false)}
+              disabled={saving}
+            >
               Cancel
             </Button>
-            <Button type="button" onClick={save} disabled={saving || name.trim().length === 0}>
+            <Button
+              type="button"
+              className="w-full"
+              onClick={save}
+              disabled={saving || name.trim().length === 0}
+            >
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save
             </Button>

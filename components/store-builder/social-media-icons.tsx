@@ -3,6 +3,8 @@
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import type { SocialLinksConfig } from "@/lib/store-builder/types"
+import { SOCIAL_ICONS } from "@/components/social/platform-icons"
+import { OFFERED_SOCIAL_PLATFORM_KEYS, LEGACY_SOCIAL_PLATFORM_KEYS } from "@/lib/social/platforms"
 
 interface SocialMediaIconsProps {
   socialLinks?: SocialLinksConfig
@@ -12,67 +14,6 @@ interface SocialMediaIconsProps {
   isPreviewMode?: boolean
   isMobile?: boolean
 }
-
-/**
- * OUTLINE MARKS, DRAWN IN `currentColor`.
- *
- * These were solid brand glyphs — Instagram and YouTube in particular render
- * as a filled rounded square, which beside a line of small grey text reads as
- * two black blobs stamped on the page. Stroked outlines sit at the same visual
- * weight as the text they share a row with.
- *
- * `currentColor` rather than a hex is the other half: the icons inherit the
- * colour of whatever they are inside, so they are grey on white, grey on
- * black, and they follow a creator's own text colour without anyone passing
- * one. A hardcoded `#111827` was invisible on a dark storefront.
- */
-const strokeProps = {
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.6,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-}
-
-const InstagramIcon = ({ size = 24 }: { color?: string; size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" {...strokeProps} xmlns="http://www.w3.org/2000/svg">
-    <rect x="3" y="3" width="18" height="18" rx="5" />
-    <circle cx="12" cy="12" r="4" />
-    <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" />
-  </svg>
-)
-
-const TikTokIcon = ({ size = 24 }: { color?: string; size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" {...strokeProps} xmlns="http://www.w3.org/2000/svg">
-    {/* stem + hook, and the note head as an open circle */}
-    <path d="M14.2 3v11.6a4.4 4.4 0 1 1-4.4-4.4c.3 0 .6 0 .9.1" />
-    <path d="M14.2 3.2c.4 2.5 2.4 4.4 4.9 4.6" />
-  </svg>
-)
-
-const YouTubeIcon = ({ size = 24 }: { color?: string; size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" {...strokeProps} xmlns="http://www.w3.org/2000/svg">
-    <rect x="2.5" y="5.5" width="19" height="13" rx="4" />
-    <path d="M10.4 9.6 15.2 12l-4.8 2.4z" />
-  </svg>
-)
-
-const TwitterXIcon = ({ size = 24 }: { color?: string; size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" {...strokeProps} xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 4l7.6 9.1L4.6 20" />
-    <path d="M9.2 4h-5l10.9 16h5L9.2 4z" />
-    <path d="M14.1 11.2 19.6 4" />
-  </svg>
-)
-
-const SpotifyIcon = ({ size = 24 }: { color?: string; size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" {...strokeProps} xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="9.2" />
-    <path d="M7.3 9.4c3-.8 6.4-.5 9.1 1" />
-    <path d="M7.9 12.4c2.5-.6 5.2-.4 7.4.9" />
-    <path d="M8.6 15.3c2-.5 4.1-.3 5.9.7" />
-  </svg>
-)
 
 export function SocialMediaIcons({
   socialLinks,
@@ -90,13 +31,16 @@ export function SocialMediaIcons({
   // now:      mobile 20 / desktop 24
   const iconSize = isMobile ? 20 : 24
 
-  const platforms = [
-    { key: "instagram" as const, Icon: InstagramIcon },
-    { key: "tiktok" as const, Icon: TikTokIcon },
-    { key: "youtube" as const, Icon: YouTubeIcon },
-    { key: "twitter" as const, Icon: TwitterXIcon },
-    { key: "spotify" as const, Icon: SpotifyIcon },
-  ]
+  /**
+   * The order comes from lib/social/platforms, which is also the order the
+   * editor lists them in — so the row on the page matches the form that filled
+   * it. The legacy platforms come last: a creator who saved a Spotify link
+   * before it stopped being offered keeps it until they clear it.
+   */
+  const platforms = [...OFFERED_SOCIAL_PLATFORM_KEYS, ...LEGACY_SOCIAL_PLATFORM_KEYS].map((key) => ({
+    key,
+    Icon: SOCIAL_ICONS[key],
+  }))
 
   /**
    * A URL IS THE WHOLE CONDITION. It used to also require `enabled`, a second
