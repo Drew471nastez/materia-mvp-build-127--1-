@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import type { ShopHeaderSettings, ProductHeaderSettings } from "@/lib/store-builder/types"
 import { Skeleton } from "@/components/ui/skeleton"
+import { StorefrontTabs, EmptyTabPanel, type StorefrontTab } from "@/components/storefront/storefront-tabs"
+import { AllProductsGrid } from "@/components/storefront/all-products-grid"
 import {
   UnifiedSectionRenderer,
   UnifiedShopHeader,
@@ -783,7 +785,24 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
               const aboutSection = draftConfig.sections.find((s) => s.type === "about" && s.settings.visible)
 
-              return (
+              /**
+               * THE CANVAS SHOWS THE TABS THE LIVE PAGE HAS.
+               *
+               * It did not, so the builder was a preview of a page that no
+               * longer existed: a creator arranged sections against one layout
+               * and published another. The three tabs, the strip, the panels
+               * and the About-below-them are all the storefront's own
+               * components, rendered here with the draft config — so the
+               * preview cannot drift from the page again without the page
+               * changing too.
+               *
+               * EDITING IS UNCHANGED. Every section a creator can arrange
+               * lives on Home, which is the panel that opens; Products and
+               * Communities are the same read-only panels the visitor gets.
+               * `isMobile` has to be passed because the phone frame is narrow
+               * while the viewport is not, and CSS can only see the viewport.
+               */
+              const homePanel = (
                 <>
                   {regularSections.map((section) => (
                     <UnifiedSectionRenderer
@@ -800,6 +819,37 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                       globalSettings={draftConfig.globalSettings}
                     />
                   ))}
+                </>
+              )
+
+              const featured = regularSections.find((s) => s.type === "featured-products")
+              const canvasTabs: StorefrontTab[] = [{ id: "home", label: "Home", panel: homePanel }]
+              if ((products?.length ?? 0) > 1) {
+                canvasTabs.push({
+                  id: "products",
+                  label: "Products",
+                  panel: (
+                    <AllProductsGrid
+                      products={products as never}
+                      creatorName={profile?.display_name}
+                      showCategoryFilter={
+                        !(featured?.settings as { hideCategoryFilter?: boolean } | undefined)?.hideCategoryFilter
+                      }
+                    />
+                  ),
+                })
+              }
+              canvasTabs.push({
+                id: "communities",
+                label: "Communities",
+                panel: (
+                  <EmptyTabPanel title="No communities yet" detail="This creator hasn't opened any yet." />
+                ),
+              })
+
+              return (
+                <>
+                  <StorefrontTabs tabs={canvasTabs} isMobile={isMobile} />
 
                   {/* About section - always rendered last (fixed at bottom) */}
                   {aboutSection && (

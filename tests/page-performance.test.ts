@@ -20,6 +20,7 @@
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
 import { join } from "node:path"
+import { youTubeWatchUrl } from "@/lib/social/youtube"
 import { OFFERED_SOCIAL_PLATFORM_KEYS, resolveSocialInput } from "@/lib/social/platforms"
 import { toPublicHttpUrl } from "@/lib/url/public-url"
 import { isOptimizableImage, optimizedImageUrl, PORTRAIT_QUALITY } from "@/lib/images/optimized-url"
@@ -1396,7 +1397,7 @@ check(
     const css = read("app/globals.css")
     const missing: string[] = []
 
-    if (!/border-b border-border[^"]*"\s*\n?\s*role="tablist"/.test(tabs))
+    if (!/"relative flex w-full gap-0 border-b border-border"/.test(tabs))
       missing.push("the tabs no longer sit on a rule")
     /**
      * THE UNDERLINE SLIDES between tabs, and it is the only motion in a
@@ -1929,9 +1930,15 @@ check(
     // now sits between the two.
     if (!/<StorefrontTabs tabs=\{tabs\} \/>[\s\S]{0,400}?\{about\}\s*<\/>/.test(page))
       missing.push("About no longer renders last, after the tab panels, on every tab")
-    if (!/className="relative flex w-full gap-0 border-b border-border sm:w-auto/.test(tabs))
-      missing.push("the tab strip no longer fills a phone's width")
-    if (!/"-mb-px flex-1 [^"]*sm:flex-none/.test(tabs))
+    /**
+     * The desktop half is behind `!isMobile` so the store builder's phone
+     * frame — narrow frame, wide viewport, invisible to CSS — gets the phone
+     * strip. Measured at a 1180px viewport: frame on, three tabs of 351px;
+     * frame off, 44/63/91.
+     */
+    if (!/"relative flex w-full gap-0 border-b border-border",\s*\n\s*!isMobile && "sm:w-auto sm:min-w-max/.test(tabs))
+      missing.push("the tab strip no longer fills a phone's width, or ignores the builder's phone frame")
+    if (!/"-mb-px flex-1 [^"]*text-center text-sm",\s*\n\s*!isMobile && "sm:flex-none sm:text-left"/.test(tabs))
       missing.push("the tabs no longer share that width evenly — one long label would take more than its third")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
@@ -2553,6 +2560,159 @@ check(
     if (/categories\.length < 2\) return null/.test(controls))
       missing.push("the category pill hides itself again, taking the product count with it")
 
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the creator can edit their story from their own page, and a save that changed nothing says so",
+  (() => {
+    /**
+     * THE ABOUT BLOCK HAD NO WAY IN FROM THE PAGE. Its "+ Add a story
+     * headline" placeholders and hover pencils are `isEditorMode` only, so
+     * they exist in the builder canvas and nowhere else — a creator looking at
+     * their own storefront could see the block and not change it. Now the
+     * heading carries the same pencil the cover does, opening the same fields
+     * the builder offers: headline, story, images and YouTube.
+     *
+     * It writes through /api/creator-profile, which already does the auth, the
+     * ownership check and the merge into both the draft and the published
+     * config. A second route would have been a second copy of all of that, and
+     * the copy is always the one that forgets a check.
+     *
+     * AND A SAVE THAT DID NOT REACH THE STOREFRONT SAYS SO. The route answers
+     * `{ ok: true, storefront: false }` when the account is not a creator yet
+     * or has no config row — both used to close the dialog and refresh a page
+     * that had not changed, which is indistinguishable from the bug where
+     * nothing saved at all. Verified separately that the refresh itself works:
+     * the real dialog, against a mutating endpoint, updated a server-rendered
+     * value with no reload.
+     */
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const about = code("components/storefront/edit-about-button.tsx")
+    const profile = code("components/storefront/edit-profile-button.tsx")
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const api = code("app/api/creator-profile/route.ts")
+    const missing: string[] = []
+
+    if (!/aboutOwnerActions=\{[\s\S]{0,80}viewerIsOwner \?/.test(page))
+      missing.push("the About editor is not gated on the viewer being the owner")
+    if (!/<EditAboutButton\b/.test(page)) missing.push("the storefront no longer offers the About editor")
+    if (!/\{ownerActions\}/.test(renderer)) missing.push("the About section has nowhere to render the owner's control")
+    for (const field of ["ea-headline", "ea-story", "Paste a YouTube link"]) {
+      if (!about.includes(field)) missing.push(`the story editor lost its ${field} field`)
+    }
+    if (!/bucket="store-builder-images"/.test(about)) missing.push("the story editor cannot add images")
+    if (!/"\/api\/creator-profile"/.test(about))
+      missing.push("the story editor writes somewhere other than the shared route")
+    if (!/mergeAbout\b/.test(api)) missing.push("the route no longer merges the About story into the config")
+
+    for (const [name, src] of [["the profile dialog", profile], ["the story dialog", about]] as const) {
+      if (!/data\.storefront === false/.test(src))
+        missing.push(`${name} still reports success for a save that never reached the storefront`)
+      if (!/router\.refresh\(\)/.test(src)) missing.push(`${name} no longer refreshes the page`)
+    }
+
+    /**
+     * ONE YOUTUBE RULE. The dialog needs it to refuse a bad link before a round
+     * trip and the API needs it because the dialog is not the authority — and
+     * they were two regexes for a moment, which is how a field ends up
+     * accepting something the server then silently drops. The real function is
+     * run rather than matched, because what it accepts is the whole point.
+     */
+    for (const [name, src] of [["the story dialog", about], ["the API route", api]] as const) {
+      // The positive assertion is the load-bearing one: "no second pattern"
+      // only catches a copy that happens to spell the host the same way, which
+      // a break-test proved by writing one that did not.
+      // The positive assertion is the load-bearing one, and it is enough: a
+      // second pattern that still defers to this call cannot decide anything.
+      // (A "no other mention of youtube" check flagged the <Youtube> icon and
+      // the word in a placeholder — a rule that cannot tell a use from a
+      // mention is a rule that forbids naming the thing.)
+      if (!/youTubeWatchUrl\(/.test(src)) missing.push(`${name} no longer uses the shared YouTube rule`)
+    }
+    const canonical = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    for (const link of [
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "https://www.youtube.com/watch?list=x&v=dQw4w9WgXcQ",
+      "https://youtu.be/dQw4w9WgXcQ?t=42",
+      "https://youtube.com/shorts/dQw4w9WgXcQ",
+      "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      "https://www.youtube.com/live/dQw4w9WgXcQ",
+      "dQw4w9WgXcQ",
+    ]) {
+      const got = youTubeWatchUrl(link)
+      if (got !== canonical) missing.push(`${link} normalises to ${got} instead of the watch URL`)
+    }
+    for (const bad of ["not a link", "https://vimeo.com/12345", "", "https://youtube.com/watch?v=short"]) {
+      if (youTubeWatchUrl(bad) !== null) missing.push(`"${bad}" was accepted as a YouTube video`)
+    }
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the builder canvas previews the page the visitor gets",
+  (() => {
+    /**
+     * THE CANVAS HAD NO TABS. The live storefront grew a Home / Products /
+     * Communities strip and the builder kept rendering one long column, so a
+     * creator arranged their sections against a layout that no longer existed
+     * and published a different one. The whole point of a canvas is that it is
+     * the page.
+     *
+     * It renders the storefront's own components with the draft config —
+     * StorefrontTabs, AllProductsGrid, EmptyTabPanel — rather than a lookalike,
+     * so the preview cannot drift from the page again without the page moving
+     * with it. Editing is unchanged: every section a creator can arrange lives
+     * on Home, which is the panel that opens.
+     *
+     * `isMobile` has to be passed because the builder's phone frame is narrow
+     * while the viewport is not, and CSS can only see the viewport. Measured at
+     * a 1180px viewport: with the frame on, three tabs of 351px each; with it
+     * off, 44/63/91 — their own widths.
+     */
+    const canvas = code("components/store-builder/preview-canvas.tsx")
+    const missing: string[] = []
+
+    if (!/<StorefrontTabs tabs=\{canvasTabs\} isMobile=\{isMobile\} \/>/.test(canvas))
+      missing.push("the canvas does not render the storefront's tab strip, or does not tell it about the phone frame")
+    if (!/<AllProductsGrid/.test(canvas)) missing.push("the canvas Products tab is not the real grid")
+    if (!/<EmptyTabPanel/.test(canvas)) missing.push("the canvas Communities tab is not the real panel")
+    if (!/label: "Home"/.test(canvas) || !/label: "Products"/.test(canvas) || !/label: "Communities"/.test(canvas))
+      missing.push("the canvas tabs do not match the page's three")
+    // About stays outside the tabs here exactly as it does on the page.
+    if (!/aboutSection && \(/.test(canvas) || canvas.indexOf("<StorefrontTabs") > canvas.indexOf("aboutSection && ("))
+      missing.push("About is no longer rendered after the tabs in the canvas, so the preview and the page disagree")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the social marks are sized for a solid glyph, not an outline",
+  (() => {
+    /**
+     * 20/24 was tuned for hand-drawn OUTLINES, which carry about as much ink
+     * as the text beside them. These are Simple Icons — solid glyphs — and a
+     * solid 24px mark next to 14px text reads as roughly twice its weight: on
+     * a desktop storefront the Instagram square sat beside "1.2K Followers"
+     * like a button rather than a mark. Measured after: 18px marks against a
+     * 20px text line.
+     */
+    const row = code("components/store-builder/social-media-icons.tsx")
+    const missing: string[] = []
+    const size = row.match(/const iconSize = isMobile \? (\d+) : (\d+)/)
+    if (!size) missing.push("could not find the icon size")
+    else {
+      const [, mobile, desktop] = size
+      if (Number(desktop) > 18) missing.push(`the desktop mark is ${desktop}px again — too heavy for a solid glyph`)
+      if (Number(mobile) > 16) missing.push(`the mobile mark is ${mobile}px again`)
+    }
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),

@@ -25,11 +25,19 @@ export function SocialMediaIcons({
 }: SocialMediaIconsProps) {
   if (!socialLinks) return null
 
-  // ✅ +2px bigger on desktop (total +4px from original):
-  // original: mobile 18 / desktop 20
-  // previous: mobile 20 / desktop 22
-  // now:      mobile 20 / desktop 24
-  const iconSize = isMobile ? 20 : 24
+  /**
+   * SMALLER THAN IT WAS, because the marks changed shape.
+   *
+   * 20/24 was tuned for hand-drawn OUTLINES, which carry about as much ink as
+   * the text beside them. These are Simple Icons — solid glyphs — and a solid
+   * 24px mark next to 14px text reads as roughly twice its weight: on a
+   * desktop storefront the Instagram square sat beside "1.2K Followers" like a
+   * button rather than a mark.
+   *
+   * 18 desktop / 16 mobile puts the glyph at about the cap height of the row
+   * it belongs to, which is where an inline mark sits.
+   */
+  const iconSize = isMobile ? 16 : 18
 
   /**
    * The order comes from lib/social/platforms, which is also the order the

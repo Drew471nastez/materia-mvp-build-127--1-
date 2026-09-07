@@ -7,12 +7,13 @@ import Image from "next/image"
 import { TrackView } from "@/components/analytics/track-view"
 import { getPublishedConfig } from "@/lib/store-builder/get-published-config"
 import { SectionRenderer, ShopHeaderRenderer, type ProductData } from "@/components/store-builder/section-renderer"
-import type { ShopHeaderSettings, GlobalStoreSettings, Section } from "@/lib/store-builder/types"
+import type { AboutSettings, ShopHeaderSettings, GlobalStoreSettings, Section } from "@/lib/store-builder/types"
 import { defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/defaults"
 import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { EditProfileButton } from "@/components/storefront/edit-profile-button"
+import { EditAboutButton } from "@/components/storefront/edit-about-button"
 import { OwnerMenu } from "@/components/storefront/owner-menu"
 import { StorefrontTabs, EmptyTabPanel, type StorefrontTab } from "@/components/storefront/storefront-tabs"
 import { AllProductsGrid } from "@/components/storefront/all-products-grid"
@@ -813,6 +814,22 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               sellerMemberSince={profile.created_at}
               sellerTotalSales={totalSales}
               sellerProductsCount={productsCount}
+              /**
+               * The owner's way into the story block, decided here because
+               * this is the only place that knows who is looking. The
+               * builder's inline "+ Add a story headline" placeholders exist
+               * only in the canvas, so a creator on their own page had no way
+               * to change the block in front of them.
+               */
+              aboutOwnerActions={
+                viewerIsOwner ? (
+                  <EditAboutButton
+                    headline={(aboutSection.settings as AboutSettings).headline || ""}
+                    story={(aboutSection.settings as AboutSettings).aboutContent || ""}
+                    media={(aboutSection.settings as AboutSettings).mediaItems || []}
+                  />
+                ) : null
+              }
             />
           ) : null
 

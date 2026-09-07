@@ -26,9 +26,10 @@
  */
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
-import type { ShopHeaderSettings, SocialLinksConfig } from "@/lib/store-builder/types"
+import type { AboutMediaItem, ShopHeaderSettings, SocialLinksConfig } from "@/lib/store-builder/types"
 import { SOCIAL_PLATFORM_KEYS, resolveSocialInput, type SocialPlatformKey } from "@/lib/social/platforms"
 import { toPublicHttpUrl } from "@/lib/url/public-url"
+import { youTubeWatchUrl } from "@/lib/social/youtube"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -42,16 +43,10 @@ type Platform = SocialPlatformKey
 const MAX_NAME = 60
 const MAX_BIO = 500
 const MAX_URL = 300
+const MAX_ABOUT_HEADLINE = 120
+const MAX_ABOUT_STORY = 2000
+const MAX_ABOUT_MEDIA = 8
 
-/**
- * An avatar or cover URL. Rendered into a `src` on a public page, so it goes
- * through the same allowlist a social link does — see lib/url/public-url.ts,
- * which is where the `javascript:` refusal and the "a hostname is not just a
- * string with a dot in it" rule both live.
- *
- * Social links do NOT come through here any more: they go to
- * resolveSocialInput, which understands a bare handle as well as a URL.
- */
 function cleanUrl(raw: unknown): string | null {
   return toPublicHttpUrl(raw, MAX_URL)
 }
@@ -109,6 +104,39 @@ export async function PATCH(request: NextRequest) {
     body.avatarUrl === null ? null : "avatarUrl" in body ? cleanUrl(body.avatarUrl) : undefined
   const coverUrl = body.coverUrl === null ? null : "coverUrl" in body ? cleanUrl(body.coverUrl) : undefined
 
+  /**
+   * The About story. Bounded like every other free-text field, and media is an
+   * allowlist of two shapes — an uploaded image URL or a YouTube link — each
+   * put through the same URL cleaner as everything else that reaches a src or
+   * an href on a public page.
+   */
+  const about = (() => {
+    const raw = body.about
+    if (!raw || typeof raw !== "object") return undefined
+    const value = raw as Record<string, unknown>
+    const out: { headline?: string; aboutContent?: string; mediaItems?: AboutMediaItem[] } = {}
+    if (typeof value.headline === "string") out.headline = value.headline.trim().slice(0, MAX_ABOUT_HEADLINE)
+    if (typeof value.aboutContent === "string") out.aboutContent = value.aboutContent.trim().slice(0, MAX_ABOUT_STORY)
+    if (Array.isArray(value.mediaItems)) {
+      out.mediaItems = value.mediaItems
+        .slice(0, MAX_ABOUT_MEDIA)
+        .map((item) => {
+          const m = item as Record<string, unknown>
+          const type = m.type === "youtube" ? "youtube" : "image"
+          const url = type === "youtube" ? youTubeWatchUrl(m.url) : cleanUrl(m.url)
+          if (!url) return null
+          return {
+            id: typeof m.id === "string" && m.id ? m.id.slice(0, 64) : `m-${Math.random().toString(36).slice(2, 10)}`,
+            type,
+            url,
+            caption: typeof m.caption === "string" ? m.caption.trim().slice(0, 160) : undefined,
+          } as AboutMediaItem
+        })
+        .filter((m): m is AboutMediaItem => m !== null)
+    }
+    return Object.keys(out).length > 0 ? out : undefined
+  })()
+
   if (displayName !== undefined && displayName.length === 0) {
     return NextResponse.json({ error: "A display name is required" }, { status: 400 })
   }
@@ -154,9 +182,31 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ ok: true, storefront: false })
   }
 
+  /**
+   * The About section's story, edited from the storefront rather than only
+   * from the builder.
+   *
+   * It lives in a SECTION's settings, not in headerSettings, so it is merged
+   * by walking `sections` for the one of type "about". A config with no About
+   * section is left alone: adding one from here would put a block on the page
+   * the creator never asked for.
+   */
+  const mergeAbout = (sections: unknown) => {
+    if (!Array.isArray(sections) || !about) return sections
+    return sections.map((section) => {
+      const s = section as { type?: string; settings?: Record<string, unknown> }
+      if (s?.type !== "about") return section
+      const settings = { ...(s.settings || {}) }
+      if (about.headline !== undefined) settings.headline = about.headline
+      if (about.aboutContent !== undefined) settings.aboutContent = about.aboutContent
+      if (about.mediaItems !== undefined) settings.mediaItems = about.mediaItems
+      return { ...s, settings }
+    })
+  }
+
   const merge = (raw: unknown) => {
     if (!raw || typeof raw !== "object") return raw
-    const cfg = raw as { headerSettings?: ShopHeaderSettings }
+    const cfg = raw as { headerSettings?: ShopHeaderSettings; sections?: unknown }
     const header = (cfg.headerSettings || {}) as ShopHeaderSettings
     const next: ShopHeaderSettings = { ...header }
     if (bio !== undefined) next.bio = bio
@@ -172,7 +222,7 @@ export async function PATCH(request: NextRequest) {
     if ("socialLinks" in body) {
       next.socialLinks = buildSocialLinks(body.socialLinks, header.socialLinks)
     }
-    return { ...cfg, headerSettings: next }
+    return { ...cfg, headerSettings: next, sections: mergeAbout(cfg.sections) }
   }
 
   const { error } = await supabase

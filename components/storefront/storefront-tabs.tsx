@@ -71,7 +71,19 @@ export function EmptyTabPanel({
   )
 }
 
-export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
+export function StorefrontTabs({
+  tabs,
+  isMobile = false,
+}: {
+  tabs: StorefrontTab[]
+  /**
+   * The store builder's phone preview, where the frame is narrow but the
+   * viewport is not — so CSS cannot see it and has to be told. Every other
+   * component on this page needed the same escape hatch for the same reason;
+   * without it the builder shows a desktop tab strip inside a phone.
+   */
+  isMobile?: boolean
+}) {
   const [active, setActive] = React.useState(tabs[0]?.id)
 
   /**
@@ -158,7 +170,10 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
         <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div
             ref={listRef}
-            className="relative flex w-full gap-0 border-b border-border sm:w-auto sm:min-w-max sm:justify-start sm:gap-7"
+            className={cn(
+              "relative flex w-full gap-0 border-b border-border",
+              !isMobile && "sm:w-auto sm:min-w-max sm:justify-start sm:gap-7",
+            )}
             role="tablist"
           >
             {tabs.map((tab) => {
@@ -178,7 +193,8 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
                   className={cn(
                     // `flex-1` on a phone so the three share the width evenly;
                     // `sm:flex-none` hands the width back to the words.
-                    "-mb-px flex-1 whitespace-nowrap border-b-2 px-0.5 pb-3 pt-1 text-center text-sm sm:flex-none sm:text-left",
+                    "-mb-px flex-1 whitespace-nowrap border-b-2 px-0.5 pb-3 pt-1 text-center text-sm",
+                    !isMobile && "sm:flex-none sm:text-left",
                     "transition-[color,border-color] duration-200 ease-out",
                     /**
                      * FOCUS IS RINGED, NOT OUTLINED. The webview drew its own

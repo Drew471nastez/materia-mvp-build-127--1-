@@ -39,6 +39,7 @@ export function SectionRenderer({
   sellerMemberSince,
   sellerTotalSales,
   sellerProductsCount,
+  aboutOwnerActions,
 }: {
   section: Section
   products?: ProductData[]
@@ -56,6 +57,8 @@ export function SectionRenderer({
   sellerMemberSince?: string
   sellerTotalSales?: number
   sellerProductsCount?: number
+  /** The owner's About edit control; only the page knows who is looking. */
+  aboutOwnerActions?: React.ReactNode
 }) {
   // Defensive check - don't render if section or settings are invalid
   if (!section || !section.settings) {
@@ -83,6 +86,7 @@ export function SectionRenderer({
       sellerMemberSince={sellerMemberSince}
       sellerTotalSales={sellerTotalSales}
       sellerProductsCount={sellerProductsCount}
+      aboutOwnerActions={aboutOwnerActions}
     />
   )
 }

@@ -133,6 +133,8 @@ export interface UnifiedSectionProps {
   onUpdateAboutSettings?: (settings: Partial<AboutSettings>) => void
   // For opening About section in sidebar
   onOpenAboutSidebar?: () => void
+  /** The owner's About edit control, from the page that knows who is looking. */
+  aboutOwnerActions?: React.ReactNode
 }
 
 // Helper function to get product href
@@ -457,6 +459,7 @@ function UnifiedAboutSection({
   onUpdateSettings,
   onOpenSidebar,
   pageBackgroundColor,
+  ownerActions,
 }: {
   settings: AboutSettings
   isMobile?: boolean
@@ -469,6 +472,14 @@ function UnifiedAboutSection({
   onUpdateSettings?: (settings: Partial<AboutSettings>) => void
   onOpenSidebar?: () => void
   pageBackgroundColor?: string
+  /**
+   * The owner's edit control, decided on the server from the session and
+   * rendered beside the heading. On a live page there is no other way in: the
+   * builder's inline "+ Add a story headline" placeholders only appear in the
+   * canvas, so a creator looking at their own storefront had no way to change
+   * the block they were looking at.
+   */
+  ownerActions?: React.ReactNode
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [needsTruncation, setNeedsTruncation] = useState(false)
@@ -598,15 +609,15 @@ function UnifiedAboutSection({
             "flex-shrink-0 w-full md:w-64",
             isMobile && "!w-full"
           )}>
-            <h3
-              className={cn(
-                "font-semibold mb-6 text-lg md:text-xl",
-                isMobile && "!text-lg"
-              )}
-              style={{ color: textColor || undefined }}
-            >
-              About {displayName}
-            </h3>
+            <div className="mb-6 flex items-center gap-2">
+              <h3
+                className={cn("font-semibold text-lg md:text-xl", isMobile && "!text-lg")}
+                style={{ color: textColor || undefined }}
+              >
+                About {displayName}
+              </h3>
+              {ownerActions}
+            </div>
 
             {/* Stats - Sales and Joined shown together, Products shown after */}
             <div className="flex gap-8">
@@ -1185,6 +1196,7 @@ export function UnifiedSectionRenderer({
   sellerProductsCount,
   onUpdateAboutSettings,
   onOpenAboutSidebar,
+  aboutOwnerActions,
 }: UnifiedSectionProps) {
   // Defensive check - ensure section and settings exist
   if (!section?.settings?.visible) return null
@@ -1312,6 +1324,7 @@ export function UnifiedSectionRenderer({
           onUpdateSettings={onUpdateAboutSettings}
           onOpenSidebar={onOpenAboutSidebar}
           pageBackgroundColor={globalSettings?.themeColors?.background}
+          ownerActions={aboutOwnerActions}
         />
       )}
     </div>

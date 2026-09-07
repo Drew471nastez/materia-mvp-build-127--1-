@@ -89,6 +89,21 @@ export function EditProfileButton({
         setError(typeof data.error === "string" ? data.error : "Could not save. Try again.")
         return
       }
+      /**
+       * A SAVE THAT DID NOT REACH THE STOREFRONT SAYS SO.
+       *
+       * The route answers `{ ok: true, storefront: false }` in two cases — the
+       * account is not a creator yet, or it has no store-builder config row —
+       * and both used to close the dialog and refresh a page that had not
+       * changed. The name and bio really were saved, so it is not an error;
+       * but "I pressed Save and nothing happened" is exactly what that looks
+       * like from the outside, and it is indistinguishable from the bug where
+       * nothing saved at all.
+       */
+      if (data.storefront === false) {
+        setError("Saved, but your storefront has not been set up yet — open the store builder once and publish, then this will show on your page.")
+        return
+      }
       setOpen(false)
       /**
        * The server re-renders and the new name, bio, picture and links appear
