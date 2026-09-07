@@ -11,6 +11,7 @@ import "server-only"
  */
 
 import { createClient } from "@/lib/supabase/server"
+import { currentCreatorId } from "@/lib/creators/current"
 import { blankProject } from "./starter"
 import { siteCountGate, type SitePlan } from "./plan"
 import { projectError } from "./file-path"
@@ -50,45 +51,19 @@ function toSite(row: SiteRow): Site {
 const COLUMNS =
   "id, creator_id, name, slug, status, template_id, settings, published_deployment_id, revision, preview_revision, created_at, updated_at"
 
-/** The signed-in user's creator row, or null if they are not one. */
-export async function currentCreatorId(): Promise<string | null> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
-
-  /**
-   * BOOTSTRAP ON FIRST ACCESS. If the user has no creator record yet — they
-   * signed up via a different flow — create one here so they can build sites.
-   *
-   * This used to be "only creators can build sites", which was true after
-   * signup but not true when looking at existing sites: a user with sites but
-   * no creator record would see an empty dashboard and no way to create a new
-   * one. The user existed, their sites existed, but the lookup failed.
-   *
-   * The creator record is lightweight — just a row with user_id and a slug
-   * derived from their email. No mutation happens here except the insert on
-   * first access, and the insert is idempotent (upsert via the OR constraint).
-   */
-  const { data } = await supabase
-    .from("creators")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (data) return (data as { id: string }).id
-
-  // No creator record yet. Provision one.
-  const slug = user.email?.split("@")[0]?.toLowerCase().slice(0, 50) ?? `user-${user.id.slice(0, 8)}`
-  const { data: created } = await supabase
-    .from("creators")
-    .insert({ user_id: user.id, slug })
-    .select("id")
-    .maybeSingle()
-
-  return (created as { id: string } | null)?.id ?? null
-}
+/**
+ * The signed-in user's creator id, or null if they are not one.
+ *
+ * Defined in lib/creators/current.ts and re-exported here for every existing
+ * caller. It is not implemented in this file on purpose: this module never
+ * imports the admin client, because RLS is the only thing standing between
+ * one creator's project files and another's, and a file that reads and
+ * writes actual site content should not be able to route around that even by
+ * accident. Resolving "what is my own id" is a narrower question — scoped to
+ * the caller's own verified auth id, so there is no other creator's row for
+ * it to leak — and it lives in its own small file for exactly that reason.
+ */
+export { currentCreatorId }
 
 export async function listSites(): Promise<Site[]> {
   const creatorId = await currentCreatorId()

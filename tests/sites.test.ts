@@ -2834,6 +2834,94 @@ check(
   })(),
 )
 
+// ---------------------------------------------------------------------------
+section("A signed-in creator's own sites are the ones they see")
+// ---------------------------------------------------------------------------
+
+/**
+ * THE BUG BEHIND "I HAVE A SITE AND IT IS NOT HERE".
+ *
+ * A previous version of currentCreatorId() looked up the creators row
+ * through the SESSION-SCOPED client, found nothing, and then INSERTED A
+ * SECOND CREATOR ROW for the same user through that same client — fabricating
+ * an empty account next to the real one instead of finding it. Two things
+ * made that dangerous rather than merely redundant: the insert used a plain
+ * email-derived slug with no collision handling against creators_slug_key's
+ * UNIQUE constraint (the real signup path at onboarding/finalize retries on
+ * exactly that violation), and it never set onboarding_completed /
+ * store_published, columns other parts of the app depend on existing.
+ *
+ * Every OTHER working read of `creators` in this codebase — app/app/page.tsx,
+ * app/api/onboarding/finalize/route.ts, the settings form's server actions —
+ * goes through the ADMIN client. This was the one path that did not, and it
+ * is why a creator who plainly already had a site could look it up and find
+ * nothing: not "no creator exists", but "this lookup could not see the one
+ * that does."
+ */
+check(
+  "the creator lookup uses the same client every other working lookup uses",
+  (() => {
+    const helper = strip(read("lib/creators/current.ts"))
+    const at = helper.indexOf("export async function currentCreatorId")
+    const body = helper.slice(at, helper.indexOf("\n}", at))
+    return (
+      /const admin = createAdminClient\(\)/.test(body) &&
+      /admin\.from\("creators"\)\.select\("id"\)\.eq\("user_id", user\.id\)/.test(body)
+    )
+  })(),
+)
+
+/**
+ * The admin client belongs in the narrow, id-only helper — never in the file
+ * that reads and writes actual site content. `read`, not `strip(read(...))`:
+ * even a comment mentioning the admin client in projects.ts would be the
+ * seam this test exists to catch drifting back open.
+ */
+check(
+  "the admin client does not leak into the module that owns site content",
+  (() => {
+    const projects = read("lib/sites/projects.ts")
+    return (
+      !/createAdminClient/.test(projects) &&
+      /import \{ currentCreatorId \} from "@\/lib\/creators\/current"/.test(projects)
+    )
+  })(),
+)
+
+/**
+ * Provisioning a missing creator is onboarding's job, with its own collision
+ * handling and its own required columns — not something to fabricate inline
+ * from a lookup that was only ever supposed to read. A second insert path
+ * with none of onboarding's guarantees is how an account ends up with two
+ * creator rows: the real one, still holding every site, and a fresh empty one
+ * that currentCreatorId() now returns instead — which is a worse bug than the
+ * one it was meant to fix, because now the dashboard is wrong AND creating a
+ * new site silently detaches from the old ones.
+ */
+check(
+  "a missing creator is not fabricated by the sites lookup",
+  (() => {
+    const projects = strip(read("lib/sites/projects.ts"))
+    const at = projects.indexOf("export async function currentCreatorId")
+    const body = projects.slice(at, projects.indexOf("\n}", at))
+    return !/\.insert\(/.test(body)
+  })(),
+)
+
+check(
+  "listSites still scopes to the caller's own creator id",
+  (() => {
+    const projects = strip(read("lib/sites/projects.ts"))
+    const at = projects.indexOf("export async function listSites")
+    const body = projects.slice(at, projects.indexOf("\n}", at))
+    return (
+      /const creatorId = await currentCreatorId\(\)/.test(body) &&
+      /if \(!creatorId\) return \[\]/.test(body) &&
+      /\.eq\("creator_id", creatorId\)/.test(body)
+    )
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")
