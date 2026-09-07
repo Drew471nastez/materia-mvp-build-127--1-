@@ -26,7 +26,7 @@ import "server-only"
  * are conditions the model cannot fix by trying again.
  */
 
-import { filePathError, MAX_FILES_PER_PROJECT } from "../file-path"
+import { filePathError, MAX_FILES_PER_PROJECT, MAX_FILE_BYTES } from "../file-path"
 import { bundleProject, formatBuildErrors } from "../bundle"
 import { sortedPaths } from "../starter"
 import type { BuildResult, ProjectFiles } from "../types"
@@ -156,6 +156,33 @@ export const TOOL_SPECS: ToolSpec[] = [
  * The project as the run sees it: an in-memory copy that tools mutate, plus
  * the record of what changed so only those files are written back.
  */
+/**
+ * THE SIZE HAS TO BE REFUSED WHERE IT IS WRITTEN, NOT WHERE IT IS SAVED.
+ *
+ * It used to be checked only by `projectError`, at the very end, when the
+ * whole changed set is committed. So a model asked for an image — with no
+ * upload available to it, which is the state of the product today — would
+ * inline the picture as a base64 data URI, sail past `write_file`, finish the
+ * run, and have EVERY edit in that run thrown away by one oversized file. The
+ * creator paid for the tokens and got nothing, and the thing they asked for is
+ * the thing that destroyed it.
+ *
+ * Told here, the model still has its turns left. It reads the refusal, uses a
+ * URL instead, and the run succeeds.
+ */
+function fileSizeError(path: string, content: string): string | null {
+  // Bytes, not characters: a data URI is ASCII but a page of emoji is not, and
+  // the column this lands in is measured in bytes.
+  const bytes = new TextEncoder().encode(content).length
+  if (bytes <= MAX_FILE_BYTES) return null
+  return (
+    `Cannot write "${path}": it is ${Math.round(bytes / 1024)}KB and the limit is ` +
+    `${Math.round(MAX_FILE_BYTES / 1024)}KB. If you are inlining an image or a font as a ` +
+    `data: URI, do not — reference it by URL instead. Nothing has been written; the rest of ` +
+    `your edits are still here.`
+  )
+}
+
 export class ProjectWorkspace {
   readonly files: ProjectFiles
   readonly changed = new Set<string>()
@@ -223,6 +250,8 @@ export class ProjectWorkspace {
       case "write_file": {
         const invalid = filePathError(path)
         if (invalid) return `Cannot write "${path}": ${invalid}`
+        const tooBig = fileSizeError(path, content)
+        if (tooBig) return tooBig
         if (this.files[path] === undefined) {
           return `"${path}" does not exist. Use create_file to make it, or list_files to see what does.`
         }
@@ -241,6 +270,8 @@ export class ProjectWorkspace {
         if (Object.keys(this.files).length >= MAX_FILES_PER_PROJECT) {
           return `This site is at its limit of ${MAX_FILES_PER_PROJECT} files.`
         }
+        const tooBig = fileSizeError(path, content)
+        if (tooBig) return tooBig
         this.files[path] = content
         this.changed.add(path)
         this.deleted.delete(path)

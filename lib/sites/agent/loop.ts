@@ -42,6 +42,7 @@ export const SYSTEM_PROMPT = `You edit a small React website that is a real Vite
 Rules:
 - Call list_files first. Never guess a path.
 - read_file before you rewrite a file. write_file replaces the WHOLE file — send complete contents, never a fragment or a diff.
+- IMAGES AND MEDIA are referenced by URL. Never inline a picture, a video or a font as a base64 data: URI — a file has a size limit and an inlined image blows through it, which used to discard a whole edit at the last step. If the creator has not given you a URL, use a real one from a stock source or leave a clearly-marked placeholder and say so in your reply.
 - You may import ONLY react, react-dom and react-dom/client. No other package is available and none can be installed. Write what you need by hand.
 - Styling is plain CSS in src/styles.css, which defines design tokens at the top (--bg, --text, --primary, --radius, …). Change a token to restyle the whole site; add rules for anything new. There is no Tailwind and no CSS framework.
 - After you finish editing, call run_build. If it reports errors, fix them and build again. Do not finish on a failing build.

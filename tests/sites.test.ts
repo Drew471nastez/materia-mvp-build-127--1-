@@ -3656,6 +3656,73 @@ check(
   })(),
 )
 
+// ---------------------------------------------------------------------------
+section("One bad file does not destroy a whole edit")
+// ---------------------------------------------------------------------------
+
+/**
+ * WHERE THE IMAGES WENT.
+ *
+ * File size was checked only by `projectError`, at the very end, when the whole
+ * changed set is committed. So a model asked for an image — with no upload
+ * available to it, which is still the state of the product — would inline the
+ * picture as a base64 data URI, sail past `write_file`, finish the run, and
+ * have EVERY edit in that run thrown away by the one oversized file. The
+ * creator paid for the tokens and got nothing, and the thing they asked for was
+ * the thing that destroyed it.
+ *
+ * Refused at the point of writing, the model still has its turns left: it reads
+ * the message, uses a URL, and the run succeeds. Verified against a real
+ * workspace — a 700KB inline image is refused, the earlier edit in the same run
+ * survives, and the corrected write goes through.
+ */
+check(
+  "an oversized write is refused where it happens, not where it is saved",
+  (() => {
+    const tools = strip(read("lib/sites/agent/tools.ts"))
+    return (
+      /function fileSizeError/.test(tools) &&
+      /MAX_FILE_BYTES/.test(tools) &&
+      // both writers, not just the one somebody remembered
+      (tools.match(/const tooBig = fileSizeError\(path, content\)/g) ?? []).length === 2 &&
+      // and it says what to do instead
+      /reference it by URL instead/.test(tools)
+    )
+  })(),
+)
+
+/**
+ * The refusal has to leave the rest of the run intact — the point is that the
+ * model can recover, not that it fails earlier.
+ */
+check(
+  "a refused write changes nothing",
+  (() => {
+    const tools = strip(read("lib/sites/agent/tools.ts"))
+    const at = tools.indexOf('case "write_file"')
+    const body = tools.slice(at, tools.indexOf('case "create_file"', at))
+    const refusal = body.indexOf("if (tooBig) return tooBig")
+    const mutation = body.indexOf("this.files[path] = content")
+    return refusal > -1 && mutation > refusal
+  })(),
+)
+
+/**
+ * And the model is told the rule up front rather than discovering it by
+ * failing — an agent that has to learn a constraint by hitting it spends a
+ * turn and a creator's money doing so.
+ */
+check(
+  "the agent knows media is referenced, not inlined",
+  (() => {
+    const loop = read("lib/sites/agent/loop.ts")
+    return (
+      /IMAGES AND MEDIA are referenced by URL/.test(loop) &&
+      /Never inline a picture, a video or a font as a base64 data: URI/.test(loop)
+    )
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")
