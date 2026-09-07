@@ -2388,6 +2388,111 @@ check(
   })(),
 )
 
+// ---------------------------------------------------------------------------
+section("A published site is served safely, and cannot act as its visitor")
+// ---------------------------------------------------------------------------
+
+/**
+ * THE FORGERY THE SUBDOMAIN MOVE OPENED.
+ *
+ * <slug>.storelib.com is the SAME SITE as storelib.com in the cookie sense,
+ * so `SameSite=Lax` — which is what made this impossible while sites lived on
+ * their own registrable domain — no longer blocks a request from a published
+ * page to the application. A generated page could POST to /api/… with
+ * credentials and the browser would attach the visitor's session; CORS hides
+ * the reply, which is worth nothing once the write has happened.
+ *
+ * None of this repository's mutating routes checks its caller, so the guard
+ * is central: one place none of them can forget.
+ */
+check(
+  "writes from a published site are refused before any route runs",
+  (() => {
+    const proxy = strip(read("proxy.ts"))
+    const guard = proxy.indexOf("isPublishedSiteOrigin(request.headers.get(\"origin\"))")
+    const session = proxy.indexOf("createServerClient(")
+    return (
+      guard > -1 &&
+      session > -1 &&
+      guard < session &&
+      /MUTATING\.has\(request\.method\)/.test(proxy) &&
+      /status: 403/.test(proxy.slice(guard, guard + 400))
+    )
+  })(),
+)
+
+check(
+  "every state-changing method is covered",
+  (() => {
+    const proxy = strip(read("proxy.ts"))
+    const line = proxy.match(/const MUTATING = new Set\(\[([^\]]*)\]\)/)?.[1] ?? ""
+    return ["POST", "PUT", "PATCH", "DELETE"].every((m) => line.includes(`"${m}"`))
+  })(),
+)
+
+/**
+ * A deny-list, deliberately. Refusing everything but the apex would break the
+ * callers that legitimately have another origin or none: Stripe webhooks send
+ * no Origin, the Capacitor app sends capacitor://localhost, and a creator's
+ * custom domain sends its own name while serving pages this app rendered.
+ * The refused set is exact instead — a storelib.com subdomain, which since
+ * the move is a published site and nothing else.
+ */
+check(
+  "the guard refuses only published-site origins",
+  (() => {
+    const proxy = strip(read("proxy.ts"))
+    const at = proxy.indexOf("function isPublishedSiteOrigin")
+    const body = proxy.slice(at, proxy.indexOf("\n}\n", at))
+    return (
+      /if \(!origin\) return false/.test(body) &&
+      /endsWith\(`\.\$\{MAIN_DOMAIN\}`\)/.test(body) &&
+      /EXCLUDED_SUBDOMAINS\.includes\(subdomain\)/.test(body) &&
+      // an unparseable Origin is not the thing this guard is for
+      /catch \{/.test(body)
+    )
+  })(),
+)
+
+/**
+ * `style-src 'self'` refused fonts.googleapis.com outright — the browser
+ * logs "Refused to load the stylesheet" — so every generated site silently
+ * lost its typography and fell back to Times New Roman. Confirmed in a real
+ * browser against the exact header production was sending.
+ *
+ * Scripts stay at 'self': that is the directive that actually contains a
+ * generated page, and it is not relaxed to fix fonts.
+ */
+check(
+  "generated sites can load their fonts, and still cannot load code",
+  (() => {
+    const route = strip(read("app/(sites)/site/[slug]/[[...path]]/route.ts"))
+    const csp = route.slice(route.indexOf("Content-Security-Policy"), route.indexOf("X-Content-Type-Options"))
+    return (
+      /"style-src 'self' 'unsafe-inline' https:\/\/fonts\.googleapis\.com"/.test(csp) &&
+      /"font-src 'self' data: https:\/\/fonts\.gstatic\.com"/.test(csp) &&
+      // scripts come from the deployment and nowhere else
+      /"script-src 'self' 'unsafe-inline'"/.test(csp) &&
+      !/script-src[^"]*https:/.test(csp)
+    )
+  })(),
+)
+
+/**
+ * The 404 is the one response an attacker can always reach — ask for a slug
+ * that is not there — and it was the only one served without a CSP or
+ * frame-ancestors. A response is not exempt from a policy because it is empty.
+ */
+check(
+  "the 404 carries the same headers as a page that exists",
+  (() => {
+    const route = strip(read("app/(sites)/site/[slug]/[[...path]]/route.ts"))
+    const at = route.indexOf("function notFound()")
+    const body = route.slice(at, route.indexOf("\n}", at))
+    return /\.\.\.SECURITY_HEADERS/.test(body) && /status: 404/.test(body)
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

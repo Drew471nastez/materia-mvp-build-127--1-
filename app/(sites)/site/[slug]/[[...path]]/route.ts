@@ -29,8 +29,22 @@ export const runtime = "nodejs"
  * Locked down by default, because this is somebody else's JavaScript.
  *
  * `default-src 'self'` keeps a generated page from calling out to an
- * arbitrary host; the two explicit allowances are what a Storelib site
- * legitimately needs — its own bundle, and images the creator uploaded.
+ * arbitrary host; the allowances below are what a Storelib site legitimately
+ * needs and nothing more.
+ *
+ * SCRIPTS STAY AT 'self'. This is the directive that matters: a generated
+ * page cannot pull executable code from anywhere but its own deployment, so
+ * a prompt that talks a model into adding a third-party script tag produces
+ * a page that refuses to run it.
+ *
+ * GOOGLE FONTS ARE ALLOWED, and this was a real defect rather than a
+ * nicety. `style-src 'self'` refused fonts.googleapis.com outright — the
+ * browser logs "Refused to load the stylesheet" — so every generated site
+ * silently lost its typography and rendered in Times New Roman. Confirmed in
+ * a real browser against this exact header. Stylesheets and font files carry
+ * no script, and these two hosts are where essentially every generated site
+ * gets its type.
+ *
  * `frame-ancestors 'none'` stops a published site being framed into a
  * clickjacking attack, and `sandbox` is deliberately NOT set: this is a real
  * page on its own origin, not an embedded preview.
@@ -39,9 +53,9 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Content-Security-Policy": [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https:",
-    "font-src 'self' data:",
+    "font-src 'self' data: https://fonts.gstatic.com",
     "connect-src 'self' https:",
     "frame-ancestors 'none'",
     "base-uri 'none'",
@@ -53,11 +67,30 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 }
 
+/**
+ * The 404 carries the same headers as a page that exists.
+ *
+ * It is HTML served from a site's own origin, so leaving the security headers
+ * off made the one response an attacker can always reach — ask for a slug
+ * that is not there — the only one with no CSP and no frame-ancestors. A
+ * response is not exempt from a policy because it is empty.
+ */
 function notFound(): NextResponse {
-  return new NextResponse("<!doctype html><title>Not found</title><h1>Site not found</h1>", {
-    status: 404,
-    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
-  })
+  return new NextResponse(
+    "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Not found</title>" +
+      "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
+      "<style>body{font:16px/1.5 system-ui,sans-serif;display:grid;place-items:center;" +
+      "min-height:100vh;margin:0;background:#faf9f7;color:#3d3a34}</style>" +
+      "<h1>Site not found</h1>",
+    {
+      status: 404,
+      headers: {
+        ...SECURITY_HEADERS,
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    },
+  )
 }
 
 export async function GET(

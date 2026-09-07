@@ -308,6 +308,62 @@ async function lookupDomainOwnerUsername(host: string): Promise<string | null> {
  * business carrying one. The marker is host-only, so it is written on the
  * same host whose cookies were just fixed.
  */
+/**
+ * A PUBLISHED SITE MAY NOT ACT AS ITS VISITOR.
+ *
+ * ---------------------------------------------------------------------------
+ *  THE HOLE THIS CLOSES, AND WHY IT OPENED
+ * ---------------------------------------------------------------------------
+ * Sites are published at <slug>.storelib.com, which is the SAME SITE as
+ * storelib.com in the cookie sense — same registrable domain. `SameSite=Lax`
+ * only blocks requests from a different site, so it does not block these.
+ *
+ * That means JavaScript on any published page could do
+ *
+ *     fetch("https://storelib.com/api/…", { method: "POST", credentials: "include" })
+ *
+ * and the browser would attach the visitor's session cookie. CORS stops the
+ * page READING the reply, which is worth nothing here: by then the write has
+ * already happened as that person. None of this repository's 122 mutating
+ * routes checks where a request came from, so every one of them was reachable
+ * this way.
+ *
+ * While sites lived on a separate registrable domain, SameSite=Lax was the
+ * thing that made this impossible. Moving them to a subdomain removed that
+ * protection, so it is replaced here rather than assumed.
+ *
+ * ---------------------------------------------------------------------------
+ *  WHY IT IS A DENY-LIST, AND WHY THAT IS THE SAFE SHAPE HERE
+ * ---------------------------------------------------------------------------
+ * Refusing everything but the apex would break callers that legitimately have
+ * no Origin or a different one: Stripe's webhooks send none, the Capacitor
+ * app sends capacitor://localhost, and a creator's custom domain sends its
+ * own name while serving pages this app rendered. Guessing at that list is
+ * how a payment webhook starts failing at 2am.
+ *
+ * The set being refused is exact and closed instead: a storelib.com
+ * subdomain, which since the move is a published site and nothing else. No
+ * page this application serves has such an origin.
+ */
+const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"])
+
+function isPublishedSiteOrigin(origin: string | null): boolean {
+  if (!origin) return false
+  let host: string
+  try {
+    host = new URL(origin).hostname.toLowerCase()
+  } catch {
+    // An Origin we cannot parse is not one we can clear, but it is also not
+    // the specific thing this guard is for. Left to the routes.
+    return false
+  }
+  if (!host.endsWith(`.${MAIN_DOMAIN}`)) return false
+
+  const subdomain = host.slice(0, -(MAIN_DOMAIN.length + 1))
+  // The reserved names are the platform's own surfaces, not published sites.
+  return !EXCLUDED_SUBDOMAINS.includes(subdomain)
+}
+
 const HOST_ONLY_MARKER = "sb-host-only"
 
 function retireDomainScopedCookies(response: NextResponse, request: NextRequest): void {
@@ -409,6 +465,18 @@ export async function proxy(request: NextRequest) {
       url.pathname = `/site/${subdomain}${pathname === "/" ? "" : pathname}`
       return NextResponse.rewrite(url)
     }
+  }
+
+  /**
+   * Everything below serves the application. A write arriving here from a
+   * published site is the forgery described above, and it is refused before
+   * any session is read or any route runs.
+   */
+  if (MUTATING.has(request.method) && isPublishedSiteOrigin(request.headers.get("origin"))) {
+    return new NextResponse(
+      JSON.stringify({ error: "Requests from published sites are not allowed." }),
+      { status: 403, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } },
+    )
   }
 
   // ── The native app never shows the marketing site ──────────────────────────
