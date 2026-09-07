@@ -15,7 +15,7 @@
  */
 
 import * as React from "react"
-import { Check, Copy, ExternalLink, Globe, Loader2, RotateCcw, Rocket, X } from "lucide-react"
+import { Check, Copy, Download, ExternalLink, Globe, History, Loader2, RotateCcw, Rocket, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import type { PublishState } from "./publish-button"
@@ -24,14 +24,18 @@ export function SiteSheet({
   open,
   onClose,
   siteName,
+  siteId,
   state,
   onPublish,
+  onHistory,
 }: {
   open: boolean
   onClose: () => void
   siteName: string
+  siteId: string
   state: PublishState
   onPublish: () => void
+  onHistory: () => void
 }) {
   const [copied, setCopied] = React.useState(false)
 
@@ -180,6 +184,26 @@ export function SiteSheet({
               </>
             )}
           </button>
+
+          {/* The two actions that have no room in a phone header. Same 48px
+              target as publish — a 32px icon button is a miss on a phone. */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onHistory}
+              className="flex h-12 items-center justify-center gap-2 rounded-[10px] border border-border text-sm text-muted-foreground"
+            >
+              <History className="h-4 w-4" />
+              History
+            </button>
+            <a
+              href={`/api/sites/${siteId}/export`}
+              className="flex h-12 items-center justify-center gap-2 rounded-[10px] border border-border text-sm text-muted-foreground"
+            >
+              <Download className="h-4 w-4" />
+              Download
+            </a>
+          </div>
         </div>
       </div>
     </div>

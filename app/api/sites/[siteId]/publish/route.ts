@@ -12,6 +12,7 @@ import { type NextRequest, NextResponse } from "next/server"
 
 import { getSite } from "@/lib/sites/projects"
 import { publishSite, unpublishSite } from "@/lib/sites/publish"
+import { publishRateLimit } from "@/lib/sites/rate-limit"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -23,6 +24,11 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ s
 
   const site = await getSite(siteId)
   if (!site) return NextResponse.json({ error: "Site not found." }, { status: 404 })
+
+  // Before the build. Each publish is a bundle plus an upload of every file,
+  // and a stuck button should cost one wasted minute rather than a bill.
+  const limited = await publishRateLimit(siteId)
+  if (limited) return NextResponse.json({ error: limited }, { status: 429 })
 
   const result = await publishSite(site)
   if (!result.ok) {

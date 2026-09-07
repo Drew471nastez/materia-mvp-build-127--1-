@@ -255,7 +255,34 @@ export async function restoreVersion(siteId: string, versionId: string): Promise
     return { ok: false, error: "That version is empty and cannot be restored." }
   }
 
+  /**
+   * A restore that only WRITES is not a restore.
+   *
+   * The snapshot is what the project looked like before the run. If the agent
+   * created files, writing the snapshot back leaves them there — still on
+   * disk, still imported by whatever referenced them, so "undo" hands back a
+   * project that is neither the old one nor the new one. The build may even
+   * fail on an import the old code never had.
+   *
+   * Deleted first, so the write below lands on a tree that matches the
+   * snapshot exactly.
+   */
+  const supabaseForPaths = await createClient()
+  const { data: currentRows } = await supabaseForPaths
+    .from("site_files")
+    .select("path")
+    .eq("site_id", siteId)
+
+  const orphans = ((currentRows as Array<{ path: string }> | null) ?? [])
+    .map((row) => row.path)
+    .filter((path) => files[path] === undefined)
+
+  if (orphans.length > 0) {
+    // RLS applies — a site the caller does not own has no rows to delete.
+    await supabaseForPaths.from("site_files").delete().eq("site_id", siteId).in("path", orphans)
+  }
+
   const saved = await saveFiles(siteId, files)
   if (!saved.ok) return { ok: false, error: saved.error }
-  return { ok: true, paths: Object.keys(files) }
+  return { ok: true, paths: [...Object.keys(files), ...orphans] }
 }

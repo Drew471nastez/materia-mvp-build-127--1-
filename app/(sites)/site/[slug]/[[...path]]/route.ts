@@ -18,6 +18,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { SITES_HOST } from "@/lib/sites/public-host"
 import { contentTypeFor } from "@/lib/sites/content-type"
 import { DEPLOYMENT_BUCKET } from "@/lib/sites/publish"
 
@@ -60,9 +61,30 @@ function notFound(): NextResponse {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ slug: string; path?: string[] }> },
 ) {
+  /**
+   * ONLY on the sites domain.
+   *
+   * The proxy rewrites storelib.site/<slug> to this path, and a rewrite is
+   * invisible to the browser — but the path is not secret, and nothing stopped
+   * anybody typing storelib.com/site/andrew and being served a generated page
+   * ON THE DASHBOARD ORIGIN. That is the entire domain-separation argument
+   * defeated by a URL, which is worse than never having made it: the isolation
+   * would have looked present in the design and been absent in fact.
+   *
+   * Checked here rather than only in the proxy because this is the thing being
+   * protected. A route that is safe only because something upstream is
+   * configured correctly is one config change from unsafe.
+   */
+  const host = (request.headers.get("host") || "").split(":")[0].toLowerCase()
+  const onSitesDomain = host === SITES_HOST || host.endsWith(`.${SITES_HOST}`)
+  // localhost keeps working in development, where there is no second domain
+  // and no dashboard session worth stealing.
+  const isLocal = host === "localhost" || host.endsWith(".localhost") || host.startsWith("127.")
+  if (!onSitesDomain && !isLocal) return notFound()
+
   const { slug, path } = await context.params
   const admin = createAdminClient()
 

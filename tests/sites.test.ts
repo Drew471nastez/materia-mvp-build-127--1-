@@ -28,6 +28,7 @@ import { ZERO_USAGE, addUsage } from "@/lib/sites/agent/types"
 import { blankProject } from "@/lib/sites/starter"
 import { allocateSiteSlug, SLUG_FALLBACK } from "@/lib/sites/slug"
 import { contentTypeFor } from "@/lib/sites/content-type"
+import { createZip } from "@/lib/sites/zip"
 
 let passed = 0
 let failed = 0
@@ -779,13 +780,126 @@ check(
  * rather than a spinner that never resolves.
  */
 check(
-  "the send button actually sends",
+  "the composer sends when idle and stops when running",
   (() => {
+    /**
+     * The busy state is no longer a disabled send button — it is a Stop
+     * button. The loop always took an AbortSignal and nothing ever gave it
+     * one, so a run that went wrong could only be waited out: up to twelve
+     * turns of a model doing the wrong thing, billed.
+     */
     const sends = /onClick=\{\(\) => void send\(draft\)\}/.test(chat)
-    // Disabled only while a run is in flight or there is nothing to send —
-    // never unconditionally.
-    const conditional = /disabled=\{busy \|\| draft\.trim\(\)\.length === 0\}/.test(chat)
-    return sends && conditional
+    const stops = /onClick=\{stop\}/.test(chat) && /abortRef\.current\?\.abort\(\)/.test(chat)
+    const wired = /signal: controller\.signal/.test(chat)
+    // Disabled only when there is nothing to send — never unconditionally.
+    const conditional = /disabled=\{draft\.trim\(\)\.length === 0\}/.test(chat)
+    return sends && stops && wired && conditional
+  })(),
+)
+
+/**
+ * A stop is the person deciding, not a fault. Reporting "lost the connection"
+ * when they pressed the button blames the network for something they did on
+ * purpose — and implies their work might be in an unknown state, when in fact
+ * the agent writes once at the end, so a stopped run has written nothing.
+ */
+check(
+  "stopping says it was stopped, and that nothing changed",
+  /thrown instanceof DOMException && thrown\.name === "AbortError"/.test(chat) &&
+    /Stopped\. Nothing was changed\./.test(chat),
+)
+
+check(
+  "history is reachable after a reload, not only from the run that made it",
+  (() => {
+    const panel = read("components/sites/editor/history-panel.tsx")
+    const versions = read("app/api/sites/[siteId]/versions/route.ts")
+    return (
+      /\/api\/sites\/\$\{siteId\}\/versions/.test(panel) &&
+      /\/restore/.test(panel) &&
+      // The list must not carry the snapshots — a version is a whole project
+      // and a busy site has fifty of them.
+      /select\("id, label, created_at"\)/.test(versions) &&
+      // Comments stripped — the file explains that snapshots are withheld,
+      // and an unstripped check reads its own explanation as the thing it
+      // forbids. Sixth time this pattern has bitten in this suite.
+      !/snapshot/.test(strip(versions))
+    )
+  })(),
+)
+
+/**
+ * The zip is written by hand — ~70 lines of the plainest STORED format there
+ * is, rather than a dependency for something that has not changed since 1993.
+ * Hand-rolled binary needs RUNNING, not asserting: these are the properties a
+ * real unzip cared about when this was checked against one.
+ */
+{
+  const project = {
+    "index.html": "<!doctype html><html></html>",
+    "src/App.tsx": "export default function App() { return <h1>Héllo — ünicode ✅</h1> }\n",
+    "src/styles.css": ":root { --bg: #fff }\n",
+  }
+  const zip = createZip(project)
+
+  check(
+    "the archive has the signatures a zip reader looks for",
+    (() => {
+      const local = zip[0] === 0x50 && zip[1] === 0x4b && zip[2] === 0x03 && zip[3] === 0x04
+      // End-of-central-directory, the last 22 bytes when there is no comment.
+      const endAt = zip.length - 22
+      const end =
+        zip[endAt] === 0x50 && zip[endAt + 1] === 0x4b && zip[endAt + 2] === 0x05 && zip[endAt + 3] === 0x06
+      return local && end
+    })(),
+  )
+
+  check(
+    "it declares exactly the files it was given",
+    (() => {
+      const endAt = zip.length - 22
+      const count = zip[endAt + 10] | (zip[endAt + 11] << 8)
+      return count === 3
+    })(),
+  )
+
+  check(
+    "nested paths and unicode survive the round trip",
+    (() => {
+      const text = new TextDecoder().decode(zip)
+      return (
+        text.includes("src/App.tsx") &&
+        text.includes("src/styles.css") &&
+        // Stored, not deflated, so the content is literally in there.
+        text.includes("Héllo — ünicode ✅")
+      )
+    })(),
+  )
+
+  check(
+    "the same project always produces the same bytes",
+    (() => {
+      const again = createZip(project)
+      if (again.length !== zip.length) return false
+      for (let i = 0; i < zip.length; i++) if (zip[i] !== again[i]) return false
+      return true
+    })(),
+  )
+}
+
+check(
+  "the project can be downloaded as a real Vite project",
+  (() => {
+    const route = read("app/api/sites/[siteId]/export/route.ts")
+    const zip = read("lib/sites/zip.ts")
+    return (
+      /application\/zip/.test(route) &&
+      // Slugified and quoted, so a site called `"; rm -rf /` cannot break out
+      // of the header.
+      /filename="\$\{name\}\.zip"/.test(route) &&
+      /toSiteSlug\(site\.name\)/.test(route) &&
+      /export function createZip/.test(zip)
+    )
   })(),
 )
 
@@ -1170,9 +1284,33 @@ check(
 
 check(
   "the agent writes through saveFiles, not straight to the table",
-  runSource.includes("saveFiles(siteId, changed)") &&
-    !/from\("site_files"\)/.test(runSource) &&
-    !/from\("site_files"\)/.test(toolSource),
+  (() => {
+    /**
+     * The agent's EDITS go through saveFiles — that is what keeps them under
+     * the same validation, the same lock and the same revision check a human
+     * edit gets.
+     *
+     * One deliberate exception, named rather than waved through: restore
+     * deletes the files the snapshot does not contain. A restore that only
+     * writes is not a restore — files the agent created would survive it,
+     * still imported by whatever referenced them, so "undo" would hand back a
+     * project that is neither the old one nor the new one. There is no
+     * `saveFiles` shape for "make these paths not exist".
+     */
+    const edits = runSource.slice(0, runSource.indexOf("export async function restoreVersion"))
+    const restore = runSource.slice(runSource.indexOf("export async function restoreVersion"))
+    const directWrites = restore.match(/from\("site_files"\)\s*\.(insert|update|upsert|delete)/g) ?? []
+    return (
+      runSource.includes("saveFiles(siteId, changed)") &&
+      // Nothing in the edit path touches the table.
+      !/from\("site_files"\)/.test(edits) &&
+      !/from\("site_files"\)/.test(toolSource) &&
+      // And the restore's only direct write is the delete.
+      directWrites.length === 1 &&
+      directWrites[0].includes("delete") &&
+      restore.includes("saveFiles(siteId, files)")
+    )
+  })(),
 )
 
 check(
@@ -1691,6 +1829,180 @@ check(
       // The card is a link; the frame must not swallow the click.
       /pointer-events-none/.test(dashboard) &&
       /Not published yet/.test(dashboard)
+    )
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("Five bugs that were shipped, and are not any more")
+// ---------------------------------------------------------------------------
+
+/**
+ * 1. The domain separation was defeated by a URL.
+ *
+ * The proxy rewrites storelib.site/<slug> to /site/<slug>, and a rewrite is
+ * invisible to the browser — but the path is not secret. Anyone could type
+ * storelib.com/site/andrew and be served a generated page ON THE DASHBOARD
+ * ORIGIN, where its JavaScript can read the signed-in session. The whole
+ * argument for a second domain, undone by a link.
+ */
+check(
+  "a published site refuses to answer on the dashboard origin",
+  (() => {
+    const route = read("app/(sites)/site/[slug]/[[...path]]/route.ts")
+    const guard = route.indexOf("const onSitesDomain")
+    const firstRead = route.indexOf("await context.params")
+    return (
+      guard !== -1 &&
+      /host === SITES_HOST \|\| host\.endsWith\(`\.\$\{SITES_HOST\}`\)/.test(route) &&
+      /if \(!onSitesDomain && !isLocal\) return notFound\(\)/.test(route) &&
+      // Checked before the route does anything at all.
+      guard < firstRead
+    )
+  })(),
+)
+
+/**
+ * 2. The compare-and-swap nothing opted into.
+ *
+ * `site_commit_files` was built to reject a write built on a stale read, and
+ * then every caller omitted the revision — so the lock serialised writes while
+ * two clients still overwrote each other's content, which is the exact bug the
+ * mechanism exists to prevent.
+ */
+check(
+  "the editor holds a revision and sends it on every save",
+  (() => {
+    const shell = read("components/sites/editor/editor-shell.tsx")
+    const page = read("app/sites/[siteId]/page.tsx")
+    return (
+      /initialRevision: number/.test(shell) &&
+      /revision: revision\.current/.test(shell) &&
+      // A ref, so the save reads the current value rather than the one
+      // captured when its timer was scheduled.
+      /const revision = React\.useRef\(initialRevision\)/.test(shell) &&
+      /initialRevision=\{revision \?\? 1\}/.test(page)
+    )
+  })(),
+)
+
+check(
+  "the files route takes a revision in and hands the new one back",
+  (() => {
+    const route = read("app/api/sites/[siteId]/files/route.ts")
+    return (
+      /saveFiles\(siteId, files, expected\)/.test(route) &&
+      /revision: result\.revision/.test(route) &&
+      // GET returns them together, so a client never holds a revision from
+      // before the files it holds.
+      /Promise\.all\(\[readProject\(siteId\), siteRevision\(siteId\)\]\)/.test(route)
+    )
+  })(),
+)
+
+check(
+  "a conflict is a 409, is never retried, and is visible",
+  (() => {
+    const route = read("app/api/sites/[siteId]/files/route.ts")
+    const shell = read("components/sites/editor/editor-shell.tsx")
+    return (
+      /result\.conflict \? 409/.test(route) &&
+      /setConflict\(true\)/.test(shell) &&
+      // A silent "Not saved" would be the original bug wearing a different hat.
+      /This site changed somewhere else/.test(shell)
+    )
+  })(),
+)
+
+/**
+ * 3. Undo left the files it could not undo.
+ *
+ * The snapshot is what the project looked like BEFORE the run. Writing it back
+ * without removing what the agent added leaves those files in place, still
+ * imported by whatever referenced them — so "undo" returns a project that is
+ * neither the old one nor the new one, and may not even build.
+ */
+check(
+  "restore removes files the snapshot does not contain",
+  (() => {
+    const runFile = read("lib/sites/agent/run.ts")
+    const restore = runFile.slice(runFile.indexOf("export async function restoreVersion"))
+    const orphans = restore.indexOf("const orphans")
+    const del = restore.indexOf('.delete()')
+    const write = restore.indexOf("saveFiles(siteId, files)")
+    return (
+      orphans !== -1 &&
+      /files\[path\] === undefined/.test(restore) &&
+      // Deleted BEFORE the write, so the write lands on a matching tree.
+      del !== -1 && del < write
+    )
+  })(),
+)
+
+/**
+ * 4. The transcript kept the wrong end of itself.
+ *
+ * `ascending: true` with a limit keeps the OLDEST rows, so a busy site would
+ * show its first few conversations forever and never the one from five
+ * minutes ago. The comment above it claimed the opposite, which is how it
+ * survived being written.
+ */
+check(
+  "the chat loads the newest messages, in reading order",
+  (() => {
+    const chat = read("lib/sites/chat.ts")
+    return /ascending: false/.test(chat) && /\.reverse\(\)/.test(chat)
+  })(),
+)
+
+/**
+ * 5. A monthly quota with no rate limit is a monthly quota that can be spent
+ * in one minute. Audited as critical, then left open.
+ */
+check(
+  "the expensive routes are rate limited before they spend anything",
+  (() => {
+    const agent = read("app/api/sites/[siteId]/agent/route.ts")
+    const publish = read("app/api/sites/[siteId]/publish/route.ts")
+    const agentLimit = agent.indexOf("await agentRateLimit(")
+    const agentRun = agent.indexOf("runAgent({")
+    const publishLimit = publish.indexOf("await publishRateLimit(")
+    const publishRun = publish.indexOf("await publishSite(")
+    return (
+      agentLimit !== -1 && agentRun !== -1 && agentLimit < agentRun &&
+      publishLimit !== -1 && publishRun !== -1 && publishLimit < publishRun &&
+      /status: 429/.test(agent) && /status: 429/.test(publish)
+    )
+  })(),
+)
+
+check(
+  "the limit is counted in the database, not in a process that scales out",
+  (() => {
+    const limiter = read("lib/sites/rate-limit.ts")
+    return (
+      /count: "exact", head: true/.test(limiter) &&
+      /**
+       * An in-process Map is worthless when ten concurrent invocations each
+       * see an empty one.
+       *
+       * `[<(]` and not `\(`: the first version of this only matched
+       * `new Map()` and waved `new Map<string, number>()` straight through —
+       * which is how anybody would actually write it.
+       */
+      !/new (Map|Set|WeakMap)\s*[<(]|globalThis\./.test(strip(limiter))
+    )
+  })(),
+)
+
+check(
+  "publishing is limited per site, editing per creator",
+  (() => {
+    const limiter = read("lib/sites/rate-limit.ts")
+    return (
+      /export async function publishRateLimit\(siteId: string\)/.test(limiter) &&
+      /export async function agentRateLimit\(creatorId: string\)/.test(limiter) &&
+      /countSince\("site_deployments", "site_id"/.test(limiter)
     )
   })(),
 )

@@ -254,3 +254,16 @@ export async function saveFiles(
 
   return { ok: true, savedAt: new Date().toISOString(), revision: data as number }
 }
+
+/**
+ * The site's current write revision, or null if the caller cannot see it.
+ *
+ * Read through the user's client so RLS answers the ownership question, and
+ * returned alongside the files so a client always holds a revision that
+ * matches the content it holds.
+ */
+export async function siteRevision(siteId: string): Promise<number | null> {
+  const supabase = await createClient()
+  const { data } = await supabase.from("sites").select("revision").eq("id", siteId).maybeSingle()
+  return (data as { revision: number } | null)?.revision ?? null
+}

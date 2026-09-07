@@ -16,7 +16,7 @@
  */
 
 import * as React from "react"
-import { ArrowUp, Check, FileCode, Hammer, Loader2, RotateCcw, Sparkles, TriangleAlert } from "lucide-react"
+import { ArrowUp, Check, FileCode, Hammer, Loader2, RotateCcw, Sparkles, Square, TriangleAlert } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import type { AgentEvent } from "@/lib/sites/agent/types"
@@ -86,6 +86,24 @@ export function ChatPane({
   const [busy, setBusy] = React.useState(false)
   const fieldRef = React.useRef<HTMLTextAreaElement>(null)
   const bottomRef = React.useRef<HTMLDivElement>(null)
+
+  /**
+   * Stop.
+   *
+   * The loop has always taken an AbortSignal and nothing ever gave it one, so
+   * a run that went wrong could only be waited out — up to twelve turns of a
+   * model doing the wrong thing, billed. Aborting the fetch closes the
+   * response stream, which is what the route's `request.signal` is watching.
+   *
+   * What is already saved stays saved: the agent writes once, at the end, so
+   * a stopped run has written nothing and the site is untouched.
+   */
+  const abortRef = React.useRef<AbortController | null>(null)
+
+  const stop = React.useCallback(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+  }, [])
 
   /**
    * The field grows with the text instead of scrolling inside fixed rows.
@@ -176,10 +194,14 @@ export function ChatPane({
         setExchanges((previous) => previous.map((e) => (e.id === id ? change(e) : e)))
 
       try {
+        const controller = new AbortController()
+        abortRef.current = controller
+
         const response = await fetch(`/api/sites/${siteId}/agent`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ prompt }),
+          signal: controller.signal,
         })
 
         if (!response.ok || !response.body) {
@@ -245,9 +267,18 @@ export function ChatPane({
             }
           }
         }
-      } catch {
-        patch((e) => ({ ...e, running: false, error: "Lost the connection. Nothing was changed." }))
+      } catch (thrown) {
+        // A stop is the person deciding, not a fault. Saying "lost the
+        // connection" when they pressed the button is the editor blaming the
+        // network for something they did on purpose.
+        const stopped = thrown instanceof DOMException && thrown.name === "AbortError"
+        patch((e) => ({
+          ...e,
+          running: false,
+          error: stopped ? "Stopped. Nothing was changed." : "Lost the connection. Nothing was changed.",
+        }))
       } finally {
+        abortRef.current = null
         setBusy(false)
         patch((e) => ({ ...e, running: false }))
       }
@@ -416,18 +447,30 @@ export function ChatPane({
           />
 
           <div className="flex items-center justify-end px-3 pb-2.5">
-            <button
-              type="button"
-              onClick={() => void send(draft)}
-              disabled={busy || draft.trim().length === 0}
-              aria-label="Send"
-              className={cn(
-                "flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-background transition-opacity",
-                "disabled:cursor-not-allowed disabled:opacity-25",
-              )}
-            >
-              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowUp className="h-3.5 w-3.5" />}
-            </button>
+            {busy ? (
+              <button
+                type="button"
+                onClick={stop}
+                aria-label="Stop"
+                className="flex h-7 items-center gap-1.5 rounded-full bg-foreground px-3 text-[11px] font-medium text-background"
+              >
+                <Square className="h-2.5 w-2.5 fill-current" />
+                Stop
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void send(draft)}
+                disabled={draft.trim().length === 0}
+                aria-label="Send"
+                className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-background transition-opacity",
+                  "disabled:cursor-not-allowed disabled:opacity-25",
+                )}
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>

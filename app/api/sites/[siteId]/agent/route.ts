@@ -18,6 +18,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { currentCreatorId, getSite } from "@/lib/sites/projects"
 import { MissingKeyError, openAIProvider } from "@/lib/sites/agent/openai-provider"
+import { agentRateLimit } from "@/lib/sites/rate-limit"
 import { runAgent } from "@/lib/sites/agent/run"
 import type { AgentEvent } from "@/lib/sites/agent/types"
 
@@ -59,6 +60,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
       { status: 503 },
     )
   }
+
+  /**
+   * BEFORE the model is reached, and before the stream opens. A limit checked
+   * after the request has started is a limit that bills for what it refused —
+   * and a 429 with a plain body is something the editor can show, where an
+   * error mid-stream is not.
+   */
+  const limited = await agentRateLimit(creatorId)
+  if (limited) return NextResponse.json({ error: limited }, { status: 429 })
 
   const plan = await creatorSitePlan(creatorId)
 

@@ -39,10 +39,15 @@ export async function readChat(siteId: string): Promise<StoredMessage[]> {
     .from("site_chat_messages")
     .select("id, role, content, steps, files_changed, version_id, error, created_at")
     .eq("site_id", siteId)
-    .order("created_at", { ascending: true })
-    // A very long conversation is a scrolling problem, not a data problem, but
-    // the editor should not have to load a thousand messages to show the last
-    // ten. Oldest are dropped, not newest.
+    /**
+     * NEWEST first, then reversed below.
+     *
+     * This was `ascending: true` with a limit, which keeps the OLDEST 200 and
+     * silently drops everything recent — reopen a busy site and you would see
+     * your first few conversations and never the one you had five minutes ago.
+     * The comment even claimed the opposite, which is how it survived review.
+     */
+    .order("created_at", { ascending: false })
     .limit(200)
 
   type Row = {
@@ -56,7 +61,9 @@ export async function readChat(siteId: string): Promise<StoredMessage[]> {
     created_at: string
   }
 
-  return ((data as Row[] | null) ?? []).map((row) => ({
+  // Back into reading order: the query asked for the newest, the transcript
+  // is read oldest-first.
+  return ((data as Row[] | null) ?? []).reverse().map((row) => ({
     id: row.id,
     role: row.role,
     content: row.content,

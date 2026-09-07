@@ -13,7 +13,7 @@
 import { notFound, redirect } from "next/navigation"
 
 import { EditorShell } from "@/components/sites/editor/editor-shell"
-import { getSite, readProject } from "@/lib/sites/projects"
+import { getSite, readProject, siteRevision } from "@/lib/sites/projects"
 import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -53,5 +53,14 @@ export default async function SiteEditorPage({
   const site = await getSite(siteId)
   if (!site) notFound()
 
-  return <EditorShell site={site} initialFiles={await readProject(siteId)} openingBrief={brief} />
+  const [files, revision] = await Promise.all([readProject(siteId), siteRevision(siteId)])
+
+  return (
+    <EditorShell
+      site={site}
+      initialFiles={files}
+      initialRevision={revision ?? 1}
+      openingBrief={brief}
+    />
+  )
 }

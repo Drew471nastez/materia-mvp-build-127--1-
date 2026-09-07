@@ -32,7 +32,7 @@
  */
 
 import * as React from "react"
-import { ArrowLeft, Check, Code2, Eye, Loader2, MessageSquare, AlertCircle } from "lucide-react"
+import { ArrowLeft, AlertCircle, Check, Code2, Download, Eye, History, Loader2, MessageSquare } from "lucide-react"
 
 import { SmartLink } from "@/components/smart-link"
 import { cn } from "@/lib/utils"
@@ -42,6 +42,7 @@ import { ChatPane } from "./chat-pane"
 import { CodePane } from "./code-pane"
 import { PreviewPane } from "./preview-pane"
 import { PublishButton, type PublishState } from "./publish-button"
+import { HistoryPanel } from "./history-panel"
 import { SiteSheet } from "./site-sheet"
 import { useBundler } from "./use-bundler"
 
@@ -53,16 +54,20 @@ const AUTOSAVE_MS = 1200
 export function EditorShell({
   site,
   initialFiles,
+  initialRevision,
   openingBrief,
 }: {
   site: Site
   initialFiles: ProjectFiles
+  /** The version these files came from. See `revision` below. */
+  initialRevision: number
   /** From the New Site flow: sent as the first message, once. */
   openingBrief?: string
 }) {
   const [files, setFiles] = React.useState<ProjectFiles>(initialFiles)
   const [pane, setPane] = React.useState<Pane>("preview")
   const [sheetOpen, setSheetOpen] = React.useState(false)
+  const [historyOpen, setHistoryOpen] = React.useState(false)
   const [activePath, setActivePath] = React.useState<string | null>(
     initialFiles["src/App.tsx"] !== undefined ? "src/App.tsx" : (Object.keys(initialFiles)[0] ?? null),
   )
@@ -117,6 +122,18 @@ export function EditorShell({
    * save the version of the set that existed when its timer was scheduled.
    */
   const dirtyPaths = React.useRef(new Set<string>())
+
+  /**
+   * The version of the site these files came from.
+   *
+   * Sent on every save so the database can refuse a write built on a stale
+   * read — the compare-and-swap in `site_commit_files`. A ref, because the
+   * save closure must read the CURRENT value rather than the one captured
+   * when its timer was scheduled, which is the same reason `dirtyPaths` is
+   * one.
+   */
+  const revision = React.useRef(initialRevision)
+  const [conflict, setConflict] = React.useState(false)
   const build = useBundler(files)
 
   /**
@@ -130,8 +147,12 @@ export function EditorShell({
   const adoptAgentChanges = React.useCallback(async () => {
     const response = await fetch(`/api/sites/${site.id}/files`)
     if (!response.ok) return
-    const body = (await response.json()) as { files?: ProjectFiles }
+    const body = (await response.json()) as { files?: ProjectFiles; revision?: number }
     if (!body.files) return
+    // The agent wrote, so the editor's revision is behind by exactly that
+    // write. Adopting the new one is what lets the next autosave succeed
+    // instead of conflicting with an edit the same person just asked for.
+    if (typeof body.revision === "number") revision.current = body.revision
     setFiles((previous) => {
       const merged = { ...body.files }
       for (const path of dirtyPaths.current) merged[path] = previous[path]
@@ -170,7 +191,7 @@ export function EditorShell({
       const response = await fetch(`/api/sites/${site.id}/files`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: payload }),
+        body: JSON.stringify({ files: payload, revision: revision.current }),
       })
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
@@ -179,8 +200,18 @@ export function EditorShell({
         for (const path of paths) dirtyPaths.current.add(path)
         setSaveState("error")
         setSaveError(body.error ?? "Could not save.")
+        /**
+         * A conflict is NOT retried. Somebody else — another tab, an agent run
+         * — has written since this editor last read, so retrying would be
+         * exactly the overwrite the revision exists to prevent. The banner
+         * below asks the person to reload, which is the only safe resolution
+         * without a merge UI.
+         */
+        if (response.status === 409 || body.conflict) setConflict(true)
         return
       }
+      const saved = await response.json().catch(() => ({}))
+      if (typeof saved.revision === "number") revision.current = saved.revision
       setSaveState(dirtyPaths.current.size > 0 ? "dirty" : "clean")
     } catch {
       for (const path of paths) dirtyPaths.current.add(path)
@@ -252,6 +283,26 @@ export function EditorShell({
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          {/* Desktop only: on a phone these live in the sheet, where they
+              have room for a label and a real tap target. */}
+          <button
+            type="button"
+            onClick={() => setHistoryOpen(true)}
+            aria-label="Version history"
+            title="Version history"
+            className="hidden h-8 w-8 items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
+          >
+            <History className="h-4 w-4" />
+          </button>
+          <a
+            href={`/api/sites/${site.id}/export`}
+            aria-label="Download project"
+            title="Download as a Vite project"
+            className="hidden h-8 w-8 items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
+          >
+            <Download className="h-4 w-4" />
+          </a>
+
           {/* Phone: the control opens the sheet, where the address and the
               48px publish button live. Desktop: it acts directly. */}
           <span className="md:hidden">
@@ -285,6 +336,22 @@ export function EditorShell({
       </header>
 
       {/* ─────────────────────────── the work ─────────────────────────── */}
+      {conflict && (
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2">
+          <p className="text-xs text-amber-200">
+            This site changed somewhere else. Reload to get the latest version — saving now would
+            overwrite it.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="shrink-0 rounded-[7px] border border-amber-500/40 px-2.5 py-1 text-xs text-amber-100"
+          >
+            Reload
+          </button>
+        </div>
+      )}
+
       <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(320px,380px)_1fr]">
         <div className={cn("min-h-0 md:block", pane === "chat" ? "block" : "hidden")}>
           <ChatPane
@@ -332,8 +399,20 @@ export function EditorShell({
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
         siteName={site.name}
+        siteId={site.id}
         state={publishState}
         onPublish={() => void publish()}
+        onHistory={() => {
+          setSheetOpen(false)
+          setHistoryOpen(true)
+        }}
+      />
+
+      <HistoryPanel
+        siteId={site.id}
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onRestored={() => void adoptAgentChanges()}
       />
     </div>
   )
