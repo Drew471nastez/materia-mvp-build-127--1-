@@ -20,6 +20,7 @@
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
 import { join } from "node:path"
+import { isOptimizableImage, optimizedImageUrl, PORTRAIT_QUALITY } from "@/lib/images/optimized-url"
 import { stripComments } from "./_source"
 
 let passed = 0
@@ -2022,6 +2023,159 @@ check(
     if (!detail) missing.push("the empty tab has no line under its heading")
     else if (detail.length > 60)
       missing.push(`the empty tab explains itself again (${detail.length} chars) — nobody reading a shop needs the roadmap`)
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+section("The two biggest images on a storefront are the two that were never optimised")
+
+check(
+  "the cover and the avatar are served at the size they are shown at",
+  (() => {
+    /**
+     * BOTH POINTED AT THE ORIGINAL UPLOAD. Nothing resized either one: a phone
+     * camera JPEG went to storage at 4032×3024 and came back at four megabytes
+     * to be painted into a 192px band and a 137px circle. Every product
+     * thumbnail on the same page went through the optimizer; these two did not.
+     *
+     * Measured on a real page with a real 5.5MB camera-sized JPEG:
+     *   cover   5,791,666 B JPEG → 33,986 B AVIF at 390px, 152,253 B at 3×
+     *   avatar  5,791,666 B JPEG →  9,903 B AVIF
+     *
+     * `priority` is the other half: it puts a preload link in the document
+     * head, so the download starts from the first bytes of HTML instead of
+     * after hydration. Verified present, with a full srcset.
+     *
+     * AND THE FADE IS GONE. The cover set `opacity: 0` from a ref callback and
+     * transitioned back over 700ms on load — invisible until JavaScript ran,
+     * then most of a second to arrive. That is what "abruptly shows the image"
+     * described: not the appearing, the waiting. Measured after: computed
+     * opacity 1 with no transition.
+     */
+    const header = code("components/store-builder/unified-section-renderer.tsx")
+    const missing: string[] = []
+
+    if (!/src=\{coverImageUrl\}\s*\n\s*alt=\{`\$\{profile\?\.display_name \|\| "Creator"\} cover`\}\s*\n\s*fill/.test(header))
+      missing.push("the cover is not rendered through next/image any more")
+    if (!/sizes="100vw"\s*\n\s*quality=\{PORTRAIT_QUALITY\}\s*\n\s*priority/.test(header))
+      missing.push("the cover lost its sizes/quality/priority — it will not be preloaded or resized")
+    if (/el\.style\.opacity = "0"/.test(header))
+      missing.push("the cover hides itself until JavaScript runs again")
+    if (/transition-opacity duration-700/.test(header))
+      missing.push("the cover fades in over 700ms again")
+    if (!/src=\{optimizedImageUrl\(avatarImageUrl, avatarSize\)\}/.test(header))
+      missing.push("the avatar is back to downloading the full-size original")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the optimizer is only ever asked for widths and qualities it accepts",
+  (() => {
+    /**
+     * THE ENDPOINT RETURNS 400, NOT A SMALLER PICTURE, when either is wrong —
+     * so a mistake here is not "slightly less optimised", it is every avatar
+     * on the site broken, and it looks like nothing until someone opens the
+     * network tab.
+     *
+     *  - `w` must be a literal member of deviceSizes ∪ imageSizes. Next 16
+     *    also dropped 16 from imageSizes, so a list copied from older docs is
+     *    already wrong.
+     *  - `q` must appear in `images.qualities`, which Next 16 defaults to
+     *    `[75]` ALONE. PORTRAIT_QUALITY is 88 because these are the pictures a
+     *    creator chose to represent themselves — that only works while
+     *    next.config lists it.
+     *
+     * The real function is run rather than pattern-matched: it is the widths
+     * it actually emits that break, not the ones it is written to emit.
+     */
+    const allowed = new Set([32, 48, 64, 96, 128, 256, 384, 640, 750, 828, 1080, 1200, 1920, 2048, 3840])
+    const missing: string[] = []
+
+    for (let display = 1; display <= 2000; display += 7) {
+      const url = optimizedImageUrl("https://x.supabase.co/storage/v1/object/public/avatars/a.jpg", display)
+      const w = Number(new URLSearchParams(url.split("?")[1]).get("w"))
+      if (!allowed.has(w)) {
+        missing.push(`display ${display}px asks the optimizer for w=${w}, which it rejects`)
+        break
+      }
+    }
+
+    const config = read("next.config.mjs")
+    const qualities = config.match(/qualities:\s*\[([^\]]*)\]/)?.[1] ?? ""
+    if (!qualities.split(",").map((q) => Number(q.trim())).includes(PORTRAIT_QUALITY))
+      missing.push(`PORTRAIT_QUALITY is ${PORTRAIT_QUALITY} but next.config lists qualities [${qualities.trim()}] — every image using it 400s`)
+
+    /**
+     * AND AN UNCONFIGURED HOST IS LEFT ALONE. `<Image>` does not degrade on
+     * one — it throws "hostname is not configured" during render, and this
+     * header is at the top of every storefront. `cover_url` is user data going
+     * back years; one row pointing at some other CDN and the creator's page is
+     * an error instead of a slightly-too-large photo. Verified in a browser:
+     * a cdn.shopify.com cover renders a plain <img>, page status 200, zero
+     * page errors.
+     */
+    if (isOptimizableImage("https://cdn.shopify.com/x/legacy.jpg"))
+      missing.push("an unconfigured host is treated as optimizable — <Image> will throw and take the page down")
+    if (!isOptimizableImage("https://abc.supabase.co/storage/v1/object/public/covers/c.jpg"))
+      missing.push("Supabase storage is no longer recognised — every real cover would skip the optimizer")
+    if (!isOptimizableImage("/placeholder.jpg")) missing.push("our own /public images are no longer optimizable")
+    if (isOptimizableImage("//evil.example.com/x.jpg")) missing.push("a protocol-relative URL is treated as local")
+    if (optimizedImageUrl("blob:http://localhost/abc", 128) !== "blob:http://localhost/abc")
+      missing.push("a local preview URL is handed to the optimizer, which cannot fetch it")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "an upload is resized before it is stored, and stored to be cached",
+  (() => {
+    /**
+     * lib/storage/image-url.ts has promised for a while that "compression
+     * happens ONCE at upload, in the browser — see lib/images/compress.ts".
+     * That file did not exist and nothing resized anything. Serving through
+     * the optimizer hides that from a viewer, but the origin object is still
+     * four megabytes: it costs storage, it costs the optimizer a slow first
+     * fetch, and anything reading the original pays again.
+     *
+     * Measured in a browser on a 5.52MB 4032×3024 JPEG:
+     *   avatars → 28KB WebP at 512×384, 357ms
+     *   covers  → 341KB WebP at 1867×1400, 776ms
+     *   an already-small WebP passes through untouched; an SVG is left alone.
+     *
+     * AND cacheControl WAS AN HOUR. Every path is `<user>/<timestamp>.<ext>`,
+     * so a new upload is a new URL and the bytes at any URL never change — an
+     * hour meant a visitor returning tomorrow downloaded the whole cover
+     * again. That is the "sometimes" in "sometimes it takes very long".
+     */
+    const upload = code("components/app/image-upload.tsx")
+    const compress = code("lib/images/compress.ts")
+    const missing: string[] = []
+
+    if (!/const profile = COMPRESS_PROFILES\[bucket\]/.test(upload) || !/await compressImage\(file, profile\)/.test(upload))
+      missing.push("uploads are no longer compressed in the browser")
+    if (!/\.upload\(filePath, upload, \{/.test(upload))
+      missing.push("the ORIGINAL file is being uploaded again, not the compressed one")
+    if (!/cacheControl: "31536000"/.test(upload))
+      missing.push("uploads are cached for an hour again — returning visitors re-download every image")
+    if (!/const ext = upload\.name\.split\(/.test(upload))
+      missing.push("the stored path takes its extension from the original, so a WebP is stored as .heic")
+
+    // The three refusals, each of which turns an optimisation into a downgrade.
+    if (!/if \(blob\.size >= file\.size\) return file/.test(compress))
+      missing.push("compression can now return something LARGER than it was given")
+    if (!/const LEAVE_ALONE = /.test(compress) || !compress.includes("svg") || !compress.includes("gif"))
+      missing.push("SVGs and GIFs are rasterised again — one loses its animation, the other gets bigger")
+    if (!/LEAVE_ALONE\.test\(file\.type\)\) return file/.test(compress))
+      missing.push("the leave-alone list is declared but never consulted")
+    if (!/while \(width > targetWidth \* 2/.test(compress))
+      missing.push("the stepwise halving is gone — a 4032px photo resampled in one draw aliases badly")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0

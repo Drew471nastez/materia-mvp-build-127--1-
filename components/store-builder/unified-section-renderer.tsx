@@ -53,6 +53,7 @@ import { SocialMediaIcons } from "./social-media-icons"
 import { CategorySelect, SortControl } from "@/components/storefront/catalog-controls"
 import { StorefrontProductCard } from "@/components/storefront/storefront-product-card"
 import { avatarSizeMap } from "@/lib/store-builder/defaults"
+import { isOptimizableImage, optimizedImageUrl, PORTRAIT_QUALITY } from "@/lib/images/optimized-url"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ReviewsList } from "@/components/reviews/reviews-list"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -2660,20 +2661,71 @@ export function UnifiedShopHeader({
           className={cn("relative w-full overflow-hidden bg-gray-200 group", isMobile ? "h-32" : "h-48 sm:h-64")}
           onClick={!isPreviewMode ? onSelect : undefined}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={coverImageUrl}
-            alt={`${profile?.display_name || "Creator"} cover`}
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
-            style={{
+          {/*
+            THE COVER IS THE PAGE'S LARGEST IMAGE AND ITS FIRST ONE.
+
+            It was a plain <img> pointed at the original upload: a phone camera
+            JPEG, four megabytes, painted into a 192px-tall band. Nothing
+            resized it and nothing preloaded it, so the browser only learned
+            the URL when React reached this element — and then downloaded the
+            whole thing.
+
+            Three changes, and the order matters:
+
+            `priority` puts a <link rel="preload" as="image"> in the document
+            head, so the download starts from the first bytes of HTML rather
+            than after hydration. That is most of the "sometimes it takes very
+            long".
+
+            `sizes="100vw"` with `fill` lets the optimizer pick a width from
+            the srcset that matches the screen, and re-encode to AVIF. A phone
+            gets ~750px of AVIF instead of 4032px of JPEG.
+
+            And THE FADE IS GONE. It set `opacity: 0` from a ref callback and
+            transitioned back over 700ms on load — so the banner was invisible
+            until JavaScript ran, and then took most of a second to arrive.
+            That is the "abrupt" part: not the image appearing, but the image
+            appearing slowly, after a gap, on its own schedule. The grey
+            underneath is a solid colour that is simply there from the first
+            paint, and the picture replaces it whenever it is ready.
+          */}
+          {(() => {
+            const coverStyle = {
               objectPosition: settings.coverFocalPoint
                 ? `${settings.coverFocalPoint.x}% ${settings.coverFocalPoint.y}%`
                 : undefined,
               filter: `brightness(${settings.coverBrightness ?? 1.0})`,
-            }}
-            ref={el => { if (el && !el.complete) el.style.opacity = "0" }}
-            onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
-          />
+            }
+            /**
+             * `<Image>` THROWS on a host that is not in remotePatterns — it
+             * does not fall back, it raises "hostname is not configured"
+             * during render, and this header is at the top of every
+             * storefront. `cover_url` is user data going back years; one row
+             * pointing somewhere else and the whole page is an error instead
+             * of a slightly-too-large photo. So an unrecognised URL loads the
+             * old way: unoptimised, and there.
+             */
+            return isOptimizableImage(coverImageUrl) ? (
+              <Image
+                src={coverImageUrl}
+                alt={`${profile?.display_name || "Creator"} cover`}
+                fill
+                sizes="100vw"
+                quality={PORTRAIT_QUALITY}
+                priority
+                className="object-cover"
+                style={coverStyle}
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={coverImageUrl}
+                alt={`${profile?.display_name || "Creator"} cover`}
+                className="absolute inset-0 h-full w-full object-cover"
+                style={coverStyle}
+              />
+            )
+          })()}
 
           {/*
             THE SOCIAL ICONS USED TO LIVE HERE, floating over the cover. They
@@ -2805,8 +2857,31 @@ export function UnifiedShopHeader({
                 borderColor: settings.profileImageBorderColor || "#e5e7eb",
               }}
             >
+              {/*
+                SERVED AT THE SIZE IT IS SHOWN AT.
+
+                This was the raw upload too — the same four-megabyte camera
+                JPEG, decoded in full to fill a 137px circle. Radix mounts the
+                <img> only once that has finished decoding, so the wait was
+                spent looking at grey, and the photo then arrived all at once.
+                That is exactly the "first shows gray then abruptly shows the
+                image" in the report: not a bad animation, a big file.
+
+                At `avatarSize` ×2 the optimizer returns roughly twenty
+                kilobytes of AVIF, which lands inside a frame or two — and the
+                fallback's 600ms delay means the initials never get shown at
+                all. Same component, same swap-when-decoded logic that keeps
+                the builder from flashing; a hundredth of the bytes.
+
+                It goes through a URL helper rather than <Image> because the
+                point of AvatarPrimitive.Image is that IT decides when the img
+                appears, and wrapping it would take that decision away.
+              */}
               {avatarImageUrl ? (
-                <AvatarImage src={avatarImageUrl || "/placeholder.svg"} alt={profile?.display_name || ""} />
+                <AvatarImage
+                  src={optimizedImageUrl(avatarImageUrl, avatarSize)}
+                  alt={profile?.display_name || ""}
+                />
               ) : null}
               <AvatarFallback
                 className={cn("bg-gray-300 text-gray-700 font-semibold", isMobile ? "text-lg" : "text-xl sm:text-2xl")}

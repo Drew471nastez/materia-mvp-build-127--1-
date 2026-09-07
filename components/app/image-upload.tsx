@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { X, ImageIcon, AlertCircle, Video } from "lucide-react"
 import Image from "next/image"
+import { COMPRESS_PROFILES, compressImage } from "@/lib/images/compress"
 
 interface ImageUploadProps {
   bucket: "product-images" | "avatars" | "covers" | "store-builder-images"
@@ -187,6 +188,29 @@ export function ImageUpload({
             }
           }
         } else {
+          /**
+           * RESIZED BEFORE IT LEAVES THE BROWSER.
+           *
+           * Nothing used to touch the file: a phone camera JPEG went to
+           * storage at 4032×3024 and four megabytes, and came back at four
+           * megabytes to be painted into a 137px avatar. Serving it through
+           * Next's optimizer hides that from the viewer, but the origin object
+           * is still four megabytes — it costs storage, it costs the optimizer
+           * a slow first fetch, and anything reading the original pays again.
+           *
+           * The size is chosen per bucket because the right size is a fact
+           * about where the image is shown. An unknown bucket, or an SVG, or a
+           * file that comes out bigger than it went in, passes through
+           * untouched — see lib/images/compress.ts.
+           */
+          const profile = COMPRESS_PROFILES[bucket]
+          const upload = profile ? await compressImage(file, profile) : file
+          if (upload !== file) {
+            console.log(
+              `[v0] Compressed ${(file.size / 1024).toFixed(0)}KB → ${(upload.size / 1024).toFixed(0)}KB`,
+            )
+          }
+
           // For image uploads, use the standard Supabase client
           const supabase = createClient()
 
@@ -200,7 +224,10 @@ export function ImageUpload({
 
           // Generate unique path with user folder
           const timestamp = Date.now()
-          const ext = file.name.split(".").pop()
+          // The compressed file's own extension, not the original's — the
+          // bytes are WebP now and a path ending .heic would be a lie that
+          // some CDNs and every "download this" flow act on.
+          const ext = upload.name.split(".").pop()
           const safeName = `${timestamp}.${ext}`
           const filePath = folder ? `${user.id}/${folder}/${safeName}` : `${user.id}/${safeName}`
 
@@ -209,8 +236,19 @@ export function ImageUpload({
           setProgress(30)
 
           // Upload to Supabase Storage
-          const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file, {
-            cacheControl: "3600",
+          /**
+           * A YEAR, not an hour.
+           *
+           * Every path here is `<user>/<timestamp>.<ext>` — a new upload is a
+           * new URL, always. So the bytes at any given URL never change, and
+           * an hour's cache meant a visitor who came back tomorrow downloaded
+           * the whole cover again for no reason. That is the other half of
+           * "sometimes it takes very long to load": sometimes was after the
+           * hour was up.
+           */
+          const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, upload, {
+            cacheControl: "31536000",
+            contentType: upload.type,
             upsert: true,
           })
 

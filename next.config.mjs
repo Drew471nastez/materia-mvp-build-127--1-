@@ -36,6 +36,17 @@ const nextConfig = {
     ],
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 31536000,
+    /**
+     * Next 16 only serves the qualities listed here — the default is `[75]`
+     * alone, and `q` anything else returns 400 rather than an image.
+     *
+     * 88 is for the cover and the avatar: the pictures a creator chose to
+     * represent themselves, where AVIF at 88 is indistinguishable from the
+     * original at any zoom a visitor will use and still a fraction of its
+     * size. 75 stays for everything else. PORTRAIT_QUALITY in
+     * lib/images/optimized-url.ts is the other half of this pair.
+     */
+    qualities: [75, 88],
   },
   experimental: {
     serverActions: {
