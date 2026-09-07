@@ -838,6 +838,20 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                   creatorUsername={profile.username}
                   creatorAvatarUrl={profile.avatar_url}
                   isOwner={viewerIsOwner}
+                  /**
+                   * The builder's "Hide Category Filter" switch lives on the
+                   * Featured section, because that is where the filter used to
+                   * be. It is the Products tab's filter now, so the setting has
+                   * to travel — otherwise it is a control that saves and does
+                   * nothing, which it already was once.
+                   */
+                  showCategoryFilter={
+                    !(
+                      regularSections.find((s) => s.type === "featured-products")?.settings as
+                        | { hideCategoryFilter?: boolean }
+                        | undefined
+                    )?.hideCategoryFilter
+                  }
                 />
               ),
             })

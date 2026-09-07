@@ -1812,97 +1812,91 @@ check(
 )
 
 check(
-  "both tabs use ONE set of catalog controls, and they fit a phone",
+  "the sort and the filter exist once, on the tab that owns them",
   (() => {
     /**
-     * THE CONTROLS HAVE BEEN WRONG IN BOTH DIRECTIONS.
+     * THE CONTROLS HAVE BEEN WRONG IN THREE DIRECTIONS NOW.
      *
-     * The Featured rail carried its own sort dropdown — its own drag handling,
-     * its own theme-colour plumbing, its own copy of the five labels — plus a
-     * row of category pills that only appeared on mobile. The Products tab had
-     * neither, then had a native <select> with different words for the same
-     * five options. Two vocabularies for one idea on one page.
+     * First the Featured rail carried its own sort dropdown — its own drag
+     * handling, its own theme plumbing, its own copy of the five labels — plus
+     * a mobile-only row of category pills, and the Products tab had neither.
+     * Then both had the same shared pair, which was consistent and still two
+     * of everything on one page: sort here, switch tab, find a different sort.
      *
-     * Both now render components/storefront/catalog-controls, so there is one
-     * sort and one category filter and they cannot drift.
+     * Now the rail is a TEASER — the creator's products in their own order,
+     * and a link to the tab that has all of them — and the Products tab owns
+     * both controls. One sort, one filter, one place each.
      *
-     * AND THEY FIT A PHONE. Sort collapses to an icon — "Sort: Most Recent"
-     * spends half a 390px screen saying what the icon says — and the category
-     * filter is ONE pill that opens a list, not a row of chips. Chips look
-     * fine with two categories and fall apart with nine: three wrapped lines,
-     * products below the fold. Measured at 390px: the pill on the left, the
-     * sort icon 12px from the right edge, on both tabs.
+     * The dead giveaway that the middle state was wrong: after the controls
+     * moved, the rail's sort and filter STATE stayed behind for a commit with
+     * nothing able to change it, and a hold-to-open touch handler outlived its
+     * dropdown by several — still calling
+     * `document.getElementById("sb-sort-trigger").click()` on an element that
+     * no longer existed.
      */
     const controls = code("components/storefront/catalog-controls.tsx")
-    const featured = code("components/store-builder/unified-section-renderer.tsx")
+    const rail = code("components/store-builder/unified-section-renderer.tsx")
     const grid = code("components/storefront/all-products-grid.tsx")
     const missing: string[] = []
 
-    for (const [name, src] of [
-      ["the featured rail", featured],
-      ["the products tab", grid],
+    const railBody = (() => {
+      const from = rail.slice(rail.indexOf("function UnifiedFeaturedProductsSection"))
+      return from.slice(0, from.search(/\n(export )?function /) + 1 || undefined)
+    })()
+
+    // The Products tab has them, from the shared file.
+    if (!/<SortControl\b/.test(grid)) missing.push("the products tab does not use the shared sort control")
+    if (!/<CategorySelect\b/.test(grid)) missing.push("the products tab does not use the shared category selector")
+    if (!/compact className="sm:hidden"/.test(grid))
+      missing.push("the products tab is not using the compact sort on phones")
+
+    // The rail has neither, and no leftovers of having had them.
+    for (const [what, re] of [
+      ["a sort control", /<SortControl\b/],
+      ["a category selector", /<CategorySelect\b/],
+      ["sort state", /setSortBy|sortedProducts/],
+      ["filter state", /selectedCategory|categoriesWithCounts/],
+      ["the orphaned touch handler", /sortTouch|sb-sort-trigger/],
+      ["a dead price formatter", /const formatPrice/],
     ] as const) {
-      if (!/<SortControl\b/.test(src)) missing.push(`${name} does not use the shared sort control`)
-      if (!/<CategorySelect\b/.test(src)) missing.push(`${name} does not use the shared category selector`)
-      if (/SORT_LABELS: Record|sortLabels: Record/.test(src)) missing.push(`${name} has its own copy of the sort labels`)
+      if (re.test(railBody)) missing.push(`the featured rail has ${what} again — the Products tab owns it`)
     }
 
     // The five options live in one place.
     for (const label of ["Most Recent", "Oldest", "Price: Low → High", "Price: High → Low", "Most Popular"]) {
       if (!controls.includes(label)) missing.push(`the shared control lost "${label}"`)
     }
-
-    // Phone behaviour.
-    if (!/compact \? \(\s*<ArrowUpDown/.test(controls)) missing.push("sort no longer collapses to an icon")
-    if (!/compact className="sm:hidden"/.test(grid) || !/compact className="sm:hidden"/.test(featured))
-      missing.push("a tab is not using the compact sort on phones")
-    if (!/categories\.length < 2\) return null/.test(controls))
-      missing.push("the category filter shows with a single category — that is not a choice")
-    // A chip row is what this replaced.
-    if (/rounded-full border px-3\.5 py-2 text-sm font-medium/.test(featured))
-      missing.push("the mobile category chip row is back")
+    if (/SORT_LABELS: Record|sortLabels: Record/.test(grid))
+      missing.push("the products tab has its own copy of the sort labels")
 
     /**
-     * THE ICON BUTTON IS A 7px SQUARE, NOT A CIRCLE.
-     *
-     * A perfect circle beside the fully-rounded category pill read as a second
-     * pill with a letter missing: two round shapes of different widths in one
-     * row look like a mistake rather than a pair.
+     * THE PILL SHOWS EVEN WHEN "ALL" IS THE ONLY OPTION. It used to return
+     * null below two categories, so a store with none had a header collapsing
+     * to a lone control at the right and no product count anywhere. With
+     * nothing to choose between it is a label, not a menu — same shape, same
+     * count, no chevron — because a control that opens a list containing only
+     * what it already says is a small lie about what it does.
      */
+    if (/categories\.length < 2\) return null/.test(controls))
+      missing.push("the category pill hides itself again when All is the only option")
+    if (!/categories\.length === 0/.test(controls))
+      missing.push("the pill opens a one-item menu instead of being a label")
+    // A chip row is what this replaced.
+    if (/rounded-full border px-3\.5 py-2 text-sm font-medium/.test(rail))
+      missing.push("the mobile category chip row is back")
+    if (!/compact \? \(\s*<ArrowUpDown/.test(controls)) missing.push("sort no longer collapses to an icon")
     if (!/compact \? "h-9 w-9 justify-center rounded-\[7px\] border border-border"/.test(controls))
       missing.push("the compact sort button is not a 7px square")
 
     /**
-     * BOTH TABS COUNT CATEGORIES BY NAME.
-     *
-     * The rail used to key its counts by category ID and `continue` on any
-     * category without one, while the Products tab counted by name. On a
-     * storefront whose categories carry names but no id that produced an EMPTY
-     * list on Home and a full one on Products — the pill simply missing from
-     * one of the two tabs, on the same page, for the same products. Same key,
-     * both places, is what makes them agree rather than merely match today.
+     * The builder still offers "Hide Category Filter". The filter it hid moved
+     * tabs, so the setting has to travel with it or become a control that
+     * saves and does nothing — which it already was once.
      */
-    if (/if \(!c\?\.id\) continue/.test(featured))
-      missing.push("the featured rail counts categories by id again — the pill vanishes wherever ids are absent")
-    for (const [name, src] of [["the featured rail", featured], ["the products tab", grid]] as const) {
-      if (!/if \(!c\?\.name\) continue|if \(category\?\.name\)/.test(src))
-        missing.push(`${name} no longer counts categories by name`)
-    }
-
-    /**
-     * The builder still offers "Hide Category Filter". It was saved, and read
-     * by nothing, for as long as the rail had no filter to hide.
-     */
-    if (!/!settings\.hideCategoryFilter && \(/.test(featured))
-      missing.push("the builder's Hide Category Filter toggle is dead again")
-
-    /**
-     * Filtering happens on the click. It used to dim the grid to half opacity,
-     * wait 50ms, swap the products, then wait 150ms more to undim — a blink
-     * with nothing to look at during it.
-     */
-    if (/isAnimating/.test(featured))
-      missing.push("changing category dims the grid and waits again")
+    if (!/showCategoryFilter && \(/.test(grid))
+      missing.push("the products tab ignores the Hide Category Filter setting")
+    if (!/showCategoryFilter=\{/.test(code("app/(marketing)/u/[username]/page.tsx")))
+      missing.push("the page no longer passes Hide Category Filter through — the builder toggle is dead again")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -2437,6 +2431,103 @@ check(
     const dialog = code("components/storefront/edit-profile-button.tsx")
     if (!/router\.refresh\(\)/.test(dialog))
       missing.push("saving a profile no longer refreshes the page")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "the two tabs draw their cards in the same column",
+  (() => {
+    /**
+     * THE HOME RAIL WAS INSET AND THE PRODUCTS TAB WAS NOT.
+     *
+     * `defaultFeaturedProductsSettings` ships `paddingLeft/Right: 16` (12 on
+     * mobile), and UnifiedSectionRenderer's wrapper applied it ON TOP of the
+     * rail's own SectionContainer — which already provides the page column,
+     * `px-3 sm:px-4 lg:px-6`, and is the same container the Products tab uses.
+     * So Home sat 32px from the edge on desktop against Products' 16: the same
+     * cards on two tabs of one page, at different widths, sliding sideways as
+     * you switched.
+     *
+     * IT WAS INVISIBLE TO EVERY EARLIER MEASUREMENT because the harness passed
+     * `paddingLeft: 0` — a number nobody's storefront actually has. Measured
+     * with the real defaults, at 390 / 768 / 1180: grid edges 12–378, 16–752
+     * and 64–1116 on BOTH tabs, and the two titles start at the same x.
+     *
+     * Vertical spacing is still the creator's — it separates this section from
+     * the ones around it, which is what that control is for. Horizontal is the
+     * page's column, not a per-section choice.
+     *
+     * The assertion on the default is not decoration: if it ever became 0 this
+     * guard would pass for a page that no longer needs it, and the next person
+     * to set it back would reintroduce the bug silently.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const defaults = code("lib/store-builder/defaults.ts")
+    const grid = code("components/storefront/all-products-grid.tsx")
+    const missing: string[] = []
+
+    if (!/const isProductRail = section\.type === "featured-products"/.test(renderer))
+      missing.push("the renderer no longer recognises the product rail")
+    if (!/paddingLeft: isMoreFromSeller \|\| isProductRail \? undefined :/.test(renderer))
+      missing.push("the featured rail takes horizontal padding from its spacing setting again — Home will sit further in than Products")
+    if (!/paddingRight: isMoreFromSeller \|\| isProductRail \? undefined :/.test(renderer))
+      missing.push("the featured rail's right padding is back")
+
+    const shipped = defaults.match(/defaultFeaturedProductsSettings[\s\S]{0,900}?paddingLeft: (\d+)/)?.[1]
+    if (shipped === undefined) missing.push("could not read the featured section's default horizontal padding")
+    else if (shipped === "0")
+      missing.push("the default horizontal padding is 0, so this guard proves nothing — set it back or delete the guard")
+
+    // Both columns come from the same place.
+    if (!/mx-auto w-full max-w-\[1100px\]/.test(grid))
+      missing.push("the products grid no longer uses the page column")
+    if (!/"mx-auto w-full max-w-\[1100px\]", !noPadding && "px-3 sm:px-4 lg:px-6"/.test(renderer))
+      missing.push("SectionContainer's column changed — the two tabs will no longer agree")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "Home points at Products rather than repeating it",
+  (() => {
+    /**
+     * Home reads "Featured … View all products →"; Products reads "Products …
+     * All (n) … Sort: Most Recent". Two headers with different jobs, in one
+     * component so their heights and margins cannot drift apart.
+     *
+     * "View all products" needs to reach the tab strip's state, and the rail
+     * is a store-builder section that also renders on a product page and in
+     * the builder canvas — so the context is null there and the link is not
+     * offered rather than being a dead control. Verified: clicking it selects
+     * the Products tab and shows its panel.
+     *
+     * "Featured", not "Featured Products", because the word Products is now
+     * the tab beside it AND the link at the other end of the same row. The
+     * creator's own headline still wins; only the value nobody chose — the old
+     * shipped default — is replaced, which is the same "did anyone actually
+     * decide this" rule the sticky bar uses.
+     */
+    const rail = code("components/store-builder/unified-section-renderer.tsx")
+    const grid = code("components/storefront/all-products-grid.tsx")
+    const tabs = code("components/storefront/storefront-tabs.tsx")
+    const missing: string[] = []
+
+    if (!/const LEGACY_FEATURED_HEADLINE = "Featured Products"/.test(rail))
+      missing.push("the old default headline is no longer recognised, so stores still set to it keep saying it")
+    if (!/settings\.headline === LEGACY_FEATURED_HEADLINE \? "Featured" : settings\.headline/.test(rail))
+      missing.push("the rail no longer prefers the creator's own headline over the old default")
+    if (!/View all products/.test(rail)) missing.push("the rail no longer points at the Products tab")
+    if (!/tabsApi\?\.select\("products"\)/.test(rail)) missing.push("View all products does not switch tabs")
+    if (!/const canViewAll = !!tabsApi\?\.ids\.includes\("products"\)/.test(rail))
+      missing.push("the link is offered even where there is no Products tab to reach")
+    if (!/export function useStorefrontTabs/.test(tabs))
+      missing.push("the tab strip no longer exposes a way to switch tabs")
+    if (!/title="Products"/.test(grid)) missing.push("the Products tab lost its title")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0

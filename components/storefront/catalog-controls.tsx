@@ -101,6 +101,13 @@ export interface CategoryOption {
  * wraps to three lines on a phone and pushes the products below the fold. A
  * single pill costs one line whatever the creator has, and the check mark says
  * which is active without needing a filled background to carry the meaning.
+ *
+ * IT SHOWS EVEN WHEN "ALL" IS THE ONLY OPTION. It used to return null below
+ * two categories, on the reasoning that one choice is not a choice — but the
+ * pill is also the row's left-hand anchor and the place the product count is
+ * read from. Without it the header collapsed to a lone control floating at the
+ * right, and the count vanished from a page that had every reason to state it.
+ * `All (23)` is worth a line on its own.
  */
 export function CategorySelect({
   categories,
@@ -115,21 +122,31 @@ export function CategorySelect({
   total: number
   className?: string
 }) {
-  // Nothing to choose between: one category is not a filter.
-  if (categories.length < 2) return null
-
   const active = value ? categories.find((c) => c.name === value) : null
   const label = active ? `${active.name} (${active.count})` : `All (${total})`
 
+  const trigger = (
+    <span className="max-w-[45vw] truncate sm:max-w-none">{label}</span>
+  )
+  const triggerClass = cn(
+    "inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-border px-4 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+    className,
+  )
+
+  /**
+   * With no categories to choose between, the pill is a LABEL, not a menu:
+   * same shape, same place, same count, no chevron and nothing to open. A
+   * control that opens a menu containing only the thing already showing is a
+   * small lie about what it does.
+   */
+  if (categories.length === 0) {
+    return <span className={triggerClass}>{trigger}</span>
+  }
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        className={cn(
-          "inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-border px-4 text-sm transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-          className,
-        )}
-      >
-        <span className="max-w-[45vw] truncate sm:max-w-none">{label}</span>
+      <DropdownMenuTrigger className={cn(triggerClass, "hover:border-foreground/30")}>
+        {trigger}
         <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[13rem]">

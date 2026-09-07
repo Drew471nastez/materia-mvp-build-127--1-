@@ -21,12 +21,20 @@ export function AllProductsGrid({
   creatorUsername,
   creatorAvatarUrl,
   isOwner = false,
+  showCategoryFilter = true,
 }: {
   products: AllProductsGridProduct[]
   creatorName?: string | null
   creatorUsername?: string | null
   creatorAvatarUrl?: string | null
   isOwner?: boolean
+  /**
+   * The builder's "Hide Category Filter" switch, which used to live on the
+   * Featured rail because the filter did. The filter is the Products tab's
+   * now, so the switch has to reach here or it becomes a control that is
+   * saved and read by nothing — which it already was once.
+   */
+  showCategoryFilter?: boolean
 }) {
   /**
    * Category filtering, which the tab had none of. Chips rather than the rail
@@ -95,8 +103,10 @@ export function AllProductsGrid({
         phone, because "Sort: Most Recent" spends half the width of a phone
         saying what the icon says.
       */}
-      <CatalogHeader>
-        <CategorySelect categories={categories} value={active} onChange={setActive} total={products.length} />
+      <CatalogHeader title="Products" titleClassName="text-lg sm:text-xl lg:text-2xl">
+        {showCategoryFilter && (
+          <CategorySelect categories={categories} value={active} onChange={setActive} total={products.length} />
+        )}
         {products.length > 1 && (
           <>
             <SortControl value={sort} onChange={setSort} compact className="sm:hidden" />

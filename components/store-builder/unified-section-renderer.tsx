@@ -23,26 +23,7 @@ import type {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Package,
-  ShoppingBag,
-  CheckCircle,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Files,
-  Infinity,
-  Share2,
-  X,
-  Link2,
-  Facebook,
-  Star,
-  Heart,
-  BadgeCheck,
-  Users,
-} from "lucide-react"
+import { ArrowRight, BadgeCheck, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Download, Facebook, Files, Heart, Infinity, Link2, Package, Share2, ShoppingBag, Star, Users, X } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -50,7 +31,16 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ProductGallery } from "@/components/product/product-gallery"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { SocialMediaIcons } from "./social-media-icons"
-import { CatalogHeader, CategorySelect, SortControl } from "@/components/storefront/catalog-controls"
+import { CatalogHeader } from "@/components/storefront/catalog-controls"
+import { useStorefrontTabs } from "@/components/storefront/storefront-tabs"
+
+/**
+ * The headline this section shipped with. Anything still set to it was never
+ * chosen by the creator, so the rail may pick a better word; anything else is
+ * theirs and is left alone. Do not change this string — it is a record of what
+ * the old default WAS, not a setting.
+ */
+const LEGACY_FEATURED_HEADLINE = "Featured Products"
 import { StorefrontProductCard } from "@/components/storefront/storefront-product-card"
 import { avatarSizeMap } from "@/lib/store-builder/defaults"
 import { isOptimizableImage, optimizedImageUrl, PORTRAIT_QUALITY } from "@/lib/images/optimized-url"
@@ -1203,6 +1193,23 @@ export function UnifiedSectionRenderer({
   // For more-from-seller, don't apply wrapper padding as it handles its own layout
   const isMoreFromSeller = section.type === "more-from-seller"
 
+  /**
+   * THE FEATURED RAIL TAKES NO HORIZONTAL PADDING FROM ITS SPACING SETTING.
+   *
+   * `defaultFeaturedProductsSettings` ships `paddingLeft/Right: 16` (12 on
+   * mobile), and this wrapper applied it on top of the rail's own
+   * SectionContainer — so the Home grid sat 32px from the edge on desktop
+   * while the Products tab, which has only the container, sat at 16. The same
+   * cards, on two tabs of one page, at different widths, moving sideways as
+   * you switched. It was invisible to a test that used 0.
+   *
+   * Vertical spacing is still the creator's: it separates this section from
+   * the ones above and below it, which is what that control is for. Horizontal
+   * is not a per-section choice — it is the page's column, and every other
+   * section on the page gets it from SectionContainer too.
+   */
+  const isProductRail = section.type === "featured-products"
+
   // Defensive access to spacing and colors with fallbacks
   const spacing = section.settings.spacing || { paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 }
   const colors = section.settings.colors || { backgroundColor: "transparent", textColor: "inherit" }
@@ -1210,8 +1217,8 @@ export function UnifiedSectionRenderer({
   const style = {
     paddingTop: isMoreFromSeller ? undefined : spacing.paddingTop,
     paddingBottom: isMoreFromSeller ? undefined : spacing.paddingBottom,
-    paddingLeft: isMoreFromSeller ? undefined : spacing.paddingLeft,
-    paddingRight: isMoreFromSeller ? undefined : spacing.paddingRight,
+    paddingLeft: isMoreFromSeller || isProductRail ? undefined : spacing.paddingLeft,
+    paddingRight: isMoreFromSeller || isProductRail ? undefined : spacing.paddingRight,
     backgroundColor: colors.backgroundColor || "transparent",
     color: colors.textColor || "inherit",
   }
@@ -2171,77 +2178,20 @@ function UnifiedFeaturedProductsSection({
    */
   const horizontalPadding = undefined
 
-  // Get theme preset for mobile filter pills styling
-  const themePreset = globalSettings?.themePreset || "default"
-
   /**
-   * The selected category is a NAME here, as it is on the Products tab.
+   * NO SORT AND NO FILTER STATE, and no touch handling for either.
    *
-   * It used to be an id, and `categoriesWithCounts` skipped any category
-   * without one — so on a storefront whose product categories carry names but
-   * no id, the Home tab computed an EMPTY category list and the selector
-   * rendered nothing, while the Products tab, which counts by name, showed
-   * `All (23)` right below it. Same page, same products, one tab with a filter
-   * and one without. Counting by name in both places is what makes them agree,
-   * rather than a lookup table that keeps them merely synchronised.
+   * The rail is a teaser: it shows the creator's products in their own order
+   * and points at the Products tab, which owns both controls.
+   *
+   * What was here was the wreckage of two removals. A hold-to-open touch
+   * handler — `sortTouch`, a 140ms timer, a 6px movement threshold and a
+   * `document.getElementById("sb-sort-trigger").click()` — outlived the
+   * dropdown it opened by several commits, so it was reaching for an element
+   * that no longer exists. The sort and category STATE outlived its controls
+   * by one, leaving state nothing could change. Both are worse than a missing
+   * feature: they read as working code.
    */
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [sortBy, setSortBy] = useState<"recent" | "oldest" | "price-low" | "price-high" | "popular">("recent")
-
-  const sortTouch = useRef({
-    startX: 0,
-    startY: 0,
-    moved: false,
-    timer: null as null | ReturnType<typeof setTimeout>,
-    allowOpen: false,
-  })
-
-  // this opens the dropdown trigger programmatically
-  const openSortDropdown = () => {
-    const el = document.getElementById("sb-sort-trigger") as HTMLButtonElement | null
-    el?.click()
-  }
-
-  const onSortPointerDown = (e: React.PointerEvent) => {
-    if (e.pointerType !== "touch") return
-    sortTouch.current.startX = e.clientX
-    sortTouch.current.startY = e.clientY
-    sortTouch.current.moved = false
-    sortTouch.current.allowOpen = false
-
-    // ✅ must “hold” briefly to open (prevents accidental opens while scrolling)
-    sortTouch.current.timer = setTimeout(() => {
-      if (!sortTouch.current.moved) {
-        sortTouch.current.allowOpen = true
-        openSortDropdown()
-      }
-    }, 140)
-  }
-
-  const onSortPointerMove = (e: React.PointerEvent) => {
-    if (e.pointerType !== "touch") return
-    const dx = Math.abs(e.clientX - sortTouch.current.startX)
-    const dy = Math.abs(e.clientY - sortTouch.current.startY)
-    if (dx > 6 || dy > 6) sortTouch.current.moved = true
-  }
-
-  const onSortPointerUp = () => {
-    if (sortTouch.current.timer) clearTimeout(sortTouch.current.timer)
-    sortTouch.current.timer = null
-  }
-
-  const onSortPointerCancel = () => {
-    if (sortTouch.current.timer) clearTimeout(sortTouch.current.timer)
-    sortTouch.current.timer = null
-  }
-
-  const onSortClickCapture = (e: React.MouseEvent) => {
-    if (sortTouch.current.moved) {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-  }
-
   /**
    * The `matchMedia("(max-width: 768px)")` that used to live here is gone.
    *
@@ -2252,34 +2202,13 @@ function UnifiedFeaturedProductsSection({
    */
 
   /**
-   * Filtering happens on the click, not 50ms after it.
-   *
-   * This used to dim the grid to half opacity, wait, swap the products, then
-   * wait again to undim — a 200ms round trip during which the cards blinked.
-   * The blink was the whole effect: nothing moves, nothing crossfades, the
-   * images just go pale and come back. Applying the filter immediately is both
-   * faster and calmer.
+   * `formatPrice` was here too, hardcoded to USD, and unused since the rail
+   * started rendering StorefrontProductCard — which formats its own price in
+   * the store's currency. A dead copy that says "$" is not neutral: it is the
+   * one somebody reaches for next time.
    */
-  const handleCategoryChange = (categoryName: string | null) => {
-    if (categoryName === selectedCategory) return
-    setSelectedCategory(categoryName)
-  }
 
-  const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
-  }
-
-  /**
-   * The products this section is actually about, before any category filter.
-   *
-   * The counts and the "All (n)" total are both taken from THIS list rather
-   * than from every product the creator has: a rail configured to show six
-   * hand-picked products offering to filter twenty-three of them is a lie the
-   * grid below immediately contradicts.
-   */
+  /** The products this section is about: the creator's picks, or everything. */
   const sectionProducts = useMemo(() => {
     // ✅ show ALL products by default (no maxProducts)
     if (settings.productIds && settings.productIds.length > 0) {
@@ -2288,49 +2217,20 @@ function UnifiedFeaturedProductsSection({
     return products || []
   }, [products, settings.productIds])
 
-  // ✅ Build categories from ALL product categories (not only first one),
-  // counted by NAME so this and the Products tab produce the same list.
-  const categoriesWithCounts = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const p of sectionProducts) {
-      for (const c of p.categories || []) {
-        if (!c?.name) continue
-        map.set(c.name, (map.get(c.name) ?? 0) + 1)
-      }
-    }
-    return Array.from(map, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count)
-  }, [sectionProducts])
+  /**
+   * "Featured", not "Featured Products".
+   *
+   * The word "Products" is now the title of the tab beside it and the label on
+   * the link at the other end of this very row, so the rail was the third
+   * thing on one screen saying it. The creator's own headline still wins —
+   * this only replaces the value nobody chose, the old shipped default, which
+   * is the same "did anyone actually decide this" rule the sticky bar and the
+   * inherited-white backgrounds use.
+   */
+  const headline = settings.headline === LEGACY_FEATURED_HEADLINE ? "Featured" : settings.headline
 
-  const filteredProducts = useMemo(() => {
-    if (!selectedCategory) return sectionProducts
-    return sectionProducts.filter((p) => (p.categories || []).some((c) => c.name === selectedCategory))
-  }, [sectionProducts, selectedCategory])
-
-  const sortedProducts = useMemo(() => {
-    const sorted = [...filteredProducts]
-
-    switch (sortBy) {
-      case "oldest":
-        sorted.reverse()
-        break
-      case "price-low":
-        sorted.sort((a, b) => a.price_cents - b.price_cents)
-        break
-      case "price-high":
-        sorted.sort((a, b) => b.price_cents - a.price_cents)
-        break
-      case "popular":
-        sorted.sort((a, b) => (b.sales_count || 0) - (a.sales_count || 0))
-        break
-      case "recent":
-      default:
-        break
-    }
-
-    return sorted
-  }, [filteredProducts, sortBy])
-
-  const totalProducts = sectionProducts.length
+  const tabsApi = useStorefrontTabs()
+  const canViewAll = !!tabsApi?.ids.includes("products")
 
   // The sort labels live in components/storefront/catalog-controls, which both
   // this rail and the Products tab render. A second copy here is how the two
@@ -2399,22 +2299,21 @@ function UnifiedFeaturedProductsSection({
         {/* Main */}
         <div className="flex-1 min-w-0">
           {/*
-            THE SAME HEADER COMPONENT THE PRODUCTS TAB USES.
+            THE HOME RAIL IS A TEASER, NOT A SECOND PRODUCTS TAB.
 
-            This was its own `flex flex-wrap` row with its own `mt-5` on the
-            grid below it, and the Products tab had its own with `mb-5`. Two
-            numbers that had to be kept equal by hand — and even equal, the
-            rows only lined up while both happened to be 36px tall. A heading
-            that wrapped, or a long category name, moved one tab's cards and
-            not the other's, and switching tab jumped the grid. One component,
-            one fixed row height, one margin.
+            It used to carry the same sort and category controls the Products
+            tab has, which is two of everything on one page: the visitor sorts
+            here, switches tab, and finds a different sort. A rail that shows
+            some products and points at the tab that shows all of them has one
+            job, and the tab keeps the controls.
 
-            The controls themselves are shared too: this section used to carry
-            its own sort dropdown, with its own drag handling, its own theme
-            plumbing and its own copy of the five labels.
+            "View all products" only appears when there is a Products tab to
+            send anyone to — on a product page, or inside the builder canvas,
+            the context is null and the link is not offered rather than being
+            a dead control.
           */}
           <CatalogHeader
-            title={settings.headline}
+            title={headline}
             titleClassName={cn(
               // A CSS breakpoint, not the JS one that used to live here: that
               // resized the heading a frame after hydration.
@@ -2426,19 +2325,15 @@ function UnifiedFeaturedProductsSection({
               color: settings.colors?.textColor || undefined,
             }}
           >
-            {!settings.hideCategoryFilter && (
-              <CategorySelect
-                categories={categoriesWithCounts}
-                value={selectedCategory}
-                onChange={handleCategoryChange}
-                total={totalProducts}
-              />
-            )}
-            {totalProducts > 1 && (
-              <>
-                <SortControl value={sortBy} onChange={setSortBy} compact className="sm:hidden" />
-                <SortControl value={sortBy} onChange={setSortBy} className="hidden sm:inline-flex" />
-              </>
+            {canViewAll && (
+              <button
+                type="button"
+                onClick={() => tabsApi?.select("products")}
+                className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-foreground transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                View all products
+                <ArrowRight className="h-4 w-4" />
+              </button>
             )}
           </CatalogHeader>
 
@@ -2471,7 +2366,7 @@ function UnifiedFeaturedProductsSection({
               !isMobile && "sm:grid-cols-2 lg:grid-cols-3",
             )}
           >
-            {sortedProducts.map((product) => {
+            {sectionProducts.map((product) => {
               // Get product card colors from theme settings
               const cardBgColor = settings.productCardColors?.backgroundColor || undefined
               const cardTextColor = settings.productCardColors?.textColor || settings.colors?.textColor || undefined
@@ -2511,18 +2406,6 @@ function UnifiedFeaturedProductsSection({
             })}
           </div>
 
-          {sortedProducts.length === 0 && (
-            <div className="rounded-lg border border-dashed border-border p-8 text-center mt-6">
-              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No products in this category</p>
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className="mt-3 text-sm font-medium underline underline-offset-4 text-foreground hover:opacity-80"
-              >
-                View all products
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </SectionContainer>
