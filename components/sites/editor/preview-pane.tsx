@@ -66,9 +66,9 @@ export function PreviewPane({ build, html }: { build: BundleState; html?: string
   const failed = build.status === "failed"
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-muted/40">
-      <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border bg-background px-3">
-        <div className="flex items-center gap-1">
+    <div className="flex h-full min-h-0 flex-col bg-sidebar">
+      <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border px-2 sm:px-3">
+        <div className="hidden items-center gap-1 sm:flex">
           {([["desktop", Monitor], ["tablet", Tablet], ["phone", Smartphone]] as const).map(([key, Icon]) => (
             <button
               key={key}
@@ -99,9 +99,9 @@ export function PreviewPane({ build, html }: { build: BundleState; html?: string
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1 overflow-auto p-4">
+      <div className="relative min-h-0 flex-1 overflow-auto p-0 sm:p-4">
         <div
-          className="mx-auto h-full overflow-hidden rounded-[10px] border border-border bg-white shadow-sm transition-[width]"
+          className="mx-auto h-full overflow-hidden border-border bg-white shadow-sm transition-[width] sm:rounded-[10px] sm:border"
           style={{ width: WIDTHS[viewport], maxWidth: "100%" }}
         >
           <iframe
@@ -157,7 +157,7 @@ function BuildStatus({ build }: { build: BundleState }) {
  */
 function ErrorOverlay({ title, errors, detail }: { title: string; errors: BuildError[]; detail?: string }) {
   return (
-    <div className="pointer-events-none absolute inset-0 flex items-end p-4">
+    <div className="pointer-events-none absolute inset-0 flex items-end p-3 sm:p-4">
       <div className="pointer-events-auto max-h-[60%] w-full overflow-auto rounded-[10px] border border-destructive/30 bg-background/95 p-4 shadow-lg backdrop-blur">
         <div className="mb-2 flex items-center gap-2 text-sm font-medium text-destructive">
           <AlertCircle className="h-4 w-4" />

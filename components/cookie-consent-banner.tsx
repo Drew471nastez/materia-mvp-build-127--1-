@@ -21,6 +21,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Analytics } from "@vercel/analytics/next"
 import { isNativeApp } from "@/lib/native-bridge"
 
@@ -131,6 +132,7 @@ export function CookieConsentBanner() {
   const [showPrefs, setShowPrefs] = useState(false)
   const [analyticsToggle, setAnalyticsToggle] = useState(true)
   const [leaving, setLeaving] = useState(false)
+  const pathname = usePathname()
 
   // Hydrate from localStorage on client mount
   useEffect(() => {
@@ -190,12 +192,25 @@ export function CookieConsentBanner() {
   // Auth/session cookies are unaffected — they are not gated on consent.
   if (isNativeApp()) return null
 
+  /**
+   * The Sites editor is a full-viewport tool, not a page, and this banner is
+   * `fixed bottom-0 z-[9999]` — on a phone it sat exactly on top of the
+   * editor's Chat / Preview / Code bar and made it unclickable. Found by a
+   * click that could not land, not by looking at it.
+   *
+   * Suppressed rather than restyled, for the same reason it is suppressed in
+   * the native app: the editor is reached from inside a signed-in account, so
+   * the banner has a page of its own to appear on. Analytics still respects
+   * whatever was chosen there — only the banner is withheld.
+   */
+  const inSitesEditor = pathname?.startsWith("/sites/") ?? false
+
   return (
     <>
       {/* Load Vercel Analytics only when analytics consent is given */}
       {consent?.analytics === true && <Analytics />}
 
-      {isOpen && (
+      {isOpen && !inSitesEditor && (
         <div
           role="dialog"
           aria-modal="false"

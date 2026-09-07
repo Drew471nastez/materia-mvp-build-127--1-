@@ -712,6 +712,108 @@ check(
   read("components/sites/editor/use-bundler.ts").includes("result.id !== latestId.current"),
 )
 
+// ---------------------------------------------------------------------------
+section("The editor is a tool, and it says what it cannot do yet")
+// ---------------------------------------------------------------------------
+
+const shell = read("components/sites/editor/editor-shell.tsx")
+const chat = read("components/sites/editor/chat-pane.tsx")
+
+/**
+ * The dark class is on the shell's own root, not on <html>. Reaching for the
+ * document would make opening the editor change the theme of every other tab
+ * and every page behind it — and leave it changed on the way out.
+ */
+check(
+  "the editor is dark on its own, without touching the app's theme",
+  shell.includes('"dark flex h-dvh') && !/documentElement\.classList/.test(shell),
+)
+
+/**
+ * ===========================================================================
+ *  A DISABLED CONTROL HAS TO SAY WHY, WHERE IT IS
+ * ===========================================================================
+ *
+ * The send button was a greyed arrow with "Editing by chat lands next" in 11px
+ * beside it, and the first question anyone asked about this editor was why the
+ * send button did nothing. A control that looks broken rather than unbuilt
+ * sends the reader hunting for a bug.
+ */
+check(
+  "the composer explains itself rather than just being greyed out",
+  (() => {
+    const explains = /Not connected yet/.test(chat)
+    const onTheButton = /title="Storelib AI is not connected yet"/.test(chat)
+    return explains && onTheButton
+  })(),
+)
+
+check(
+  "and it still says what DOES work, so the whole editor is not assumed broken",
+  /the preview rebuilds as you type/.test(chat),
+)
+
+/**
+ * `fixed bottom-0 z-[9999]` sat exactly on top of the editor's Chat / Preview /
+ * Code bar on a phone and made it unclickable. Found by a click that could not
+ * land, not by looking at a screenshot.
+ */
+check(
+  "the cookie banner cannot cover the editor's bottom bar",
+  (() => {
+    const banner = read("components/cookie-consent-banner.tsx")
+    return /pathname\?\.startsWith\("\/sites\/"\)/.test(banner) && /!inSitesEditor/.test(banner)
+  })(),
+)
+
+check(
+  "the mark is our own file, not a hotlinked storage URL",
+  (() => {
+    const usesLocal = shell.includes('src="/storelib-mark.svg"')
+    const noRemote = !/supabase\.co|https?:\/\//.test(shell.replace(/^\s*\*.*$/gm, ""))
+    return usesLocal && noRemote && existsSync(join(root, "public/storelib-mark.svg"))
+  })(),
+)
+
+/**
+ * Below md there is no honest way to show a 360px chat beside a 320px preview,
+ * so the panes go full-screen and a bottom bar switches between them. The
+ * guard is that the switcher exists AND is hidden once the columns fit —
+ * two bars at once is the failure this replaced.
+ */
+check(
+  "mobile gets one pane at a time, and the switcher disappears when it is not needed",
+  (() => {
+    const nav = shell.slice(shell.indexOf('aria-label="Editor panes"') - 400)
+    return (
+      shell.includes('aria-label="Editor panes"') &&
+      /md:hidden/.test(nav) &&
+      ["chat", "preview", "code"].every((pane) => nav.includes(`"${pane}"`))
+    )
+  })(),
+)
+
+check(
+  "the preview frame stays white — it is the site, not the chrome",
+  read("components/sites/editor/preview-pane.tsx").includes("bg-white"),
+)
+
+/**
+ * A flat list of full paths cannot fit a phone: `truncate` cut
+ * "src/components/Hero.tsx" to "src/component…", removing the only part that
+ * identifies the file. `dir="rtl"` fixed the ellipsis and flipped the whole
+ * row. A tree does not have the problem — the directory is said once.
+ */
+check(
+  "the file tree groups by directory instead of truncating paths",
+  (() => {
+    // Comments stripped — the file explains why dir="rtl" was wrong, and a
+    // guard that reads its own explanation as a violation is not a guard.
+    const pane = read("components/sites/editor/code-pane.tsx").replace(/^\s*(\/\/|\*|\/\*).*$/gm, "")
+    return /function groupByDirectory/.test(pane) && !/dir="rtl"/.test(pane)
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

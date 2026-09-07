@@ -8,16 +8,33 @@
  * asking for it — is how an editor ends up rebuilding a version of a file that
  * is one keystroke behind what is on screen.
  *
- * The preview and the code are TABS OVER ONE PANE, not two panes. Three columns
- * on a 1440px screen leaves the preview about 500px wide, which is narrower
- * than the phone frame it is supposed to be previewing at desktop width.
+ * ---------------------------------------------------------------------------
+ *  DARK, AND ONLY HERE
+ * ---------------------------------------------------------------------------
+ * The `dark` class is on this component's root rather than on <html>, so the
+ * editor is dark whatever theme the rest of Storelib is in, and nothing outside
+ * this subtree changes. A tool that frames somebody's website should recede;
+ * the one bright rectangle on screen ought to be the site being built.
+ *
+ * The PREVIEW stays white — it is the site, not the chrome, and tinting it
+ * would be lying about what a visitor sees.
+ *
+ * ---------------------------------------------------------------------------
+ *  TWO LAYOUTS, NOT ONE THAT SHRINKS
+ * ---------------------------------------------------------------------------
+ * Above `md` the chat is a fixed column beside the work. Below it there is no
+ * honest way to show both: a 360px chat next to a 320px preview is two useless
+ * panes, so the panes become full-screen and the bottom bar switches between
+ * them — Chat, Preview, Code. The desktop layout keeps Preview and Code as
+ * tabs over ONE pane for the same reason: three columns on a 1440px screen
+ * leaves the preview narrower than the phone frame it is meant to be
+ * previewing at desktop width.
  */
 
 import * as React from "react"
-import { ArrowLeft, Check, Code2, Eye, Loader2 } from "lucide-react"
+import { ArrowLeft, Check, Code2, Eye, Globe, Loader2, MessageSquare, AlertCircle } from "lucide-react"
 
 import { SmartLink } from "@/components/smart-link"
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { ProjectFiles, Site } from "@/lib/sites/types"
 import { ChatPane } from "./chat-pane"
@@ -26,12 +43,13 @@ import { PreviewPane } from "./preview-pane"
 import { useBundler } from "./use-bundler"
 
 type SaveState = "clean" | "dirty" | "saving" | "error"
+type Pane = "chat" | "preview" | "code"
 
 const AUTOSAVE_MS = 1200
 
 export function EditorShell({ site, initialFiles }: { site: Site; initialFiles: ProjectFiles }) {
   const [files, setFiles] = React.useState<ProjectFiles>(initialFiles)
-  const [tab, setTab] = React.useState<"preview" | "code">("preview")
+  const [pane, setPane] = React.useState<Pane>("preview")
   const [activePath, setActivePath] = React.useState<string | null>(
     initialFiles["src/App.tsx"] !== undefined ? "src/App.tsx" : (Object.keys(initialFiles)[0] ?? null),
   )
@@ -48,15 +66,6 @@ export function EditorShell({ site, initialFiles }: { site: Site; initialFiles: 
    */
   const dirtyPaths = React.useRef(new Set<string>())
   const build = useBundler(files)
-
-  const [isDark, setIsDark] = React.useState(false)
-  React.useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)")
-    const read = () => setIsDark(document.documentElement.classList.contains("dark") || media.matches)
-    read()
-    media.addEventListener("change", read)
-    return () => media.removeEventListener("change", read)
-  }, [])
 
   const editFile = React.useCallback((path: string, content: string) => {
     setFiles((previous) => (previous[path] === content ? previous : { ...previous, [path]: content }))
@@ -124,74 +133,162 @@ export function EditorShell({ site, initialFiles }: { site: Site; initialFiles: 
     return () => window.removeEventListener("beforeunload", onBeforeUnload)
   }, [])
 
+  const workPane = pane === "code" ? "code" : "preview"
+
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-background">
-      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-3">
+    <div
+      className={cn(
+        "dark flex h-dvh flex-col overflow-hidden bg-background text-foreground",
+        // The editor is a fixed surface. Without this an iOS rubber-band drag
+        // moves the whole tool and reveals the page behind it.
+        "overscroll-none",
+      )}
+    >
+      {/* ─────────────────────────── top bar ─────────────────────────── */}
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
+        <SmartLink
+          href="/app/sites"
+          aria-label="Back to Sites"
+          className="flex shrink-0 items-center gap-1.5 rounded-[8px] p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4 sm:hidden" />
+          {/*
+            The mark, not a letter. `img` rather than next/image: it is a fixed
+            24px SVG from our own public folder, so there is nothing for an
+            optimizer to do and a remotePatterns entry to maintain would be a
+            cost with no return.
+          */}
+          <img
+            src="/storelib-mark.svg"
+            alt=""
+            width={24}
+            height={24}
+            className="hidden h-6 w-6 rounded-[6px] sm:block"
+          />
+        </SmartLink>
+
+        <span className="hidden text-sm text-muted-foreground sm:inline">/</span>
+
         <div className="flex min-w-0 items-center gap-2">
-          <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-muted-foreground">
-            <SmartLink href="/app/sites">
-              <ArrowLeft className="h-4 w-4" />
-              Sites
-            </SmartLink>
-          </Button>
           <span className="truncate text-sm font-medium">{site.name}</span>
           <SaveBadge state={saveState} error={saveError} />
         </div>
 
-        <div className="flex items-center gap-1 rounded-[8px] bg-muted p-0.5">
-          {([["preview", "Preview", Eye], ["code", "Code", Code2]] as const).map(([key, label, Icon]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTab(key)}
-              aria-pressed={tab === key}
-              className={cn(
-                "flex h-7 items-center gap-1.5 rounded-[6px] px-2.5 text-xs transition-colors",
-                tab === key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
+        <div className="ml-auto flex items-center gap-2">
+          <AddressChip site={site} />
+
+          {/* Desktop: Preview / Code over one pane. Mobile has the bottom bar. */}
+          <div className="hidden items-center gap-0.5 rounded-[8px] bg-muted p-0.5 md:flex">
+            {([["preview", "Preview", Eye], ["code", "Code", Code2]] as const).map(([key, label, Icon]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setPane(key)}
+                aria-pressed={workPane === key}
+                className={cn(
+                  "flex h-7 items-center gap-1.5 rounded-[6px] px-2.5 text-xs transition-colors",
+                  workPane === key
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[360px_1fr]">
-        {/* The chat pane is the tool's primary control, so it keeps its width
-            and the preview takes the remainder — but below md there is not room
-            for both, and a 360px column beside a 320px preview helps nobody. */}
-        <div className="hidden min-h-0 md:block">
+      {/* ─────────────────────────── the work ─────────────────────────── */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(320px,380px)_1fr]">
+        <div className={cn("min-h-0 md:block", pane === "chat" ? "block" : "hidden")}>
           <ChatPane siteName={site.name} />
         </div>
 
-        <div className="min-h-0">
-          {tab === "preview" ? (
+        <div className={cn("min-h-0", pane === "chat" ? "hidden md:block" : "block")}>
+          {workPane === "preview" ? (
             <PreviewPane build={build} html={files["index.html"]} />
           ) : (
-            <CodePane files={files} activePath={activePath} onSelect={setActivePath} onChange={editFile} dark={isDark} />
+            <CodePane files={files} activePath={activePath} onSelect={setActivePath} onChange={editFile} />
           )}
         </div>
       </div>
+
+      {/* ───────────────────── mobile: one pane at a time ───────────────────── */}
+      <nav
+        className="flex h-14 shrink-0 items-stretch border-t border-border pb-[env(safe-area-inset-bottom)] md:hidden"
+        aria-label="Editor panes"
+      >
+        {([["chat", "Chat", MessageSquare], ["preview", "Preview", Eye], ["code", "Code", Code2]] as const).map(
+          ([key, label, Icon]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setPane(key)}
+              aria-pressed={pane === key}
+              className={cn(
+                "flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] transition-colors",
+                pane === key ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              <Icon className="h-[18px] w-[18px]" />
+              {label}
+            </button>
+          ),
+        )}
+      </nav>
     </div>
+  )
+}
+
+/**
+ * Where the site lives, or that it does not live anywhere yet.
+ *
+ * Bolt puts a URL bar here. Ours would be a lie until Publish exists, so it
+ * says the address it has reserved and that nothing is served from it — which
+ * is the one thing somebody looking at this corner wants to know.
+ */
+function AddressChip({ site }: { site: Site }) {
+  const published = site.status === "published"
+  return (
+    <span
+      className="hidden items-center gap-1.5 rounded-[7px] border border-border px-2 py-1 text-[11px] text-muted-foreground lg:inline-flex"
+      title={published ? "Live" : "Not published yet"}
+    >
+      <Globe className="h-3 w-3 shrink-0" />
+      <span className="max-w-[220px] truncate">
+        {site.slug ? `${site.slug}.storelib.site` : "No address yet"}
+      </span>
+      {!published && <span className="text-muted-foreground/60">· draft</span>}
+    </span>
   )
 }
 
 function SaveBadge({ state, error }: { state: SaveState; error: string | null }) {
   if (state === "saving") {
     return (
-      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
-        Saving
+        <span className="hidden sm:inline">Saving</span>
       </span>
     )
   }
-  if (state === "dirty") return <span className="text-xs text-muted-foreground">Unsaved</span>
-  if (state === "error") return <span className="text-xs text-destructive">{error ?? "Not saved"}</span>
+  if (state === "dirty") {
+    return <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">Unsaved</span>
+  }
+  if (state === "error") {
+    return (
+      <span className="flex shrink-0 items-center gap-1 text-xs text-destructive" title={error ?? undefined}>
+        <AlertCircle className="h-3 w-3" />
+        <span className="hidden sm:inline">Not saved</span>
+      </span>
+    )
+  }
   return (
-    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+    <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
       <Check className="h-3 w-3" />
-      Saved
+      <span className="hidden sm:inline">Saved</span>
     </span>
   )
 }
