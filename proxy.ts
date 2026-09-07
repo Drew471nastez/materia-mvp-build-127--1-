@@ -394,9 +394,28 @@ function retireDomainScopedCookies(response: NextResponse, request: NextRequest)
      */
     const alreadySet = response.cookies.get(cookie.name) !== undefined
     if (cookie.value && !alreadySet) {
+      /**
+       * MAX-AGE IS NOT OPTIONAL HERE.
+       *
+       * A Set-Cookie with no Max-Age and no Expires is a SESSION cookie. The
+       * cookie being replaced is persistent, so omitting it quietly downgraded
+       * every existing login to "signed out when you close the browser" —
+       * once, during the migration, for everybody. Confirmed in Chromium:
+       * the re-issued cookie came back with expires = -1.
+       *
+       * The value carries Supabase's own tokens, and their lifetime is
+       * enforced server-side when they are presented — so a long cookie
+       * lifetime grants no extra access, it only stops the browser throwing
+       * away a session that is still good. Supabase's writer replaces this
+       * with its own options on the next refresh anyway; this only has to
+       * survive until then.
+       *
+       * 400 days because that is the ceiling browsers enforce on cookie
+       * lifetime; asking for more is silently clamped to it.
+       */
       response.headers.append(
         "Set-Cookie",
-        `${cookie.name}=${cookie.value}; Path=/; Secure; SameSite=Lax`,
+        `${cookie.name}=${cookie.value}; Path=/; Max-Age=34560000; Secure; SameSite=Lax`,
       )
     }
 
@@ -468,10 +487,50 @@ export async function proxy(request: NextRequest) {
   }
 
   /**
-   * Everything below serves the application. A write arriving here from a
+   * Everything below serves the application. A request arriving here from a
    * published site is the forgery described above, and it is refused before
    * any session is read or any route runs.
+   *
+   * TWO CHECKS, BECAUSE ONE HEADER DOES NOT SEE EVERYTHING.
+   *
+   * `Origin` is sent on writes — fetch, form posts, sendBeacon — and names
+   * the page that made them. It is NOT sent on a plain subresource GET, so a
+   * published page could still reach the API with
+   *
+   *     <img src="https://storelib.com/api/…">
+   *
+   * which the browser loads with the visitor's cookies attached and which no
+   * Origin check can see. That matters because a number of GET handlers in
+   * this repository create or update rows — lazy initialisation, tracking
+   * pixels, download counters — so "GET does not mutate" is not true here and
+   * is not something to assume on somebody else's behalf.
+   *
+   * `Sec-Fetch-Site: same-site` is what a subdomain-to-apex request looks
+   * like, and since sites moved onto subdomains there is no other kind: the
+   * dashboard is `same-origin`, a creator's custom domain is `cross-site`,
+   * and a typed URL is `none`. Refusing exactly `same-site` on /api therefore
+   * refuses published sites and nothing else. Browsers too old to send the
+   * header fall through to the Origin check, which is the same posture the
+   * rest of this guard takes.
    */
+  const secFetchSite = request.headers.get("sec-fetch-site")
+  const isApi = pathname.startsWith("/api/")
+
+  /**
+   * Where a Site API would live if one is built — a published page calling a
+   * deliberately public endpoint with no session behind it. Nothing serves
+   * this prefix today; it is named here so that work does not begin by
+   * fighting this guard and quietly widening it.
+   */
+  const isPublicApi = pathname.startsWith("/api/public/")
+
+  if (isApi && !isPublicApi && secFetchSite === "same-site") {
+    return new NextResponse(
+      JSON.stringify({ error: "Requests from published sites are not allowed." }),
+      { status: 403, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } },
+    )
+  }
+
   if (MUTATING.has(request.method) && isPublishedSiteOrigin(request.headers.get("origin"))) {
     return new NextResponse(
       JSON.stringify({ error: "Requests from published sites are not allowed." }),

@@ -2198,7 +2198,9 @@ check(
     const at = proxy.indexOf("function retireDomainScopedCookies")
     if (at === -1) return false
     const body = proxy.slice(at, proxy.indexOf("\n}", at))
-    const reissue = body.indexOf("Path=/; Secure")
+    // Located by what each line DOES, not by an exact attribute order — the
+    // re-issue grew a Max-Age and this assertion should not have to care.
+    const reissue = body.indexOf("${cookie.name}=${cookie.value}")
     const expire = body.indexOf("Max-Age=0")
     // The host-only re-issue must come FIRST: expiring on its own signs
     // people out of a session that was working a second earlier.
@@ -2634,6 +2636,105 @@ check(
     const files = ["components/storelib-mark.tsx", "components/onepage/onboarding-modal.tsx"]
     const definitions = files.filter((f) => MARK.test(read(f)))
     return definitions.length === 1 && definitions[0] === "components/storelib-mark.tsx"
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("Verification pass — the defects found reviewing the work above")
+// ---------------------------------------------------------------------------
+
+/**
+ * A Set-Cookie with no Max-Age and no Expires is a SESSION cookie.
+ *
+ * The cookie being replaced is persistent, so re-issuing it without one
+ * quietly downgraded every existing login to "signed out when you close the
+ * browser" — once, during the migration, for everybody. Confirmed in Chromium
+ * rather than argued from the spec: the re-issued cookie came back with
+ * expires = -1.
+ *
+ * The value carries Supabase's own tokens and their lifetime is enforced
+ * server-side when presented, so a long cookie lifetime grants no extra
+ * access — it only stops the browser discarding a session that is still good.
+ */
+check(
+  "the cookie migration does not downgrade a persistent login",
+  (() => {
+    const proxy = strip(read("proxy.ts"))
+    const at = proxy.indexOf("function retireDomainScopedCookies")
+    const body = proxy.slice(at, proxy.indexOf("\n}\n", at))
+    const reissue = body.match(/`\$\{cookie\.name\}=\$\{cookie\.value\}[^`]*`/)?.[0] ?? ""
+    return /Max-Age=\d+/.test(reissue) && /Secure/.test(reissue) && /Path=\//.test(reissue)
+  })(),
+)
+
+/**
+ * `Origin` is not sent on a plain subresource GET, so a published page could
+ * reach the API with <img src="https://storelib.com/api/…"> and the browser
+ * would attach the visitor's cookies. That matters because GET handlers in
+ * this repository do create and update rows — lazy initialisation, tracking
+ * pixels, download counters — so "GET does not mutate" is not true here.
+ *
+ * `Sec-Fetch-Site: same-site` is exactly a subdomain-to-apex request, and
+ * since sites moved onto subdomains there is no other kind.
+ */
+check(
+  "a published site cannot reach the API with a cookie-bearing GET",
+  (() => {
+    const proxy = strip(read("proxy.ts"))
+    return (
+      /sec-fetch-site/.test(proxy) &&
+      /secFetchSite === "same-site"/.test(proxy) &&
+      /pathname\.startsWith\("\/api\/"\)/.test(proxy) &&
+      // the dashboard is same-origin and a custom domain is cross-site;
+      // neither may be caught by this
+      !/secFetchSite === "cross-site"/.test(proxy) &&
+      !/secFetchSite === "same-origin"/.test(proxy)
+    )
+  })(),
+)
+
+check(
+  "a future Site API has a documented way through the guard",
+  (() => {
+    const proxy = strip(read("proxy.ts"))
+    return /\/api\/public\//.test(proxy) && /isPublicApi/.test(proxy)
+  })(),
+)
+
+/**
+ * A run outliving its connection means a creator can be looking at it from
+ * three places. The editor disables its own composer, but that is one
+ * browser's opinion — it cannot speak for another device.
+ */
+check(
+  "one run per site, decided by the server",
+  (() => {
+    const route = strip(read("app/api/sites/[siteId]/agent/route.ts"))
+    const guard = route.indexOf("site_active_run")
+    const start = route.indexOf("runAgent(")
+    return (
+      guard > -1 &&
+      start > -1 &&
+      guard < start &&
+      /status: 409/.test(route)
+    )
+  })(),
+)
+
+/**
+ * `onFilesChanged` re-reads the project itself, merging paths the creator has
+ * unsaved edits in and adopting the new revision. Fetching /files alongside it
+ * meant two requests for the same thing, one answer discarded, and a merge
+ * the chat pane does not know how to do.
+ */
+check(
+  "reloading after a run does not fetch the project twice",
+  (() => {
+    const chat = strip(read("components/sites/editor/chat-pane.tsx"))
+    const at = chat.indexOf("const reloadAfterRun")
+    const body = chat.slice(at, chat.indexOf("}, [", at))
+    const fileFetches = (body.match(/\/files`/g) ?? []).length
+    return fileFetches === 0 && /onFilesChanged\(\[\]\)/.test(body)
   })(),
 )
 

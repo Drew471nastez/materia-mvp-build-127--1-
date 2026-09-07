@@ -15,6 +15,7 @@
 
 import { type NextRequest, NextResponse } from "next/server"
 
+import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { currentCreatorId, getSite } from "@/lib/sites/projects"
 import { MissingKeyError, openAIProvider } from "@/lib/sites/agent/openai-provider"
@@ -69,6 +70,32 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
    */
   const limited = await agentRateLimit(creatorId)
   if (limited) return NextResponse.json({ error: limited }, { status: 429 })
+
+  /**
+   * ONE RUN PER SITE AT A TIME.
+   *
+   * Now that a run survives its connection, a creator can be looking at three
+   * places it is still going: the tab that started it, a second tab, and a
+   * phone. The editor disables its own composer while a run is active, but
+   * that is one browser's opinion — it cannot speak for another device, and
+   * the window between "send" and "the other tab notices" is exactly where a
+   * double-send lands.
+   *
+   * Two agents editing one project is not a merge conflict the compare-and-swap
+   * can resolve into anything sensible: both read the same files, both write
+   * whole changed sets, and the loser's work is discarded after it has been
+   * paid for. Refusing here costs a message; not refusing costs a bill and a
+   * result nobody asked for.
+   *
+   * 409 rather than 429: nothing is rate-limited, the resource is busy.
+   */
+  const { data: active } = await createAdminClient().rpc("site_active_run", { p_site_id: siteId })
+  if ((active as unknown[] | null)?.length) {
+    return NextResponse.json(
+      { error: "This site is already being edited. Wait for that to finish, or stop it first." },
+      { status: 409 },
+    )
+  }
 
   const plan = await creatorSitePlan(creatorId)
 

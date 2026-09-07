@@ -334,11 +334,17 @@ export function ChatPane({
    * visibility listener covers the return.
    */
   const reloadAfterRun = React.useCallback(async () => {
-    const [chat, files] = await Promise.all([
+    /**
+     * `onFilesChanged` re-reads the project ITSELF — merging the paths the
+     * creator has unsaved edits in, and adopting the new revision so the next
+     * autosave does not conflict. Fetching /files here as well meant two
+     * requests for the same thing, the answer to one of them discarded, and a
+     * merge this side does not know how to do.
+     */
+    const [chat] = await Promise.all([
       fetch(`/api/sites/${siteId}/chat`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(`/api/sites/${siteId}/files`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      onFilesChanged([]),
     ])
-    if (files?.files) onFilesChanged(Object.keys(files.files as Record<string, string>))
     return chat as { messages?: StoredMessage[] } | null
   }, [onFilesChanged, siteId])
 
