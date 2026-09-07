@@ -10,7 +10,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ExternalLink, Globe, MoreHorizontal, Plus, Sparkles } from "lucide-react"
+import { ExternalLink, Globe, MoreHorizontal, Plus, Rocket, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { SmartLink } from "@/components/smart-link"
 import { cn } from "@/lib/utils"
+import { publishedUrl } from "@/lib/sites/public-host"
 import type { Site } from "@/lib/sites/types"
 
 function relative(iso: string): string {
@@ -47,20 +48,47 @@ function StatusDot({ status }: { status: Site["status"] }) {
 }
 
 function SiteCard({ site }: { site: Site }) {
-  const address = site.slug ? `${site.slug}.storelib.site` : "No address yet"
+  const address = site.slug ? publishedUrl(site.slug).replace(/^https:\/\//, "") : "No address yet"
   return (
     <div className="group overflow-hidden rounded-[10px] border border-border bg-card transition-colors hover:border-foreground/20">
-      {/*
-        The preview dominates the card, per the brief. Until a site has been
-        published there is no build to screenshot, so this is a plain surface
-        rather than a fake — a placeholder that pretends to be a website is
-        worse than one that admits it is empty.
-      */}
       <SmartLink
         href={`/sites/${site.id}`}
-        className="block aspect-[16/10] w-full bg-[linear-gradient(180deg,var(--muted)_0%,transparent_100%)]"
+        className="relative block aspect-[16/10] w-full overflow-hidden bg-muted/40"
         aria-label={`Edit ${site.name}`}
-      />
+      >
+        {site.status === "published" && site.slug ? (
+          /*
+           * The real page, scaled down — not a screenshot.
+           *
+           * A thumbnail service is a queue, a headless browser and a job that
+           * silently goes stale the day someone publishes and it fails. This
+           * is the published site itself, rendered at 1280px and transformed
+           * to fit, so it can never disagree with what is live.
+           *
+           * `sandbox` with no allow-same-origin, and `pointer-events: none`
+           * over the top: the card is a link, and the frame must not be able
+           * to swallow the click or reach anything around it.
+           */
+          <>
+            <iframe
+              src={publishedUrl(site.slug)}
+              title=""
+              aria-hidden="true"
+              tabIndex={-1}
+              loading="lazy"
+              sandbox="allow-scripts"
+              className="pointer-events-none absolute left-0 top-0 origin-top-left border-0"
+              style={{ width: "1280px", height: "800px", transform: "scale(0.3125)" }}
+            />
+            <span className="absolute inset-0" />
+          </>
+        ) : (
+          <span className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-muted-foreground">
+            <Rocket className="h-5 w-5 opacity-50" />
+            <span className="text-[11px]">Not published yet</span>
+          </span>
+        )}
+      </SmartLink>
 
       <div className="flex items-start justify-between gap-3 border-t border-border p-3">
         <div className="min-w-0">

@@ -184,48 +184,73 @@ async function availableSlug(name: string): Promise<string | null> {
   return null
 }
 
-export type SaveFilesResult = { ok: true; savedAt: string } | { ok: false; error: string }
+export type SaveFilesResult =
+  | { ok: true; savedAt: string; revision: number }
+  | { ok: false; error: string; conflict?: true }
 
 /**
- * Write changed files back.
+ * Write changed files back, without losing anybody's work.
  *
- * Takes only what changed, not the project. A whole-project write would make
- * two people editing the same site — or the author and the agent, which is the
- * normal case here — clobber each other's untouched files on every save.
+ * ---------------------------------------------------------------------------
+ *  ONE WRITER PER SITE, AND A TOKEN THAT SAYS WHAT YOU SAW
+ * ---------------------------------------------------------------------------
+ * This used to be a bare upsert with no revision and no lock. The editor
+ * autosaves every 1.2 seconds and an agent run writes its whole changed set at
+ * the end, so typing during a run meant one of the two writes silently won —
+ * a creator watching their own edit vanish with no error, which is the single
+ * bug most likely to make somebody stop trusting a builder.
  *
- * RLS is the access control: the upsert runs as the signed-in user, and a site
- * they do not own has no rows they can reach. There is deliberately no
- * ownership check written into this function for a later caller to forget.
+ * Everything now goes through the `site_commit_files` function, which takes a
+ * per-site advisory lock, checks the caller's `expectedRevision` against the
+ * stored one, writes every file and bumps the revision — all in one
+ * transaction. A stale caller gets NULL and is told to reload rather than
+ * having its write applied over newer work.
+ *
+ * `expectedRevision` may be omitted, and that is not a loophole: the function
+ * still serialises on the lock, so a blind write cannot interleave with
+ * another. It just accepts whatever revision it finds, which is right for a
+ * caller that has only ever read the current state.
+ *
+ * RLS still decides ownership. The function is SECURITY INVOKER, so a site the
+ * caller does not own returns no row and the write is refused — the same
+ * answer a stale revision gets, from the same code path.
  */
-export async function saveFiles(siteId: string, changed: ProjectFiles): Promise<SaveFilesResult> {
+export async function saveFiles(
+  siteId: string,
+  changed: ProjectFiles,
+  expectedRevision?: number,
+): Promise<SaveFilesResult> {
   const paths = Object.keys(changed)
-  if (paths.length === 0) return { ok: true, savedAt: new Date().toISOString() }
+  if (paths.length === 0) {
+    return { ok: true, savedAt: new Date().toISOString(), revision: expectedRevision ?? 0 }
+  }
 
   const invalid = projectError(changed)
   if (invalid) return { ok: false, error: invalid }
 
   const supabase = await createClient()
+  const { data, error } = await supabase.rpc("site_commit_files", {
+    p_site_id: siteId,
+    p_expected_revision: expectedRevision ?? null,
+    p_files: changed,
+  })
 
-  /**
-   * The site row is touched too, so `updated_at` means "when this site last
-   * changed" rather than "when its row was last rewritten" — the dashboard
-   * sorts on it, and a site edited an hour ago sitting below one created last
-   * week is the kind of wrongness nobody reports and everybody notices.
-   *
-   * It also proves ownership. Under RLS this update affects zero rows for a
-   * site the caller does not own, which is what the count is read for — and it
-   * happens BEFORE the file write, so a stranger's save never lands.
-   */
-  const { count } = await supabase
-    .from("sites")
-    .update({ updated_at: new Date().toISOString() }, { count: "exact" })
-    .eq("id", siteId)
-
-  if ((count ?? 0) === 0) return { ok: false, error: "That site is not yours to edit." }
-
-  const rows = paths.map((path) => ({ site_id: siteId, path, content: changed[path] }))
-  const { error } = await supabase.from("site_files").upsert(rows, { onConflict: "site_id,path" })
   if (error) return { ok: false, error: "Could not save. Your changes are still here — try again." }
 
-  return { ok: true, savedAt: new Date().toISOString() }
+  /**
+   * NULL means one of two things and the message covers both: the site is not
+   * the caller's, or somebody else has written since they last read. Neither
+   * is worth distinguishing to the person — the action is the same, and
+   * spelling out which site exists would answer a question a stranger should
+   * not get answered.
+   */
+  if (data === null || data === undefined) {
+    return {
+      ok: false,
+      error: "This site changed while you were editing. Reload to see the latest version.",
+      conflict: true,
+    }
+  }
+
+  return { ok: true, savedAt: new Date().toISOString(), revision: data as number }
 }

@@ -62,6 +62,7 @@ const SECTIONS = [
   ["supabase/migrations/20260909_creator_page_backfill.sql", "Creator pages made before the recent changes"],
   ["supabase/migrations/20260910_sites_projects.sql", "Storelib AI: sites, files, versions, deployments"],
   ["supabase/migrations/20260911_site_agent_runs.sql", "Storelib AI: what the agent did, and what it cost"],
+  ["supabase/migrations/20260912_site_publishing.sql", "Publishing, chat history, and one writer per site"],
 ]
 
 const HEADER = `-- ###########################################################################
@@ -134,6 +135,11 @@ select
   to_regclass('public.sites')                  is not null as storelib_ai_sites,
   to_regclass('public.site_files')             is not null as storelib_ai_files,
   to_regclass('public.site_agent_runs')        is not null as agent_cost_ledger,
+  to_regclass('public.site_chat_messages')     is not null as chat_history,
+  exists (select 1 from information_schema.columns
+           where table_schema='public' and table_name='sites'
+             and column_name='revision')                      as write_revisions,
+  (select count(*) from pg_proc where proname='site_commit_files') = 1 as commit_function,
   exists (select 1 from pg_indexes where schemaname='public'
            and indexname='uniq_sti_creator_published_storefront') as one_published_storefront,
   exists (select 1 from information_schema.columns

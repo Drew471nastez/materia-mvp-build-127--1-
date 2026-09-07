@@ -5,6 +5,25 @@ import { NextResponse, type NextRequest } from "next/server"
 // Main domain - customize this based on environment
 const MAIN_DOMAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
 
+/**
+ * Where AI-built sites are published.
+ *
+ * A SEPARATE REGISTRABLE DOMAIN, and that is the whole point of it. Two
+ * reasons, either of which is sufficient:
+ *
+ *  1. `storelib.com/<name>` is already taken. `[sellername]` catches every
+ *     root path, so storelib.com/andrew is Andrew's storefront today —
+ *     publishing generated sites there would collide with every creator on
+ *     the platform and the router could not tell them apart.
+ *
+ *  2. A generated page on storelib.com would be SAME-ORIGIN with the
+ *     dashboard: its JavaScript could read the signed-in session out of
+ *     cookies and localStorage and act as that person. The sites are written
+ *     by a model from user prompts, so "the page is trustworthy" is not an
+ *     assumption available to us. A different eTLD+1 makes it structural.
+ */
+const SITES_DOMAIN = process.env.NEXT_PUBLIC_SITES_HOST || "storelib.site"
+
 // Domains that should NOT be treated as seller subdomains
 const EXCLUDED_SUBDOMAINS = ["www", "app", "api", "admin", "dashboard", "localhost"]
 
@@ -272,6 +291,40 @@ async function lookupDomainOwnerUsername(host: string): Promise<string | null> {
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
+
+  /**
+   * ── Published sites ───────────────────────────────────────────────────────
+   *
+   * FIRST, before anything else touches the request. Nothing below this point
+   * should ever run for a visitor to somebody's published website: not the
+   * Supabase session read, not the seller-subdomain rewrite, not the native
+   * app gate. A stranger reading a static page must not cost a session lookup,
+   * and — more importantly — the dashboard's cookie handling must never run on
+   * a request from a domain that serves generated code.
+   *
+   * Two shapes resolve, so a wildcard certificate is optional rather than
+   * required on day one:
+   *   storelib.site/andrew        → /site/andrew
+   *   andrew.storelib.site/       → /site/andrew
+   */
+  const bareHost = host.split(":")[0].toLowerCase()
+  if (bareHost === SITES_DOMAIN || bareHost.endsWith(`.${SITES_DOMAIN}`)) {
+    const url = request.nextUrl.clone()
+
+    if (bareHost === SITES_DOMAIN) {
+      const [slug, ...rest] = pathname.split("/").filter(Boolean)
+      // The bare domain with no slug is not a site; send it somewhere real
+      // rather than serving a 404 that looks like a broken deployment.
+      if (!slug) return NextResponse.redirect(new URL("https://storelib.com"))
+      url.pathname = `/site/${slug}${rest.length ? `/${rest.join("/")}` : ""}`
+    } else {
+      const subdomain = bareHost.slice(0, -(SITES_DOMAIN.length + 1))
+      if (subdomain.includes(".")) return new NextResponse("Not found", { status: 404 })
+      url.pathname = `/site/${subdomain}${pathname === "/" ? "" : pathname}`
+    }
+
+    return NextResponse.rewrite(url)
+  }
 
   // ── The native app never shows the marketing site ──────────────────────────
   //

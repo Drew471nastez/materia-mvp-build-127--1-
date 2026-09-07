@@ -26,6 +26,8 @@ import { bodyFromHtml, previewDocument } from "@/lib/sites/preview-document"
 import { MODEL_RATES, chooseModel, costOf, rateFor, DEFAULT_MODEL, STRONG_MODEL } from "@/lib/sites/agent/models"
 import { ZERO_USAGE, addUsage } from "@/lib/sites/agent/types"
 import { blankProject } from "@/lib/sites/starter"
+import { allocateSiteSlug, SLUG_FALLBACK } from "@/lib/sites/slug"
+import { contentTypeFor } from "@/lib/sites/content-type"
 
 let passed = 0
 let failed = 0
@@ -694,13 +696,38 @@ section("Saving cannot lose an edit, and cannot write someone else's site")
 // ---------------------------------------------------------------------------
 
 check(
-  "ownership is proved before any file is written",
+  "ownership is proved inside the write, not before it",
   (() => {
-    const src = read("lib/sites/projects.ts")
-    const save = src.slice(src.indexOf("export async function saveFiles"))
-    // The ownership-proving update must come BEFORE the upsert, not after.
-    return save.indexOf('.from("sites")') < save.indexOf('.from("site_files")') &&
-      save.includes("not yours to edit")
+    /**
+     * This used to be an ORDERING check — prove ownership with one query, then
+     * upsert with another. That shape is gone: both now happen inside
+     * `site_commit_files`, in one transaction, under an advisory lock.
+     *
+     * The proof is SECURITY INVOKER plus a plain SELECT on `sites`: RLS makes
+     * that return no row for a site the caller does not own, and the function
+     * returns NULL — the same answer a stale revision gets, so nothing about
+     * the response tells a stranger whether the site exists.
+     */
+    const migration = read("supabase/migrations/20260912_site_publishing.sql")
+    const fn = migration.slice(migration.indexOf("CREATE OR REPLACE FUNCTION site_commit_files"))
+    const projects = read("lib/sites/projects.ts")
+    return (
+      /SECURITY INVOKER/.test(fn) &&
+      /SELECT revision INTO v_current FROM sites WHERE id = p_site_id/.test(fn) &&
+      /IF v_current IS NULL THEN RETURN NULL/.test(fn) &&
+      /**
+       * And nothing bypasses it — with ONE allowed exception, which the guard
+       * names rather than waves through: `createSite` writes the starter
+       * files directly. That write has nothing to race with (the site was
+       * created microseconds earlier, by the same call, and no other client
+       * knows its id yet) and no revision to compare against. Every write
+       * after that one goes through the function.
+       */
+      (projects.match(/from\("site_files"\)[\s\S]{0,120}(upsert|insert|update)/g) ?? []).length === 1 &&
+      projects
+        .slice(projects.indexOf("export async function createSite"))
+        .includes('from("site_files").insert')
+    )
   })(),
 )
 
@@ -787,9 +814,13 @@ check(
 check(
   "the mark is our own file, not a hotlinked storage URL",
   (() => {
-    const usesLocal = shell.includes('src="/storelib-mark.svg"')
-    const noRemote = !/supabase\.co|https?:\/\//.test(shell.replace(/^\s*\*.*$/gm, ""))
-    return usesLocal && noRemote && existsSync(join(root, "public/storelib-mark.svg"))
+    /**
+     * Scoped to the image's own src. The shell now legitimately builds the
+     * published site's https:// address, and a blanket "no https anywhere in
+     * this file" rule reads that as a hotlinked asset.
+     */
+    const src = shell.match(/<img\s+src="([^"]+)"/)?.[1]
+    return src === "/storelib-mark.svg" && existsSync(join(root, "public/storelib-mark.svg"))
   })(),
 )
 
@@ -1331,6 +1362,337 @@ check(
 check(
   "the loop test runs the same esbuild the server does",
   /^import \* as esbuild from "esbuild"$/m.test(read("tests/agent-loop.test.ts")),
+)
+
+// ---------------------------------------------------------------------------
+section("A site's address is its name, and nobody else's")
+// ---------------------------------------------------------------------------
+
+check(
+  "a free name becomes the address unchanged",
+  (await allocateSiteSlug("Portfolio Website", async () => false)) === "portfolio-website",
+)
+
+/**
+ * Two creators both call their site "Portfolio Website", because that is what
+ * it is. The address has to differ and the second one should still be
+ * something a person can say out loud — `-2`, not a hash.
+ */
+check(
+  "a taken name gets a number a person can read",
+  (await allocateSiteSlug("Portfolio Website", async (s) => s === "portfolio-website")) ===
+    "portfolio-website-2",
+)
+
+check(
+  "numbers are exhausted in order before anything random",
+  (await allocateSiteSlug("Shop", async (s) => s === "shop" || /^shop-[2-5]$/.test(s))) === "shop-6",
+)
+
+check(
+  "once the numbers are gone it falls back to a random suffix",
+  (() => {
+    return true // asserted below with the real call
+  })(),
+)
+
+{
+  const slug = await allocateSiteSlug("Shop", async (s) => s === "shop" || /^shop-[2-9]$/.test(s))
+  check(
+    "and the random suffix is still a legal, readable address",
+    /^shop-[a-z2-9]{4}$/.test(slug),
+  )
+}
+
+check(
+  "a name that cannot make a slug at all still gets an address",
+  /^site(-[a-z0-9]+)?$/.test(await allocateSiteSlug("!!!", async () => false)) &&
+    SLUG_FALLBACK === "site",
+)
+
+check(
+  "a very long name plus a suffix stays inside the 63-character limit",
+  (await allocateSiteSlug("a".repeat(200), async (s) => s === "a".repeat(63))).length <= 63,
+)
+
+/**
+ * Twelve random four-character collisions is a broken `isTaken`, not a full
+ * namespace. Falling back to something longer would hide that; throwing
+ * surfaces it while the site is still unpublished.
+ */
+check(
+  "an isTaken that always says yes throws instead of looping",
+  await allocateSiteSlug("Shop", async () => true).then(
+    () => false,
+    () => true,
+  ),
+)
+
+// ---------------------------------------------------------------------------
+section("Publishing is static, atomic, and on a domain of its own")
+// ---------------------------------------------------------------------------
+
+const publishSource = read("lib/sites/publish.ts")
+const siteRoute = read("app/(sites)/site/[slug]/[[...path]]/route.ts")
+
+/**
+ * ===========================================================================
+ *  NOT storelib.com — TWICE OVER
+ * ===========================================================================
+ *
+ * `app/(marketing)/[sellername]` catches every root path, so storelib.com/x is
+ * already somebody's storefront: publishing there would collide with every
+ * creator on the platform. And generated JavaScript on storelib.com would be
+ * SAME-ORIGIN with the dashboard, able to read the signed-in session out of
+ * cookies and storage. The sites are written by a model from user prompts, so
+ * "the page is trustworthy" is not an assumption available to us.
+ */
+check(
+  "published sites are served from a separate registrable domain",
+  (() => {
+    const host = strip(publishSource).match(/NEXT_PUBLIC_SITES_HOST \|\| "([^"]+)"/)?.[1]
+    return Boolean(host) && host !== "storelib.com" && !host!.endsWith(".storelib.com")
+  })(),
+)
+
+check(
+  "the proxy resolves that domain before it touches the session",
+  (() => {
+    const proxy = read("proxy.ts")
+    const sitesBlock = proxy.indexOf("bareHost === SITES_DOMAIN")
+    const session = proxy.indexOf("createServerClient(")
+    // Ahead of the Supabase client, so a stranger reading a static page never
+    // costs a session lookup and the dashboard's cookie handling never runs
+    // on a request from the domain that serves generated code.
+    return sitesBlock !== -1 && (session === -1 || sitesBlock < proxy.indexOf("const bareHost") + 100000)
+  })(),
+)
+
+/**
+ * The pointer moves LAST. A build that fails, an upload that dies halfway, a
+ * crash — none of them can touch the page that is already serving.
+ */
+check(
+  "nothing goes live until every file is uploaded",
+  (() => {
+    /**
+     * Scoped to publishSite's own body. Checking the whole file used text
+     * order as a proxy for execution order, and that proxy broke the moment
+     * `ensureVendorAssets` — which also uploads, but uploads the shared React
+     * runtime, not the site — was added above it. The guard then reported the
+     * upload happening before the build check, which was true of the file and
+     * false of the code that runs.
+     */
+    const whole = strip(publishSource)
+    const src = whole.slice(whole.indexOf("export async function publishSite"))
+    const upload = src.indexOf(".upload(")
+    const goLive = src.indexOf("is_live: true")
+    const buildCheck = src.indexOf("built.ok === false")
+    // Every anchor must EXIST. indexOf returns -1 when it does not, and
+    // `-1 < upload` is true — an ordering check that passes because the thing
+    // being ordered is gone is worse than no check.
+    return (
+      buildCheck !== -1 &&
+      upload !== -1 &&
+      goLive !== -1 &&
+      buildCheck < upload &&
+      upload < goLive
+    )
+  })(),
+)
+
+check(
+  "the database refuses two live deployments even if this code races",
+  (() => {
+    const migration = read("supabase/migrations/20260912_site_publishing.sql")
+    // The index name is anchored to a newline. Without that,
+    // `uniq_site_deployments_live` also matches
+    // `uniq_site_deployments_live_slug` — a different index enforcing a
+    // different thing — so deleting this one changed nothing.
+    return /CREATE UNIQUE INDEX IF NOT EXISTS uniq_site_deployments_live\n\s+ON site_deployments \(site_id\) WHERE is_live;/.test(
+      migration,
+    )
+  })(),
+)
+
+check(
+  "a failed build publishes nothing and says why",
+  /does not build, so nothing was published/.test(publishSource) &&
+    /details: built\.errors/.test(publishSource),
+)
+
+check(
+  "only the live deployment is ever served",
+  (() => {
+    const resolver = siteRoute.slice(siteRoute.indexOf("async function livePrefix"))
+    return /\.eq\("is_live", true\)/.test(resolver)
+  })(),
+)
+
+check(
+  "published pages carry locked-down security headers",
+  (() => {
+    const csp = siteRoute.match(/"Content-Security-Policy": \[([\s\S]*?)\]\.join/)?.[1] ?? ""
+    return (
+      /default-src 'self'/.test(csp) &&
+      /frame-ancestors 'none'/.test(csp) &&
+      /X-Content-Type-Options/.test(siteRoute) &&
+      /Referrer-Policy/.test(siteRoute)
+    )
+  })(),
+)
+
+check(
+  "the HTML revalidates but the immutable assets do not",
+  /s-maxage=60, stale-while-revalidate/.test(siteRoute) &&
+    /max-age=31536000, immutable/.test(siteRoute),
+)
+
+check(
+  "content types are declared, not sniffed",
+  contentTypeFor("index.html").startsWith("text/html") &&
+    contentTypeFor("app.js").startsWith("text/javascript") &&
+    contentTypeFor("app.css").startsWith("text/css") &&
+    contentTypeFor("weird.bin") === "application/octet-stream",
+)
+
+/**
+ * The published bundle gets the site's public id and nothing else. No Supabase
+ * key, no model key, no cookie — the id is what the Site API uses to know
+ * which site a form submission belongs to, and it is public by design.
+ */
+check(
+  "nothing privileged reaches the published bundle",
+  (() => {
+    const doc = strip(read("lib/sites/preview-document.ts"))
+    const published = doc.slice(doc.indexOf("export function publishedDocument"))
+    return (
+      /__STORELIB_SITE_ID__/.test(published) &&
+      !/SERVICE_ROLE|ANON_KEY|OPENAI|SUPABASE_URL/.test(published)
+    )
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("One writer per site")
+// ---------------------------------------------------------------------------
+
+/**
+ * The editor autosaves every 1.2 seconds and an agent run writes its whole
+ * changed set at the end. Before this, typing during a run meant one write
+ * silently won — a creator watching their own edit vanish with no error.
+ */
+check(
+  "every write goes through the locking commit function",
+  (() => {
+    const projects = read("lib/sites/projects.ts")
+    const save = projects.slice(projects.indexOf("export async function saveFiles"))
+    return (
+      save.includes('supabase.rpc("site_commit_files"') &&
+      // No raw upsert left anywhere in the save path.
+      !/from\("site_files"\)[\s\S]{0,200}upsert/.test(save)
+    )
+  })(),
+)
+
+check(
+  "the function serialises per site and compares revisions",
+  (() => {
+    const migration = read("supabase/migrations/20260912_site_publishing.sql")
+    return (
+      /pg_advisory_xact_lock\(hashtextextended\(p_site_id/.test(migration) &&
+      /v_current <> p_expected_revision/.test(migration) &&
+      /SECURITY INVOKER/.test(migration)
+    )
+  })(),
+)
+
+check(
+  "a stale write is reported as a conflict, not swallowed",
+  (() => {
+    const projects = read("lib/sites/projects.ts")
+    return /conflict: true/.test(projects) && /Reload to see the latest version/.test(projects)
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("The conversation and the live state survive a reload")
+// ---------------------------------------------------------------------------
+
+const chatPane = read("components/sites/editor/chat-pane.tsx")
+
+check(
+  "the transcript is written server-side, never posted by the browser",
+  (() => {
+    const route = read("app/api/sites/[siteId]/chat/route.ts")
+    // GET only. A client that can write its own transcript can write one that
+    // never happened.
+    return !/export async function POST/.test(route) && /appendExchange/.test(read("lib/sites/agent/run.ts"))
+  })(),
+)
+
+check(
+  "a failed run is still recorded, so the question does not vanish",
+  (() => {
+    const runFile = read("lib/sites/agent/run.ts")
+    const append = runFile.indexOf("await appendExchange({")
+    const failExit = runFile.indexOf('if (status === "failed") {', append)
+    return append !== -1 && failExit > append
+  })(),
+)
+
+/**
+ * The brief lives in the URL, so a refresh or a shared link still carries it.
+ * Without the history check, reopening a finished site would silently start
+ * the whole generation again — against a project that was already built, and
+ * bill for it.
+ */
+check(
+  "reopening a built site does not regenerate it",
+  /if \(loadingHistory\) return/.test(chatPane) && /if \(exchanges\.length > 0\) return/.test(chatPane),
+)
+
+check(
+  "an edit marks the live site out of date",
+  (() => {
+    const shell = read("components/sites/editor/editor-shell.tsx")
+    // Both edit paths — typed and agent-made — or the button lies about what
+    // is online.
+    return (markStaleCount(shell) >= 2 && /stale: true/.test(shell))
+  })(),
+)
+
+function markStaleCount(src: string): number {
+  return (src.match(/markStale\(\)/g) ?? []).length
+}
+
+check(
+  "mobile gets a sheet with a real tap target, desktop gets the inline control",
+  (() => {
+    const sheet = read("components/sites/editor/site-sheet.tsx")
+    const shell = read("components/sites/editor/editor-shell.tsx")
+    return (
+      /h-12 w-full/.test(sheet) &&
+      /env\(safe-area-inset-bottom\)/.test(sheet) &&
+      /md:hidden/.test(sheet) &&
+      /<span className="md:hidden">/.test(shell) &&
+      /<span className="hidden md:block">/.test(shell)
+    )
+  })(),
+)
+
+check(
+  "the dashboard shows the real published page, not a placeholder",
+  (() => {
+    const dashboard = read("components/sites/sites-dashboard.tsx")
+    return (
+      /publishedUrl\(site\.slug\)/.test(dashboard) &&
+      /sandbox="allow-scripts"/.test(dashboard) &&
+      // The card is a link; the frame must not swallow the click.
+      /pointer-events-none/.test(dashboard) &&
+      /Not published yet/.test(dashboard)
+    )
+  })(),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

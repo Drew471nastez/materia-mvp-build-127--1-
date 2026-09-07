@@ -130,3 +130,85 @@ export function previewPlaceholder(message: string): string {
        font:14px ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 </style></head><body>${safe}</body></html>`
 }
+
+/**
+ * The document a PUBLISHED site serves.
+ *
+ * Different from the preview in three ways that all follow from it being a
+ * real page on the internet rather than a frame inside the editor:
+ *
+ *  - The bundle is a separate file, not inlined, so the CDN can cache it for a
+ *    year while the HTML stays short-lived.
+ *  - React comes from a shared immutable prefix in the same bucket — one copy
+ *    for every site on the platform, on the same origin as the page, so it
+ *    costs one connection and no CORS.
+ *  - There is no error bridge. The preview forwards exceptions to the editor;
+ *    a visitor's browser has nobody to forward them to.
+ *
+ * `siteId` is the ONLY Storelib value in the bundle, and it is public by
+ * design — it is what the Site API uses to know which site a form submission
+ * or a subscribe belongs to. No key, no token, no cookie.
+ */
+export function publishedDocument({
+  css,
+  html,
+  siteId,
+  title,
+  description,
+}: {
+  code: string
+  css?: string
+  html?: string
+  siteId: string
+  title?: string
+  description?: string
+}): string {
+  const importMap = {
+    imports: {
+      react: `${VENDOR_PREFIX}/react.js`,
+      "react/jsx-runtime": `${VENDOR_PREFIX}/react-jsx-runtime.js`,
+      "react/jsx-dev-runtime": `${VENDOR_PREFIX}/react-jsx-dev-runtime.js`,
+      "react-dom": `${VENDOR_PREFIX}/react-dom.js`,
+      "react-dom/client": `${VENDOR_PREFIX}/react-dom-client.js`,
+    },
+  }
+
+  const head = html?.match(/<head[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? ""
+  const declaredTitle = title ?? head.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim()
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${escapeText(declaredTitle || "Site")}</title>
+${description ? `<meta name="description" content="${escapeAttribute(description)}" />\n` : ""}<meta property="og:title" content="${escapeAttribute(declaredTitle || "Site")}" />
+${description ? `<meta property="og:description" content="${escapeAttribute(description)}" />\n` : ""}<meta name="twitter:card" content="summary_large_image" />
+<script type="importmap">${JSON.stringify(importMap)}</script>
+${css ? '<link rel="stylesheet" href="./app.css" />' : ""}
+<script type="module" src="./app.js"></script>
+</head>
+<body>
+${bodyFromHtml(html)}
+<script>window.__STORELIB_SITE_ID__=${JSON.stringify(siteId)}</script>
+</body>
+</html>`
+}
+
+/**
+ * One shared copy of React for every published site, keyed by version.
+ *
+ * Immutable: the version is in the path, so this exact file at this exact URL
+ * never changes and can be cached forever. Per-deployment copies would be
+ * ~200KB duplicated across every publish of every site for no benefit.
+ */
+export const REACT_RUNTIME_VERSION = "19.2.0"
+export const VENDOR_PREFIX = `/_vendor/react-${REACT_RUNTIME_VERSION}`
+
+function escapeText(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+}
+
+function escapeAttribute(value: string): string {
+  return escapeText(value).replace(/"/g, "&quot;")
+}

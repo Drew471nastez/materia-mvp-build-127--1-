@@ -58,3 +58,73 @@ export function pageSlugError(slug: string): string | null {
   }
   return null
 }
+
+/**
+ * Turn a site name into an address nobody else has.
+ *
+ * "Portfolio Website" wants to be `portfolio-website`. So does everybody
+ * else's, which is the whole problem: the address is derived from a name
+ * people did not choose to be unique, and two creators picking the same
+ * obvious name must not fight over one URL.
+ *
+ * The ladder, in order, and each rung exists because the one above it runs
+ * out:
+ *
+ *   portfolio-website          the name, if it is free
+ *   portfolio-website-2..9     a number, which reads as "the second one"
+ *   portfolio-website-a1b2     four random characters, once numbers are gone
+ *
+ * Numbers before random suffixes because `-2` is something a person can say
+ * out loud and `-a1b2` is not. Random rather than a longer count because
+ * counting to 50 means 50 round trips on a popular name.
+ *
+ * `isTaken` is injected so this is testable without a database, and so the
+ * same ladder can be reused for any namespace later.
+ */
+export const SLUG_FALLBACK = "site"
+
+/** Unambiguous characters only — no 0/o, 1/l/i — because people read these out. */
+const SUFFIX_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+
+function randomSuffix(length = 4): string {
+  const bytes = new Uint8Array(length)
+  crypto.getRandomValues(bytes)
+  let out = ""
+  for (const byte of bytes) out += SUFFIX_ALPHABET[byte % SUFFIX_ALPHABET.length]
+  return out
+}
+
+/** Keep a suffix from pushing the slug past the 63-character limit. */
+function withSuffix(base: string, suffix: string): string {
+  const room = 63 - suffix.length - 1
+  return `${base.slice(0, room).replace(/-+$/g, "")}-${suffix}`
+}
+
+export async function allocateSiteSlug(
+  name: string,
+  isTaken: (slug: string) => Promise<boolean>,
+): Promise<string> {
+  // A name of pure punctuation, or one so short it fails the length rule,
+  // still has to produce an address — it just does not get to keep the name.
+  let base = toSiteSlug(name)
+  if (siteSlugError(base)) base = SLUG_FALLBACK
+
+  if (!siteSlugError(base) && !(await isTaken(base))) return base
+
+  for (let n = 2; n <= 9; n++) {
+    const candidate = withSuffix(base, String(n))
+    if (!siteSlugError(candidate) && !(await isTaken(candidate))) return candidate
+  }
+
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const candidate = withSuffix(base, randomSuffix())
+    if (!siteSlugError(candidate) && !(await isTaken(candidate))) return candidate
+  }
+
+  /**
+   * Twelve random four-character suffixes all colliding is not a namespace
+   * problem, it is a broken `isTaken`. Falling back to something longer would
+   * hide that; throwing surfaces it while the site is still unpublished.
+   */
+  throw new Error(`Could not find a free address for "${name}".`)
+}

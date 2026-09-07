@@ -1,0 +1,300 @@
+import "server-only"
+
+/**
+ * Publishing: canonical files → static build → object storage → live.
+ *
+ * ---------------------------------------------------------------------------
+ *  THE LIVE POINTER MOVES LAST, AND ONLY ON A GREEN BUILD
+ * ---------------------------------------------------------------------------
+ * A deployment is written to its own immutable prefix first, and only when
+ * every file is uploaded does the pointer move. A build that fails, an upload
+ * that dies halfway, a crash — none of them can touch the page that is already
+ * serving. The worst outcome is an orphaned prefix nobody points at.
+ *
+ * The database enforces the same rule from underneath: a partial unique index
+ * on `is_live` means a site cannot end up with two live deployments however
+ * badly this code races with itself.
+ *
+ * ---------------------------------------------------------------------------
+ *  STATIC, NOT RENDERED
+ * ---------------------------------------------------------------------------
+ * The output is HTML, CSS, JS and an import map. A visitor's request is
+ * answered from storage through the CDN; no Node process renders anything, no
+ * database is touched, and 4,000 sites cost what one bucket costs. Dynamic
+ * behaviour — forms, email capture, product data — is the Site API's job, and
+ * is called by the page rather than baked into it.
+ *
+ * NOTHING PRIVILEGED IS IN THE BUNDLE. The published page gets the site's
+ * public id and nothing else: no Supabase keys, no model key, no cookies. It
+ * is served from a different registrable domain than the dashboard, so even a
+ * malicious generated page has no session to reach.
+ */
+
+import { createAdminClient } from "@/lib/supabase/admin"
+import { bundleProject } from "./bundle"
+import { contentTypeFor } from "./content-type"
+import { VENDOR_PREFIX, publishedDocument } from "./preview-document"
+import { readProject } from "./projects"
+import { allocateSiteSlug, siteSlugError } from "./slug"
+import type { ProjectFiles, Site } from "./types"
+
+export const DEPLOYMENT_BUCKET = "site-deployments"
+
+/**
+ * Where published sites answer.
+ *
+ * A SEPARATE REGISTRABLE DOMAIN, not a path or subdomain of storelib.com.
+ * `storelib.com/<name>` is already the creator storefront — `[sellername]`
+ * catches every root path — so publishing there would collide with every
+ * existing creator. And generated JavaScript on storelib.com would be
+ * same-origin with the dashboard: able to read the signed-in session out of
+ * cookies and storage and act as that person. A different eTLD+1 makes that
+ * structurally impossible rather than a rule somebody has to remember.
+ */
+export const SITES_HOST = process.env.NEXT_PUBLIC_SITES_HOST || "storelib.site"
+
+export function publishedUrl(slug: string): string {
+  return `https://${SITES_HOST}/${slug}`
+}
+
+export type PublishResult =
+  | { ok: true; url: string; slug: string; deploymentId: string; revision: number }
+  | { ok: false; error: string; details?: string[] }
+
+/**
+ * The address this site publishes at, allocated once and then kept.
+ *
+ * Kept, because the URL is the thing people share. Renaming a site must not
+ * silently move a page somebody has already linked to; changing the address is
+ * a separate, deliberate action.
+ */
+async function ensureSlug(site: Site): Promise<string> {
+  if (site.slug && !siteSlugError(site.slug)) return site.slug
+
+  const admin = createAdminClient()
+  const slug = await allocateSiteSlug(site.name, async (candidate) => {
+    /**
+     * Checked with the ADMIN client on purpose. RLS would hide other
+     * creators' sites, so a uniqueness check through the user's own client
+     * would report every taken address as free — and then the unique index
+     * would reject the insert with an error nobody could explain.
+     */
+    const { count } = await admin
+      .from("sites")
+      .select("id", { count: "exact", head: true })
+      .ilike("slug", candidate)
+    return (count ?? 0) > 0
+  })
+
+  await admin.from("sites").update({ slug }).eq("id", site.id)
+  return slug
+}
+
+/** The built site, as files ready to upload. */
+export async function buildStatic(
+  files: ProjectFiles,
+  siteId: string,
+): Promise<{ ok: true; output: Record<string, string> } | { ok: false; errors: string[] }> {
+  const esbuild = await import("esbuild")
+  const result = await bundleProject(esbuild as never, files)
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      errors: result.errors.map((e) =>
+        e.file ? `${e.file}${e.line ? `:${e.line}` : ""}: ${e.message}` : e.message,
+      ),
+    }
+  }
+
+  const output: Record<string, string> = {
+    "index.html": publishedDocument({
+      code: "",
+      css: result.css,
+      html: files["index.html"],
+      siteId,
+    }),
+    "app.js": result.code ?? "",
+  }
+  if (result.css) output["app.css"] = result.css
+
+  return { ok: true, output }
+}
+
+/**
+ * React, uploaded once for the whole platform.
+ *
+ * Every published site's import map points at `_vendor/react-{version}/`, so
+ * this runs on the first publish after a deploy and is a no-op forever after.
+ * Checked by listing rather than tracked in a table: the bucket is the source
+ * of truth for what is in the bucket, and a table that disagreed with it would
+ * be worse than no table.
+ */
+async function ensureVendorAssets(): Promise<void> {
+  const admin = createAdminClient()
+  const prefix = VENDOR_PREFIX.replace(/^\//, "")
+
+  const { data: existing } = await admin.storage.from(DEPLOYMENT_BUCKET).list(prefix, { limit: 10 })
+  if ((existing?.length ?? 0) >= 5) return
+
+  const { readFile } = await import("node:fs/promises")
+  const { join } = await import("node:path")
+  const vendorDir = join(process.cwd(), "public/sites/vendor")
+
+  const names = [
+    "react.js",
+    "react-jsx-runtime.js",
+    "react-jsx-dev-runtime.js",
+    "react-dom.js",
+    "react-dom-client.js",
+  ]
+
+  for (const name of names) {
+    const source = await readFile(join(vendorDir, name), "utf8").catch(() => null)
+    // A missing vendor file is a deployment problem, not a per-site one — the
+    // publish still has to fail loudly rather than ship a page whose imports
+    // resolve to nothing.
+    if (source === null) throw new Error(`Vendor asset missing: ${name}. Run scripts/build-sites-assets.mjs.`)
+    const { error } = await admin.storage
+      .from(DEPLOYMENT_BUCKET)
+      .upload(`${prefix}/${name}`, new Blob([source], { type: "text/javascript" }), {
+        contentType: "text/javascript; charset=utf-8",
+        upsert: true,
+        cacheControl: "31536000",
+      })
+    if (error) throw new Error(`Could not upload ${name}: ${error.message}`)
+  }
+}
+
+export async function publishSite(site: Site): Promise<PublishResult> {
+  const admin = createAdminClient()
+
+  const files = await readProject(site.id)
+  if (Object.keys(files).length === 0) {
+    return { ok: false, error: "This site has no files to publish." }
+  }
+
+  const built = await buildStatic(files, site.id)
+  if (built.ok === false) {
+    return {
+      ok: false,
+      error: "This site does not build, so nothing was published.",
+      details: built.errors,
+    }
+  }
+
+  const slug = await ensureSlug(site)
+
+  // Read the revision we are building FROM, before anything is written, so
+  // the record says which version is live rather than which was current when
+  // the upload finished.
+  const { data: current } = await admin
+    .from("sites")
+    .select("revision")
+    .eq("id", site.id)
+    .maybeSingle()
+  const revision = (current as { revision: number } | null)?.revision ?? 1
+
+  const { data: created, error: createError } = await admin
+    .from("site_deployments")
+    .insert({
+      site_id: site.id,
+      status: "building",
+      slug,
+      version_label: `r${revision}`,
+    })
+    .select("id")
+    .single()
+
+  const deploymentId = (created as { id: string } | null)?.id
+  if (createError || !deploymentId) {
+    return { ok: false, error: "Could not start the publish. Try again." }
+  }
+
+  // Immutable prefix. Every publish gets its own, so the previous one keeps
+  // serving untouched while this one uploads.
+  const prefix = `sites/${site.id}/${deploymentId}`
+  let bytes = 0
+
+  try {
+    await ensureVendorAssets()
+
+    for (const [path, content] of Object.entries(built.output)) {
+      const body = new Blob([content], { type: contentTypeFor(path) })
+      bytes += content.length
+      const { error } = await admin.storage
+        .from(DEPLOYMENT_BUCKET)
+        .upload(`${prefix}/${path}`, body, {
+          contentType: contentTypeFor(path),
+          upsert: true,
+          // A year, because the prefix contains the deployment id — this exact
+          // file at this exact path can never change.
+          cacheControl: "31536000",
+        })
+      if (error) throw new Error(error.message)
+    }
+  } catch (thrown) {
+    await admin
+      .from("site_deployments")
+      .update({
+        status: "failed",
+        error: thrown instanceof Error ? thrown.message : "Upload failed.",
+        finished_at: new Date().toISOString(),
+      })
+      .eq("id", deploymentId)
+    return { ok: false, error: "Could not upload the site. Try again." }
+  }
+
+  /**
+   * THE SWITCH. Old pointer down, new pointer up.
+   *
+   * Between these two statements a site has no live deployment for a few
+   * milliseconds, which serves a 404 — the alternative is setting the new one
+   * first, which trips the unique index and leaves the OLD one live and the
+   * new one marked failed. A brief miss is recoverable; a publish that
+   * silently did not take is not.
+   */
+  await admin
+    .from("site_deployments")
+    .update({ is_live: false })
+    .eq("site_id", site.id)
+    .eq("is_live", true)
+
+  const publishedAt = new Date().toISOString()
+  const { error: liveError } = await admin
+    .from("site_deployments")
+    .update({
+      status: "ready",
+      is_live: true,
+      storage_prefix: prefix,
+      file_count: Object.keys(built.output).length,
+      bytes,
+      published_at: publishedAt,
+      finished_at: publishedAt,
+    })
+    .eq("id", deploymentId)
+
+  if (liveError) {
+    return { ok: false, error: "The site built but could not go live. Try again." }
+  }
+
+  await admin
+    .from("sites")
+    .update({
+      status: "published",
+      published_deployment_id: deploymentId,
+      published_revision: revision,
+      published_at: publishedAt,
+    })
+    .eq("id", site.id)
+
+  return { ok: true, url: publishedUrl(slug), slug, deploymentId, revision }
+}
+
+/** Take a site offline without deleting anything it built. */
+export async function unpublishSite(siteId: string): Promise<{ ok: boolean }> {
+  const admin = createAdminClient()
+  await admin.from("site_deployments").update({ is_live: false }).eq("site_id", siteId).eq("is_live", true)
+  await admin.from("sites").update({ status: "unpublished" }).eq("id", siteId)
+  return { ok: true }
+}

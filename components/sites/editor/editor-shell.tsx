@@ -32,14 +32,17 @@
  */
 
 import * as React from "react"
-import { ArrowLeft, Check, Code2, Eye, Globe, Loader2, MessageSquare, AlertCircle } from "lucide-react"
+import { ArrowLeft, Check, Code2, Eye, Loader2, MessageSquare, AlertCircle } from "lucide-react"
 
 import { SmartLink } from "@/components/smart-link"
 import { cn } from "@/lib/utils"
+import { SITES_HOST } from "@/lib/sites/public-host"
 import type { ProjectFiles, Site } from "@/lib/sites/types"
 import { ChatPane } from "./chat-pane"
 import { CodePane } from "./code-pane"
 import { PreviewPane } from "./preview-pane"
+import { PublishButton, type PublishState } from "./publish-button"
+import { SiteSheet } from "./site-sheet"
 import { useBundler } from "./use-bundler"
 
 type SaveState = "clean" | "dirty" | "saving" | "error"
@@ -59,11 +62,51 @@ export function EditorShell({
 }) {
   const [files, setFiles] = React.useState<ProjectFiles>(initialFiles)
   const [pane, setPane] = React.useState<Pane>("preview")
+  const [sheetOpen, setSheetOpen] = React.useState(false)
   const [activePath, setActivePath] = React.useState<string | null>(
     initialFiles["src/App.tsx"] !== undefined ? "src/App.tsx" : (Object.keys(initialFiles)[0] ?? null),
   )
   const [saveState, setSaveState] = React.useState<SaveState>("clean")
   const [saveError, setSaveError] = React.useState<string | null>(null)
+
+  /**
+   * What is live, and whether it still matches what is on screen.
+   *
+   * `stale` is set by any edit — typed or made by the agent — because the
+   * moment a file changes, the published page and the editor disagree, and a
+   * button that still said "Live" would be telling the creator their change
+   * is online when it is not.
+   */
+  const [publishState, setPublishState] = React.useState<PublishState>(
+    site.status === "published" && site.slug
+      ? { kind: "live", url: `https://${SITES_HOST}/${site.slug}`, stale: false }
+      : { kind: "unpublished" },
+  )
+
+  const markStale = React.useCallback(() => {
+    setPublishState((previous) =>
+      previous.kind === "live" && !previous.stale ? { ...previous, stale: true } : previous,
+    )
+  }, [])
+
+  const publish = React.useCallback(async () => {
+    setPublishState({ kind: "publishing" })
+    try {
+      const response = await fetch(`/api/sites/${site.id}/publish`, { method: "POST" })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setPublishState({
+          kind: "failed",
+          message: body.error ?? "Could not publish.",
+          details: body.details,
+        })
+        return
+      }
+      setPublishState({ kind: "live", url: body.url, stale: false })
+    } catch {
+      setPublishState({ kind: "failed", message: "Could not reach the server." })
+    }
+  }, [site.id])
 
   /**
    * What has changed since the last successful save, by path.
@@ -94,13 +137,18 @@ export function EditorShell({
       for (const path of dirtyPaths.current) merged[path] = previous[path]
       return merged
     })
-  }, [site.id])
+    markStale()
+  }, [markStale, site.id])
 
-  const editFile = React.useCallback((path: string, content: string) => {
-    setFiles((previous) => (previous[path] === content ? previous : { ...previous, [path]: content }))
-    dirtyPaths.current.add(path)
-    setSaveState("dirty")
-  }, [])
+  const editFile = React.useCallback(
+    (path: string, content: string) => {
+      setFiles((previous) => (previous[path] === content ? previous : { ...previous, [path]: content }))
+      dirtyPaths.current.add(path)
+      setSaveState("dirty")
+      markStale()
+    },
+    [markStale],
+  )
 
   const save = React.useCallback(async () => {
     const paths = [...dirtyPaths.current]
@@ -204,7 +252,14 @@ export function EditorShell({
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <AddressChip site={site} />
+          {/* Phone: the control opens the sheet, where the address and the
+              48px publish button live. Desktop: it acts directly. */}
+          <span className="md:hidden">
+            <PublishButton state={publishState} onPublish={() => setSheetOpen(true)} compact />
+          </span>
+          <span className="hidden md:block">
+            <PublishButton state={publishState} onPublish={() => void publish()} />
+          </span>
 
           {/* Desktop: Preview / Code over one pane. Mobile has the bottom bar. */}
           <div className="hidden items-center gap-0.5 rounded-[8px] bg-muted p-0.5 md:flex">
@@ -272,30 +327,15 @@ export function EditorShell({
           ),
         )}
       </nav>
-    </div>
-  )
-}
 
-/**
- * Where the site lives, or that it does not live anywhere yet.
- *
- * Bolt puts a URL bar here. Ours would be a lie until Publish exists, so it
- * says the address it has reserved and that nothing is served from it — which
- * is the one thing somebody looking at this corner wants to know.
- */
-function AddressChip({ site }: { site: Site }) {
-  const published = site.status === "published"
-  return (
-    <span
-      className="hidden items-center gap-1.5 rounded-[7px] border border-border px-2 py-1 text-[11px] text-muted-foreground lg:inline-flex"
-      title={published ? "Live" : "Not published yet"}
-    >
-      <Globe className="h-3 w-3 shrink-0" />
-      <span className="max-w-[220px] truncate">
-        {site.slug ? `${site.slug}.storelib.site` : "No address yet"}
-      </span>
-      {!published && <span className="text-muted-foreground/60">· draft</span>}
-    </span>
+      <SiteSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        siteName={site.name}
+        state={publishState}
+        onPublish={() => void publish()}
+      />
+    </div>
   )
 }
 

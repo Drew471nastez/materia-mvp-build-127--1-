@@ -23,6 +23,7 @@ import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { appendExchange, type ChatStep } from "../chat"
 import { siteLimits, type SitePlan } from "../plan"
 import { readProject, saveFiles } from "../projects"
 import type { ProjectFiles } from "../types"
@@ -95,9 +96,15 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
   // The loop's events are forwarded as they happen; its RETURN value is the
   // verdict. `for await` would discard the return, so the iterator is driven
   // by hand.
+  //
+  // The tool steps are collected on the way past, because the transcript has
+  // to show what the model DID and not only what it said — "read Hero.tsx,
+  // edited Hero.tsx, built the site" is the part a creator scrolls back for.
+  const steps: ChatStep[] = []
   const loop = agentLoop({ provider, model, prompt, workspace, esbuild, signal })
   let step = await loop.next()
   while (!step.done) {
+    if (step.value.type === "tool") steps.push({ name: step.value.name, detail: step.value.detail })
     yield step.value
     step = await loop.next()
   }
@@ -138,6 +145,24 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
       finished_at: new Date().toISOString(),
     })
     .eq("id", runId)
+
+  /**
+   * The transcript is written on EVERY path out, including failures.
+   *
+   * A conversation that silently drops its failed exchanges is one where
+   * nobody can see the model got the same thing wrong three times — and the
+   * creator reopening the site would find their question missing entirely.
+   */
+  await appendExchange({
+    siteId,
+    runId,
+    prompt,
+    reply: result.message || (status === "failed" ? "" : "Done."),
+    steps,
+    filesChanged: changedFiles,
+    versionId,
+    error: status === "failed" ? error : null,
+  })
 
   if (status === "failed") {
     yield { type: "error", message: error ?? "The edit failed." }

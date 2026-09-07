@@ -21,6 +21,17 @@ import { ArrowUp, Check, FileCode, Hammer, Loader2, RotateCcw, Sparkles, Triangl
 import { cn } from "@/lib/utils"
 import type { AgentEvent } from "@/lib/sites/agent/types"
 
+/** Mirrors lib/sites/chat.ts — the wire shape of a stored message. */
+interface StoredMessage {
+  id: string
+  role: "user" | "assistant"
+  content: string
+  steps: Array<{ name: string; detail: string }>
+  filesChanged: string[]
+  versionId: string | null
+  error: string | null
+}
+
 interface Step {
   id: string
   kind: "tool" | "note"
@@ -70,6 +81,7 @@ export function ChatPane({
   onFilesChanged: (paths: string[]) => void
 }) {
   const [exchanges, setExchanges] = React.useState<Exchange[]>([])
+  const [loadingHistory, setLoadingHistory] = React.useState(true)
   const [draft, setDraft] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const fieldRef = React.useRef<HTMLTextAreaElement>(null)
@@ -94,6 +106,58 @@ export function ChatPane({
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
   }, [exchanges])
+
+  /**
+   * The conversation so far.
+   *
+   * Stored as alternating user/assistant rows, rebuilt here into the pairs the
+   * UI renders. A trailing user message with no reply is a run that was
+   * interrupted — shown as an error rather than left looking like it is still
+   * thinking, which it is not: nothing is running any more.
+   */
+  React.useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const response = await fetch(`/api/sites/${siteId}/chat`)
+        if (!response.ok) return
+        const body = (await response.json()) as { messages?: StoredMessage[] }
+        if (cancelled || !body.messages?.length) return
+
+        const restored: Exchange[] = []
+        for (const message of body.messages) {
+          if (message.role === "user") {
+            restored.push({
+              id: message.id,
+              prompt: message.content,
+              steps: [],
+              filesChanged: [],
+              running: false,
+              error: "This edit did not finish.",
+            })
+            continue
+          }
+          const open = restored[restored.length - 1]
+          if (!open) continue
+          open.steps = message.steps.map((s, i) => ({
+            id: `${message.id}-${i}`,
+            kind: "tool" as const,
+            label: `${TOOL_LABELS[s.name] ?? s.name}${s.detail ? ` ${s.detail}` : ""}`,
+          }))
+          open.reply = message.content || undefined
+          open.filesChanged = message.filesChanged
+          open.versionId = message.versionId ?? undefined
+          open.error = message.error ?? undefined
+        }
+        setExchanges(restored)
+      } finally {
+        if (!cancelled) setLoadingHistory(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [siteId])
 
   const send = React.useCallback(
     async (text: string) => {
@@ -202,9 +266,19 @@ export function ChatPane({
   const briefSent = React.useRef(false)
   React.useEffect(() => {
     if (briefSent.current || !openingBrief?.trim()) return
+    /**
+     * Waits for history, and skips if there is any.
+     *
+     * The brief lives in the URL, so a reopened tab — or a refresh, or a
+     * shared link — still carries it. Without this check, coming back to a
+     * finished site would silently start the whole generation again, against
+     * a project that had already been built, and bill for it.
+     */
+    if (loadingHistory) return
     briefSent.current = true
+    if (exchanges.length > 0) return
     void send(openingBrief)
-  }, [openingBrief, send])
+  }, [exchanges.length, loadingHistory, openingBrief, send])
 
   const undo = React.useCallback(
     async (exchangeId: string, versionId: string) => {
@@ -231,7 +305,12 @@ export function ChatPane({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-5">
-        {exchanges.length === 0 ? (
+        {loadingHistory ? (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Loading the conversation…
+          </p>
+        ) : exchanges.length === 0 ? (
           <div className="space-y-5">
             <p className="text-sm leading-relaxed text-muted-foreground">
               Describe a change to <span className="text-foreground">{siteName}</span> and it gets made in the code.
