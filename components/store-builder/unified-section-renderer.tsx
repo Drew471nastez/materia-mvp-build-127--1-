@@ -570,16 +570,23 @@ function UnifiedAboutSection({
 
   return (
     <SectionContainer isMobile={isMobile} className="!max-w-[1180px]">
+      {/*
+        THE SPACING SETTING IS APPLIED ONCE, BY THE WRAPPER.
+        
+        UnifiedSectionRenderer already pads every section it renders with that
+        section's own `spacing`, and this div then applied the very same
+        numbers again — so About's 48px of top padding was 96px on the page,
+        and every adjustment a creator made in the builder moved it by twice
+        what the control said. On the storefront that put 96px of empty page
+        between the last product and the About rule, on every tab.
+
+        The classes went with it: `py-6 md:py-12` was dead under the inline
+        style, and reviving it by deleting only the style would have swapped
+        one wrong number for another.
+      */}
       <div
-        className={cn(
-          "w-full py-6 px-2 md:py-12 md:px-2",
-          isMobile && "!py-6 !px-2"
-        )}
-        style={{
-          paddingTop: spacing?.paddingTop,
-          paddingBottom: spacing?.paddingBottom,
-          backgroundColor,
-        }}
+        className={cn("w-full px-2 md:px-2", isMobile && "!px-2")}
+        style={{ backgroundColor }}
       >
         {/* Top divider */}
         <div

@@ -1370,11 +1370,53 @@ check(
 
     if (!/border-b border-border[^"]*"\s*\n?\s*role="tablist"/.test(tabs))
       missing.push("the tabs no longer sit on a rule")
-    if (!/border-foreground font-medium text-foreground/.test(tabs))
-      missing.push("the active tab has no underline")
+    /**
+     * THE UNDERLINE SLIDES between tabs, and it is the only motion in a
+     * switch. The panels swap instantly — they are already rendered, and
+     * fading them in was the flash — but an instant swap with a mark that
+     * teleports too gives the eye nothing to follow. The bar is the one
+     * element that can move without any content moving with it. Measured at
+     * 390px: left 12 → 256 over eight decelerating frames, landing exactly on
+     * the tab; the panel stays at opacity 1.00, transform none, throughout.
+     *
+     * Its position is MEASURED from the button, never computed as a fraction:
+     * the tabs are equal thirds on a phone and their own widths on desktop,
+     * and a webfont arriving late changes those widths after first paint.
+     */
+    if (!/transition-\[left,width\]/.test(tabs))
+      missing.push("the active mark no longer slides between tabs")
+    if (!/setBar\(\{ left: el\.offsetLeft, width: el\.offsetWidth \}\)/.test(tabs))
+      missing.push("the sliding bar is no longer measured from the tab it belongs to")
+    if (!/selected && !bar \? "border-foreground" : "border-transparent"/.test(tabs))
+      missing.push("the static underline and the sliding bar can now both be on screen")
+    if (!/focus:outline-none focus-visible:ring-2/.test(tabs))
+      missing.push("the webview's own blue focus box is back over the tab bar")
     if (!/rounded-full bg-black/.test(tabs) === false) missing.push("the pill track came back")
-    if (!/pt-8 \[&>\*:first-child:not\(\[data-panel-spacing\]\)\]:!pt-0/.test(tabs))
+    if (!/"pt-8 \[&>\*:first-child:not\(\[data-panel-spacing\]\)\]:!pt-0"/.test(tabs))
       missing.push("panels bring their own top space again — the content jumps between tabs")
+
+    /**
+     * AND THE BOTTOM, which was never forced. The space between the last
+     * product and the About rule was whatever the panel happened to bring —
+     * 24px from the Featured rail's spacing, 32 from the Products grid, 64
+     * from the empty state — stacked on About's own top padding. Measured
+     * before: 129px of nothing under every tab, and a different 129 on each.
+     * After: 48px, and the same 48 on all three.
+     */
+    if (!/\[&>\*:last-child:not\(\[data-panel-spacing\]\)\]:!pb-0/.test(tabs))
+      missing.push("the gap below a panel is unowned again — each tab ends at a different height")
+
+    /**
+     * ONE distance from the rule to the first card, on both tabs. The Featured
+     * rail's `mt-5` and the grid's `mb-6` put them 88px and 92px down. Four
+     * pixels is nothing to describe and plainly visible to switch between: the
+     * whole grid steps down on the way to Products and back up on the way home.
+     */
+    const railGap = code("components/store-builder/unified-section-renderer.tsx").match(/"grid gap-4 mt-(\d)"/)?.[1]
+    const gridGap = code("components/storefront/all-products-grid.tsx").match(/"mb-(\d) flex items-center justify-between/)?.[1]
+    if (!railGap || !gridGap) missing.push("could not find the gap above the cards on both tabs")
+    else if (railGap !== gridGap)
+      missing.push(`the two tabs put their first card at different heights again (${railGap} vs ${gridGap})`)
 
     /**
      * EXACTLY THREE TABS. Reviews and About are both below them now: About
@@ -1830,7 +1872,7 @@ check(
     // now sits between the two.
     if (!/<StorefrontTabs tabs=\{tabs\} \/>[\s\S]{0,400}?\{about\}\s*<\/>/.test(page))
       missing.push("About no longer renders last, after the tab panels, on every tab")
-    if (!/className="flex w-full gap-0 border-b border-border sm:w-auto/.test(tabs))
+    if (!/className="relative flex w-full gap-0 border-b border-border sm:w-auto/.test(tabs))
       missing.push("the tab strip no longer fills a phone's width")
     if (!/"-mb-px flex-1 [^"]*sm:flex-none/.test(tabs))
       missing.push("the tabs no longer share that width evenly — one long label would take more than its third")
@@ -1929,6 +1971,57 @@ check(
       missing.push("the owner's controls no longer start at the top-right, where nothing else is")
     if (!/!isMobile && "sm:bottom-4 sm:right-4 sm:top-auto"/.test(block))
       missing.push("the desktop position is no longer a breakpoint")
+
+    if (missing.length) console.log("        " + missing.join("\n        "))
+    return missing.length === 0
+  })(),
+)
+
+check(
+  "a section's spacing setting is applied once, and empty tabs are a mark and a line",
+  (() => {
+    /**
+     * ABOUT PADDED ITSELF TWICE.
+     *
+     * UnifiedSectionRenderer pads every section with that section's own
+     * `spacing`, and the About section's inner div then applied the identical
+     * numbers again — so a creator's 48px became 96 on the page, and every
+     * nudge of the control in the builder moved it by twice what the control
+     * said. On the storefront that was 96px of empty page between the last
+     * product and the About rule, under every tab; with the panel's own bottom
+     * gap on top of it, 129.
+     *
+     * Deleting only the inline style would have revived the `py-6 md:py-12`
+     * classes underneath it, which is a different wrong number rather than a
+     * fix — so those went too.
+     *
+     * AND THE EMPTY TAB is now a mark, four words and one short line. It used
+     * to carry two sentences explaining that Storelib has no paid-communities
+     * feature yet: a roadmap note in the middle of somebody's shop, which a
+     * visitor does not need and the creator cannot act on. Shorter box, less
+     * void under it.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const tabs = code("components/storefront/storefront-tabs.tsx")
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    const missing: string[] = []
+
+    // Just this one component: ProductAboutSection further down the file is a
+    // different thing — a payment-methods block on the product page, with no
+    // spacing setting to double — and it legitimately carries its own padding.
+    const about = renderer.slice(renderer.indexOf("function UnifiedAboutSection"))
+    const aboutBody = about.slice(0, about.search(/\n(export )?function /) + 1 || undefined)
+    if (/paddingTop: spacing\?\.paddingTop/.test(aboutBody))
+      missing.push("the About section pads itself on top of the wrapper's padding again — every spacing setting is doubled")
+    if (/py-6 px-2 md:py-12/.test(aboutBody))
+      missing.push("the About section's hardcoded vertical padding is back")
+
+    if (!/icon: Icon = Users/.test(tabs)) missing.push("the empty tab lost its icon")
+    if (!/<Icon className="mx-auto mb-3 h-6 w-6/.test(tabs)) missing.push("the empty tab's icon is not rendered")
+    const detail = page.match(/detail="([^"]*)"/)?.[1] ?? ""
+    if (!detail) missing.push("the empty tab has no line under its heading")
+    else if (detail.length > 60)
+      missing.push(`the empty tab explains itself again (${detail.length} chars) — nobody reading a shop needs the roadmap`)
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0

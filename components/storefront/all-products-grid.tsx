@@ -95,7 +95,16 @@ export function AllProductsGrid({
         Sort collapses to an icon on a phone. "Sort: Most Recent" spends half
         the width of a phone saying what the icon says.
       */}
-      <div className="mb-6 flex items-center justify-between gap-3">
+      {/*
+        `mb-5`, matching the Featured rail's `mt-5` — not `mb-6`.
+
+        The two tabs put their first card 88px and 92px below the rule. Four
+        pixels is nothing to describe and plainly visible to switch between:
+        the whole grid steps down as you move to Products and back up as you
+        return, which reads as the page being rebuilt rather than as a filter
+        changing.
+      */}
+      <div className="mb-5 flex items-center justify-between gap-3">
         <CategorySelect categories={categories} value={active} onChange={setActive} total={products.length} />
         <div className="ml-auto">
           {products.length > 1 && (

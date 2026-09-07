@@ -858,7 +858,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             panel: (
               <EmptyTabPanel
                 title="No communities yet"
-                detail="Paid communities are not available on Storelib yet. When they are, the ones this creator runs will appear here."
+                detail="This creator hasn't opened any yet."
               />
             ),
           })

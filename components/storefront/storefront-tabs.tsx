@@ -18,6 +18,7 @@
  */
 
 import * as React from "react"
+import { Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface StorefrontTab {
@@ -33,22 +34,38 @@ export interface StorefrontTab {
  * built — so the tab has to say that plainly. A blank panel reads as broken; a
  * sentence reads as "not yet", which is what it is.
  */
-export function EmptyTabPanel({ title, detail }: { title: string; detail: string }) {
+export function EmptyTabPanel({
+  title,
+  detail,
+  icon: Icon = Users,
+}: {
+  title: string
+  detail: string
+  icon?: React.ComponentType<{ className?: string }>
+}) {
   return (
-    <div className="mx-auto w-full max-w-[1100px] px-3 pb-16 sm:px-4 lg:px-6">
+    <div className="mx-auto w-full max-w-[1100px] px-3 sm:px-4 lg:px-6">
       {/*
-        `data-panel-spacing` OPTS OUT of the panel reset above.
+        AN ICON AND ONE LINE.
 
-        That reset zeroes the top padding of a panel's first two levels so
-        every tab starts the same distance below the rule — necessary, because
-        a Home section carries its spacing as an inline style. But this box is
-        two levels deep, so the reset was stripping its `p-10` top as well and
-        the heading ended up sitting ON the dashed border with nothing above
-        it. The marker says "this padding is mine, leave it".
+        The box used to carry two sentences explaining that Storelib has no
+        paid-communities feature yet — a roadmap note in the middle of
+        somebody's shop. A visitor does not need the reason, and the creator
+        cannot act on it: all either of them needs is that there is nothing
+        here. So it is a mark, four words and a short line, and the box shrank
+        by about 60px, which is 60px less of the void underneath.
+
+        `data-panel-spacing` OPTS OUT of the panel reset below. That reset
+        zeroes the top padding of a panel's first two levels so every tab
+        starts the same distance under the rule — necessary, because a Home
+        section carries its spacing as an inline style. But this box is two
+        levels deep, so the reset was stripping its own padding too and the
+        heading ended up sitting ON the dashed border.
       */}
-      <div data-panel-spacing className="rounded-lg border border-dashed border-border p-10 text-center">
+      <div data-panel-spacing className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
+        <Icon className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden />
         <p className="font-medium text-foreground">{title}</p>
-        <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">{detail}</p>
+        <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">{detail}</p>
       </div>
     </div>
   )
@@ -56,6 +73,47 @@ export function EmptyTabPanel({ title, detail }: { title: string; detail: string
 
 export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
   const [active, setActive] = React.useState(tabs[0]?.id)
+
+  /**
+   * THE UNDERLINE SLIDES. This is the whole of "make switching feel smooth".
+   *
+   * The panels themselves swap instantly and must keep doing so — they are
+   * already rendered, and fading them in was the flash. But an instant swap
+   * with a mark that also teleports gives the eye nothing to follow: you press
+   * a word and the page is simply different. So the movement lives in the one
+   * element that can move without any content moving with it. The bar travels
+   * from the old tab to the new one, and because it changes width as it goes
+   * it reads as one object crossing the bar rather than two marks blinking.
+   *
+   * It is measured, not computed from a fraction of the width: the tabs are
+   * equal thirds on a phone but their own widths on desktop, and a font
+   * loading late changes those widths after first paint.
+   */
+  const listRef = React.useRef<HTMLDivElement>(null)
+  const tabRefs = React.useRef(new Map<string, HTMLButtonElement>())
+  const [bar, setBar] = React.useState<{ left: number; width: number } | null>(null)
+
+  React.useLayoutEffect(() => {
+    const measure = () => {
+      const el = tabRefs.current.get(active)
+      if (!el) return
+      setBar({ left: el.offsetLeft, width: el.offsetWidth })
+    }
+    measure()
+
+    // Widths change without the tab changing: rotation, a late webfont, the
+    // strip being laid out inside something that resizes.
+    const list = listRef.current
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null
+    if (list && observer) observer.observe(list)
+    window.addEventListener("resize", measure)
+    document.fonts?.ready.then(measure).catch(() => {})
+
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener("resize", measure)
+    }
+  }, [active, tabs.length])
 
   // A single tab is not a choice; showing a lone "Home" button is noise.
   if (tabs.length < 2) return <>{tabs[0]?.panel ?? null}</>
@@ -89,7 +147,8 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
         */}
         <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div
-            className="flex w-full gap-0 border-b border-border sm:w-auto sm:min-w-max sm:justify-start sm:gap-7"
+            ref={listRef}
+            className="relative flex w-full gap-0 border-b border-border sm:w-auto sm:min-w-max sm:justify-start sm:gap-7"
             role="tablist"
           >
             {tabs.map((tab) => {
@@ -97,6 +156,10 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
               return (
                 <button
                   key={tab.id}
+                  ref={(el) => {
+                    if (el) tabRefs.current.set(tab.id, el)
+                    else tabRefs.current.delete(tab.id)
+                  }}
                   type="button"
                   role="tab"
                   aria-selected={selected}
@@ -107,15 +170,36 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
                     // `sm:flex-none` hands the width back to the words.
                     "-mb-px flex-1 whitespace-nowrap border-b-2 px-0.5 pb-3 pt-1 text-center text-sm sm:flex-none sm:text-left",
                     "transition-[color,border-color] duration-200 ease-out",
-                    selected
-                      ? "border-foreground font-medium text-foreground"
-                      : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
+                    /**
+                     * FOCUS IS RINGED, NOT OUTLINED. The webview drew its own
+                     * blue box around the whole button after a tap — visible
+                     * in the shipped iOS app, sitting over the tab bar like an
+                     * error state. This replaces it with something that looks
+                     * deliberate, and only for keyboard focus.
+                     */
+                    "rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                    selected ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+                    /**
+                     * The static underline is the SERVER's answer and the
+                     * fallback. Once the sliding bar has measured itself it
+                     * takes over, so the two are never both on screen — the
+                     * measurement happens in a layout effect, before paint.
+                     */
+                    selected && !bar ? "border-foreground" : "border-transparent",
                   )}
                 >
                   {tab.label}
                 </button>
               )
             })}
+
+            {bar && (
+              <span
+                aria-hidden
+                className="absolute -bottom-px h-0.5 rounded-full bg-foreground transition-[left,width] duration-[220ms] ease-out motion-reduce:transition-none"
+                style={{ left: bar.left, width: bar.width }}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -169,7 +253,27 @@ export function StorefrontTabs({ tabs }: { tabs: StorefrontTab[] }) {
            * The exception a fade would earn — content that has to be fetched —
            * does not apply here and must not be reintroduced without one.
            */
-          className='pt-8 [&>*:first-child:not([data-panel-spacing])]:!pt-0 [&>*:first-child>*:first-child:not([data-panel-spacing])]:!pt-0'
+          className={cn(
+            "pt-8 [&>*:first-child:not([data-panel-spacing])]:!pt-0",
+            "[&>*:first-child>*:first-child:not([data-panel-spacing])]:!pt-0",
+            /**
+             * AND THE BOTTOM, for the same reason and by the same means.
+             *
+             * Only the top was forced, so the space between the last product
+             * and the About rule below was whatever the panel happened to
+             * bring: 24px from the Featured rail's spacing setting, 32 from
+             * the Products grid, 64 from the empty state. Stacked on About's
+             * own 48px of top padding that came to 129px of nothing on every
+             * tab — a third of a phone screen — and a different 129 on each,
+             * so the page shifted as you switched.
+             *
+             * Zeroed here, the gap to the section below is that section's own
+             * top padding and nothing else: one number, one owner, the same on
+             * all three tabs.
+             */
+            "[&>*:last-child:not([data-panel-spacing])]:!pb-0",
+            "[&>*:last-child>*:last-child:not([data-panel-spacing])]:!pb-0",
+          )}
         >
           {tab.panel}
         </div>
