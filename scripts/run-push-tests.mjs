@@ -18,7 +18,7 @@
 import { execFileSync } from "node:child_process"
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, statSync, existsSync, unlinkSync, symlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, basename, dirname, relative } from "node:path"
+import { join, basename } from "node:path"
 
 const SUITES = [
   "tests/auth-session.test.ts",
@@ -61,30 +61,21 @@ try {
   )
   execFileSync("npx", ["tsc", "-p", tsconfigPath], { stdio: "inherit" })
 
-  // Emitted ESM needs real extensions, and `server-only` is not resolvable
-  // from a temp directory — it contributes nothing to these modules anyway.
-  const walk = (dir) => readdirSync(dir).flatMap((f) => {
-    const p = join(dir, f)
-    return statSync(p).isDirectory() ? walk(p) : [p]
-  })
-  for (const file of walk(out)) {
-    if (!file.endsWith(".js")) continue
-    let src = readFileSync(file, "utf8")
-    // `@/lib/x` → a real relative path. tsc RESOLVES the alias for type
-    // checking but emits the specifier verbatim, so Node then fails with
-    // ERR_MODULE_NOT_FOUND on a package called "@/lib". rootDir is the repo
-    // root, so the output mirrors the repo layout and the target is simply the
-    // same path under `out`.
-    src = src.replace(/from\s+["']@\/([^"']+)["']/g, (m, rest) => {
-      let rel = relative(dirname(file), join(out, rest)).replace(/\\/g, "/")
-      if (!rel.startsWith(".")) rel = `./${rel}`
-      return m.replace(`@/${rest}`, rel.endsWith(".js") ? rel : `${rel}.js`)
+  /**
+   * NOTHING IS REWRITTEN. Resolution is a loader hook — see
+   * scripts/push-test-loader.mjs.
+   *
+   * It used to be three regexes over the emitted text, which could not tell
+   * code from data: one of them rewrote `import App from "./App"` INSIDE a
+   * template literal in tests/sites.test.ts's project fixture, and the suite
+   * then failed against code that was correct.
+   */
+  const walk = (dir) =>
+    readdirSync(dir).flatMap((f) => {
+      const p = join(dir, f)
+      return statSync(p).isDirectory() ? walk(p) : [p]
     })
-    src = src.replace(/from\s+["'](\.[^"']*?)["']/g, (m, spec) =>
-      spec.endsWith(".js") ? m : m.replace(spec, `${spec}.js`))
-    src = src.replace(/^\s*import\s+["']server-only["'];?\s*$/gm, "")
-    writeFileSync(file, src)
-  }
+
   writeFileSync(join(out, "package.json"), '{"type":"module"}\n')
 
   // Real packages, for suites that use one.
@@ -112,7 +103,11 @@ try {
     if (!entry) throw new Error(`compiled test not found for ${suite}`)
     console.log(`\n──────── ${suite} ────────`)
     try {
-      execFileSync(process.execPath, [entry], { stdio: "inherit" })
+      execFileSync(
+        process.execPath,
+        ["--import", join(process.cwd(), "scripts/push-test-register.mjs"), entry],
+        { stdio: "inherit", env: { ...process.env, PUSH_TEST_OUT: out } },
+      )
     } catch {
       // The suite already printed which assertions failed. Recorded and
       // carried on, so a failure in the first suite does not hide the second.

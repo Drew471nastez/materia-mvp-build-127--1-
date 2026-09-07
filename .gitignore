@@ -27,3 +27,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Copied from node_modules by scripts/copy-esbuild-wasm.mjs
+public/sites/esbuild.wasm
+public/sites/bundler-worker.js
+public/sites/vendor/
+public/sites/monaco/

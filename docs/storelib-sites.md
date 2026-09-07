@@ -42,11 +42,19 @@ short-lived serverless invocation on Publish.**
 
 The constraint it imposes is the one the brief already asked for: *"Keep the
 initial supported stack constrained. Do not allow arbitrary backend runtimes."*
-React, react-dom and `@storelib/site` are pre-bundled and served as ESM from the
-CDN; the user's files are bundled in-browser into a single module; the preview
-iframe pulls both through an import map. No install step, no container, no cost
-per keystroke, and `run_build` is a function call that returns esbuild's
-diagnostics — which is exactly the shape the agent tool needs.
+React, react-dom and `@storelib/site` are pre-bundled as ESM; the user's files
+are bundled in-browser into a single module; the preview iframe pulls both
+through an import map. No install step, no container, no cost per keystroke, and
+`run_build` is a function call that returns esbuild's diagnostics — which is
+exactly the shape the agent tool needs.
+
+**Everything the editor needs is served from our own origin**, not from a CDN:
+esbuild's wasm, Monaco, and the React the preview imports. The default for all
+three is a third-party CDN, and all three are load-bearing — without them there
+is no preview, no code tab and no editor. Whether a creator can work on their
+website today should not depend on jsDelivr. `scripts/build-sites-assets.mjs`
+produces them from `node_modules` at build time, so the version being served is
+the version in `package.json` rather than one written into a URL beside it.
 
 Publishing runs the same bundle server-side once, writes the output to Storage,
 and serves it statically from then on.
@@ -184,12 +192,36 @@ Merged last turn under the section-JSON design:
 ## 9. Phases
 
 **Phase 1 — the vertical slice**
-1. Migration and the project persistence layer.
-2. Sites dashboard, New Site (AI / Template / Blank), nav entry.
-3. The React/Vite starter as real files.
-4. Editor shell: chat pane, preview, code.
-5. esbuild-wasm bundler in a worker; preview iframe; build errors.
-6. Publish: serverless build → Storage → static serve.
+1. ✅ Migration and the project persistence layer.
+2. ✅ Sites dashboard, New Site (AI / Template / Blank), nav entry.
+3. ✅ The React/Vite starter as real files.
+4. ✅ Editor shell: chat pane, preview, code. The chat pane is the shell only —
+   the transcript, the composer and the empty state — because the layout is
+   worth settling before there is a model behind it. Its composer says so
+   rather than pretending.
+5. ✅ esbuild-wasm bundler in a worker; preview iframe; build errors.
+6. ⬜ Publish: serverless build → Storage → static serve.
+
+**What only showed up in a browser.** Four of these compiled, typechecked and
+passed every assertion that read the source — and did not work:
+
+- `unavailableDependencies` scanned every file in the project, including
+  `vite.config.ts`, which imports `vite`. **The starter itself refused to
+  build**, before the author had typed anything. It follows the module graph
+  from the entry point now.
+- `new Worker(new URL("./bundler.worker.ts", import.meta.url))` is the
+  documented pattern. It builds, then throws `Failed to construct 'URL'` in
+  production, where `import.meta.url` is empty in the client chunk. The worker
+  is compiled to a static file.
+- esbuild refuses to plan a CSS output without an output path even when
+  `write: false`, so any project importing a stylesheet failed with a message
+  about a path that is never written to.
+- The preview frame has no `allow-same-origin`, so its origin is `null` and its
+  imports of **our own** React are cross-origin. Chrome blocked them silently:
+  a preview that built perfectly and rendered nothing. Fixed with an
+  `Access-Control-Allow-Origin` header on `/sites/vendor/*` — the other fix
+  would have been relaxing the sandbox, which trades the whole boundary for a
+  header.
 
 **Phase 2** — visual editing with source mapping, `@storelib/site`, products and
 communities in the agent's vocabulary.

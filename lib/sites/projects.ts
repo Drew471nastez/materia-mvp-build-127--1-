@@ -13,6 +13,7 @@ import "server-only"
 import { createClient } from "@/lib/supabase/server"
 import { blankProject } from "./starter"
 import { siteCountGate, type SitePlan } from "./plan"
+import { projectError } from "./file-path"
 import { siteSlugError, toSiteSlug } from "./slug"
 import type { ProjectFiles, Site } from "./types"
 
@@ -181,4 +182,50 @@ async function availableSlug(name: string): Promise<string | null> {
     if ((count ?? 0) === 0) return candidate
   }
   return null
+}
+
+export type SaveFilesResult = { ok: true; savedAt: string } | { ok: false; error: string }
+
+/**
+ * Write changed files back.
+ *
+ * Takes only what changed, not the project. A whole-project write would make
+ * two people editing the same site — or the author and the agent, which is the
+ * normal case here — clobber each other's untouched files on every save.
+ *
+ * RLS is the access control: the upsert runs as the signed-in user, and a site
+ * they do not own has no rows they can reach. There is deliberately no
+ * ownership check written into this function for a later caller to forget.
+ */
+export async function saveFiles(siteId: string, changed: ProjectFiles): Promise<SaveFilesResult> {
+  const paths = Object.keys(changed)
+  if (paths.length === 0) return { ok: true, savedAt: new Date().toISOString() }
+
+  const invalid = projectError(changed)
+  if (invalid) return { ok: false, error: invalid }
+
+  const supabase = await createClient()
+
+  /**
+   * The site row is touched too, so `updated_at` means "when this site last
+   * changed" rather than "when its row was last rewritten" — the dashboard
+   * sorts on it, and a site edited an hour ago sitting below one created last
+   * week is the kind of wrongness nobody reports and everybody notices.
+   *
+   * It also proves ownership. Under RLS this update affects zero rows for a
+   * site the caller does not own, which is what the count is read for — and it
+   * happens BEFORE the file write, so a stranger's save never lands.
+   */
+  const { count } = await supabase
+    .from("sites")
+    .update({ updated_at: new Date().toISOString() }, { count: "exact" })
+    .eq("id", siteId)
+
+  if ((count ?? 0) === 0) return { ok: false, error: "That site is not yours to edit." }
+
+  const rows = paths.map((path) => ({ site_id: siteId, path, content: changed[path] }))
+  const { error } = await supabase.from("site_files").upsert(rows, { onConflict: "site_id,path" })
+  if (error) return { ok: false, error: "Could not save. Your changes are still here — try again." }
+
+  return { ok: true, savedAt: new Date().toISOString() }
 }

@@ -63,6 +63,28 @@ const nextConfig = {
   async headers() {
     return [
       {
+        /**
+         * The Sites preview runs in an iframe that is `sandbox="allow-scripts"`
+         * WITHOUT `allow-same-origin` — deliberately, because those two
+         * together would let generated code read the editor's Supabase session
+         * (see lib/sites/preview-document.ts).
+         *
+         * The consequence is that the frame's origin is the string "null", so
+         * its module imports of OUR OWN React build are cross-origin requests
+         * and Chrome blocks them with no ACAO header. Symptom: a preview that
+         * builds successfully and renders nothing.
+         *
+         * These four files are public React, byte for byte — there is nothing
+         * here to protect, and the alternative (relaxing the sandbox) trades a
+         * real boundary for a header.
+         */
+        source: '/sites/vendor/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
         // Public product pages
         source: '/p/:slug*',
         headers: [

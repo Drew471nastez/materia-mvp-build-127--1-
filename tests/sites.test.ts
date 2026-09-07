@@ -20,6 +20,10 @@ import { join } from "node:path"
 
 import { toSiteSlug, siteSlugError, pageSlugError } from "@/lib/sites/slug"
 import { siteLimits, siteGate, siteCountGate, sitePageGate } from "@/lib/sites/plan"
+import { entryPoint, reachableFiles, resolveSpecifier, unavailableDependencies } from "@/lib/sites/module-graph"
+import { filePathError, projectError } from "@/lib/sites/file-path"
+import { bodyFromHtml, previewDocument } from "@/lib/sites/preview-document"
+import { blankProject } from "@/lib/sites/starter"
 
 let passed = 0
 let failed = 0
@@ -442,6 +446,270 @@ check(
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),
+)
+
+// ---------------------------------------------------------------------------
+section("The bundler resolves imports the way a Vite project expects")
+// ---------------------------------------------------------------------------
+
+const project = blankProject("Test Site")
+
+check(
+  "the entry point comes from index.html",
+  entryPoint(project) === "src/main.tsx" &&
+    entryPoint({ "src/main.tsx": "" }) === "src/main.tsx" &&
+    entryPoint({ "package.json": "{}" }) === null,
+)
+
+check(
+  "relative imports resolve, with and without an extension",
+  (() => {
+    const files = {
+      "src/main.tsx": "",
+      "src/App.tsx": "",
+      "src/components/Hero.tsx": "",
+      "src/lib/index.ts": "",
+      "src/styles.css": "",
+    }
+    const cases: Array<[string, string, string | null]> = [
+      ["./App", "src/main.tsx", "src/App.tsx"],
+      ["./App.tsx", "src/main.tsx", "src/App.tsx"],
+      ["./components/Hero", "src/App.tsx", "src/components/Hero.tsx"],
+      ["../App", "src/components/Hero.tsx", "src/App.tsx"],
+      ["./lib", "src/main.tsx", "src/lib/index.ts"],
+      ["/src/App", "src/components/Hero.tsx", "src/App.tsx"],
+      ["./styles.css", "src/main.tsx", "src/styles.css"],
+      // An explicit extension is taken at its word.
+      ["./styles.css", "src/App.tsx", "src/styles.css"],
+      ["./nope", "src/main.tsx", null],
+      ["react", "src/main.tsx", null],
+    ]
+    return cases.every(([spec, from, want]) => resolveSpecifier(spec, from, files) === want)
+  })(),
+)
+
+/**
+ * ===========================================================================
+ *  THE STARTER PROJECT MUST BUILD
+ * ===========================================================================
+ *
+ * It did not. A project is a real Vite project on disk — which means it
+ * contains `vite.config.ts`, which imports `vite` and `@vitejs/plugin-react`.
+ * The unavailable-dependency check scanned EVERY file, so the starter reported
+ * two missing packages and refused to build before the author had typed
+ * anything.
+ *
+ * Config files are not part of the bundle. The check follows the module graph
+ * from the entry point instead, and this is the regression test for it —
+ * caught by running the editor in a browser, not by reading it.
+ */
+check(
+  "the starter project has no unavailable dependencies",
+  unavailableDependencies(project).length === 0,
+)
+
+check(
+  "vite.config.ts is not reachable from the entry point",
+  (() => {
+    const reached = reachableFiles(project)
+    return (
+      !reached.includes("vite.config.ts") &&
+      !reached.includes("package.json") &&
+      reached.includes("src/App.tsx") &&
+      reached.includes("src/components/Hero.tsx") &&
+      reached.includes("src/styles.css")
+    )
+  })(),
+)
+
+check(
+  "a package the preview cannot supply is still reported",
+  (() => {
+    const withRouter = { ...project, "src/App.tsx": 'import { Link } from "react-router-dom"\nexport default function App() { return null }' }
+    return unavailableDependencies(withRouter).join() === "react-router-dom"
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("A path in a project is checked in one place")
+// ---------------------------------------------------------------------------
+
+check(
+  "traversal, absolute paths and separators are refused",
+  (() => {
+    const refused = [
+      "../secrets.ts",
+      "src/../../etc/passwd.ts",
+      "/etc/passwd.ts",
+      "src\\App.tsx",
+      "https://example.com/x.ts",
+      "src//App.tsx",
+      "src/ App.tsx",
+      "",
+    ]
+    return refused.every((p) => filePathError(p) !== null)
+  })(),
+)
+
+check(
+  "ordinary project paths are allowed",
+  ["src/App.tsx", "index.html", "src/styles.css", "package.json", "src/components/Hero.tsx"].every(
+    (p) => filePathError(p) === null,
+  ),
+)
+
+check(
+  "an extension outside the list is refused",
+  filePathError("run.sh") !== null && filePathError("Dockerfile") !== null && filePathError("x.wasm") !== null,
+)
+
+check(
+  "the whole starter passes as a project",
+  projectError(project) === null && projectError({}) !== null,
+)
+
+// ---------------------------------------------------------------------------
+section("The preview frame is the security boundary")
+// ---------------------------------------------------------------------------
+
+/**
+ * `allow-scripts` together with `allow-same-origin` is the documented way to
+ * give framed code the embedder's origin — with both, code the AI wrote could
+ * read the editor's Supabase session out of storage and act as the signed-in
+ * creator. This is the check that stops the pair ever appearing together, in
+ * the component or in anything that renders a preview.
+ */
+check(
+  "no preview iframe is allow-same-origin",
+  (() => {
+    // Comments stripped: both files EXPLAIN why allow-same-origin is absent,
+    // and a rule that reads its own explanation as a violation is not a rule.
+    const suspects = ["components/sites/editor/preview-pane.tsx", "lib/sites/preview-document.ts"]
+    return suspects.every((f) => !read(f).replace(/^\s*(\/\/|\*|\/\*).*$/gm, "").includes("allow-same-origin"))
+  })(),
+)
+
+check(
+  "the preview frame is sandboxed at all",
+  /sandbox="allow-scripts"/.test(read("components/sites/editor/preview-pane.tsx")),
+)
+
+/**
+ * The frame is on an opaque origin, so `event.origin` is the string "null" and
+ * proves nothing about the sender. `event.source` is a window reference only
+ * this frame has, and comparing it is the actual check.
+ */
+check(
+  "messages from the frame are authenticated by source, not by origin string",
+  (() => {
+    const pane = read("components/sites/editor/preview-pane.tsx")
+    return /event\.source !== .*contentWindow/.test(pane) && !/event\.origin ===/.test(pane)
+  })(),
+)
+
+/**
+ * An opaque origin also makes the frame's imports of OUR OWN React a
+ * cross-origin fetch, which Chrome blocks with no ACAO header — a preview that
+ * builds perfectly and renders nothing. The header is the fix; relaxing the
+ * sandbox would have been the other one.
+ */
+check(
+  "the preview's React is served with the CORS header a null origin needs",
+  (() => {
+    const config = read("next.config.mjs")
+    const at = config.indexOf("/sites/vendor/:path*")
+    return at !== -1 && config.slice(at, at + 400).includes("Access-Control-Allow-Origin")
+  })(),
+)
+
+check(
+  "the import map points at our own origin, not a CDN",
+  (() => {
+    const doc = read("lib/sites/preview-document.ts").replace(/^\s*\*.*$/gm, "")
+    return !/esm\.sh|unpkg|jsdelivr|cdnjs/.test(doc) && doc.includes('"/sites/vendor/react.js"')
+  })(),
+)
+
+check(
+  "the bundler and the code editor are self-hosted too",
+  (() => {
+    const worker = read("components/sites/editor/bundler.worker.ts")
+    const pane = read("components/sites/editor/code-pane.tsx")
+    return (
+      worker.includes('wasmURL: "/sites/esbuild.wasm"') &&
+      pane.includes('paths: { vs: "/sites/monaco/vs" }') &&
+      !/unpkg|jsdelivr/.test(worker + pane)
+    )
+  })(),
+)
+
+/**
+ * `new Worker(new URL("./x.worker.ts", import.meta.url))` is the documented
+ * pattern; it compiles and then throws "Failed to construct 'URL': Invalid URL"
+ * in the browser, because import.meta.url is empty in the production client
+ * chunk. The worker is compiled to a static file instead.
+ */
+check(
+  "the worker is loaded from a static path, not import.meta.url",
+  (() => {
+    const hook = read("components/sites/editor/use-bundler.ts").replace(/^\s*(\/\/|\*|\/\*).*$/gm, "")
+    return hook.includes('new Worker("/sites/bundler-worker.js")') && !/new URL\(.*import\.meta\.url/.test(hook)
+  })(),
+)
+
+check(
+  "the preview document drops the project's own script tags",
+  (() => {
+    const body = bodyFromHtml('<html><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>')
+    return body.includes('id="root"') && !body.includes("<script")
+  })(),
+)
+
+check(
+  "and it still renders a root when index.html is missing",
+  bodyFromHtml(undefined).includes('id="root"'),
+)
+
+check(
+  "errors are forwarded out of the frame, or a broken site is a white rectangle",
+  (() => {
+    const doc = previewDocument({ code: "", html: undefined })
+    return doc.includes("storelib-preview") && doc.includes("unhandledrejection")
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("Saving cannot lose an edit, and cannot write someone else's site")
+// ---------------------------------------------------------------------------
+
+check(
+  "ownership is proved before any file is written",
+  (() => {
+    const src = read("lib/sites/projects.ts")
+    const save = src.slice(src.indexOf("export async function saveFiles"))
+    // The ownership-proving update must come BEFORE the upsert, not after.
+    return save.indexOf('.from("sites")') < save.indexOf('.from("site_files")') &&
+      save.includes("not yours to edit")
+  })(),
+)
+
+check(
+  "a failed save puts the changes back to be retried",
+  (() => {
+    const shell = read("components/sites/editor/editor-shell.tsx")
+    // Cleared before the request so an edit made during it lands in the next
+    // save; re-added on failure so a file never looks saved when it is not.
+    const save = shell.slice(shell.indexOf("const save = React.useCallback"))
+    return (
+      save.indexOf("dirtyPaths.current.clear()") < save.indexOf("await fetch") &&
+      (save.match(/dirtyPaths\.current\.add\(path\)/g) ?? []).length >= 2
+    )
+  })(),
+)
+
+check(
+  "a superseded build cannot overwrite a newer preview",
+  read("components/sites/editor/use-bundler.ts").includes("result.id !== latestId.current"),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
