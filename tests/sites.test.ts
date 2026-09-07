@@ -29,19 +29,23 @@ import { blankProject } from "@/lib/sites/starter"
 import { allocateSiteSlug, SLUG_FALLBACK } from "@/lib/sites/slug"
 import { contentTypeFor } from "@/lib/sites/content-type"
 import { createZip } from "@/lib/sites/zip"
+import { buildRepoMap, describeRepoMap, findUsages } from "@/lib/sites/agent/repo-map"
+import { describeProject } from "@/lib/sites/agent/context"
 
 let passed = 0
 let failed = 0
 const failures: string[] = []
 
-function check(name: string, ok: boolean) {
+function check(name: string, ok: boolean, detail?: string) {
   if (ok) {
     passed++
     console.log(`  ok    ${name}`)
   } else {
     failed++
     failures.push(name)
-    console.log(`  FAIL  ${name}`)
+    // The detail is what turns "FAIL: the graph runs both ways" into something
+    // fixable without adding a print statement and running it again.
+    console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`)
   }
 }
 function section(title: string) {
@@ -1267,16 +1271,17 @@ check(
      * is unchanged by it.
      */
     /**
-     * Four tools were added for the agent loop upgrade, and each earns its
+     * Five tools were added for the agent loop upgrade, and each earns its
      * place the same way `update_manifest` does — by not reaching outside the
-     * project. `search_code` reads the in-memory workspace, `replace_in_file`
-     * edits it through the same path rule every other writer uses, and the two
-     * plan tools touch nothing but a list of strings.
+     * project. `search_code` and `find_usages` read the in-memory workspace,
+     * `replace_in_file` edits it through the same path rule every other writer
+     * uses, and the two plan tools touch nothing but a list of strings.
      */
     const expected = [
       "list_files", "read_file", "write_file", "create_file",
-      "delete_file", "update_manifest", "search_code", "replace_in_file",
-      "set_plan", "complete_step", "run_build", "read_build_errors",
+      "delete_file", "update_manifest", "search_code", "find_usages",
+      "replace_in_file", "set_plan", "complete_step", "run_build",
+      "read_build_errors",
     ]
     const forbidden = ["run_sql", "install_package", "fetch_url", "exec", "bash", "http_request"]
 
@@ -3114,10 +3119,13 @@ check(
     if (forbidden.some((word) => shape.toLowerCase().includes(word))) return false
 
     const context = strip(read("lib/sites/agent/context.ts"))
+    const map = strip(read("lib/sites/agent/repo-map.ts"))
     return (
       /export function designTokens/.test(context) &&
       /export function fontFamilies/.test(context) &&
-      /export function componentNames/.test(context)
+      // Structure moved to the repo map, which derives more of it, not less.
+      /export function buildRepoMap/.test(map) &&
+      /buildRepoMap\(files\)/.test(context)
     )
   })(),
 )
@@ -4006,7 +4014,8 @@ check(
     if (forbidden.some((w) => shape.toLowerCase().includes(w))) return false
 
     const context = strip(read("lib/sites/agent/context.ts"))
-    return /export function pageNames/.test(context) && /export function componentNames/.test(context)
+    const map = strip(read("lib/sites/agent/repo-map.ts"))
+    return /export function pageNames/.test(context) && /export function buildRepoMap/.test(map)
   })(),
 )
 
@@ -4211,6 +4220,33 @@ check(
 )
 
 /**
+ * WHAT THE AGENT NEEDS AT RUNTIME HAS TO BE INSTALLED AT RUNTIME.
+ *
+ * `typescript` was a devDependency while run_build depended on it to typecheck
+ * a project before letting a run finish. A production install without dev
+ * packages has no compiler, and the checker degrades to "could not check" —
+ * silently, on every run, so the gate would have looked present and gated
+ * nothing. That is the failure mode the self-check was built to avoid, arriving
+ * through the package manifest instead.
+ *
+ * Both it and esbuild are also external to the bundler: esbuild ships a
+ * per-platform binary, and neither belongs inside a serverless bundle.
+ */
+check(
+  "everything the agent loads at runtime is a real dependency",
+  (() => {
+    const pkg = JSON.parse(read("package.json"))
+    const config = read("next.config.mjs")
+    const runtime = ["typescript", "esbuild", "openai"]
+    return (
+      runtime.every((name) => !!pkg.dependencies?.[name] && !pkg.devDependencies?.[name]) &&
+      /serverExternalPackages:[^\]]*'esbuild'/.test(config) &&
+      /serverExternalPackages:[^\]]*'typescript'/.test(config)
+    )
+  })(),
+)
+
+/**
  * The build verdict is RECORDED, not just returned. "The model said it built"
  * is not the same as it having built, and the gate needs the difference.
  */
@@ -4356,6 +4392,244 @@ check(
       /const budget = classifyComplexity\(prompt\)/.test(body) &&
       /if \(budget\.complexity !== "small"\) return STRONG_MODEL/.test(body) &&
       !/prompt\.length > 600/.test(body)
+    )
+  })(),
+)
+
+
+// ===========================================================================
+section("The repo map: what the agent knows without reading a file")
+// ===========================================================================
+
+const MAP_PROJECT: Record<string, string> = {
+  "index.html": "<div id=\"root\"></div><script type=\"module\" src=\"/src/main.tsx\"></script>",
+  "src/main.tsx": `import { StrictMode } from "react"
+import App from "./App"
+createRoot(document.getElementById("root")).render(<StrictMode><App /></StrictMode>)
+`,
+  "src/App.tsx": `import Hero from "./components/Hero"
+import Footer from "./components/Footer"
+
+export default function App() {
+  return (
+    <main>
+      <Hero />
+      <Footer />
+    </main>
+  )
+}
+`,
+  "src/components/Hero.tsx": `export default function Hero() {
+  return (
+    <section>
+      <h1>We don't cut corners</h1>
+      <p>It's the barber's chair you will want to sit in.</p>
+    </section>
+  )
+}
+
+export const HERO_ID = "hero"
+`,
+  "src/components/Footer.tsx": `export function Footer() {
+  return <footer>© 2026</footer>
+}
+export default Footer
+`,
+  // Imported by App but never rendered — the shape of "why isn't my section
+  // showing up".
+  "src/components/Testimonials.tsx": `export default function Testimonials() {
+  return <section>Kind words</section>
+}
+`,
+  "src/hooks/useBooking.ts": `export function useBooking() {
+  return { open: false }
+}
+export type Booking = { at: string }
+`,
+  "vite.config.ts": `import { defineConfig } from "vite"
+export default defineConfig({})
+`,
+  "src/styles.css": ":root { --bg: #fff; }",
+}
+
+{
+  const map = buildRepoMap(MAP_PROJECT)
+  const file = (path: string) => map.files.find((f) => f.path === path)
+
+  check("the entry point is identified from index.html", map.entry === "src/main.tsx")
+
+  /**
+   * THE FAILURE THIS DESIGN EXISTS TO AVOID.
+   *
+   * Hero.tsx is website copy with an ODD number of apostrophes above its last
+   * export — "don't", "It's", "barber's". A scanner
+   * that stripped strings before looking would read the first apostrophe as an
+   * opening quote and swallow everything to the next one — losing the exports
+   * below it, silently, and looking exactly like a file that exports nothing.
+   * Every pattern is anchored at column zero for this reason.
+   */
+  check(
+    "prose full of apostrophes does not hide a file's exports",
+    file("src/components/Hero.tsx")?.exports.map((e) => e.name).join() === "Hero,HERO_ID",
+    JSON.stringify(file("src/components/Hero.tsx")?.exports),
+  )
+
+  check(
+    "a default function export is marked as one",
+    file("src/components/Hero.tsx")?.exports[0]?.isDefault === true &&
+      file("src/components/Hero.tsx")?.exports[0]?.kind === "component",
+  )
+
+  /**
+   * `export const SIZES = [...]` starts with a capital, and the first version
+   * of kindOf called it a component — an invitation to render a string array.
+   */
+  check(
+    "an ALL-CAPS constant is not mistaken for a component",
+    file("src/components/Hero.tsx")?.exports[1]?.kind === "const",
+  )
+
+  check(
+    "a hook is recognised by its name, and a type by its keyword",
+    file("src/hooks/useBooking.ts")?.exports.map((e) => `${e.name}:${e.kind}`).join() ===
+      "useBooking:hook,Booking:type",
+    JSON.stringify(file("src/hooks/useBooking.ts")?.exports),
+  )
+
+  check(
+    "relative imports resolve to real project paths",
+    file("src/App.tsx")?.dependsOn.join() === "src/components/Hero.tsx,src/components/Footer.tsx",
+    JSON.stringify(file("src/App.tsx")?.dependsOn),
+  )
+
+  check(
+    "packages are kept apart from project files",
+    file("src/main.tsx")?.external.join() === "react" &&
+      file("src/main.tsx")?.dependsOn.join() === "src/App.tsx",
+  )
+
+  check(
+    "the graph runs both ways",
+    map.importedBy["src/components/Hero.tsx"]?.join() === "src/App.tsx",
+  )
+
+  check(
+    "what a file renders is recorded, minus React's own wrappers",
+    file("src/App.tsx")?.renders.join() === "Footer,Hero" &&
+      file("src/main.tsx")?.renders.join() === "App",
+    JSON.stringify(file("src/main.tsx")?.renders),
+  )
+
+  check(
+    "a component nothing imports is named as an orphan",
+    map.orphans.includes("src/components/Testimonials.tsx"),
+    map.orphans.join(),
+  )
+  check(
+    "but the entry point is not one — nothing imports it by design",
+    !map.orphans.includes("src/main.tsx"),
+    map.orphans.join(),
+  )
+
+  /**
+   * vite.config.ts imports packages the project does not ship and exports a
+   * config object. In the map it invites the model to reason about build
+   * scaffolding as though it were part of the site.
+   */
+  check("build config is not part of the map", !file("vite.config.ts"))
+  check("neither is the stylesheet, which is not source", !file("src/styles.css"))
+}
+
+{
+  const map = buildRepoMap(MAP_PROJECT)
+  const text = describeRepoMap(map)
+  check(
+    "the description states exports, imports, users and renders",
+    /exports {2}Hero \(default component\)/.test(text) &&
+      /used by {2}src\/App\.tsx/.test(text) &&
+      /renders {2}Footer, Hero/.test(text),
+    text.slice(0, 200),
+  )
+  /**
+   * THE SAVING IS PROPORTIONAL TO THE PROJECT, and on the fixture above it is
+   * NEGATIVE — nine files of three lines each are described by a map slightly
+   * longer than they are. That is real and worth knowing: the map earns its
+   * place on projects with actual components in them, which is every project a
+   * creator has after the first prompt. Measured on one of those.
+   */
+  const realistic: Record<string, string> = { ...MAP_PROJECT }
+  for (let i = 0; i < 18; i++) {
+    realistic[`src/components/Section${i}.tsx`] =
+      `import Button from "./Button"\n\nexport default function Section${i}() {\n  return (\n    <section className="s${i}">\n` +
+      Array.from({ length: 55 }, (_, l) => `      <p>Line ${l} of section ${i}, with the kind of copy a real page carries.</p>`).join("\n") +
+      `\n      <Button />\n    </section>\n  )\n}\n`
+  }
+  const realCode = Object.values(realistic).join("").length
+  const realMap = describeRepoMap(buildRepoMap(realistic)).length
+  check(
+    "on a project with real components in it the map is a small fraction of the code",
+    realMap < realCode * 0.2,
+    `map=${realMap} code=${realCode} ratio=${(realMap / realCode).toFixed(2)}`,
+  )
+
+  // A project big enough that a paragraph each would BE the context.
+  const big: Record<string, string> = { ...MAP_PROJECT }
+  for (let i = 0; i < 60; i++) big[`src/components/Gen${i}.tsx`] = `export default function Gen${i}() {\n  return <p>${i}</p>\n}\n`
+  const brief = describeRepoMap(buildRepoMap(big))
+  check(
+    "a large project gets one line per file instead of a block",
+    !/used by/.test(brief) && /Gen59 \(default component\)/.test(brief),
+  )
+}
+
+{
+  const map = buildRepoMap(MAP_PROJECT)
+  const hero = findUsages(map, "Hero")
+  check(
+    "find_usages separates defined, imported and rendered",
+    hero.definedIn.join() === "src/components/Hero.tsx" &&
+      hero.importedBy.join() === "src/App.tsx" &&
+      hero.renderedIn.join() === "src/App.tsx",
+    JSON.stringify(hero),
+  )
+
+  const missing = findUsages(map, "Nowhere")
+  check("and says nothing rather than guessing", missing.definedIn.length === 0 && missing.renderedIn.length === 0)
+}
+
+{
+  // The map goes into the prompt in place of the flat path list it replaced.
+  const described = describeProject(MAP_PROJECT, [])
+  check(
+    "the system prompt carries the map, not a list of paths",
+    /PROJECT MAP/.test(described) && /used by/.test(described),
+  )
+  check(
+    "and still names the files the map leaves out",
+    /src\/styles\.css/.test(described),
+  )
+}
+
+
+/**
+ * A tool with no label renders as `replace_in_file` in the creator's
+ * transcript — the inside of the machine on their screen. The list had gone
+ * stale by five tools before anybody noticed, because nothing checked.
+ */
+check(
+  "every tool the agent can call has words for it in the chat pane",
+  (() => {
+    const tools = [...strip(read("lib/sites/agent/tools.ts")).matchAll(/^\s{4}name: "([a-z_]+)",$/gm)].map(
+      (m) => m[1],
+    )
+    const pane = read("components/sites/editor/chat-pane.tsx")
+    const at = pane.indexOf("const TOOL_LABELS")
+    const block = pane.slice(at, pane.indexOf("}", at))
+    return (
+      tools.length > 0 &&
+      tools.every((name) => new RegExp(`^\\s*${name}:`, "m").test(block)) &&
+      // and the harness's own step, which is not a tool the model calls
+      /compact_context:/.test(block)
     )
   })(),
 )

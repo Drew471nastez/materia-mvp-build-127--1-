@@ -65,6 +65,15 @@ const SUGGESTIONS = [
   "Add a pricing section with three tiers",
 ]
 
+/**
+ * Every tool, in words.
+ *
+ * A missing entry falls back to the raw name, so a new tool shows up in the
+ * transcript as `replace_in_file` — which is not a lie, it is just the inside
+ * of the machine on somebody's screen. This list went stale the moment tools
+ * were added faster than it was; tests/sites.test.ts now fails if a tool has
+ * no label here, so it cannot happen quietly again.
+ */
 const TOOL_LABELS: Record<string, string> = {
   list_files: "Looked at the project",
   read_file: "Read",
@@ -74,6 +83,15 @@ const TOOL_LABELS: Record<string, string> = {
   run_build: "Built the site",
   read_build_errors: "Checked the errors",
   update_manifest: "Noted for next time",
+  search_code: "Searched for",
+  find_usages: "Traced",
+  replace_in_file: "Edited",
+  set_plan: "Made a plan",
+  complete_step: "Finished",
+  // Not a tool the model calls — the harness compacting its own conversation.
+  // It belongs in the transcript for the same reason a build does: it is
+  // something that happened to the run.
+  compact_context: "Tidied the conversation",
 }
 
 export function ChatPane({

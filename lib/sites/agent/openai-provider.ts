@@ -126,6 +126,13 @@ export const openAIProvider: AgentProvider = {
           request.maxOutputTokens,
           rate?.maxOutputTokens ?? request.maxOutputTokens,
         ),
+        /**
+         * Sent only when the caller supplied one. `prompt_cache_key: null` is
+         * not the same as absent in every provider, and an empty string would
+         * group every project in the system under one key — the opposite of
+         * what this is for.
+         */
+        ...(request.cacheKey ? { prompt_cache_key: request.cacheKey } : {}),
       },
       { signal: request.signal },
     )

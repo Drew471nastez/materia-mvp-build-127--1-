@@ -236,6 +236,12 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
     context,
     budget,
     /**
+     * The project, not the person. Every turn of every run on this site shares
+     * a long identical prefix — the rules, the map, the tokens — and this is
+     * what lets the provider recognise it as the same prefix next time.
+     */
+    cacheKey: `site:${siteId}`,
+    /**
      * The agent's build typechecks; the editor's preview does not. This is the
      * one place with Node and the compiler, so it is the one place the check
      * can happen — and it happens before a run is allowed to call itself done.

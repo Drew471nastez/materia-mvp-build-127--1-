@@ -29,6 +29,7 @@ import "server-only"
 import { filePathError, MAX_FILES_PER_PROJECT, MAX_FILE_BYTES } from "../file-path"
 import { completeStep, emptyPlan, setSteps, type RunPlan } from "./plan"
 import { bundleProject, formatBuildErrors } from "../bundle"
+import { buildRepoMap, findUsages } from "./repo-map"
 import { sortedPaths } from "../starter"
 import type { BuildResult, ProjectFiles } from "../types"
 import type { ToolSpec } from "./types"
@@ -175,6 +176,32 @@ export const TOOL_SPECS: ToolSpec[] = [
         query: { type: "string", description: "Literal text to find. Not a regular expression." },
       },
       required: ["query"],
+      additionalProperties: false,
+    },
+  },
+  {
+    /**
+     * THE QUESTION `search_code` ANSWERS BADLY.
+     *
+     * Searching for "Hero" returns the import, the JSX tag, the CSS class, a
+     * comment and the word in a heading, and the model has to work out which
+     * is which — often by reading the files, which is what searching was meant
+     * to avoid. Three separate answers are more useful than twenty lines of
+     * mixed ones: where it is defined, who imports it, where it is rendered.
+     *
+     * "Imported but never rendered" is the shape of a real and common bug —
+     * the section the creator says is not showing up — and this is the only
+     * tool that can state it.
+     */
+    name: "find_usages",
+    description:
+      "Find where a component, hook or exported name is defined, which files import it, and which files actually render it. Use this before renaming, moving or deleting anything, and to find out why something is not appearing on the site.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "The exported name, e.g. Hero or useCart." },
+      },
+      required: ["name"],
       additionalProperties: false,
     },
   },
@@ -371,6 +398,43 @@ export class ProjectWorkspace {
 
         if (hits.length === 0) return `No file contains "${query}".`
         return `${hits.length} match${hits.length === 1 ? "" : "es"} for "${query}":\n${hits.join("\n")}`
+      }
+
+      case "find_usages": {
+        const wanted = typeof args.name === "string" ? args.name.trim() : ""
+        if (!wanted) return "Which name?"
+
+        // Rebuilt each call rather than cached: the project changes under this
+        // during a run, and a map from three edits ago is a confident lie.
+        const map = buildRepoMap(this.files)
+        const found = findUsages(map, wanted)
+
+        if (found.definedIn.length === 0 && found.renderedIn.length === 0) {
+          return `Nothing exports or renders "${wanted}". Try search_code for the text itself.`
+        }
+
+        const lines = [
+          found.definedIn.length
+            ? `Defined in: ${found.definedIn.join(", ")}`
+            : `Not exported by any file — it may be defined inside one, or come from a package.`,
+          found.importedBy.length ? `Imported by: ${found.importedBy.join(", ")}` : "Imported by: nothing",
+          found.renderedIn.length ? `Rendered in: ${found.renderedIn.join(", ")}` : "Rendered in: nothing",
+        ]
+
+        /**
+         * The one inference worth stating outright, because it is nearly always
+         * the answer to "why is my new section not showing".
+         */
+        const importedNotRendered = found.importedBy.filter((p) => !found.renderedIn.includes(p))
+        if (found.definedIn.length && importedNotRendered.length) {
+          lines.push(
+            `Note: ${importedNotRendered.join(", ")} import${
+              importedNotRendered.length === 1 ? "s" : ""
+            } it but never render${importedNotRendered.length === 1 ? "s" : ""} it.`,
+          )
+        }
+
+        return lines.join("\n")
       }
 
       case "replace_in_file": {

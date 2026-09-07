@@ -227,6 +227,8 @@ export interface LoopInput {
   compactBytes?: number
   /** How much room this request gets, and what is expected in it. */
   budget?: Budget
+  /** Groups this project's requests for the provider's prompt cache. */
+  cacheKey?: string
 }
 
 export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, LoopResult> {
@@ -330,6 +332,7 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
         turns: [...turns],
         tools: TOOL_SPECS,
         maxOutputTokens: 32_000,
+        cacheKey: input.cacheKey,
         signal,
       })
 
@@ -528,11 +531,23 @@ function pathOf(argumentsJson: string): string {
   }
 }
 
-/** A one-line description of a call, for the UI. Never the file contents. */
+/**
+ * A one-line description of a call, for the UI. Never the file contents.
+ *
+ * Only `path` used to be read, so half the tools showed as a bare verb:
+ * "Searched for" with nothing after it, "Finished" without saying what. Each
+ * of these fields is the one thing worth seeing beside its own tool's name,
+ * and they are tried in the order that a call can only have one of them.
+ */
 export function describeCall(argumentsJson: string): string {
   try {
     const args = JSON.parse(argumentsJson || "{}")
-    if (typeof args.path === "string") return args.path
+    for (const field of ["path", "query", "name", "step"]) {
+      const value = args[field]
+      // Truncated: a step title is the creator's own sentence and can be long,
+      // and this sits on one line in a narrow pane.
+      if (typeof value === "string" && value.trim()) return value.trim().slice(0, 80)
+    }
   } catch {
     /* a malformed call is still worth showing by name */
   }

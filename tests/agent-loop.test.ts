@@ -347,7 +347,7 @@ section("What the model is told")
   check(
     "the tool list handed to the provider is the closed set",
     first.tools.map((t) => t.name).join() ===
-      "list_files,read_file,write_file,create_file,delete_file,update_manifest,search_code,replace_in_file,set_plan,complete_step,run_build,read_build_errors",
+      "list_files,read_file,write_file,create_file,delete_file,update_manifest,search_code,find_usages,replace_in_file,set_plan,complete_step,run_build,read_build_errors",
   )
   check(
     "every tool schema is strict-mode legal",
@@ -899,6 +899,67 @@ section("Compaction, driven directly: worst first, not oldest first")
     budgetBytes: 100_000,
   })
   check("a transcript inside its budget is returned untouched", !outcome.compacted && outcome.turns === turns)
+}
+
+
+
+// ---------------------------------------------------------------------------
+section("find_usages, through the real workspace")
+// ---------------------------------------------------------------------------
+
+{
+  const files = { ...blankProject("Usages") }
+  // Imported and never rendered — the shape of "why isn't my section showing".
+  files["src/components/Reviews.tsx"] = `export default function Reviews() {
+  return <section>Reviews</section>
+}
+`
+  files["src/App.tsx"] = `import Hero from "./components/Hero"
+import Reviews from "./components/Reviews"
+
+export default function App() {
+  return <Hero />
+}
+`
+
+  const workspace = new ProjectWorkspace(files)
+  const hero = await workspace.execute("find_usages", JSON.stringify({ name: "Hero" }), esbuild)
+  const reviews = await workspace.execute("find_usages", JSON.stringify({ name: "Reviews" }), esbuild)
+  const nothing = await workspace.execute("find_usages", JSON.stringify({ name: "Ghost" }), esbuild)
+
+  check(
+    "it answers where a component is defined, imported and rendered",
+    /Defined in: src\/components\/Hero\.tsx/.test(hero) &&
+      /Imported by: src\/App\.tsx/.test(hero) &&
+      /Rendered in: src\/App\.tsx/.test(hero),
+    hero,
+  )
+  check(
+    "and states the imported-but-never-rendered case outright",
+    /never renders it/.test(reviews),
+    reviews,
+  )
+  check(
+    "an unknown name is a sentence, not an empty answer",
+    /Nothing exports or renders/.test(nothing) && /search_code/.test(nothing),
+    nothing,
+  )
+
+  /**
+   * The map is rebuilt per call rather than cached: a project changes under a
+   * run, and an answer from three edits ago is a confident lie.
+   */
+  await workspace.execute(
+    "write_file",
+    JSON.stringify({ path: "src/App.tsx", content: `import Reviews from "./components/Reviews"\n\nexport default function App() {\n  return <Reviews />\n}\n` }),
+    esbuild,
+  )
+  const after = await workspace.execute("find_usages", JSON.stringify({ name: "Reviews" }), esbuild)
+  check(
+    "and it sees edits the run has already made",
+    /Rendered in: src\/App\.tsx/.test(after) && !/never renders it/.test(after),
+    after,
+  )
 }
 
 
