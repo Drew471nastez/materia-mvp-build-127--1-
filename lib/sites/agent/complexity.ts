@@ -32,6 +32,20 @@ export interface Budget {
   requiresPlan: boolean
   /** The smallest plan that is a credible answer to a request this broad. */
   minSteps: number
+  /**
+   * Tokens, input plus output, across the whole run.
+   *
+   * The turn cap alone does not bound cost: a turn is one model call plus its
+   * tools, and a turn on a large project sends far more than a turn on a small
+   * one. Forty turns of a 289KB project measured at 1.12M input tokens — over
+   * two dollars for one edit — which is a runaway the turn count cannot see.
+   *
+   * This is a CEILING and runs are not meant to reach it. Reaching it is not
+   * treated as a failure: work that compiles is saved and the creator is told
+   * what is outstanding, because throwing away thirty turns of correct edits
+   * to punish a model for being slow helps nobody.
+   */
+  maxTokens: number
 }
 
 /**
@@ -125,17 +139,29 @@ const BUDGETS: Record<Complexity, Budget> = {
    * demanding one would spend a turn writing "1. change the word" before
    * changing the word.
    */
-  small: { complexity: "small", maxTurns: 12, requiresPlan: false, minSteps: 0 },
+  small: { complexity: "small", maxTurns: 12, requiresPlan: false, minSteps: 0, maxTokens: 200_000 },
 
   /** Enough to read what exists, change several files, and verify. */
-  medium: { complexity: "medium", maxTurns: 24, requiresPlan: true, minSteps: 3 },
+  medium: { complexity: "medium", maxTurns: 24, requiresPlan: true, minSteps: 3, maxTokens: 400_000 },
 
   /**
    * Enough to inspect the project, find what is missing, and actually do it.
    * Six steps is the floor for "make this complete" because fewer than that is
    * not an answer to the question — it is a gesture at one.
    */
-  large: { complexity: "large", maxTurns: 40, requiresPlan: true, minSteps: 6 },
+  large: {
+    complexity: "large",
+    maxTurns: 40,
+    requiresPlan: true,
+    minSteps: 6,
+    /**
+     * Deliberately below what forty uncompacted turns would spend. With the
+     * transcript compacted a broad run lands well under this; without a cap it
+     * would land near three dollars, which is not a price this product can pay
+     * for one edit.
+     */
+    maxTokens: 800_000,
+  },
 }
 
 export function classifyComplexity(prompt: string): Budget {

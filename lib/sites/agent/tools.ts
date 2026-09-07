@@ -301,8 +301,27 @@ export class ProjectWorkspace {
    */
   plan: RunPlan = emptyPlan()
 
-  /** The last build's verdict, or null if the agent has not built. */
-  buildOk: boolean | null = null
+  /**
+   * The last build's verdict, or null if the agent has not built.
+   *
+   * Private, and read through a getter that answers null once anything has
+   * been edited since — see `editsSinceBuild`.
+   */
+  private lastBuildOk: boolean | null = null
+
+  /**
+   * FILES CHANGED SINCE THE LAST BUILD.
+   *
+   * A build's verdict is about the tree that was built, and it stops being
+   * true the moment a file changes. Without this, a model that built green at
+   * turn ten, edited at turn eleven and went quiet at turn twelve passed the
+   * completion gate on a verdict that no longer described the project — and
+   * the run saved an unbuilt tree over a working site, reporting success.
+   *
+   * A stale green is worse than no build at all: no build is caught, and the
+   * loop builds for itself before saving.
+   */
+  private editsSinceBuild = 0
 
   constructor(files: ProjectFiles) {
     this.files = { ...files }
@@ -384,6 +403,7 @@ export class ProjectWorkspace {
         this.files[path] = updated
         this.changed.add(path)
         this.deleted.delete(path)
+        this.editsSinceBuild++
         return `Edited ${path} (${oldText.split("\n").length} line${
           oldText.split("\n").length === 1 ? "" : "s"
         } replaced).`
@@ -472,6 +492,7 @@ export class ProjectWorkspace {
         this.files[path] = content
         this.changed.add(path)
         this.deleted.delete(path)
+        this.editsSinceBuild++
         return `Wrote ${path} (${content.length} chars).`
       }
 
@@ -489,6 +510,7 @@ export class ProjectWorkspace {
         this.files[path] = content
         this.changed.add(path)
         this.deleted.delete(path)
+        this.editsSinceBuild++
         return `Created ${path} (${content.length} chars).`
       }
 
@@ -503,11 +525,15 @@ export class ProjectWorkspace {
         delete this.files[path]
         this.changed.delete(path)
         this.deleted.add(path)
+        this.editsSinceBuild++
         return `Deleted ${path}.`
       }
 
       case "run_build": {
         this.lastBuild = await bundleProject(esbuild as never, this.files)
+        // Cleared HERE, before the verdict is recorded, so the verdict below
+        // describes exactly the tree that was just compiled.
+        this.editsSinceBuild = 0
 
         /**
          * Recorded, not just returned. The completion gate needs to know
@@ -518,7 +544,7 @@ export class ProjectWorkspace {
         const report = formatBuildErrors(this.lastBuild)
 
         if (!bundled) {
-          this.buildOk = false
+          this.lastBuildOk = false
           return report
         }
 
@@ -536,11 +562,11 @@ export class ProjectWorkspace {
         if (!types) {
           // Cannot check is not the same as clean, but the bundle did pass and
           // refusing to finish over a missing compiler would strand the run.
-          this.buildOk = true
+          this.lastBuildOk = true
           return report
         }
 
-        this.buildOk = types.ok
+        this.lastBuildOk = types.ok
         return types.ok ? report : `${report}\n\n${types.report}`
       }
 
@@ -554,9 +580,20 @@ export class ProjectWorkspace {
     }
   }
 
-  /** The last build's verdict, for the loop's own check before it saves. */
+  /**
+   * The last build's verdict — null once it stops describing the project.
+   *
+   * Null means "not checked", never "clean". Both callers treat it that way:
+   * the completion gate refuses to finish on it, and the loop builds for
+   * itself rather than saving on an answer about a tree that no longer exists.
+   */
+  get buildOk(): boolean | null {
+    return this.editsSinceBuild > 0 ? null : this.lastBuildOk
+  }
+
+  /** The last build's output, for the loop's own check before it saves. */
   get buildResult(): BuildResult | null {
-    return this.lastBuild
+    return this.editsSinceBuild > 0 ? null : this.lastBuild
   }
 
   /** Only what changed. A whole-project write would clobber untouched files. */

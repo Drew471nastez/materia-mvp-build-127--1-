@@ -4152,7 +4152,7 @@ check(
     return (
       /small: \{ complexity: "small", maxTurns: 12, requiresPlan: false/.test(c) &&
       /medium: \{ complexity: "medium", maxTurns: 24, requiresPlan: true/.test(c) &&
-      /large: \{ complexity: "large", maxTurns: 40, requiresPlan: true, minSteps: 6 \}/.test(c) &&
+      /complexity: "large",\s*maxTurns: 40,\s*requiresPlan: true,\s*minSteps: 6,/.test(c) &&
       /const budget = classifyComplexity\(prompt\)/.test(run)
     )
   })(),
@@ -4227,8 +4227,8 @@ check(
      * project that throws the moment somebody opens it.
      */
     return (
-      /this\.buildOk = false/.test(body) &&
-      /this\.buildOk = types\.ok/.test(body) &&
+      /this\.lastBuildOk = false/.test(body) &&
+      /this\.lastBuildOk = types\.ok/.test(body) &&
       // and "could not check" is never reported as "clean"
       /if \(!types\) \{/.test(body)
     )
