@@ -63,16 +63,22 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
   const plan = await creatorSitePlan(creatorId)
 
   /**
-   * esbuild for `run_build`, initialised once per invocation.
+   * esbuild for `run_build`.
    *
-   * The same esbuild-wasm the editor's worker uses, running under Node here —
-   * which is what makes the agent's build verdict the same verdict the preview
-   * will reach. See lib/sites/bundle.ts.
+   * NATIVE esbuild here, esbuild-wasm in the browser worker — pinned to the
+   * same exact version, which tests/sites.test.ts enforces. It is the same Go
+   * program compiled two ways, given the same options by the same
+   * lib/sites/bundle.ts, so the verdict the agent gets is the verdict the
+   * preview will reach.
+   *
+   * esbuild-wasm was the obvious choice and would have failed EVERY run in
+   * production. Under Node it does not instantiate the wasm itself — it
+   * SPAWNS A CHILD PROCESS that loads esbuild.wasm from its package directory,
+   * and that file is not traced into the serverless bundle. A subprocess plus
+   * a 12MB WebAssembly load per turn, on a file that is not there. Native
+   * builds the starter in 12ms.
    */
-  const esbuild = await import("esbuild-wasm")
-  await esbuild.initialize({}).catch(() => {
-    /* already initialised in this warm lambda; initialize() throws on a second call */
-  })
+  const esbuild = await import("esbuild")
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream({

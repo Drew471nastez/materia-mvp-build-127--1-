@@ -53,7 +53,9 @@ const nextConfig = {
       bodySizeLimit: '10mb',
     },
   },
-  serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp'],
+  // `esbuild` ships a per-platform native binary and is loaded at runtime by
+  // the Sites agent's run_build tool; bundling it breaks the binary lookup.
+  serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp', 'esbuild'],
   // Note: Vercel serverless functions have a 4.5MB body size limit.
   // Large file uploads bypass the server via direct-to-storage signed URLs
   // (see /api/v2/upload/prepare). Chunked uploads (/api/v2/upload/chunk)

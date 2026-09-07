@@ -1265,6 +1265,74 @@ check(
   })(),
 )
 
+// ---------------------------------------------------------------------------
+section("The two bundlers are one bundler")
+// ---------------------------------------------------------------------------
+
+/**
+ * ===========================================================================
+ *  esbuild-wasm ON THE SERVER WOULD HAVE FAILED EVERY RUN
+ * ===========================================================================
+ *
+ * The obvious choice — the same package the browser worker uses — does not
+ * instantiate the wasm itself under Node. It SPAWNS A CHILD PROCESS that loads
+ * `esbuild.wasm` from its own package directory, and Next does not trace that
+ * file into the serverless bundle: four esbuild files were traced into the
+ * agent route and the .wasm was not one of them. Every run_build would have
+ * thrown ENOENT, the loop would have caught it, and every single agent run
+ * would have ended in "The edit failed."
+ *
+ * Native esbuild on the server, esbuild-wasm in the browser. Same Go program
+ * compiled two ways, same options from lib/sites/bundle.ts — but only if the
+ * VERSIONS match, which nothing else would notice going out of step.
+ */
+check(
+  "the server and browser esbuilds are pinned to the same exact version",
+  (() => {
+    const pkg = JSON.parse(read("package.json"))
+    const native = pkg.dependencies?.esbuild
+    const wasm = pkg.dependencies?.["esbuild-wasm"]
+    if (!native || !wasm) return false
+    // Exact pins, not ranges: a caret on either one lets them drift apart on
+    // some future install, and a bundler disagreeing with itself is a build
+    // the agent calls green and the preview shows red.
+    return /^\d+\.\d+\.\d+$/.test(native) && native === wasm.replace(/^[\^~]/, "") && !/^[\^~]/.test(native)
+  })(),
+)
+
+check(
+  "the agent route uses native esbuild, and the worker uses the wasm one",
+  (() => {
+    const route = strip(read("app/api/sites/[siteId]/agent/route.ts"))
+    const worker = strip(read("components/sites/editor/bundler.worker.ts"))
+    return (
+      /await import\("esbuild"\)/.test(route) &&
+      !/esbuild-wasm/.test(route) &&
+      /from "esbuild-wasm"/.test(worker)
+    )
+  })(),
+)
+
+/**
+ * `esbuild` ships a per-platform native binary. Bundling it breaks the binary
+ * lookup at runtime — which, like the wasm above, is a failure that only
+ * appears once it is deployed.
+ */
+check(
+  "esbuild is left external so its native binary is found",
+  /serverExternalPackages:[^\]]*'esbuild'/.test(read("next.config.mjs")),
+)
+
+/**
+ * The loop test must exercise the engine PRODUCTION uses. Testing against the
+ * wasm build while the server runs the native one is how a difference between
+ * them goes unnoticed for exactly as long as it takes a user to find it.
+ */
+check(
+  "the loop test runs the same esbuild the server does",
+  /^import \* as esbuild from "esbuild"$/m.test(read("tests/agent-loop.test.ts")),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

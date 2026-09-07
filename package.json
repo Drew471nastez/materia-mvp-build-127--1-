@@ -67,6 +67,7 @@
     "cmdk": "1.0.4",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
+    "esbuild": "0.24.2",
     "esbuild-wasm": "0.24.2",
     "firebase-admin": "^13.7.0",
     "framer-motion": "12.23.26",

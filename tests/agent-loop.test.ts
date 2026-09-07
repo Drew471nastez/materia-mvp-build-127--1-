@@ -17,7 +17,10 @@
  * Run with:  npm run test:push
  */
 
-import * as esbuild from "esbuild-wasm"
+// NATIVE esbuild, because that is what the agent's run_build uses in
+// production. The browser worker uses esbuild-wasm at the same pinned version;
+// testing against the one the server does not run would prove the wrong thing.
+import * as esbuild from "esbuild"
 
 import { agentLoop } from "@/lib/sites/agent/loop"
 import { ProjectWorkspace } from "@/lib/sites/agent/tools"
@@ -68,8 +71,6 @@ function check(name: string, ok: boolean, detail?: string) {
 function section(title: string) {
   console.log(`\n${title}`)
 }
-
-await esbuild.initialize({})
 
 // ---------------------------------------------------------------------------
 //  A provider that returns a script, and records what it was asked
