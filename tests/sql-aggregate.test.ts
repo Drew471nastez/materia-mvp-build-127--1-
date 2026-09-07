@@ -246,6 +246,7 @@ const SITES_SECTIONS = [
   "supabase/migrations/20260908_storelib_sites.sql",
   "supabase/migrations/20260909_creator_page_backfill.sql",
   "supabase/migrations/20260910_sites_projects.sql",
+  "supabase/migrations/20260911_site_agent_runs.sql",
 ]
 
 console.log("\nRUN_CREATOR_PAGE_AND_SITES.sql is a faithful concatenation")
@@ -445,7 +446,8 @@ check(
     return (
       reload > sitesPreviousEnd &&
       sitesAggregate.lastIndexOf("as creator_page_configs") > reload &&
-      sitesAggregate.includes("as legacy_shape_gone")
+      sitesAggregate.includes("as legacy_shape_gone") &&
+      sitesAggregate.includes("as agent_cost_ledger")
     )
   })(),
 )

@@ -48,6 +48,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..")
  *  8 sites projects  the Storelib AI tables. Needs `creators` and
  *                    `custom_domains`, and must come after 6, which is what
  *                    clears the three legacy tables whose names it reuses.
+ *  9 agent runs      the token and cost ledger. Needs 8 for `sites` and
+ *                    `site_versions`, and it is what makes the per-plan
+ *                    monthly edit limit countable at all.
  */
 const SECTIONS = [
   ["supabase/migrations/20260317000000_website_builder.sql", "Theme tables: installs, settings, pages"],
@@ -58,6 +61,7 @@ const SECTIONS = [
   ["supabase/migrations/20260908_storelib_sites.sql", "One published storefront per creator"],
   ["supabase/migrations/20260909_creator_page_backfill.sql", "Creator pages made before the recent changes"],
   ["supabase/migrations/20260910_sites_projects.sql", "Storelib AI: sites, files, versions, deployments"],
+  ["supabase/migrations/20260911_site_agent_runs.sql", "Storelib AI: what the agent did, and what it cost"],
 ]
 
 const HEADER = `-- ###########################################################################
@@ -129,6 +133,7 @@ select
   to_regclass('public.follows')                is not null as follows,
   to_regclass('public.sites')                  is not null as storelib_ai_sites,
   to_regclass('public.site_files')             is not null as storelib_ai_files,
+  to_regclass('public.site_agent_runs')        is not null as agent_cost_ledger,
   exists (select 1 from pg_indexes where schemaname='public'
            and indexname='uniq_sti_creator_published_storefront') as one_published_storefront,
   exists (select 1 from information_schema.columns

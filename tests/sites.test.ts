@@ -23,6 +23,8 @@ import { siteLimits, siteGate, siteCountGate, sitePageGate } from "@/lib/sites/p
 import { entryPoint, reachableFiles, resolveSpecifier, unavailableDependencies } from "@/lib/sites/module-graph"
 import { filePathError, projectError } from "@/lib/sites/file-path"
 import { bodyFromHtml, previewDocument } from "@/lib/sites/preview-document"
+import { MODEL_RATES, chooseModel, costOf, rateFor, DEFAULT_MODEL, STRONG_MODEL } from "@/lib/sites/agent/models"
+import { ZERO_USAGE, addUsage } from "@/lib/sites/agent/types"
 import { blankProject } from "@/lib/sites/starter"
 
 let passed = 0
@@ -45,6 +47,15 @@ function section(title: string) {
 
 const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
+
+/**
+ * Source with its comments removed.
+ *
+ * Guards here have matched their own explanations four separate times. A file
+ * that documents what it must not do reads, to a regex, exactly like a file
+ * doing it.
+ */
+const strip = (src: string) => src.replace(/^\s*(\/\/|\*|\/\*).*$/gm, "")
 
 // ---------------------------------------------------------------------------
 section("Sites is a code project, and the website builder is not involved")
@@ -731,33 +742,40 @@ check(
 
 /**
  * ===========================================================================
- *  A DISABLED CONTROL HAS TO SAY WHY, WHERE IT IS
+ *  THE COMPOSER SENDS, AND AN UNCONFIGURED DEPLOYMENT SAYS SO
  * ===========================================================================
  *
- * The send button was a greyed arrow with "Editing by chat lands next" in 11px
- * beside it, and the first question anyone asked about this editor was why the
- * send button did nothing. A control that looks broken rather than unbuilt
- * sends the reader hunting for a bug.
+ * It used to be a greyed arrow, and the first question anyone asked about this
+ * editor was why the send button did nothing. It works now — but the same
+ * failure is one missing environment variable away, so the route answers a
+ * missing key with 503 and a sentence, and the pane renders that sentence
+ * rather than a spinner that never resolves.
  */
 check(
-  "the composer explains itself rather than just being greyed out",
+  "the send button actually sends",
   (() => {
-    const explains = /Not connected yet/.test(chat)
-    const onTheButton = /title="Storelib AI is not connected yet"/.test(chat)
-    return explains && onTheButton
+    const sends = /onClick=\{\(\) => void send\(draft\)\}/.test(chat)
+    // Disabled only while a run is in flight or there is nothing to send —
+    // never unconditionally.
+    const conditional = /disabled=\{busy \|\| draft\.trim\(\)\.length === 0\}/.test(chat)
+    return sends && conditional
   })(),
 )
 
 check(
-  "and it still says what DOES work, so the whole editor is not assumed broken",
-  /the preview rebuilds as you type/.test(chat),
+  "a deployment with no model key says so instead of failing",
+  (() => {
+    const route = read("app/api/sites/[siteId]/agent/route.ts")
+    // 503, not 500: nothing is broken, it is not configured.
+    return /status: 503/.test(route) && /no model key is set/.test(route) && /event\.message/.test(chat)
+  })(),
 )
 
-/**
- * `fixed bottom-0 z-[9999]` sat exactly on top of the editor's Chat / Preview /
- * Code bar on a phone and made it unclickable. Found by a click that could not
- * land, not by looking at a screenshot.
- */
+check(
+  "the pane shows the steps, so a long run is not an unexplained spinner",
+  /TOOL_LABELS/.test(chat) && /Working…/.test(chat),
+)
+
 check(
   "the cookie banner cannot cover the editor's bottom bar",
   (() => {
@@ -811,6 +829,336 @@ check(
     // guard that reads its own explanation as a violation is not a guard.
     const pane = read("components/sites/editor/code-pane.tsx").replace(/^\s*(\/\/|\*|\/\*).*$/gm, "")
     return /function groupByDirectory/.test(pane) && !/dir="rtl"/.test(pane)
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("The agent is a provider behind an interface, and the key never leaves the server")
+// ---------------------------------------------------------------------------
+
+/**
+ * ===========================================================================
+ *  THE KEY IS KEPT OUT BY A BUILD FAILURE, NOT BY REMEMBERING
+ * ===========================================================================
+ *
+ * `OPENAI_API_KEY` is read in exactly one module, and that module imports
+ * `server-only` — so a client component pulling it in fails the build rather
+ * than shipping the key to every visitor in a JavaScript bundle. Every module
+ * that can touch the key must carry that import; this is the check that says
+ * so.
+ */
+check(
+  "every module that can reach the key is server-only",
+  (() => {
+    const guarded = [
+      "lib/sites/agent/openai-provider.ts",
+      "lib/sites/agent/run.ts",
+      "lib/sites/agent/tools.ts",
+    ]
+    return guarded.every((f) => read(f).startsWith('import "server-only"'))
+  })(),
+)
+
+check(
+  "the key is read in one place, and no client component imports it",
+  (() => {
+    const readers = ["lib/sites/agent/openai-provider.ts", "app/api/sites/[siteId]/agent/route.ts"]
+    // The route only checks whether it is SET, to give a 503 instead of a 500.
+    const provider = read("lib/sites/agent/openai-provider.ts")
+    if (!provider.includes("process.env.OPENAI_API_KEY")) return false
+
+    const clientFiles = readdirSync(join(root, "components/sites/editor"))
+      .filter((f) => f.endsWith(".tsx") || f.endsWith(".ts"))
+      .map((f) => read(join("components/sites/editor", f)))
+    const leaks = clientFiles.some(
+      (src) => /OPENAI_API_KEY/.test(src) || /openai-provider/.test(src) || /agent\/run/.test(src),
+    )
+    return !leaks && readers.length === 2
+  })(),
+)
+
+check(
+  "the agent's key is not a NEXT_PUBLIC_ variable anywhere",
+  (() => {
+    const suspects = [
+      "lib/sites/agent/openai-provider.ts",
+      "lib/sites/agent/run.ts",
+      "app/api/sites/[siteId]/agent/route.ts",
+      "components/sites/editor/chat-pane.tsx",
+    ]
+    return suspects.every((f) => !/NEXT_PUBLIC_[A-Z_]*(OPENAI|API_KEY)/.test(read(f)))
+  })(),
+)
+
+/**
+ * The whole point of the provider layer. If the loop, the tools or the route
+ * name a vendor, then "swap the provider" is a search-and-replace through the
+ * feature rather than one new file — which is what this repository was asked
+ * to avoid on the day the provider changed before a single request was sent.
+ */
+check(
+  "the loop and the tools name no vendor",
+  (() => {
+    // Comments stripped: these files EXPLAIN the abstraction, and naming the
+    // launch model in a doc comment is useful. What must not name a vendor is
+    // the code.
+    const vendorless = ["lib/sites/agent/run.ts", "lib/sites/agent/tools.ts", "lib/sites/agent/types.ts"]
+    return vendorless.every(
+      (f) => !/openai|OpenAI|anthropic|Anthropic|gpt-|claude-/.test(strip(read(f))),
+    )
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("Cost is computed from what the provider reported, not estimated")
+// ---------------------------------------------------------------------------
+
+check(
+  "both launch models are priced",
+  rateFor("gpt-5.6-luna") !== null && rateFor("gpt-5.6-terra") !== null,
+)
+
+check(
+  "the cheap model is the default and the dear one is the escalation",
+  (() => {
+    const cheap = MODEL_RATES[DEFAULT_MODEL]
+    const strong = MODEL_RATES[STRONG_MODEL]
+    return Boolean(cheap && strong) && cheap.inputPerMTok < strong.inputPerMTok
+  })(),
+)
+
+check(
+  "cost arithmetic, including the cache discount",
+  (() => {
+    // 1M input of which 500k cached and 100k cache-written, 100k output.
+    // luna: uncached 400k x $0.20 = $0.08
+    //       cached   500k x $0.20 x 0.1  = $0.01
+    //       written  100k x $0.20 x 1.25 = $0.025
+    //       output   100k x $1.20 = $0.12
+    //                                    = $0.235
+    const cost = costOf("gpt-5.6-luna", {
+      inputTokens: 1_000_000,
+      cachedInputTokens: 500_000,
+      cacheWriteTokens: 100_000,
+      outputTokens: 100_000,
+    })
+    return cost.priced && Math.abs(cost.usd - 0.235) < 1e-6
+  })(),
+)
+
+/**
+ * An unknown model must read as UNPRICED, not as free. A zero that means
+ * "nobody has priced this" and a zero that means "this was free" are the same
+ * number, and only one of them should let a run be recorded silently.
+ */
+check(
+  "an unpriced model says so instead of reporting zero",
+  (() => {
+    const cost = costOf("some-model-nobody-priced", { ...ZERO_USAGE, inputTokens: 1_000_000 })
+    return cost.usd === 0 && cost.priced === false
+  })(),
+)
+
+check(
+  "a realistic edit on the default model costs about a cent",
+  (() => {
+    // ~38k input (30k of it cached), ~3k output — the shape measured earlier.
+    const cost = costOf(DEFAULT_MODEL, {
+      inputTokens: 38_000,
+      cachedInputTokens: 30_000,
+      cacheWriteTokens: 0,
+      outputTokens: 3_000,
+    })
+    return cost.usd > 0 && cost.usd < 0.02
+  })(),
+)
+
+check(
+  "usage adds up across the turns of one run",
+  (() => {
+    const total = addUsage(
+      { inputTokens: 100, cachedInputTokens: 10, cacheWriteTokens: 5, outputTokens: 20 },
+      { inputTokens: 200, cachedInputTokens: 20, cacheWriteTokens: 0, outputTokens: 30 },
+    )
+    return (
+      total.inputTokens === 300 &&
+      total.cachedInputTokens === 30 &&
+      total.cacheWriteTokens === 5 &&
+      total.outputTokens === 50
+    )
+  })(),
+)
+
+/**
+ * Escalation is decided from the REQUEST. A model that can ask to be promoted
+ * to the ten-times-dearer tier eventually will, and the bill is the user's.
+ */
+check(
+  "the expensive model is chosen by the request, never by the model",
+  (() => {
+    const short = chooseModel("make the hero bolder", 8)
+    const long = chooseModel("x".repeat(700), 8)
+    const big = chooseModel("tweak it", 40)
+    const runFile = read("lib/sites/agent/run.ts")
+    return (
+      short === DEFAULT_MODEL &&
+      long === STRONG_MODEL &&
+      big === STRONG_MODEL &&
+      // The loop picks once, before the first request, and never re-picks.
+      (runFile.match(/chooseModel\(/g) ?? []).length === 1
+    )
+  })(),
+)
+
+// ---------------------------------------------------------------------------
+section("A run cannot spend money silently, break a site, or exceed a plan")
+// ---------------------------------------------------------------------------
+
+const runSource = read("lib/sites/agent/run.ts")
+
+check(
+  "the quota is checked before the first token is spent",
+  (() => {
+    const quota = runSource.indexOf("monthlyQuotaError(creatorId, plan)")
+    const firstCall = runSource.indexOf("provider.complete(")
+    return quota !== -1 && firstCall !== -1 && quota < firstCall
+  })(),
+)
+
+check(
+  "the snapshot is taken before anything is edited",
+  (() => {
+    const snap = runSource.indexOf("await snapshot(")
+    const loop = runSource.indexOf("provider.complete(")
+    const save = runSource.indexOf("saveFiles(")
+    return snap < loop && snap < save
+  })(),
+)
+
+/**
+ * The prompt asks the model not to finish on a red build. This is what happens
+ * when it does anyway: saving a project that does not compile replaces a
+ * working site with a broken one, and the creator's next look at their own
+ * page is an error overlay.
+ */
+check(
+  "a failing build blocks the save",
+  (() => {
+    // The whole CONDITION, not just the substring. The first version of this
+    // matched "build && !build.ok" inside "false && build && !build.ok" — it
+    // passed against a gate that had been switched off, which is the one
+    // mutation it exists to catch.
+    const live = /if \(status === "succeeded" && build && !build\.ok\) \{\s*\n\s*status = "failed"/
+    const gate = runSource.search(live)
+    const save = runSource.indexOf("await saveFiles(")
+    return gate !== -1 && save !== -1 && gate < save && /did not compile/.test(runSource)
+  })(),
+)
+
+check(
+  "the loop has a hard turn cap",
+  /MAX_TURNS = \d+/.test(runSource) && /turnCount <= MAX_TURNS/.test(runSource),
+)
+
+/**
+ * A run that cost money and left no row is a bill nobody can explain. The
+ * record is written after the try/catch, not inside the success path.
+ */
+check(
+  "the run is recorded even when it fails",
+  (() => {
+    const katch = runSource.indexOf("} catch (thrown) {")
+    const record = runSource.indexOf('.from("site_agent_runs")\n    .update(')
+    return katch !== -1 && record !== -1 && record > katch
+  })(),
+)
+
+check(
+  "tokens are recorded before a turn can throw them away",
+  (() => {
+    const accumulate = runSource.indexOf("usage = addUsage(usage, turn.usage)")
+    const refusal = runSource.indexOf('turn.stop === "refusal"')
+    return accumulate !== -1 && accumulate < refusal
+  })(),
+)
+
+check(
+  "a refusal is its own outcome, not a failure",
+  /status: "running" \| "succeeded" \| "failed" \| "refused"|"succeeded" \| "failed" \| "refused"/.test(runSource) &&
+    read("supabase/migrations/20260911_site_agent_runs.sql").includes("'refused'"),
+)
+
+// ---------------------------------------------------------------------------
+section("The tools are the boundary")
+// ---------------------------------------------------------------------------
+
+const toolSource = read("lib/sites/agent/tools.ts")
+
+check(
+  "the tool list is exactly the closed set, with nothing that reaches outside",
+  (() => {
+    const names = [...toolSource.matchAll(/^\s{4}name: "([a-z_]+)",$/gm)].map((m) => m[1])
+    const expected = [
+      "list_files", "read_file", "write_file", "create_file",
+      "delete_file", "run_build", "read_build_errors",
+    ]
+    const forbidden = ["run_sql", "install_package", "fetch_url", "exec", "bash", "http_request"]
+    return (
+      names.join() === expected.join() &&
+      forbidden.every((f) => !new RegExp(`name: "${f}"`).test(toolSource))
+    )
+  })(),
+)
+
+check(
+  "every path the agent touches goes through the same rule a human edit does",
+  (() => {
+    // filePathError is the traversal / extension / control-character check —
+    // the agent is exactly the caller that will one day propose ../../secrets.
+    const writers = ["read_file", "write_file", "create_file"]
+    return (
+      toolSource.includes('from "../file-path"') &&
+      writers.every((tool) => {
+        const at = toolSource.indexOf(`case "${tool}":`)
+        return at !== -1 && toolSource.slice(at, at + 400).includes("filePathError(path)")
+      })
+    )
+  })(),
+)
+
+check(
+  "the agent writes through saveFiles, not straight to the table",
+  runSource.includes("saveFiles(siteId, changed)") &&
+    !/from\("site_files"\)/.test(runSource) &&
+    !/from\("site_files"\)/.test(toolSource),
+)
+
+check(
+  "a tool failure is a result the model can read, not an exception",
+  (() => {
+    // No `throw` anywhere in the executor: a thrown tool ends the run, while a
+    // sentence ("that file does not exist, here are the ones that do") gets
+    // the next call right.
+    const executor = toolSource.slice(toolSource.indexOf("async execute("))
+    return !/\bthrow\b/.test(executor) && /does not exist\. The project holds/.test(executor)
+  })(),
+)
+
+/**
+ * The agent's build verdict has to be the preview's verdict. Two bundlers
+ * means the agent can report green for a page the creator sees broken, which
+ * is worse than not checking at all.
+ */
+check(
+  "the agent and the preview share one bundler",
+  (() => {
+    const worker = read("components/sites/editor/bundler.worker.ts")
+    return (
+      worker.includes("bundleProject") &&
+      toolSource.includes("bundleProject") &&
+      // The worker no longer carries its own copy of the build call.
+      !/esbuild\.build\(/.test(worker)
+    )
   })(),
 )
 

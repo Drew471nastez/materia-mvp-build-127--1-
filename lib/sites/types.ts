@@ -82,6 +82,8 @@ export interface BuildResult {
   ok: boolean
   /** The bundled ESM module, when it built. */
   code?: string
+  /** Bundled CSS, when the project imported any. Its own output file. */
+  css?: string
   errors: BuildError[]
   warnings: BuildError[]
   durationMs: number

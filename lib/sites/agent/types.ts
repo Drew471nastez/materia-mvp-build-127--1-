@@ -1,0 +1,123 @@
+/**
+ * The agent, described without naming a vendor.
+ *
+ * Everything above the provider layer — the tool loop, the tool
+ * implementations, the quota, the cost record, the route, the UI — speaks
+ * only these types. A second provider is then one file implementing
+ * `AgentProvider`, not a search-and-replace through the feature.
+ *
+ * That is not speculative generality: this repository has already replaced its
+ * model provider once before a single request was sent, and the launch model
+ * (`gpt-5.6-luna`) is chosen for price, which is the property most likely to
+ * change under it.
+ */
+
+/** What the agent may do. A closed list — the bound is here, not in a prompt. */
+export type AgentToolName =
+  | "list_files"
+  | "read_file"
+  | "write_file"
+  | "create_file"
+  | "delete_file"
+  | "run_build"
+  | "read_build_errors"
+
+export interface ToolSpec {
+  name: AgentToolName
+  description: string
+  /** JSON Schema. `additionalProperties: false` + `required` on every one. */
+  parameters: Record<string, unknown>
+}
+
+export interface ToolCall {
+  /** The provider's id for this call, echoed back with the result. */
+  id: string
+  name: string
+  /** Raw JSON text. Parsed by the executor, never string-matched. */
+  argumentsJson: string
+}
+
+export interface ToolResult {
+  id: string
+  /** What the model sees. Errors are results, not exceptions — see run.ts. */
+  output: string
+}
+
+/**
+ * One turn of the conversation, in the shape the loop keeps.
+ *
+ * `raw` carries the provider's own representation of an assistant turn so it
+ * can be replayed verbatim. Providers are increasingly strict about getting
+ * their own output back unchanged, and reconstructing it from our fields is
+ * how a loop starts silently dropping reasoning or tool-call metadata.
+ */
+export type AgentTurn =
+  | { role: "user"; content: string }
+  | { role: "assistant"; content: string; toolCalls: ToolCall[]; raw?: unknown }
+  | { role: "tool"; results: ToolResult[] }
+
+/** Tokens exactly as the provider reported them. Never estimated here. */
+export interface TokenUsage {
+  /** TOTAL input, including the cached and cache-written subsets below. */
+  inputTokens: number
+  cachedInputTokens: number
+  cacheWriteTokens: number
+  outputTokens: number
+}
+
+export const ZERO_USAGE: TokenUsage = {
+  inputTokens: 0,
+  cachedInputTokens: 0,
+  cacheWriteTokens: 0,
+  outputTokens: 0,
+}
+
+export function addUsage(a: TokenUsage, b: TokenUsage): TokenUsage {
+  return {
+    inputTokens: a.inputTokens + b.inputTokens,
+    cachedInputTokens: a.cachedInputTokens + b.cachedInputTokens,
+    cacheWriteTokens: a.cacheWriteTokens + b.cacheWriteTokens,
+    outputTokens: a.outputTokens + b.outputTokens,
+  }
+}
+
+export interface ProviderTurn {
+  /** Prose for the user. May be empty when the model only called tools. */
+  text: string
+  toolCalls: ToolCall[]
+  /** The assistant turn as the provider represents it, for verbatim replay. */
+  raw: unknown
+  usage: TokenUsage
+  /**
+   * Why generation stopped. `refusal` is its own outcome and must not be
+   * reported as a failure — the model declined, nothing broke, and telling a
+   * creator their site failed to build would be false.
+   */
+  stop: "done" | "tool_calls" | "length" | "refusal"
+}
+
+export interface ProviderRequest {
+  model: string
+  system: string
+  turns: AgentTurn[]
+  tools: ToolSpec[]
+  maxOutputTokens: number
+  signal?: AbortSignal
+}
+
+export interface AgentProvider {
+  /** Stable id recorded on every run: "openai", "anthropic", … */
+  readonly id: string
+  /** One round trip. The loop is in run.ts and is provider-independent. */
+  complete(request: ProviderRequest): Promise<ProviderTurn>
+}
+
+/** What the client sees while a run is in flight, one JSON object per line. */
+export type AgentEvent =
+  | { type: "started"; runId: string; model: string }
+  | { type: "thinking"; text: string }
+  | { type: "tool"; name: string; detail: string }
+  | { type: "files"; paths: string[] }
+  | { type: "message"; text: string }
+  | { type: "done"; runId: string; costUsd: number; turns: number; filesChanged: string[] }
+  | { type: "error"; message: string }

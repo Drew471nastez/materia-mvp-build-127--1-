@@ -67,6 +67,26 @@ export function EditorShell({ site, initialFiles }: { site: Site; initialFiles: 
   const dirtyPaths = React.useRef(new Set<string>())
   const build = useBundler(files)
 
+  /**
+   * The agent writes to the database, not to this copy — so after a run the
+   * editor has to go and look.
+   *
+   * Locally dirty paths are kept. Somebody who typed in the Code tab while the
+   * agent was working has unsaved edits, and overwriting them with the
+   * server's version would delete work that is on screen in front of them.
+   */
+  const adoptAgentChanges = React.useCallback(async () => {
+    const response = await fetch(`/api/sites/${site.id}/files`)
+    if (!response.ok) return
+    const body = (await response.json()) as { files?: ProjectFiles }
+    if (!body.files) return
+    setFiles((previous) => {
+      const merged = { ...body.files }
+      for (const path of dirtyPaths.current) merged[path] = previous[path]
+      return merged
+    })
+  }, [site.id])
+
   const editFile = React.useCallback((path: string, content: string) => {
     setFiles((previous) => (previous[path] === content ? previous : { ...previous, [path]: content }))
     dirtyPaths.current.add(path)
@@ -203,7 +223,7 @@ export function EditorShell({ site, initialFiles }: { site: Site; initialFiles: 
       {/* ─────────────────────────── the work ─────────────────────────── */}
       <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(320px,380px)_1fr]">
         <div className={cn("min-h-0 md:block", pane === "chat" ? "block" : "hidden")}>
-          <ChatPane siteName={site.name} />
+          <ChatPane siteId={site.id} siteName={site.name} onFilesChanged={adoptAgentChanges} />
         </div>
 
         <div className={cn("min-h-0", pane === "chat" ? "hidden md:block" : "block")}>
