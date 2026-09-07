@@ -20,6 +20,7 @@
 import type { ProjectWorkspace } from "./tools"
 import { looksLikeQuestion, openSteps, refuseToFinish } from "./plan"
 import type { Budget } from "./complexity"
+import type { ProjectFiles } from "../types"
 import { TOOL_SPECS } from "./tools"
 import {
   ZERO_USAGE,
@@ -194,6 +195,8 @@ export interface LoopInput {
   context?: ProjectContext | null
   /** esbuild for `run_build` — browser wasm or the Node build, either works. */
   esbuild: unknown
+  /** Injected so the browser preview, which has no compiler, simply skips it. */
+  typecheck?: (files: ProjectFiles) => Promise<{ ok: boolean; report: string } | null>
   signal?: AbortSignal
   maxTurns?: number
   /** How much room this request gets, and what is expected in it. */
@@ -201,7 +204,7 @@ export interface LoopInput {
 }
 
 export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, LoopResult> {
-  const { provider, model, prompt, workspace, esbuild, signal, context } = input
+  const { provider, model, prompt, workspace, esbuild, signal, context, typecheck } = input
   const maxTurns = input.maxTurns ?? input.budget?.maxTurns ?? MAX_TURNS
 
   const turns: AgentTurn[] = [{ role: "user", content: prompt }]
@@ -298,7 +301,7 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
 
       const results = []
       for (const call of turn.toolCalls) {
-        const output = await workspace.execute(call.name, call.argumentsJson, esbuild)
+        const output = await workspace.execute(call.name, call.argumentsJson, esbuild, typecheck)
         results.push({ id: call.id, output })
         yield { type: "tool", name: call.name, detail: describeCall(call.argumentsJson) }
 

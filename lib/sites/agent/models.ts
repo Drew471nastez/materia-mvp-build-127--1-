@@ -23,6 +23,7 @@
  * rewrites what last quarter cost.
  */
 
+import { classifyComplexity } from "./complexity"
 import type { TokenUsage } from "./types"
 
 export interface ModelRate {
@@ -121,12 +122,31 @@ export function costOf(model: string, usage: TokenUsage): CostBreakdown {
  * can ask to be promoted to the ten-times-dearer tier eventually will, and the
  * bill is the user's.
  *
- * The signals are deliberately dull — a long instruction, or a project big
- * enough that a change is unlikely to stay in one file. Both are properties of
- * the input, both are checkable, and neither can be talked into.
+ * ---------------------------------------------------------------------------
+ *  THE SIGNAL USED TO BE BACKWARDS
+ * ---------------------------------------------------------------------------
+ * This was `prompt.length > 600 || fileCount > 25`, which routes on how much
+ * somebody TYPED rather than how much they asked for. So:
+ *
+ *   "Make this website much more complex, premium and complete"  →  fast model
+ *   "Improve everything"                                         →  fast model
+ *   "Make it feel like Linear"                                   →  fast model
+ *
+ * Every one of those is the hardest kind of request there is, and every one of
+ * them got the cheapest model because the sentence was short. That is a direct
+ * cause of the shallow, one-edit-and-done behaviour: the broad asks that most
+ * need planning and multi-file reasoning were the ones systematically denied
+ * the model that can do it.
+ *
+ * The complexity classifier already answers this question properly — it reads
+ * what is being asked rather than how many characters it took — so routing
+ * uses it instead of a second, worse heuristic living here.
+ *
+ * A big project still promotes a small request: a change in a thirty-file
+ * codebase is unlikely to stay in one file whatever the sentence says.
  */
 export function chooseModel(prompt: string, fileCount: number): string {
-  const longInstruction = prompt.length > 600
-  const bigProject = fileCount > 25
-  return longInstruction || bigProject ? STRONG_MODEL : DEFAULT_MODEL
+  const budget = classifyComplexity(prompt)
+  if (budget.complexity !== "small") return STRONG_MODEL
+  return fileCount > 25 ? STRONG_MODEL : DEFAULT_MODEL
 }

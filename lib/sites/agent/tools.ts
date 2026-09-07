@@ -309,7 +309,18 @@ export class ProjectWorkspace {
   }
 
 
-  async execute(name: string, argumentsJson: string, esbuild: unknown): Promise<string> {
+  /**
+   * `typecheck` is injected rather than imported, for the same reason
+   * `esbuild` is: this class runs in two places. The agent's run has Node and
+   * the TypeScript compiler; the editor's preview worker has neither and must
+   * stay instant. A missing typechecker means "not checked", never "clean".
+   */
+  async execute(
+    name: string,
+    argumentsJson: string,
+    esbuild: unknown,
+    typecheck?: (files: ProjectFiles) => Promise<{ ok: boolean; report: string } | null>,
+  ): Promise<string> {
     let args: Record<string, unknown>
     try {
       args = argumentsJson.trim() ? JSON.parse(argumentsJson) : {}
@@ -497,13 +508,40 @@ export class ProjectWorkspace {
 
       case "run_build": {
         this.lastBuild = await bundleProject(esbuild as never, this.files)
+
         /**
          * Recorded, not just returned. The completion gate needs to know
          * whether this project compiles — a run may not finish on a red build,
          * and "the model said it built" is not the same as it having built.
          */
-        this.buildOk = this.lastBuild.ok
-        return formatBuildErrors(this.lastBuild)
+        const bundled = this.lastBuild.ok
+        const report = formatBuildErrors(this.lastBuild)
+
+        if (!bundled) {
+          this.buildOk = false
+          return report
+        }
+
+        /**
+         * ESBUILD STRIPS TYPES, IT DOES NOT CHECK THEM.
+         *
+         * A green bundle means "this parses" and says nothing about a prop
+         * passed with the wrong shape or a property that does not exist. So
+         * the agent, told not to finish on a failing build, could finish on a
+         * project that throws the moment somebody opens it. Types are checked
+         * here, where the answer can still change what the run does.
+         */
+        const types = typecheck ? await typecheck(this.files).catch(() => null) : null
+
+        if (!types) {
+          // Cannot check is not the same as clean, but the bundle did pass and
+          // refusing to finish over a missing compiler would strand the run.
+          this.buildOk = true
+          return report
+        }
+
+        this.buildOk = types.ok
+        return types.ok ? report : `${report}\n\n${types.report}`
       }
 
       case "read_build_errors":

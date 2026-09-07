@@ -36,6 +36,7 @@ import {
 import { describeProject } from "./context"
 import { classifyIntent, intentInstruction } from "./intent"
 import { budgetInstruction, classifyComplexity } from "./complexity"
+import { formatTypeErrors, typecheckProject } from "../typecheck"
 import { siteLimits, type SitePlan } from "../plan"
 import { readProject, saveFiles } from "../projects"
 import type { ProjectFiles } from "../types"
@@ -234,6 +235,16 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
     esbuild,
     context,
     budget,
+    /**
+     * The agent's build typechecks; the editor's preview does not. This is the
+     * one place with Node and the compiler, so it is the one place the check
+     * can happen — and it happens before a run is allowed to call itself done.
+     */
+    typecheck: async (projectFiles) => {
+      const result = await typecheckProject(projectFiles)
+      if (!result.ran) return null
+      return { ok: result.ok, report: formatTypeErrors(result) }
+    },
     signal: cancelled.signal,
   })
   let step = await loop.next()

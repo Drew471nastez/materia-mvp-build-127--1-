@@ -4220,7 +4220,18 @@ check(
     const tools = strip(read("lib/sites/agent/tools.ts"))
     const at = tools.indexOf('case "run_build"')
     const body = tools.slice(at, tools.indexOf("case \"read_build_errors\"", at))
-    return /this\.buildOk = this\.lastBuild\.ok/.test(body)
+    /**
+     * The verdict now covers types as well as bundling. esbuild STRIPS types
+     * rather than checking them, so a green bundle said only "this parses" —
+     * and the agent, told not to finish on a failing build, could finish on a
+     * project that throws the moment somebody opens it.
+     */
+    return (
+      /this\.buildOk = false/.test(body) &&
+      /this\.buildOk = types\.ok/.test(body) &&
+      // and "could not check" is never reported as "clean"
+      /if \(!types\) \{/.test(body)
+    )
   })(),
 )
 
@@ -4239,6 +4250,112 @@ check(
       /type: "plan"; steps: Array<\{ title: string; done: boolean \}>/.test(types) &&
       /yield \{\s*type: "plan"/.test(loop) &&
       /state: workspace\.buildOk === false \? "repairing" : "verifying"/.test(loop)
+    )
+  })(),
+)
+
+/**
+ * esbuild STRIPS types rather than checking them: it catches a syntax error
+ * and an import that resolves nowhere, and is completely silent about a prop
+ * passed with the wrong shape or a property that does not exist. So a green
+ * build meant "this parses", and the agent — told not to finish on a failing
+ * build — could finish on a project that throws when somebody opens it.
+ *
+ * Verified end to end: a project that bundles cleanly but passes a number
+ * where a string is expected now sets buildOk = false, and setting the prop
+ * correctly sets it back to true.
+ */
+check(
+  "a type error is caught, not stripped and shipped",
+  (() => {
+    const tc = strip(read("lib/sites/typecheck.ts"))
+    const run = strip(read("lib/sites/agent/run.ts"))
+    return (
+      /export async function typecheckProject/.test(tc) &&
+      /getSemanticDiagnostics/.test(tc) &&
+      /typecheck: async \(projectFiles\)/.test(run)
+    )
+  })(),
+)
+
+/**
+ * A typechecker that reports errors on correct code is worse than none: the
+ * completion gate would refuse to let ANY run finish, and every creator would
+ * be told their working site is broken. Type environments are assembled from
+ * whatever happens to be installed, so before its verdict may block anything
+ * it is asked about a project known to be correct — and if it gets THAT wrong,
+ * every result becomes "could not check". The feature degrades to silence
+ * rather than to obstruction.
+ *
+ * This is not theoretical. The first implementation built a virtual compiler
+ * host and failed the reference project on `StrictMode`; the self-check caught
+ * it and disabled itself instead of blocking every run.
+ */
+check(
+  "the typechecker proves itself before it is trusted",
+  (() => {
+    const tc = strip(read("lib/sites/typecheck.ts"))
+    return (
+      /const REFERENCE: ProjectFiles/.test(tc) &&
+      /async function environmentIsTrustworthy/.test(tc) &&
+      /if \(!trustworthy\)/.test(tc) &&
+      // decided once per process, not per build
+      /selfCheck \?\?=/.test(tc)
+    )
+  })(),
+)
+
+/**
+ * Reimplementing module resolution to check three files is the wrong trade.
+ * The hand-written CompilerHost could not satisfy React 19's JSX namespace —
+ * `react/jsx-runtime` imports "./" to reach it — and produced "'StrictMode'
+ * cannot be used as a JSX component" on plainly correct code. Writing the
+ * files next to the real node_modules lets TypeScript resolve exactly as it
+ * does for any project.
+ */
+check(
+  "the check runs the way TypeScript normally runs",
+  (() => {
+    const tc = strip(read("lib/sites/typecheck.ts"))
+    return (
+      /ts\.createCompilerHost\(options, true\)/.test(tc) &&
+      /mkdtemp/.test(tc) &&
+      // and the copy of somebody's project does not outlive the check
+      /rm\(dir, \{ recursive: true, force: true \}\)/.test(tc)
+    )
+  })(),
+)
+
+/**
+ * Build configuration is not the thing being verified. `vite.config.ts`
+ * imports packages whose types are deliberately not shipped, so checking it
+ * reported two errors on every project about scaffold nobody wrote.
+ */
+check(
+  "only the creator's own code is checked",
+  (() => {
+    const tc = strip(read("lib/sites/typecheck.ts"))
+    return /p\.startsWith\("src\/"\) && \/\\\.\(ts\|tsx\)\$\/\.test\(p\)/.test(tc)
+  })(),
+)
+
+/**
+ * `prompt.length > 600 || fileCount > 25` routed on how much somebody TYPED
+ * rather than how much they asked for, so "Make this website much more complex,
+ * premium and complete" got the cheap model because the sentence was short.
+ * The broad asks that most need planning were the ones systematically denied
+ * the model that can do it — a direct cause of shallow, one-edit results.
+ */
+check(
+  "the strong model goes to the requests that need it",
+  (() => {
+    const models = strip(read("lib/sites/agent/models.ts"))
+    const at = models.indexOf("export function chooseModel")
+    const body = models.slice(at)
+    return (
+      /const budget = classifyComplexity\(prompt\)/.test(body) &&
+      /if \(budget\.complexity !== "small"\) return STRONG_MODEL/.test(body) &&
+      !/prompt\.length > 600/.test(body)
     )
   })(),
 )
