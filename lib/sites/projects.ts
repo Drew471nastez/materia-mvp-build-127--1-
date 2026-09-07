@@ -40,13 +40,15 @@ function toSite(row: SiteRow): Site {
     templateId: row.template_id,
     settings: (row.settings as Site["settings"]) ?? {},
     publishedDeploymentId: row.published_deployment_id,
+    revision: (row as { revision?: number }).revision ?? 1,
+    previewRevision: (row as { preview_revision?: number | null }).preview_revision ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
 }
 
 const COLUMNS =
-  "id, creator_id, name, slug, status, template_id, settings, published_deployment_id, created_at, updated_at"
+  "id, creator_id, name, slug, status, template_id, settings, published_deployment_id, revision, preview_revision, created_at, updated_at"
 
 /** The signed-in user's creator row, or null if they are not one. */
 export async function currentCreatorId(): Promise<string | null> {

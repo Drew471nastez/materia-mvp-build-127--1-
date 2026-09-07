@@ -10,7 +10,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ExternalLink, Globe, MoreHorizontal, Plus, Rocket, Sparkles } from "lucide-react"
+import { ExternalLink, Globe, MoreHorizontal, Plus, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -47,47 +47,106 @@ function StatusDot({ status }: { status: Site["status"] }) {
   )
 }
 
+/** The width the cover is rendered at: a desktop layout, 16:10 like the card. */
+const COVER_WIDTH = 1280
+const COVER_HEIGHT = 800
+
+/**
+ * The scale that makes a 1280px render fill this card.
+ *
+ * MEASURED, not expressed in CSS. The obvious version is
+ * `transform: scale(calc(100cqw / 1280))` with a container-type parent, and
+ * it silently does nothing: `cqw` is a LENGTH and `scale()` takes a unitless
+ * NUMBER, so the declaration is invalid and dropped. The card then shows the
+ * top-left corner of a 1280px page, which looks like a broken thumbnail
+ * rather than like a CSS error. Caught by measuring a real browser at three
+ * widths — the rendered frame came back 1280px wide in all of them.
+ *
+ * A ResizeObserver is the version that works, and it costs one number per
+ * card per resize.
+ */
+function useCoverScale(): [React.RefObject<HTMLDivElement | null>, number] {
+  const ref = React.useRef<HTMLDivElement | null>(null)
+  const [scale, setScale] = React.useState(0)
+
+  React.useLayoutEffect(() => {
+    const box = ref.current
+    if (!box) return
+    const measure = () => setScale(box.clientWidth / COVER_WIDTH)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(box)
+    return () => observer.disconnect()
+  }, [])
+
+  return [ref, scale]
+}
+
 function SiteCard({ site }: { site: Site }) {
+  const [coverRef, coverScale] = useCoverScale()
   const address = site.slug ? publishedUrl(site.slug).replace(/^https:\/\//, "") : "No address yet"
   return (
     <div className="group overflow-hidden rounded-[10px] border border-border bg-card transition-colors hover:border-foreground/20">
       <SmartLink
         href={`/sites/${site.id}`}
+        /*
+         * `container-type: inline-size` turns this box into the reference the
+         * frame below scales against, so the cover fills the card at every
+         * breakpoint instead of at the one width it was measured for.
+         */
         className="relative block aspect-[16/10] w-full overflow-hidden bg-muted/40"
         aria-label={`Edit ${site.name}`}
       >
-        {site.status === "published" && site.slug ? (
+        {/*
+          * THE SITE AS YOU LAST LEFT IT — published or not.
+          *
+          * This used to frame the PUBLISHED page, so a site you had spent an
+          * hour on showed "Not published yet" until you shipped it: a grey box
+          * where the work is. The cover is built from the current files and
+          * rebuilt only when the revision moves, so it is what you left behind
+          * without costing a compile per keystroke.
+          *
+          * Rendered at 1280px and scaled, so the card shows the DESKTOP
+          * layout rather than a 400px-wide column squeezed into a landscape
+          * box — a phone-shaped render in a 16:10 frame is what makes these
+          * cards look broken on mobile.
+          *
+          * `sandbox` WITHOUT allow-same-origin: the frame runs on an opaque
+          * origin, so a creator's generated JavaScript cannot read the
+          * session, reach the parent, or touch storage — which is what makes
+          * it safe to render on the dashboard's own domain at all.
+          * `pointer-events: none` and a cover span on top keep the frame from
+          * swallowing the click, because the whole card is a link.
+          */}
+        <div ref={coverRef} className="absolute inset-0">
+        <iframe
+          src={`/api/sites/${site.id}/cover`}
+          title=""
+          aria-hidden="true"
+          tabIndex={-1}
+          loading="lazy"
+          sandbox="allow-scripts"
+          className="pointer-events-none absolute left-0 top-0 origin-top-left border-0 bg-background"
           /*
-           * The real page, scaled down — not a screenshot.
-           *
-           * A thumbnail service is a queue, a headless browser and a job that
-           * silently goes stale the day someone publishes and it fails. This
-           * is the published site itself, rendered at 1280px and transformed
-           * to fit, so it can never disagree with what is live.
-           *
-           * `sandbox` with no allow-same-origin, and `pointer-events: none`
-           * over the top: the card is a link, and the frame must not be able
-           * to swallow the click or reach anything around it.
+           * 1280x800 is 16:10, the card's own ratio, so the desktop layout
+           * lands in the frame without letterboxing. `100cqw / 1280` is the
+           * card's current width over the render width — one expression that
+           * is correct at every column count, where the fixed 0.3125 it
+           * replaced was correct only at 400px.
            */
-          <>
-            <iframe
-              src={publishedUrl(site.slug)}
-              title=""
-              aria-hidden="true"
-              tabIndex={-1}
-              loading="lazy"
-              sandbox="allow-scripts"
-              className="pointer-events-none absolute left-0 top-0 origin-top-left border-0"
-              style={{ width: "1280px", height: "800px", transform: "scale(0.3125)" }}
-            />
-            <span className="absolute inset-0" />
-          </>
-        ) : (
-          <span className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-muted-foreground">
-            <Rocket className="h-5 w-5 opacity-50" />
-            <span className="text-[11px]">Not published yet</span>
-          </span>
-        )}
+          /*
+           * Hidden until measured. Rendering at scale 1 for a frame would
+           * flash a 1280px page across the card before the observer runs.
+           */
+          style={{
+            width: `${COVER_WIDTH}px`,
+            height: `${COVER_HEIGHT}px`,
+            transform: `scale(${coverScale})`,
+            visibility: coverScale ? "visible" : "hidden",
+          }}
+        />
+        </div>
+        <span className="absolute inset-0" />
       </SmartLink>
 
       <div className="flex items-start justify-between gap-3 border-t border-border p-3">

@@ -2738,6 +2738,102 @@ check(
   })(),
 )
 
+// ---------------------------------------------------------------------------
+section("A site card shows the site as you last left it")
+// ---------------------------------------------------------------------------
+
+/**
+ * The card framed the PUBLISHED page, so a site somebody had spent an hour on
+ * showed "Not published yet" until they shipped it — a grey box where the work
+ * is. The cover is built from the current files instead.
+ */
+check(
+  "the cover is the current project, not only a published one",
+  (() => {
+    const card = strip(read("components/sites/sites-dashboard.tsx"))
+    return (
+      /\/api\/sites\/\$\{site\.id\}\/cover/.test(card) &&
+      !/site\.status === "published" && site\.slug \?/.test(card) &&
+      !/Not published yet/.test(card)
+    )
+  })(),
+)
+
+/**
+ * Rebuilt only when the revision moves. A site autosaves every 1.2 seconds;
+ * building on every write would spend a compile per keystroke on a picture
+ * nobody is looking at, and building on every read one per dashboard visit.
+ */
+check(
+  "a cover is rebuilt when it is stale, and not otherwise",
+  (() => {
+    const cover = strip(read("lib/sites/cover.ts"))
+    return (
+      /site\.previewRevision === revision/.test(cover) &&
+      /preview_revision: revision/.test(cover) &&
+      // stored BEFORE the marker: a marker claiming an upload that failed
+      // would be trusted by the next reader and show a blank card
+      cover.indexOf(".upload(") < cover.indexOf("preview_revision: revision")
+    )
+  })(),
+)
+
+/**
+ * The frame runs with `sandbox` and NO allow-same-origin, so it has an OPAQUE
+ * origin — which is what makes it safe to render a creator's generated
+ * JavaScript on the dashboard's own domain. An opaque origin also means its
+ * requests are cross-origin and carry no session, so the cover has to be one
+ * self-contained document: anything it had to fetch with a cookie would 404
+ * inside the frame while working perfectly when opened directly.
+ */
+check(
+  "the cover frame cannot reach the dashboard around it",
+  (() => {
+    const card = strip(read("components/sites/sites-dashboard.tsx"))
+    const route = strip(read("app/api/sites/[siteId]/cover/route.ts"))
+    return (
+      /sandbox="allow-scripts"/.test(card) &&
+      !/allow-same-origin/.test(card) &&
+      /pointer-events-none/.test(card) &&
+      /frame-ancestors 'self'/.test(route) &&
+      /"connect-src 'none'"/.test(route) &&
+      // an unpublished draft must never sit in a shared cache
+      /private, max-age=0/.test(route)
+    )
+  })(),
+)
+
+check(
+  "a cover is private to its owner",
+  (() => {
+    const route = strip(read("app/api/sites/[siteId]/cover/route.ts"))
+    // getSite reads through the signed-in user's client, so RLS answers
+    return /const site = await getSite\(siteId\)/.test(route) && /status: 404/.test(route)
+  })(),
+)
+
+/**
+ * `transform: scale(calc(100cqw / 1280))` is the obvious version and it does
+ * NOTHING: cqw is a LENGTH and scale() takes a unitless NUMBER, so the
+ * declaration is invalid and dropped, and the card shows the top-left corner
+ * of a 1280px page. Measured in a real browser at three widths — the frame
+ * came back 1280px wide in all of them — and again after the fix, where it
+ * fills the card exactly.
+ */
+check(
+  "the cover is scaled by a measured number, not by a container-query length",
+  (() => {
+    const card = strip(read("components/sites/sites-dashboard.tsx"))
+    return (
+      /new ResizeObserver/.test(card) &&
+      /clientWidth \/ COVER_WIDTH/.test(card) &&
+      !/scale\(calc\(100cqw/.test(card) &&
+      // and it does not flash a full-size render before it has measured
+      /visibility: coverScale \? "visible" : "hidden"/.test(card)
+    )
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")
