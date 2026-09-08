@@ -20,7 +20,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
 import { createClient } from "@/lib/supabase/server"
-import { MissingKeyError, openAIProvider } from "@/lib/sites/agent/openai-provider"
+// `MissingKeyError` only: the provider itself now comes from the resolver.
+import { MissingKeyError } from "@/lib/sites/agent/openai-provider"
 import { agentRateLimit } from "@/lib/sites/rate-limit"
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
