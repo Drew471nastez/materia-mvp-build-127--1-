@@ -32,6 +32,7 @@ const SUITES = [
   "tests/openai-provider.test.ts",
   "tests/theme-agent.test.ts",
   "tests/section-responsive.test.ts",
+  "tests/anthropic-provider.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

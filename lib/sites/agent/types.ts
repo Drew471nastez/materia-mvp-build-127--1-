@@ -160,6 +160,16 @@ export interface ProviderRequest {
    * third party and it exists only to group requests.
    */
   cacheKey?: string
+  /**
+   * How hard to think, where the provider has such a control.
+   *
+   * Anthropic's `output_config.effort` is a real dial on Sonnet 5 and Opus 5
+   * and is the difference between a considered multi-step edit and the first
+   * thing that answers the sentence. Optional and ignored by providers that
+   * have no equivalent, which is why it lives here rather than being smuggled
+   * through the model id.
+   */
+  effort?: "low" | "medium" | "high" | "xhigh" | "max"
 }
 
 export interface AgentProvider {

@@ -24,7 +24,17 @@
  */
 
 import * as React from "react"
-import { ArrowUp, Check, Loader2, Lock, RotateCcw, Square, TriangleAlert, X } from "lucide-react"
+import {
+  ArrowUp,
+  Check,
+  ChevronDown,
+  Loader2,
+  Lock,
+  RotateCcw,
+  Square,
+  TriangleAlert,
+  X,
+} from "lucide-react"
 
 import { StorelibMark } from "@/components/storelib-mark"
 import { cn } from "@/lib/utils"
@@ -59,6 +69,41 @@ const SUGGESTIONS = [
   "Make this section's heading shorter and tighten the spacing",
   "Give the whole site a warmer palette and rounder buttons",
 ]
+
+/**
+ * The three choices, as a person would describe them rather than as model ids.
+ *
+ * `provider` and `tier` are what the endpoint takes: the vendor, and how hard
+ * a model within it. Keeping the ids out of the UI means a price change or a
+ * model rename is a one-line change on the server and nothing here.
+ */
+const ENGINES = [
+  {
+    id: "claude",
+    label: "Claude Sonnet",
+    detail: "Default — fast, good at everything here",
+    provider: "anthropic",
+    tier: "fast",
+  },
+  {
+    id: "claude-opus",
+    label: "Claude Opus",
+    detail: "Slower and dearer. For a change you know is hard",
+    provider: "anthropic",
+    tier: "strong",
+  },
+  {
+    id: "openai",
+    label: "ChatGPT",
+    detail: "The previous engine",
+    provider: "openai",
+    tier: "fast",
+  },
+] as const
+
+type EngineId = (typeof ENGINES)[number]["id"]
+
+const ENGINE_KEY = "storelib.theme-chat.engine"
 
 export function ThemeChat({
   installId,
@@ -112,6 +157,41 @@ export function ThemeChat({
    * how they happened to phrase the sentence.
    */
   const [lockOn, setLockOn] = React.useState(true)
+  /**
+   * WHICH MODEL ANSWERS.
+   *
+   * Claude Sonnet 5 by default — it is the everyday model and what the
+   * deployment is configured for. Opus is there for a change somebody already
+   * knows is hard, and it is their choice rather than the model's: a model
+   * that can promote itself to the five-times-dearer tier eventually will, and
+   * the bill is theirs.
+   *
+   * Remembered per browser. Somebody who has chosen ChatGPT has chosen it for
+   * more than one message, and re-picking it every time is the kind of small
+   * friction that makes a switch feel broken.
+   */
+  const [engine, setEngine] = React.useState<EngineId>("claude")
+  const [engineOpen, setEngineOpen] = React.useState(false)
+
+  React.useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(ENGINE_KEY)
+      if (saved && ENGINES.some((e) => e.id === saved)) setEngine(saved as EngineId)
+    } catch {
+      // A browser with site data blocked still gets the default. Not worth a
+      // failed render.
+    }
+  }, [])
+
+  const chooseEngine = React.useCallback((id: EngineId) => {
+    setEngine(id)
+    setEngineOpen(false)
+    try {
+      window.localStorage.setItem(ENGINE_KEY, id)
+    } catch {
+      /* per-browser convenience only */
+    }
+  }, [])
   const abortRef = React.useRef<AbortController | null>(null)
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const fieldRef = React.useRef<HTMLTextAreaElement>(null)
@@ -139,8 +219,14 @@ export function ThemeChat({
     setLockOn(true)
   }, [selectedSectionId])
 
-  const live = React.useRef({ sections, settings, page, selectedSectionId, locked })
-  live.current = { sections, settings, page, selectedSectionId, locked }
+  const chosenEngine = ENGINES.find((e) => e.id === engine) ?? ENGINES[0]
+
+  /**
+   * Read at SEND time, like everything else in here: a run started thirty
+   * seconds ago must send what the panel looks like now.
+   */
+  const live = React.useRef({ sections, settings, page, selectedSectionId, locked, engine: chosenEngine })
+  live.current = { sections, settings, page, selectedSectionId, locked, engine: chosenEngine }
 
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
@@ -254,6 +340,8 @@ export function ThemeChat({
             settings: live.current.settings,
             selectedSectionId: live.current.selectedSectionId,
             lockToSelection: live.current.locked,
+            provider: live.current.engine.provider,
+            tier: live.current.engine.tier,
           }),
         })
 
@@ -389,7 +477,69 @@ export function ThemeChat({
     <div className="flex h-full w-full flex-col bg-background">
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
         <StorelibMark className="h-[18px] w-[18px] shrink-0 rounded-[5px]" />
-        <span className="flex-1 text-[13px] font-medium">Ask Storelib</span>
+        <span className="flex-1 truncate text-[13px] font-medium">Ask Storelib</span>
+
+        {/*
+          WHICH MODEL, in the header rather than a settings page — it is a
+          per-message decision ("this one is hard, use Opus"), and a choice
+          buried two screens away is one nobody makes.
+        */}
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setEngineOpen((open) => !open)}
+            aria-haspopup="listbox"
+            aria-expanded={engineOpen}
+            className="flex h-7 items-center gap-1 rounded-md px-1.5 text-[11.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title="Which model answers"
+          >
+            <span className="max-w-[92px] truncate">{chosenEngine.label}</span>
+            <ChevronDown className="h-3 w-3 shrink-0 opacity-70" strokeWidth={2} />
+          </button>
+
+          {engineOpen && (
+            <>
+              {/* Click-away. A menu you can only close by choosing something
+                  is a menu people close by choosing the wrong thing. */}
+              <div
+                className="fixed inset-0 z-40"
+                aria-hidden="true"
+                onClick={() => setEngineOpen(false)}
+              />
+              <ul
+                role="listbox"
+                className="absolute right-0 top-8 z-50 w-[236px] overflow-hidden rounded-xl border border-border bg-background py-1 shadow-lg"
+              >
+                {ENGINES.map((option) => (
+                  <li key={option.id}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={option.id === engine}
+                      onClick={() => chooseEngine(option.id)}
+                      className="flex w-full items-start gap-2 px-2.5 py-2 text-left transition-colors hover:bg-muted"
+                    >
+                      <Check
+                        className={cn(
+                          "mt-[3px] h-3 w-3 shrink-0",
+                          option.id === engine ? "opacity-100" : "opacity-0",
+                        )}
+                        strokeWidth={2.5}
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-[12.5px] text-foreground">{option.label}</span>
+                        <span className="block text-[11px] leading-snug text-muted-foreground">
+                          {option.detail}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={onClose}

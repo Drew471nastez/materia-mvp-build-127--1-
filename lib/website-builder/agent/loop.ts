@@ -431,6 +431,8 @@ export interface ThemeAgentInput {
   readStore?: () => Promise<StoreFacts | null>
   /** Groups this theme's requests for the provider's prompt cache. */
   cacheKey?: string
+  /** How hard to think, passed through to providers that have such a dial. */
+  effort?: "low" | "medium" | "high" | "xhigh" | "max"
   signal?: AbortSignal
   maxTurns?: number
   /** How many times the run may be handed its own work back. */
@@ -530,6 +532,7 @@ export async function* themeAgent(
         tools: toolSpecs(addable),
         maxOutputTokens: 8_000,
         cacheKey: input.cacheKey,
+        effort: input.effort,
         signal,
       })
 

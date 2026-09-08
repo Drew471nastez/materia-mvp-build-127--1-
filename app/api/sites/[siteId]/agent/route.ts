@@ -18,7 +18,9 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { currentCreatorId, getSite } from "@/lib/sites/projects"
-import { MissingKeyError, openAIProvider } from "@/lib/sites/agent/openai-provider"
+import { MissingKeyError } from "@/lib/sites/agent/openai-provider"
+import { chooseTier } from "@/lib/sites/agent/models"
+import { isConfigured, resolveProvider } from "@/lib/sites/agent/provider"
 import { agentRateLimit } from "@/lib/sites/rate-limit"
 import { runAgent } from "@/lib/sites/agent/run"
 import type { AgentEvent } from "@/lib/sites/agent/types"
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
   const prompt = typeof body.prompt === "string" ? body.prompt.trim().slice(0, MAX_PROMPT) : ""
   if (!prompt) return NextResponse.json({ error: "Describe what you want changed." }, { status: 400 })
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (!isConfigured("anthropic") && !isConfigured("openai")) {
     // 503, not 500: nothing is broken, the deployment is not configured. The
     // editor shows this sentence rather than "something went wrong".
     return NextResponse.json(
@@ -150,7 +152,21 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
           creatorId,
           plan,
           prompt,
-          provider: openAIProvider,
+          /**
+           * CLAUDE BY DEFAULT for the coding agent — the harder half of the
+           * product and the one the stronger model is for.
+           *
+           * The model comes from here rather than from inside run.ts because a
+           * model id is one VENDOR's name for a difficulty. `chooseTier`
+           * answers the difficulty question exactly as `chooseModel` did; this
+           * turns that answer into the right vendor's id.
+           */
+          provider: resolveProvider({ requested: undefined }).provider,
+          pickModel: (fileCount) =>
+            resolveProvider({
+              requested: undefined,
+              tier: chooseTier(prompt, fileCount),
+            }).model,
           esbuild,
           /**
            * NOT `request.signal`. The client's connection is not permission
