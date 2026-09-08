@@ -1,17 +1,67 @@
 // ============================================================
-// Website Builder: Virtual theme file tree
-// Defines the canonical file structure of a Storelib theme
+//  THE THEME, AS FILES
 // ============================================================
-import type { ThemeFileNode } from "./types"
+//  The Shopify-shaped view of a theme: config, templates,
+//  sections, snippets, assets. Same idea, same folders, and —
+//  now — the same relationship to reality, which is the part
+//  that was missing.
+//
+//  ---------------------------------------------------------
+//   IT WAS A HAND-MAINTAINED LIST, AND IT HAD DRIFTED
+//  ---------------------------------------------------------
+//  Every section path was typed out here by hand. The library
+//  has fifty section types; this file listed thirty-nine. So
+//  eleven sections that exist, render, and can be added from
+//  the sidebar — product, image_section, scrolling_text,
+//  counter, image_comparison, collection_list, icon_box,
+//  promotion_banner, banner_packery, products_carousel,
+//  brand_logo — simply did not appear in the code browser at
+//  all. Nothing failed; they were invisible.
+//
+//  Worse, `getDefaultFileContent` returned a STUB for every
+//  section: `{type, name, schema: {fields: []}}`. Opening
+//  sections/faq.json showed an empty schema when the real FAQ
+//  has ten controls and a block type with four more. A code
+//  editor that shows made-up content is not a code editor.
+//
+//  Both are now DERIVED from the same registries the editor
+//  and the renderer use. A section added tomorrow appears here
+//  the moment its JSON lands, and what it shows is what it is.
+// ============================================================
+import manifest from "../../themes/default/manifest.json"
+import { SECTION_SCHEMAS, ADDABLE_SECTIONS, STRUCTURE_SECTIONS } from "./section-schemas"
+import { THEME_SETTINGS_GROUPS } from "./theme-settings-schema"
+import type { PageKey, ThemeFileNode } from "./types"
+
+/** The pages a theme has. Matches `PageKey`, which is what the editor stores. */
+export const THEME_PAGES: PageKey[] = ["home", "product", "about", "contact"]
+
+/**
+ * Every section type, in the manifest's own order.
+ *
+ * `section_order` is what the editor's Add panel respects, so the file browser
+ * shows them in the order somebody already knows. Anything the manifest has
+ * not ordered still appears — appended rather than dropped, because a section
+ * missing from a list is exactly the failure this file is fixing.
+ */
+export function orderedSectionTypes(): string[] {
+  const ordered: string[] = Array.isArray((manifest as { section_order?: string[] }).section_order)
+    ? (manifest as { section_order: string[] }).section_order
+    : []
+  const all = Object.keys(SECTION_SCHEMAS)
+  const known = ordered.filter((type) => all.includes(type))
+  const rest = all.filter((type) => !known.includes(type))
+  return [...known, ...rest]
+}
 
 export function buildThemeFileTree(customizedPaths: string[] = []): ThemeFileNode[] {
-  const isCustomized = (path: string) => customizedPaths.includes(path)
+  const customized = new Set(customizedPaths)
 
   const file = (path: string, lang?: string): ThemeFileNode => ({
     path,
     name: path.split("/").pop()!,
     type: "file",
-    isCustomized: isCustomized(path),
+    isCustomized: customized.has(path),
     language: lang ?? detectLanguage(path),
   })
 
@@ -28,62 +78,36 @@ export function buildThemeFileTree(customizedPaths: string[] = []): ThemeFileNod
       file("config/settings_schema.json", "json"),
       file("config/settings_data.json", "json"),
     ]),
-    folder("templates", [
-      file("templates/home.json", "json"),
-      file("templates/product.json", "json"),
-      file("templates/about.json", "json"),
-      file("templates/contact.json", "json"),
-    ]),
-    folder("sections", [
-      file("sections/header.json", "json"),
-      file("sections/footer.json", "json"),
-      file("sections/hero.json", "json"),
-      file("sections/video_hero.json", "json"),
-      file("sections/rich_text.json", "json"),
-      file("sections/split_content.json", "json"),
-      file("sections/image_banner.json", "json"),
-      file("sections/slideshow.json", "json"),
-      file("sections/product_list.json", "json"),
-      file("sections/feature_grid.json", "json"),
-      file("sections/testimonials.json", "json"),
-      file("sections/stats.json", "json"),
-      file("sections/faq.json", "json"),
-      file("sections/cta.json", "json"),
-      file("sections/logo_bar.json", "json"),
-      file("sections/gallery.json", "json"),
-      file("sections/pricing.json", "json"),
-      file("sections/team_members.json", "json"),
-      file("sections/countdown_timer.json", "json"),
-      file("sections/trust_badges.json", "json"),
-      file("sections/newsletter.json", "json"),
-      file("sections/contact_form.json", "json"),
-      file("sections/video_embed.json", "json"),
-      file("sections/timeline.json", "json"),
-      file("sections/tabs_content.json", "json"),
-      file("sections/process_steps.json", "json"),
-      file("sections/comparison_table.json", "json"),
-      file("sections/press_mentions.json", "json"),
-      file("sections/announcement_banner.json", "json"),
-      file("sections/custom_html.json", "json"),
-      file("sections/map_embed.json", "json"),
-      file("sections/sticky_bar.json", "json"),
-      file("sections/social_proof_bar.json", "json"),
-      file("sections/ebook_showcase.json", "json"),
-      file("sections/author_bio.json", "json"),
-      file("sections/chapter_preview.json", "json"),
-      file("sections/lookbook.json", "json"),
-      file("sections/size_guide.json", "json"),
-      file("sections/collection_banner.json", "json"),
+    folder(
+      "templates",
+      THEME_PAGES.map((page) => file(`templates/${page}.json`, "json")),
+    ),
+    folder(
+      "sections",
+      orderedSectionTypes().map((type) => file(`sections/${type}.json`, "json")),
+    ),
+    folder("snippets", [
+      file("snippets/button.json", "json"),
+      file("snippets/product-card.json", "json"),
     ]),
     folder("assets", [
       file("assets/styles.css", "css"),
       file("assets/theme.js", "javascript"),
     ]),
-    folder("snippets", [
-      file("snippets/button.json", "json"),
-      file("snippets/product-card.json", "json"),
-    ]),
   ]
+}
+
+/** Every path the tree contains, flattened. For search and for tests. */
+export function flattenTree(nodes: ThemeFileNode[]): string[] {
+  const out: string[] = []
+  const walk = (list: ThemeFileNode[]) => {
+    for (const node of list) {
+      if (node.type === "file") out.push(node.path)
+      if (node.children) walk(node.children)
+    }
+  }
+  walk(nodes)
+  return out
 }
 
 function detectLanguage(path: string): string {
@@ -100,92 +124,124 @@ function detectLanguage(path: string): string {
   return map[ext] ?? "plaintext"
 }
 
-// ── Default content for each file ────────────────────────────
+// ── What a file actually contains ────────────────────────────
+
+/**
+ * The REAL content, not a placeholder.
+ *
+ * This used to invent a stub for anything it did not have a hard-coded string
+ * for, which was every one of the fifty sections. Somebody opening a section
+ * to see how it works was shown an empty schema and could reasonably conclude
+ * their theme had nothing in it.
+ *
+ * Everything below reads the registry the editor and the renderer read, so a
+ * file shows what that file IS. The only invented content left is the two
+ * asset stubs, which have no source to read — they are genuinely empty until
+ * somebody writes them.
+ */
 export function getDefaultFileContent(path: string, themeName: string = "Storelib Default"): string {
-  const defaults: Record<string, () => string> = {
-    "theme.json": () => JSON.stringify({
-      name: themeName,
-      version: "1.0.0",
-      author: "Storelib",
-      description: "A Storelib theme",
-      engine: "storelib-1",
-      supports: {
-        pages: ["home", "product", "about", "contact"],
-        sections: [
-          "header", "footer",
-          "hero", "video_hero", "rich_text", "split_content", "image_banner", "slideshow",
-          "product_list", "feature_grid", "testimonials", "stats", "faq", "cta",
-          "logo_bar", "gallery", "pricing", "team_members", "countdown_timer",
-          "trust_badges", "newsletter", "contact_form", "video_embed", "timeline",
-          "tabs_content", "process_steps", "comparison_table", "press_mentions",
-          "announcement_banner", "custom_html", "map_embed", "sticky_bar",
-          "social_proof_bar", "ebook_showcase", "author_bio", "chapter_preview",
-          "lookbook", "size_guide", "collection_banner",
-        ],
+  if (path === "theme.json") {
+    return JSON.stringify(
+      {
+        name: themeName,
+        version: "1.0.0",
+        author: "Storelib",
+        description: "A Storelib theme",
+        engine: "storelib-1",
+        supports: {
+          pages: THEME_PAGES,
+          /** Derived. The hand-written list here was missing eleven types. */
+          sections: orderedSectionTypes(),
+        },
+        /**
+         * Which sections the Add panel offers, and which are structural and
+         * cannot be added or removed. Both come from the manifest, so this
+         * file describes the theme rather than describing an older theme.
+         */
+        addable_sections: ADDABLE_SECTIONS,
+        structure_sections: STRUCTURE_SECTIONS,
       },
-    }, null, 2),
-
-    "config/settings_schema.json": () => JSON.stringify([
-      { id: "colors", label: "Colors", settings: [
-        { id: "primary_color", type: "color", label: "Primary color", default: "#6366f1" },
-      ]},
-    ], null, 2),
-
-    "config/settings_data.json": () => JSON.stringify({
-      current: { primary_color: "#6366f1" },
-    }, null, 2),
-
-    "templates/home.json": () => JSON.stringify({
-      layout: "default",
-      sections: { order: ["header", "hero", "feature_grid", "product_list", "cta", "footer"] },
-    }, null, 2),
-
-    "templates/product.json": () => JSON.stringify({
-      layout: "default",
-      sections: { order: ["header", "footer"] },
-    }, null, 2),
-
-    "templates/about.json": () => JSON.stringify({
-      layout: "default",
-      sections: { order: ["header", "rich_text", "footer"] },
-    }, null, 2),
-
-    "templates/contact.json": () => JSON.stringify({
-      layout: "default",
-      sections: { order: ["header", "rich_text", "footer"] },
-    }, null, 2),
-
-    "assets/styles.css": () => `/* Theme custom styles */
-:root {
-  --theme-primary: #6366f1;
-  --theme-secondary: #8b5cf6;
-}
-
-.section-wrapper {
-  width: 100%;
-}
-`,
-    "assets/theme.js": () => `// Theme JavaScript (runs in store preview)
-// Keep this minimal — heavy logic should be in sections
-console.log('Storelib theme loaded');
-`,
+      null,
+      2,
+    )
   }
 
-  if (defaults[path]) return defaults[path]()
+  if (path === "config/settings_schema.json") {
+    // The real thing: twelve groups, seventy-two fields.
+    return JSON.stringify(THEME_SETTINGS_GROUPS, null, 2)
+  }
 
-  // Sections default to empty schema
+  if (path === "config/settings_data.json") {
+    /**
+     * The defaults every group declares, flattened the way the renderer reads
+     * them. A creator's own values live on the install and override these —
+     * this file is the floor, which is what `settings_data` means.
+     */
+    const current: Record<string, unknown> = {}
+    for (const group of THEME_SETTINGS_GROUPS) {
+      for (const field of group.fields ?? []) {
+        if (field.default !== undefined) current[field.id] = field.default
+      }
+    }
+    return JSON.stringify({ current }, null, 2)
+  }
+
+  if (path.startsWith("templates/") && path.endsWith(".json")) {
+    const page = path.replace("templates/", "").replace(".json", "")
+    /**
+     * WHAT A PAGE OF THIS KIND ACTUALLY STARTS WITH, taken from what the
+     * editor does rather than from a list that would have to be kept in step
+     * with it: it prepends a header, appends a footer, and on the product page
+     * seeds a product section between them.
+     *
+     * Written as a constant here and asserted against the editor in the suite,
+     * because the alternative — a `page_defaults` key in the manifest that
+     * nothing reads — is a second source of truth that would drift the same
+     * way the section list did.
+     */
+    const order =
+      page === "product" ? ["header", "product", "footer"] : ["header", "footer"]
+    return JSON.stringify({ layout: "default", sections: { order } }, null, 2)
+  }
+
   if (path.startsWith("sections/") && path.endsWith(".json")) {
-    const sectionType = path.replace("sections/", "").replace(".json", "")
-    return JSON.stringify({
-      type: sectionType,
-      name: sectionType.replace(/_/g, " "),
-      schema: { fields: [] },
-    }, null, 2)
+    const type = path.replace("sections/", "").replace(".json", "")
+    const schema = SECTION_SCHEMAS[type]
+    if (!schema) {
+      return JSON.stringify(
+        { error: `There is no section type "${type}" in this theme.` },
+        null,
+        2,
+      )
+    }
+    /**
+     * The section as it really is: its controls, the block types it takes and
+     * their controls, its cap, and the preset it arrives with. This is what
+     * somebody opening the file came to read.
+     */
+    return JSON.stringify(schema, null, 2)
   }
 
   if (path.startsWith("snippets/") && path.endsWith(".json")) {
     return JSON.stringify({ type: "snippet", fields: [] }, null, 2)
   }
 
-  return "// No default content"
+  if (path === "assets/styles.css") {
+    return `/* Theme custom styles.
+   Loaded after the theme's own CSS, so anything here wins. */
+:root {
+  --theme-primary: #6366f1;
+  --theme-secondary: #8b5cf6;
+}
+`
+  }
+
+  if (path === "assets/theme.js") {
+    return `// Theme JavaScript, run on the storefront.
+// Keep it small — layout and content belong in sections, where the
+// visual editor can still reach them.
+`
+  }
+
+  return "// This file has no default content yet."
 }
