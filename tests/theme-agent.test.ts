@@ -1055,6 +1055,113 @@ section("The panel does not drop what the run tells it")
   )
 }
 
+// ===========================================================================
+section("Autosave writes the draft, never the live site")
+// ===========================================================================
+
+{
+  const editor = readFileSync(
+    join(root, "app/website-builder/editor/[installId]/page.tsx"),
+    "utf8",
+  )
+
+  check(
+    "autosave calls saveDraft, not handleSave",
+    (() => {
+      /**
+       * THE TRAP THIS AVOIDS. `handleSave` PUBLISHES when the theme is live, so
+       * an autosave wired to it would push every keystroke to the public
+       * site — a half-written headline visible to customers, and no way to work
+       * on something without shipping it.
+       */
+      const at = editor.indexOf("AUTOSAVE_DELAY_MS)")
+      const effect = editor.slice(editor.lastIndexOf("useEffect(", at), at)
+      return /saveDraft\(\{ quiet: true \}\)/.test(effect) && !/handleSave/.test(effect)
+    })(),
+  )
+
+  check(
+    "it is debounced, not fired on every change",
+    /**
+     * A drag produces a change per frame. A request per frame is a request
+     * storm that arrives out of order, and the last one to land is not
+     * necessarily the last one sent.
+     */
+    /setTimeout\(/.test(editor) && /clearTimeout\(timer\)/.test(editor),
+  )
+
+  check(
+    "and it holds off while a save or a publish is already going",
+    /if \(!isDirty \|\| saving \|\| publishing \|\| loading\) return/.test(editor),
+  )
+
+  check(
+    "a failed autosave is not silent",
+    (() => {
+      /**
+       * Quiet on success, loud on failure. Silence on a failed write is how
+       * somebody keeps working for an hour against a server that stopped
+       * accepting them.
+       */
+      const at = editor.indexOf("const saveDraft = async")
+      const body = editor.slice(at, editor.indexOf("const publishChanges", at))
+      return (
+        /if \(!options\.quiet\) showNotification/.test(body) &&
+        /showNotification\(d\.error \?\? "Failed to save sections", "error"\)/.test(body)
+      )
+    })(),
+  )
+}
+
+{
+  const editor = readFileSync(
+    join(root, "app/website-builder/editor/[installId]/page.tsx"),
+    "utf8",
+  )
+
+  check(
+    "'saved' and 'published' are two different facts",
+    (() => {
+      /**
+       * One flag served both questions, and could — right up until autosave.
+       * With drafts written every second `isDirty` is false almost always, so
+       * a button reading it would say "Saved" on a published theme whose
+       * visitors were still seeing last week's page.
+       */
+      return (
+        /const \[unpublished, setUnpublished\] = useState\(false\)/.test(editor) &&
+        // cleared by publishing, and by nothing else
+        /setUnpublished\(false\)/.test(editor) &&
+        (editor.match(/setUnpublished\(false\)/g) ?? []).length === 1
+      )
+    })(),
+  )
+
+  check(
+    "and the live state survives a reload rather than resetting to comfortable",
+    /**
+     * Seeded from the server's own answer: `has_draft` is `draft_sections IS
+     * NOT NULL`, and publishing nulls it. Starting at false would tell somebody
+     * their site was up to date every time they opened the editor.
+     */
+    /if \(data\.has_draft\) setUnpublished\(true\)/.test(editor),
+  )
+
+  check(
+    "the button offers Publish on a live theme and Save on a draft one",
+    (() => {
+      const at = editor.indexOf("const live = install?.status === \"published\"")
+      const body = editor.slice(at, editor.indexOf("})()}", at))
+      return (
+        at > 0 &&
+        /const pending = live \? unpublished : isDirty/.test(body) &&
+        /live \? "Publish" : "Save"/.test(body) &&
+        /live \? "Published" : "Saved"/.test(body)
+      )
+    })(),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
