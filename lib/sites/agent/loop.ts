@@ -34,13 +34,25 @@ import {
 } from "./types"
 
 /**
- * The model gets this many round trips.
+ * The model gets this many round trips when no budget says otherwise.
  *
- * Twelve is enough for read-a-few-files, edit, build, fix, build. A model
- * still going at thirteen is looping, and every extra turn resends the whole
- * history — the cost of not stopping grows as it goes.
+ * This was twelve, on the reasoning that twelve is enough for
+ * read-a-few-files, edit, build, fix, build — and it is, for that. It is
+ * nowhere near enough for building a website, which is what a first prompt
+ * actually asks for, and a run that hit it stopped with "reached its limit of
+ * 12 steps" halfway through a site.
+ *
+ * THE TURN COUNT IS NOT THE BOUND ON COST, and treating it as one is what kept
+ * it low. A turn on a large project sends far more than a turn on a small one,
+ * so the honest ceiling is tokens — which is enforced separately and is what
+ * actually stops a runaway. The turn count only needs to be high enough that
+ * no real run reaches it and low enough that a model stuck in a loop is not
+ * left there indefinitely.
+ *
+ * The tiers in ./complexity are what actually shape a run; this is the
+ * fallback for a caller that has no budget, such as a test.
  */
-export const MAX_TURNS = 12
+export const MAX_TURNS = 30
 
 /**
  * Tokens for a run with no budget attached — a test, or a caller that predates
@@ -597,7 +609,7 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
  * a site looks like after somebody deletes everything — both are a build from
  * scratch, so both get the floor. A site with real pages does not.
  */
-function isEmptySite(document: SiteDocument | null): boolean {
+export function isEmptySite(document: SiteDocument | null): boolean {
   if (!document) return false
   const sections = document.pages.reduce((total, page) => total + page.sections.length, 0)
   return document.pages.length <= 1 && sections <= 2
