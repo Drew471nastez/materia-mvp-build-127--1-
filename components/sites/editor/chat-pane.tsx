@@ -16,7 +16,7 @@
  */
 
 import * as React from "react"
-import { ArrowUp, Check, FileCode, Hammer, ImagePlus, Loader2, RotateCcw, Sparkles, Square, TriangleAlert } from "lucide-react"
+import { ArrowUp, Check, ChevronRight, Circle, FileCode, Hammer, ImagePlus, Loader2, RotateCcw, Sparkles, Square, TriangleAlert } from "lucide-react"
 
 import { StorelibMark } from "@/components/storelib-mark"
 
@@ -40,10 +40,35 @@ interface Step {
   label: string
 }
 
+/**
+ * WHAT THE RUN IS DOING, in the creator's language.
+ *
+ * The chat used to render one line per tool call — "Read src/App.tsx",
+ * "Edited src/components/Hero.tsx" — which is the inside of the machine on
+ * somebody's screen. It is also the wrong grain: forty of those scroll past
+ * and none of them says whether the work is going well.
+ *
+ * A milestone is a thing the creator asked for. The spine comes from the run's
+ * own state, and the middle comes from the agent's plan, which is already
+ * written in their words because it is what the agent committed to doing.
+ */
+interface Milestone {
+  id: string
+  label: string
+  state: "queued" | "active" | "done"
+}
+
 interface Exchange {
   id: string
   prompt: string
+  /** The raw tool calls. Detail, behind a toggle — never the main thread. */
   steps: Step[]
+  /** Where the run is, from its own state events. */
+  phase?: "inspecting" | "planning" | "executing" | "verifying" | "repairing"
+  /** What the agent said it would do, and how far it has got. */
+  plan?: Array<{ title: string; done: boolean }>
+  /** Something broke and was repaired — worth showing, and only if it happened. */
+  repaired?: boolean
   reply?: string
   error?: string
   filesChanged: string[]
@@ -74,6 +99,67 @@ const SUGGESTIONS = [
  * were added faster than it was; tests/sites.test.ts now fails if a tool has
  * no label here, so it cannot happen quietly again.
  */
+/**
+ * The milestones for one run, from the events it actually sent.
+ *
+ * Derived rather than stored, because the run's state and its plan already say
+ * everything this needs and a second copy would be one more thing to keep
+ * true. A finished run that predates this — restored from the transcript —
+ * has no phase and no plan, and gets no milestones rather than invented ones.
+ */
+function milestonesFor(exchange: Exchange): Milestone[] {
+  const phase = exchange.phase
+  if (!phase && !exchange.plan?.length) return []
+
+  const order = ["inspecting", "planning", "executing", "verifying", "repairing"] as const
+  const reached = (what: (typeof order)[number]) =>
+    !!phase && order.indexOf(phase) >= order.indexOf(what)
+
+  const done = !exchange.running
+  const list: Milestone[] = []
+
+  list.push({
+    id: "understand",
+    label: "Understanding the project",
+    state: done || reached("planning") ? "done" : phase === "inspecting" ? "active" : "queued",
+  })
+
+  /**
+   * The agent's own steps, in its own words. This is the part that makes the
+   * list worth reading: "Rebuild the hero" rather than "write_file".
+   */
+  for (const [index, step] of (exchange.plan ?? []).entries()) {
+    list.push({
+      id: `plan-${index}`,
+      label: step.title,
+      state: step.done
+        ? "done"
+        : // The first open step is the one being worked on, once work started.
+          !done && reached("executing") && !(exchange.plan ?? []).slice(0, index).some((s) => !s.done)
+          ? "active"
+          : done
+            ? "queued"
+            : "queued",
+    })
+  }
+
+  if (exchange.repaired) {
+    list.push({
+      id: "repair",
+      label: "Fixing what broke",
+      state: done || phase !== "repairing" ? "done" : "active",
+    })
+  }
+
+  list.push({
+    id: "verify",
+    label: "Building and testing",
+    state: done ? (exchange.error ? "queued" : "done") : phase === "verifying" ? "active" : "queued",
+  })
+
+  return list
+}
+
 const TOOL_LABELS: Record<string, string> = {
   list_files: "Looked at the project",
   read_file: "Read",
@@ -92,6 +178,83 @@ const TOOL_LABELS: Record<string, string> = {
   // It belongs in the transcript for the same reason a build does: it is
   // something that happened to the run.
   compact_context: "Tidied the conversation",
+}
+
+/**
+ * A run, at two grains.
+ *
+ * The milestones are the thread: a handful of lines, each one a thing the
+ * creator asked for, with a state anybody can read at a glance. The tool calls
+ * are behind a toggle, closed by default — they are HOW the work was done and
+ * almost never what somebody wants to know. The chat used to show only those,
+ * one line per call, which is the inside of the machine on somebody's screen.
+ */
+function RunProgress({ exchange }: { exchange: Exchange }) {
+  const [showActivity, setShowActivity] = React.useState(false)
+  const milestones = milestonesFor(exchange)
+
+  if (milestones.length === 0 && exchange.steps.length === 0) return null
+
+  return (
+    <div className="space-y-2">
+      {milestones.length > 0 && (
+        <ul className="space-y-1.5">
+          {milestones.map((milestone) => (
+            <li key={milestone.id} className="flex items-center gap-2 text-xs">
+              {milestone.state === "done" ? (
+                <Check className="h-3 w-3 shrink-0 text-emerald-500" />
+              ) : milestone.state === "active" ? (
+                <Loader2 className="h-3 w-3 shrink-0 animate-spin text-foreground" />
+              ) : (
+                <Circle className="h-3 w-3 shrink-0 text-muted-foreground/35" />
+              )}
+              <span
+                className={cn(
+                  "truncate",
+                  milestone.state === "active"
+                    ? "text-foreground"
+                    : milestone.state === "done"
+                      ? "text-muted-foreground"
+                      : "text-muted-foreground/50",
+                )}
+              >
+                {milestone.label}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {exchange.steps.length > 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowActivity((open) => !open)}
+            className="flex items-center gap-1 text-[11px] text-muted-foreground/70 transition-colors hover:text-foreground"
+            aria-expanded={showActivity}
+          >
+            <ChevronRight className={cn("h-3 w-3 transition-transform", showActivity && "rotate-90")} />
+            Activity ({exchange.steps.length})
+          </button>
+
+          {showActivity && (
+            <ul className="mt-1.5 space-y-1 border-l border-border pl-3">
+              {exchange.steps.map((step) => (
+                <li key={step.id} className="flex items-center gap-2 text-[11px] text-muted-foreground/80">
+                  {step.label.startsWith("Built") ? (
+                    <Hammer className="h-3 w-3 shrink-0" />
+                  ) : (
+                    <FileCode className="h-3 w-3 shrink-0" />
+                  )}
+                  <span className="truncate">{step.label}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function ChatPane({
@@ -380,6 +543,12 @@ export function ChatPane({
                 ...e,
                 steps: [...e.steps, { id: crypto.randomUUID(), kind: "tool" as const, label }],
               }))
+            } else if (event.type === "state") {
+              const phase = event.state
+              patch((e) => ({ ...e, phase, repaired: e.repaired || phase === "repairing" }))
+            } else if (event.type === "plan") {
+              const steps = event.steps
+              patch((e) => ({ ...e, plan: steps }))
             } else if (event.type === "files") {
               const paths = event.paths
               patch((e) => ({ ...e, filesChanged: paths }))
@@ -663,20 +832,7 @@ export function ChatPane({
               <li key={exchange.id} className="space-y-2.5">
                 <p className="text-sm text-foreground">{exchange.prompt}</p>
 
-                {exchange.steps.length > 0 && (
-                  <ul className="space-y-1">
-                    {exchange.steps.map((step) => (
-                      <li key={step.id} className="flex items-center gap-2 text-xs text-muted-foreground">
-                        {step.label.startsWith("Built") ? (
-                          <Hammer className="h-3 w-3 shrink-0" />
-                        ) : (
-                          <FileCode className="h-3 w-3 shrink-0" />
-                        )}
-                        <span className="truncate">{step.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <RunProgress exchange={exchange} />
 
                 {exchange.running && (
                   /**

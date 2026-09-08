@@ -5485,6 +5485,91 @@ check(
   })(),
 )
 
+// ===========================================================================
+section("The chat shows what was asked for, not what the machine did")
+// ===========================================================================
+
+/**
+ * The run streamed `plan` and `state` events for weeks and nothing rendered
+ * them. What the chat showed instead was one line per tool call — "Read
+ * src/App.tsx", "Edited src/components/Hero.tsx" — which is the inside of the
+ * machine on somebody's screen, and the wrong grain besides: forty of those
+ * scroll past and none says whether the work is going well.
+ */
+
+check(
+  "the milestones come from the run's own plan and state",
+  (() => {
+    const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+    return (
+      /event\.type === "state"/.test(pane) &&
+      /event\.type === "plan"/.test(pane) &&
+      /function milestonesFor\(exchange: Exchange\): Milestone\[\]/.test(pane)
+    )
+  })(),
+)
+
+check(
+  "each state is one of queued, active or done",
+  (() => {
+    const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+    return /state: "queued" \| "active" \| "done"/.test(pane)
+  })(),
+)
+
+check(
+  "the agent's own words are the middle of the list",
+  (() => {
+    const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+    const at = pane.indexOf("function milestonesFor")
+    const body = pane.slice(at, pane.indexOf("function RunProgress", at))
+    /**
+     * A plan step is already in the creator's language — it is what the agent
+     * committed to doing, in the words it used. "Rebuild the hero" is worth a
+     * line; "write_file" is not.
+     */
+    return /exchange\.plan \?\? \[\]/.test(body) && /label: step\.title/.test(body)
+  })(),
+)
+
+check(
+  "the tool calls are behind a toggle and closed by default",
+  (() => {
+    const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+    /**
+     * Scoped to the DECLARATION, not to a slice of the file. The first version
+     * sliced from RunProgress to the end, which swept in the whole ChatPane
+     * component — and it has other useState(false) calls, so the assertion
+     * passed with the panel defaulting to open.
+     */
+    const at = pane.indexOf("function RunProgress")
+    const body = pane.slice(at)
+    return (
+      /const \[showActivity, setShowActivity\] = React\.useState\(false\)/.test(body) &&
+      /Activity \(\{exchange\.steps\.length\}\)/.test(body) &&
+      /showActivity && \(/.test(body) &&
+      // and the main thread renders milestones, not filenames
+      /milestones\.map\(\(milestone\)/.test(body)
+    )
+  })(),
+)
+
+check(
+  "a run with nothing to say renders nothing at all",
+  (() => {
+    const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+    /**
+     * An exchange restored from the transcript has no phase and no plan — the
+     * events were never stored. It gets its reply and its activity, and no
+     * invented milestones.
+     */
+    return (
+      /if \(!phase && !exchange\.plan\?\.length\) return \[\]/.test(pane) &&
+      /if \(milestones\.length === 0 && exchange\.steps\.length === 0\) return null/.test(pane)
+    )
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")
