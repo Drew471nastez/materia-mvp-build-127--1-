@@ -28,6 +28,7 @@ import "server-only"
 
 import { filePathError, MAX_FILES_PER_PROJECT, MAX_FILE_BYTES } from "../file-path"
 import { completeStep, emptyPlan, setSteps, type RunPlan } from "./plan"
+import { type AgentQuestion, askedNote, parseQuestions } from "./questions"
 import { bundleProject, formatBuildErrors } from "../bundle"
 import { scanForSecrets } from "../preflight"
 import {
@@ -280,6 +281,48 @@ export const TOOL_SPECS: ToolSpec[] = [
     description: "Re-read the problems from the last run_build without rebuilding.",
     parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
+  {
+    name: "ask_creator",
+    description:
+      "Ask the creator up to four short questions about their business — its name, where it is, what it charges, when it is open, who it is for. Use this when the request is too thin to build something specific from ('a site for my barber shop' says almost nothing). YOU WILL NOT GET AN ANSWER DURING THIS RUN, and you must not wait for one: ask, then carry on and build the whole site using the best defaults you can justify. The answers come back later as a new message. Ask ONCE per run, early, and only about things you genuinely cannot infer.",
+    parameters: {
+      type: "object",
+      properties: {
+        questions: {
+          type: "array",
+          description: "One to four questions. Ask about the business, never about code.",
+          items: {
+            type: "object",
+            properties: {
+              question: {
+                type: "string",
+                description: 'One sentence, in plain language. "What is the shop called?"',
+              },
+              why: {
+                type: "string",
+                description:
+                  'Optional, very short: what it changes. "It goes in the header and the footer."',
+              },
+              suggestions: {
+                type: "array",
+                items: { type: "string" },
+                description:
+                  "Up to five tappable answers — a few words each. They are a shortcut, not a closed list; the creator can always type their own.",
+              },
+              placeholder: {
+                type: "string",
+                description: "Optional hint for the text box, a few words.",
+              },
+            },
+            required: ["question", "why", "suggestions", "placeholder"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["questions"],
+      additionalProperties: false,
+    },
+  },
 ]
 
 /**
@@ -391,6 +434,16 @@ export class ProjectWorkspace {
    * for.
    */
   document: SiteDocument | null = null
+
+  /**
+   * What the agent asked the creator this run, if anything.
+   *
+   * Held on the workspace rather than yielded straight out of the executor
+   * because the loop is what turns tool results into events, and one place
+   * deciding what reaches the client is what keeps the transcript and the
+   * stream saying the same thing.
+   */
+  questions: AgentQuestion[] = []
 
   /** Whether the document changed, so the caller knows to persist it. */
   documentChanged = false
@@ -555,6 +608,25 @@ export class ProjectWorkspace {
         return `Edited ${path} (${oldText.split("\n").length} line${
           oldText.split("\n").length === 1 ? "" : "s"
         } replaced).`
+      }
+
+      case "ask_creator": {
+        /**
+         * ONCE PER RUN. A model that asks, builds a little, and asks again
+         * turns the chat into an interrogation — and the second batch arrives
+         * after the creator has already started answering the first.
+         */
+        if (this.questions.length > 0) {
+          return "You have already asked this run. Keep building with the defaults you chose; the answers arrive as a separate message."
+        }
+
+        const questions = parseQuestions(args)
+        if (questions.length === 0) {
+          return "No usable questions — each one needs a `question` string. Ask about the business (its name, where it is, its prices, its hours), not about code."
+        }
+
+        this.questions = questions
+        return askedNote(questions)
       }
 
       case "set_plan": {

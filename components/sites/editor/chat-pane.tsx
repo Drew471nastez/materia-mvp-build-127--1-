@@ -16,12 +16,27 @@
  */
 
 import * as React from "react"
-import { ArrowUp, Check, ChevronRight, Circle, FileCode, Hammer, ImagePlus, Loader2, RotateCcw, Sparkles, Square, TriangleAlert } from "lucide-react"
+import {
+  ArrowUp,
+  Check,
+  ChevronRight,
+  Circle,
+  FileCode,
+  Hammer,
+  ImagePlus,
+  ListPlus,
+  Loader2,
+  RotateCcw,
+  Sparkles,
+  Square,
+  TriangleAlert,
+} from "lucide-react"
 
 import { StorelibMark } from "@/components/storelib-mark"
 
 import { cn } from "@/lib/utils"
 import type { AgentEvent } from "@/lib/sites/agent/types"
+import { answersPrompt, type AgentQuestion } from "@/lib/sites/agent/questions"
 
 /** Mirrors lib/sites/chat.ts — the wire shape of a stored message. */
 interface StoredMessage {
@@ -29,6 +44,7 @@ interface StoredMessage {
   role: "user" | "assistant"
   content: string
   steps: Array<{ name: string; detail: string }>
+  questions: AgentQuestion[]
   filesChanged: string[]
   versionId: string | null
   error: string | null
@@ -58,13 +74,27 @@ interface Milestone {
   state: "queued" | "active" | "done"
 }
 
-interface Exchange {
+export interface Exchange {
   id: string
   prompt: string
   /** The raw tool calls. Detail, behind a toggle — never the main thread. */
   steps: Step[]
   /** Where the run is, from its own state events. */
   phase?: "inspecting" | "planning" | "executing" | "verifying" | "repairing"
+  /**
+   * The agent's prose as it works — "I'll transform this into a digital
+   * products store. First, let me check the current catalogue."
+   *
+   * These arrive as `thinking` events and used to be dropped on the floor,
+   * which is why the card had a state and a checklist and nothing that read
+   * like somebody talking. Only the latest is shown: this is a running
+   * commentary, not a transcript, and stacking it turns the card into a wall.
+   */
+  notes: string[]
+  /** What the agent asked, if it asked anything. Rendered as something to tap. */
+  questions?: AgentQuestion[]
+  /** Answers already sent, so the cards collapse instead of asking twice. */
+  answered?: boolean
   /** What the agent said it would do, and how far it has got. */
   plan?: Array<{ title: string; done: boolean }>
   /** Something broke and was repaired — worth showing, and only if it happened. */
@@ -174,6 +204,7 @@ const TOOL_LABELS: Record<string, string> = {
   replace_in_file: "Edited",
   set_plan: "Made a plan",
   complete_step: "Finished",
+  ask_creator: "Asked you something",
   // Not a tool the model calls — the harness compacting its own conversation.
   // It belongs in the transcript for the same reason a build does: it is
   // something that happened to the run.
@@ -181,78 +212,317 @@ const TOOL_LABELS: Record<string, string> = {
 }
 
 /**
- * A run, at two grains.
+ * The dot grid on the card's header.
  *
- * The milestones are the thread: a handful of lines, each one a thing the
- * creator asked for, with a state anybody can read at a glance. The tool calls
- * are behind a toggle, closed by default — they are HOW the work was done and
- * almost never what somebody wants to know. The chat used to show only those,
- * one line per call, which is the inside of the machine on somebody's screen.
+ * Drawn rather than imported: the mark is eight dots with the middle missing,
+ * and no icon in the set is that. A near-miss icon would be the one thing on
+ * the card that does not look deliberate.
  */
-function RunProgress({ exchange }: { exchange: Exchange }) {
+function DotGrid({ className }: { className?: string }) {
+  const dots = [0, 1, 2].flatMap((row) => [0, 1, 2].map((col) => [row, col] as const))
+  return (
+    <svg viewBox="0 0 12 12" className={className} aria-hidden="true">
+      {dots.map(([row, col]) =>
+        row === 1 && col === 1 ? null : (
+          <circle key={`${row}-${col}`} cx={2 + col * 4} cy={2 + row * 4} r="1.1" fill="currentColor" />
+        ),
+      )}
+    </svg>
+  )
+}
+
+/**
+ * A run, on a card.
+ *
+ * ---------------------------------------------------------------------------
+ *  WHY A CARD AND NOT A LIST
+ * ---------------------------------------------------------------------------
+ * The run used to render as loose lines in the message flow: a checklist, a
+ * spinner, a toggle. Everything was there and none of it was contained, so a
+ * long run pushed the conversation off the screen and there was no single
+ * thing to look at that said "this is happening now".
+ *
+ * One card, with a header that names its state and a body that can be shut.
+ * The header stays when the body is closed, which is the property that makes
+ * it collapsible in a useful way — a finished run becomes one line rather than
+ * disappearing.
+ *
+ * THREE GRAINS, and the order is deliberate:
+ *   1. the milestones — things the creator asked for, in their words
+ *   2. the agent's own prose — the running commentary, latest line only
+ *   3. the tool calls — behind a toggle, closed, because they are the inside
+ *      of the machine and almost never what somebody wants to know
+ *
+ * The body opens and closes with a grid-template-rows transition rather than a
+ * height one. Height cannot animate to `auto`, so the usual workarounds are a
+ * measured pixel value that goes stale the moment the content changes — and
+ * this content changes every few seconds while a run is going.
+ */
+export function RunProgress({ exchange }: { exchange: Exchange }) {
+  const [open, setOpen] = React.useState(true)
   const [showActivity, setShowActivity] = React.useState(false)
   const milestones = milestonesFor(exchange)
 
-  if (milestones.length === 0 && exchange.steps.length === 0) return null
+  /** The latest line of commentary. A transcript of these would be a wall. */
+  const note = exchange.notes.length > 0 ? exchange.notes[exchange.notes.length - 1] : null
+
+  if (milestones.length === 0 && exchange.steps.length === 0 && !note) return null
+
+  const title = exchange.running
+    ? exchange.reconnecting
+      ? "Still working"
+      : "Working"
+    : exchange.error
+      ? "Stopped"
+      : "Done"
 
   return (
-    <div className="space-y-2">
-      {milestones.length > 0 && (
-        <ul className="space-y-1.5">
-          {milestones.map((milestone) => (
-            <li key={milestone.id} className="flex items-center gap-2 text-xs">
-              {milestone.state === "done" ? (
-                <Check className="h-3 w-3 shrink-0 text-emerald-500" />
-              ) : milestone.state === "active" ? (
-                <Loader2 className="h-3 w-3 shrink-0 animate-spin text-foreground" />
-              ) : (
-                <Circle className="h-3 w-3 shrink-0 text-muted-foreground/35" />
-              )}
-              <span
-                className={cn(
-                  "truncate",
-                  milestone.state === "active"
-                    ? "text-foreground"
-                    : milestone.state === "done"
-                      ? "text-muted-foreground"
-                      : "text-muted-foreground/50",
-                )}
-              >
-                {milestone.label}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {exchange.steps.length > 0 && (
-        <div>
-          <button
-            type="button"
-            onClick={() => setShowActivity((open) => !open)}
-            className="flex items-center gap-1 text-[11px] text-muted-foreground/70 transition-colors hover:text-foreground"
-            aria-expanded={showActivity}
-          >
-            <ChevronRight className={cn("h-3 w-3 transition-transform", showActivity && "rotate-90")} />
-            Activity ({exchange.steps.length})
-          </button>
-
-          {showActivity && (
-            <ul className="mt-1.5 space-y-1 border-l border-border pl-3">
-              {exchange.steps.map((step) => (
-                <li key={step.id} className="flex items-center gap-2 text-[11px] text-muted-foreground/80">
-                  {step.label.startsWith("Built") ? (
-                    <Hammer className="h-3 w-3 shrink-0" />
-                  ) : (
-                    <FileCode className="h-3 w-3 shrink-0" />
-                  )}
-                  <span className="truncate">{step.label}</span>
-                </li>
-              ))}
-            </ul>
+    <div className="overflow-hidden rounded-[14px] border border-border bg-card/60">
+      <button
+        type="button"
+        onClick={() => setOpen((was) => !was)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-foreground/[0.03]"
+      >
+        <DotGrid
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-muted-foreground",
+            // The mark itself pulses while there is something to wait for, so
+            // the card reads as live without a second spinner competing with
+            // the one already on the active milestone.
+            exchange.running && "animate-pulse text-foreground",
           )}
+        />
+        <span className="flex-1 text-sm font-medium">{title}</span>
+        <ChevronRight
+          className={cn(
+            "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+            open ? "-rotate-90" : "rotate-90",
+          )}
+        />
+      </button>
+
+      <div
+        className={cn(
+          "grid transition-all duration-300 ease-out",
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+        )}
+      >
+        <div className="overflow-hidden">
+          <div className="space-y-3 border-t border-border/60 px-3 py-3">
+            {(exchange.plan?.length ?? 0) > 0 && (
+              /**
+               * The moment the agent committed to something, called out above
+               * the steps themselves. It is the first thing that makes the
+               * card feel like a run rather than a spinner: there is now a
+               * list, and it was written before the work started.
+               */
+              <p className="flex items-center gap-2.5 text-[13px] text-foreground">
+                <ListPlus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                Created plan
+              </p>
+            )}
+
+            {milestones.length > 0 && (
+              <ul className="space-y-2">
+                {milestones.map((milestone) => (
+                  <li key={milestone.id} className="flex items-center gap-2.5 text-[13px]">
+                    {milestone.state === "done" ? (
+                      <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    ) : milestone.state === "active" ? (
+                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-foreground" />
+                    ) : (
+                      <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/35" />
+                    )}
+                    <span
+                      className={cn(
+                        "truncate",
+                        milestone.state === "active"
+                          ? "text-foreground"
+                          : milestone.state === "done"
+                            ? "text-muted-foreground"
+                            : "text-muted-foreground/50",
+                      )}
+                    >
+                      {milestone.label}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {note && (
+              /**
+               * Keyed by the text so React replaces the node when the line
+               * changes — a fade that never re-runs is a fade nobody sees.
+               */
+              <p
+                key={note}
+                className="animate-in fade-in slide-in-from-bottom-1 text-[13px] leading-relaxed text-muted-foreground duration-300"
+              >
+                {note}
+              </p>
+            )}
+
+            {exchange.running && (
+              <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5 shrink-0 animate-pulse" />
+                {exchange.reconnecting ? "Still working — you can close this and come back." : "Working"}
+              </p>
+            )}
+
+            {exchange.steps.length > 0 && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowActivity((was) => !was)}
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground/70 transition-colors hover:text-foreground"
+                  aria-expanded={showActivity}
+                >
+                  <ChevronRight
+                    className={cn("h-3 w-3 transition-transform duration-200", showActivity && "rotate-90")}
+                  />
+                  Activity ({exchange.steps.length})
+                </button>
+
+                <div
+                  className={cn(
+                    "grid transition-all duration-300 ease-out",
+                    showActivity ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+                  )}
+                >
+                  <div className="overflow-hidden">
+                    <ul className="mt-1.5 space-y-1 border-l border-border pl-3">
+                      {exchange.steps.map((step) => (
+                        <li
+                          key={step.id}
+                          className="flex items-center gap-2 text-[11px] text-muted-foreground/80"
+                        >
+                          {step.label.startsWith("Built") ? (
+                            <Hammer className="h-3 w-3 shrink-0" />
+                          ) : (
+                            <FileCode className="h-3 w-3 shrink-0" />
+                          )}
+                          <span className="truncate">{step.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * WHAT THE AGENT WANTED TO KNOW, as something to tap.
+ *
+ * "A site for my barber shop" names a trade and nothing else, so the agent
+ * asks — and carries on building while it waits, which is why these cards sit
+ * beside a finished site rather than in front of an empty one. See
+ * lib/sites/agent/questions.ts for why asking must not mean waiting.
+ *
+ * Every question can be skipped. A required field here would turn a helpful
+ * question into a toll gate on somebody who just wants to look at their site.
+ */
+export function QuestionCards({
+  questions,
+  disabled,
+  onSend,
+}: {
+  questions: AgentQuestion[]
+  disabled: boolean
+  onSend: (answers: Array<{ question: string; answer: string }>) => void
+}) {
+  const [answers, setAnswers] = React.useState<Record<string, string>>({})
+  const filled = questions.filter((q) => (answers[q.id] ?? "").trim().length > 0).length
+
+  return (
+    <div className="space-y-2.5">
+      <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+        <Sparkles className="h-3.5 w-3.5 shrink-0" />
+        A few things that would make this yours
+      </p>
+
+      {questions.map((question) => (
+        <div
+          key={question.id}
+          className="animate-in fade-in slide-in-from-bottom-1 space-y-2 rounded-[12px] border border-border bg-card/60 px-3 py-2.5 duration-300"
+        >
+          <div>
+            <p className="text-[13px] text-foreground">{question.question}</p>
+            {question.why && (
+              <p className="mt-0.5 text-[11px] text-muted-foreground/70">{question.why}</p>
+            )}
+          </div>
+
+          {question.suggestions.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {question.suggestions.map((suggestion) => {
+                const chosen = (answers[question.id] ?? "") === suggestion
+                return (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() =>
+                      setAnswers((previous) => ({
+                        ...previous,
+                        // Tapping the chosen chip again clears it, so a
+                        // mis-tap is one tap to undo rather than a selection
+                        // there is no way out of.
+                        [question.id]: chosen ? "" : suggestion,
+                      }))
+                    }
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-[11px] transition-colors",
+                      chosen
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                    )}
+                  >
+                    {suggestion}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          <input
+            value={answers[question.id] ?? ""}
+            disabled={disabled}
+            onChange={(event) =>
+              setAnswers((previous) => ({ ...previous, [question.id]: event.target.value }))
+            }
+            placeholder={question.placeholder ?? "Or type your own"}
+            className="w-full rounded-[9px] border border-border bg-background/40 px-2.5 py-1.5 text-[13px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/30"
+          />
+        </div>
+      ))}
+
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          disabled={disabled || filled === 0}
+          onClick={() =>
+            onSend(
+              questions.map((q) => ({ question: q.question, answer: answers[q.id] ?? "" })),
+            )
+          }
+          className="shrink-0 whitespace-nowrap rounded-full bg-foreground px-3 py-1.5 text-[12px] font-medium text-background transition-opacity disabled:opacity-40"
+        >
+          {filled === 0
+            ? "Answer to continue"
+            : `Send ${filled} answer${filled === 1 ? "" : "s"}`}
+        </button>
+        <span className="text-[11px] text-muted-foreground/70">
+          Or ignore these — the site is already built.
+        </span>
+      </div>
     </div>
   )
 }
@@ -428,6 +698,7 @@ export function ChatPane({
               id: message.id,
               prompt: message.content,
               steps: [],
+              notes: [],
               filesChanged: [],
               running: false,
             })
@@ -441,6 +712,14 @@ export function ChatPane({
             label: `${TOOL_LABELS[s.name] ?? s.name}${s.detail ? ` ${s.detail}` : ""}`,
           }))
           open.reply = message.content || undefined
+          /**
+           * Restored with the message, so a creator who reloaded before
+           * answering still sees what was asked. Marked answered, because the
+           * run they belong to is over — re-offering the form would send the
+           * same answers into a conversation that already moved on.
+           */
+          open.questions = message.questions?.length ? message.questions : undefined
+          open.answered = true
           open.filesChanged = message.filesChanged
           open.versionId = message.versionId ?? undefined
           open.error = message.error ?? undefined
@@ -481,7 +760,7 @@ export function ChatPane({
       setBusy(true)
       setExchanges((previous) => [
         ...previous,
-        { id, prompt, steps: [], filesChanged: [], running: true },
+        { id, prompt, steps: [], notes: [], filesChanged: [], running: true },
       ])
 
       const patch = (change: (exchange: Exchange) => Exchange) =>
@@ -543,6 +822,17 @@ export function ChatPane({
                 ...e,
                 steps: [...e.steps, { id: crypto.randomUUID(), kind: "tool" as const, label }],
               }))
+            } else if (event.type === "thinking") {
+              /**
+               * The commentary the card shows. Kept as a list rather than a
+               * single value so a run's own words survive in order if this
+               * ever wants to show more than the latest.
+               */
+              const text = event.text
+              patch((e) => ({ ...e, notes: [...e.notes, text] }))
+            } else if (event.type === "questions") {
+              const questions = event.questions
+              patch((e) => ({ ...e, questions }))
             } else if (event.type === "state") {
               const phase = event.state
               patch((e) => ({ ...e, phase, repaired: e.repaired || phase === "repairing" }))
@@ -668,6 +958,7 @@ export function ChatPane({
                     id: `active-${siteId}`,
                     prompt: body.prompt ?? "",
                     steps: [],
+                    notes: [],
                     filesChanged: [],
                     running: true,
                     reconnecting: true,
@@ -851,6 +1142,27 @@ export function ChatPane({
                 )}
 
                 {exchange.reply && <p className="text-sm leading-relaxed text-muted-foreground">{exchange.reply}</p>}
+
+                {exchange.questions && exchange.questions.length > 0 && !exchange.answered && (
+                  <QuestionCards
+                    questions={exchange.questions}
+                    disabled={busy}
+                    onSend={(answers) => {
+                      const prompt = answersPrompt(answers)
+                      if (!prompt) return
+                      /**
+                       * Marked answered BEFORE the send, so the cards go on
+                       * the tap rather than when the next run starts. A form
+                       * that stays live while its answers are in flight is one
+                       * somebody submits twice.
+                       */
+                      setExchanges((previous) =>
+                        previous.map((e) => (e.id === exchange.id ? { ...e, answered: true } : e)),
+                      )
+                      void send(prompt)
+                    }}
+                  />
+                )}
 
                 {exchange.filesChanged.length > 0 && (
                   <div className="flex items-center gap-3">

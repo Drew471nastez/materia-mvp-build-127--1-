@@ -106,6 +106,7 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
       runId: null,
       reply: "",
       steps: [],
+      questions: [],
       filesChanged: [],
       versionId: null,
       error: message,
@@ -383,6 +384,12 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
       runId,
       reply: result.message || (status === "failed" ? "" : "Done."),
       steps,
+      /**
+       * From the workspace, not from the events: the stream and the transcript
+       * must not be able to disagree about what was asked. A creator who
+       * reloads has to see the same four questions they saw live.
+       */
+      questions: workspace.questions,
       filesChanged: changedFiles,
       versionId,
       error: status === "failed" ? error : null,

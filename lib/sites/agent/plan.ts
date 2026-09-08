@@ -87,6 +87,46 @@ export function openSteps(plan: RunPlan): PlanStep[] {
   return plan.steps.filter((s) => !s.done)
 }
 
+/**
+ * ===========================================================================
+ *  WHAT A FIRST GENERATION HAS TO REACH
+ * ===========================================================================
+ * The complaint was that every build came out as one long landing page. Part
+ * of that was vocabulary — six marketing sections and no way to express a
+ * price list — and that is fixed in the section library. The other part is
+ * that nothing ever said a single page was not an answer.
+ *
+ * A prompt cannot say it. "Build several pages" is agreeable and unenforced:
+ * a model writes one good page, feels finished, and stops. The plan gate
+ * already catches "you said you would do six things and did two" — this is the
+ * same idea applied to the shape of the site itself.
+ *
+ * ONLY ON A FIRST GENERATION. Asking for a colour change on an existing
+ * one-page site must not be refused because the site has one page; the floor
+ * is about what a build produces from nothing, not a rule the site must obey
+ * forever after.
+ */
+export interface SiteScope {
+  /** The site was empty when this run started, so this run is building it. */
+  firstGeneration: boolean
+  pages: number
+  sections: number
+}
+
+/**
+ * Four pages, because that is the smallest set that is genuinely a site rather
+ * than a page with anchors: something to land on, what you do, who you are,
+ * how to reach you.
+ */
+export const MIN_PAGES = 4
+
+/**
+ * Fourteen sections across those pages. Four pages carrying a nav, a footer
+ * and one thing each is technically four pages and still nothing to read — the
+ * section count is what stops the floor being met by splitting one page up.
+ */
+export const MIN_SECTIONS = 14
+
 export interface CompletionState {
   plan: RunPlan
   /** Whether a plan was required for this request at all. */
@@ -107,6 +147,12 @@ export interface CompletionState {
   isQuestion: boolean
   /** How many times finishing has already been refused. */
   refusals: number
+  /**
+   * The shape of the site as it now stands. Absent for a project this cannot
+   * be counted for — a code project with no document — where the floor is
+   * simply not applied rather than guessed at.
+   */
+  scope?: SiteScope
 }
 
 /**
@@ -172,6 +218,33 @@ export function refuseToFinish(state: CompletionState): string | null {
    */
   if (!state.changedAnything && !state.isQuestion) {
     return `You have not changed anything. If the request genuinely needs no change, say that plainly in your reply — otherwise make the change that was asked for.`
+  }
+
+  /**
+   * A FIRST GENERATION THAT IS STILL ONE PAGE IS NOT FINISHED.
+   *
+   * Checked before the build checks on purpose: telling the model to add three
+   * pages after it has just built means building twice.
+   *
+   * The refusal cap still applies, so a creator who genuinely wants a single
+   * page gets one — the model is nudged twice, says so in its reply, and the
+   * run completes. That is the right balance for a floor that exists because
+   * the usual failure is stopping too early, not because one page is forbidden.
+   */
+  if (state.scope?.firstGeneration) {
+    const { pages, sections } = state.scope
+    if (pages < MIN_PAGES || sections < MIN_SECTIONS) {
+      return [
+        `This is a NEW site and it currently has ${pages} page${pages === 1 ? "" : "s"} and ${sections} section${sections === 1 ? "" : "s"}. That is not a finished website.`,
+        `Build it out to at least ${MIN_PAGES} pages and ${MIN_SECTIONS} sections. A real small-business site is roughly:`,
+        `  /          hero, what you offer, proof, a call to action`,
+        `  /services  the full list with prices, how it works, common questions`,
+        `  /about     the story, the people, photographs`,
+        `  /contact   a form, the address, opening hours`,
+        `Use create_page for each one, add_section to fill them, and put the same navigation and footer on every page so they link to each other. Every page must be reachable from the nav.`,
+        `If the creator explicitly asked for a single page and nothing more, say so plainly in your reply — otherwise keep building.`,
+      ].join("\n")
+    }
   }
 
   /**

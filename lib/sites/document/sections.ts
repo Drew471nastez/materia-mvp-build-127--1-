@@ -19,6 +19,7 @@
  */
 
 import type { SectionSpec } from "./schema"
+import { CONTENT_SECTIONS } from "./sections-content"
 
 const NAV: SectionSpec = {
   type: "navbar",
@@ -409,8 +410,19 @@ export default function Footer({
 }
 
 /** Every native section, by type. A closed set the agent chooses from. */
+/**
+ * The six above are the frame of a page: a bar, an opening, a body, proof, an
+ * ask, a footer. The ones in ./sections-content are what a page is ABOUT —
+ * prices, hours, a gallery, a way to get in touch.
+ *
+ * The split matters because the first list alone was the reason every
+ * generation came out as a single landing page. A model can only build what it
+ * has words for, and with six marketing sections there was nowhere to put a
+ * second page's content. "Build several pages" is not a prompting problem when
+ * the vocabulary has no way to express a price list.
+ */
 export const SECTIONS: Record<string, SectionSpec> = Object.fromEntries(
-  [NAV, HERO, FEATURES, TESTIMONIALS, CTA, FOOTER].map((spec) => [spec.type, spec]),
+  [NAV, HERO, FEATURES, TESTIMONIALS, CTA, FOOTER, ...CONTENT_SECTIONS].map((spec) => [spec.type, spec]),
 )
 
 export function sectionSpec(type: string): SectionSpec | null {

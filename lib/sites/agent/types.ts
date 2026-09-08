@@ -12,6 +12,8 @@
  * change under it.
  */
 
+import type { AgentQuestion } from "./questions"
+
 /** What the agent may do. A closed list — the bound is here, not in a prompt. */
 export type AgentToolName =
   | "list_files"
@@ -27,6 +29,12 @@ export type AgentToolName =
   | "replace_in_file"
   | "set_plan"
   | "complete_step"
+  /**
+   * Asking the creator something. In the same closed list as the rest
+   * because it is a thing the agent DOES, and the bound on what it can do is
+   * this union.
+   */
+  | "ask_creator"
   /**
    * The structured edits, on a site that has a canonical layout. They are in
    * the same closed list as the file tools on purpose: "the AI can edit your
@@ -178,4 +186,12 @@ export type AgentEvent =
    * that missed one delta would show a checklist that never matches the run.
    */
   | { type: "plan"; steps: Array<{ title: string; done: boolean }> }
+  /**
+   * WHAT THE AGENT WANTS TO KNOW, while it carries on without the answer.
+   *
+   * Not a request the run waits on — see ./questions for why waiting is the
+   * wrong design. The chat renders these as something to tap; the answers come
+   * back as an ordinary next message.
+   */
+  | { type: "questions"; questions: AgentQuestion[] }
   | { type: "error"; message: string }
