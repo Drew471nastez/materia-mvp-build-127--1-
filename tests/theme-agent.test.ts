@@ -32,6 +32,7 @@ import {
   describeHouseStyle,
   readHouseStyle,
 } from "@/lib/website-builder/agent/house-style"
+import { classifyRequest } from "@/lib/website-builder/agent/ambition"
 import { contrastRatio, parseColor, reviewSections } from "@/lib/website-builder/agent/review"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import type { AgentProvider, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
@@ -1848,9 +1849,14 @@ section("Building a section, with everything it needs to build it properly")
 
 check(
   "the model is told that adding a section is not finishing one",
-  /BUILDING A SECTION IS MORE THAN ADDING IT/.test(
-    readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"),
-  ),
+  (() => {
+    const loop = readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")
+    return (
+      /Adding the section is the first of them, not the job/.test(loop) &&
+      /DO NOT STOP EARLY/.test(loop) &&
+      /needs them FULL/.test(loop)
+    )
+  })(),
 )
 
 check(
@@ -2800,6 +2806,177 @@ check(
      * it was checking for was gone, and a break-test caught it doing so.
      */
     return at >= 0 && settings >= 0 && at < settings && /MATCH THE PAGE YOU ARE ON/.test(loop)
+  })(),
+)
+
+// ===========================================================================
+section("Asking for something good has to get the good model")
+// ===========================================================================
+
+/**
+ * "I ask him to build me a very good complex section and he does small work."
+ *
+ * The theme editor was calling the CODE agent's classifier, which reads a
+ * vocabulary this editor never uses — files, dashboards, authentication.
+ * Measured against the real phrasings, it produced exactly the wrong answer:
+ * the words that mean AMBITION got the cheap model and the small budget, and
+ * the most ordinary request in the product got the expensive one.
+ */
+{
+  const build = [
+    "build me a very good complex section",
+    "build a very good clean complex section",
+    "design a complete FAQ section",
+    "make me a great pricing section",
+    "add a pricing section",
+    "make this section better",
+    "build out this page properly",
+  ]
+  const weak = build.filter((p) => !classifyRequest(p).strong)
+  check("every request to build something reaches for the good model", weak.length === 0, weak.join(" | "))
+
+  const ambitious = build.filter((p) => /complex|complete|great|properly/.test(p))
+  const cramped = ambitious.filter((p) => classifyRequest(p).maxTurns < 24)
+  check(
+    "and an ambitious one gets the room to do it — building properly is a dozen calls",
+    cramped.length === 0,
+    cramped.join(" | "),
+  )
+}
+
+{
+  /**
+   * The cheap model still exists, for what it is actually good at. Recognising
+   * a TWEAK is the safe direction: a missed tweak costs a fraction of a cent,
+   * a missed build costs somebody their opinion of the product.
+   */
+  const tiny = ["change the heading to Hello", "set the background to #ffffff", "rename this section to Pricing"]
+  const escalated = tiny.filter((p) => classifyRequest(p).strong)
+  check("a one-thing change is still a cheap eight-turn tweak", escalated.length === 0, escalated.join(" | "))
+
+  check(
+    "but two things in one sentence is not a tweak",
+    classifyRequest("make the heading shorter and add three tiers").scope === "build",
+  )
+}
+
+check(
+  "the endpoint uses this editor's classifier, not the code agent's",
+  (() => {
+    const route = readFileSync(
+      join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"),
+      "utf8",
+    )
+    return (
+      /classifyRequest\(body\.prompt\)/.test(route) &&
+      /maxTurns: shape\.maxTurns/.test(route) &&
+      !/chooseModel/.test(route)
+    )
+  })(),
+)
+
+// ===========================================================================
+section("A section that came out thin is not finished")
+// ===========================================================================
+
+/**
+ * The model stops when the request is technically answered, and a pricing
+ * table with one tier technically answers "add a pricing section". The bar is
+ * the preset's own block count, HALVED — a type that ships three tiers is
+ * telling you what finished looks like, and halving it leaves room for "two
+ * plans, not three" to be a real request rather than an argument.
+ */
+{
+  const thin = (type: string, keep: number) => {
+    const built = buildSection(`${type}-1`, type)!
+    built.blocks = (built.blocks ?? []).slice(0, keep)
+    return reviewSections({
+      state: { sections: [built], settings: {} },
+      touched: [built.id],
+      added: [built.id],
+    }).filter((f) => /entr(y|ies) in it/.test(f.message))
+  }
+
+  check("a pricing section with one tier is caught", thin("pricing", 1).length === 1)
+  check("two is left alone — that is a request somebody makes", thin("pricing", 2).length === 0)
+  check("an FAQ with one question is caught", thin("faq", 1).length === 1)
+  check("and a full one is not", thin("faq", 5).length === 0)
+}
+
+{
+  /** The same bar for "make this section complex" on a section that exists. */
+  const existing = buildSection("faq-1", "faq")!
+  existing.blocks = (existing.blocks ?? []).slice(0, 1)
+  const worked = reviewSections({
+    state: { sections: [existing], settings: {} },
+    touched: ["faq-1"],
+    added: [],
+    filled: ["faq-1"],
+  })
+  check(
+    "answering 'make this complex' with one entry is the same failure",
+    worked.some((f) => /entr(y|ies) in it/.test(f.message)),
+    JSON.stringify(worked),
+  )
+
+  const untouched = reviewSections({
+    state: { sections: [existing], settings: {} },
+    touched: ["faq-1"],
+    added: [],
+  })
+  check(
+    "but editing a heading on a short section is not an occasion to argue about its length",
+    !untouched.some((f) => /entr(y|ies) in it/.test(f.message)),
+  )
+}
+
+{
+  const gappy = buildSection("faq-2", "faq")!
+  gappy.blocks = [
+    { id: "a", type: "faq_item", settings: { question: "Real question?", answer: "<p>Yes.</p>" } },
+    { id: "b", type: "faq_item", settings: { question: "", answer: "" } },
+    { id: "c", type: "faq_item", settings: { question: "Another?", answer: "<p>No.</p>" } },
+  ]
+  check(
+    "an entry with nothing in it renders as a gap, and is caught",
+    reviewSections({
+      state: { sections: [gappy], settings: {} },
+      touched: ["faq-2"],
+      added: [],
+    }).some((f) => /no text in them/.test(f.message)),
+  )
+}
+
+{
+  /** The regression guard: every type, added complete, must be silent. */
+  const noisy: string[] = []
+  for (const type of Object.keys(SECTION_SCHEMAS)) {
+    const built = buildSection(`${type}-1`, type)
+    if (!built) continue
+    const findings = reviewSections({
+      state: { sections: [built], settings: {} },
+      touched: [built.id],
+      added: [built.id],
+    }).filter((f) => /entr(y|ies) in it|no text in them/.test(f.message))
+    if (findings.length > 0) noisy.push(type)
+  }
+  check(
+    "and a section added at its full preset size is never called thin",
+    noisy.length === 0,
+    noisy.join(", "),
+  )
+}
+
+check(
+  "the model is told what building properly involves, in order",
+  (() => {
+    const loop = readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")
+    return (
+      /WHEN THE ASK IS TO BUILD, DESIGN OR MAKE SOMETHING GOOD/.test(loop) &&
+      /"COMPLEX" AND "COMPLETE" MEAN CONTENT, NOT DECORATION/.test(loop) &&
+      // and the old rule that read as "do the minimum" is gone
+      !/Make the change that was asked for and nothing else/.test(loop)
+    )
   })(),
 )
 
