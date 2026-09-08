@@ -27,7 +27,7 @@
  */
 
 import { SECTION_SCHEMAS } from "../section-schemas"
-import type { SectionInstance } from "../types"
+import type { BlockInstance, BlockSchema, SectionInstance } from "../types"
 
 /** The theme state an operation acts on. Exactly what the editor holds. */
 export interface ThemeState {
@@ -54,6 +54,26 @@ export type ThemeOp =
   | { kind: "remove_section"; id: string }
   | { kind: "rename_section"; id: string; name: string }
   | { kind: "update_theme"; settings: Record<string, unknown> }
+  /**
+   * BLOCKS ARE WHERE THE CONTENT LIVES for half the library.
+   *
+   * Twenty-four of the fifty section types keep their real content in blocks —
+   * a FAQ's questions, a pricing table's tiers, a testimonial's quotes, a
+   * gallery's images. Without these operations the agent could change a FAQ's
+   * heading, its padding and its accordion style, and never one question. That
+   * is exactly what "it changed nothing I can see" looked like.
+   */
+  | {
+      kind: "add_block"
+      sectionId: string
+      blockId: string
+      blockType: string
+      index?: number
+      settings?: Record<string, unknown>
+    }
+  | { kind: "update_block"; sectionId: string; blockId: string; settings: Record<string, unknown> }
+  | { kind: "move_block"; sectionId: string; blockId: string; index: number }
+  | { kind: "remove_block"; sectionId: string; blockId: string }
 
 /**
  * The header and the footer are structure, not content.
@@ -154,9 +174,82 @@ export function applyOp(state: ThemeState, op: ThemeOp): ThemeState {
     case "update_theme":
       return { ...state, settings: { ...state.settings, ...op.settings } }
 
+    case "add_block": {
+      const spec = SECTION_SCHEMAS[
+        state.sections.find((s) => s.id === op.sectionId)?.type ?? ""
+      ]?.blocks?.find((b) => b.type === op.blockType)
+      if (!spec) return state
+      const block: BlockInstance = {
+        id: op.blockId,
+        type: op.blockType,
+        settings: { ...defaultsFor(spec), ...(op.settings ?? {}) },
+      }
+      return editBlocks(state, op.sectionId, (blocks) => {
+        const next = [...blocks]
+        const at = op.index === undefined ? next.length : Math.max(0, Math.min(next.length, op.index))
+        next.splice(at, 0, block)
+        return next
+      })
+    }
+
+    case "update_block":
+      return editBlocks(state, op.sectionId, (blocks) =>
+        blocks.some((b) => b.id === op.blockId)
+          ? blocks.map((b) =>
+              b.id === op.blockId ? { ...b, settings: { ...b.settings, ...op.settings } } : b,
+            )
+          : blocks,
+      )
+
+    case "move_block":
+      return editBlocks(state, op.sectionId, (blocks) => {
+        const from = blocks.findIndex((b) => b.id === op.blockId)
+        if (from === -1) return blocks
+        const rest = blocks.filter((_, i) => i !== from)
+        rest.splice(Math.max(0, Math.min(rest.length, op.index)), 0, blocks[from])
+        return rest
+      })
+
+    case "remove_block":
+      return editBlocks(state, op.sectionId, (blocks) => blocks.filter((b) => b.id !== op.blockId))
+
     default:
       return state
   }
+}
+
+/**
+ * Rewrite one section's blocks. Pure, and a no-op for a section that is not
+ * there — the browser is replaying what the server did, and somebody may have
+ * deleted that section by hand a second earlier.
+ */
+function editBlocks(
+  state: ThemeState,
+  sectionId: string,
+  change: (blocks: BlockInstance[]) => BlockInstance[],
+): ThemeState {
+  if (!state.sections.some((s) => s.id === sectionId)) return state
+  return {
+    ...state,
+    sections: state.sections.map((s) =>
+      s.id === sectionId ? { ...s, blocks: change(s.blocks ?? []) } : s,
+    ),
+  }
+}
+
+/**
+ * A block's starting settings, from its schema's own field defaults.
+ *
+ * A block added with nothing in it renders as an empty row — a blank FAQ
+ * question with no answer — which reads as the editor being broken rather than
+ * as a block waiting to be filled.
+ */
+function defaultsFor(spec: BlockSchema): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const field of spec.fields ?? []) {
+    if (field.default !== undefined) out[field.id] = field.default
+  }
+  return out
 }
 
 /** Apply a list, in order. The server's working copy and the browser's agree. */
@@ -171,6 +264,20 @@ export function applyOps(state: ThemeState, ops: ThemeOp[]): ThemeState {
 /** The field ids a section type actually accepts, for validating a write. */
 export function fieldIds(type: string): string[] {
   return (SECTION_SCHEMAS[type]?.fields ?? []).map((f) => f.id)
+}
+
+/** The block types a section accepts, and how many of them it will take. */
+export function blockSpecs(sectionType: string): BlockSchema[] {
+  return SECTION_SCHEMAS[sectionType]?.blocks ?? []
+}
+
+export function maxBlocks(sectionType: string): number | undefined {
+  return SECTION_SCHEMAS[sectionType]?.max_blocks
+}
+
+/** The field ids one block type accepts, for validating a write. */
+export function blockFieldIds(sectionType: string, blockType: string): string[] {
+  return (blockSpecs(sectionType).find((b) => b.type === blockType)?.fields ?? []).map((f) => f.id)
 }
 
 /**
@@ -198,6 +305,48 @@ export function describeTheme(state: ThemeState, page: string): string {
     `PAGE: ${page}`,
     lines.length > 0 ? `SECTIONS (in order)\n${lines.join("\n")}` : "SECTIONS: none yet",
   ].join("\n\n")
+}
+
+/**
+ * ONE SECTION IN FULL: its settings, its blocks, and what each will accept.
+ *
+ * The blocks are the part that matters. Twenty-four of the fifty section types
+ * keep their real content in them — a FAQ's questions, a pricing table's
+ * tiers, a gallery's images — and a model shown only the section's settings
+ * can change a FAQ's heading and its padding while believing it has rewritten
+ * the questions. That is what "it changed nothing I can see" looked like.
+ */
+export function describeSection(section: SectionInstance): string {
+  const allowed = fieldIds(section.type)
+  const specs = blockSpecs(section.type)
+  const cap = maxBlocks(section.type)
+  const parts = [
+    `${section.type} [${section.id}] "${section.name}"`,
+    `FIELDS THIS SECTION ACCEPTS: ${allowed.join(", ") || "none"}`,
+    `CURRENT SETTINGS\n${JSON.stringify(section.settings, null, 2).slice(0, 5_000)}`,
+  ]
+
+  if (specs.length > 0) {
+    parts.push(
+      [
+        `BLOCK TYPES THIS SECTION TAKES${cap !== undefined ? ` (at most ${cap})` : ""}:`,
+        ...specs.map((b) => `  ${b.type} — fields: ${(b.fields ?? []).map((f) => f.id).join(", ")}`),
+      ].join("\n"),
+    )
+    const blocks = section.blocks ?? []
+    parts.push(
+      blocks.length > 0
+        ? `CURRENT BLOCKS (${blocks.length}), in order\n${blocks
+            .map(
+              (b, i) =>
+                `  ${i}. [${b.id}] ${b.type} ${JSON.stringify(b.settings).slice(0, 400)}`,
+            )
+            .join("\n")}`
+        : "CURRENT BLOCKS: none — this section is empty until you add some.",
+    )
+  }
+
+  return parts.join("\n\n")
 }
 
 /**

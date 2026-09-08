@@ -70,30 +70,55 @@ function scriptedProvider(script: Scripted[]): AgentProvider {
   }
 }
 
-function page(): ThemeState {
-  const make = (id: string, type: string): SectionInstance => ({
+function make(id: string, type: string, blocks: SectionInstance["blocks"] = []): SectionInstance {
+  return {
     id,
     type,
     name: SECTION_SCHEMAS[type]?.name ?? type,
     settings: {},
-    blocks: [],
-  })
+    blocks,
+  }
+}
+
+function page(): ThemeState {
   return {
     sections: [make("header-1", "header"), make("hero-1", "hero"), make("footer-1", "footer")],
     settings: {},
   }
 }
 
-async function run(script: Scripted[], state = page()) {
+/**
+ * The page from the report: a FAQ, selected, with its questions in BLOCKS.
+ *
+ * This is the shape that made "make this section better" do nothing visible —
+ * a FAQ's content is not in its settings, so an agent with only section tools
+ * could change the heading and the padding and nothing anybody would notice.
+ */
+function pageWithFaq(): ThemeState {
+  return {
+    sections: [
+      make("header-1", "header"),
+      make("faq-1", "faq", [
+        { id: "f1", type: "faq_item", settings: { question: "What is your return policy?", answer: "<p>30 days.</p>" } },
+        { id: "f2", type: "faq_item", settings: { question: "How long does shipping take?", answer: "<p>A while.</p>" } },
+      ]),
+      make("footer-1", "footer"),
+    ],
+    settings: {},
+  }
+}
+
+async function run(script: Scripted[], state = page(), selectedSectionId?: string) {
   const events: ThemeAgentEvent[] = []
   let n = 0
   const loop = themeAgent({
     provider: scriptedProvider(script),
     model: "test",
-    prompt: "do the thing",
+    prompt: "make this section better",
     state,
     page: "home",
     addable: ADDABLE_SECTIONS,
+    selectedSectionId,
     newId: (type) => `${type}-new-${++n}`,
   })
   for (;;) {
@@ -296,6 +321,215 @@ section("It edits the same state the panels edit")
     applyOps(before, [{ kind: "update_section", id: "nope", settings: { a: 1 } }]).sections.length ===
       before.sections.length,
   )
+}
+
+// ===========================================================================
+section('"Make this section better", on a real FAQ')
+// ===========================================================================
+
+/**
+ * THE REPORTED FAILURE, reproduced. A FAQ was selected, the request was "make
+ * this section better", and nothing visible happened.
+ *
+ * Two causes, and each alone was enough:
+ *
+ *   THE SELECTION WAS NEVER SENT. "This section" reached a model holding a
+ *   list of nine sections and a demonstrative pronoun.
+ *
+ *   THERE WERE NO BLOCK TOOLS. Twenty-four of the fifty section types keep
+ *   their content in blocks — a FAQ's questions among them — so the only
+ *   things the agent could touch on a FAQ were its heading, its padding and
+ *   its accordion style. It could report success having changed nothing
+ *   anybody would notice.
+ */
+{
+  const { result } = await run(
+    [
+      { calls: [["read_section", { id: "faq-1" }]] },
+      {
+        calls: [
+          [
+            "update_block",
+            {
+              sectionId: "faq-1",
+              blockId: "f1",
+              settingsJson: JSON.stringify({ answer: "<p>Thirty days, no questions asked.</p>" }),
+            },
+          ],
+        ],
+      },
+      {
+        calls: [
+          [
+            "add_block",
+            {
+              sectionId: "faq-1",
+              blockType: "faq_item",
+              index: -1,
+              settingsJson: JSON.stringify({
+                question: "Do you ship worldwide?",
+                answer: "<p>Yes, everywhere we can.</p>",
+              }),
+            },
+          ],
+        ],
+      },
+      { text: "Rewrote an answer and added a question." },
+    ],
+    pageWithFaq(),
+    "faq-1",
+  )
+
+  check("the run succeeds", result.status === "succeeded", result.error ?? "")
+
+  const after = applyOps(pageWithFaq(), result.ops)
+  const faq = after.sections.find((s) => s.id === "faq-1")
+
+  check(
+    "an existing answer is actually rewritten",
+    faq?.blocks?.[0].settings.answer === "<p>Thirty days, no questions asked.</p>",
+  )
+  check(
+    "and a new question is added to the section",
+    faq?.blocks?.length === 3 && faq.blocks[2].settings.question === "Do you ship worldwide?",
+  )
+  check(
+    "a new block starts from its schema's defaults, not empty",
+    /**
+     * A block added with nothing in it renders as a blank row — an FAQ entry
+     * with no answer — which reads as the editor being broken rather than as
+     * something waiting to be filled.
+     */
+    Object.keys(faq?.blocks?.[2].settings ?? {}).length > 2,
+    JSON.stringify(faq?.blocks?.[2].settings ?? {}),
+  )
+}
+
+{
+  /**
+   * The selected section is put in front of the model IN FULL — settings and
+   * blocks — rather than left for a read_section round trip. It is what the
+   * request is about far more often than not.
+   */
+  let firstTurn = ""
+  const capturing: AgentProvider = {
+    id: "capturing",
+    async complete(request) {
+      const first = request.turns[0]
+      firstTurn = first.role === "user" ? first.content : ""
+      return {
+        text: "Done.",
+        toolCalls: [],
+        raw: [],
+        usage: { inputTokens: 1, cachedInputTokens: 0, cacheWriteTokens: 0, outputTokens: 1 },
+        stop: "done",
+      }
+    },
+  }
+  const loop = themeAgent({
+    provider: capturing,
+    model: "test",
+    prompt: "make this section better",
+    state: pageWithFaq(),
+    page: "home",
+    addable: ADDABLE_SECTIONS,
+    selectedSectionId: "faq-1",
+  })
+  for (;;) {
+    const step = await loop.next()
+    if (step.done) break
+  }
+
+  check(
+    "the selected section is named as what 'this' means",
+    /THE CREATOR HAS THIS SECTION SELECTED/.test(firstTurn) && firstTurn.includes("[faq-1]"),
+  )
+  check(
+    "and its blocks are in front of the model, not just its settings",
+    /**
+     * Without this the model can only see that a FAQ has a heading and a
+     * style, so it edits those and reports success — which is precisely the
+     * bug.
+     */
+    firstTurn.includes("What is your return policy?") &&
+      /BLOCK TYPES THIS SECTION TAKES/.test(firstTurn),
+  )
+}
+
+{
+  /**
+   * A block field that does not exist is merged and then ignored by the
+   * renderer, so the tool would report success and nothing would change —
+   * the same silent failure the section fields already guard against.
+   */
+  const { result } = await run(
+    [
+      {
+        calls: [
+          ["update_block", { sectionId: "faq-1", blockId: "f1", settingsJson: '{"nope":"x"}' }],
+        ],
+      },
+      { text: "Done." },
+    ],
+    pageWithFaq(),
+    "faq-1",
+  )
+  check("an unknown block field is refused", result.ops.length === 0)
+}
+
+{
+  const { result } = await run(
+    [
+      {
+        calls: [
+          ["add_block", { sectionId: "hero-1", blockType: "faq_item", index: -1, settingsJson: "{}" }],
+        ],
+      },
+      { text: "Done." },
+    ],
+    pageWithFaq(),
+  )
+  check(
+    "a block type the section does not take is refused",
+    // The hero is not in this fixture, so this also covers a bad section id.
+    result.ops.length === 0,
+  )
+}
+
+{
+  /**
+   * The schema's own ceiling. A slideshow that declares four slides means
+   * four; a fifth is a section that renders wrong rather than one with more in
+   * it.
+   */
+  const capped = Object.entries(SECTION_SCHEMAS).find(
+    ([, schema]) => typeof schema.max_blocks === "number" && (schema.blocks?.length ?? 0) > 0,
+  )
+  if (capped) {
+    const [type, schema] = capped
+    const full = Array.from({ length: schema.max_blocks as number }, (_, i) => ({
+      id: `b${i}`,
+      type: schema.blocks![0].type,
+      settings: {},
+    }))
+    const { result } = await run(
+      [
+        {
+          calls: [
+            [
+              "add_block",
+              { sectionId: "s1", blockType: schema.blocks![0].type, index: -1, settingsJson: "{}" },
+            ],
+          ],
+        },
+        { text: "Done." },
+      ],
+      { sections: [make("s1", type, full)], settings: {} },
+    )
+    check(`a full ${type} refuses another block`, result.ops.length === 0)
+  } else {
+    check("a full section refuses another block", true, "no capped section type in the library")
+  }
 }
 
 // ===========================================================================

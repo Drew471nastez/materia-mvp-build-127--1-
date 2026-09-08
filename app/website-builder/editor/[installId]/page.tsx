@@ -5548,6 +5548,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               page={currentPage}
               sections={sections}
               settings={settingsDraft as Record<string, unknown>}
+              selectedSectionId={selectedSectionId ?? undefined}
               onRunStart={pushUndo}
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}

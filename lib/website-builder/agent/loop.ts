@@ -33,9 +33,13 @@
 
 import {
   applyOp,
+  blockFieldIds,
+  blockSpecs,
+  describeSection,
   describeSectionTypes,
   describeTheme,
   fieldIds,
+  maxBlocks,
   type ThemeOp,
   type ThemeState,
 } from "./operations"
@@ -81,6 +85,9 @@ Rules:
 - update_section MERGES the settings you send. Send only the fields you are changing; everything you leave out keeps its value.
 - Only use field ids that the section's schema actually has. A field that does not exist is silently ignored, so the change would appear to work and do nothing. If you are unsure, call read_section — it lists them.
 - The header and footer cannot be moved, removed, or inserted around. They are the same on every page.
+- WHEN A SECTION IS SELECTED, act on it. "Make this section better" means that section, and it is not a question — look at what it is, decide what is weak about it, and change it. A FAQ with five thin questions gets better questions and better answers; a hero with a generic headline gets a specific one; a pricing table with unnamed tiers gets named tiers.
+- MOST SECTIONS KEEP THEIR CONTENT IN BLOCKS, not in settings. A FAQ's questions, a pricing table's tiers, a testimonial's quotes, a gallery's images are all blocks. Changing a section's settings alone will not touch any of them, so if a request is about content, use the block tools. read_section lists the block types a section takes and the blocks it currently has.
+- ALWAYS CHANGE SOMETHING VISIBLE. A run that reads a section and then replies without a single operation has not done what was asked. If a request is broad, decide what would genuinely improve the thing in front of you and do it.
 - Make the change that was asked for and nothing else. Do not restyle things nobody mentioned, do not "improve" copy that was not the subject, and do not add sections to fill space.
 - If the request is broad — "make this look better", "build out this page" — then look at what is there, decide what is genuinely missing, and do it properly with several operations.
 - Write real copy for this business, never "Lorem ipsum" and never "Your headline here".
@@ -174,6 +181,68 @@ function toolSpecs(addable: string[]): ToolSpec<string>[] {
       },
     },
     {
+      name: "add_block",
+      description:
+        "Add a block to a section — one FAQ question, one pricing tier, one testimonial, one gallery image. THIS IS WHERE THE CONTENT LIVES for most sections: half the library keeps its real content in blocks, and changing a section's settings alone will not touch it. Call read_section first to see which block types it takes.",
+      parameters: {
+        type: "object",
+        properties: {
+          sectionId: { type: "string", description: "The section to add it to." },
+          blockType: { type: "string", description: "A block type that section accepts." },
+          index: { type: "number", description: "Position among the blocks. -1 for the end." },
+          settingsJson: {
+            type: "string",
+            description:
+              'A JSON OBJECT AS A STRING: block field id → value. e.g. {"question":"Do you ship worldwide?","answer":"<p>Yes.</p>"}',
+          },
+        },
+        required: ["sectionId", "blockType", "index", "settingsJson"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "update_block",
+      description:
+        "Change one block's settings. MERGES: send only the fields you are changing. This is how you edit an existing FAQ answer, a tier's price, a testimonial's quote.",
+      parameters: {
+        type: "object",
+        properties: {
+          sectionId: { type: "string" },
+          blockId: { type: "string", description: "The block id, from read_section." },
+          settingsJson: {
+            type: "string",
+            description: "A JSON OBJECT AS A STRING: block field id → new value.",
+          },
+        },
+        required: ["sectionId", "blockId", "settingsJson"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "move_block",
+      description: "Reorder a block within its section.",
+      parameters: {
+        type: "object",
+        properties: {
+          sectionId: { type: "string" },
+          blockId: { type: "string" },
+          index: { type: "number" },
+        },
+        required: ["sectionId", "blockId", "index"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "remove_block",
+      description: "Delete one block from a section.",
+      parameters: {
+        type: "object",
+        properties: { sectionId: { type: "string" }, blockId: { type: "string" } },
+        required: ["sectionId", "blockId"],
+        additionalProperties: false,
+      },
+    },
+    {
       name: "update_theme",
       description:
         "Change whole-theme settings — colours, fonts, corner radius, container width. These apply to every page, so use them when the request is about the site as a whole rather than one section.",
@@ -211,6 +280,14 @@ function labelFor(op: ThemeOp, state: ThemeState): string {
       return `Removed ${nameOf(op.id)}`
     case "update_theme":
       return "Updated the theme"
+    case "add_block":
+      return `Added to ${nameOf(op.sectionId)}`
+    case "update_block":
+      return `Edited ${nameOf(op.sectionId)}`
+    case "move_block":
+      return `Reordered ${nameOf(op.sectionId)}`
+    case "remove_block":
+      return `Removed an item from ${nameOf(op.sectionId)}`
     default:
       return "Changed the page"
   }
@@ -223,6 +300,16 @@ export interface ThemeAgentInput {
   state: ThemeState
   page: string
   addable: string[]
+  /**
+   * THE SECTION THE CREATOR HAS OPEN, if any.
+   *
+   * "Make this section better" is the most natural thing somebody types, and
+   * without this it has no referent at all — the model is handed a list of
+   * nine sections and a demonstrative pronoun. It either picks one at random,
+   * asks a question it should not have to ask, or does nothing. All three
+   * happened.
+   */
+  selectedSectionId?: string
   /** Groups this theme's requests for the provider's prompt cache. */
   cacheKey?: string
   signal?: AbortSignal
@@ -245,10 +332,32 @@ export async function* themeAgent(
   let status: ThemeAgentResult["status"] = "failed"
   let error: string | null = "The edit did not finish."
 
+  /**
+   * The selected section is sent IN FULL up front — settings and blocks —
+   * rather than left for a read_section call.
+   *
+   * It is what the request is about far more often than not, so paying for it
+   * once is cheaper than a round trip, and it removes the failure where the
+   * model edits a section's settings without ever having seen that its content
+   * lives in blocks.
+   */
+  const selected = input.selectedSectionId
+    ? state.sections.find((s) => s.id === input.selectedSectionId)
+    : undefined
+
   const turns: AgentTurn[] = [
     {
       role: "user",
-      content: `${describeTheme(state, page)}\n\nTHEME SETTINGS\n${JSON.stringify(state.settings, null, 2).slice(0, 4_000)}\n\nREQUEST\n${prompt}`,
+      content: [
+        describeTheme(state, page),
+        `THEME SETTINGS\n${JSON.stringify(state.settings, null, 2).slice(0, 3_000)}`,
+        selected
+          ? `THE CREATOR HAS THIS SECTION SELECTED AND OPEN. "this section", "this", "it" and "here" all mean THIS one unless they clearly name another.\n\n${describeSection(selected)}`
+          : "",
+        `REQUEST\n${prompt}`,
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
     },
   ]
 
@@ -359,17 +468,7 @@ function execute(
   switch (name) {
     case "read_section": {
       if (!found) return { output: notFound(id, state) }
-      const allowed = fieldIds(found.type)
-      return {
-        output: [
-          `${found.type} [${found.id}] "${found.name}"`,
-          `FIELDS THIS SECTION ACCEPTS: ${allowed.join(", ") || "none"}`,
-          `CURRENT SETTINGS\n${JSON.stringify(found.settings, null, 2).slice(0, 6_000)}`,
-          found.blocks?.length ? `BLOCKS: ${found.blocks.length}` : "",
-        ]
-          .filter(Boolean)
-          .join("\n\n"),
-      }
+      return { output: describeSection(found) }
     }
 
     case "update_section": {
@@ -454,6 +553,120 @@ function execute(
       const label = typeof args.name === "string" ? args.name.trim().slice(0, 60) : ""
       if (!label) return { output: "Send `name` as a short label." }
       return { output: `Renamed [${id}] to "${label}".`, op: { kind: "rename_section", id, name: label } }
+    }
+
+    case "add_block": {
+      const sectionId = typeof args.sectionId === "string" ? args.sectionId : ""
+      const section = state.sections.find((s) => s.id === sectionId)
+      if (!section) return { output: notFound(sectionId, state) }
+
+      const blockType = typeof args.blockType === "string" ? args.blockType : ""
+      const specs = blockSpecs(section.type)
+      if (!specs.some((b) => b.type === blockType)) {
+        return {
+          output: `${section.type} does not take a "${blockType}" block. It takes: ${
+            specs.map((b) => b.type).join(", ") || "no blocks at all"
+          }.`,
+        }
+      }
+
+      /**
+       * The schema's own ceiling. A slideshow that declares four slides means
+       * four; a fifth is a section that renders wrong rather than a section
+       * with more in it.
+       */
+      const cap = maxBlocks(section.type)
+      if (cap !== undefined && (section.blocks?.length ?? 0) >= cap) {
+        return {
+          output: `${section.type} takes at most ${cap} blocks and already has ${section.blocks?.length ?? 0}. Change one of the existing ones, or remove one first.`,
+        }
+      }
+
+      const settings = parseSettings(args.settingsJson)
+      if (!settings) {
+        return { output: 'Send `settingsJson` as a JSON object in a string, e.g. {"question":"…"}.' }
+      }
+      const allowed = blockFieldIds(section.type, blockType)
+      const unknown = Object.keys(settings).filter((key) => !allowed.includes(key))
+      if (unknown.length > 0) {
+        return {
+          output: `A ${blockType} block has no field${unknown.length === 1 ? "" : "s"} called ${unknown
+            .map((u) => `"${u}"`)
+            .join(", ")}. It accepts: ${allowed.join(", ")}.`,
+        }
+      }
+
+      const index = typeof args.index === "number" && args.index >= 0 ? args.index : undefined
+      const blockId = newId(blockType)
+      return {
+        output: `Added a ${blockType} block [${blockId}] to ${section.type}.`,
+        op: { kind: "add_block", sectionId, blockId, blockType, index, settings },
+      }
+    }
+
+    case "update_block": {
+      const sectionId = typeof args.sectionId === "string" ? args.sectionId : ""
+      const section = state.sections.find((s) => s.id === sectionId)
+      if (!section) return { output: notFound(sectionId, state) }
+
+      const blockId = typeof args.blockId === "string" ? args.blockId : ""
+      const block = (section.blocks ?? []).find((b) => b.id === blockId)
+      if (!block) {
+        return {
+          output: `${section.type} has no block "${blockId}". Its blocks are: ${
+            (section.blocks ?? []).map((b) => `[${b.id}] ${b.type}`).join(", ") || "none"
+          }`,
+        }
+      }
+
+      const settings = parseSettings(args.settingsJson)
+      if (!settings) {
+        return { output: 'Send `settingsJson` as a JSON object in a string.' }
+      }
+      const allowed = blockFieldIds(section.type, block.type)
+      const unknown = Object.keys(settings).filter((key) => !allowed.includes(key))
+      if (unknown.length > 0) {
+        return {
+          output: `A ${block.type} block has no field${unknown.length === 1 ? "" : "s"} called ${unknown
+            .map((u) => `"${u}"`)
+            .join(", ")}. It accepts: ${allowed.join(", ")}. Nothing was changed.`,
+        }
+      }
+
+      return {
+        output: `Updated block [${blockId}]: ${Object.keys(settings).join(", ")}.`,
+        op: { kind: "update_block", sectionId, blockId, settings },
+      }
+    }
+
+    case "move_block": {
+      const sectionId = typeof args.sectionId === "string" ? args.sectionId : ""
+      const section = state.sections.find((s) => s.id === sectionId)
+      if (!section) return { output: notFound(sectionId, state) }
+      const blockId = typeof args.blockId === "string" ? args.blockId : ""
+      if (!(section.blocks ?? []).some((b) => b.id === blockId)) {
+        return { output: `${section.type} has no block "${blockId}".` }
+      }
+      const index = typeof args.index === "number" ? args.index : NaN
+      if (!Number.isFinite(index)) return { output: "Send `index` as a number." }
+      return {
+        output: `Moved block [${blockId}] to position ${index}.`,
+        op: { kind: "move_block", sectionId, blockId, index },
+      }
+    }
+
+    case "remove_block": {
+      const sectionId = typeof args.sectionId === "string" ? args.sectionId : ""
+      const section = state.sections.find((s) => s.id === sectionId)
+      if (!section) return { output: notFound(sectionId, state) }
+      const blockId = typeof args.blockId === "string" ? args.blockId : ""
+      if (!(section.blocks ?? []).some((b) => b.id === blockId)) {
+        return { output: `${section.type} has no block "${blockId}".` }
+      }
+      return {
+        output: `Removed block [${blockId}] from ${section.type}.`,
+        op: { kind: "remove_block", sectionId, blockId },
+      }
     }
 
     case "update_theme": {

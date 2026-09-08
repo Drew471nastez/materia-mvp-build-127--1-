@@ -52,6 +52,7 @@ export function ThemeChat({
   page,
   sections,
   settings,
+  selectedSectionId,
   onRunStart,
   onOp,
   onClose,
@@ -60,6 +61,12 @@ export function ThemeChat({
   page: string
   sections: SectionInstance[]
   settings: Record<string, unknown>
+  /**
+   * The section the creator has open, so "make this section better" has a
+   * referent. Without it the model gets a demonstrative pronoun and a list of
+   * nine sections, which is not a question anybody can answer.
+   */
+  selectedSectionId?: string
   /** Called once before the first change, so one Undo takes the lot back. */
   onRunStart: () => void
   onOp: (op: ThemeOp) => void
@@ -80,8 +87,8 @@ export function ThemeChat({
    * model plans against a page that no longer exists and addresses sections by
    * ids that have moved.
    */
-  const live = React.useRef({ sections, settings, page })
-  live.current = { sections, settings, page }
+  const live = React.useRef({ sections, settings, page, selectedSectionId })
+  live.current = { sections, settings, page, selectedSectionId }
 
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
@@ -116,6 +123,7 @@ export function ThemeChat({
             page: live.current.page,
             sections: live.current.sections,
             settings: live.current.settings,
+            selectedSectionId: live.current.selectedSectionId,
           }),
         })
 
