@@ -50,6 +50,7 @@ import {
   type ThemeOp,
   type ThemeState,
 } from "./operations"
+import { describeFindings, reviewSections } from "./review"
 import { SECTION_SCHEMAS } from "../section-schemas"
 import type {
   AgentProvider,
@@ -75,6 +76,17 @@ export const MAX_TURNS = 16
 
 /** Input plus output for the whole run. A ceiling, not a target. */
 export const MAX_TOKENS = 300_000
+
+/**
+ * How many times the run may be handed its own work back.
+ *
+ * Two. One is enough for the ordinary case — a colour that came out at 2:1
+ * gets fixed on the first pass — and the second exists for the fix that
+ * introduces a different problem. Past that, a model that cannot satisfy the
+ * checks is looping, and the creator is better served by the work it did plus
+ * an honest sentence than by watching it try a fourth time.
+ */
+export const MAX_REVIEWS = 2
 
 export type ThemeAgentEvent =
   | { type: "thinking"; text: string }
@@ -108,6 +120,7 @@ Rules:
 - BUILDING A SECTION IS MORE THAN ADDING IT. A section added from its preset is somebody else's placeholder copy. Adding one properly means: add it, then set its controls, then write its blocks — the real questions, the real tiers, the real quotes. An FAQ with the preset's three generic questions still in it is not a section anybody asked for.
 - WRITE COPY ABOUT THE REAL BUSINESS. Call read_store before you write anything that mentions what they sell, what it costs, or who it is for — the catalogue is there and inventing one produces a page that contradicts the shop behind it. Never "Lorem ipsum" and never "Your headline here".
 - Do not add a product section to a store with no products. It renders empty, which looks broken rather than new.
+- YOUR WORK IS CHECKED BEFORE YOU FINISH. Contrast, empty text, repeated entries, and a section left holding its preset's demo copy are all checked against the page as it stands after your changes. If anything is wrong you will be told and you fix it. So get it right first: text needs at least 4.5:1 against what is behind it, every section you add gets real copy about this store, and no two entries say the same thing.
 - When you are done, reply with one plain sentence saying what you changed. No preamble, no markdown, no lists.`
 
 function toolSpecs(addable: string[]): ToolSpec<string>[] {
@@ -412,6 +425,8 @@ export interface ThemeAgentInput {
   cacheKey?: string
   signal?: AbortSignal
   maxTurns?: number
+  /** How many times the run may be handed its own work back. */
+  maxReviews?: number
   /** Ids for new sections. Injected so a test gets stable ones. */
   newId?: (type: string) => string
 }
@@ -423,6 +438,7 @@ export async function* themeAgent(
   /** Only meaningful with a section actually selected. */
   const locked = input.lockToSelection ? input.selectedSectionId : undefined
   const maxTurns = input.maxTurns ?? MAX_TURNS
+  const maxReviews = input.maxReviews ?? MAX_REVIEWS
   const newId = input.newId ?? ((type: string) => `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`)
 
   let state: ThemeState = { sections: [...input.state.sections], settings: { ...input.state.settings } }
@@ -439,6 +455,16 @@ export async function* themeAgent(
   let error: string | null = "The edit did not finish."
   /** What was done, in the creator's words, for the summary at the end. */
   const done: string[] = []
+  /** Sections this run wrote to, and the subset it created, for the review. */
+  const touched = new Set<string>()
+  const added = new Set<string>()
+  /**
+   * Which FIELDS were set, per section. The review needs the difference
+   * between "this section was involved" and "the model chose this value" —
+   * without it, every contrast check reports the product's own presets.
+   */
+  const written = new Map<string, Set<string>>()
+  let reviews = 0
 
   /**
    * The selected section is sent IN FULL up front — settings and blocks —
@@ -503,6 +529,44 @@ export async function* themeAgent(
       turns.push({ role: "assistant", content: turn.text, toolCalls: turn.toolCalls, raw: turn.raw })
 
       if (turn.toolCalls.length === 0) {
+        /**
+         * =====================================================================
+         *  IT DOES NOT GET TO SAY IT IS FINISHED WITHOUT READING ITS WORK BACK
+         * =====================================================================
+         * The code agent bundles, typechecks and renders before it will admit
+         * to being done. A theme has nothing to compile, so this loop used to
+         * accept the model's word for it — and a colour change that left body
+         * text at 1.4:1 against its background was reported as a success.
+         *
+         * A theme has plenty that can be wrong; it just is not a compiler that
+         * knows it. ./review checks the sections this run touched and hands
+         * back anything objectively broken, and the run carries on until they
+         * are fixed or the review budget is spent. See MAX_REVIEWS for why the
+         * budget is small.
+         */
+        const findings =
+          ops.length > 0 && reviews < maxReviews
+            ? reviewSections({
+                state,
+                touched: [...touched],
+                added: [...added],
+                written: Object.fromEntries([...written].map(([id, set]) => [id, [...set]])),
+              })
+            : []
+
+        if (findings.length > 0) {
+          reviews++
+          yield {
+            type: "thinking",
+            text:
+              findings.length === 1
+                ? "Checking the change — one thing to fix."
+                : `Checking the changes — ${findings.length} things to fix.`,
+          }
+          turns.push({ role: "user", content: describeFindings(findings, state) })
+          continue
+        }
+
         message = turn.text.trim()
         status = "succeeded"
         error = null
@@ -540,6 +604,17 @@ export async function* themeAgent(
           state = applyOp(state, op)
           ops.push(op)
           done.push(label)
+          if ("sectionId" in op) touched.add(op.sectionId)
+          if ("id" in op) touched.add(op.id)
+          if (op.kind === "add_section") added.add(op.id)
+          if (
+            (op.kind === "update_section" || op.kind === "add_section") &&
+            op.settings
+          ) {
+            const fields = written.get(op.id) ?? new Set<string>()
+            for (const key of Object.keys(op.settings)) fields.add(key)
+            written.set(op.id, fields)
+          }
           yield { type: "op", op, label }
         }
         results.push({ id: call.id, output })

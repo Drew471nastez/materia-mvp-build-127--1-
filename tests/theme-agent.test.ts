@@ -27,6 +27,7 @@ import {
   type ThemeOp,
   type ThemeState,
 } from "@/lib/website-builder/agent/operations"
+import { contrastRatio, parseColor, reviewSections } from "@/lib/website-builder/agent/review"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import type { AgentProvider, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -167,7 +168,7 @@ async function run(
   script: Scripted[],
   state = page(),
   selectedSectionId?: string,
-  options: { lockToSelection?: boolean; maxTurns?: number } = {},
+  options: { lockToSelection?: boolean; maxTurns?: number; maxReviews?: number } = {},
 ) {
   const events: ThemeAgentEvent[] = []
   toolOutputs.length = 0
@@ -182,6 +183,7 @@ async function run(
     selectedSectionId,
     lockToSelection: options.lockToSelection,
     maxTurns: options.maxTurns,
+    maxReviews: options.maxReviews,
     newId: (type) => `${type}-new-${++n}`,
   })
   for (;;) {
@@ -2337,6 +2339,282 @@ check(
     readFileSync(join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"), "utf8"),
   ),
 )
+
+// ===========================================================================
+section("The agent reads its own work back")
+// ===========================================================================
+
+/**
+ * The loop applied operations and stopped. Whatever came out came out — a
+ * colour change that left body text at 1.4:1 against its background was
+ * reported as a success, and somebody found the unreadable section later.
+ *
+ * The code agent bundles, typechecks and renders before it will admit to being
+ * finished. A theme has nothing to compile, so the idea was dropped. That was
+ * the wrong conclusion: a theme has plenty that can be wrong, it just is not a
+ * compiler that knows it.
+ */
+{
+  /**
+   * The published WCAG numbers, not a plausible-looking approximation. #767676
+   * on white is the well-known smallest passing grey and #777777 the one just
+   * under it — if the maths drifts, those two are where it shows.
+   */
+  const table: Array<[string, string, number]> = [
+    ["#000000", "#ffffff", 21],
+    ["#ffffff", "#ffffff", 1],
+    ["#777777", "#ffffff", 4.478],
+    ["#767676", "#ffffff", 4.542],
+    ["#0000ff", "#ffffff", 8.592],
+    ["#595959", "#ffffff", 7.005],
+  ]
+  const wrong = table.filter(([a, b, expected]) => {
+    const got = contrastRatio(a, b)
+    return got === null || Math.abs(got - expected) > 0.01
+  })
+  check("the contrast maths matches the published values", wrong.length === 0, JSON.stringify(wrong))
+
+  check("shorthand hex expands", JSON.stringify(parseColor("#abc")) === "[170,187,204]")
+  check("rgb() parses", JSON.stringify(parseColor("rgb(17, 24, 39)")) === "[17,24,39]")
+  check("and a colour name that is not a colour is refused", parseColor("warm beige") === null)
+}
+
+{
+  /**
+   * THE CHECK THAT KEEPS THIS FROM MAKING THINGS WORSE.
+   *
+   * The first version reported a problem on nine of the fifty shipped presets:
+   * the product's own indigo button is white on #6366f1, which is 4.47:1 —
+   * three hundredths under AA — and several image-overlay sections declare
+   * white text beside a pale bg_color the reader never sees behind it.
+   *
+   * A run asked to shorten a heading would have been handed all of that and
+   * sent off to "fix" colours nobody complained about. Every check is now
+   * scoped to the fields the model itself wrote.
+   */
+  const noisy: string[] = []
+  for (const type of Object.keys(SECTION_SCHEMAS)) {
+    const built = buildSection(`${type}-1`, type)
+    if (!built) continue
+    const findings = reviewSections({
+      state: { sections: [built], settings: {} },
+      touched: [built.id],
+      added: [],
+      written: { [built.id]: ["heading"] },
+    })
+    if (findings.length > 0) noisy.push(`${type}: ${findings[0].message.slice(0, 60)}`)
+  }
+  check(
+    "not one of the fifty shipped presets is reported as broken",
+    noisy.length === 0,
+    noisy.slice(0, 3).join(" | "),
+  )
+}
+
+{
+  const hero = buildSection("hero-1", "hero")!
+  hero.settings.text_color = "#cccccc"
+  hero.settings.bg_color = "#ffffff"
+  const state = { sections: [hero], settings: {} }
+
+  const chosen = reviewSections({
+    state,
+    touched: ["hero-1"],
+    added: [],
+    written: { "hero-1": ["text_color", "bg_color"] },
+  })
+  check(
+    "a colour the model chose that nobody can read is caught",
+    chosen.length === 1 && /1\.61:1/.test(chosen[0].message),
+    JSON.stringify(chosen),
+  )
+
+  const inherited = reviewSections({
+    state,
+    touched: ["hero-1"],
+    added: [],
+    written: { "hero-1": ["heading"] },
+  })
+  check(
+    "and the same page is silent when the colour was not this run's doing",
+    inherited.length === 0,
+  )
+}
+
+{
+  const faq = buildSection("faq-1", "faq")!
+  faq.blocks = [
+    { id: "a", type: "faq_item", settings: { question: "Do you ship worldwide?", answer: "<p>Yes.</p>" } },
+    { id: "b", type: "faq_item", settings: { question: "Do you ship worldwide?", answer: "<p>We do.</p>" } },
+  ]
+  const findings = reviewSections({
+    state: { sections: [faq], settings: {} },
+    touched: ["faq-1"],
+    added: [],
+  })
+  check(
+    "the same question asked twice is caught",
+    findings.some((f) => /same entry more than once/.test(f.message)),
+    JSON.stringify(findings),
+  )
+}
+
+{
+  /**
+   * The duplicate check used to compare "the first string in the object",
+   * which on a counter is its `unit` — every counter block on the shipped
+   * preset has "k" in it, so a perfectly good stats section reported all of
+   * its entries as repeats. It identifies a block by NAME now.
+   */
+  const counter = buildSection("counter-1", "counter")!
+  const findings = reviewSections({
+    state: { sections: [counter], settings: {} },
+    touched: ["counter-1"],
+    added: [],
+  })
+  check(
+    "but two counters that share a unit are not the same counter",
+    findings.length === 0,
+    JSON.stringify(findings),
+  )
+}
+
+{
+  const hero = buildSection("hero-2", "hero")!
+  hero.settings.heading = ""
+  const findings = reviewSections({
+    state: { sections: [hero], settings: {} },
+    touched: ["hero-2"],
+    added: [],
+    written: { "hero-2": ["heading"] },
+  })
+  check(
+    "blanking a heading is caught — it renders as a gap",
+    findings.some((f) => /is now empty/.test(f.message)),
+  )
+}
+
+{
+  /**
+   * Added and left exactly as it shipped.
+   *
+   * THE CONTENT IS IN THE BLOCKS: a FAQ has two text fields of its own and
+   * five actual questions, and the first version of this check compared only
+   * the two. "Add an FAQ about my course" answered with the shipped "Do you
+   * offer discounts for bulk orders?" would have passed it.
+   */
+  const added = buildSection("faq-9", "faq")!
+  const findings = reviewSections({
+    state: { sections: [added], settings: {} },
+    touched: ["faq-9"],
+    added: ["faq-9"],
+  })
+  check(
+    "a section added with the preset's questions still in it is caught",
+    findings.some((f) => /all 5 of its entries exactly as the preset/.test(f.message)),
+    JSON.stringify(findings),
+  )
+
+  const edited = reviewSections({
+    state: { sections: [added], settings: {} },
+    touched: ["faq-9"],
+    added: [],
+  })
+  check(
+    "but editing an existing section is not a promise to rewrite every word in it",
+    edited.length === 0,
+    JSON.stringify(edited),
+  )
+
+  /** One real question written is enough to show somebody was home. */
+  const worked = buildSection("faq-8", "faq")!
+  worked.blocks = [
+    { id: "x", type: "faq_item", settings: { question: "How long is the course?", answer: "<p>Six weeks.</p>" } },
+    ...(worked.blocks ?? []).slice(1),
+  ]
+  check(
+    "and a section whose content was actually written is left alone",
+    reviewSections({
+      state: { sections: [worked], settings: {} },
+      touched: ["faq-8"],
+      added: ["faq-8"],
+    }).length === 0,
+  )
+}
+
+// ===========================================================================
+section("And it does not get to call that finished")
+// ===========================================================================
+
+{
+  /**
+   * The model sets an unreadable colour, says it is done, is handed the
+   * finding, fixes it, and only then finishes. Two operations, no error, and
+   * the creator never sees the bad state as a final answer.
+   */
+  const { result, events } = await run(
+    [
+      {
+        calls: [
+          [
+            "update_section",
+            { id: "hero-1", settingsJson: JSON.stringify({ text_color: "#cccccc", bg_color: "#ffffff" }) },
+          ],
+        ],
+      },
+      { text: "Made the text lighter." },
+      {
+        calls: [
+          ["update_section", { id: "hero-1", settingsJson: JSON.stringify({ text_color: "#4b5563" }) }],
+        ],
+      },
+      { text: "Lightened the text, keeping it readable." },
+    ],
+    pageWithHeroAndFaq(),
+  )
+
+  check("the run does not stop at the unreadable version", result.ops.length === 2)
+  check("it finishes cleanly once the finding is answered", result.status === "succeeded")
+  check("with no error", result.error === null)
+  check(
+    "and the final colour is the readable one",
+    (result.ops[1] as { settings: Record<string, unknown> }).settings.text_color === "#4b5563",
+  )
+  check(
+    "the panel is told a check is happening, rather than going quiet",
+    events.some((e) => e.type === "thinking" && /Checking the change/.test(e.text)),
+  )
+}
+
+{
+  /** A model that will not fix it is not held for ever. */
+  const stubborn: Scripted[] = [
+    {
+      calls: [
+        [
+          "update_section",
+          { id: "hero-1", settingsJson: JSON.stringify({ text_color: "#cccccc", bg_color: "#ffffff" }) },
+        ],
+      ],
+    },
+    ...Array.from({ length: 12 }, () => ({ text: "It looks fine to me." })),
+  ]
+  const { result } = await run(stubborn, pageWithHeroAndFaq(), undefined, { maxReviews: 2 })
+  check(
+    "the review budget is spent rather than looping for ever",
+    result.status === "succeeded" && result.ops.length === 1,
+    `${result.status} ${result.ops.length}`,
+  )
+}
+
+{
+  /** Nothing changed, nothing to review — it must not invent a round trip. */
+  const { result } = await run([{ text: "Your FAQ already covers that." }])
+  check(
+    "a run that changed nothing is not sent back to check its work",
+    result.status === "succeeded" && result.message === "Your FAQ already covers that.",
+  )
+}
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
