@@ -27,6 +27,20 @@ export type AgentToolName =
   | "replace_in_file"
   | "set_plan"
   | "complete_step"
+  /**
+   * The structured edits, on a site that has a canonical layout. They are in
+   * the same closed list as the file tools on purpose: "the AI can edit your
+   * website" has to mean something bounded, and the bound is one union rather
+   * than two that can drift.
+   */
+  | "get_layout"
+  | "add_section"
+  | "update_section"
+  | "move_section"
+  | "remove_section"
+  | "duplicate_section"
+  | "update_theme"
+  | "create_page"
 
 export interface ToolSpec {
   name: AgentToolName

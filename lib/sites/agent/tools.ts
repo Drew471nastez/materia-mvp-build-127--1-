@@ -30,6 +30,14 @@ import { filePathError, MAX_FILES_PER_PROJECT, MAX_FILE_BYTES } from "../file-pa
 import { completeStep, emptyPlan, setSteps, type RunPlan } from "./plan"
 import { bundleProject, formatBuildErrors } from "../bundle"
 import { scanForSecrets } from "../preflight"
+import {
+  DOCUMENT_TOOLS,
+  DOCUMENT_TOOL_NAMES,
+  executeDocumentTool,
+  type DocumentToolName,
+} from "./document-tools"
+import { renderDocument } from "../document/render"
+import type { SiteDocument } from "../document/schema"
 import { buildRepoMap, findUsages } from "./repo-map"
 import { sortedPaths } from "../starter"
 import type { BuildResult, ProjectFiles } from "../types"
@@ -305,6 +313,21 @@ function fileSizeError(path: string, content: string): string | null {
   )
 }
 
+/**
+ * The tools this run may use.
+ *
+ * A site with a document gets the structured edits FIRST in the list, because
+ * order is one of the few things that reliably shifts which tool a model
+ * reaches for — and reaching for write_file to change a colour is how a value
+ * leaves the creator's controls and the picker stops working.
+ *
+ * A site without one is a plain code project and never sees them: offering a
+ * tool that cannot apply is a wasted turn and a confusing refusal.
+ */
+export function toolsFor(hasDocument: boolean): ToolSpec[] {
+  return hasDocument ? [...DOCUMENT_TOOLS, ...TOOL_SPECS] : TOOL_SPECS
+}
+
 export class ProjectWorkspace {
   readonly files: ProjectFiles
   readonly changed = new Set<string>()
@@ -360,8 +383,45 @@ export class ProjectWorkspace {
    */
   private lastProblem: "bundle" | "types" | "render" | "secret" | null = null
 
-  constructor(files: ProjectFiles) {
+  /**
+   * The canonical state, when the site has one.
+   *
+   * Null for every site built before it existed. Those go on being edited as
+   * files, which is why this is optional rather than a migration nobody asked
+   * for.
+   */
+  document: SiteDocument | null = null
+
+  /** Whether the document changed, so the caller knows to persist it. */
+  documentChanged = false
+
+  constructor(files: ProjectFiles, document: SiteDocument | null = null) {
     this.files = { ...files }
+    this.document = document
+  }
+
+  get hasDocument(): boolean {
+    return this.document !== null
+  }
+
+  /**
+   * Bring the files back in line with the document.
+   *
+   * Called after every structured edit so `run_build`, the typecheck and the
+   * render all see the project as it will actually be saved. Verifying the
+   * files from BEFORE the edit would be a gate that checks the wrong thing —
+   * green on code nobody is going to ship.
+   */
+  private rerender(): void {
+    if (!this.document) return
+    const next = renderDocument(this.document, this.files)
+    for (const [path, content] of Object.entries(next)) {
+      if (this.files[path] === content) continue
+      this.files[path] = content
+      this.changed.add(path)
+      this.deleted.delete(path)
+      this.editsSinceBuild++
+    }
   }
 
 
@@ -388,6 +448,19 @@ export class ProjectWorkspace {
 
     const path = typeof args.path === "string" ? args.path : ""
     const content = typeof args.content === "string" ? args.content : ""
+
+    if ((DOCUMENT_TOOL_NAMES as readonly string[]).includes(name)) {
+      if (!this.document) {
+        return "This site has no editable layout — it is a code project. Use the file tools instead."
+      }
+      const result = executeDocumentTool(name as DocumentToolName, args, this.document)
+      if (result.doc) {
+        this.document = result.doc
+        this.documentChanged = true
+        this.rerender()
+      }
+      return result.output
+    }
 
     switch (name) {
       case "search_code": {

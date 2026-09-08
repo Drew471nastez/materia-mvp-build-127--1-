@@ -40,6 +40,8 @@ import { formatTypeErrors, typecheckProject } from "../typecheck"
 import { formatRenderFailure, renderCheck } from "../render-check"
 import { siteLimits, type SitePlan } from "../plan"
 import { readProject, saveFiles } from "../projects"
+import { readDocument, writeDocument } from "../document/store"
+import { isGenerated } from "../document/render"
 import type { ProjectFiles } from "../types"
 import { agentLoop } from "./loop"
 import { chooseModel, costOf } from "./models"
@@ -135,7 +137,16 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
 
   yield { type: "started", runId, versionId, model }
 
-  const workspace = new ProjectWorkspace(files)
+  /**
+   * The site's canonical layout, when it has one.
+   *
+   * Null for every site built before documents existed. Those keep working as
+   * code projects — the agent simply does not see the structured tools, which
+   * is better than offering edits that cannot apply.
+   */
+  const document = await readDocument(siteId).catch(() => null)
+
+  const workspace = new ProjectWorkspace(files, document)
 
   /**
    * WHAT THE AGENT KNOWS BEFORE IT STARTS.
@@ -280,15 +291,46 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
 
   if (status === "succeeded") {
     const changed = workspace.changedFiles()
-    if (Object.keys(changed).length > 0) {
-      const saved = await saveFiles(siteId, changed)
+
+    /**
+     * CUSTOM FILES FIRST, THEN THE DOCUMENT.
+     *
+     * A run can touch both: a section prop AND a component the library cannot
+     * express. The generated files are the document's output and are written
+     * by `writeDocument` from the document itself, so writing them here as
+     * well would be the same bytes twice — and would make the file save the
+     * thing that defines the site, which is the split this whole layer exists
+     * to remove.
+     *
+     * The custom ones go first because `writeDocument` renders over whatever
+     * is stored, and a custom section the agent has just written has to be
+     * stored before that render can preserve it.
+     */
+    const custom: ProjectFiles = {}
+    for (const [path, content] of Object.entries(changed)) {
+      if (workspace.hasDocument && isGenerated(path)) continue
+      custom[path] = content
+    }
+
+    if (Object.keys(custom).length > 0) {
+      const saved = await saveFiles(siteId, custom)
       if (!saved.ok) {
         status = "failed"
         error = saved.error
-      } else {
-        changedFiles = [...workspace.changed]
-        yield { type: "files", paths: changedFiles }
       }
+    }
+
+    if (status === "succeeded" && workspace.documentChanged && workspace.document) {
+      const stored = await writeDocument(siteId, workspace.document)
+      if (!stored.ok) {
+        status = "failed"
+        error = stored.error
+      }
+    }
+
+    if (status === "succeeded" && Object.keys(changed).length > 0) {
+      changedFiles = [...workspace.changed]
+      yield { type: "files", paths: changedFiles }
     }
 
     /**

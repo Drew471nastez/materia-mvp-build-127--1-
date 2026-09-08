@@ -1345,7 +1345,14 @@ check(
     const restore = runSource.slice(runSource.indexOf("export async function restoreVersion"))
     const directWrites = restore.match(/from\("site_files"\)\s*\.(insert|update|upsert|delete)/g) ?? []
     return (
-      runSource.includes("saveFiles(siteId, changed)") &&
+      /**
+       * `custom` rather than `changed`: a site with a document has its
+       * generated files written by writeDocument, FROM the document, so
+       * writing them here as well would make the file save the thing that
+       * defines the site — the exact split the document layer removes.
+       */
+      runSource.includes("saveFiles(siteId, custom)") &&
+      runSource.includes("writeDocument(siteId, workspace.document)") &&
       // Nothing in the edit path touches the table.
       !/from\("site_files"\)/.test(edits) &&
       !/from\("site_files"\)/.test(toolSource) &&
@@ -5921,6 +5928,39 @@ function sampleDoc(): SiteDocument {
       !isSiteDocument({ revision: 1, theme: emptyDocument().theme, pages: [{ id: "h", path: "/", sections: [{ type: "hero" }] }] }),
   )
 }
+
+check(
+  "two writers cannot silently overwrite each other",
+  (() => {
+    const store = strip(read("lib/sites/document/store.ts"))
+    /**
+     * A creator dragging a section and an agent run rewriting the page can be
+     * in flight at the same moment. The comparison has to happen in POSTGRES,
+     * against the row as it is at that instant — reading the revision in
+     * JavaScript and comparing it here leaves a window between the read and the
+     * write, which is exactly where the lost update lives.
+     */
+    return (
+      /query\.filter\("document->>revision", "eq", String\(expectedRevision\)\)/.test(store) &&
+      /conflict: true/.test(store)
+    )
+  })(),
+)
+
+check(
+  "the source is written before the output it generates",
+  (() => {
+    const store = strip(read("lib/sites/document/store.ts"))
+    /**
+     * The two writes cannot be one transaction through PostgREST, so one can
+     * land without the other and the ORDER decides which way a half-failure
+     * breaks. Document first: the source is then correct and the files are
+     * stale, which the next render fixes. The other order loses the creator's
+     * actual change and keeps code nobody asked for.
+     */
+    return store.indexOf(".update({ document: doc })") < store.indexOf("renderDocument(doc, existing)")
+  })(),
+)
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {

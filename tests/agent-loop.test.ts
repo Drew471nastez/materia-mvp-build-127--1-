@@ -31,7 +31,9 @@ import {
   renderFailure,
   rootComponent,
 } from "@/lib/sites/render-check"
-import { ProjectWorkspace } from "@/lib/sites/agent/tools"
+import { ProjectWorkspace, toolsFor } from "@/lib/sites/agent/tools"
+import { emptyDocument, type SiteDocument } from "@/lib/sites/document/schema"
+import { renderDocument } from "@/lib/sites/document/render"
 import { blankProject } from "@/lib/sites/starter"
 import type { LoopResult } from "@/lib/sites/agent/loop"
 import type {
@@ -1263,6 +1265,180 @@ export default function App() {
   )
 }
 
+
+
+// ---------------------------------------------------------------------------
+section("The agent edits the same state the visual editor does")
+// ---------------------------------------------------------------------------
+
+/**
+ * A model asked to make a hero black CAN edit src/sections/Hero.tsx, and the
+ * result looks right and is wrong: the colour becomes a literal in a component
+ * instead of a prop, so the creator's colour picker shows the old value, they
+ * change it back, and nothing happens. The site and its controls have come
+ * apart and nobody can see where.
+ *
+ * Going through a prop keeps one state — the picker reads what the agent
+ * wrote, because there is only one thing to read.
+ */
+
+function docFixture(): SiteDocument {
+  const base = emptyDocument()
+  return {
+    ...base,
+    pages: [
+      {
+        id: "home",
+        path: "/",
+        name: "Home",
+        sections: [
+          { id: "n1", type: "navbar", props: { brand: "Fade & Blade" } },
+          { id: "h1", type: "hero", props: { heading: "Sharper than your last cut." } },
+          { id: "ft1", type: "footer", props: { brand: "Fade & Blade" } },
+        ],
+      },
+    ],
+  }
+}
+
+{
+  const withDoc = new ProjectWorkspace(renderDocument(docFixture()), docFixture())
+  const withoutDoc = new ProjectWorkspace(blankProject("Plain"))
+
+  check("a site with a layout gets the structured tools", withDoc.hasDocument === true)
+  check(
+    "and they come first, where a model actually reaches",
+    toolsFor(true)[0].name === "get_layout",
+    toolsFor(true)[0].name,
+  )
+  check(
+    "a plain code project never sees them",
+    withoutDoc.hasDocument === false &&
+      !toolsFor(false).some((tool) => tool.name === "update_section"),
+  )
+}
+
+{
+  const workspace = new ProjectWorkspace(renderDocument(docFixture()), docFixture())
+  const before = workspace.files["src/App.tsx"]
+
+  const output = await workspace.execute(
+    "update_section",
+    JSON.stringify({ id: "h1", props: { background: "#000000", heading: "Sharper." } }),
+    esbuild,
+  )
+
+  check("a prop edit is accepted", /Updated h1/.test(output), output)
+  check(
+    "the document carries it",
+    workspace.document?.pages[0].sections[1].props.background === "#000000",
+    JSON.stringify(workspace.document?.pages[0].sections[1].props),
+  )
+  check(
+    "the generated code follows in the same call",
+    workspace.files["src/App.tsx"].includes('background="#000000"') && before !== workspace.files["src/App.tsx"],
+  )
+  check(
+    "and the file is marked changed, so the run saves it",
+    workspace.changed.has("src/App.tsx"),
+    [...workspace.changed].join(", "),
+  )
+  /**
+   * The verdict has to describe what will be SAVED. Re-rendering without
+   * invalidating the build would gate on the project as it was before the
+   * edit — green on code nobody is going to ship.
+   *
+   * BUILT FIRST, then edited. The first version asserted null on a workspace
+   * that had never built, where null is the starting value — so it passed with
+   * the invalidation deleted.
+   */
+  const built = new ProjectWorkspace(renderDocument(docFixture()), docFixture())
+  await built.execute("run_build", "{}", esbuild)
+  const green = built.buildOk
+  await built.execute("update_section", JSON.stringify({ id: "h1", props: { heading: "Later" } }), esbuild)
+  check(
+    "and a structured edit sends the build verdict back to unknown",
+    green === true && built.buildOk === null,
+    `green=${green} after=${built.buildOk}`,
+  )
+}
+
+{
+  const workspace = new ProjectWorkspace(renderDocument(docFixture()), docFixture())
+  const output = await workspace.execute(
+    "update_section",
+    JSON.stringify({ id: "h1", props: { backgroundColor: "#000" } }),
+    esbuild,
+  )
+  check(
+    "an unknown prop is refused in words the model can act on",
+    /no prop called "backgroundColor"/.test(output) && /did you mean "background"/.test(output),
+    output,
+  )
+  check(
+    "and nothing changed",
+    workspace.document?.pages[0].sections[1].props.backgroundColor === undefined &&
+      workspace.changed.size === 0,
+  )
+}
+
+{
+  const workspace = new ProjectWorkspace(renderDocument(docFixture()), docFixture())
+  const layout = await workspace.execute("get_layout", "{}", esbuild)
+  check(
+    "the layout reads as pages, sections and props",
+    /h1 \(hero\)/.test(layout) && /THEME/.test(layout) && /SECTION TYPES AVAILABLE/.test(layout),
+    layout.slice(0, 120),
+  )
+}
+
+{
+  /**
+   * The whole point of the structured layer is that its output is a real
+   * project. A theme write touches every section at once — which is what makes
+   * "make the whole site feel more premium" one coherent change rather than a
+   * drift across a dozen files — and the result still has to build.
+   */
+  const workspace = new ProjectWorkspace(renderDocument(docFixture()), docFixture())
+  await workspace.execute("update_theme", JSON.stringify({ primary: "#c8a24a", radius: 2 }), esbuild)
+  await workspace.execute(
+    "add_section",
+    JSON.stringify({ page: "/", type: "cta", id: "c1", index: 2, props: { heading: "Chairs go quickly" } }),
+    esbuild,
+  )
+  const verdict = await workspace.execute("run_build", "{}", esbuild)
+
+  check("a themed, restructured site still compiles", !/Build FAILED/.test(verdict), verdict.slice(0, 200))
+  check(
+    "the theme reached the stylesheet",
+    workspace.files["src/styles.css"].includes("--primary: #c8a24a"),
+  )
+  check(
+    "and the new section reached the page",
+    workspace.files["src/App.tsx"].includes("<Cta") &&
+      workspace.document?.pages[0].sections[2].id === "c1",
+  )
+}
+
+{
+  const workspace = new ProjectWorkspace(renderDocument(docFixture()), docFixture())
+  /**
+   * The escape hatch. A request the section library cannot express is written
+   * as a file, and it must survive every later render — otherwise one unusual
+   * ask costs a creator the editable parts of their site.
+   */
+  await workspace.execute(
+    "create_file",
+    JSON.stringify({ path: "src/custom/RoiCalculator.tsx", content: "export default function RoiCalculator() {\n  return <div />\n}\n" }),
+    esbuild,
+  )
+  await workspace.execute("update_section", JSON.stringify({ id: "h1", props: { heading: "New" } }), esbuild)
+
+  check(
+    "custom code survives a re-render",
+    workspace.files["src/custom/RoiCalculator.tsx"]?.includes("RoiCalculator") === true,
+  )
+}
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
