@@ -28,7 +28,7 @@
 
 import { SECTION_SCHEMAS } from "../section-schemas"
 import { THEME_SETTINGS_GROUPS } from "../theme-settings-schema"
-import type { BlockInstance, BlockSchema, SectionInstance } from "../types"
+import type { BlockInstance, BlockSchema, SchemaField, SectionInstance } from "../types"
 
 /** The theme state an operation acts on. Exactly what the editor holds. */
 export interface ThemeState {
@@ -294,9 +294,233 @@ export function applyOps(state: ThemeState, ops: ThemeOp[]): ThemeState {
 /*  WHAT THE MODEL IS TOLD                                                    */
 /* ========================================================================== */
 
+/**
+ * `header` and `paragraph` are not settings.
+ *
+ * They are the editor's own furniture — a group title and a note — and they
+ * carry no value. 163 of the schema's fields are `header`. Listing them as
+ * things the model may write is an invitation to write one, and a write to one
+ * merges a key nothing reads: success reported, nothing changed. The same
+ * silent failure the id check exists to prevent.
+ */
+const NOT_A_SETTING = new Set(["header", "paragraph"])
+
+function writableFields(type: string): SchemaField[] {
+  return (SECTION_SCHEMAS[type]?.fields ?? []).filter((f) => !NOT_A_SETTING.has(f.type))
+}
+
+function writableBlockFields(sectionType: string, blockType: string): SchemaField[] {
+  return (blockSpecs(sectionType).find((b) => b.type === blockType)?.fields ?? []).filter(
+    (f) => !NOT_A_SETTING.has(f.type),
+  )
+}
+
 /** The field ids a section type actually accepts, for validating a write. */
 export function fieldIds(type: string): string[] {
-  return (SECTION_SCHEMAS[type]?.fields ?? []).map((f) => f.id)
+  return writableFields(type).map((f) => f.id)
+}
+
+/* ========================================================================== */
+/*  THE CONTROLS, DESCRIBED — AND THE VALUES THEY WILL TAKE                   */
+/* ========================================================================== */
+/*
+ * Every field in this editor is a CONTROL: a slider with a range, a picker
+ * with a list, a colour well, a toggle, a text box. The model was shown field
+ * IDS and nothing else, so it was writing values blind — "rounded" into a
+ * select whose options are simple | boxed | bordered, 500 into a slider that
+ * stops at 16, "yes" into a toggle, "warm beige" into a colour.
+ *
+ * Every one of those merges cleanly and is then ignored by the renderer. The
+ * tool reports success and the page does not move. It is the same silent
+ * failure as an unknown id, one level down, and it is the reason a request
+ * could come back "done" with nothing to see.
+ *
+ * So: the model is told what each control is and what it accepts, and a value
+ * that does not fit is refused with the list rather than merged.
+ */
+
+/** One field as the model needs to see it: what it is, and what it will take. */
+export function describeField(f: SchemaField): string {
+  const accepts = (): string => {
+    switch (f.type) {
+      case "select":
+      case "radio": {
+        const values = (f.options ?? []).map((o) => o.value)
+        return values.length > 0 ? `one of ${values.join(" | ")}` : "a string"
+      }
+      case "toggle":
+        return "true or false"
+      case "range":
+      case "number": {
+        const bounds =
+          f.min !== undefined && f.max !== undefined
+            ? `${f.min}-${f.max}`
+            : f.min !== undefined
+              ? `at least ${f.min}`
+              : f.max !== undefined
+                ? `at most ${f.max}`
+                : "any"
+        return `number ${bounds}${f.step !== undefined ? ` step ${f.step}` : ""}${
+          f.unit ? ` ${f.unit}` : ""
+        }`
+      }
+      case "color":
+        return 'a hex colour like "#1a1a1a"'
+      case "image":
+      case "video":
+        return "an image/video URL, or \"\" for none"
+      case "link":
+        return 'a URL or a path like "/about"'
+      case "richtext":
+        return "HTML, e.g. <p>one paragraph</p><p>another</p>"
+      case "textarea":
+        return "a few sentences"
+      case "icon":
+        return "an icon name"
+      case "font":
+        return 'a CSS font stack like "Georgia, serif"'
+      default:
+        return "a short string"
+    }
+  }
+
+  /**
+   * The SCHEMA's default, labelled as such. It was written as "now …", which
+   * is a different claim and a false one — the current value is in CURRENT
+   * SETTINGS a few lines down, and the two are only equal on a section nobody
+   * has touched.
+   */
+  const dflt =
+    f.default === undefined || f.default === "" ? "" : `, default ${JSON.stringify(f.default)}`
+  return `${f.id} — ${f.label}: ${f.type}, ${accepts()}${dflt}`
+}
+
+function describeFieldList(fields: SchemaField[], indent = "  "): string {
+  return fields.length > 0
+    ? fields.map((f) => `${indent}${describeField(f)}`).join("\n")
+    : `${indent}none`
+}
+
+/** Every control on a section type, for a model that is about to write one. */
+export function describeFields(type: string): string {
+  return describeFieldList(writableFields(type))
+}
+
+export interface SettingsCheck {
+  /** The values to apply, with anything safely coercible already coerced. */
+  settings?: Record<string, unknown>
+  /** Why nothing was applied. Written for the model to act on. */
+  error?: string
+  /** What was coerced, so the tool output can say so rather than hide it. */
+  notes: string[]
+}
+
+/**
+ * Check a write against the controls it is writing to.
+ *
+ * Coercion is deliberate and narrow: "60" into a slider and "true" into a
+ * toggle are unambiguous, and refusing them costs a round trip to fix a
+ * quoting slip. Everything else is refused WITH THE LIST, because a value that
+ * has to be guessed at is a value that will be guessed wrong twice.
+ */
+export function checkSettings(
+  fields: SchemaField[],
+  settings: Record<string, unknown>,
+  what: string,
+): SettingsCheck {
+  const byId = new Map(fields.map((f) => [f.id, f]))
+  const unknown = Object.keys(settings).filter((key) => !byId.has(key))
+  if (unknown.length > 0) {
+    return {
+      notes: [],
+      error: `${what} has no field${unknown.length === 1 ? "" : "s"} called ${unknown
+        .map((u) => `"${u}"`)
+        .join(", ")}. Nothing was changed. It accepts:\n${describeFieldList(fields)}`,
+    }
+  }
+
+  const out: Record<string, unknown> = {}
+  const notes: string[] = []
+
+  for (const [id, raw] of Object.entries(settings)) {
+    const field = byId.get(id)!
+    const refuse = (why: string): SettingsCheck => ({
+      notes: [],
+      error: `"${id}" ${why}. Nothing was changed. ${describeField(field)}`,
+    })
+
+    let value = raw
+
+    switch (field.type) {
+      case "select":
+      case "radio": {
+        const values = (field.options ?? []).map((o) => o.value)
+        if (typeof value !== "string") return refuse("must be a string")
+        if (values.length > 0 && !values.includes(value)) {
+          return refuse(`is not one of that control's choices`)
+        }
+        break
+      }
+
+      case "toggle": {
+        if (typeof value === "string" && (value === "true" || value === "false")) {
+          notes.push(`${id}: "${value}" read as ${value === "true"}`)
+          value = value === "true"
+        }
+        if (typeof value !== "boolean") return refuse("must be true or false")
+        break
+      }
+
+      case "range":
+      case "number": {
+        if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) {
+          notes.push(`${id}: "${value}" read as ${Number(value)}`)
+          value = Number(value)
+        }
+        if (typeof value !== "number" || !Number.isFinite(value)) {
+          return refuse("must be a number")
+        }
+        /**
+         * CLAMPED, not refused. A slider that stops at 16 and a model that
+         * asked for 24 agree about the direction and disagree about the
+         * amount; the control's own maximum is the answer, and it is what the
+         * editor's slider would have produced from the same drag.
+         */
+        let n = value as number
+        if (field.min !== undefined && n < field.min) {
+          notes.push(`${id}: ${n} raised to the control's minimum, ${field.min}`)
+          n = field.min
+        }
+        if (field.max !== undefined && n > field.max) {
+          notes.push(`${id}: ${n} lowered to the control's maximum, ${field.max}`)
+          n = field.max
+        }
+        value = n
+        break
+      }
+
+      case "color": {
+        if (typeof value !== "string") return refuse("must be a string")
+        const ok =
+          value === "" ||
+          /^#[0-9a-f]{3,8}$/i.test(value.trim()) ||
+          /^(rgb|hsl)a?\([^)]*\)$/i.test(value.trim()) ||
+          value.trim() === "transparent"
+        if (!ok) return refuse("is not a colour this editor can render")
+        break
+      }
+
+      default: {
+        if (typeof value !== "string") {
+          return refuse("must be a string")
+        }
+      }
+    }
+
+    out[id] = value
+  }
+
+  return { settings: out, notes }
 }
 
 /** The block types a section accepts, and how many of them it will take. */
@@ -310,7 +534,21 @@ export function maxBlocks(sectionType: string): number | undefined {
 
 /** The field ids one block type accepts, for validating a write. */
 export function blockFieldIds(sectionType: string, blockType: string): string[] {
-  return (blockSpecs(sectionType).find((b) => b.type === blockType)?.fields ?? []).map((f) => f.id)
+  return writableBlockFields(sectionType, blockType).map((f) => f.id)
+}
+
+/** Every control on one block type, described. */
+export function describeBlockFields(sectionType: string, blockType: string, indent = "  "): string {
+  return describeFieldList(writableBlockFields(sectionType, blockType), indent)
+}
+
+/** The controls themselves, for checkSettings. */
+export function fieldsFor(type: string): SchemaField[] {
+  return writableFields(type)
+}
+
+export function blockFieldsFor(sectionType: string, blockType: string): SchemaField[] {
+  return writableBlockFields(sectionType, blockType)
 }
 
 /**
@@ -350,12 +588,11 @@ export function describeTheme(state: ThemeState, page: string): string {
  * the questions. That is what "it changed nothing I can see" looked like.
  */
 export function describeSection(section: SectionInstance): string {
-  const allowed = fieldIds(section.type)
   const specs = blockSpecs(section.type)
   const cap = maxBlocks(section.type)
   const parts = [
-    `${section.type} [${section.id}] "${section.name}"`,
-    `FIELDS THIS SECTION ACCEPTS: ${allowed.join(", ") || "none"}`,
+    `${section.type} [${section.id}] "${section.name}"${section.hidden ? " — HIDDEN from the page" : ""}`,
+    `CONTROLS THIS SECTION HAS\n${describeFields(section.type)}`,
     `CURRENT SETTINGS\n${JSON.stringify(section.settings, null, 2).slice(0, 5_000)}`,
   ]
 
@@ -363,7 +600,9 @@ export function describeSection(section: SectionInstance): string {
     parts.push(
       [
         `BLOCK TYPES THIS SECTION TAKES${cap !== undefined ? ` (at most ${cap})` : ""}:`,
-        ...specs.map((b) => `  ${b.type} — fields: ${(b.fields ?? []).map((f) => f.id).join(", ")}`),
+        ...specs.map((b) =>
+          [`  ${b.type} — ${b.name}`, describeBlockFields(section.type, b.type, "      ")].join("\n"),
+        ),
       ].join("\n"),
     )
     const blocks = section.blocks ?? []
@@ -397,7 +636,7 @@ export function describeSection(section: SectionInstance): string {
  * settings live in a different schema and were missed.
  */
 export function themeFieldIds(): string[] {
-  return THEME_SETTINGS_GROUPS.flatMap((group) => (group.fields ?? []).map((f) => f.id))
+  return themeFieldsFor().map((f) => f.id)
 }
 
 /**
@@ -409,11 +648,19 @@ export function themeFieldIds(): string[] {
  */
 export function describeThemeSettings(): string {
   return THEME_SETTINGS_GROUPS.map((group) => {
-    const fields = (group.fields ?? [])
-      .map((f) => `${f.id} (${f.type})`)
-      .join(", ")
-    return `  ${group.label}: ${fields}`
-  }).join("\n")
+    const fields = (group.fields ?? []).filter((f) => !NOT_A_SETTING.has(f.type))
+    if (fields.length === 0) return null
+    return [`${group.label}`, ...fields.map((f) => `  ${describeField(f)}`)].join("\n")
+  })
+    .filter(Boolean)
+    .join("\n")
+}
+
+/** The theme's own controls, for checkSettings. */
+export function themeFieldsFor(): SchemaField[] {
+  return THEME_SETTINGS_GROUPS.flatMap((group) =>
+    (group.fields ?? []).filter((f) => !NOT_A_SETTING.has(f.type)),
+  )
 }
 
 /**

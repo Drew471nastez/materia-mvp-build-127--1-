@@ -26,7 +26,21 @@ export async function GET(_request: Request, context: { params: Promise<{ instal
      * believe their history is gone when it is sitting in the table.
      */
     if (thrown instanceof ThemeChatUnavailableError) {
-      return NextResponse.json({ error: "Could not load this conversation." }, { status: 503 })
+      /**
+       * `reason` so the panel can say the true thing. A deployment whose
+       * migration has not been run is not a fault, and telling somebody their
+       * conversation could not be loaded — when there is not yet anywhere for
+       * one to live — sends them looking for a problem that is not there.
+       */
+      return NextResponse.json(
+        {
+          error: thrown.notSetUp
+            ? "Chat history is not set up on this database yet."
+            : "Could not load this conversation.",
+          reason: thrown.notSetUp ? "not_set_up" : "read_failed",
+        },
+        { status: 503 },
+      )
     }
     throw thrown
   }

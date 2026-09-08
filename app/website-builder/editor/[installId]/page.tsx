@@ -17,7 +17,6 @@ import {
   Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle,
   Type, Square, Rows3, Grid3x3, MousePointerClick,
   MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon,
-  Sparkles,
 } from "lucide-react"
 import {
   DndContext,
@@ -57,6 +56,7 @@ import { PAGE_META, DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES } from "@/lib/website-builder/section-schemas"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
+import { StorelibMark } from "@/components/storelib-mark"
 import { toast } from "sonner"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { ThemeChat } from "@/components/website-builder/theme-chat"
@@ -5579,9 +5579,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   // Shown on every size. It was `hidden sm:flex`, which hid the
                   // AI from the device most likely to want it.
                   "h-8 w-8 flex items-center justify-center rounded-lg border transition-colors cursor-pointer",
+                  /*
+                    The mark keeps its own colour in both states. Inverting the
+                    button to solid black used to be fine for a line-art
+                    sparkle and is not for a logo — a brand mark on a black
+                    tile reads as a different brand.
+                  */
                   aiOpen
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
+                    ? "border-foreground bg-muted"
+                    : "border-border hover:bg-muted",
                 )}
                 onClick={() => {
                   setAiOpen(open => !open)
@@ -5589,13 +5595,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   // bottom of the screen.
                   if (isMobileView) setMobileSidebarOpen(false)
                 }}
-                aria-label="Ask AI"
+                aria-label="Ask Storelib"
                 aria-pressed={aiOpen}
               >
-                <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
+                <StorelibMark className={cn("h-[18px] w-[18px] rounded-[5px] transition-opacity", aiOpen ? "opacity-100" : "opacity-80")} />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">{aiOpen ? "Hide AI" : "Ask AI"}</TooltipContent>
+            <TooltipContent side="bottom">{aiOpen ? "Hide Storelib AI" : "Ask Storelib"}</TooltipContent>
           </Tooltip>
 
           {/* Preview */}
