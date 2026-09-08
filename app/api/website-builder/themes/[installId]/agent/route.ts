@@ -53,6 +53,8 @@ const BodySchema = z.object({
   page: z.string().min(1).max(64),
   sections: z.array(SectionSchema).max(500),
   settings: z.record(z.unknown()),
+  /** Which section the creator has open, so "this section" resolves. */
+  selectedSectionId: z.string().max(128).optional(),
 })
 
 export async function POST(request: NextRequest, context: { params: Promise<{ installId: string }> }) {
@@ -136,6 +138,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           page: body.page,
           state: { sections: body.sections, settings: body.settings },
           addable: ADDABLE_SECTIONS,
+          selectedSectionId: body.selectedSectionId,
           // Groups this theme's requests for the provider's prompt cache. A
           // theme id, never anything about the person.
           cacheKey: `theme:${installId}`,
