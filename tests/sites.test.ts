@@ -29,6 +29,7 @@ import { blankProject } from "@/lib/sites/starter"
 import { allocateSiteSlug, SLUG_FALLBACK } from "@/lib/sites/slug"
 import { contentTypeFor } from "@/lib/sites/content-type"
 import { createZip } from "@/lib/sites/zip"
+import { scanForSecrets } from "@/lib/sites/preflight"
 import { buildRepoMap, describeRepoMap, findUsages } from "@/lib/sites/agent/repo-map"
 import { describeProject } from "@/lib/sites/agent/context"
 
@@ -4285,7 +4286,10 @@ check(
       /const rendered = render \? await render/.test(body) &&
       /if \(types && !types\.ok\) \{/.test(body) &&
       /if \(rendered && !rendered\.ok\) \{/.test(body) &&
-      (body.match(/this\.lastBuildOk = false/g) ?? []).length === 3 &&
+      (body.match(/this\.lastBuildOk = false/g) ?? []).length === 4 &&
+      // credentials first: free, deterministic, and true whether or not it compiles
+      /const leaked = scanForSecrets\(this\.files\)/.test(body) &&
+      body.indexOf("scanForSecrets") < body.indexOf("bundleProject") &&
       // the render is only reached once the types are clean
       body.indexOf("await typecheck") < body.indexOf("await render") &&
       // and a pass is the LAST thing in the handler, after every stage
@@ -5040,6 +5044,176 @@ check(
       !/allow-same-origin/.test(pane) &&
       !/allow-top-navigation/.test(pane) &&
       !/allow-popups/.test(pane)
+    )
+  })(),
+)
+
+// ===========================================================================
+section("Nothing goes public without passing what the agent is held to")
+// ===========================================================================
+
+/**
+ * PUBLISH WAS CHECKING LESS THAN THE AGENT WAS.
+ *
+ * An agent run bundles, typechecks and renders before it may finish.
+ * `publishSite` ran esbuild and nothing else — so every path that is NOT an
+ * agent run went live unchecked, and the safest path was the least guarded
+ * one: the Code tab autosaves every 1.2 seconds and Publish took whatever was
+ * there.
+ *
+ * And nothing looked for credentials at all, on the one operation that copies
+ * a project onto a public bucket behind a CDN. A key that goes out that way is
+ * not exposed later — it is published, and deleting the site afterwards does
+ * not recall it.
+ */
+
+/** A JWT with the given payload. Built here so no literal token is committed. */
+function jwt(payload: Record<string, unknown>): string {
+  const b64 = (value: unknown) =>
+    Buffer.from(JSON.stringify(value)).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+  return `${b64({ alg: "HS256", typ: "JWT" })}.${b64(payload)}.${"s".repeat(43)}`
+}
+
+{
+  /**
+   * The things that are unambiguously credentials. Each is a vendor's own
+   * prefix followed by enough characters that it cannot be a coincidence.
+   */
+  const caught: Array<[string, string]> = [
+    ["a Stripe secret key", `const stripe = "sk_live_${"a1B2c3D4e5F6g7H8i9J0k1L2"}"`],
+    ["an OpenAI key", `const openai = "sk-proj-${"A".repeat(40)}"`],
+    ["an AWS access key id", `const aws = "AKIA${"ABCDEFGHIJKLMNOP"}"`],
+    ["a Google API key", `const maps = "AIza${"Sy".padEnd(35, "x")}"`],
+    ["a GitHub token", `const gh = "ghp_${"b".repeat(36)}"`],
+    ["a Slack token", `const slack = "xoxb-${"1234567890-abcdef"}"`],
+    ["a SendGrid key", `const mail = "SG.${"a".repeat(22)}.${"b".repeat(43)}"`],
+    ["an npm token", `const npm = "npm_${"c".repeat(36)}"`],
+    ["a private key", `const pem = \`-----BEGIN RSA PRIVATE KEY-----\``],
+    ["a Supabase service role key", `const admin = "${jwt({ role: "service_role", iss: "supabase" })}"`],
+  ]
+
+  for (const [label, source] of caught) {
+    const found = scanForSecrets({ "src/App.tsx": `export default function App() {\n  ${source}\n  return null\n}\n` })
+    check(
+      `a publish is stopped by ${label}`,
+      found.length === 1 && found[0].level === "blocking" && found[0].line === 2,
+      JSON.stringify(found),
+    )
+  }
+}
+
+{
+  /**
+   * THE FALSE POSITIVES MATTER MORE THAN THE LIST DOES.
+   *
+   * A wrong hit BLOCKS A PUBLISH, and a creator who cannot ship because a
+   * paragraph of copy looked like a token will not thank anybody for the
+   * caution. So there is no "high entropy" rule and no "looks like a password"
+   * rule — those also catch a hash in a filename, a base64 image, a UUID.
+   */
+  const allowed: Array<[string, string]> = [
+    /**
+     * The one that would have been most damaging: a Supabase ANON key is a JWT
+     * and it is meant to be public — it is in every client bundle of every
+     * Supabase app there is. Matching "a JWT" would have blocked a correct
+     * site on its most ordinary line, so the token is decoded and only the
+     * service role, which ignores every row-level policy, is a finding.
+     */
+    ["a Supabase anon key, which is public by design", `const key = "${jwt({ role: "anon", iss: "supabase" })}"`],
+    ["a UUID", `const id = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"`],
+    ["a hashed asset filename", `import styles from "./app.a1b2c3d4e5f6.css"`],
+    ["a base64 image", `const logo = "data:image/png;base64,${"iVBORw0KGgoAAAANSUhEUg".repeat(4)}"`],
+    ["prose that happens to say key", `<p>Ask us for the key to the studio and we will leave it out for you</p>`],
+    ["a long list of class names", `className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4 py-24 text-center"`],
+    ["a short string that starts sk-", `const label = "sk-1"`],
+    ["a sentence containing AKIA", `<p>AKIAA is not a word but this is only copy</p>`],
+  ]
+
+  for (const [label, source] of allowed) {
+    const found = scanForSecrets({ "src/App.tsx": `export default function App() {\n  ${source}\n  return null\n}\n` })
+    check(`${label} does not stop a publish`, found.length === 0, JSON.stringify(found))
+  }
+}
+
+{
+  const found = scanForSecrets({
+    "src/lib/db.ts": `export const KEY = "sk_live_${"z9Y8x7W6v5U4t3S2r1Q0p9O8"}"`,
+  })
+  check(
+    "the finding names the file and the line",
+    found[0]?.file === "src/lib/db.ts" && found[0]?.line === 1,
+    JSON.stringify(found[0]),
+  )
+  check(
+    "and never repeats the value it found",
+    !!found[0] && !found[0].message.includes("sk_live_") && !found[0].message.includes("z9Y8x7W6"),
+    found[0]?.message,
+  )
+  check(
+    "it says the key should be treated as compromised, because it has been",
+    /compromised/.test(found[0]?.message ?? ""),
+  )
+}
+
+check(
+  "publishing runs the checks before it builds or uploads anything",
+  (() => {
+    const publish = strip(read("lib/sites/publish.ts"))
+    const at = publish.indexOf("export async function publishSite")
+    const body = publish.slice(at)
+    return (
+      /const checks = await preflight\(files\)/.test(body) &&
+      /if \(!checks\.ok\)/.test(body) &&
+      // before the bundle, the slug, the deployment row and the upload
+      body.indexOf("await preflight(files)") < body.indexOf("buildStatic(files") &&
+      body.indexOf("await preflight(files)") < body.indexOf("site_deployments")
+    )
+  })(),
+)
+
+check(
+  "the checks cover types, render and credentials — not just the bundle",
+  (() => {
+    const pre = strip(read("lib/sites/preflight.ts"))
+    return (
+      /scanForSecrets\(files\)/.test(pre) &&
+      /typecheckProject\(files\)/.test(pre) &&
+      /renderCheck\(files\)/.test(pre)
+    )
+  })(),
+)
+
+check(
+  "a check that could not run is recorded as skipped, never as a pass",
+  (() => {
+    const pre = strip(read("lib/sites/preflight.ts"))
+    /**
+     * The difference between "verified" and "nothing objected". A typechecker
+     * that is not installed must not read as a clean typecheck.
+     */
+    return (
+      /skipped\.push\("typecheck"\)/.test(pre) &&
+      /skipped\.push\("render"\)/.test(pre) &&
+      /ok: findings\.every\(\(f\) => f\.level !== "blocking"\)/.test(pre)
+    )
+  })(),
+)
+
+check(
+  "and the agent is told about a credential before it can finish the run",
+  (() => {
+    const tools = strip(read("lib/sites/agent/tools.ts"))
+    const at = tools.indexOf('case "run_build"')
+    const body = tools.slice(at, tools.indexOf('case "read_build_errors"', at))
+    /**
+     * Told at run_build rather than only at publish, so the model removes it
+     * in the same run instead of the creator discovering it at the moment they
+     * try to ship.
+     */
+    return (
+      /const leaked = scanForSecrets\(this\.files\)/.test(body) &&
+      /this\.lastProblem = "secret"/.test(body) &&
+      /the browser is not a place to keep a secret/.test(body)
     )
   })(),
 )

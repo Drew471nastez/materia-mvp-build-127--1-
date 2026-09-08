@@ -29,6 +29,7 @@ import "server-only"
 import { filePathError, MAX_FILES_PER_PROJECT, MAX_FILE_BYTES } from "../file-path"
 import { completeStep, emptyPlan, setSteps, type RunPlan } from "./plan"
 import { bundleProject, formatBuildErrors } from "../bundle"
+import { scanForSecrets } from "../preflight"
 import { buildRepoMap, findUsages } from "./repo-map"
 import { sortedPaths } from "../starter"
 import type { BuildResult, ProjectFiles } from "../types"
@@ -357,7 +358,7 @@ export class ProjectWorkspace {
    * the wrong one for a page that compiled and threw on render — and the loop
    * used to say it for both, because it only ever looked at the bundler.
    */
-  private lastProblem: "bundle" | "types" | "render" | null = null
+  private lastProblem: "bundle" | "types" | "render" | "secret" | null = null
 
   constructor(files: ProjectFiles) {
     this.files = { ...files }
@@ -604,6 +605,29 @@ export class ProjectWorkspace {
       }
 
       case "run_build": {
+        /**
+         * CREDENTIALS FIRST, because this one is free, deterministic, and true
+         * whether or not the project compiles.
+         *
+         * A model asked to "make the contact form send email" writes a key. It
+         * is not malice and it is not rare, and the next thing that happens to
+         * these files is a publish onto a public bucket behind a CDN — at
+         * which point the key is not exposed, it is published. Told here, the
+         * model removes it in the same run.
+         */
+        const leaked = scanForSecrets(this.files)
+        if (leaked.length > 0) {
+          this.lastBuildOk = false
+          this.lastProblem = "secret"
+          return (
+            `A CREDENTIAL IS WRITTEN INTO THIS PROJECT. A published site is public files on a CDN, so this cannot ship.\n` +
+            leaked
+              .map((f) => `  ${f.file}${f.line ? `:${f.line}` : ""} — ${f.message}`)
+              .join("\n") +
+            `\nRemove it. If the page needs a service that requires a key, say so in your reply instead of embedding one — the browser is not a place to keep a secret.`
+          )
+        }
+
         this.lastBuild = await bundleProject(esbuild as never, this.files)
         // Cleared HERE, before the verdict is recorded, so the verdict below
         // describes exactly the tree that was just compiled.
@@ -698,6 +722,8 @@ export class ProjectWorkspace {
   /** Why the last verdict was red, in one sentence for the creator. */
   get buildProblem(): string {
     switch (this.lastProblem) {
+      case "secret":
+        return "The edit wrote a credential into the project, so nothing was changed."
       case "types":
         return "The edit did not typecheck, so nothing was changed."
       case "render":

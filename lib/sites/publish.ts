@@ -31,6 +31,7 @@ import "server-only"
  */
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { describeFindings, preflight } from "./preflight"
 import { bundleProject } from "./bundle"
 import { contentTypeFor } from "./content-type"
 import { VENDOR_PREFIX, publishedDocument } from "./preview-document"
@@ -258,6 +259,28 @@ export async function publishSite(site: Site): Promise<PublishResult> {
   const files = await readProject(site.id)
   if (Object.keys(files).length === 0) {
     return { ok: false, error: "This site has no files to publish." }
+  }
+
+  /**
+   * EVERYTHING THE AGENT IS HELD TO, APPLIED TO THE THING GOING PUBLIC.
+   *
+   * An agent run bundles, typechecks and renders before it may finish. This
+   * ran esbuild and nothing else — so every path that is NOT an agent run went
+   * live unchecked, and the safest path was the least guarded one: the Code
+   * tab autosaves every 1.2 seconds and Publish took whatever was there.
+   *
+   * And nothing looked for credentials at all, on the one operation that
+   * copies a project onto a public bucket behind a CDN. A key that goes out
+   * that way is not exposed later; it is published, and deleting the site
+   * afterwards does not recall it.
+   */
+  const checks = await preflight(files)
+  if (!checks.ok) {
+    return {
+      ok: false,
+      error: "This site did not pass its checks, so nothing was published.",
+      details: describeFindings(checks.findings.filter((f) => f.level === "blocking")),
+    }
   }
 
   // Read the revision we are building FROM, before anything is built or
