@@ -694,7 +694,32 @@ check(
 
 check(
   "a batch is bounded",
-  (() => /ids\.length > 200/.test(moderate))(),
+  (() => {
+    /**
+     * Five hundred now that a DATE RANGE can select the set — a window is one
+     * decision that can name four hundred accounts, and the bound is what
+     * stops a mistyped year acting on the whole platform.
+     */
+    return /ids\.length > 500/.test(moderate) && /Narrow it/.test(moderate)
+  })(),
+)
+
+check(
+  "a date range is resolved on the server, twice",
+  (() => {
+    /**
+     * The window is sent, never the ids it resolved to. The server resolves it
+     * again when acting, so a range that gained a member since the preview
+     * produces a different count and the echo refuses it. Trusting the client's
+     * list would let a stale page act on a set nobody reviewed.
+     */
+    const client = read("app/admin/blog/seo/_seo-client.tsx")
+    return (
+      /async function resolve\(selection: Selection\)/.test(moderate) &&
+      (moderate.match(/await resolve\(/g) ?? []).length >= 2 &&
+      /from: rangeFrom \|\| undefined, to: rangeTo \|\| undefined/.test(client)
+    )
+  })(),
 )
 
 check(
@@ -723,6 +748,125 @@ check(
       /cannot be undone/.test(client) &&
       /confirm: plan\.count/.test(client)
     )
+  })(),
+)
+
+console.log("\nThe guard that cannot be skipped\n")
+
+const hook = read("app/api/auth/hooks/before-user-created/route.ts")
+
+check(
+  "the page guard was only ever enforced by the page",
+  (() => {
+    const page = read("app/(auth)/signup/page.tsx")
+    /**
+     * The browser asks signup-guard, and if the answer is no the BROWSER
+     * stops — then it calls supabase.auth.signUp() directly. A script that
+     * never loads the page never asks and is never refused, which made every
+     * lexicon and velocity limit decoration against an actual bot.
+     *
+     * This assertion documents the hole rather than guarding it: the fix is
+     * the hook below, and the page keeps its client check because a fast
+     * refusal is better UX for a real person who typed the wrong thing.
+     */
+    return /signup-guard/.test(page) && /supabase\.auth\.signUp/.test(page)
+  })(),
+)
+
+const strip = (src: string) => src.replace(/^\s*(\/\/|\*|\/\*).*$/gm, "")
+
+check(
+  "the hook refuses anything it cannot verify",
+  (() => {
+    /**
+     * The opposite of the page guard, on purpose. There, a broken fetch must
+     * not stop a real person: a false refusal costs a customer and a miss
+     * costs one spam account. Here, an unverifiable request is one that did not
+     * come from Supabase, and the only thing that produces is somebody probing
+     * the endpoint.
+     */
+    return (
+      /if \(!verified\(request, raw\)\)/.test(hook) &&
+      /status: 401/.test(hook) &&
+      /if \(!secret\) return false/.test(hook)
+    )
+  })(),
+)
+
+check(
+  "the signature is compared in constant time, over id.timestamp.payload",
+  (() => {
+    /**
+     * Reading the whole file was not enough: `timingSafeEqual` appears in the
+     * import line, so swapping the comparison for `value === expected` left
+     * this test green. The body of `verified` is what has to be looked at, and
+     * it must hold no plain equality against the computed signature — an early
+     * exit on the first differing byte is a timing oracle that recovers the
+     * signature one character at a time.
+     */
+    const at = hook.indexOf("function verified(")
+    const body = strip(hook.slice(at, hook.indexOf("\n}", at)))
+    return (
+      /timingSafeEqual\(/.test(body) &&
+      !/===\s*expected|expected\s*===/.test(body) &&
+      /\$\{id\}\.\$\{timestamp\}\.\$\{raw\}/.test(body)
+    )
+  })(),
+)
+
+check(
+  "and a captured request expires",
+  (() => {
+    /**
+     * Without a window a captured request works forever, which turns one
+     * intercepted signup into an unlimited supply of them.
+     */
+    return /age > 300/.test(hook)
+  })(),
+)
+
+check(
+  "it applies the same judgement the page guard does",
+  (() => /isDisposableEmail\(email\)/.test(hook) && /scoreSignup\(\{ email, handle \}\)/.test(hook))(),
+)
+
+check(
+  "velocity is counted by email domain, because the IP here is Supabase's",
+  (() => {
+    /**
+     * The page guard counts by IP hash and can — it sees the request. This
+     * request is Supabase's, so its address says nothing about who is signing
+     * up. What is left is the domain they used.
+     */
+    return /\.eq\("email_domain", domain\)/.test(hook) && !/hashIp/.test(hook)
+  })(),
+)
+
+check(
+  "it writes only columns signup_attempts actually has",
+  (() => {
+    /**
+     * An invented column fails inside the catch that wraps this, so every row
+     * would have been silently missing — the evidence gone and nothing to say
+     * so. `source` was invented and removed.
+     */
+    const guard = read("app/api/auth/signup-guard/route.ts")
+    const columnsOf = (src: string) => {
+      const at = src.indexOf('from("signup_attempts").insert({')
+      return new Set(
+        [...src.slice(at, src.indexOf("})", at)).matchAll(/^\s*([a-z_]+):/gm)].map((m) => m[1]),
+      )
+    }
+    const known = columnsOf(guard)
+    return [...columnsOf(hook)].every((column) => known.has(column))
+  })(),
+)
+
+check(
+  "and a logging failure never refuses a signup",
+  (() => {
+    const at = hook.indexOf("async function record")
+    return /try \{/.test(hook.slice(at)) && /\} catch \{/.test(hook.slice(at))
   })(),
 )
 

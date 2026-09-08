@@ -62,6 +62,38 @@ interface Target {
   hasOrders: boolean
 }
 
+/**
+ * The creators a request is about: either named outright, or everyone signed
+ * up inside a window.
+ *
+ * A window is how a wave gets cleared — "everything from the 4th of June" is
+ * one decision rather than four hundred clicks — and it is also the shape most
+ * likely to catch somebody real by accident. So it resolves to a LIST first,
+ * and the list is what the operator reads and confirms. There is no path where
+ * a date range is acted on without its members being counted.
+ */
+export interface Selection {
+  ids?: string[]
+  /** ISO date or timestamp. Inclusive. */
+  from?: string
+  /** ISO date or timestamp. Exclusive, so a whole day is from D to D+1. */
+  to?: string
+}
+
+async function resolve(selection: Selection): Promise<string[]> {
+  if (selection.ids && selection.ids.length > 0) return selection.ids
+  if (!selection.from && !selection.to) return []
+
+  const admin = createAdminClient()
+  let query = admin.from("creators").select("id").order("created_at", { ascending: true }).limit(1000)
+
+  if (selection.from) query = query.gte("created_at", selection.from)
+  if (selection.to) query = query.lt("created_at", selection.to)
+
+  const { data } = await query
+  return ((data as Array<{ id: string }> | null) ?? []).map((row) => row.id)
+}
+
 async function describe(ids: string[]): Promise<Target[]> {
   const admin = createAdminClient()
 
@@ -110,14 +142,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Not authorised." }, { status: 401 })
   }
 
-  const ids = (new URL(request.url).searchParams.get("ids") ?? "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean)
+  const params = new URL(request.url).searchParams
+  const ids = await resolve({
+    ids: (params.get("ids") ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean),
+    from: params.get("from") ?? undefined,
+    to: params.get("to") ?? undefined,
+  })
 
-  if (ids.length === 0) return NextResponse.json({ targets: [] })
-  if (ids.length > 200) {
-    return NextResponse.json({ error: "Two hundred at a time, at most." }, { status: 400 })
+  if (ids.length === 0) return NextResponse.json({ targets: [], count: 0, withOrders: 0 })
+  if (ids.length > 500) {
+    return NextResponse.json(
+      { error: `That range holds ${ids.length} creators. Narrow it — five hundred is the most this will act on at once.` },
+      { status: 400 },
+    )
   }
 
   const targets = await describe(ids)
@@ -137,7 +177,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Not authorised." }, { status: 401 })
   }
 
-  let body: { action?: string; creatorIds?: string[]; confirm?: number; reason?: string; force?: boolean }
+  let body: {
+    action?: string
+    creatorIds?: string[]
+    from?: string
+    to?: string
+    confirm?: number
+    reason?: string
+    force?: boolean
+  }
   try {
     body = await request.json()
   } catch {
@@ -145,14 +193,31 @@ export async function POST(request: NextRequest) {
   }
 
   const action = body.action
-  const ids = (body.creatorIds ?? []).filter((id) => typeof id === "string" && id.length > 0)
 
   if (action !== "ban" && action !== "unban" && action !== "delete") {
     return NextResponse.json({ error: 'action is "ban", "unban" or "delete".' }, { status: 400 })
   }
+
+  /**
+   * RESOLVED AGAIN, HERE, from the same window the dry run used.
+   *
+   * Not taken from the client's list. A range that has gained a member since
+   * the preview then produces a different count from the one being confirmed,
+   * and the echo below refuses it — which is the whole point of the echo. If
+   * the ids were trusted, a stale page could act on a set nobody reviewed.
+   */
+  const ids = await resolve({
+    ids: (body.creatorIds ?? []).filter((id) => typeof id === "string" && id.length > 0),
+    from: body.from,
+    to: body.to,
+  })
+
   if (ids.length === 0) return NextResponse.json({ error: "No creators were selected." }, { status: 400 })
-  if (ids.length > 200) {
-    return NextResponse.json({ error: "Two hundred at a time, at most." }, { status: 400 })
+  if (ids.length > 500) {
+    return NextResponse.json(
+      { error: `That range holds ${ids.length} creators. Narrow it — five hundred is the most this will act on at once.` },
+      { status: 400 },
+    )
   }
 
   /**

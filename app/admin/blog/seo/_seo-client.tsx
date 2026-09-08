@@ -140,6 +140,9 @@ export default function SeoAdminClient() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [moderating, setModerating] = useState(false)
   const [moderationNote, setModerationNote] = useState<string | null>(null)
+  /** A window, for clearing a wave in one decision rather than four hundred. */
+  const [rangeFrom, setRangeFrom] = useState("")
+  const [rangeTo, setRangeTo] = useState("")
   const [creatorProducts, setCreatorProducts] = useState<Record<string, any[]>>({})
   const [loadingProducts, setLoadingProducts] = useState<string | null>(null)
   const [deletingProduct, setDeletingProduct] = useState<string | null>(null)
@@ -151,14 +154,27 @@ export default function SeoAdminClient() {
    * moved between reading and confirming is refused rather than acted on.
    */
   const moderate = useCallback(
-    async (action: "ban" | "unban" | "delete") => {
+    async (action: "ban" | "unban" | "delete", useRange = false) => {
       const ids = [...selected]
-      if (ids.length === 0) return
+      if (!useRange && ids.length === 0) return
+      if (useRange && !rangeFrom && !rangeTo) {
+        setModerationNote("Set a date to act on.")
+        return
+      }
 
       setModerating(true)
       setModerationNote(null)
       try {
-        const preview = await fetch(`/api/admin/creators/moderate?ids=${ids.join(",")}`)
+        /**
+         * The window is sent, not the ids it resolved to. The server resolves
+         * it again when acting, so a range that gained a member since the
+         * preview produces a different count and the echo refuses it — which
+         * is the point of the echo.
+         */
+        const query = useRange
+          ? `from=${encodeURIComponent(rangeFrom)}&to=${encodeURIComponent(rangeTo)}`
+          : `ids=${ids.join(",")}`
+        const preview = await fetch(`/api/admin/creators/moderate?${query}`)
         const plan = await preview.json()
         if (!preview.ok) {
           setModerationNote(plan.error || "Could not read what this would affect.")
@@ -195,7 +211,11 @@ export default function SeoAdminClient() {
         const response = await fetch("/api/admin/creators/moderate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action, creatorIds: ids, confirm: plan.count, reason }),
+          body: JSON.stringify(
+            useRange
+              ? { action, from: rangeFrom || undefined, to: rangeTo || undefined, confirm: plan.count, reason }
+              : { action, creatorIds: ids, confirm: plan.count, reason },
+          ),
         })
         const result = await response.json()
 
@@ -219,7 +239,7 @@ export default function SeoAdminClient() {
         setModerating(false)
       }
     },
-    [selected],
+    [selected, rangeFrom, rangeTo],
   )
 
   const loadCreatorProducts = useCallback(async (creatorId: string) => {
@@ -543,6 +563,47 @@ export default function SeoAdminClient() {
                     </button>
                   </div>
                 )}
+                <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border border-neutral-200 px-3 py-2">
+                  <div>
+                    <label className="block text-[10px] font-medium uppercase tracking-wide text-neutral-500">
+                      Signed up from
+                    </label>
+                    <input
+                      type="date"
+                      value={rangeFrom}
+                      onChange={(event) => setRangeFrom(event.target.value)}
+                      className="mt-1 rounded-md border border-neutral-300 px-2 py-1 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium uppercase tracking-wide text-neutral-500">
+                      Up to (leave blank for now)
+                    </label>
+                    <input
+                      type="date"
+                      value={rangeTo}
+                      onChange={(event) => setRangeTo(event.target.value)}
+                      className="mt-1 rounded-md border border-neutral-300 px-2 py-1 text-xs"
+                    />
+                  </div>
+                  <span className="flex-1" />
+                  <button
+                    type="button"
+                    disabled={moderating}
+                    onClick={() => moderate("ban", true)}
+                    className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                  >
+                    Ban everyone in range
+                  </button>
+                  <button
+                    type="button"
+                    disabled={moderating}
+                    onClick={() => moderate("delete", true)}
+                    className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Delete everyone in range
+                  </button>
+                </div>
                 {moderationNote && (
                   <p className="mt-2 text-xs text-neutral-600">{moderationNote}</p>
                 )}
