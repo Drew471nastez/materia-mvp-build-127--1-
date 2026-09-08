@@ -1007,6 +1007,54 @@ section("An AI edit behaves exactly like an edit made by hand")
   )
 }
 
+// ===========================================================================
+section("The panel does not drop what the run tells it")
+// ===========================================================================
+
+{
+  const panel = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
+
+  check(
+    "the agent's own words reach the screen",
+    /**
+     * The loop streams `thinking` between tool calls and the panel dropped it,
+     * so a run that spent twenty seconds reading a section and the catalogue
+     * showed "Working" and nothing else. Latest line only — commentary, not a
+     * transcript.
+     */
+    /event\.type === "thinking"/.test(panel) && /exchange\.note/.test(panel),
+  )
+
+  check(
+    "a run stops if you move to another page",
+    (() => {
+      /**
+       * Switching pages swaps `sections` for a different page's, and the
+       * operations coming back address the OLD page by id. Update, move and
+       * remove all no-op on an id that is not there — but `add_section` names
+       * no existing id and would land a new section on whichever page is open.
+       * Somebody would find a pricing table on their About page with no idea
+       * where it came from.
+       */
+      return (
+        /const startedOn = live\.current\.page/.test(panel) &&
+        /live\.current\.page !== startedOn/.test(panel) &&
+        /controller\.abort\(\)/.test(panel)
+      )
+    })(),
+  )
+
+  check(
+    "and the page is checked before an operation is applied, not after",
+    (() => {
+      const guard = panel.indexOf("live.current.page !== startedOn")
+      const apply = panel.indexOf("onOp(event.op)")
+      // A check that runs after the apply is a check that has already lost.
+      return guard > 0 && apply > guard
+    })(),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
