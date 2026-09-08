@@ -48,7 +48,7 @@ export function LookbookSection({ section, isEditing, isSelected, onClick }: Sec
         {overlayStyle !== "none" && (
           <div className="absolute inset-0" style={{ background: hexToRgba(overlayColor, overlayOp / 100) }} />
         )}
-        <div className={`relative flex flex-col h-full min-h-[80vh] p-10 md:p-16 ${posCls}`} style={{ color: textColor }}>
+        <div className={`relative flex flex-col h-full min-h-[80vh] p-10 @[768px]:p-16 ${posCls}`} style={{ color: textColor }}>
           <div className="max-w-xl">
             {!!s.season_text && (
               <p className="text-xs uppercase tracking-[0.25em] mb-4 opacity-90" style={{ color: accent }}>
@@ -56,7 +56,7 @@ export function LookbookSection({ section, isEditing, isSelected, onClick }: Sec
               </p>
             )}
             {!!s.collection_name && (
-              <h2 className="text-5xl md:text-7xl font-light leading-tight mb-3" style={{ color: headingColor }}>
+              <h2 className="text-5xl @[768px]:text-7xl font-light leading-tight mb-3" style={{ color: headingColor }}>
                 {str(s.collection_name)}
               </h2>
             )}

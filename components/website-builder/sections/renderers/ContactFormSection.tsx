@@ -60,7 +60,7 @@ export function ContactFormSection({ section, isEditing, isSelected, onClick }: 
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div className="max-w-[1230px] mx-auto px-6" style={{ color, paddingTop: padTop, paddingBottom: padBottom }}>
         {layout === "split" ? (
-          <div className="grid md:grid-cols-2 gap-8 items-start">
+          <div className="grid @[768px]:grid-cols-2 gap-8 items-start">
             <div>
               {splitImage ? (
                 // eslint-disable-next-line @next/next/no-img-element

@@ -24,6 +24,40 @@ import { memo } from "react"
 import type { SectionProps } from "./_shared"
 import { SECTION_COMPONENTS } from "./registry"
 
+/**
+ * ============================================================
+ *  WHY EVERY SECTION IS A CONTAINER
+ * ============================================================
+ * The editor does not render the preview in an iframe — it renders the real
+ * section components inline, in the editor's own document, inside a card that
+ * is 380px wide when you press the phone button.
+ *
+ * A Tailwind `md:` class is a VIEWPORT media query. It asks how wide the
+ * BROWSER WINDOW is, and the browser window is 1440px whatever size the card
+ * is. So every `md:grid-cols-3` stayed on: pressing the phone button gave you
+ * a three-column grid crushed into 380px, which is not what a phone shows and
+ * is not what anything shows. Two of the fifty sections had a `deviceMode`
+ * prop and got this right by hand; the other forty-eight did not.
+ *
+ * `deviceMode` does not scale — it is fifty hand-edits and a fifty-first
+ * every time somebody adds a section, and forty-eight of them were already
+ * forgotten. So the sections ask about the WIDTH THEY ARE IN instead:
+ * `@[768px]:grid-cols-3` is a container query, and this wrapper is the
+ * container it measures.
+ *
+ * On a live storefront the container is the full page width, so a container
+ * query at 768px and a media query at 768px are the same question and the
+ * published site is unchanged. In the editor they are different questions,
+ * and the container one is the one with the true answer.
+ *
+ * THE HEADER IS EXCLUDED, deliberately. It is the only section that positions
+ * anything `fixed` — its mobile drawer and its sticky bar — and an ancestor
+ * with containment can become the containing block for fixed descendants,
+ * which would pin a site-wide header to a section instead of to the window.
+ * It already implements `deviceMode` properly, so it loses nothing.
+ */
+const NO_CONTAINER = new Set(["header"])
+
 // ── Public API ────────────────────────────────────────────────
 export function renderSection(props: SectionProps) {
   if (props.section.hidden) return null
@@ -35,7 +69,12 @@ export function renderSection(props: SectionProps) {
       </div>
     )
   }
-  return <Component {...props} />
+  if (NO_CONTAINER.has(props.section.type)) return <Component {...props} />
+  return (
+    <div className="@container">
+      <Component {...props} />
+    </div>
+  )
 }
 
 function SectionRendererInner(props: SectionProps) {

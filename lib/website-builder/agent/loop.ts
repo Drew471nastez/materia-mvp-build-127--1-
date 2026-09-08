@@ -89,6 +89,7 @@ Rules:
 - update_section MERGES the settings you send. Send only the fields you are changing; everything you leave out keeps its value.
 - Only use field ids that the section's schema actually has. A field that does not exist is silently ignored, so the change would appear to work and do nothing. If you are unsure, call read_section — it lists them.
 - The header and footer cannot be moved, removed, or inserted around. They are the same on every page.
+- PREFER HIDING TO DELETING. "Take this off for now", "hide it until launch", "I don't want this here yet" all mean set_section_visibility, not remove_section. A hidden section keeps its settings and its content and comes back in one call; a removed one is gone, and whoever wrote that content wrote it once. Remove only when somebody clearly wants it gone for good.
 - WHEN A SECTION IS SELECTED, act on it. "Make this section better" means that section, and it is not a question — look at what it is, decide what is weak about it, and change it. A FAQ with five thin questions gets better questions and better answers; a hero with a generic headline gets a specific one; a pricing table with unnamed tiers gets named tiers.
 - MOST SECTIONS KEEP THEIR CONTENT IN BLOCKS, not in settings. A FAQ's questions, a pricing table's tiers, a testimonial's quotes, a gallery's images are all blocks. Changing a section's settings alone will not touch any of them, so if a request is about content, use the block tools. read_section lists the block types a section takes and the blocks it currently has.
 - ALWAYS CHANGE SOMETHING VISIBLE. A run that reads a section and then replies without a single operation has not done what was asked. If a request is broad, decide what would genuinely improve the thing in front of you and do it.
@@ -171,6 +172,23 @@ function toolSpecs(addable: string[]): ToolSpec<string>[] {
         type: "object",
         properties: { id: { type: "string" } },
         required: ["id"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "set_section_visibility",
+      description:
+        "Hide a section from the page, or show a hidden one again. HIDING IS HOW YOU TAKE SOMETHING OFF A PAGE WITHOUT DESTROYING IT — the section keeps every setting and every block, and one call brings it back. Use this, not remove_section, whenever the request sounds temporary: \"take this off for now\", \"hide it until launch\", \"I don't want this on the page yet\". Only remove a section when somebody clearly wants it gone for good.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "The section id." },
+          hidden: {
+            type: "boolean",
+            description: "true hides it from the page, false shows it again.",
+          },
+        },
+        required: ["id", "hidden"],
         additionalProperties: false,
       },
     },
@@ -288,6 +306,8 @@ function labelFor(op: ThemeOp, state: ThemeState): string {
       return `Moved ${nameOf(op.id)}`
     case "remove_section":
       return `Removed ${nameOf(op.id)}`
+    case "set_section_visibility":
+      return `${op.hidden ? "Hid" : "Showed"} ${nameOf(op.id)}`
     case "update_theme":
       return "Updated the theme"
     case "add_block":
@@ -580,6 +600,31 @@ function execute(
         return { output: `The ${found.type} cannot be removed. A page without one is not a page.` }
       }
       return { output: `Removed ${found.type} [${id}].`, op: { kind: "remove_section", id } }
+    }
+
+    case "set_section_visibility": {
+      if (!found) return { output: notFound(id, state) }
+      if (typeof args.hidden !== "boolean") {
+        return { output: "Send `hidden` as true to hide the section or false to show it." }
+      }
+      /**
+       * Already in that state is reported, not applied. An operation that
+       * changes nothing would still stream to the browser and land in the
+       * transcript as a change somebody made, and the run's "did anything
+       * happen" check would count it — a run that hid a hidden section would
+       * report success with nothing to show for it.
+       */
+      if ((found.hidden ?? false) === args.hidden) {
+        return {
+          output: `${found.type} [${id}] is already ${args.hidden ? "hidden" : "visible"}. Nothing to do.`,
+        }
+      }
+      return {
+        output: `${args.hidden ? "Hid" : "Showed"} ${found.type} [${id}]. Everything in it is kept${
+          args.hidden ? " and set_section_visibility with hidden false brings it back" : ""
+        }.`,
+        op: { kind: "set_section_visibility", id, hidden: args.hidden },
+      }
     }
 
     case "rename_section": {

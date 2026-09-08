@@ -135,7 +135,7 @@ export function ImageComparisonSection({ section, theme, isEditing, isSelected, 
             {!!s.description && <p className="text-base" style={{ color: c.paragraph }}>{str(s.description)}</p>}
           </div>
         )}
-        <div className="flex flex-col md:flex-row items-center gap-8">
+        <div className="flex flex-col @[768px]:flex-row items-center gap-8">
           {position === "left" ? (<>{content}{slider}</>) : (<>{slider}{content}</>)}
         </div>
       </div>

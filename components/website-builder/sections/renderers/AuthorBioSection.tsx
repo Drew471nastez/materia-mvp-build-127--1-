@@ -29,7 +29,7 @@ export function AuthorBioSection({ section, isEditing, isSelected, onClick }: Se
   )
 
   const stats = bool(s.show_stats, true) && (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center pt-6 border-t" style={{ borderColor: "rgba(0,0,0,0.1)" }}>
+    <div className="grid grid-cols-2 @[640px]:grid-cols-4 gap-4 text-center pt-6 border-t" style={{ borderColor: "rgba(0,0,0,0.1)" }}>
       {!!s.books_count && (
         <div><div className="text-2xl font-bold" style={{ color: accent }}>{String(s.books_count)}</div><div className="text-xs opacity-70">Books</div></div>
       )}
@@ -93,7 +93,7 @@ export function AuthorBioSection({ section, isEditing, isSelected, onClick }: Se
           </div>
         ) : (
           <>
-            <div className="grid md:grid-cols-[260px_1fr] gap-8 items-start">
+            <div className="grid @[768px]:grid-cols-[260px_1fr] gap-8 items-start">
               {layout === "right" ? <>{info}{photo}</> : <>{photo}{info}</>}
             </div>
             {stats && <div className="mt-8">{stats}</div>}

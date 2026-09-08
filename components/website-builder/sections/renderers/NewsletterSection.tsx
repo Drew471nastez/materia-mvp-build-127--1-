@@ -39,7 +39,7 @@ export function NewsletterSection({ section, isEditing, isSelected, onClick }: S
               style={{ background: hexToRgba(color, 0.1), color, border: `1px solid ${hexToRgba(color, 0.3)}` }}
             />
           )}
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col @[640px]:flex-row gap-2">
             <input
               type="email"
               required
@@ -86,7 +86,7 @@ export function NewsletterSection({ section, isEditing, isSelected, onClick }: S
         )}
         <div className="max-w-[1230px] mx-auto px-6 relative">
           {layout === "split" ? (
-            <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div className="grid @[768px]:grid-cols-2 gap-8 items-center">
               {bgImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={bgImage} alt="" className="w-full h-80 object-cover rounded" />

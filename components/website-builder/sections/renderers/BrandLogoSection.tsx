@@ -17,8 +17,8 @@ export function BrandLogoSection({ section, theme, isEditing, isSelected, onClic
   const headerAlign = str(s.header_alignment, "center")
   const headerAlignClass: Record<string, string> = { left: "text-left", center: "text-center", right: "text-right" }
   const colsClass: Record<number, string> = {
-    2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-2 md:grid-cols-4", 5: "grid-cols-2 md:grid-cols-5",
-    6: "grid-cols-3 md:grid-cols-6", 7: "grid-cols-3 md:grid-cols-7", 8: "grid-cols-4 md:grid-cols-8",
+    2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-2 @[768px]:grid-cols-4", 5: "grid-cols-2 @[768px]:grid-cols-5",
+    6: "grid-cols-3 @[768px]:grid-cols-6", 7: "grid-cols-3 @[768px]:grid-cols-7", 8: "grid-cols-4 @[768px]:grid-cols-8",
   }
 
   const demoBlocks = blocks.length > 0 ? blocks : Array.from({ length: 6 }).map((_, i) => ({
@@ -37,7 +37,7 @@ export function BrandLogoSection({ section, theme, isEditing, isSelected, onClic
             {!!s.description && <p className="text-sm" style={{ color: c.paragraph }}>{str(s.description)}</p>}
           </div>
         )}
-        <div className={cn("grid items-center justify-items-center", colsClass[cols] ?? "grid-cols-3 md:grid-cols-6")} style={{ gap: `${gap}px` }}>
+        <div className={cn("grid items-center justify-items-center", colsClass[cols] ?? "grid-cols-3 @[768px]:grid-cols-6")} style={{ gap: `${gap}px` }}>
           {demoBlocks.map(block => {
             const image = str(block.settings.image)
             const link = str(block.settings.link)

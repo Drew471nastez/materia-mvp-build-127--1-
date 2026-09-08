@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Monitor, Smartphone, Loader2, Globe, Save,
+  ArrowLeft, Monitor, Tablet, Smartphone, Loader2, Globe, Save,
   ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2,
   Copy, Settings, Check, Layers, Palette, X, RotateCcw,
   Layout, AlignLeft, Image, ShoppingBag, MessageSquare,
@@ -548,6 +548,32 @@ function FieldEditor({
  * enough that closing the tab a second later has already saved.
  */
 const AUTOSAVE_DELAY_MS = 1_500
+
+/**
+ * ===========================================================================
+ *  THE THREE DEVICES
+ * ===========================================================================
+ * These widths are what the preview card is actually set to, and — since every
+ * section became a container query (components/website-builder/sections/
+ * SectionRenderer.tsx) — they are also the widths the sections THEMSELVES
+ * measure. Pressing the phone button used to change the size of the card and
+ * nothing inside it, because a `md:` class asks about the browser window.
+ *
+ * Real hardware, not round numbers: 390 is an iPhone 14/15, 834 an iPad in
+ * portrait. A tablet is where a two-column layout usually decides whether it
+ * survives, which is exactly why guessing at it from desktop and phone alone
+ * did not work.
+ *
+ * Desktop has no fixed width on purpose. It is however wide the canvas is, so
+ * what you see is a real width rather than a made-up one — and it grows when
+ * you close the AI panel or the sidebar.
+ */
+export type DeviceMode = "desktop" | "tablet" | "mobile"
+
+const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
+  tablet: 834,
+  mobile: 390,
+}
 
 const PREVIEW_RENDER_WIDTH = 800
 const PREVIEW_THEME: ThemeSettingsValues = {
@@ -3405,7 +3431,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return "home"
   })
   const [selectedPanel, setSelectedPanel] = useState<Panel>({ type: "pages" })
-  const [device, setDevice] = useState<"desktop" | "mobile">("desktop")
+  const [device, setDevice] = useState<DeviceMode>("desktop")
   // Inspector mode — when ON, hovering/clicking a section shows the blue
   // selection rectangle and opens its settings panel. When OFF the canvas
   // behaves like a plain preview (no outlines, no section-click interception).
@@ -5448,31 +5474,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <TooltipContent side="bottom">Redo (⌘⇧Z)</TooltipContent>
             </Tooltip>
           </div>
-<div className="hidden sm:flex items-center bg-muted rounded-lg p-0.5 shrink-0">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className={cn("h-7 w-7 flex items-center justify-center rounded-md transition-all duration-150", device === "desktop" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-                  onClick={() => setDevice("desktop")}
-                  aria-label="Desktop"
-                >
-                  <Monitor className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Desktop</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className={cn("h-7 w-7 flex items-center justify-center rounded-md transition-all duration-150", device === "mobile" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-                  onClick={() => setDevice("mobile")}
-                  aria-label="Mobile"
-                >
-                  <Smartphone className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Mobile</TooltipContent>
-            </Tooltip>
+          {/* Three devices, and each one now changes what renders rather
+              than only how wide the card is. See DEVICE_WIDTH. */}
+          <div className="hidden sm:flex items-center bg-muted rounded-lg p-0.5 shrink-0">
+            {([
+              { id: "desktop", label: "Desktop", Icon: Monitor },
+              { id: "tablet", label: "Tablet", Icon: Tablet },
+              { id: "mobile", label: "Mobile", Icon: Smartphone },
+            ] as const).map(({ id, label, Icon }) => (
+              <Tooltip key={id}>
+                <TooltipTrigger asChild>
+                  <button
+                    className={cn(
+                      "h-7 w-7 flex items-center justify-center rounded-md transition-all duration-150",
+                      device === id ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                    )}
+                    onClick={() => setDevice(id)}
+                    aria-label={label}
+                    aria-pressed={device === id}
+                  >
+                    <Icon className="h-4 w-4" strokeWidth={1.75} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {label}
+                  {id !== "desktop" && ` — ${DEVICE_WIDTH[id]}px`}
+                </TooltipContent>
+              </Tooltip>
+            ))}
           </div>
         </div>
 
@@ -5796,12 +5825,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           className={cn(
             "flex-1 min-w-0 bg-neutral-50 overflow-hidden flex justify-center",
             // On an actual mobile viewport the preview fills the viewport
-            // (no gray gutter, no fixed 380px phone-chrome) — it IS the phone.
-            // On desktop the "mobile" device toggle still renders the phone-
-            // shaped 380px card centered vertically with gray gutters.
+            // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
+            // the tablet and phone buttons render a device-width card centred
+            // vertically with gray gutters, and the sections inside measure
+            // that card rather than the browser window.
             isMobileView
               ? "items-start p-0"
-              : device === "mobile" ? "items-center py-6 px-6" : "items-start pt-2 px-2",
+              : device === "desktop" ? "items-start pt-2 px-2" : "items-center py-6 px-6",
           )}
         >
           <div
@@ -5810,9 +5840,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               "relative bg-white border border-neutral-200/70 transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
               isMobileView
                 ? "w-full border-0 rounded-none"
-                : device === "mobile"
-                  ? "rounded-2xl"
-                  : "rounded-t-xl w-full",
+                : device === "desktop"
+                  ? "rounded-t-xl w-full"
+                  : "rounded-2xl",
             )}
             style={
               isMobileView
@@ -5822,16 +5852,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     width: "100%",
                     height: "calc(100svh - 48px - 72px)",
                   }
-                : device === "mobile"
+                : device === "desktop"
                   ? {
-                      // Desktop "mobile preview" toggle — phone-shaped card.
-                      width: "380px",
-                      height: "min(800px, calc(100vh - 96px))",
-                      flex: "0 0 auto",
-                    }
-                  : {
                       // Desktop — card fills the canvas area and scrolls internally.
                       height: "calc(100svh - 48px - 8px)",
+                    }
+                  : {
+                      /**
+                       * A device-shaped card at the device's real width. The
+                       * sections inside measure THIS, so the width is the
+                       * whole preview — not a frame drawn around a desktop
+                       * layout.
+                       *
+                       * `maxWidth: 100%` so a narrow canvas — sidebar open,
+                       * AI panel open, laptop screen — shrinks the tablet
+                       * card instead of letting it overflow and clip. The
+                       * layout it shows is then honest about the width it
+                       * actually got.
+                       */
+                      width: `${DEVICE_WIDTH[device]}px`,
+                      maxWidth: "100%",
+                      height: "min(900px, calc(100vh - 96px))",
+                      flex: "0 1 auto",
                     }
             }
           >
@@ -5899,10 +5941,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     deviceMode={device}
                     onEditorNavigate={handleEditorNavigate}
                     // Match the canvas's `rounded-t-xl` (desktop, 12px) or
-                    // `rounded-2xl` (mobile, 16px) so the selection ring
-                    // curves into the canvas corners instead of getting
+                    // `rounded-2xl` (a device card, 16px) so the selection
+                    // ring curves into the canvas corners instead of getting
                     // clipped as a square.
-                    canvasRoundedTopPx={device === "mobile" ? 16 : 12}
+                    canvasRoundedTopPx={device === "desktop" ? 12 : 16}
                   />
                 ))}
 
@@ -5941,9 +5983,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       onClick={inspectorEnabled ? () => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) } : undefined}
                       deviceMode={device}
                       onEditorNavigate={handleEditorNavigate}
-                      // Only mobile canvas has rounded bottom (`rounded-2xl`);
-                      // desktop uses `rounded-t-xl` so bottom is flat.
-                      canvasRoundedBottomPx={device === "mobile" ? 16 : undefined}
+                      // Only a device card has a rounded bottom
+                      // (`rounded-2xl`); desktop uses `rounded-t-xl`, so its
+                      // bottom is flat against the canvas.
+                      canvasRoundedBottomPx={device === "desktop" ? undefined : 16}
                     />
                   </div>
                 ))}

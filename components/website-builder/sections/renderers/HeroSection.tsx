@@ -46,7 +46,7 @@ export function HeroSection({ section, theme, isEditing, isSelected, onClick }: 
       >
         {!!s.heading && (
           <h1
-            className="text-4xl sm:text-5xl font-bold leading-tight max-w-3xl"
+            className="text-4xl @[640px]:text-5xl font-bold leading-tight max-w-3xl"
             style={{ color: textColor, fontFamily: theme.font_heading ?? "Inter" }}
           >
             {str(s.heading)}

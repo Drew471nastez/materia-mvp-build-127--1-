@@ -25,8 +25,22 @@ export function TrustBadgesSection({ section, isEditing, isSelected, onClick }: 
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 40
   const cols = Math.min(Math.max(blocks.length || 4, 1), 4)
 
+  /**
+   * Written out, not interpolated. It used to be a template literal —
+   * `@[640px]:grid-cols-${cols}` — and Tailwind builds its stylesheet by
+   * SCANNING THE SOURCE for whole class names, so a name assembled at runtime
+   * is a name that was never compiled. The class was in the DOM and no rule
+   * matched it: the grid stayed at two columns however many badges there were.
+   */
+  const gridCols: Record<number, string> = {
+    1: "@[640px]:grid-cols-1",
+    2: "@[640px]:grid-cols-2",
+    3: "@[640px]:grid-cols-3",
+    4: "@[640px]:grid-cols-4",
+  }
+
   const containerClass = layout === "grid"
-    ? `grid gap-6 grid-cols-2 sm:grid-cols-${cols}`
+    ? `grid gap-6 grid-cols-2 ${gridCols[cols] ?? "@[640px]:grid-cols-4"}`
     : "flex flex-wrap items-center justify-center gap-8"
 
   return (

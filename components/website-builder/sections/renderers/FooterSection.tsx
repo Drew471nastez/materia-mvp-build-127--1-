@@ -26,7 +26,7 @@ export function FooterSection({ section, theme, isEditing, isSelected, onClick, 
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick} canvasRoundedBottomPx={canvasRoundedBottomPx}>
-      <div className="px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 max-w-[1230px] mx-auto">
+      <div className="px-8 py-10 flex flex-col @[640px]:flex-row items-center justify-between gap-4 max-w-[1230px] mx-auto">
         <div>
           <div className="font-bold text-[15px] mb-1" style={{ color: headingColor }}>
             {str(s.logo_text, theme.brand_name ?? "My Store")}

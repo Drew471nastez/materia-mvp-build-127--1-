@@ -17,7 +17,7 @@ export function PricingSection({ section, theme, isEditing, isSelected, onClick 
           {!!s.heading && <h2 className="text-3xl font-bold mb-2" style={{ color: headingColor, fontFamily: theme.font_heading }}>{str(s.heading)}</h2>}
           {!!s.subheading && <p className="text-base" style={{ color: paraColor }}>{str(s.subheading)}</p>}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 @[640px]:grid-cols-3 gap-6 max-w-4xl mx-auto">
           {blocks.map(block => {
             const featured = bool(block.settings.is_featured)
             return (

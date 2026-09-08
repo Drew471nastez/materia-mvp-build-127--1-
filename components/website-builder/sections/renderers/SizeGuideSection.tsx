@@ -85,7 +85,7 @@ export function SizeGuideSection({ section, isEditing, isSelected, onClick }: Se
         </div>
         {!!s.note_text && <p className="text-xs opacity-60 mt-3 text-center">{str(s.note_text)}</p>}
         {showFit && (
-          <div className="mt-10 grid md:grid-cols-2 gap-6 items-start">
+          <div className="mt-10 grid @[768px]:grid-cols-2 gap-6 items-start">
             {!!s.fit_guide_image ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={str(s.fit_guide_image)} alt="Fit guide" className="w-full rounded" />

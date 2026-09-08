@@ -14,7 +14,7 @@ export function SplitContentSection({ section, theme, isEditing, isSelected, onC
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className={cn("flex flex-col md:flex-row items-center gap-8 px-8 max-w-[1230px] mx-auto", imagePos === "right" && "md:flex-row-reverse")} style={{ paddingTop: `${s.padding_top ?? 60}px`, paddingBottom: `${s.padding_bottom ?? 60}px` }}>
+      <div className={cn("flex flex-col @[768px]:flex-row items-center gap-8 px-8 max-w-[1230px] mx-auto", imagePos === "right" && "@[768px]:flex-row-reverse")} style={{ paddingTop: `${s.padding_top ?? 60}px`, paddingBottom: `${s.padding_bottom ?? 60}px` }}>
         <div className="flex-1 min-w-0">
           {imgUrl ? (
             <img src={imgUrl} alt="" className="w-full h-auto rounded-lg object-cover" style={{ maxHeight: "500px" }} loading="lazy" decoding="async" />

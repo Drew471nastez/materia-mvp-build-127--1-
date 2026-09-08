@@ -33,7 +33,7 @@ export function CollectionBannerSection({ section, isEditing, isSelected, onClic
       )}
       <div className="absolute inset-0" style={{ background: hexToRgba(overlayColor, overlayOp / 100) }} />
       <div
-        className={`relative flex flex-col justify-center gap-3 p-10 md:p-14 min-h-[400px] ${
+        className={`relative flex flex-col justify-center gap-3 p-10 @[768px]:p-14 min-h-[400px] ${
           position === "left" ? "items-start text-left" : position === "right" ? "items-end text-right" : "items-center text-center"
         }`}
         style={{ color: textColor, minHeight: height }}
@@ -44,7 +44,7 @@ export function CollectionBannerSection({ section, isEditing, isSelected, onClic
           </span>
         )}
         {!!s.collection_name && (
-          <h1 className="text-4xl md:text-5xl font-bold">{str(s.collection_name)}</h1>
+          <h1 className="text-4xl @[768px]:text-5xl font-bold">{str(s.collection_name)}</h1>
         )}
         {!!s.description && (
           <p className="max-w-xl opacity-95">{str(s.description)}</p>
@@ -91,7 +91,7 @@ export function CollectionBannerSection({ section, isEditing, isSelected, onClic
             {filters}
           </div>
         ) : (
-          <div className={`grid md:grid-cols-2 gap-0`}>
+          <div className={`grid @[768px]:grid-cols-2 gap-0`}>
             {layout === "banner-right" ? <>{filters}{bannerContent}</> : <>{bannerContent}{filters}</>}
           </div>
         )}

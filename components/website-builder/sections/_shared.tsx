@@ -34,7 +34,12 @@ export interface SectionProps {
   isEditing?: boolean
   isSelected?: boolean
   onClick?: () => void
-  deviceMode?: "desktop" | "mobile"
+  /**
+   * Which device the editor is previewing. Layout no longer hangs off this —
+   * every section is a container query now — but the header is excluded from
+   * the container (it positions things `fixed`) and still needs telling.
+   */
+  deviceMode?: "desktop" | "tablet" | "mobile"
   /** `insideEditor === true` whenever the section renders inside the
    *  website-builder canvas (regardless of inspector state). Sections use
    *  this to switch between live-site layout (fixed sticky headers, etc.)
