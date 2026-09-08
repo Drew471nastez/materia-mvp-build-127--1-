@@ -60,11 +60,27 @@ function section(title: string) {
 
 type Scripted = { text?: string; calls?: Array<[string, Record<string, unknown>]> }
 
+/**
+ * Every tool result the model was handed, most recent last.
+ *
+ * Without this a test can only see the OPERATIONS a run produced, and two of
+ * the checks below were passing on the op count while the thing they described
+ * — what the model was told when it looked at another section — was not being
+ * observed at all. A break-test proved it: blocking reads entirely changed
+ * nothing the suite could see.
+ */
+const toolOutputs: string[] = []
+
 function scriptedProvider(script: Scripted[]): AgentProvider {
   let turn = 0
   return {
     id: "scripted",
-    async complete(): Promise<ProviderTurn> {
+    async complete(request): Promise<ProviderTurn> {
+      for (const t of request.turns) {
+        if (t.role === "tool") {
+          for (const r of t.results ?? []) toolOutputs.push(r.output)
+        }
+      }
       const step = script[turn++] ?? { text: "Done." }
       const toolCalls: ToolCall[] = (step.calls ?? []).map(([name, args], i) => ({
         id: `call_${turn}_${i}`,
@@ -120,8 +136,41 @@ function pageWithFaq(): ThemeState {
   }
 }
 
-async function run(script: Scripted[], state = page(), selectedSectionId?: string) {
+/**
+ * Two editable sections, so "only this one" has something to be only — and the
+ * second one is ALSO A FAQ on purpose.
+ *
+ * With a hero as the other section, "a block written to the wrong section is
+ * refused" passed whether the lock worked or not: a hero takes no faq_item, so
+ * the block-type check refused it first. The property was never observed. Two
+ * sections of the same type is what makes the lock the only thing that can be
+ * doing the refusing.
+ */
+function pageWithHeroAndFaq(): ThemeState {
+  return {
+    sections: [
+      make("header-1", "header"),
+      make("hero-1", "hero"),
+      make("faq-1", "faq", [
+        { id: "f1", type: "faq_item", settings: { question: "What is your return policy?", answer: "<p>30 days.</p>" } },
+      ]),
+      make("faq-2", "faq", [
+        { id: "g1", type: "faq_item", settings: { question: "Somebody else's question", answer: "<p>No.</p>" } },
+      ]),
+      make("footer-1", "footer"),
+    ],
+    settings: {},
+  }
+}
+
+async function run(
+  script: Scripted[],
+  state = page(),
+  selectedSectionId?: string,
+  options: { lockToSelection?: boolean; maxTurns?: number } = {},
+) {
   const events: ThemeAgentEvent[] = []
+  toolOutputs.length = 0
   let n = 0
   const loop = themeAgent({
     provider: scriptedProvider(script),
@@ -131,6 +180,8 @@ async function run(script: Scripted[], state = page(), selectedSectionId?: strin
     page: "home",
     addable: ADDABLE_SECTIONS,
     selectedSectionId,
+    lockToSelection: options.lockToSelection,
+    maxTurns: options.maxTurns,
     newId: (type) => `${type}-new-${++n}`,
   })
   for (;;) {
@@ -1969,6 +2020,323 @@ section("The panel says the true thing, and does not make you wait to type")
     /aiOpen\s*\n?\s*\? "border-foreground bg-muted"/.test(editor),
   )
 }
+
+// ===========================================================================
+section("\"The edit did not finish.\" was never true")
+// ===========================================================================
+
+/**
+ * That message came from a run hitting the turn ceiling — and by then the page
+ * had usually ALREADY CHANGED, because operations are applied and streamed as
+ * they happen. So somebody watched their page get better and was then told the
+ * edit failed. Nothing had failed. The model had not got round to writing its
+ * closing sentence.
+ */
+{
+  /** A model that keeps working and never says it is done. */
+  const relentless: Scripted[] = Array.from({ length: 30 }, () => ({
+    calls: [
+      ["update_section", { id: "faq-1", settingsJson: JSON.stringify({ heading: "Questions" }) }],
+    ] as Array<[string, Record<string, unknown>]>,
+  }))
+
+  const { result } = await run(relentless, pageWithFaq(), undefined, { maxTurns: 4 })
+
+  check("a run that ran out of turns having done work is a success", result.status === "succeeded")
+  check("it carries no error at all", result.error === null, String(result.error))
+  check("the operations are all there", result.ops.length === 4)
+  check(
+    "and it writes its own closing sentence from what it did",
+    result.message.length > 0 && /FAQ/i.test(result.message),
+    result.message,
+  )
+}
+
+{
+  /** Out of turns having done nothing: a real failure, but a useful one. */
+  const useless: Scripted[] = Array.from({ length: 30 }, () => ({
+    calls: [["read_section", { id: "faq-1" }]] as Array<[string, Record<string, unknown>]>,
+  }))
+  const { result } = await run(useless, pageWithFaq(), undefined, { maxTurns: 3 })
+
+  check("a run that did nothing is still a failure", result.status === "failed")
+  check(
+    "but it says something a person can act on",
+    typeof result.error === "string" && /Say which section/.test(result.error),
+    String(result.error),
+  )
+}
+
+{
+  /**
+   * Counting the string in the source would pass on a comment and fail on a
+   * rename. Every exit the loop has is DRIVEN instead, and none of them may
+   * hand that sentence to anybody.
+   */
+  const exits: Array<[string, () => Promise<{ error: string | null }>]> = [
+    [
+      "out of turns, work done",
+      async () =>
+        (
+          await run(
+            Array.from({ length: 9 }, () => ({
+              calls: [
+                ["update_section", { id: "faq-1", settingsJson: JSON.stringify({ heading: "H" }) }],
+              ] as Array<[string, Record<string, unknown>]>,
+            })),
+            pageWithFaq(),
+            undefined,
+            { maxTurns: 2 },
+          )
+        ).result,
+    ],
+    [
+      "out of turns, nothing done",
+      async () =>
+        (
+          await run(
+            Array.from({ length: 9 }, () => ({
+              calls: [["read_section", { id: "faq-1" }]] as Array<[string, Record<string, unknown>]>,
+            })),
+            pageWithFaq(),
+            undefined,
+            { maxTurns: 2 },
+          )
+        ).result,
+    ],
+    ["an empty reply", async () => (await run([{ text: "" }])).result],
+    ["a plain reply", async () => (await run([{ text: "Nothing needed changing." }])).result],
+    [
+      "a refused tool call",
+      async () =>
+        (
+          await run([
+            { calls: [["update_section", { id: "nope", settingsJson: "{}" }]] },
+            { text: "" },
+          ])
+        ).result,
+    ],
+  ]
+
+  const leaked: string[] = []
+  for (const [name, exit] of exits) {
+    const { error } = await exit()
+    if (error === "The edit did not finish.") leaked.push(name)
+  }
+  check(
+    "no exit the loop has can hand somebody that sentence",
+    leaked.length === 0,
+    leaked.join(", "),
+  )
+}
+
+{
+  /** The token budget is the other way a run stops mid-thought. */
+  const { result } = await run(
+    [
+      { calls: [["update_section", { id: "faq-1", settingsJson: JSON.stringify({ heading: "H" }) }]] },
+      { text: "Done." },
+    ],
+    pageWithFaq(),
+  )
+  check("a normal run still reports the model's own sentence", result.message === "Done.")
+}
+
+// ===========================================================================
+section("A locked section is the only thing that changes")
+// ===========================================================================
+
+/**
+ * Selecting a section and asking for "a bit more space" should not come back
+ * with a reworded hero and a new palette. The prompt asked for that; this
+ * enforces it, at the one place every operation passes through — so a tool
+ * added later cannot quietly escape it.
+ */
+{
+  const { result } = await run(
+    [
+      {
+        calls: [
+          ["update_section", { id: "hero-1", settingsJson: JSON.stringify({ heading: "New" }) }],
+        ],
+      },
+      { text: "Tried." },
+    ],
+    pageWithHeroAndFaq(),
+    "faq-1",
+    { lockToSelection: true },
+  )
+  check("another section cannot be written", result.ops.length === 0)
+}
+
+{
+  const { result } = await run(
+    [
+      {
+        calls: [
+          ["update_section", { id: "faq-1", settingsJson: JSON.stringify({ heading: "New" }) }],
+        ],
+      },
+      { text: "Done." },
+    ],
+    pageWithHeroAndFaq(),
+    "faq-1",
+    { lockToSelection: true },
+  )
+  check("the locked one can", result.ops.length === 1)
+}
+
+{
+  const { result } = await run(
+    [
+      { calls: [["add_section", { sectionType: "pricing", index: 2, settingsJson: "{}" }]] },
+      { calls: [["update_theme", { settingsJson: JSON.stringify({ primary_color: "#ff0000" }) }]] },
+      { calls: [["remove_section", { id: "hero-1" }]] },
+      { calls: [["move_section", { id: "hero-1", index: 2 }]] },
+      { calls: [["set_section_visibility", { id: "hero-1", hidden: true }]] },
+      { text: "None of that was available." },
+    ],
+    pageWithHeroAndFaq(),
+    "faq-1",
+    { lockToSelection: true },
+  )
+  check(
+    "and nothing that reshapes the page or the theme is available at all",
+    result.ops.length === 0,
+    JSON.stringify(result.ops),
+  )
+}
+
+{
+  const { result } = await run(
+    [
+      {
+        calls: [
+          [
+            "add_block",
+            {
+              sectionId: "faq-2",
+              blockType: "faq_item",
+              index: -1,
+              settingsJson: JSON.stringify({ question: "?" }),
+            },
+          ],
+        ],
+      },
+      { text: "Tried." },
+    ],
+    pageWithHeroAndFaq(),
+    "faq-1",
+    { lockToSelection: true },
+  )
+  check("blocks are scoped too, not just settings", result.ops.length === 0)
+  check(
+    "and the refusal is the LOCK, not the block type being wrong for that section",
+    toolOutputs.some((o) => /only section you may change/.test(o)),
+    toolOutputs.join(" | ").slice(0, 200),
+  )
+}
+
+{
+  const { result } = await run(
+    [
+      {
+        calls: [
+          [
+            "add_block",
+            {
+              sectionId: "faq-1",
+              blockType: "faq_item",
+              index: -1,
+              settingsJson: JSON.stringify({ question: "Do you ship worldwide?" }),
+            },
+          ],
+        ],
+      },
+      { text: "Added one." },
+    ],
+    pageWithHeroAndFaq(),
+    "faq-1",
+    { lockToSelection: true },
+  )
+  check("and the locked section's own blocks still work", result.ops.length === 1)
+}
+
+{
+  /**
+   * READS ARE NOT RESTRICTED. Matching the header's type scale changes
+   * nothing, and a model that cannot look produces a section that matches
+   * nothing.
+   */
+  const { result } = await run(
+    [
+      { calls: [["read_section", { id: "hero-1" }]] },
+      {
+        calls: [
+          ["update_section", { id: "faq-1", settingsJson: JSON.stringify({ heading: "Matched" }) }],
+        ],
+      },
+      { text: "Matched the hero." },
+    ],
+    pageWithHeroAndFaq(),
+    "faq-1",
+    { lockToSelection: true },
+  )
+  check("it can still read the rest of the page to match it", result.ops.length === 1)
+  check(
+    "and the read really returned the other section, rather than a refusal",
+    toolOutputs.some((o) => /^hero \[hero-1\]/.test(o)) &&
+      !toolOutputs.some((o) => /only section you may change/.test(o)),
+    toolOutputs.join(" | ").slice(0, 200),
+  )
+}
+
+{
+  /** Without the lock, nothing changes about how it behaves. */
+  const { result } = await run(
+    [
+      { calls: [["add_section", { sectionType: "pricing", index: 2, settingsJson: "{}" }]] },
+      { text: "Added." },
+    ],
+    pageWithHeroAndFaq(),
+    "faq-1",
+  )
+  check("with the lock off, the whole page is editable again", result.ops.length === 1)
+}
+
+check(
+  "the lock is enforced in code, not requested in the prompt",
+  (() => {
+    const loop = readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")
+    return (
+      /if \(locked\) \{/.test(loop) &&
+      /const wholePage: Record<string, string> = \{/.test(loop) &&
+      /target !== locked/.test(loop)
+    )
+  })(),
+)
+
+{
+  const chat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
+  check(
+    "the panel shows what the edit is limited to, before you type it",
+    /Only \{selectedSection\.name\}/.test(chat) && /nothing else will change/.test(chat),
+  )
+  check("it is on by default when a section is selected", /useState\(true\)/.test(chat))
+  check(
+    "a new selection re-arms it, so the chip cannot say one thing and mean another",
+    /setLockOn\(true\)\n  \}, \[selectedSectionId\]\)/.test(chat),
+  )
+  check("and it can be cleared to edit the whole page", /setLockOn\(false\)/.test(chat))
+  check("the panel actually sends it", /lockToSelection: live\.current\.locked/.test(chat))
+}
+
+check(
+  "and the endpoint only honours it with a section actually selected",
+  /lockToSelection: body\.lockToSelection === true && !!body\.selectedSectionId/.test(
+    readFileSync(join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"), "utf8"),
+  ),
+)
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
