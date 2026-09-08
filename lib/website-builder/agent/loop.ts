@@ -50,6 +50,7 @@ import {
   type ThemeOp,
   type ThemeState,
 } from "./operations"
+import { describeHouseStyle, readHouseStyle } from "./house-style"
 import { describeFindings, reviewSections } from "./review"
 import { SECTION_SCHEMAS } from "../section-schemas"
 import type {
@@ -120,6 +121,7 @@ Rules:
 - BUILDING A SECTION IS MORE THAN ADDING IT. A section added from its preset is somebody else's placeholder copy. Adding one properly means: add it, then set its controls, then write its blocks — the real questions, the real tiers, the real quotes. An FAQ with the preset's three generic questions still in it is not a section anybody asked for.
 - WRITE COPY ABOUT THE REAL BUSINESS. Call read_store before you write anything that mentions what they sell, what it costs, or who it is for — the catalogue is there and inventing one produces a page that contradicts the shop behind it. Never "Lorem ipsum" and never "Your headline here".
 - Do not add a product section to a store with no products. It renders empty, which looks broken rather than new.
+- MATCH THE PAGE YOU ARE ON. It has a palette, a spacing rhythm and a way of alternating backgrounds, and you are shown them. Reuse a colour that is already there rather than introducing one three shades off it; keep padding on the values the rest of the page uses. Coherence is what separates a designed page from an assembled one, and it comes from using a small vocabulary consistently — not from making each section interesting on its own.
 - YOUR WORK IS CHECKED BEFORE YOU FINISH. Contrast, empty text, repeated entries, and a section left holding its preset's demo copy are all checked against the page as it stands after your changes. If anything is wrong you will be told and you fix it. So get it right first: text needs at least 4.5:1 against what is behind it, every section you add gets real copy about this store, and no two entries say the same thing.
 - When you are done, reply with one plain sentence saying what you changed. No preamble, no markdown, no lists.`
 
@@ -484,6 +486,13 @@ export async function* themeAgent(
       role: "user",
       content: [
         describeTheme(state, page),
+        /**
+         * BEFORE the theme settings and before the request, because it is the
+         * frame everything else is read in. A model told what the page has
+         * already decided writes a first attempt that belongs there; one told
+         * afterwards has already chosen.
+         */
+        describeHouseStyle(readHouseStyle(state)),
         `THEME SETTINGS\n${JSON.stringify(state.settings, null, 2).slice(0, 3_000)}`,
         selected && locked
           ? `THE CREATOR HAS THIS SECTION OPEN AND LOCKED. It is the ONLY thing you may change — its settings, its blocks, its name. You may READ anything else on the page to match it, but every write to another section, and every change to the theme, will be refused. If what they asked for genuinely needs more than this section, do what you can here and say plainly what the rest would take.\n\n${describeSection(selected)}`

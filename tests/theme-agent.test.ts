@@ -27,6 +27,11 @@ import {
   type ThemeOp,
   type ThemeState,
 } from "@/lib/website-builder/agent/operations"
+import {
+  colorDistance,
+  describeHouseStyle,
+  readHouseStyle,
+} from "@/lib/website-builder/agent/house-style"
 import { contrastRatio, parseColor, reviewSections } from "@/lib/website-builder/agent/review"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import type { AgentProvider, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
@@ -2615,6 +2620,188 @@ section("And it does not get to call that finished")
     result.status === "succeeded" && result.message === "Your FAQ already covers that.",
   )
 }
+
+// ===========================================================================
+section("The page's own design system, read off the page")
+// ===========================================================================
+
+/**
+ * The tools people compare this to do not produce coherent pages because their
+ * models have better taste. They produce them because the model is given a
+ * SYSTEM: a fixed palette, a spacing scale. The output looks designed because
+ * the vocabulary is small and shared.
+ *
+ * This editor had that system and was not using it — the model was handed raw
+ * colour fields with no idea what the rest of the page had chosen, so it
+ * invented a fourth near-identical grey and a padding of 37 on a page of 60s.
+ * Nobody can name what is wrong with a page like that, which is exactly why it
+ * reads as machine-made.
+ */
+function realPage(): ThemeState {
+  return {
+    sections: ["header", "hero", "feature_grid", "testimonials", "faq", "cta", "footer"]
+      .map((type) => buildSection(`${type}-1`, type))
+      .filter((s): s is NonNullable<typeof s> => s !== null),
+    settings: {},
+  }
+}
+
+const drifted = (change: (section: SectionInstance) => void): ThemeState => {
+  const state = realPage()
+  const faq = state.sections.find((s) => s.id === "faq-1")!
+  change(faq)
+  return state
+}
+
+const reviewOf = (state: ThemeState, written: string[]) =>
+  reviewSections({ state, touched: ["faq-1"], added: [], written: { "faq-1": written } })
+
+{
+  const style = readHouseStyle(realPage())
+  check("the palette is read from what the page actually uses", style.palette.length >= 3)
+  check("so is the spacing rhythm", style.spacing.includes(60))
+  const described = describeHouseStyle(style)
+  check(
+    "the description names the colours and the padding",
+    /Colours already in use/.test(described) && /Vertical padding in use/.test(described),
+    described.slice(0, 120),
+  )
+}
+
+{
+  /** A page of one section has decided nothing. Inventing a rule from it and
+   *  calling it the creator's would be worse than staying quiet. */
+  const thin: ThemeState = { sections: [buildSection("hero-1", "hero")!], settings: {} }
+  check("a page too small to have a system yields no rules", describeHouseStyle(readHouseStyle(thin)) === "")
+}
+
+{
+  const findings = reviewOf(drifted((s) => (s.settings.bg_color = "#f9fafb")), ["bg_color"])
+  check(
+    "a grey three shades off the page's grey is caught",
+    findings.some((f) => /already uses #f8fafc/.test(f.message)),
+    JSON.stringify(findings),
+  )
+}
+
+{
+  /**
+   * THE BUG THIS ALMOST SHIPPED WITH.
+   *
+   * The baseline was read from the state AFTER the change, so the model's own
+   * drift voted on what the page's convention is: write #f9fafb onto a page of
+   * #f8fafc and #f9fafb is now "in use", so the check written to catch exactly
+   * that returned nothing. Driven here rather than read.
+   */
+  const state = drifted((s) => (s.settings.bg_color = "#f9fafb"))
+  const withTouched = readHouseStyle(state, ["faq-1"])
+  const withoutTouched = readHouseStyle(state)
+  check(
+    "the baseline is the page BEFORE this edit, not including it",
+    !withTouched.palette.some((p) => p.color === "#f9fafb") ||
+      withoutTouched.palette.length !== withTouched.palette.length,
+  )
+}
+
+{
+  const findings = reviewOf(drifted((s) => (s.settings.bg_color = "#1a1a2e")), ["bg_color"])
+  check(
+    "a colour that is clearly a different colour is not called drift",
+    !findings.some((f) => /same colour to anybody/.test(f.message)),
+    JSON.stringify(findings),
+  )
+  check(
+    "though a dark background under dark text is still unreadable, and still reported",
+    findings.some((f) => /1\.04:1/.test(f.message)),
+  )
+}
+
+check(
+  "the threshold only covers colours nobody would call different",
+  (colorDistance("#f9fafb", "#f8fafc") ?? 99) < 8 && (colorDistance("#ffffff", "#f8fafc") ?? 0) > 8,
+)
+
+{
+  const odd = reviewOf(drifted((s) => (s.settings.padding_top = 37)), ["padding_top"])
+  check(
+    "padding off the page's rhythm is caught",
+    odd.some((f) => /breaks the vertical rhythm/.test(f.message)),
+    JSON.stringify(odd),
+  )
+  const fine = reviewOf(drifted((s) => (s.settings.padding_top = 80)), ["padding_top"])
+  check("padding the page already uses is not", fine.length === 0, JSON.stringify(fine))
+}
+
+{
+  /**
+   * The product's own button is white on #6366f1 — 4.47:1, three hundredths
+   * under AA. A model that reuses it is being consistent, which is what it was
+   * asked to be, and telling it to fix the brand colour is an argument it
+   * cannot win and should not be having.
+   */
+  const state = realPage()
+  const second = buildSection("hero-2", "hero")!
+  state.sections.splice(2, 0, second)
+  const reused = reviewSections({
+    state,
+    touched: ["hero-2"],
+    added: [],
+    written: { "hero-2": ["button_color", "button_text_color"] },
+  })
+  check("a pair the rest of the page already uses is this site's standard", reused.length === 0, JSON.stringify(reused))
+
+  const lone: ThemeState = {
+    sections: [buildSection("hero-3", "hero")!, buildSection("faq-3", "faq")!, buildSection("cta-3", "cta")!],
+    settings: {},
+  }
+  lone.sections[0].settings.button_color = "#7c7cf5"
+  lone.sections[0].settings.button_text_color = "#ffffff"
+  const fresh = reviewSections({
+    state: lone,
+    touched: ["hero-3"],
+    added: [],
+    written: { "hero-3": ["button_color", "button_text_color"] },
+  })
+  check("but a low-contrast pair this run invented is still reported", fresh.length === 1, JSON.stringify(fresh))
+}
+
+{
+  /** The regression guard: an ordinary copy edit, on every section type. */
+  const noisy: string[] = []
+  for (const type of Object.keys(SECTION_SCHEMAS)) {
+    const built = buildSection(`${type}-x`, type)
+    if (!built) continue
+    const state = realPage()
+    state.sections.push(built)
+    const findings = reviewSections({
+      state,
+      touched: [built.id],
+      added: [],
+      written: { [built.id]: ["heading"] },
+    })
+    if (findings.length > 0) noisy.push(`${type}: ${findings[0].message.slice(0, 60)}`)
+  }
+  check(
+    "and an ordinary copy edit is silent on all fifty types",
+    noisy.length === 0,
+    noisy.slice(0, 3).join(" | "),
+  )
+}
+
+check(
+  "the model is shown the page's system before it decides anything",
+  (() => {
+    const loop = readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")
+    const at = loop.indexOf("describeHouseStyle(readHouseStyle(state))")
+    const settings = loop.indexOf("`THEME SETTINGS")
+    /**
+     * `at >= 0` FIRST. Without it, deleting the call entirely made indexOf
+     * return -1 and "-1 < settings" true — the check passed BECAUSE the thing
+     * it was checking for was gone, and a break-test caught it doing so.
+     */
+    return at >= 0 && settings >= 0 && at < settings && /MATCH THE PAGE YOU ARE ON/.test(loop)
+  })(),
+)
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
