@@ -125,14 +125,61 @@ const RUNTIME_BRIDGE = `
     var href = link.getAttribute("href") || ""
 
     /**
-     * An in-page anchor is the one link that genuinely belongs to this
-     * document — "#pricing" scrolls, it does not leave — so it is left alone.
-     * A bare "#" is the placeholder every generated page uses for a button and
-     * only jumps to the top, which is not what anybody clicking it wanted.
+     * EVERY link is prevented, including a hash one, and that correction is
+     * the whole point of this block.
+     *
+     * The first version exempted "#..." on the reasoning that an in-page
+     * anchor scrolls rather than leaves. That reasoning is about an ordinary
+     * page. THIS document is srcdoc: its own URL is "about:srcdoc" and its
+     * BASE URL is the editor's, so "#features" resolves to
+     * storelib.com/sites/<id>#features — a different document, and one that
+     * denies framing like every page on that domain.
+     *
+     * Measured in a real srcdoc frame rather than reasoned about a second
+     * time. All four navigated away; the frame loaded twice in every case:
+     *
+     *   #/booking     a hash route, which is how generated sites do pages
+     *   #features     an in-page anchor whose element is right there
+     *   #             a bare placeholder
+     *   /about        the plain path already known about
+     *
+     * So the scroll is done HERE instead of being delegated to a browser that
+     * would leave to do it.
      */
-    if (href.length > 1 && href.charAt(0) === "#") return
-
     e.preventDefault()
+
+    if (href.charAt(0) === "#") {
+      var id = href.slice(1)
+      // A bare "#" is the placeholder every generated page uses for a button.
+      // Stopping it is the whole behaviour — there is nothing to say about it.
+      if (!id) return
+
+      /**
+       * getElementById and getElementsByName, because neither takes a
+       * SELECTOR. The first version used querySelector with the id
+       * interpolated into an attribute selector, which needs escaping — and
+       * the escape, written inside a template literal inside TypeScript, came
+       * out of the compiler as an invalid regular expression. The whole bridge
+       * then failed to parse, which removes every listener in it silently:
+       * no ready message, no click guard, and every link navigating again.
+       * There is now a test that compiles this script and fails on that.
+       */
+      var target = document.getElementById(id)
+      if (!target) {
+        var named = document.getElementsByName(id)
+        target = named && named.length ? named[0] : null
+      }
+
+      if (target && target.scrollIntoView) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" })
+        return
+      }
+
+      // Nothing here answers to it — "#/booking" is a route, not an anchor.
+      send("navigate", href)
+      return
+    }
+
     send("navigate", href)
   }, true)
 

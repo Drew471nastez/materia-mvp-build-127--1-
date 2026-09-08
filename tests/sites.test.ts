@@ -4971,15 +4971,89 @@ check(
 )
 
 check(
-  "an in-page anchor is left alone, because it does not leave",
+  "a hash link is held too, because in a srcdoc frame it also leaves",
   (() => {
     const doc = previewDocument({ code: "", css: "", html: "<body></body>" })
     /**
-     * "#pricing" scrolls and belongs to this document. A bare "#" is the
-     * placeholder every generated page uses for a button and only jumps to the
-     * top, which is never what the person clicking it wanted.
+     * THE CORRECTION THAT MATTERS, and the one a creator hit by hand.
+     *
+     * The first version exempted "#..." on the reasoning that an in-page
+     * anchor scrolls rather than leaves. That reasoning is about an ordinary
+     * page. This document is srcdoc: its own URL is about:srcdoc and its BASE
+     * URL is the editor's, so "#features" resolves to
+     * storelib.com/sites/<id>#features — a different document, and one that
+     * denies framing like every page on that domain.
+     *
+     * Measured in a real srcdoc frame. All four navigated away, two loads each:
+     *
+     *   #/booking   a hash route, which is how generated sites do pages
+     *   #features   an in-page anchor whose element is right there
+     *   #           a bare placeholder
+     *   /about      the plain path already known about
+     *
+     * So preventDefault comes FIRST, unconditionally, and the scroll is done
+     * here rather than delegated to a browser that would leave to do it.
      */
-    return /if \(href\.length > 1 && href\.charAt\(0\) === "#"\) return/.test(doc)
+    const at = doc.indexOf('document.addEventListener("click"')
+    const body = doc.slice(at, doc.indexOf('document.addEventListener("submit"', at))
+    return (
+      body.indexOf("e.preventDefault()") < body.indexOf('href.charAt(0) === "#"') &&
+      /target\.scrollIntoView\(/.test(body) &&
+      /send\("navigate", href\)/.test(body)
+    )
+  })(),
+)
+
+check(
+  "an anchor that exists is scrolled to, and one that does not is a route",
+  (() => {
+    const doc = previewDocument({ code: "", css: "", html: "<body></body>" })
+    /**
+     * "#features" is an element on the page and scrolling is what was wanted.
+     * "#/booking" answers to nothing here — it is another page of the site,
+     * and it works once published. Proved in a browser with the real document:
+     * the anchor scrolled and produced no message, the route was reported.
+     */
+    return (
+      /var target = document\.getElementById\(id\)/.test(doc) &&
+      /document\.getElementsByName\(id\)/.test(doc) &&
+      // a bare "#" is a placeholder button: stopped, and nothing said about it
+      /if \(!id\) return/.test(doc)
+    )
+  })(),
+)
+
+check(
+  "the preview's own script compiles",
+  (() => {
+    /**
+     * THE BRIDGE IS A TEMPLATE LITERAL INSIDE TYPESCRIPT, so every backslash
+     * and backtick in it is escaped twice and easy to get wrong — and a broken
+     * bridge fails SILENTLY. Nothing throws where anyone would see it: the
+     * script simply never runs, so there is no ready message, no click guard,
+     * and every link navigates away again. Exactly the bug it exists to stop,
+     * reintroduced by a typo.
+     *
+     * That happened while writing this: an escaped character class came out of
+     * the compiler as an invalid regular expression and took the whole script
+     * with it. `new Function` compiles without executing, which is all this
+     * needs to know.
+     */
+    const doc = previewDocument({ code: "", css: "", html: "<body></body>" })
+    const scripts = [
+      ...doc.matchAll(
+        /<script(?![^>]*type="importmap")(?![^>]*type="module")[^>]*>([\s\S]*?)<\/script>/g,
+      ),
+    ].map((m) => m[1])
+    if (scripts.length === 0) return false
+    return scripts.every((source) => {
+      try {
+        new Function(source)
+        return true
+      } catch {
+        return false
+      }
+    })
   })(),
 )
 
