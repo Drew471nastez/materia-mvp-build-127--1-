@@ -27,6 +27,7 @@
  */
 
 import { SECTION_SCHEMAS } from "../section-schemas"
+import { THEME_SETTINGS_GROUPS } from "../theme-settings-schema"
 import type { BlockInstance, BlockSchema, SectionInstance } from "../types"
 
 /** The theme state an operation acts on. Exactly what the editor holds. */
@@ -361,6 +362,40 @@ export function describeSection(section: SectionInstance): string {
   }
 
   return parts.join("\n\n")
+}
+
+/**
+ * THE THEME'S OWN SETTINGS, and which of them exist.
+ *
+ * Seventy-two fields across twelve groups — colours, type, buttons, layout,
+ * animation, the announcement bar. The model was shown the CURRENT VALUES as a
+ * JSON dump and never the ids it was allowed to write, so "give the whole site
+ * a warmer palette" — the panel's own suggested prompt — was a guess at what a
+ * colour field might be called.
+ *
+ * An id that does not exist merges into the settings and is then ignored by
+ * the renderer: success reported, nothing changed. The same silent failure the
+ * section and block writes already refuse, still live here because the theme
+ * settings live in a different schema and were missed.
+ */
+export function themeFieldIds(): string[] {
+  return THEME_SETTINGS_GROUPS.flatMap((group) => (group.fields ?? []).map((f) => f.id))
+}
+
+/**
+ * The settings, grouped, as the model reads them.
+ *
+ * Labels and types rather than current values: what it needs before writing is
+ * "there is a field called `body_font` and it is a font", not what the font
+ * happens to be right now — it is given the current values separately.
+ */
+export function describeThemeSettings(): string {
+  return THEME_SETTINGS_GROUPS.map((group) => {
+    const fields = (group.fields ?? [])
+      .map((f) => `${f.id} (${f.type})`)
+      .join(", ")
+    return `  ${group.label}: ${fields}`
+  }).join("\n")
 }
 
 /**

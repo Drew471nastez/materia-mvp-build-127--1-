@@ -39,8 +39,10 @@ import {
   describeSectionTypes,
   describeStore,
   describeTheme,
+  describeThemeSettings,
   fieldIds,
   maxBlocks,
+  themeFieldIds,
   type StoreFacts,
   type ThemeOp,
   type ThemeState,
@@ -253,8 +255,7 @@ function toolSpecs(addable: string[]): ToolSpec<string>[] {
     },
     {
       name: "update_theme",
-      description:
-        "Change whole-theme settings — colours, fonts, corner radius, container width. These apply to every page, so use them when the request is about the site as a whole rather than one section.",
+      description: `Change whole-theme settings — colours, fonts, buttons, layout, animation. These apply to EVERY page, so use them when the request is about the site as a whole rather than one section. The ids you may write, by group:\n${describeThemeSettings()}`,
       parameters: {
         type: "object",
         properties: {
@@ -707,6 +708,22 @@ function execute(
       if (!settings) {
         return { output: 'Send `settingsJson` as a JSON object in a string, e.g. {"radius":12}.' }
       }
+
+      /**
+       * The same refusal the section and block writes make, for the same
+       * reason: an id the theme does not have merges into the settings and is
+       * then ignored by the renderer. Success reported, nothing changed.
+       */
+      const allowed = themeFieldIds()
+      const unknown = Object.keys(settings).filter((key) => !allowed.includes(key))
+      if (unknown.length > 0) {
+        return {
+          output: `The theme has no setting${unknown.length === 1 ? "" : "s"} called ${unknown
+            .map((u) => `"${u}"`)
+            .join(", ")}. Nothing was changed — the ids it does have are listed on this tool.`,
+        }
+      }
+
       return {
         output: `Updated the theme: ${Object.keys(settings).join(", ")}.`,
         op: { kind: "update_theme", settings },

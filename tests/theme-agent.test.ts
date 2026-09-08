@@ -19,7 +19,9 @@ import {
   buildSection,
   describeStore,
   describeTheme,
+  describeThemeSettings,
   fieldIds,
+  themeFieldIds,
   type ThemeOp,
   type ThemeState,
 } from "@/lib/website-builder/agent/operations"
@@ -738,6 +740,67 @@ section("The editor has one accent, and it is the app's own")
 }
 
 // ===========================================================================
+section("Theme settings are checked like everything else")
+// ===========================================================================
+
+{
+  /**
+   * THE LAST PLACE THE SILENT FAILURE SURVIVED.
+   *
+   * Section writes and block writes both refuse an id the schema does not
+   * have, because an unknown key merges into the settings and is then ignored
+   * by the renderer: success reported, nothing changed. Theme settings live in
+   * a different schema and were missed, so "give the whole site a warmer
+   * palette" — the panel's own suggested prompt — was the model guessing at
+   * what a colour field might be called.
+   */
+  const real = themeFieldIds()
+  check("the theme's own field ids are known", real.length > 40, `${real.length} fields`)
+
+  const { result: refused } = await run(
+    [
+      { calls: [["update_theme", { settingsJson: '{"not_a_theme_setting":"#fff"}' }]] },
+      { text: "Done." },
+    ],
+    page(),
+  )
+  check("an id the theme does not have is refused", refused.ops.length === 0)
+
+  const { result: accepted } = await run(
+    [
+      { calls: [["update_theme", { settingsJson: JSON.stringify({ [real[0]]: "x" }) }]] },
+      { text: "Done." },
+    ],
+    page(),
+  )
+  check(
+    "a real one is written",
+    accepted.ops.length === 1 && accepted.ops[0].kind === "update_theme",
+  )
+  check(
+    "and reaches the theme",
+    applyOps(page(), accepted.ops).settings[real[0]] === "x",
+  )
+
+  check(
+    "the model is told which ids exist, grouped",
+    (() => {
+      /**
+       * Seventy-two fields across twelve groups. Shown the current VALUES and
+       * not the ids, a model has to guess — and a guess here is the silent
+       * failure above rather than an error it can recover from.
+       */
+      const described = describeThemeSettings()
+      return (
+        described.includes("Typography") &&
+        described.includes("Layout") &&
+        real.every((id) => described.includes(id))
+      )
+    })(),
+  )
+}
+
+// ===========================================================================
 section("It knows what the store sells")
 // ===========================================================================
 
@@ -1228,6 +1291,140 @@ section("Switching pages does not lose or misfile work")
        */
       return /\} finally \{\s*switchingPage\.current = false/.test(body)
     })(),
+  )
+}
+
+// ===========================================================================
+section("The mobile sheet snaps where it should")
+// ===========================================================================
+
+/**
+ * The detent maths, driven. Getting it wrong is a sheet that snaps to the
+ * wrong stop — not something a type checker can see, and not something a
+ * screenshot catches either, because it only shows up under a finger.
+ *
+ * The implementation is mirrored here rather than imported: the component is
+ * a client module full of DOM and refs, and the arithmetic is the part worth
+ * pinning. The assertions below check the SAME properties the component's
+ * comments claim, so a change to one that breaks the other shows up as a
+ * disagreement between this and the file.
+ */
+{
+  const sheet = readFileSync(
+    join(root, "components/website-builder/mobile-editor-sheet.tsx"),
+    "utf8",
+  )
+
+  function offsetsFor(viewport: number, detents: number[], peekHeight: number) {
+    const stops = [...detents].sort((a, b) => a - b)
+    const height = Math.round(viewport * stops[stops.length - 1])
+    const list = stops
+      .map((f) => Math.max(0, Math.round(height - viewport * f)))
+      .sort((a, b) => a - b)
+    return { height, offsets: [...list, Math.max(height - peekHeight, 0)] }
+  }
+
+  function snap(offsets: number[], current: number, velocity: number, delta: number) {
+    let index = 0
+    let best = Number.POSITIVE_INFINITY
+    for (let i = 0; i < offsets.length; i++) {
+      const d = Math.abs(offsets[i] - current)
+      if (d < best) {
+        best = d
+        index = i
+      }
+    }
+    if (Math.abs(velocity) > 0.4 && Math.abs(delta) > 8) {
+      index = velocity < 0 ? Math.max(0, index - 1) : Math.min(offsets.length - 1, index + 1)
+    }
+    return index
+  }
+
+  const { height, offsets } = offsetsFor(800, [0.5, 0.92], 72)
+
+  check(
+    "the offsets ascend, so index order is screen order",
+    /**
+     * THE BUG THIS CAUGHT, in code written minutes earlier. A larger fraction
+     * is a SMALLER offset, so mapping ascending fractions produces descending
+     * offsets — [336, 0], and with the peek appended, [336, 0, 664]. The flick
+     * logic moves by index assuming the array is monotonic, so a flick down
+     * from full went to half's index and then jumped straight to the peek.
+     */
+    offsets.every((v, i) => i === 0 || v > offsets[i - 1]),
+    JSON.stringify(offsets),
+  )
+
+  check("the sheet is as tall as its tallest stop", height === 736, String(height))
+  check("the peek leaves exactly peekHeight showing", height - offsets[offsets.length - 1] === 72)
+
+  check("a slow drag from the peek stays at the peek", snap(offsets, 640, 0.01, 24) === 2)
+  check("a flick up from the peek reaches half", snap(offsets, 640, -1.2, 40) === 1)
+  check("a flick up from half reaches full", snap(offsets, 330, -1.2, 40) === 0)
+  check(
+    "a flick down from full lands on half, not shut",
+    /**
+     * The one that failed. Somebody nudging a full sheet down expects the next
+     * stop, not the sheet disappearing.
+     */
+    snap(offsets, 10, 1.2, 40) === 1,
+  )
+  check("released between stops it takes the nearest", snap(offsets, 200, 0, 0) === 1)
+
+  const single = offsetsFor(800, [0.5], 72)
+  check(
+    "one detent still behaves like the old two-position sheet",
+    single.offsets.length === 2 && single.offsets[0] === 0,
+    JSON.stringify(single.offsets),
+  )
+
+  check(
+    "and the component sorts its offsets, which is what makes all of that true",
+    /\.sort\(\(a, b\) => a - b\)/.test(
+      sheet.slice(sheet.indexOf("const offsets = React.useMemo"), sheet.indexOf("const closedY")),
+    ),
+  )
+
+  check(
+    "the sheet measures the visual viewport, not the window",
+    /**
+     * `window.innerHeight` does not change when the keyboard opens on iOS, so
+     * a sheet measured against it puts its text box behind the keyboard. That
+     * is the difference between a chat you can use on a phone and one you
+     * cannot.
+     */
+    /window\.visualViewport/.test(sheet) && /vv\?\.addEventListener\("scroll", update\)/.test(sheet),
+  )
+}
+
+{
+  const editor = readFileSync(
+    join(root, "app/website-builder/editor/[installId]/page.tsx"),
+    "utf8",
+  )
+  check(
+    "the AI exists on a phone",
+    /**
+     * It was `!isMobileView`, and its button was `hidden sm:flex` — so the
+     * device most likely to want to describe a change rather than hunt for a
+     * control had no way to.
+     */
+    /**
+     * Anchored on the opening brace. `/isMobileView && aiOpen/` also matches
+     * the DESKTOP branch's `!isMobileView && aiOpen`, so the assertion passed
+     * with the mobile one deleted — a test that could not tell the two apart
+     * was checking that the desktop panel existed.
+     */
+    /\{isMobileView && aiOpen && \(/.test(editor) &&
+      // and the button is no longer hidden below the `sm` breakpoint
+      !/"h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border transition-colors/.test(
+        editor,
+      ),
+  )
+  check(
+    "and the two sheets do not fight over the bottom of the screen",
+    /if \(isMobileView\) setMobileSidebarOpen\(false\)/.test(editor) &&
+      /if \(next\) setAiOpen\(false\)/.test(editor),
   )
 }
 
