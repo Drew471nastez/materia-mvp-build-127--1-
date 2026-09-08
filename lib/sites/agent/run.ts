@@ -43,7 +43,7 @@ import { readProject, saveFiles } from "../projects"
 import { readDocument, writeDocument } from "../document/store"
 import { isGenerated } from "../document/render"
 import type { ProjectFiles } from "../types"
-import { agentLoop } from "./loop"
+import { agentLoop, isEmptySite } from "./loop"
 import { chooseModel, costOf } from "./models"
 import { ProjectWorkspace } from "./tools"
 import type { AgentEvent, AgentProvider } from "./types"
@@ -190,8 +190,12 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
    * How much room this request gets. A flat twelve turns for everything is
    * what made a broad ask produce one small edit: a model that senses it is
    * running out of room stops early, rationally.
+   *
+   * The site's own state is passed as well as the sentence, because the
+   * sentence cannot say "this site is empty" and that is the single fact that
+   * most changes how much room a run needs.
    */
-  const budget = classifyComplexity(prompt)
+  const budget = classifyComplexity(prompt, isEmptySite(document))
   const context = {
     manifest: describeManifest(manifest),
     facts: describeProject(files, assets),

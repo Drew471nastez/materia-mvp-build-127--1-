@@ -46,6 +46,7 @@ import {
   MAX_QUESTIONS,
   parseQuestions,
 } from "@/lib/sites/agent/questions"
+import { classifyComplexity } from "@/lib/sites/agent/complexity"
 import {
   type CompletionState,
   MAX_REFUSALS,
@@ -4342,14 +4343,107 @@ check(
 check(
   "the budget scales with what was asked",
   (() => {
-    const c = strip(read("lib/sites/agent/complexity.ts"))
-    const run = strip(read("lib/sites/agent/run.ts"))
+    /**
+     * Called, not grepped. The first version pinned the literal turn counts —
+     * `maxTurns: 12`, `maxTurns: 24` — so raising them broke a test that was
+     * never guarding anything: the property that matters is the ORDER, and a
+     * number in a regex cannot say that. It also went stale the moment anyone
+     * tuned a budget, which is the opposite of useful.
+     */
+    const small = classifyComplexity("change the word Home to Start")
+    const medium = classifyComplexity("add a pricing section")
+    const large = classifyComplexity("make the whole site more premium")
+
     return (
-      /small: \{ complexity: "small", maxTurns: 12, requiresPlan: false/.test(c) &&
-      /medium: \{ complexity: "medium", maxTurns: 24, requiresPlan: true/.test(c) &&
-      /complexity: "large",\s*maxTurns: 40,\s*requiresPlan: true,\s*minSteps: 6,/.test(c) &&
-      /const budget = classifyComplexity\(prompt\)/.test(run)
+      small.complexity === "small" &&
+      medium.complexity === "medium" &&
+      large.complexity === "large" &&
+      small.maxTurns < medium.maxTurns &&
+      medium.maxTurns < large.maxTurns &&
+      small.maxTokens < medium.maxTokens &&
+      medium.maxTokens < large.maxTokens &&
+      // A specific change is not made to write a plan about itself.
+      small.requiresPlan === false &&
+      medium.requiresPlan === true &&
+      large.requiresPlan === true
     )
+  })(),
+)
+
+check(
+  "no request gets so little room that it stops mid-edit",
+  (() => {
+    /**
+     * A reported number, not a derived one, and the only reason it is written
+     * down: runs were ending with "The edit reached its limit of 12 steps and
+     * was stopped." Twelve is enough for change-a-word, build, done — and the
+     * ordering test above passes happily with it — so nothing else here would
+     * notice it coming back.
+     *
+     * Twenty is a floor, not a target. Every budget is a ceiling and a
+     * one-word change still finishes in two turns.
+     */
+    return (["small", "medium", "large"] as const).every(
+      (kind) =>
+        classifyComplexity(
+          kind === "small"
+            ? "change the word Home to Start"
+            : kind === "medium"
+              ? "add a pricing section"
+              : "make the whole site more premium",
+        ).maxTurns >= 20,
+    )
+  })(),
+)
+
+check(
+  "building a site from nothing gets the largest budget, whatever words were used",
+  (() => {
+    /**
+     * THE BUG THIS EXISTS FOR.
+     *
+     * "make this website for selling digital products" contains no phrase on
+     * either list and is 46 characters long, so it classified SMALL — twelve
+     * turns and no plan, for building an entire website. The run hit the cap
+     * and stopped with "reached its limit of 12 steps" partway through.
+     *
+     * It was never a wording problem to be fixed by adding phrases. Reading
+     * the sentence cannot tell you the site is empty; the site can.
+     */
+    const asWritten = classifyComplexity("make this website for selling digital products")
+    const fromNothing = classifyComplexity(
+      "make this website for selling digital products",
+      true,
+    )
+    return (
+      asWritten.complexity === "small" &&
+      fromNothing.complexity === "large" &&
+      // even a one-word request builds the whole site when there is no site
+      classifyComplexity("hi", true).complexity === "large"
+    )
+  })(),
+)
+
+check(
+  "and the run asks the site, not only the sentence",
+  (() => {
+    const run = strip(read("lib/sites/agent/run.ts"))
+    return /const budget = classifyComplexity\(prompt, isEmptySite\(document\)\)/.test(run)
+  })(),
+)
+
+check(
+  "a first build has room to reach the floor it is held to",
+  (() => {
+    /**
+     * The floor demands four pages and fourteen sections. A budget that could
+     * not reach it would be two rules pulling against each other: the gate
+     * refusing to let the run stop, and the turn cap stopping it anyway.
+     *
+     * One turn per section is already pessimistic — add_section calls batch —
+     * so this is a floor on the floor, not a prediction.
+     */
+    return classifyComplexity("anything", true).maxTurns > MIN_PAGES + MIN_SECTIONS * 2
   })(),
 )
 

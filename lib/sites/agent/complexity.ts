@@ -139,10 +139,10 @@ const BUDGETS: Record<Complexity, Budget> = {
    * demanding one would spend a turn writing "1. change the word" before
    * changing the word.
    */
-  small: { complexity: "small", maxTurns: 12, requiresPlan: false, minSteps: 0, maxTokens: 200_000 },
+  small: { complexity: "small", maxTurns: 30, requiresPlan: false, minSteps: 0, maxTokens: 400_000 },
 
   /** Enough to read what exists, change several files, and verify. */
-  medium: { complexity: "medium", maxTurns: 24, requiresPlan: true, minSteps: 3, maxTokens: 400_000 },
+  medium: { complexity: "medium", maxTurns: 60, requiresPlan: true, minSteps: 3, maxTokens: 900_000 },
 
   /**
    * Enough to inspect the project, find what is missing, and actually do it.
@@ -151,20 +151,39 @@ const BUDGETS: Record<Complexity, Budget> = {
    */
   large: {
     complexity: "large",
-    maxTurns: 40,
+    maxTurns: 150,
     requiresPlan: true,
     minSteps: 6,
     /**
-     * Deliberately below what forty uncompacted turns would spend. With the
-     * transcript compacted a broad run lands well under this; without a cap it
-     * would land near three dollars, which is not a price this product can pay
-     * for one edit.
+     * The bound that actually matters, now that the turn counts are high
+     * enough not to be the thing a run hits. A turn on a large project sends
+     * far more than a turn on a small one, so turns alone do not bound cost —
+     * tokens do. With the transcript compacted a broad run lands well under
+     * this; it is a ceiling nobody is meant to reach.
      */
-    maxTokens: 800_000,
+    maxTokens: 2_500_000,
   },
 }
 
-export function classifyComplexity(prompt: string): Budget {
+/**
+ * ===========================================================================
+ *  A FIRST GENERATION IS ALWAYS THE BIGGEST THING THIS DOES
+ * ===========================================================================
+ * "make this website for selling digital products" contains no phrase on
+ * either list and is 46 characters long, so it classified SMALL — twelve turns
+ * and no plan, for building an entire website from nothing. The run hit the
+ * cap and stopped with "reached its limit of 12 steps".
+ *
+ * That was never a wording problem to be fixed by adding more phrases to the
+ * lists. Reading the sentence cannot tell you the site is empty; the site can.
+ * Building a whole site is the largest job here BY DEFINITION, whatever words
+ * were used to ask for it — and it is now also held to a floor of four pages
+ * and fourteen sections, which twelve turns could not have reached even if the
+ * model had wanted to.
+ */
+export function classifyComplexity(prompt: string, startingFromNothing = false): Budget {
+  if (startingFromNothing) return BUDGETS.large
+
   const text = prompt.toLowerCase()
 
   if (LARGE.some((phrase) => text.includes(phrase))) return BUDGETS.large
