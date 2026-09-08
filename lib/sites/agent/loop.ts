@@ -18,10 +18,11 @@
  */
 
 import type { ProjectWorkspace } from "./tools"
-import { looksLikeQuestion, openSteps, refuseToFinish } from "./plan"
+import { looksLikeQuestion, openSteps, refuseToFinish, type SiteScope } from "./plan"
 import { type CallInfo, compactTurns, compactionNote } from "./compaction"
 import type { Budget } from "./complexity"
 import type { ProjectFiles } from "../types"
+import type { SiteDocument } from "../document/schema"
 import { toolsFor } from "./tools"
 import {
   ZERO_USAGE,
@@ -71,7 +72,29 @@ Rules:
 - Use search_code to find where something lives instead of reading files one by one. Prefer replace_in_file over write_file for a small change — write_file replaces the whole file, and every full rewrite is a chance to drop something that was already right.
 - A SUCCESSFUL TOOL CALL IS NOT A COMPLETED TASK. Before you stop, compare the project as it now stands against what was actually asked for. If the request was broad, one edited component is not an answer to it.
 - Do not ask the creator for anything you could find out by reading the project. Look first.
-- When you are done, reply with one or two plain sentences saying what you changed. No preamble, no markdown headings, no code in the reply.`
+- When you are done, reply with one or two plain sentences saying what you changed. No preamble, no markdown headings, no code in the reply.
+
+BUILDING A SITE FROM NOTHING
+When the site is empty, you are not writing a landing page. You are building a
+website, and a website has several pages that link to each other.
+
+- Four pages is the floor, not the target. For most businesses that is a home
+  page, a page for what they offer, a page about them, and a way to get in
+  touch. Add more when the business has more: a menu, a portfolio, locations,
+  a booking page.
+- Every page carries the SAME navigation and the SAME footer, and the nav links
+  to every page. A page nothing links to does not exist.
+- Fill the pages. A page holding a heading and one paragraph is a placeholder,
+  not a page. Real headings, real body copy, real prices, real hours, real
+  names — written for THIS business, never "Lorem ipsum" and never "Your
+  headline here".
+- Use the section types the site already has rather than writing components by
+  hand. There is a section for prices, for opening hours, for a gallery, for a
+  team, for questions and answers, for a contact form. Ask for the layout
+  first and read what is available.
+- Write the copy as somebody who knows the trade. A barber shop has skin
+  fades, beard trims and hot-towel shaves at real prices, not "Service One" at
+  "$00".`
 
 /**
  * THE RULES THAT MAKE AN EXISTING PROJECT A PROJECT, RATHER THAN A PROMPT.
@@ -243,6 +266,21 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
   const maxTurns = input.maxTurns ?? input.budget?.maxTurns ?? MAX_TURNS
   const maxTokens = input.maxTokens ?? input.budget?.maxTokens ?? MAX_TOKENS
 
+  /**
+   * WHAT THE SITE LOOKED LIKE BEFORE THIS RUN TOUCHED IT.
+   *
+   * Taken here and never recomputed, because "was this a first generation" is
+   * a fact about the run's starting point. Reading it later would answer a
+   * different question: once the model has added a page, the site is no longer
+   * empty and the floor would switch itself off exactly when it started
+   * applying.
+   *
+   * A site with no document — a code project — has no countable pages, so it
+   * gets no scope and the floor simply does not apply. Guessing a page count
+   * from filenames would refuse runs on projects this knows nothing about.
+   */
+  const startedEmpty = isEmptySite(workspace.document)
+
   let turns: AgentTurn[] = [{ role: "user", content: prompt }]
   let usage: TokenUsage = ZERO_USAGE
   let turnCount = 0
@@ -383,6 +421,7 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
           changedAnything: workspace.changed.size > 0 || workspace.deleted.size > 0,
           isQuestion: looksLikeQuestion(prompt),
           refusals,
+          scope: siteScope(workspace.document, startedEmpty),
         })
 
         if (refusal) {
@@ -537,6 +576,29 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
   }
 
   return { status, message, error, usage, turns: turnCount }
+}
+
+/**
+ * Was there effectively nothing here when the run began?
+ *
+ * "One page holding nothing" is what a brand-new site is, and it is also what
+ * a site looks like after somebody deletes everything — both are a build from
+ * scratch, so both get the floor. A site with real pages does not.
+ */
+function isEmptySite(document: SiteDocument | null): boolean {
+  if (!document) return false
+  const sections = document.pages.reduce((total, page) => total + page.sections.length, 0)
+  return document.pages.length <= 1 && sections <= 2
+}
+
+/** The site as it now stands, for the completion gate. */
+function siteScope(document: SiteDocument | null, startedEmpty: boolean): SiteScope | undefined {
+  if (!document) return undefined
+  return {
+    firstGeneration: startedEmpty,
+    pages: document.pages.length,
+    sections: document.pages.reduce((total, page) => total + page.sections.length, 0),
+  }
 }
 
 /** The `path` argument of a call, or "" — for the compactor's provenance map. */

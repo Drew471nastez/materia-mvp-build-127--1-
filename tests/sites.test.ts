@@ -30,9 +30,24 @@ import { allocateSiteSlug, SLUG_FALLBACK } from "@/lib/sites/slug"
 import { contentTypeFor } from "@/lib/sites/content-type"
 import { createZip } from "@/lib/sites/zip"
 import { scanForSecrets } from "@/lib/sites/preflight"
-import { emptyDocument, isSiteDocument, type SiteDocument } from "@/lib/sites/document/schema"
+import {
+  DEFAULT_THEME,
+  emptyDocument,
+  isSiteDocument,
+  type PropSpec,
+  type PropValue,
+  type SiteDocument,
+} from "@/lib/sites/document/schema"
 import { isGenerated, renderDocument } from "@/lib/sites/document/render"
-import { sectionSpec } from "@/lib/sites/document/sections"
+import { SECTIONS, sectionSpec } from "@/lib/sites/document/sections"
+import {
+  type CompletionState,
+  MAX_REFUSALS,
+  MIN_PAGES,
+  MIN_SECTIONS,
+  refuseToFinish,
+} from "@/lib/sites/agent/plan"
+import { formatRenderFailure, renderCheck } from "@/lib/sites/render-check"
 import {
   addSection,
   duplicateSection,
@@ -4148,6 +4163,132 @@ check(
 )
 
 /**
+ * ---------------------------------------------------------------------------
+ *  A FIRST GENERATION MAY NOT STOP AT ONE PAGE
+ * ---------------------------------------------------------------------------
+ * The complaint: every build came out as one long landing page. Half of that
+ * was vocabulary and is fixed in the section library. The other half is that
+ * nothing ever told the model a single page was not an answer — and a prompt
+ * cannot, because "build several pages" is agreeable and unenforced.
+ *
+ * Called rather than grepped. The refusal text is what goes back into the run,
+ * so what matters is which state produces one, not which words are in the file.
+ */
+{
+  const green: CompletionState = {
+    plan: { steps: [], revisions: 0 },
+    requiresPlan: false,
+    minSteps: 0,
+    buildOk: true,
+    changedAnything: true,
+    isQuestion: false,
+    refusals: 0,
+  }
+
+  check(
+    "a new site that is still one page is not finished",
+    !!refuseToFinish({
+      ...green,
+      scope: { firstGeneration: true, pages: 1, sections: 6 },
+    }),
+  )
+
+  check(
+    "and four pages carrying almost nothing is not either",
+    /**
+     * Four pages with a nav, a footer and one line each is technically four
+     * pages and still nothing to read. The section count is what stops the
+     * floor being met by splitting one page up.
+     */
+    !!refuseToFinish({
+      ...green,
+      scope: { firstGeneration: true, pages: 4, sections: 8 },
+    }),
+  )
+
+  check(
+    "a real site passes",
+    refuseToFinish({
+      ...green,
+      scope: { firstGeneration: true, pages: MIN_PAGES, sections: MIN_SECTIONS },
+    }) === null,
+  )
+
+  check(
+    "editing an existing one-page site is never refused for being one page",
+    /**
+     * The floor is about what a build produces from nothing. Refusing "make
+     * the hero blue" because the site somebody already has is one page would
+     * make it unusable.
+     */
+    refuseToFinish({
+      ...green,
+      scope: { firstGeneration: false, pages: 1, sections: 3 },
+    }) === null,
+  )
+
+  check(
+    "a project with no countable pages is not guessed at",
+    /**
+     * A code project has no document, so it has no page count. Applying the
+     * floor to it would refuse runs on projects this knows nothing about.
+     */
+    refuseToFinish({ ...green, scope: undefined }) === null,
+  )
+
+  check(
+    "and the floor still yields to the refusal cap",
+    /**
+     * A creator who genuinely wants one page gets one: the model is nudged
+     * twice, says so in its reply, and the run completes. A floor that could
+     * never be satisfied would grind the turn budget away and bill for it.
+     */
+    refuseToFinish({
+      ...green,
+      refusals: MAX_REFUSALS,
+      scope: { firstGeneration: true, pages: 1, sections: 1 },
+    }) === null,
+  )
+
+  check(
+    "the refusal says what to build, not that something went wrong",
+    (() => {
+      const text =
+        refuseToFinish({ ...green, scope: { firstGeneration: true, pages: 1, sections: 5 } }) ?? ""
+      // It is fed back INTO the run, so it has to be an instruction.
+      return (
+        text.includes("create_page") &&
+        text.includes("add_section") &&
+        /\/services|\/contact/.test(text) &&
+        !/error|failed|sorry/i.test(text)
+      )
+    })(),
+  )
+}
+
+/**
+ * The site's shape is read from BEFORE the run, not after. Once the model has
+ * added a page the site is no longer empty, so a scope computed at the end
+ * would switch the floor off exactly when it started applying.
+ */
+check(
+  "whether this was a first generation is decided before the run, not during",
+  (() => {
+    const loop = strip(read("lib/sites/agent/loop.ts"))
+    const declared = loop.indexOf("const startedEmpty = isEmptySite(")
+    const used = loop.indexOf("siteScope(workspace.document, startedEmpty)")
+    const loopStarts = loop.indexOf("for (let attempt = 1;")
+    return (
+      declared > 0 &&
+      used > 0 &&
+      loopStarts > 0 &&
+      declared < loopStarts &&
+      used > loopStarts
+    )
+  })(),
+)
+
+/**
  * A question is answered by reading and replying. Demanding an edit would
  * refuse a run that did exactly what was asked — while a run that was TOLD to
  * do something and changed nothing is the original bug wearing a different
@@ -5738,6 +5879,102 @@ function sampleDoc(): SiteDocument {
       },
     ],
   }
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ *  EVERY SECTION IN THE LIBRARY ACTUALLY RENDERS
+ * ---------------------------------------------------------------------------
+ * These component sources are copied verbatim into a creator's project, so a
+ * typo in one of them is a broken site rather than a failing build here. The
+ * library went from six sections to nineteen in one change, which is thirteen
+ * new files nobody has run.
+ *
+ * So this runs them — the real renderCheck, the same one that gates a publish,
+ * in a child process against real React.
+ *
+ * EVERY LIST IS POPULATED, and that is the point. With empty lists the
+ * `items.map(...)` body never executes and the whole check passes while
+ * proving almost nothing. Filling them is what makes the mapped markup — the
+ * part most likely to be wrong — actually run.
+ */
+{
+  function sampleValue(spec: PropSpec): PropValue {
+    switch (spec.kind) {
+      case "list":
+        return [0, 1, 2].map(() =>
+          Object.fromEntries(
+            Object.entries(spec.item ?? {}).map(([key, inner]) => [key, sampleValue(inner)]),
+          ),
+        ) as PropValue
+      case "number":
+        return typeof spec.fallback === "number" ? spec.fallback : 3
+      case "boolean":
+        return true
+      case "color":
+        return "#101014"
+      case "image":
+        return "https://example.com/a.jpg"
+      case "url":
+        return "/about"
+      case "select":
+        return spec.options?.[0] ?? "left"
+      default:
+        return "Some text\n\nA second paragraph"
+    }
+  }
+
+  const types = Object.keys(SECTIONS)
+  const everySection = renderDocument({
+    revision: 1,
+    theme: { ...DEFAULT_THEME },
+    pages: [
+      {
+        id: "home",
+        path: "/",
+        name: "Home",
+        sections: types.map((type, index) => ({
+          id: `s${index}`,
+          type,
+          props: Object.fromEntries(
+            Object.entries(SECTIONS[type].props).map(([key, spec]) => [key, sampleValue(spec)]),
+          ),
+        })),
+      },
+    ],
+  })
+
+  check(
+    "the library is a whole-site vocabulary, not a landing-page one",
+    /**
+     * Six sections — navbar, hero, features, testimonials, cta, footer — is the
+     * vocabulary of a single marketing page. It is why every generation came
+     * out as one landing page: "build several pages" has nowhere to put the
+     * second page's content. These are the ones a second page needs.
+     */
+    ["services", "pricing", "faq", "gallery", "team", "contact", "hours", "richtext"].every(
+      (type) => type in SECTIONS,
+    ),
+    types.join(", "),
+  )
+
+  const rendered = await renderCheck(everySection)
+  /**
+   * `"reason" in x` rather than `!x.ran`, because this suite compiles with
+   * strictNullChecks off and a boolean discriminant does not narrow there —
+   * the same reason opError() exists in the operations. A property test does.
+   */
+  const detail =
+    "reason" in rendered ? rendered.reason : rendered.ok ? "" : formatRenderFailure(rendered)
+  check(
+    "every section in the library renders, with every list populated",
+    /**
+     * `ran: false` is not a pass. It means the check could not run, and
+     * treating that as green is how a gate stops being one.
+     */
+    rendered.ran === true && rendered.ok === true,
+    detail,
+  )
 }
 
 {
