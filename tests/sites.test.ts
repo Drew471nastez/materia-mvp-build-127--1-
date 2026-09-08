@@ -30,6 +30,17 @@ import { allocateSiteSlug, SLUG_FALLBACK } from "@/lib/sites/slug"
 import { contentTypeFor } from "@/lib/sites/content-type"
 import { createZip } from "@/lib/sites/zip"
 import { scanForSecrets } from "@/lib/sites/preflight"
+import { emptyDocument, isSiteDocument, type SiteDocument } from "@/lib/sites/document/schema"
+import { isGenerated, renderDocument } from "@/lib/sites/document/render"
+import { sectionSpec } from "@/lib/sites/document/sections"
+import {
+  addSection,
+  duplicateSection,
+  moveSection,
+  removeSection,
+  updateSectionProps,
+  updateTheme,
+} from "@/lib/sites/document/operations"
 import { buildRepoMap, describeRepoMap, findUsages } from "@/lib/sites/agent/repo-map"
 import { describeProject } from "@/lib/sites/agent/context"
 
@@ -5670,6 +5681,246 @@ check(
     )
   })(),
 )
+
+// ===========================================================================
+section("One website state, two editors")
+// ===========================================================================
+
+/**
+ * lib/sites/types.ts opens with a rule, and the rule is right:
+ *
+ *   "Files are the source of truth. There is no section model here and there
+ *    must not become one: the moment a second representation of what the page
+ *    says exists, the visual editor and the AI start disagreeing about which is
+ *    current, and the answer is always whichever one the user did not just
+ *    edit."
+ *
+ * Structured sections and generated code can coexist, but only one of them
+ * gets to be true. So the direction is reversed rather than the rule broken:
+ * THE DOCUMENT IS THE SOURCE, THE FILES ARE ITS OUTPUT. A colour picker writes
+ * a prop; the agent writes a prop; both produce the same App.tsx by the same
+ * function, so there is nothing left for them to disagree about.
+ */
+
+/**
+ * The refusal text, whatever the union says.
+ *
+ * The push-test harness compiles with `strictNullChecks: false`, and without
+ * it TypeScript will not use `ok: false` as a discriminant — so `if (!r.ok)`
+ * narrows nothing here even though it narrows fine under the project's own
+ * config. `in` narrows regardless.
+ */
+function why(result: { ok: boolean } | { ok: false; error: string }): string {
+  return "error" in result ? result.error : ""
+}
+
+function sampleDoc(): SiteDocument {
+  const base = emptyDocument()
+  return {
+    ...base,
+    pages: [
+      {
+        id: "home",
+        path: "/",
+        name: "Home",
+        sections: [
+          { id: "n1", type: "navbar", props: { brand: "Fade & Blade" } },
+          { id: "h1", type: "hero", props: { heading: "Sharper than your last cut." } },
+          { id: "ft1", type: "footer", props: { brand: "Fade & Blade" } },
+        ],
+      },
+    ],
+  }
+}
+
+{
+  const files = renderDocument(sampleDoc())
+  check(
+    "a document renders a whole project",
+    ["index.html", "src/main.tsx", "src/App.tsx", "src/styles.css", "src/sections/Hero.tsx"].every(
+      (path) => typeof files[path] === "string" && files[path].length > 0,
+    ),
+    Object.keys(files).join(", "),
+  )
+  check(
+    "and only the sections it uses",
+    !!files["src/sections/Navbar.tsx"] && !files["src/sections/Testimonials.tsx"],
+  )
+
+  /**
+   * Deterministic, because a render that varied would make every save a diff
+   * and every publish a new deployment of an unchanged site.
+   */
+  check(
+    "the same document renders the same bytes",
+    JSON.stringify(renderDocument(sampleDoc())) === JSON.stringify(files),
+  )
+}
+
+{
+  /**
+   * The property that makes the whole design work: an edit through the
+   * operations reaches the code, and only that edit does.
+   */
+  const before = renderDocument(sampleDoc())
+  const changed = updateSectionProps(sampleDoc(), { sectionId: "h1", props: { background: "#000000" } })
+  check("a prop edit succeeds", changed.ok === true, why(changed))
+
+  if ("doc" in changed) {
+    const after = renderDocument(changed.doc)
+    check(
+      "and reaches the generated code",
+      after["src/App.tsx"].includes('background="#000000"') &&
+        !before["src/App.tsx"].includes("#000000"),
+    )
+    /**
+     * Compared against the LIBRARY SOURCE, not merely against the previous
+     * render. The first version asserted the two renders matched, which stays
+     * true if every render alters the component the same way — so a renderer
+     * that rewrote section files passed it.
+     */
+    check(
+      "while the section component is the library's file, verbatim",
+      after["src/sections/Hero.tsx"] === sectionSpec("hero")?.file.source &&
+        before["src/sections/Hero.tsx"] === sectionSpec("hero")?.file.source,
+    )
+    check("and every other file is byte-identical", after["src/styles.css"] === before["src/styles.css"])
+  }
+}
+
+{
+  const doc = sampleDoc()
+  /**
+   * A prop the editor cannot render is worse than a refused edit: the control
+   * disappears, or shows a value nothing will honour, and the creator's next
+   * move changes something that has already stopped meaning anything.
+   */
+  const unknown = updateSectionProps(doc, { sectionId: "h1", props: { backgroundColor: "#000" } })
+  check(
+    "an unknown prop is refused, by name",
+    unknown.ok === false && /no prop called "backgroundColor"/.test(why(unknown)),
+    why(unknown) || "accepted",
+  )
+  check(
+    "and the refusal suggests the prop that was meant",
+    /did you mean "background"/.test(why(unknown)),
+    why(unknown),
+  )
+
+  const wrongType = updateSectionProps(doc, { sectionId: "h1", props: { layout: "diagonal" } })
+  check(
+    "a value outside a select is refused with the options",
+    /one of: split, centered/.test(why(wrongType)),
+    why(wrongType) || "accepted",
+  )
+
+  const badList = updateSectionProps(doc, { sectionId: "n1", props: { links: [{ label: "A", to: "#" }] } })
+  check(
+    "a list item with an unknown field is refused",
+    /no field called "to"/.test(why(badList)),
+    why(badList) || "accepted",
+  )
+}
+
+{
+  const doc = sampleDoc()
+  check("a section can be added", addSection(doc, { pageId: "home", type: "cta", id: "c1", index: 2 }).ok)
+  check(
+    "an unknown section type is refused",
+    !addSection(doc, { pageId: "home", type: "carousel", id: "x1" }).ok,
+  )
+  check(
+    "a duplicate id is refused, because two sections cannot answer to one name",
+    !addSection(doc, { pageId: "home", type: "cta", id: "h1" }).ok,
+  )
+
+  const moved = moveSection(doc, { sectionId: "ft1", index: 0 })
+  check(
+    "a section can be reordered",
+    "doc" in moved && moved.doc.pages[0].sections[0].id === "ft1",
+  )
+
+  const removed = removeSection(doc, { sectionId: "h1" })
+  check("a section can be removed", "doc" in removed && removed.doc.pages[0].sections.length === 2)
+
+  const copied = duplicateSection(doc, { sectionId: "h1", newId: "h2" })
+  check(
+    "and duplicated, next to the original",
+    "doc" in copied && copied.doc.pages[0].sections[2].id === "h2" && copied.doc.pages[0].sections[2].type === "hero",
+  )
+}
+
+{
+  const doc = sampleDoc()
+  const themed = updateTheme(doc, { primary: "#c8a24a", radius: 2 })
+  check("the theme can be changed in one write", themed.ok)
+  if ("doc" in themed) {
+    const css = renderDocument(themed.doc)["src/styles.css"]
+    check(
+      "and every section follows, because they read tokens rather than literals",
+      css.includes("--primary: #c8a24a") && css.includes("--radius: 2px"),
+    )
+  }
+  check("an unknown theme key is refused", !updateTheme(doc, { colour: "#fff" } as never).ok)
+}
+
+{
+  /**
+   * The revision is the compare-and-swap key. Every operation bumps it, so two
+   * writes that raced can be told apart rather than silently overwriting one
+   * another — the brief's "avoid race conditions" as a property of the data.
+   */
+  const doc = sampleDoc()
+  const first = updateSectionProps(doc, { sectionId: "h1", props: { heading: "A" } })
+  check(
+    "every write moves the revision",
+    first.ok && "doc" in first && first.doc.revision === doc.revision + 1,
+    why(first),
+  )
+  const refused = updateSectionProps(doc, { sectionId: "nope", props: {} })
+  check("and a refused write does not", !refused.ok)
+}
+
+{
+  const doc = sampleDoc()
+  const extra = { "src/custom/RoiCalculator.tsx": "export default function RoiCalculator() { return null }" }
+  const files = renderDocument(doc, extra)
+  /**
+   * Custom code is the escape hatch for what the library cannot express, and
+   * it only works if a render cannot take it away. One unusual request must not
+   * cost a creator the editable parts of their site.
+   */
+  check(
+    "a render never touches custom code",
+    files["src/custom/RoiCalculator.tsx"] === extra["src/custom/RoiCalculator.tsx"],
+  )
+  check(
+    "and the renderer says which files it owns",
+    isGenerated("src/App.tsx") && isGenerated("src/sections/Hero.tsx") && !isGenerated("src/custom/RoiCalculator.tsx"),
+  )
+}
+
+{
+  /**
+   * Read from a JSONB column that anything could have written and handed to a
+   * renderer that assumes its shape. Malformed must read as "no document" —
+   * the site then falls back to its files — rather than as a document with
+   * holes, which is how a page renders half of itself.
+   */
+  check("a real document is recognised", isSiteDocument(sampleDoc()))
+  check("and rubbish is not", !isSiteDocument({ pages: [{ id: "x" }] }) && !isSiteDocument(null) && !isSiteDocument("{}"))
+  /**
+   * The case that matters is the one that is ALMOST right — a revision and a
+   * theme in place, and a page missing the fields the renderer walks. The
+   * first version only tried objects with no revision at all, so the page
+   * validation could be deleted without a failure.
+   */
+  check(
+    "including a document that is right everywhere except its pages",
+    !isSiteDocument({ revision: 1, theme: emptyDocument().theme, pages: [{ id: "home" }] }) &&
+      !isSiteDocument({ revision: 1, theme: emptyDocument().theme, pages: [{ id: "h", path: "/", sections: [{ type: "hero" }] }] }),
+  )
+}
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
