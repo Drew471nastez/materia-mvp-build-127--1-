@@ -4,7 +4,7 @@
  * ---------------------------------------------------------------------------
  *  DERIVED, NEVER STORED
  * ---------------------------------------------------------------------------
- * The design tokens, the components and the page structure are all recoverable
+ * The design tokens, the structure and the page routes are all recoverable
  * from the code, so they are recomputed on every run rather than remembered.
  * That is not laziness about caching — it is the only way these facts can be
  * trusted. A stored copy saying the primary colour is #7c3fed keeps saying it
@@ -27,11 +27,11 @@
 
 import type { SiteAsset } from "../assets"
 import type { ProjectFiles } from "../types"
+import { buildRepoMap, describeRepoMap } from "./repo-map"
 
 const STYLES = "src/styles.css"
 /** Enough to characterise a project; past this it is noise in the prompt. */
 const MAX_TOKENS_SHOWN = 28
-const MAX_FILES_SHOWN = 60
 
 /** `--name: value;` pairs from the top of the stylesheet. */
 export function designTokens(css: string): Array<[string, string]> {
@@ -61,14 +61,6 @@ export function fontFamilies(css: string): string[] {
     if (found.size >= 4) break
   }
   return [...found]
-}
-
-/** Component files, by the name the rest of the project imports them under. */
-export function componentNames(files: ProjectFiles): string[] {
-  return Object.keys(files)
-    .filter((p) => /^src\/components\/[^/]+\.(tsx|jsx)$/.test(p))
-    .map((p) => p.replace(/^src\/components\//, "").replace(/\.(tsx|jsx)$/, ""))
-    .sort()
 }
 
 /**
@@ -115,26 +107,29 @@ export function describeProject(files: ProjectFiles, assets: SiteAsset[] = []): 
   const css = files[STYLES] ?? ""
   const tokens = designTokens(css)
   const fonts = fontFamilies(css)
-  const components = componentNames(files)
 
   const sections: string[] = []
 
-  sections.push(
-    `Files (${paths.length}):\n` +
-      paths
-        .slice(0, MAX_FILES_SHOWN)
-        .map((p) => `  ${p}`)
-        .join("\n") +
-      (paths.length > MAX_FILES_SHOWN ? `\n  …and ${paths.length - MAX_FILES_SHOWN} more` : ""),
-  )
+  /**
+   * THE MAP REPLACED A LIST OF PATHS.
+   *
+   * A path list says a file exists and nothing else, so the only way to find
+   * out what was in it was to read it — and every read is resent on every turn
+   * that follows. The map answers what each file exports, what it imports and
+   * who uses it, which is most of what those reads were being spent on.
+   */
+  sections.push(describeRepoMap(buildRepoMap(files)))
+
+  // Non-source files are not in the map and some of them matter — the
+  // stylesheet above all.
+  const other = paths.filter((p) => !/\.(tsx|ts|jsx|js|mjs)$/.test(p))
+  if (other.length) {
+    sections.push(`Other files:\n${other.map((p) => `  ${p}`).join("\n")}`)
+  }
 
   const pages = pageNames(files)
   if (pages.length) {
     sections.push(`Pages this site serves:\n  ${pages.join(", ")}`)
-  }
-
-  if (components.length) {
-    sections.push(`Existing components (reuse these before writing new ones):\n  ${components.join(", ")}`)
   }
 
   if (tokens.length) {

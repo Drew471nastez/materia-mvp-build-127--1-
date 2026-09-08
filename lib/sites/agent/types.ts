@@ -23,6 +23,7 @@ export type AgentToolName =
   | "read_build_errors"
   | "update_manifest"
   | "search_code"
+  | "find_usages"
   | "replace_in_file"
   | "set_plan"
   | "complete_step"
@@ -108,6 +109,20 @@ export interface ProviderRequest {
   tools: ToolSpec[]
   maxOutputTokens: number
   signal?: AbortSignal
+  /**
+   * WHICH CACHE THIS REQUEST BELONGS TO.
+   *
+   * Caching is on a stable prefix, and this run's prefix — the base rules, the
+   * preservation rules, the project map, the tokens, the manifest — is several
+   * thousand tokens that are identical on every turn and identical again on
+   * the creator's NEXT request about the same site. A key tells the provider
+   * those belong together, so the second prompt about a project starts warm
+   * rather than paying for the same preamble again.
+   *
+   * A project identifier, never anything about the person. It is sent to a
+   * third party and it exists only to group requests.
+   */
+  cacheKey?: string
 }
 
 export interface AgentProvider {

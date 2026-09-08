@@ -19,6 +19,7 @@
 
 import type { ProjectWorkspace } from "./tools"
 import { looksLikeQuestion, openSteps, refuseToFinish } from "./plan"
+import { type CallInfo, compactTurns, compactionNote } from "./compaction"
 import type { Budget } from "./complexity"
 import type { ProjectFiles } from "../types"
 import { TOOL_SPECS } from "./tools"
@@ -39,6 +40,23 @@ import {
  * history — the cost of not stopping grows as it goes.
  */
 export const MAX_TURNS = 12
+
+/**
+ * Tokens for a run with no budget attached — a test, or a caller that predates
+ * the tiers. Generous, because its job is to stop a runaway rather than to
+ * shape a run: the tiers in ./complexity are what actually decide.
+ */
+export const MAX_TOKENS = 400_000
+
+/**
+ * The point at which the model is told it is running out.
+ *
+ * Warned rather than cut off, and warned once. A model that knows it has
+ * little room left finishes the important step and builds; a model cut off
+ * without warning leaves the project mid-edit, which is the state that costs
+ * a creator their work.
+ */
+const BUDGET_WARNING_FRACTION = 0.75
 
 export const SYSTEM_PROMPT = `You edit a small React website that is a real Vite project. The files ARE the site — there is no other representation of it.
 
@@ -197,23 +215,52 @@ export interface LoopInput {
   esbuild: unknown
   /** Injected so the browser preview, which has no compiler, simply skips it. */
   typecheck?: (files: ProjectFiles) => Promise<{ ok: boolean; report: string } | null>
+  /**
+   * Renders the project once to catch what compiling cannot: a page that
+   * builds and then throws. Injected for the same reason — it needs a Node
+   * process it can sandbox, which the preview worker does not have.
+   */
+  render?: (files: ProjectFiles) => Promise<{ ok: boolean; report: string } | null>
   signal?: AbortSignal
   maxTurns?: number
+  /** Tokens, input plus output, for the whole run. A ceiling, not a target. */
+  maxTokens?: number
+  /**
+   * Bytes of conversation before older tool output starts being replaced with
+   * a note. Overridable so a test can reach compaction without a 120KB
+   * fixture — production uses the default in ./compaction.
+   */
+  compactBytes?: number
   /** How much room this request gets, and what is expected in it. */
   budget?: Budget
+  /** Groups this project's requests for the provider's prompt cache. */
+  cacheKey?: string
 }
 
 export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, LoopResult> {
-  const { provider, model, prompt, workspace, esbuild, signal, context, typecheck } = input
+  const { provider, model, prompt, workspace, esbuild, signal, context, typecheck, render } = input
   const maxTurns = input.maxTurns ?? input.budget?.maxTurns ?? MAX_TURNS
+  const maxTokens = input.maxTokens ?? input.budget?.maxTokens ?? MAX_TOKENS
 
-  const turns: AgentTurn[] = [{ role: "user", content: prompt }]
+  let turns: AgentTurn[] = [{ role: "user", content: prompt }]
   let usage: TokenUsage = ZERO_USAGE
   let turnCount = 0
   let refusals = 0
   let message = ""
   let status: LoopResult["status"] = "failed"
   let error: string | null = "The edit did not finish."
+
+  /**
+   * What produced each tool result, so the compactor can tell a file read from
+   * a build report without reading the text of either. Recorded as the calls
+   * go out; a compactor that string-matches model-facing prose stops
+   * recognising anything the day somebody rewords a message.
+   */
+  const calls = new Map<string, CallInfo>()
+
+  /** Why the run stopped early, when it did. Not in itself a failure. */
+  let ranOut: string | null = null
+  let warnedAboutBudget = false
 
   try {
     for (let attempt = 1; attempt <= maxTurns; attempt++) {
@@ -226,6 +273,58 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
        * would look at to find out why a run cost what it did.
        */
       turnCount = attempt
+
+      /**
+       * OUT OF TOKENS — CHECKED BEFORE A TURN, NEVER INSIDE ONE.
+       *
+       * A turn is one model call plus the tools it asks for, and stopping
+       * halfway through leaves a file written and its import never added. The
+       * only safe place to stop is between turns.
+       */
+      const spent = usage.inputTokens + usage.outputTokens
+      if (spent >= maxTokens) {
+        ranOut = `The edit reached its budget of ${Math.round(maxTokens / 1000)}k tokens and was stopped.`
+        break
+      }
+
+      if (!warnedAboutBudget && spent >= maxTokens * BUDGET_WARNING_FRACTION) {
+        warnedAboutBudget = true
+        turns.push({
+          role: "user",
+          content:
+            "You are close to this run's budget and will be stopped shortly. Finish the most important outstanding step, call run_build, and reply saying plainly what you did and what is still outstanding. Do not start anything new.",
+        })
+      }
+
+      /**
+       * KEEPING THE CONVERSATION INSIDE ITS BUDGET.
+       *
+       * Only when it is over — a run that stays under is never rewritten, so
+       * its prefix is byte-identical turn to turn and caches normally. See
+       * ./compaction for why that matters more than compacting eagerly would.
+       */
+      const compaction = compactTurns({ turns, calls, budgetBytes: input.compactBytes })
+      if (compaction.compacted) {
+        turns = compaction.turns
+        turns.push({
+          role: "user",
+          content: compactionNote({
+            outcome: compaction,
+            planSteps: workspace.plan.steps,
+            changed: [...workspace.changed],
+            deleted: [...workspace.deleted],
+            buildOk: workspace.buildOk,
+          }),
+        })
+        yield {
+          type: "tool",
+          name: "compact_context",
+          detail: `${Math.round(compaction.bytesBefore / 1000)}k → ${Math.round(
+            compaction.bytesAfter / 1000,
+          )}k`,
+        }
+      }
+
       const turn = await provider.complete({
         model,
         system: buildSystemPrompt(context ?? null),
@@ -239,6 +338,7 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
         turns: [...turns],
         tools: TOOL_SPECS,
         maxOutputTokens: 32_000,
+        cacheKey: input.cacheKey,
         signal,
       })
 
@@ -301,7 +401,8 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
 
       const results = []
       for (const call of turn.toolCalls) {
-        const output = await workspace.execute(call.name, call.argumentsJson, esbuild, typecheck)
+        calls.set(call.id, { name: call.name, path: pathOf(call.argumentsJson) })
+        const output = await workspace.execute(call.name, call.argumentsJson, esbuild, typecheck, render)
         results.push({ id: call.id, output })
         yield { type: "tool", name: call.name, detail: describeCall(call.argumentsJson) }
 
@@ -334,9 +435,17 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
       }
       turns.push({ role: "tool", results })
 
+      /**
+       * OUT OF STEPS.
+       *
+       * This used to set `failed` outright, which threw away the run: a model
+       * that had done thirty turns of correct, compiling work and simply had
+       * more to do lost all of it, and the creator was told the edit failed.
+       * Running out of room is not the same as being wrong — what compiles is
+       * kept, and what is outstanding is said out loud. See below.
+       */
       if (attempt === maxTurns) {
-        status = "failed"
-        error = `The edit took more than ${maxTurns} steps and was stopped.`
+        ranOut = `The edit reached its limit of ${maxTurns} steps and was stopped.`
       }
     }
 
@@ -352,23 +461,67 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
      * allowed to leave the tree broken mid-run — it is the FINAL state that
      * has to compile.
      */
+    /**
+     * A RUN THAT RAN OUT STILL DID WORK.
+     *
+     * Treated as a provisional success so the checks below apply to it exactly
+     * as they do to a run that finished: if the project compiles, the edits are
+     * saved and the creator is told what is left; if it does not, nothing is
+     * saved, which is the same rule as everywhere else. The one thing that is
+     * never done is discarding work that builds.
+     */
+    if (ranOut && status === "failed" && error === "The edit did not finish.") {
+      /**
+       * ONLY WORK IS SALVAGED. A run that ran out having written nothing has
+       * not half-done the job — it has not started it, and calling that a
+       * success is the exact behaviour the completion gate exists to stop.
+       */
+      if (workspace.changed.size > 0 || workspace.deleted.size > 0) {
+        status = "succeeded"
+        error = null
+        const outstanding = openSteps(workspace.plan)
+        message = [
+          message.trim(),
+          ranOut,
+          outstanding.length > 0
+            ? `Still to do: ${outstanding.map((step) => step.title).join("; ")}. Ask again to carry on.`
+            : "Ask again if there is more you want changed.",
+        ]
+          .filter(Boolean)
+          .join(" ")
+      } else {
+        error = `${ranOut} Nothing was changed.`
+      }
+    }
+
     if (status === "succeeded") {
-      const build = workspace.buildResult
-      if (build && !build.ok) {
-        status = "failed"
-        error = "The edit did not compile, so nothing was changed."
-      } else if (!build && workspace.changed.size > 0) {
-        /**
-         * Files changed and the model never built. Believing it here is how a
-         * broken site gets saved by a model that simply forgot the last step,
-         * so the loop builds for itself rather than trusting the omission.
-         */
+      const changedAnything = workspace.changed.size > 0 || workspace.deleted.size > 0
+
+      /**
+       * Files changed and no verdict describes them — the model never built,
+       * or it built and then edited again. Believing that is how a broken site
+       * gets saved by a model that simply forgot the last step, so the loop
+       * builds for itself rather than trusting the omission.
+       */
+      if (changedAnything && workspace.buildOk === null) {
         yield { type: "tool", name: "run_build", detail: "" }
-        const verdict = await workspace.execute("run_build", "{}", esbuild)
-        if (verdict.startsWith("Build FAILED")) {
-          status = "failed"
-          error = "The edit did not compile, so nothing was changed."
-        }
+        await workspace.execute("run_build", "{}", esbuild, typecheck, render)
+      }
+
+      /**
+       * THE COMPOSITE VERDICT, not the bundler's.
+       *
+       * This used to read `workspace.buildResult.ok` — esbuild's answer alone —
+       * and then string-match "Build FAILED" on the rebuild. Both looked only
+       * at whether the project PARSED. So a project that failed its typecheck
+       * or threw on render passed the last gate before saving, and once the
+       * refusal cap was reached it was written over the creator's working
+       * site. The net that catches what the model got wrong has to check at
+       * least as much as the gate the model was held to.
+       */
+      if (workspace.buildOk === false) {
+        status = "failed"
+        error = workspace.buildProblem
       }
     }
   } catch (thrown) {
@@ -385,11 +538,33 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
   return { status, message, error, usage, turns: turnCount }
 }
 
-/** A one-line description of a call, for the UI. Never the file contents. */
+/** The `path` argument of a call, or "" — for the compactor's provenance map. */
+function pathOf(argumentsJson: string): string {
+  try {
+    const args = JSON.parse(argumentsJson || "{}")
+    return typeof args.path === "string" ? args.path : ""
+  } catch {
+    return ""
+  }
+}
+
+/**
+ * A one-line description of a call, for the UI. Never the file contents.
+ *
+ * Only `path` used to be read, so half the tools showed as a bare verb:
+ * "Searched for" with nothing after it, "Finished" without saying what. Each
+ * of these fields is the one thing worth seeing beside its own tool's name,
+ * and they are tried in the order that a call can only have one of them.
+ */
 export function describeCall(argumentsJson: string): string {
   try {
     const args = JSON.parse(argumentsJson || "{}")
-    if (typeof args.path === "string") return args.path
+    for (const field of ["path", "query", "name", "step"]) {
+      const value = args[field]
+      // Truncated: a step title is the creator's own sentence and can be long,
+      // and this sits on one line in a narrow pane.
+      if (typeof value === "string" && value.trim()) return value.trim().slice(0, 80)
+    }
   } catch {
     /* a malformed call is still worth showing by name */
   }

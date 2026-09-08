@@ -37,6 +37,7 @@ import { describeProject } from "./context"
 import { classifyIntent, intentInstruction } from "./intent"
 import { budgetInstruction, classifyComplexity } from "./complexity"
 import { formatTypeErrors, typecheckProject } from "../typecheck"
+import { formatRenderFailure, renderCheck } from "../render-check"
 import { siteLimits, type SitePlan } from "../plan"
 import { readProject, saveFiles } from "../projects"
 import type { ProjectFiles } from "../types"
@@ -236,6 +237,12 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
     context,
     budget,
     /**
+     * The project, not the person. Every turn of every run on this site shares
+     * a long identical prefix — the rules, the map, the tokens — and this is
+     * what lets the provider recognise it as the same prefix next time.
+     */
+    cacheKey: `site:${siteId}`,
+    /**
      * The agent's build typechecks; the editor's preview does not. This is the
      * one place with Node and the compiler, so it is the one place the check
      * can happen — and it happens before a run is allowed to call itself done.
@@ -244,6 +251,17 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
       const result = await typecheckProject(projectFiles)
       if (!result.ran) return null
       return { ok: result.ok, report: formatTypeErrors(result) }
+    },
+    /**
+     * And the last thing between a green run and a white page: the project is
+     * RENDERED, in a sandboxed process with no environment and a timeout. A
+     * site that compiles and throws on open is the failure a creator actually
+     * experiences, and it is the one nothing here could see until now.
+     */
+    render: async (projectFiles) => {
+      const result = await renderCheck(projectFiles)
+      if (!result.ran) return null
+      return { ok: result.ok, report: formatRenderFailure(result) }
     },
     signal: cancelled.signal,
   })

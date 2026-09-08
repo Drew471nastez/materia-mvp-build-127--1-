@@ -176,6 +176,57 @@ section("What we send")
 }
 
 // ---------------------------------------------------------------------------
+section("Prompt caching is keyed to the project")
+// ---------------------------------------------------------------------------
+
+{
+  /**
+   * The prefix of every turn — the rules, the project map, the design tokens,
+   * the manifest — is thousands of tokens that are identical on every turn AND
+   * identical again on the creator's next request about the same site. The key
+   * is what lets the provider recognise it, so the second prompt about a
+   * project starts warm instead of paying for the same preamble again.
+   */
+  await openAIProvider.complete({
+    model: "gpt-5.6-luna",
+    system: SYSTEM_PROMPT,
+    turns: [{ role: "user", content: "hello" }],
+    tools: TOOL_SPECS,
+    maxOutputTokens: 1000,
+    cacheKey: "site:11111111-2222-3333-4444-555555555555",
+  })
+  const keyed = captured.at(-1)!
+  check(
+    "the key is sent when the caller gives one",
+    keyed.body.prompt_cache_key === "site:11111111-2222-3333-4444-555555555555",
+    String(keyed.body.prompt_cache_key),
+  )
+  check(
+    "and it identifies the project, never the person",
+    /^site:[0-9a-f-]+$/.test(String(keyed.body.prompt_cache_key)) &&
+      !/@/.test(String(keyed.body.prompt_cache_key)),
+  )
+
+  await openAIProvider.complete({
+    model: "gpt-5.6-luna",
+    system: SYSTEM_PROMPT,
+    turns: [{ role: "user", content: "hello" }],
+    tools: TOOL_SPECS,
+    maxOutputTokens: 1000,
+  })
+  const unkeyed = captured.at(-1)!
+  /**
+   * Absent, not empty. An empty string would group every project in the system
+   * under one key, which is the opposite of what this is for.
+   */
+  check(
+    "and the field is left out entirely when there is none",
+    !("prompt_cache_key" in unkeyed.body),
+    JSON.stringify(unkeyed.body.prompt_cache_key),
+  )
+}
+
+// ---------------------------------------------------------------------------
 section("What we make of the reply")
 // ---------------------------------------------------------------------------
 

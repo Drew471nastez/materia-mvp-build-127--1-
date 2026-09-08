@@ -82,8 +82,64 @@ function useCoverScale(): [React.RefObject<HTMLDivElement | null>, number] {
   return [ref, scale]
 }
 
+/**
+ * Has the frame's OWN document said hello?
+ *
+ * ---------------------------------------------------------------------------
+ *  "storelib.com refused to connect.", in the middle of a card
+ * ---------------------------------------------------------------------------
+ * The last time that appeared it was the cover route's 404, carrying no
+ * `frame-ancestors` for the blanket `X-Frame-Options: DENY` to be overridden
+ * by. That is fixed at the route. But fixing causes one at a time is a losing
+ * game: a frame also shows the browser's error page for a gateway timeout, a
+ * middleware refusal, a platform error page, a redirect to somewhere that
+ * refuses framing, and whatever is invented next. Every one of those is
+ * somebody else's response arriving where a cover should be, and none of them
+ * can be enumerated from here.
+ *
+ * So this does not ask WHY a frame failed. The cover document announces itself
+ * on load — `previewDocument` already sends `ready`, and the placeholder now
+ * does too — and the frame is REVEALED ONLY WHEN THAT ARRIVES. Anything else,
+ * for any reason, stays invisible behind the card's own placeholder.
+ *
+ * ---------------------------------------------------------------------------
+ *  WHY THERE IS NO TIMER
+ * ---------------------------------------------------------------------------
+ * The obvious version decides at the iframe's `load` event, and it is wrong.
+ * Measured in Chromium: `load` DOES fire on a frame the browser refused —
+ * which is the part that works — but on a cover that loads perfectly the
+ * `ready` message arrives AFTER `load`, so deciding there would hide working
+ * covers. A timer instead of an event just moves the race: a cold cover is a
+ * full bundle and can take many seconds, and any timeout short enough to feel
+ * responsive is short enough to hide a real one.
+ *
+ * Waiting for the message and nothing else has no race in it. A cover that
+ * never arrives leaves a placeholder, which is what a card should show anyway.
+ *
+ * The sender is identified by `event.source`, not by origin: the frame runs
+ * sandboxed on an opaque origin, so `event.origin` is the string "null" and
+ * proves nothing. A reference to the window is the only thing that does.
+ */
+function useCoverReady(): [React.RefObject<HTMLIFrameElement | null>, boolean] {
+  const ref = React.useRef<HTMLIFrameElement | null>(null)
+  const [ready, setReady] = React.useState(false)
+
+  React.useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (event.source !== ref.current?.contentWindow) return
+      const data = event.data as { source?: string; kind?: string } | null
+      if (data?.source === "storelib-preview" && data.kind === "ready") setReady(true)
+    }
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [])
+
+  return [ref, ready]
+}
+
 function SiteCard({ site }: { site: Site }) {
   const [coverRef, coverScale] = useCoverScale()
+  const [frameRef, coverReady] = useCoverReady()
   const address = site.slug ? publishedUrl(site.slug).replace(/^https:\/\//, "") : "No address yet"
   return (
     <div className="group overflow-hidden rounded-[10px] border border-border bg-card transition-colors hover:border-foreground/20">
@@ -119,7 +175,17 @@ function SiteCard({ site }: { site: Site }) {
           * swallowing the click, because the whole card is a link.
           */}
         <div ref={coverRef} className="absolute inset-0">
+        {/*
+          * UNDERNEATH, ALWAYS. The frame is painted on top of this once its
+          * own document reports in, so whatever else a request to that path
+          * might return — a gateway timeout, a refusal, somebody's error page
+          * — is never what a creator sees.
+          */}
+        <div className="absolute inset-0 grid place-items-center bg-muted/40" aria-hidden="true">
+          <span className="text-xs text-muted-foreground/70">{site.name}</span>
+        </div>
         <iframe
+          ref={frameRef}
           src={`/api/sites/${site.id}/cover`}
           title=""
           aria-hidden="true"
@@ -135,14 +201,19 @@ function SiteCard({ site }: { site: Site }) {
            * replaced was correct only at 400px.
            */
           /*
-           * Hidden until measured. Rendering at scale 1 for a frame would
-           * flash a 1280px page across the card before the observer runs.
+           * Hidden until measured AND until the frame's own document has said
+           * hello. Measured, because rendering at scale 1 would flash a 1280px
+           * page across the card before the observer runs; and greeted,
+           * because until then there is no way to know that what loaded is a
+           * cover rather than a browser error page.
+           *
+           * `visibility` rather than `display`, so the frame still loads.
            */
           style={{
             width: `${COVER_WIDTH}px`,
             height: `${COVER_HEIGHT}px`,
             transform: `scale(${coverScale})`,
-            visibility: coverScale ? "visible" : "hidden",
+            visibility: coverScale && coverReady ? "visible" : "hidden",
           }}
         />
         </div>

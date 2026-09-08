@@ -29,6 +29,8 @@ import "server-only"
 import { filePathError, MAX_FILES_PER_PROJECT, MAX_FILE_BYTES } from "../file-path"
 import { completeStep, emptyPlan, setSteps, type RunPlan } from "./plan"
 import { bundleProject, formatBuildErrors } from "../bundle"
+import { scanForSecrets } from "../preflight"
+import { buildRepoMap, findUsages } from "./repo-map"
 import { sortedPaths } from "../starter"
 import type { BuildResult, ProjectFiles } from "../types"
 import type { ToolSpec } from "./types"
@@ -180,6 +182,32 @@ export const TOOL_SPECS: ToolSpec[] = [
   },
   {
     /**
+     * THE QUESTION `search_code` ANSWERS BADLY.
+     *
+     * Searching for "Hero" returns the import, the JSX tag, the CSS class, a
+     * comment and the word in a heading, and the model has to work out which
+     * is which — often by reading the files, which is what searching was meant
+     * to avoid. Three separate answers are more useful than twenty lines of
+     * mixed ones: where it is defined, who imports it, where it is rendered.
+     *
+     * "Imported but never rendered" is the shape of a real and common bug —
+     * the section the creator says is not showing up — and this is the only
+     * tool that can state it.
+     */
+    name: "find_usages",
+    description:
+      "Find where a component, hook or exported name is defined, which files import it, and which files actually render it. Use this before renaming, moving or deleting anything, and to find out why something is not appearing on the site.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "The exported name, e.g. Hero or useCart." },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+  },
+  {
+    /**
      * A surgical alternative to rewriting a whole file. `write_file` replaces
      * everything, so a one-line change re-sends the entire component and every
      * such rewrite is a chance to drop something that was already right.
@@ -301,8 +329,36 @@ export class ProjectWorkspace {
    */
   plan: RunPlan = emptyPlan()
 
-  /** The last build's verdict, or null if the agent has not built. */
-  buildOk: boolean | null = null
+  /**
+   * The last build's verdict, or null if the agent has not built.
+   *
+   * Private, and read through a getter that answers null once anything has
+   * been edited since — see `editsSinceBuild`.
+   */
+  private lastBuildOk: boolean | null = null
+
+  /**
+   * FILES CHANGED SINCE THE LAST BUILD.
+   *
+   * A build's verdict is about the tree that was built, and it stops being
+   * true the moment a file changes. Without this, a model that built green at
+   * turn ten, edited at turn eleven and went quiet at turn twelve passed the
+   * completion gate on a verdict that no longer described the project — and
+   * the run saved an unbuilt tree over a working site, reporting success.
+   *
+   * A stale green is worse than no build at all: no build is caught, and the
+   * loop builds for itself before saving.
+   */
+  private editsSinceBuild = 0
+
+  /**
+   * WHICH CHECK SAID NO, so the creator is told what actually happened.
+   *
+   * "The edit did not compile" is the right sentence for a syntax error and
+   * the wrong one for a page that compiled and threw on render — and the loop
+   * used to say it for both, because it only ever looked at the bundler.
+   */
+  private lastProblem: "bundle" | "types" | "render" | "secret" | null = null
 
   constructor(files: ProjectFiles) {
     this.files = { ...files }
@@ -320,6 +376,7 @@ export class ProjectWorkspace {
     argumentsJson: string,
     esbuild: unknown,
     typecheck?: (files: ProjectFiles) => Promise<{ ok: boolean; report: string } | null>,
+    render?: (files: ProjectFiles) => Promise<{ ok: boolean; report: string } | null>,
   ): Promise<string> {
     let args: Record<string, unknown>
     try {
@@ -354,6 +411,43 @@ export class ProjectWorkspace {
         return `${hits.length} match${hits.length === 1 ? "" : "es"} for "${query}":\n${hits.join("\n")}`
       }
 
+      case "find_usages": {
+        const wanted = typeof args.name === "string" ? args.name.trim() : ""
+        if (!wanted) return "Which name?"
+
+        // Rebuilt each call rather than cached: the project changes under this
+        // during a run, and a map from three edits ago is a confident lie.
+        const map = buildRepoMap(this.files)
+        const found = findUsages(map, wanted)
+
+        if (found.definedIn.length === 0 && found.renderedIn.length === 0) {
+          return `Nothing exports or renders "${wanted}". Try search_code for the text itself.`
+        }
+
+        const lines = [
+          found.definedIn.length
+            ? `Defined in: ${found.definedIn.join(", ")}`
+            : `Not exported by any file — it may be defined inside one, or come from a package.`,
+          found.importedBy.length ? `Imported by: ${found.importedBy.join(", ")}` : "Imported by: nothing",
+          found.renderedIn.length ? `Rendered in: ${found.renderedIn.join(", ")}` : "Rendered in: nothing",
+        ]
+
+        /**
+         * The one inference worth stating outright, because it is nearly always
+         * the answer to "why is my new section not showing".
+         */
+        const importedNotRendered = found.importedBy.filter((p) => !found.renderedIn.includes(p))
+        if (found.definedIn.length && importedNotRendered.length) {
+          lines.push(
+            `Note: ${importedNotRendered.join(", ")} import${
+              importedNotRendered.length === 1 ? "s" : ""
+            } it but never render${importedNotRendered.length === 1 ? "s" : ""} it.`,
+          )
+        }
+
+        return lines.join("\n")
+      }
+
       case "replace_in_file": {
         const invalid = filePathError(path)
         if (invalid) return `Cannot edit "${path}": ${invalid}`
@@ -384,6 +478,7 @@ export class ProjectWorkspace {
         this.files[path] = updated
         this.changed.add(path)
         this.deleted.delete(path)
+        this.editsSinceBuild++
         return `Edited ${path} (${oldText.split("\n").length} line${
           oldText.split("\n").length === 1 ? "" : "s"
         } replaced).`
@@ -472,6 +567,7 @@ export class ProjectWorkspace {
         this.files[path] = content
         this.changed.add(path)
         this.deleted.delete(path)
+        this.editsSinceBuild++
         return `Wrote ${path} (${content.length} chars).`
       }
 
@@ -489,6 +585,7 @@ export class ProjectWorkspace {
         this.files[path] = content
         this.changed.add(path)
         this.deleted.delete(path)
+        this.editsSinceBuild++
         return `Created ${path} (${content.length} chars).`
       }
 
@@ -503,11 +600,38 @@ export class ProjectWorkspace {
         delete this.files[path]
         this.changed.delete(path)
         this.deleted.add(path)
+        this.editsSinceBuild++
         return `Deleted ${path}.`
       }
 
       case "run_build": {
+        /**
+         * CREDENTIALS FIRST, because this one is free, deterministic, and true
+         * whether or not the project compiles.
+         *
+         * A model asked to "make the contact form send email" writes a key. It
+         * is not malice and it is not rare, and the next thing that happens to
+         * these files is a publish onto a public bucket behind a CDN — at
+         * which point the key is not exposed, it is published. Told here, the
+         * model removes it in the same run.
+         */
+        const leaked = scanForSecrets(this.files)
+        if (leaked.length > 0) {
+          this.lastBuildOk = false
+          this.lastProblem = "secret"
+          return (
+            `A CREDENTIAL IS WRITTEN INTO THIS PROJECT. A published site is public files on a CDN, so this cannot ship.\n` +
+            leaked
+              .map((f) => `  ${f.file}${f.line ? `:${f.line}` : ""} — ${f.message}`)
+              .join("\n") +
+            `\nRemove it. If the page needs a service that requires a key, say so in your reply instead of embedding one — the browser is not a place to keep a secret.`
+          )
+        }
+
         this.lastBuild = await bundleProject(esbuild as never, this.files)
+        // Cleared HERE, before the verdict is recorded, so the verdict below
+        // describes exactly the tree that was just compiled.
+        this.editsSinceBuild = 0
 
         /**
          * Recorded, not just returned. The completion gate needs to know
@@ -518,7 +642,8 @@ export class ProjectWorkspace {
         const report = formatBuildErrors(this.lastBuild)
 
         if (!bundled) {
-          this.buildOk = false
+          this.lastBuildOk = false
+          this.lastProblem = "bundle"
           return report
         }
 
@@ -533,15 +658,39 @@ export class ProjectWorkspace {
          */
         const types = typecheck ? await typecheck(this.files).catch(() => null) : null
 
-        if (!types) {
-          // Cannot check is not the same as clean, but the bundle did pass and
-          // refusing to finish over a missing compiler would strand the run.
-          this.buildOk = true
-          return report
+        if (types && !types.ok) {
+          this.lastBuildOk = false
+          this.lastProblem = "types"
+          return `${report}\n\n${types.report}`
         }
 
-        this.buildOk = types.ok
-        return types.ok ? report : `${report}\n\n${types.report}`
+        /**
+         * AND DOES IT ACTUALLY RUN?
+         *
+         * The two checks above prove the project parses and that its types
+         * line up. Neither executes a line of it, so neither has an opinion
+         * about `const items = null` followed by `items.map(…)` — which
+         * bundles, typechecks, and shows a blank page the moment it is opened.
+         * The page is rendered once, here, before the run may finish.
+         */
+        const rendered = render ? await render(this.files).catch(() => null) : null
+
+        if (rendered && !rendered.ok) {
+          this.lastBuildOk = false
+          this.lastProblem = "render"
+          return `${report}\n\n${rendered.report}`
+        }
+
+        /**
+         * Cannot check is not the same as clean. It is recorded as a pass
+         * because the bundle DID pass and refusing to finish over a missing
+         * compiler would strand every run on a deployment without one — but
+         * the two checks above are the ones that make a green build mean
+         * something, and their absence is logged where it happens, not here.
+         */
+        this.lastBuildOk = true
+        this.lastProblem = null
+        return report
       }
 
       case "read_build_errors":
@@ -554,9 +703,35 @@ export class ProjectWorkspace {
     }
   }
 
-  /** The last build's verdict, for the loop's own check before it saves. */
+  /**
+   * The last build's verdict — null once it stops describing the project.
+   *
+   * Null means "not checked", never "clean". Both callers treat it that way:
+   * the completion gate refuses to finish on it, and the loop builds for
+   * itself rather than saving on an answer about a tree that no longer exists.
+   */
+  get buildOk(): boolean | null {
+    return this.editsSinceBuild > 0 ? null : this.lastBuildOk
+  }
+
+  /** The last build's output, for the loop's own check before it saves. */
   get buildResult(): BuildResult | null {
-    return this.lastBuild
+    return this.editsSinceBuild > 0 ? null : this.lastBuild
+  }
+
+  /** Why the last verdict was red, in one sentence for the creator. */
+  get buildProblem(): string {
+    switch (this.lastProblem) {
+      case "secret":
+        return "The edit wrote a credential into the project, so nothing was changed."
+      case "types":
+        return "The edit did not typecheck, so nothing was changed."
+      case "render":
+        return "The edit compiled but the page threw when it was rendered, so nothing was changed."
+      case "bundle":
+      default:
+        return "The edit did not compile, so nothing was changed."
+    }
   }
 
   /** Only what changed. A whole-project write would clobber untouched files. */

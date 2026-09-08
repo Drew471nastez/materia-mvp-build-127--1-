@@ -29,19 +29,24 @@ import { blankProject } from "@/lib/sites/starter"
 import { allocateSiteSlug, SLUG_FALLBACK } from "@/lib/sites/slug"
 import { contentTypeFor } from "@/lib/sites/content-type"
 import { createZip } from "@/lib/sites/zip"
+import { scanForSecrets } from "@/lib/sites/preflight"
+import { buildRepoMap, describeRepoMap, findUsages } from "@/lib/sites/agent/repo-map"
+import { describeProject } from "@/lib/sites/agent/context"
 
 let passed = 0
 let failed = 0
 const failures: string[] = []
 
-function check(name: string, ok: boolean) {
+function check(name: string, ok: boolean, detail?: string) {
   if (ok) {
     passed++
     console.log(`  ok    ${name}`)
   } else {
     failed++
     failures.push(name)
-    console.log(`  FAIL  ${name}`)
+    // The detail is what turns "FAIL: the graph runs both ways" into something
+    // fixable without adding a print statement and running it again.
+    console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`)
   }
 }
 function section(title: string) {
@@ -1267,16 +1272,17 @@ check(
      * is unchanged by it.
      */
     /**
-     * Four tools were added for the agent loop upgrade, and each earns its
+     * Five tools were added for the agent loop upgrade, and each earns its
      * place the same way `update_manifest` does — by not reaching outside the
-     * project. `search_code` reads the in-memory workspace, `replace_in_file`
-     * edits it through the same path rule every other writer uses, and the two
-     * plan tools touch nothing but a list of strings.
+     * project. `search_code` and `find_usages` read the in-memory workspace,
+     * `replace_in_file` edits it through the same path rule every other writer
+     * uses, and the two plan tools touch nothing but a list of strings.
      */
     const expected = [
       "list_files", "read_file", "write_file", "create_file",
-      "delete_file", "update_manifest", "search_code", "replace_in_file",
-      "set_plan", "complete_step", "run_build", "read_build_errors",
+      "delete_file", "update_manifest", "search_code", "find_usages",
+      "replace_in_file", "set_plan", "complete_step", "run_build",
+      "read_build_errors",
     ]
     const forbidden = ["run_sql", "install_package", "fetch_url", "exec", "bash", "http_request"]
 
@@ -2844,10 +2850,20 @@ check(
      * broken read from being reported as "not found". Absent and not-yours
      * deliberately share one answer: confirming a stranger's site exists is
      * information they should not get.
+     *
+     * What this route may NOT do any more is hand back resolveSite's response
+     * unchanged. That object is shared with four JSON routes and carries no
+     * framing policy, and returning it from a route that IS framed is what put
+     * "storelib.com refused to connect." on the dashboard. It still refuses —
+     * it just refuses with a document the card can paint.
      */
     return (
       /const found = await resolveSite\(siteId, "text"\)/.test(route) &&
-      /if \(!found\.ok\) return found\.response/.test(route) &&
+      /if \(!found\.ok\) \{/.test(route) &&
+      // refused before the site is ever touched
+      route.indexOf("if (!found.ok)") < route.indexOf("siteCover(found.site)") &&
+      !/return found\.response/.test(route) &&
+      /const status = found\.response\.status/.test(route) &&
       /getSite\(siteId\)/.test(resolve) &&
       /status: 404/.test(resolve) &&
       /status: 503/.test(resolve)
@@ -2872,7 +2888,9 @@ check(
       /clientWidth \/ COVER_WIDTH/.test(card) &&
       !/scale\(calc\(100cqw/.test(card) &&
       // and it does not flash a full-size render before it has measured
-      /visibility: coverScale \? "visible" : "hidden"/.test(card)
+      // (the same expression now also waits for the frame's own greeting —
+      // measured AND greeted, both, before anything is shown)
+      /visibility: coverScale && coverReady \? "visible" : "hidden"/.test(card)
     )
   })(),
 )
@@ -3114,10 +3132,13 @@ check(
     if (forbidden.some((word) => shape.toLowerCase().includes(word))) return false
 
     const context = strip(read("lib/sites/agent/context.ts"))
+    const map = strip(read("lib/sites/agent/repo-map.ts"))
     return (
       /export function designTokens/.test(context) &&
       /export function fontFamilies/.test(context) &&
-      /export function componentNames/.test(context)
+      // Structure moved to the repo map, which derives more of it, not less.
+      /export function buildRepoMap/.test(map) &&
+      /buildRepoMap\(files\)/.test(context)
     )
   })(),
 )
@@ -4006,7 +4027,8 @@ check(
     if (forbidden.some((w) => shape.toLowerCase().includes(w))) return false
 
     const context = strip(read("lib/sites/agent/context.ts"))
-    return /export function pageNames/.test(context) && /export function componentNames/.test(context)
+    const map = strip(read("lib/sites/agent/repo-map.ts"))
+    return /export function pageNames/.test(context) && /export function buildRepoMap/.test(map)
   })(),
 )
 
@@ -4152,7 +4174,7 @@ check(
     return (
       /small: \{ complexity: "small", maxTurns: 12, requiresPlan: false/.test(c) &&
       /medium: \{ complexity: "medium", maxTurns: 24, requiresPlan: true/.test(c) &&
-      /large: \{ complexity: "large", maxTurns: 40, requiresPlan: true, minSteps: 6 \}/.test(c) &&
+      /complexity: "large",\s*maxTurns: 40,\s*requiresPlan: true,\s*minSteps: 6,/.test(c) &&
       /const budget = classifyComplexity\(prompt\)/.test(run)
     )
   })(),
@@ -4211,6 +4233,33 @@ check(
 )
 
 /**
+ * WHAT THE AGENT NEEDS AT RUNTIME HAS TO BE INSTALLED AT RUNTIME.
+ *
+ * `typescript` was a devDependency while run_build depended on it to typecheck
+ * a project before letting a run finish. A production install without dev
+ * packages has no compiler, and the checker degrades to "could not check" —
+ * silently, on every run, so the gate would have looked present and gated
+ * nothing. That is the failure mode the self-check was built to avoid, arriving
+ * through the package manifest instead.
+ *
+ * Both it and esbuild are also external to the bundler: esbuild ships a
+ * per-platform binary, and neither belongs inside a serverless bundle.
+ */
+check(
+  "everything the agent loads at runtime is a real dependency",
+  (() => {
+    const pkg = JSON.parse(read("package.json"))
+    const config = read("next.config.mjs")
+    const runtime = ["typescript", "esbuild", "openai"]
+    return (
+      runtime.every((name) => !!pkg.dependencies?.[name] && !pkg.devDependencies?.[name]) &&
+      /serverExternalPackages:[^\]]*'esbuild'/.test(config) &&
+      /serverExternalPackages:[^\]]*'typescript'/.test(config)
+    )
+  })(),
+)
+
+/**
  * The build verdict is RECORDED, not just returned. "The model said it built"
  * is not the same as it having built, and the gate needs the difference.
  */
@@ -4221,16 +4270,30 @@ check(
     const at = tools.indexOf('case "run_build"')
     const body = tools.slice(at, tools.indexOf("case \"read_build_errors\"", at))
     /**
-     * The verdict now covers types as well as bundling. esbuild STRIPS types
-     * rather than checking them, so a green bundle said only "this parses" —
-     * and the agent, told not to finish on a failing build, could finish on a
-     * project that throws the moment somebody opens it.
+     * THREE STAGES, AND THE ORDER IS THE POINT.
+     *
+     * esbuild strips types rather than checking them, so a green bundle said
+     * only "this parses". TypeScript then proves the types line up, and still
+     * executes nothing — so `const items = null` followed by `items.map(…)`
+     * passed both and showed a blank page the moment it was opened. The third
+     * stage renders the project.
+     *
+     * A failure at any stage records `false`. Only reaching the end records a
+     * pass, and a check that could not run never speaks for one that did.
      */
     return (
-      /this\.buildOk = false/.test(body) &&
-      /this\.buildOk = types\.ok/.test(body) &&
-      // and "could not check" is never reported as "clean"
-      /if \(!types\) \{/.test(body)
+      /const types = typecheck \? await typecheck/.test(body) &&
+      /const rendered = render \? await render/.test(body) &&
+      /if \(types && !types\.ok\) \{/.test(body) &&
+      /if \(rendered && !rendered\.ok\) \{/.test(body) &&
+      (body.match(/this\.lastBuildOk = false/g) ?? []).length === 4 &&
+      // credentials first: free, deterministic, and true whether or not it compiles
+      /const leaked = scanForSecrets\(this\.files\)/.test(body) &&
+      body.indexOf("scanForSecrets") < body.indexOf("bundleProject") &&
+      // the render is only reached once the types are clean
+      body.indexOf("await typecheck") < body.indexOf("await render") &&
+      // and a pass is the LAST thing in the handler, after every stage
+      body.lastIndexOf("this.lastBuildOk = true") > body.indexOf("await render")
     )
   })(),
 )
@@ -4357,6 +4420,979 @@ check(
       /if \(budget\.complexity !== "small"\) return STRONG_MODEL/.test(body) &&
       !/prompt\.length > 600/.test(body)
     )
+  })(),
+)
+
+
+// ===========================================================================
+section("The repo map: what the agent knows without reading a file")
+// ===========================================================================
+
+const MAP_PROJECT: Record<string, string> = {
+  "index.html": "<div id=\"root\"></div><script type=\"module\" src=\"/src/main.tsx\"></script>",
+  "src/main.tsx": `import { StrictMode } from "react"
+import App from "./App"
+createRoot(document.getElementById("root")).render(<StrictMode><App /></StrictMode>)
+`,
+  "src/App.tsx": `import Hero from "./components/Hero"
+import Footer from "./components/Footer"
+
+export default function App() {
+  return (
+    <main>
+      <Hero />
+      <Footer />
+    </main>
+  )
+}
+`,
+  "src/components/Hero.tsx": `export default function Hero() {
+  return (
+    <section>
+      <h1>We don't cut corners</h1>
+      <p>It's the barber's chair you will want to sit in.</p>
+    </section>
+  )
+}
+
+export const HERO_ID = "hero"
+`,
+  "src/components/Footer.tsx": `export function Footer() {
+  return <footer>© 2026</footer>
+}
+export default Footer
+`,
+  // Imported by App but never rendered — the shape of "why isn't my section
+  // showing up".
+  "src/components/Testimonials.tsx": `export default function Testimonials() {
+  return <section>Kind words</section>
+}
+`,
+  "src/hooks/useBooking.ts": `export function useBooking() {
+  return { open: false }
+}
+export type Booking = { at: string }
+`,
+  "vite.config.ts": `import { defineConfig } from "vite"
+export default defineConfig({})
+`,
+  "src/styles.css": ":root { --bg: #fff; }",
+}
+
+{
+  const map = buildRepoMap(MAP_PROJECT)
+  const file = (path: string) => map.files.find((f) => f.path === path)
+
+  check("the entry point is identified from index.html", map.entry === "src/main.tsx")
+
+  /**
+   * THE FAILURE THIS DESIGN EXISTS TO AVOID.
+   *
+   * Hero.tsx is website copy with an ODD number of apostrophes above its last
+   * export — "don't", "It's", "barber's". A scanner
+   * that stripped strings before looking would read the first apostrophe as an
+   * opening quote and swallow everything to the next one — losing the exports
+   * below it, silently, and looking exactly like a file that exports nothing.
+   * Every pattern is anchored at column zero for this reason.
+   */
+  check(
+    "prose full of apostrophes does not hide a file's exports",
+    file("src/components/Hero.tsx")?.exports.map((e) => e.name).join() === "Hero,HERO_ID",
+    JSON.stringify(file("src/components/Hero.tsx")?.exports),
+  )
+
+  check(
+    "a default function export is marked as one",
+    file("src/components/Hero.tsx")?.exports[0]?.isDefault === true &&
+      file("src/components/Hero.tsx")?.exports[0]?.kind === "component",
+  )
+
+  /**
+   * `export const SIZES = [...]` starts with a capital, and the first version
+   * of kindOf called it a component — an invitation to render a string array.
+   */
+  check(
+    "an ALL-CAPS constant is not mistaken for a component",
+    file("src/components/Hero.tsx")?.exports[1]?.kind === "const",
+  )
+
+  check(
+    "a hook is recognised by its name, and a type by its keyword",
+    file("src/hooks/useBooking.ts")?.exports.map((e) => `${e.name}:${e.kind}`).join() ===
+      "useBooking:hook,Booking:type",
+    JSON.stringify(file("src/hooks/useBooking.ts")?.exports),
+  )
+
+  check(
+    "relative imports resolve to real project paths",
+    file("src/App.tsx")?.dependsOn.join() === "src/components/Hero.tsx,src/components/Footer.tsx",
+    JSON.stringify(file("src/App.tsx")?.dependsOn),
+  )
+
+  check(
+    "packages are kept apart from project files",
+    file("src/main.tsx")?.external.join() === "react" &&
+      file("src/main.tsx")?.dependsOn.join() === "src/App.tsx",
+  )
+
+  check(
+    "the graph runs both ways",
+    map.importedBy["src/components/Hero.tsx"]?.join() === "src/App.tsx",
+  )
+
+  check(
+    "what a file renders is recorded, minus React's own wrappers",
+    file("src/App.tsx")?.renders.join() === "Footer,Hero" &&
+      file("src/main.tsx")?.renders.join() === "App",
+    JSON.stringify(file("src/main.tsx")?.renders),
+  )
+
+  check(
+    "a component nothing imports is named as an orphan",
+    map.orphans.includes("src/components/Testimonials.tsx"),
+    map.orphans.join(),
+  )
+  check(
+    "but the entry point is not one — nothing imports it by design",
+    !map.orphans.includes("src/main.tsx"),
+    map.orphans.join(),
+  )
+
+  /**
+   * vite.config.ts imports packages the project does not ship and exports a
+   * config object. In the map it invites the model to reason about build
+   * scaffolding as though it were part of the site.
+   */
+  check("build config is not part of the map", !file("vite.config.ts"))
+  check("neither is the stylesheet, which is not source", !file("src/styles.css"))
+}
+
+{
+  const map = buildRepoMap(MAP_PROJECT)
+  const text = describeRepoMap(map)
+  check(
+    "the description states exports, imports, users and renders",
+    /exports {2}Hero \(default component\)/.test(text) &&
+      /used by {2}src\/App\.tsx/.test(text) &&
+      /renders {2}Footer, Hero/.test(text),
+    text.slice(0, 200),
+  )
+  /**
+   * THE SAVING IS PROPORTIONAL TO THE PROJECT, and on the fixture above it is
+   * NEGATIVE — nine files of three lines each are described by a map slightly
+   * longer than they are. That is real and worth knowing: the map earns its
+   * place on projects with actual components in them, which is every project a
+   * creator has after the first prompt. Measured on one of those.
+   */
+  const realistic: Record<string, string> = { ...MAP_PROJECT }
+  for (let i = 0; i < 18; i++) {
+    realistic[`src/components/Section${i}.tsx`] =
+      `import Button from "./Button"\n\nexport default function Section${i}() {\n  return (\n    <section className="s${i}">\n` +
+      Array.from({ length: 55 }, (_, l) => `      <p>Line ${l} of section ${i}, with the kind of copy a real page carries.</p>`).join("\n") +
+      `\n      <Button />\n    </section>\n  )\n}\n`
+  }
+  const realCode = Object.values(realistic).join("").length
+  const realMap = describeRepoMap(buildRepoMap(realistic)).length
+  check(
+    "on a project with real components in it the map is a small fraction of the code",
+    realMap < realCode * 0.2,
+    `map=${realMap} code=${realCode} ratio=${(realMap / realCode).toFixed(2)}`,
+  )
+
+  // A project big enough that a paragraph each would BE the context.
+  const big: Record<string, string> = { ...MAP_PROJECT }
+  for (let i = 0; i < 60; i++) big[`src/components/Gen${i}.tsx`] = `export default function Gen${i}() {\n  return <p>${i}</p>\n}\n`
+  const brief = describeRepoMap(buildRepoMap(big))
+  check(
+    "a large project gets one line per file instead of a block",
+    !/used by/.test(brief) && /Gen59 \(default component\)/.test(brief),
+  )
+}
+
+{
+  const map = buildRepoMap(MAP_PROJECT)
+  const hero = findUsages(map, "Hero")
+  check(
+    "find_usages separates defined, imported and rendered",
+    hero.definedIn.join() === "src/components/Hero.tsx" &&
+      hero.importedBy.join() === "src/App.tsx" &&
+      hero.renderedIn.join() === "src/App.tsx",
+    JSON.stringify(hero),
+  )
+
+  const missing = findUsages(map, "Nowhere")
+  check("and says nothing rather than guessing", missing.definedIn.length === 0 && missing.renderedIn.length === 0)
+}
+
+{
+  // The map goes into the prompt in place of the flat path list it replaced.
+  const described = describeProject(MAP_PROJECT, [])
+  check(
+    "the system prompt carries the map, not a list of paths",
+    /PROJECT MAP/.test(described) && /used by/.test(described),
+  )
+  check(
+    "and still names the files the map leaves out",
+    /src\/styles\.css/.test(described),
+  )
+}
+
+
+/**
+ * A tool with no label renders as `replace_in_file` in the creator's
+ * transcript — the inside of the machine on their screen. The list had gone
+ * stale by five tools before anybody noticed, because nothing checked.
+ */
+check(
+  "every tool the agent can call has words for it in the chat pane",
+  (() => {
+    const tools = [...strip(read("lib/sites/agent/tools.ts")).matchAll(/^\s{4}name: "([a-z_]+)",$/gm)].map(
+      (m) => m[1],
+    )
+    const pane = read("components/sites/editor/chat-pane.tsx")
+    const at = pane.indexOf("const TOOL_LABELS")
+    const block = pane.slice(at, pane.indexOf("}", at))
+    return (
+      tools.length > 0 &&
+      tools.every((name) => new RegExp(`^\\s*${name}:`, "m").test(block)) &&
+      // and the harness's own step, which is not a tool the model calls
+      /compact_context:/.test(block)
+    )
+  })(),
+)
+
+// ===========================================================================
+section("Nothing on this domain may answer a frame with a browser error page")
+// ===========================================================================
+
+/**
+ * "storelib.com refused to connect.", in the middle of a site card.
+ *
+ * vercel.json sets `X-Frame-Options: DENY` on every path — a sound default
+ * from before anything here was framed. A browser ignores it when the response
+ * also carries `frame-ancestors`, which is why the cover's SUCCESS path
+ * worked. Its failure paths came from `resolveSite`, which is shared by five
+ * routes and knows nothing about framing, so they carried no CSP at all — and
+ * the blanket header nothing overrode took effect.
+ *
+ * The shape is what made it hard to see: THE WORSE THINGS WENT, THE UGLIER THE
+ * FAILURE. Exactly when a site could not be read — which, while the
+ * dashboard's own query was broken, was every card — the creator got a browser
+ * error page with our domain in it instead of a blank card.
+ *
+ * Measured in Chromium, because the precedence is a "SHOULD" in the spec:
+ *
+ *   RENDERED  frame-ancestors 'self' + X-Frame-Options: DENY
+ *   BLOCKED   a 404 with no CSP     + X-Frame-Options: DENY
+ *   RENDERED  a 404 that carries frame-ancestors 'self'
+ *
+ * So: every response a framed route can produce carries the framing policy,
+ * and every one of them has a body worth rendering.
+ */
+
+/** Every `<iframe src=…>` in the app, with the file it lives in. */
+function iframeSources(): Array<{ file: string; src: string }> {
+  const roots = ["components", "app"]
+  const found: Array<{ file: string; src: string }> = []
+
+  const walk = (dir: string): string[] => {
+    if (!existsSync(dir)) return []
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) return walk(full)
+      return entry.name.endsWith(".tsx") || entry.name.endsWith(".ts") ? [full] : []
+    })
+  }
+
+  for (const root of roots) {
+    for (const file of walk(join(process.cwd(), root))) {
+      const source = readFileSync(file, "utf8")
+      // The src can be several lines below the tag in formatted JSX.
+      for (const match of source.matchAll(/<iframe\b[\s\S]{0,400}?\ssrc=\{?["'`]([^"'`]*)/g)) {
+        found.push({ file: file.replace(`${process.cwd()}/`, ""), src: match[1] })
+      }
+    }
+  }
+  return found
+}
+
+check(
+  "the only iframe pointing at our own domain is the site cover",
+  (() => {
+    // A src is ours when it is a path rather than a URL. Everything else in
+    // this app is YouTube, Spotify, Calendly or a PDF — somebody else's
+    // headers, and none of our business.
+    const ours = iframeSources().filter((f) => f.src.startsWith("/"))
+    return ours.length === 1 && ours[0].src.startsWith("/api/sites/") && ours[0].src.endsWith("/cover")
+  })(),
+  JSON.stringify(iframeSources().filter((f) => f.src.startsWith("/"))),
+)
+
+check(
+  "the cover answers every request with the framing policy on it",
+  (() => {
+    /**
+     * STRIPPED. This route's own doc comment quotes `frame-ancestors 'self'`
+     * four times while explaining the bug, so a raw read matched the
+     * explanation and passed with the directive deleted from the headers.
+     */
+    const route = strip(read("app/api/sites/[siteId]/cover/route.ts"))
+
+    /**
+     * ONE place builds a response. A second one is exactly how the headers
+     * went missing the first time — the failure path was somebody else's
+     * object, returned unchanged.
+     */
+    const built = route.match(/new NextResponse\(|NextResponse\.json\(|new Response\(/g) ?? []
+
+    return (
+      built.length === 1 &&
+      /frame-ancestors 'self'/.test(route) &&
+      // never hands back resolveSite's framing-unaware response
+      !/return found\.response/.test(route) &&
+      // and an unexpected throw is a placeholder, not a framework error page
+      /catch/.test(route) &&
+      /coverPlaceholder/.test(route)
+    )
+  })(),
+)
+
+check(
+  "and every one of those answers is a document, never an empty body",
+  (() => {
+    const route = strip(read("app/api/sites/[siteId]/cover/route.ts"))
+    const cover = read("lib/sites/cover.ts")
+    /**
+     * A framed response with nothing in it is a blank hole rather than a blank
+     * card, and there is no way to tell the two apart from the outside — so
+     * the placeholder is what every failure returns.
+     */
+    const returns = [...route.matchAll(/return cover\(([^,)]*)/g)].map((m) => m[1].trim())
+    return (
+      returns.length >= 3 &&
+      returns.every((argument) => /coverPlaceholder|siteCover/.test(argument)) &&
+      /export function coverPlaceholder/.test(cover) &&
+      // the placeholder really is a document a browser will paint
+      /<!doctype html>/i.test(cover)
+    )
+  })(),
+)
+
+check(
+  "a stranger's card and an empty card are the same bytes",
+  (() => {
+    const route = strip(read("app/api/sites/[siteId]/cover/route.ts"))
+    /**
+     * 404 covers both "does not exist" and "is not yours", and the words shown
+     * must not separate them — a card that said "not yours" would confirm a
+     * site exists to somebody who cannot see it.
+     */
+    return (
+      /status === 503 \? "Not available just now" : "Nothing here yet"/.test(route) &&
+      !/not yours|does not exist|forbidden/i.test(route)
+    )
+  })(),
+)
+
+// ===========================================================================
+section("A card shows a cover or it shows nothing — never somebody's error page")
+// ===========================================================================
+
+/**
+ * FIXING CAUSES ONE AT A TIME IS A LOSING GAME.
+ *
+ * The last "storelib.com refused to connect." was the cover route's 404,
+ * carrying no `frame-ancestors` for the blanket `X-Frame-Options: DENY` to be
+ * overridden by. That is fixed at the route. But a frame shows the browser's
+ * error page for a gateway timeout, a middleware refusal, a platform error
+ * page, a redirect to somewhere that refuses framing, an empty body, and
+ * whatever is invented next — none of which can be enumerated from a card.
+ *
+ * So the card stopped asking why. The document inside announces itself, and
+ * the frame is revealed only when that arrives. Proved in Chromium across
+ * every one of those, with the card's own rule driving it:
+ *
+ *   shown   a built cover
+ *   shown   the "nothing here yet" placeholder
+ *   shown   a cold cover that takes 4s
+ *   hidden  refused by X-Frame-Options (no CSP)
+ *   hidden  a middleware 403
+ *   hidden  a platform 504 page
+ *   hidden  a redirect to a page that refuses framing
+ *   hidden  an empty body
+ */
+
+check(
+  "the cover is revealed only once its own document says hello",
+  (() => {
+    const card = strip(read("components/sites/sites-dashboard.tsx"))
+    return (
+      /visibility: coverScale && coverReady \? "visible" : "hidden"/.test(card) &&
+      /data\?\.source === "storelib-preview" && data\.kind === "ready"/.test(card)
+    )
+  })(),
+)
+
+check(
+  "the sender is proved by its window, never by an origin that reads 'null'",
+  (() => {
+    const card = strip(read("components/sites/sites-dashboard.tsx"))
+    const at = card.indexOf("function useCoverReady")
+    const body = card.slice(at, card.indexOf("function SiteCard", at))
+    /**
+     * The frame is sandboxed onto an opaque origin, so `event.origin` is the
+     * string "null" for every sender and proves nothing at all. A reference to
+     * the window is the only thing that identifies it.
+     */
+    return (
+      /event\.source !== ref\.current\?\.contentWindow/.test(body) && !/event\.origin/.test(body)
+    )
+  })(),
+)
+
+check(
+  "and nothing races a timer against a cold build",
+  (() => {
+    const card = strip(read("components/sites/sites-dashboard.tsx"))
+    const at = card.indexOf("function useCoverReady")
+    const body = card.slice(at, card.indexOf("function SiteCard", at))
+    /**
+     * Measured in Chromium: `load` fires on a frame the browser refused, but
+     * on a cover that loads perfectly the ready message arrives AFTER `load` —
+     * so deciding there would hide working covers. A timeout only moves the
+     * race: a cold cover is a full bundle and can take many seconds. Waiting
+     * for the message and nothing else has no race in it.
+     */
+    return !/setTimeout|setInterval|onLoad|"load"/.test(body)
+  })(),
+)
+
+check(
+  "there is always something underneath the frame to see",
+  (() => {
+    const card = read("components/sites/sites-dashboard.tsx")
+    const placeholder = card.indexOf('className="absolute inset-0 grid place-items-center')
+    const frame = card.indexOf("<iframe")
+    // Underneath means EARLIER in the DOM: the frame paints on top of it.
+    return placeholder > 0 && frame > placeholder
+  })(),
+)
+
+check(
+  "every document the cover route can serve announces itself",
+  (() => {
+    const cover = read("lib/sites/cover.ts")
+    const preview = read("lib/sites/preview-document.ts")
+    /**
+     * A built cover comes from `previewDocument`, which already sent this. The
+     * placeholder did not — so a site that simply has nothing in it yet would
+     * have been indistinguishable from a refusal, and its own words would
+     * never have been shown.
+     */
+    const sends = (src: string) =>
+      /source: "storelib-preview", kind: "ready"/.test(src) ||
+      /source: "storelib-preview", kind: kind/.test(src)
+    return (
+      sends(preview) &&
+      sends(cover) &&
+      // and the placeholder really carries it, not just the module
+      /\$\{COVER_BRIDGE\}/.test(cover)
+    )
+  })(),
+)
+
+check(
+  "the words the frame sends are the words the card listens for",
+  (() => {
+    /**
+     * Two files, one contract, and nothing in the type system holding them
+     * together — a rename on either side would leave every card permanently
+     * blank with no error anywhere.
+     */
+    const card = strip(read("components/sites/sites-dashboard.tsx"))
+    const cover = read("lib/sites/cover.ts")
+    const preview = read("lib/sites/preview-document.ts")
+    const listensFor = card.match(/data\?\.source === "([^"]+)" && data\.kind === "([^"]+)"/)
+    if (!listensFor) return false
+    const [, source, kind] = listensFor
+    /**
+     * The kind is matched as a LITERAL anywhere in the sender, not as
+     * `kind: "…"`. The preview's bridge forwards a variable — `kind: kind` —
+     * and names the literal at its call site, `send("ready", "")`; requiring
+     * the object-literal shape would have failed a file that is correct.
+     */
+    return [cover, preview].every(
+      (src) => src.includes(`source: "${source}"`) && src.includes(`"${kind}"`),
+    )
+  })(),
+)
+
+// ===========================================================================
+section("A link inside the preview must not take the preview with it")
+// ===========================================================================
+
+/**
+ * THE OTHER "refused to connect", and the one a creator hits by hand.
+ *
+ * The preview is a srcdoc document, and a srcdoc document inherits its base
+ * URL from the page around it. So `<a href="/about">` in a generated site does
+ * not point at the generated site — it points at storelib.com/about, a real
+ * page, which like every page on that domain is served with
+ * `X-Frame-Options: DENY`. Clicking it navigated the frame there, the browser
+ * refused, and the creator's work was replaced by a full-frame error.
+ *
+ * Measured in Chromium by counting load events on the frame, with the document
+ * `previewDocument` actually produces rather than an imitation of it:
+ *
+ *   frame load events: 1                    ← it never left
+ *   ready
+ *   navigate:/about                         ← held
+ *   navigate:/pricing                       ← held
+ *   navigate:https://example.com/x          ← held
+ *   navigate:#                              ← held
+ *   navigate:/subscribe                     ← the form, held
+ *   (#features produced nothing — an in-page anchor still scrolls)
+ *
+ * Without the guard the same document loads TWICE: it left.
+ */
+
+check(
+  "every link in a generated site is held inside the frame",
+  (() => {
+    const doc = previewDocument({ code: "", css: "", html: "<body><a href='/about'>a</a></body>" })
+    return (
+      /document\.addEventListener\("click"/.test(doc) &&
+      /e\.preventDefault\(\)/.test(doc) &&
+      /send\("navigate", href\)/.test(doc) &&
+      // capture phase, so a handler in the site cannot get there first
+      /\}, true\)/.test(doc)
+    )
+  })(),
+)
+
+check(
+  "a hash link is held too, because in a srcdoc frame it also leaves",
+  (() => {
+    const doc = previewDocument({ code: "", css: "", html: "<body></body>" })
+    /**
+     * THE CORRECTION THAT MATTERS, and the one a creator hit by hand.
+     *
+     * The first version exempted "#..." on the reasoning that an in-page
+     * anchor scrolls rather than leaves. That reasoning is about an ordinary
+     * page. This document is srcdoc: its own URL is about:srcdoc and its BASE
+     * URL is the editor's, so "#features" resolves to
+     * storelib.com/sites/<id>#features — a different document, and one that
+     * denies framing like every page on that domain.
+     *
+     * Measured in a real srcdoc frame. All four navigated away, two loads each:
+     *
+     *   #/booking   a hash route, which is how generated sites do pages
+     *   #features   an in-page anchor whose element is right there
+     *   #           a bare placeholder
+     *   /about      the plain path already known about
+     *
+     * So preventDefault comes FIRST, unconditionally, and the scroll is done
+     * here rather than delegated to a browser that would leave to do it.
+     */
+    const at = doc.indexOf('document.addEventListener("click"')
+    const body = doc.slice(at, doc.indexOf('document.addEventListener("submit"', at))
+    return (
+      body.indexOf("e.preventDefault()") < body.indexOf('href.charAt(0) === "#"') &&
+      /target\.scrollIntoView\(/.test(body) &&
+      /send\("navigate", href\)/.test(body)
+    )
+  })(),
+)
+
+check(
+  "an anchor that exists is scrolled to, and one that does not is a route",
+  (() => {
+    const doc = previewDocument({ code: "", css: "", html: "<body></body>" })
+    /**
+     * "#features" is an element on the page and scrolling is what was wanted.
+     * "#/booking" answers to nothing here — it is another page of the site,
+     * and it works once published. Proved in a browser with the real document:
+     * the anchor scrolled and produced no message, the route was reported.
+     */
+    return (
+      /var target = document\.getElementById\(id\)/.test(doc) &&
+      /document\.getElementsByName\(id\)/.test(doc) &&
+      // a bare "#" is a placeholder button: stopped, and nothing said about it
+      /if \(!id\) return/.test(doc)
+    )
+  })(),
+)
+
+check(
+  "the preview's own script compiles",
+  (() => {
+    /**
+     * THE BRIDGE IS A TEMPLATE LITERAL INSIDE TYPESCRIPT, so every backslash
+     * and backtick in it is escaped twice and easy to get wrong — and a broken
+     * bridge fails SILENTLY. Nothing throws where anyone would see it: the
+     * script simply never runs, so there is no ready message, no click guard,
+     * and every link navigates away again. Exactly the bug it exists to stop,
+     * reintroduced by a typo.
+     *
+     * That happened while writing this: an escaped character class came out of
+     * the compiler as an invalid regular expression and took the whole script
+     * with it. `new Function` compiles without executing, which is all this
+     * needs to know.
+     */
+    const doc = previewDocument({ code: "", css: "", html: "<body></body>" })
+    const scripts = [
+      ...doc.matchAll(
+        /<script(?![^>]*type="importmap")(?![^>]*type="module")[^>]*>([\s\S]*?)<\/script>/g,
+      ),
+    ].map((m) => m[1])
+    if (scripts.length === 0) return false
+    return scripts.every((source) => {
+      try {
+        new Function(source)
+        return true
+      } catch {
+        return false
+      }
+    })
+  })(),
+)
+
+check(
+  "a form is held too — it navigates by a different route to the same place",
+  (() => {
+    const doc = previewDocument({ code: "", css: "", html: "<body></body>" })
+    return /document\.addEventListener\("submit"/.test(doc) && /send\("navigate"/.test(doc)
+  })(),
+)
+
+check(
+  "the editor says where the link went rather than swallowing the click",
+  (() => {
+    const pane = strip(read("components/sites/editor/preview-pane.tsx"))
+    /**
+     * A nav that appears to do nothing reads as a broken site. The creator
+     * needs to know the link is real and works once published.
+     */
+    return (
+      /data\.kind === "navigate"/.test(pane) &&
+      /setHeldLink/.test(pane) &&
+      /Links open on the published site/.test(pane)
+    )
+  })(),
+)
+
+check(
+  "and if the frame leaves anyway, the preview is put back",
+  (() => {
+    const pane = strip(read("components/sites/editor/preview-pane.tsx"))
+    /**
+     * The click guard holds links and forms, which is every ordinary way out.
+     * It cannot hold `window.location = "/x"` written by a model. A second
+     * load event on the same document means the frame is no longer showing the
+     * preview — what it went to cannot be read from here, because the frame is
+     * on an opaque origin, and does not need to be.
+     *
+     * Capped, so a document that navigates on sight cannot become a loop.
+     */
+    return (
+      /loadsRef\.current \+= 1/.test(pane) &&
+      /onLoad=\{onFrameLoad\}/.test(pane) &&
+      /key=\{`\$\{nonce\}-\$\{restores\}`\}/.test(pane) &&
+      /setRestores\(\(n\) => \(n < 2 \? n \+ 1 : n\)\)/.test(pane)
+    )
+  })(),
+)
+
+check(
+  "the frame still cannot navigate the page around it",
+  (() => {
+    const pane = strip(read("components/sites/editor/preview-pane.tsx"))
+    /**
+     * Holding links is about the frame's own navigation. The sandbox is what
+     * stops the frame navigating the EDITOR, and it has to stay exactly as
+     * narrow as it is — allow-same-origin would hand generated code the
+     * session, allow-top-navigation would let it replace the editor.
+     */
+    return (
+      /sandbox="allow-scripts"/.test(pane) &&
+      !/allow-same-origin/.test(pane) &&
+      !/allow-top-navigation/.test(pane) &&
+      !/allow-popups/.test(pane)
+    )
+  })(),
+)
+
+// ===========================================================================
+section("Nothing goes public without passing what the agent is held to")
+// ===========================================================================
+
+/**
+ * PUBLISH WAS CHECKING LESS THAN THE AGENT WAS.
+ *
+ * An agent run bundles, typechecks and renders before it may finish.
+ * `publishSite` ran esbuild and nothing else — so every path that is NOT an
+ * agent run went live unchecked, and the safest path was the least guarded
+ * one: the Code tab autosaves every 1.2 seconds and Publish took whatever was
+ * there.
+ *
+ * And nothing looked for credentials at all, on the one operation that copies
+ * a project onto a public bucket behind a CDN. A key that goes out that way is
+ * not exposed later — it is published, and deleting the site afterwards does
+ * not recall it.
+ */
+
+/** A JWT with the given payload. Built here so no literal token is committed. */
+function jwt(payload: Record<string, unknown>): string {
+  const b64 = (value: unknown) =>
+    Buffer.from(JSON.stringify(value)).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+  return `${b64({ alg: "HS256", typ: "JWT" })}.${b64(payload)}.${"s".repeat(43)}`
+}
+
+{
+  /**
+   * The things that are unambiguously credentials. Each is a vendor's own
+   * prefix followed by enough characters that it cannot be a coincidence.
+   */
+  const caught: Array<[string, string]> = [
+    ["a Stripe secret key", `const stripe = "sk_live_${"a1B2c3D4e5F6g7H8i9J0k1L2"}"`],
+    ["an OpenAI key", `const openai = "sk-proj-${"A".repeat(40)}"`],
+    ["an AWS access key id", `const aws = "AKIA${"ABCDEFGHIJKLMNOP"}"`],
+    ["a Google API key", `const maps = "AIza${"Sy".padEnd(35, "x")}"`],
+    ["a GitHub token", `const gh = "ghp_${"b".repeat(36)}"`],
+    ["a Slack token", `const slack = "xoxb-${"1234567890-abcdef"}"`],
+    ["a SendGrid key", `const mail = "SG.${"a".repeat(22)}.${"b".repeat(43)}"`],
+    ["an npm token", `const npm = "npm_${"c".repeat(36)}"`],
+    ["a private key", `const pem = \`-----BEGIN RSA PRIVATE KEY-----\``],
+    ["a Supabase service role key", `const admin = "${jwt({ role: "service_role", iss: "supabase" })}"`],
+  ]
+
+  for (const [label, source] of caught) {
+    const found = scanForSecrets({ "src/App.tsx": `export default function App() {\n  ${source}\n  return null\n}\n` })
+    check(
+      `a publish is stopped by ${label}`,
+      found.length === 1 && found[0].level === "blocking" && found[0].line === 2,
+      JSON.stringify(found),
+    )
+  }
+}
+
+{
+  /**
+   * THE FALSE POSITIVES MATTER MORE THAN THE LIST DOES.
+   *
+   * A wrong hit BLOCKS A PUBLISH, and a creator who cannot ship because a
+   * paragraph of copy looked like a token will not thank anybody for the
+   * caution. So there is no "high entropy" rule and no "looks like a password"
+   * rule — those also catch a hash in a filename, a base64 image, a UUID.
+   */
+  const allowed: Array<[string, string]> = [
+    /**
+     * The one that would have been most damaging: a Supabase ANON key is a JWT
+     * and it is meant to be public — it is in every client bundle of every
+     * Supabase app there is. Matching "a JWT" would have blocked a correct
+     * site on its most ordinary line, so the token is decoded and only the
+     * service role, which ignores every row-level policy, is a finding.
+     */
+    ["a Supabase anon key, which is public by design", `const key = "${jwt({ role: "anon", iss: "supabase" })}"`],
+    ["a UUID", `const id = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"`],
+    ["a hashed asset filename", `import styles from "./app.a1b2c3d4e5f6.css"`],
+    ["a base64 image", `const logo = "data:image/png;base64,${"iVBORw0KGgoAAAANSUhEUg".repeat(4)}"`],
+    ["prose that happens to say key", `<p>Ask us for the key to the studio and we will leave it out for you</p>`],
+    ["a long list of class names", `className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4 py-24 text-center"`],
+    ["a short string that starts sk-", `const label = "sk-1"`],
+    ["a sentence containing AKIA", `<p>AKIAA is not a word but this is only copy</p>`],
+  ]
+
+  for (const [label, source] of allowed) {
+    const found = scanForSecrets({ "src/App.tsx": `export default function App() {\n  ${source}\n  return null\n}\n` })
+    check(`${label} does not stop a publish`, found.length === 0, JSON.stringify(found))
+  }
+}
+
+{
+  const found = scanForSecrets({
+    "src/lib/db.ts": `export const KEY = "sk_live_${"z9Y8x7W6v5U4t3S2r1Q0p9O8"}"`,
+  })
+  check(
+    "the finding names the file and the line",
+    found[0]?.file === "src/lib/db.ts" && found[0]?.line === 1,
+    JSON.stringify(found[0]),
+  )
+  check(
+    "and never repeats the value it found",
+    !!found[0] && !found[0].message.includes("sk_live_") && !found[0].message.includes("z9Y8x7W6"),
+    found[0]?.message,
+  )
+  check(
+    "it says the key should be treated as compromised, because it has been",
+    /compromised/.test(found[0]?.message ?? ""),
+  )
+}
+
+check(
+  "publishing runs the checks before it builds or uploads anything",
+  (() => {
+    const publish = strip(read("lib/sites/publish.ts"))
+    const at = publish.indexOf("export async function publishSite")
+    const body = publish.slice(at)
+    return (
+      /const checks = await preflight\(files\)/.test(body) &&
+      /if \(!checks\.ok\)/.test(body) &&
+      // before the bundle, the slug, the deployment row and the upload
+      body.indexOf("await preflight(files)") < body.indexOf("buildStatic(files") &&
+      body.indexOf("await preflight(files)") < body.indexOf("site_deployments")
+    )
+  })(),
+)
+
+check(
+  "the checks cover types, render and credentials — not just the bundle",
+  (() => {
+    const pre = strip(read("lib/sites/preflight.ts"))
+    return (
+      /scanForSecrets\(files\)/.test(pre) &&
+      /typecheckProject\(files\)/.test(pre) &&
+      /renderCheck\(files\)/.test(pre)
+    )
+  })(),
+)
+
+check(
+  "a check that could not run is recorded as skipped, never as a pass",
+  (() => {
+    const pre = strip(read("lib/sites/preflight.ts"))
+    /**
+     * The difference between "verified" and "nothing objected". A typechecker
+     * that is not installed must not read as a clean typecheck.
+     */
+    return (
+      /skipped\.push\("typecheck"\)/.test(pre) &&
+      /skipped\.push\("render"\)/.test(pre) &&
+      /ok: findings\.every\(\(f\) => f\.level !== "blocking"\)/.test(pre)
+    )
+  })(),
+)
+
+check(
+  "and the agent is told about a credential before it can finish the run",
+  (() => {
+    const tools = strip(read("lib/sites/agent/tools.ts"))
+    const at = tools.indexOf('case "run_build"')
+    const body = tools.slice(at, tools.indexOf('case "read_build_errors"', at))
+    /**
+     * Told at run_build rather than only at publish, so the model removes it
+     * in the same run instead of the creator discovering it at the moment they
+     * try to ship.
+     */
+    return (
+      /const leaked = scanForSecrets\(this\.files\)/.test(body) &&
+      /this\.lastProblem = "secret"/.test(body) &&
+      /the browser is not a place to keep a secret/.test(body)
+    )
+  })(),
+)
+
+// ===========================================================================
+section("The lockfile and package.json agree, or the deploy does not start")
+// ===========================================================================
+
+/**
+ * ERR_PNPM_OUTDATED_LOCKFILE, and it was self-inflicted.
+ *
+ * `typescript` was moved from devDependencies to dependencies — correct, and
+ * necessary, because run_build typechecks a project before a run may finish
+ * and a production install without dev packages has no compiler. But
+ * package.json was edited and pnpm-lock.yaml was not, and CI installs with
+ * --frozen-lockfile. The build never started.
+ *
+ * The lesson is not "remember to run pnpm install". Nobody remembers. This is
+ * the shape of mistake a test catches in a second and a person catches after a
+ * failed deploy, so it is a test.
+ */
+
+/** The dependency names pnpm-lock.yaml records for the root project. */
+function lockfileDependencies(): { dependencies: string[]; devDependencies: string[] } {
+  const lines = read("pnpm-lock.yaml").split("\n")
+  const out: Record<string, string[]> = { dependencies: [], devDependencies: [] }
+
+  let inRoot = false
+  let section: string | null = null
+
+  for (const line of lines) {
+    if (/^  \.:\s*$/.test(line)) {
+      inRoot = true
+      continue
+    }
+    if (!inRoot) continue
+    // Any other importer, or the end of the importers block.
+    if (/^\S/.test(line) || /^  \S/.test(line)) break
+
+    const header = line.match(/^    (dependencies|devDependencies|optionalDependencies):\s*$/)
+    if (header) {
+      section = header[1]
+      continue
+    }
+
+    const entry = line.match(/^      '?([^':]+)'?:\s*$/)
+    if (entry && section && out[section]) out[section].push(entry[1])
+  }
+
+  return { dependencies: out.dependencies, devDependencies: out.devDependencies }
+}
+
+check(
+  "every dependency in package.json is in the lockfile, in the same group",
+  (() => {
+    const pkg = JSON.parse(read("package.json"))
+    const lock = lockfileDependencies()
+    const same = (a: string[], b: string[]) =>
+      a.length === b.length && [...a].sort().join() === [...b].sort().join()
+    return (
+      same(Object.keys(pkg.dependencies ?? {}), lock.dependencies) &&
+      same(Object.keys(pkg.devDependencies ?? {}), lock.devDependencies)
+    )
+  })(),
+  (() => {
+    const pkg = JSON.parse(read("package.json"))
+    const lock = lockfileDependencies()
+    const missing = Object.keys(pkg.dependencies ?? {}).filter((d) => !lock.dependencies.includes(d))
+    const stray = lock.dependencies.filter((d) => !(d in (pkg.dependencies ?? {})))
+    return `dependencies missing from the lockfile: ${missing.join(", ") || "none"}; in the lockfile but not package.json: ${stray.join(", ") || "none"}. Run pnpm install.`
+  })(),
+)
+
+check(
+  "there is exactly one lockfile, and it is pnpm's",
+  (() => {
+    /**
+     * package-lock.json sat beside pnpm-lock.yaml, a month older, tracked in
+     * git, referenced by nothing. Two lockfiles make the package manager a
+     * guess — the platform picks one by detection order, and the one it picks
+     * is not necessarily the one anybody has been installing with.
+     */
+    const others = ["package-lock.json", "yarn.lock", "bun.lockb", "bun.lock"]
+    return existsSync(join(root, "pnpm-lock.yaml")) && others.every((f) => !existsSync(join(root, f)))
+  })(),
+)
+
+check(
+  "the pnpm version is pinned rather than inherited from whatever CI has",
+  (() => {
+    const pkg = JSON.parse(read("package.json"))
+    return typeof pkg.packageManager === "string" && /^pnpm@\d+\.\d+\.\d+/.test(pkg.packageManager)
+  })(),
+)
+
+check(
+  "and nothing installs with npm behind pnpm's back",
+  (() => {
+    /**
+     * `npx` FETCHES from the registry when it cannot find a binary locally, so
+     * a broken install becomes a silent download of some other tsc and a suite
+     * that passes against the wrong compiler. `pnpm exec` fails instead.
+     */
+    const runner = read("scripts/run-push-tests.mjs")
+    return /execFileSync\("pnpm", \["exec", "tsc"/.test(runner) && !/"npx"/.test(runner)
   })(),
 )
 

@@ -48,16 +48,41 @@ function coverPath(siteId: string): string {
  * A site that has never built, or whose build fails. Shown rather than a
  * broken frame: a creator mid-edit with a syntax error should see a calm
  * placeholder on their dashboard, not a stack trace and not a blank hole.
+ *
+ * Exported because the ROUTE needs it too. Its 404, its 503 and any
+ * unexpected throw all end up in the same iframe as this, and every one of
+ * them has to be a document — see the route for what an empty body cost.
  */
-function placeholder(reason: string): string {
+export function coverPlaceholder(reason: string): string {
   return `<!doctype html><html lang="en"><meta charset="utf-8">
 <style>
   html,body{height:100%;margin:0}
   body{display:grid;place-items:center;background:#faf9f7;color:#a8a29a;
        font:500 13px/1.4 ui-sans-serif,system-ui,sans-serif;text-align:center;padding:24px}
 </style>
-<div>${reason}</div>`
+<div>${reason}</div>
+${COVER_BRIDGE}`
 }
+
+/**
+ * The placeholder says hello too.
+ *
+ * The card keeps its frame invisible until the document inside it announces
+ * itself, because that is the only way to tell a cover apart from a browser
+ * error page without knowing why the error happened. A built cover comes from
+ * `previewDocument`, which already sends this. Without the same line here, a
+ * site that simply has nothing in it yet would be indistinguishable from a
+ * refusal — and its own words ("Nothing here yet") would never be shown.
+ *
+ * Same shape as the preview's bridge: posted to "*" because a sandboxed frame
+ * has no origin to name, and authenticated by the parent comparing
+ * `event.source` to the frame's window.
+ */
+const COVER_BRIDGE = `<script>
+window.addEventListener("load", function () {
+  try { parent.postMessage({ source: "storelib-preview", kind: "ready", message: "" }, "*") } catch (e) {}
+})
+</script>`
 
 export async function siteCover(site: Site): Promise<string> {
   const admin = createAdminClient()
@@ -82,11 +107,11 @@ export async function siteCover(site: Site): Promise<string> {
   }
 
   const files = await readProject(site.id)
-  if (Object.keys(files).length === 0) return placeholder("Nothing here yet")
+  if (Object.keys(files).length === 0) return coverPlaceholder("Nothing here yet")
 
   const esbuild = await import("esbuild")
   const built = await bundleProject(esbuild as never, files)
-  if (!built.ok) return placeholder("This site does not build right now")
+  if (!built.ok) return coverPlaceholder("This site does not build right now")
 
   const html = previewDocument({
     code: built.code ?? "",

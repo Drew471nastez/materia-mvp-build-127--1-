@@ -93,6 +93,104 @@ const RUNTIME_BRIDGE = `
   // Told explicitly, because "it rendered" and "it did not throw" are not the
   // same claim and only the frame knows the difference.
   window.addEventListener("load", function () { send("ready", "") })
+
+  /**
+   * A LINK MUST NOT TAKE THE PREVIEW WITH IT.
+   *
+   * This is a srcdoc document, and a srcdoc document inherits its base URL
+   * from the page around it. So <a href="/about"> inside a generated site does
+   * not point at the generated site — it points at storelib.com/about, a real
+   * page, which like every page on that domain is served with
+   * X-Frame-Options: DENY. Clicking it navigated the frame there and the
+   * browser refused, so the preview was replaced by "storelib.com refused to
+   * connect." and the creator's work was gone from the screen.
+   *
+   * Measured, both directions, by counting load events on the frame: without
+   * this the frame loads TWICE on a click — it left — and with it, once.
+   *
+   * Capture phase, so a handler in the site itself cannot get there first and
+   * stop this from running.
+   */
+  var findLink = function (node) {
+    while (node && node.nodeType === 1) {
+      if (String(node.tagName).toUpperCase() === "A") return node
+      node = node.parentNode
+    }
+    return null
+  }
+
+  document.addEventListener("click", function (e) {
+    var link = findLink(e.target)
+    if (!link) return
+    var href = link.getAttribute("href") || ""
+
+    /**
+     * EVERY link is prevented, including a hash one, and that correction is
+     * the whole point of this block.
+     *
+     * The first version exempted "#..." on the reasoning that an in-page
+     * anchor scrolls rather than leaves. That reasoning is about an ordinary
+     * page. THIS document is srcdoc: its own URL is "about:srcdoc" and its
+     * BASE URL is the editor's, so "#features" resolves to
+     * storelib.com/sites/<id>#features — a different document, and one that
+     * denies framing like every page on that domain.
+     *
+     * Measured in a real srcdoc frame rather than reasoned about a second
+     * time. All four navigated away; the frame loaded twice in every case:
+     *
+     *   #/booking     a hash route, which is how generated sites do pages
+     *   #features     an in-page anchor whose element is right there
+     *   #             a bare placeholder
+     *   /about        the plain path already known about
+     *
+     * So the scroll is done HERE instead of being delegated to a browser that
+     * would leave to do it.
+     */
+    e.preventDefault()
+
+    if (href.charAt(0) === "#") {
+      var id = href.slice(1)
+      // A bare "#" is the placeholder every generated page uses for a button.
+      // Stopping it is the whole behaviour — there is nothing to say about it.
+      if (!id) return
+
+      /**
+       * getElementById and getElementsByName, because neither takes a
+       * SELECTOR. The first version used querySelector with the id
+       * interpolated into an attribute selector, which needs escaping — and
+       * the escape, written inside a template literal inside TypeScript, came
+       * out of the compiler as an invalid regular expression. The whole bridge
+       * then failed to parse, which removes every listener in it silently:
+       * no ready message, no click guard, and every link navigating again.
+       * There is now a test that compiles this script and fails on that.
+       */
+      var target = document.getElementById(id)
+      if (!target) {
+        var named = document.getElementsByName(id)
+        target = named && named.length ? named[0] : null
+      }
+
+      if (target && target.scrollIntoView) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" })
+        return
+      }
+
+      // Nothing here answers to it — "#/booking" is a route, not an anchor.
+      send("navigate", href)
+      return
+    }
+
+    send("navigate", href)
+  }, true)
+
+  /**
+   * A form does the same thing by a different route: <form action="/subscribe">
+   * submits by NAVIGATING, and lands in exactly the same place.
+   */
+  document.addEventListener("submit", function (e) {
+    e.preventDefault()
+    send("navigate", (e.target && e.target.getAttribute && e.target.getAttribute("action")) || "")
+  }, true)
 })()
 </script>`
 

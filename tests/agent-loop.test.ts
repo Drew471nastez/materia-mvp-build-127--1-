@@ -23,12 +23,21 @@
 import * as esbuild from "esbuild"
 
 import { agentLoop } from "@/lib/sites/agent/loop"
+import { compactTurns, transcriptBytes } from "@/lib/sites/agent/compaction"
+import {
+  formatRenderFailure,
+  permissionFlag,
+  renderCheck,
+  renderFailure,
+  rootComponent,
+} from "@/lib/sites/render-check"
 import { ProjectWorkspace } from "@/lib/sites/agent/tools"
 import { blankProject } from "@/lib/sites/starter"
 import type { LoopResult } from "@/lib/sites/agent/loop"
 import type {
   AgentEvent,
   AgentProvider,
+  AgentTurn,
   ProviderRequest,
   ProviderTurn,
   ToolCall,
@@ -110,10 +119,24 @@ function scriptedProvider(script: Scripted[]): AgentProvider & { requests: Provi
   }
 }
 
-async function run(script: Scripted[], files = blankProject("Test Site"), maxTurns?: number) {
+async function run(
+  script: Scripted[],
+  files = blankProject("Test Site"),
+  maxTurns?: number,
+  extra: { maxTokens?: number; compactBytes?: number; prompt?: string } = {},
+) {
   const workspace = new ProjectWorkspace(files)
   const provider = scriptedProvider(script)
-  const loop = agentLoop({ provider, model: "test-model", prompt: "do the thing", workspace, esbuild, maxTurns })
+  const loop = agentLoop({
+    provider,
+    model: "test-model",
+    prompt: extra.prompt ?? "do the thing",
+    workspace,
+    esbuild,
+    maxTurns,
+    maxTokens: extra.maxTokens,
+    compactBytes: extra.compactBytes,
+  })
   const { events, result } = await drain(loop)
   return { result, events, workspace, provider }
 }
@@ -290,7 +313,11 @@ section("A run cannot go on forever, and a refusal is not a failure")
   const { result } = await run(forever, blankProject("T"), 4)
 
   check("the cap stops it", result.status === "failed" && result.turns === 4, `turns=${result.turns}`)
-  check("and says how", /more than 4 steps/.test(result.error ?? ""), `error=${result.error}`)
+  check(
+    "and says how",
+    /limit of 4 steps/.test(result.error ?? "") && /Nothing was changed/.test(result.error ?? ""),
+    `error=${result.error}`,
+  )
   check("the tokens it burned are still counted", result.usage.inputTokens > 0)
 }
 
@@ -327,7 +354,7 @@ section("What the model is told")
   check(
     "the tool list handed to the provider is the closed set",
     first.tools.map((t) => t.name).join() ===
-      "list_files,read_file,write_file,create_file,delete_file,update_manifest,search_code,replace_in_file,set_plan,complete_step,run_build,read_build_errors",
+      "list_files,read_file,write_file,create_file,delete_file,update_manifest,search_code,find_usages,replace_in_file,set_plan,complete_step,run_build,read_build_errors",
   )
   check(
     "every tool schema is strict-mode legal",
@@ -380,6 +407,862 @@ section("What the model is told")
     last.some((t) => t.role === "tool" && t.results.some((r) => r.output.includes("src/App.tsx"))),
   )
 }
+
+
+// ---------------------------------------------------------------------------
+section("A build verdict stops being true the moment a file changes")
+// ---------------------------------------------------------------------------
+
+{
+  /**
+   * BUILD GREEN, THEN EDIT, THEN GO QUIET.
+   *
+   * The verdict used to be a plain field that nothing reset, so this sequence
+   * passed the completion gate on an answer about a tree that no longer
+   * existed — and saved an unbuilt project over a working site while reporting
+   * success. The last write here does not compile, so if the stale green were
+   * still believed the run would succeed.
+   */
+  const { result, workspace } = await run([
+    { calls: [["write_file", { path: "src/App.tsx", content: GOOD_APP }]] },
+    { calls: [["run_build", {}]] },
+    { calls: [["write_file", { path: "src/App.tsx", content: BROKEN_APP }]] },
+    { text: "All done." },
+  ])
+
+  check(
+    "an edit after a build makes the verdict unknown again, not green",
+    result.status === "failed",
+    `status=${result.status} error=${result.error}`,
+  )
+  check(
+    "and nothing is saved on it",
+    /did not compile/.test(result.error ?? ""),
+    `error=${result.error}`,
+  )
+  check(
+    "the loop built for itself rather than trusting the stale green",
+    workspace.buildOk === false,
+    `buildOk=${workspace.buildOk}`,
+  )
+}
+
+{
+  // The same shape, but the edit after the build is fine. Nothing should be
+  // refused — the guard must not turn every post-build touch into a failure.
+  const { result } = await run([
+    { calls: [["write_file", { path: "src/App.tsx", content: BROKEN_APP }]] },
+    { calls: [["run_build", {}]] },
+    { calls: [["write_file", { path: "src/App.tsx", content: GOOD_APP }]] },
+    { text: "Fixed it." },
+  ])
+  check(
+    "a good edit after a red build is rebuilt and accepted",
+    result.status === "succeeded",
+    `status=${result.status} error=${result.error}`,
+  )
+}
+
+// ---------------------------------------------------------------------------
+section("Running out of room keeps work that compiles")
+// ---------------------------------------------------------------------------
+
+{
+  /**
+   * Reaching the step limit used to set `failed` outright, which threw the run
+   * away: a model that had done real, compiling work and simply had more to do
+   * lost all of it, and the creator was told the edit failed.
+   */
+  const { result, workspace } = await run(
+    [
+      { calls: [["write_file", { path: "src/App.tsx", content: GOOD_APP }]] },
+      { calls: [["run_build", {}]] },
+      { calls: [["list_files", {}]] },
+      { calls: [["list_files", {}]] },
+    ],
+    blankProject("T"),
+    4,
+  )
+
+  check(
+    "work that builds survives the step limit",
+    result.status === "succeeded",
+    `status=${result.status} error=${result.error}`,
+  )
+  check("and the file really is in the change set", workspace.changed.has("src/App.tsx"))
+  check(
+    "and the creator is told it stopped early",
+    /limit of 4 steps/.test(result.message),
+    `message=${result.message}`,
+  )
+}
+
+{
+  // Ran out having written nothing. That is not half a job — it is no job, and
+  // calling it a success is exactly what the completion gate exists to stop.
+  const { result } = await run(
+    Array.from({ length: 6 }, () => ({ calls: [["list_files", {}]] as Array<[string, Record<string, unknown>]> })),
+    blankProject("T"),
+    3,
+  )
+  check(
+    "a run that changed nothing still fails",
+    result.status === "failed" && /Nothing was changed/.test(result.error ?? ""),
+    `status=${result.status} error=${result.error}`,
+  )
+}
+
+{
+  /**
+   * The token ceiling. The scripted provider reports ~1050 tokens a turn, so a
+   * cap of 3000 is reached after three of them — and it must be noticed BEFORE
+   * a turn rather than inside one, because a turn is a model call plus its
+   * tools and tearing that in half leaves a file written and its import never
+   * added.
+   */
+  const { result, provider } = await run(
+    [
+      { calls: [["write_file", { path: "src/App.tsx", content: GOOD_APP }]] },
+      { calls: [["run_build", {}]] },
+      { calls: [["list_files", {}]] },
+      { calls: [["list_files", {}]] },
+      { calls: [["list_files", {}]] },
+      { calls: [["list_files", {}]] },
+    ],
+    blankProject("T"),
+    20,
+    { maxTokens: 3000 },
+  )
+
+  check(
+    "the token ceiling stops the run well before the step limit",
+    provider.requests.length < 6 && provider.requests.length >= 2,
+    `turns=${provider.requests.length}`,
+  )
+  check(
+    "and it says so in tokens, not steps",
+    result.status === "succeeded" && /budget of 3k tokens/.test(result.message),
+    `status=${result.status} message=${result.message}`,
+  )
+  check(
+    "every request the provider saw was a complete turn",
+    provider.requests.every((r) => r.turns.length > 0),
+  )
+}
+
+{
+  // The warning arrives once, before the cutoff, and reads as an instruction.
+  const { provider } = await run(
+    Array.from({ length: 10 }, () => ({ calls: [["list_files", {}]] as Array<[string, Record<string, unknown>]> })),
+    blankProject("T"),
+    20,
+    { maxTokens: 6000 },
+  )
+  const warnings = provider.requests[provider.requests.length - 1].turns.filter(
+    (t) => t.role === "user" && /close to this run's budget/.test(t.content),
+  )
+  check("the model is warned it is running out, exactly once", warnings.length === 1, `warnings=${warnings.length}`)
+}
+
+// ---------------------------------------------------------------------------
+section("Compaction: the transcript stays inside a budget without losing the run")
+// ---------------------------------------------------------------------------
+
+/** A project big enough that reading a file is worth compacting. */
+function bulkyProject(): Record<string, string> {
+  const files: Record<string, string> = { ...blankProject("Bulky") }
+  for (let i = 0; i < 6; i++) {
+    files[`src/components/Big${i}.tsx`] =
+      `export default function Big${i}() {\n  return (\n    <section>\n` +
+      Array.from({ length: 90 }, (_, l) => `      <p>Big ${i} line ${l} with enough prose to be worth bytes.</p>`).join("\n") +
+      `\n    </section>\n  )\n}\n`
+  }
+  return files
+}
+
+{
+  // Under budget, nothing is touched — which is what keeps ordinary runs
+  // cacheable. A compactor that rewrites every turn destroys the prefix it is
+  // meant to be saving money on.
+  const { provider, events } = await run([
+    { calls: [["read_file", { path: "src/App.tsx" }]] },
+    { calls: [["write_file", { path: "src/App.tsx", content: GOOD_APP }]] },
+    { calls: [["run_build", {}]] },
+    { text: "done" },
+  ])
+
+  const anyElided = provider.requests.some((r) =>
+    r.turns.some((t) => t.role === "tool" && t.results.some((x) => x.output.startsWith("[elided]"))),
+  )
+  check("a short run is never rewritten", !anyElided)
+  check(
+    "and nothing claims it was compacted",
+    !events.some((e) => e.type === "tool" && e.name === "compact_context"),
+  )
+}
+
+{
+  /**
+   * THE STALE READ GOES FIRST, AND IT IS NOT THE OLDEST.
+   *
+   * Big0 is read first and rewritten later, so by the end its copy in the
+   * transcript describes a file that no longer exists in that form. Big1 is
+   * read second and never touched, so its copy is still true. Age would evict
+   * Big0 then Big1; correctness evicts Big0 and leaves Big1 alone.
+   */
+  const { provider, events, result } = await run(
+    [
+      { calls: [["read_file", { path: "src/components/Big0.tsx" }]] },
+      { calls: [["read_file", { path: "src/components/Big1.tsx" }]] },
+      { calls: [["write_file", { path: "src/components/Big0.tsx", content: "export default function Big0() {\n  return <p>small</p>\n}\n" }]] },
+      { calls: [["read_file", { path: "src/components/Big2.tsx" }]] },
+      { calls: [["run_build", {}]] },
+      { calls: [["list_files", {}]] },
+      { text: "Shrank Big0." },
+    ],
+    bulkyProject(),
+    20,
+    { compactBytes: 12_000 },
+  )
+
+  check("the run still succeeds", result.status === "succeeded", `error=${result.error}`)
+
+  const last = provider.requests[provider.requests.length - 1].turns
+  const outputs = last.flatMap((t) => (t.role === "tool" ? t.results.map((r) => r.output) : []))
+
+  const staleNote = outputs.find((o) => o.startsWith("[elided]") && o.includes("Big0.tsx"))
+  check(
+    "the read whose file was rewritten is the one removed",
+    !!staleNote && /CHANGED since/.test(staleNote),
+    `note=${staleNote?.slice(0, 90)}`,
+  )
+  check(
+    "and the note tells the model how to get it back",
+    !!staleNote && /read_file/.test(staleNote),
+  )
+  check(
+    "the run reports that it compacted",
+    events.some((e) => e.type === "tool" && e.name === "compact_context"),
+  )
+}
+
+{
+  /**
+   * STRUCTURE SURVIVES. The provider replays assistant turns verbatim and
+   * every tool result has to answer a call_id from one of them. Dropping a
+   * turn — or one result out of a turn — is a malformed conversation, not a
+   * shorter one, and the provider rejects it.
+   */
+  const { provider } = await run(
+    [
+      { calls: [["read_file", { path: "src/components/Big0.tsx" }]] },
+      { calls: [["read_file", { path: "src/components/Big1.tsx" }]] },
+      { calls: [["read_file", { path: "src/components/Big2.tsx" }]] },
+      { calls: [["read_file", { path: "src/components/Big3.tsx" }]] },
+      { calls: [["write_file", { path: "src/App.tsx", content: GOOD_APP }]] },
+      { calls: [["run_build", {}]] },
+      { text: "done" },
+    ],
+    bulkyProject(),
+    20,
+    { compactBytes: 10_000 },
+  )
+
+  const first = provider.requests[0].turns.filter((t) => t.role === "tool").length
+  const last = provider.requests[provider.requests.length - 1].turns
+  const toolTurns = last.filter((t) => t.role === "tool")
+  check("no tool turn was removed", toolTurns.length >= first + 4, `tool turns=${toolTurns.length}`)
+  check(
+    "every result still carries the id it must echo",
+    toolTurns.every((t) => t.role === "tool" && t.results.every((r) => typeof r.id === "string" && r.id.length > 0)),
+  )
+  check(
+    "and every result still has something in it",
+    toolTurns.every((t) => t.role === "tool" && t.results.every((r) => r.output.length > 0)),
+  )
+}
+
+{
+  /**
+   * The recap is what stops compaction from being amnesia: decisions, files
+   * touched, the build's verdict and the steps still open, restated from state
+   * that is known to be true rather than summarised by a second model call.
+   */
+  const { provider } = await run(
+    [
+      { calls: [["set_plan", { steps: ["Shrink Big0", "Shrink Big1", "Check the build"] }]] },
+      { calls: [["read_file", { path: "src/components/Big0.tsx" }]] },
+      { calls: [["read_file", { path: "src/components/Big1.tsx" }]] },
+      { calls: [["read_file", { path: "src/components/Big2.tsx" }]] },
+      { calls: [["write_file", { path: "src/components/Big0.tsx", content: "export default function Big0() {\n  return <p>x</p>\n}\n" }]] },
+      { calls: [["complete_step", { step: "Shrink Big0" }]] },
+      { calls: [["read_file", { path: "src/components/Big3.tsx" }]] },
+      { calls: [["run_build", {}]] },
+      { text: "done" },
+    ],
+    bulkyProject(),
+    20,
+    { compactBytes: 9_000 },
+  )
+
+  const last = provider.requests[provider.requests.length - 1].turns
+  const note = last.find((t) => t.role === "user" && /HAS BEEN COMPACTED/.test(t.content))
+  check("a recap goes in when anything is dropped", !!note)
+  check(
+    "it names what has already been written",
+    !!note && /Big0\.tsx/.test(note.role === "user" ? note.content : ""),
+  )
+  check(
+    "it names the steps still open",
+    !!note && /Shrink Big1/.test(note.role === "user" ? note.content : "") &&
+      !/STILL TO DO:[^]*Shrink Big0/.test(note.role === "user" ? note.content : ""),
+  )
+  check(
+    "it says where the build stands",
+    !!note && /build/i.test(note.role === "user" ? note.content : ""),
+  )
+  check(
+    "the plan's own result is never evicted — it is the record of the decision",
+    last.some((t) => t.role === "tool" && t.results.some((r) => /Shrink Big1/.test(r.output) && !r.output.startsWith("[elided]"))),
+  )
+}
+
+{
+  /**
+   * IDEMPOTENCE. Compaction runs again on every turn once a run is big; a pass
+   * that re-elides what it already elided would move the cache prefix every
+   * turn and undo the reason for the budget in the first place.
+   */
+  const { provider } = await run(
+    [
+      { calls: [["read_file", { path: "src/components/Big0.tsx" }]] },
+      { calls: [["read_file", { path: "src/components/Big1.tsx" }]] },
+      { calls: [["read_file", { path: "src/components/Big2.tsx" }]] },
+      { calls: [["read_file", { path: "src/components/Big3.tsx" }]] },
+      { calls: [["read_file", { path: "src/components/Big4.tsx" }]] },
+      { calls: [["write_file", { path: "src/App.tsx", content: GOOD_APP }]] },
+      { calls: [["run_build", {}]] },
+      { text: "done" },
+    ],
+    bulkyProject(),
+    20,
+    { compactBytes: 9_000 },
+  )
+
+  const doubled = provider.requests.some((r) =>
+    r.turns.some((t) => t.role === "tool" && t.results.some((x) => x.output.indexOf("[elided]") !== x.output.lastIndexOf("[elided]"))),
+  )
+  check("nothing is elided twice", !doubled)
+
+  const notes = provider.requests[provider.requests.length - 1].turns.filter(
+    (t) => t.role === "user" && /HAS BEEN COMPACTED/.test(t.content),
+  ).length
+  check(
+    "and the recap is not repeated on every turn once it fires",
+    notes <= 3,
+    `recaps=${notes}`,
+  )
+}
+
+
+
+// ---------------------------------------------------------------------------
+section("Compaction, driven directly: worst first, not oldest first")
+// ---------------------------------------------------------------------------
+
+{
+  /**
+   * The ordering rule, on a transcript built by hand so exactly one eviction
+   * is needed. Through the loop this is hard to pin down — the budget either
+   * evicts nothing or evicts several — and the property that matters is which
+   * ONE goes when only one has to.
+   *
+   * A is read and later rewritten, so its copy is a lie. B is read and never
+   * touched, so its copy is still true and is also OLDER than the read of C.
+   * Age would take A then B; correctness takes A and stops.
+   */
+  /**
+   * B AND C ARE BIGGER THAN A ON PURPOSE.
+   *
+   * Within a tier the compactor takes the biggest saving first, so if the
+   * stale read did not outrank them by REASON it would survive on size and
+   * this would pass for the wrong cause. It did, the first time this was
+   * written: every body was the same length, so the age tie-break picked A
+   * anyway and the priority could be deleted without a failure.
+   */
+  const body = (name: string, times: number) => `contents of ${name} `.repeat(times)
+
+  const turns: AgentTurn[] = [
+    { role: "user", content: "do it" },
+    { role: "assistant", content: "", toolCalls: [{ id: "a", name: "read_file", argumentsJson: "{}" }] },
+    { role: "tool", results: [{ id: "a", output: body("A", 100) }] },
+    { role: "assistant", content: "", toolCalls: [{ id: "b", name: "read_file", argumentsJson: "{}" }] },
+    { role: "tool", results: [{ id: "b", output: body("B", 400) }] },
+    { role: "assistant", content: "", toolCalls: [{ id: "w", name: "write_file", argumentsJson: "{}" }] },
+    { role: "tool", results: [{ id: "w", output: "Wrote src/A.tsx (12 chars)." }] },
+    { role: "assistant", content: "", toolCalls: [{ id: "c", name: "read_file", argumentsJson: "{}" }] },
+    { role: "tool", results: [{ id: "c", output: body("C", 400) }] },
+    { role: "assistant", content: "", toolCalls: [{ id: "d", name: "run_build", argumentsJson: "{}" }] },
+    { role: "tool", results: [{ id: "d", output: "Build succeeded." }] },
+    { role: "assistant", content: "", toolCalls: [{ id: "e", name: "run_build", argumentsJson: "{}" }] },
+    { role: "tool", results: [{ id: "e", output: "Build succeeded." }] },
+  ]
+
+  const calls = new Map([
+    ["a", { name: "read_file", path: "src/A.tsx" }],
+    ["b", { name: "read_file", path: "src/B.tsx" }],
+    ["w", { name: "write_file", path: "src/A.tsx" }],
+    ["c", { name: "read_file", path: "src/C.tsx" }],
+    ["d", { name: "run_build", path: "" }],
+    ["e", { name: "run_build", path: "" }],
+  ])
+
+  const before = transcriptBytes(turns)
+  // Just under, so exactly one result has to go — and A is the smallest of
+  // the three, which is the point: only its staleness gets it chosen.
+  const outcome = compactTurns({ turns, calls, budgetBytes: before - 100, keepRecentTurns: 1 })
+
+  const out = (id: string) =>
+    outcome.turns.flatMap((t) => (t.role === "tool" ? t.results : [])).find((r) => r.id === id)?.output ?? ""
+
+  check("the stale read is the one that goes", out("a").startsWith("[elided]"))
+  check("the accurate older read survives it", !out("b").startsWith("[elided]"))
+  check("so does the newer one", !out("c").startsWith("[elided]"))
+  check("it is reported as stale, not as making room", outcome.stalePaths.includes("src/A.tsx"))
+  check("the write's own result is never touched", out("w") === "Wrote src/A.tsx (12 chars).")
+  check("and it actually came under budget", outcome.bytesAfter < before)
+
+  // A second pass with the same budget must be a no-op, or the cache prefix
+  // moves on every turn and the budget costs more than it saves.
+  const again = compactTurns({ turns: outcome.turns, calls, budgetBytes: before - 100, keepRecentTurns: 1 })
+  check("running it again changes nothing", !again.compacted)
+
+  /**
+   * And under a budget nothing can satisfy, the pass that CANNOT return early
+   * still must not re-elide what it already elided — a stub wrapped in a stub
+   * is a prefix that moves every turn, which is the cost this whole file
+   * exists to avoid.
+   */
+  const desperate = compactTurns({ turns: outcome.turns, calls, budgetBytes: 0, keepRecentTurns: 0 })
+  const stubs = desperate.turns
+    .flatMap((t) => (t.role === "tool" ? t.results : []))
+    .map((r) => r.output)
+  check(
+    "and a pass that cannot come under budget never elides an elision",
+    stubs.every((x) => x.indexOf("[elided]") === x.lastIndexOf("[elided]")),
+    stubs.find((x) => x.indexOf("[elided]") !== x.lastIndexOf("[elided]"))?.slice(0, 80),
+  )
+}
+
+{
+  /**
+   * An elision is never elided again, whatever size it is.
+   *
+   * The size floor happens to exclude the stubs this file writes today, which
+   * made the guard look unnecessary — but "today's stubs are short" is a
+   * coupling nobody would remember, and a stub wrapped in a stub is a prefix
+   * that moves on every turn. Asserted directly, with a stub long enough that
+   * only the guard can save it.
+   */
+  const long = "[elided] " + "x".repeat(4000)
+  const turns: AgentTurn[] = [
+    { role: "user", content: "go" },
+    { role: "assistant", content: "", toolCalls: [{ id: "a", name: "read_file", argumentsJson: "{}" }] },
+    { role: "tool", results: [{ id: "a", output: long }] },
+    { role: "assistant", content: "", toolCalls: [{ id: "b", name: "read_file", argumentsJson: "{}" }] },
+    { role: "tool", results: [{ id: "b", output: "y".repeat(4000) }] },
+  ]
+  const outcome = compactTurns({
+    turns,
+    calls: new Map([
+      ["a", { name: "read_file", path: "src/A.tsx" }],
+      ["b", { name: "read_file", path: "src/B.tsx" }],
+    ]),
+    budgetBytes: 0,
+    keepRecentTurns: 0,
+  })
+  const kept = outcome.turns.flatMap((t) => (t.role === "tool" ? t.results : []))
+  check(
+    "an existing elision is left exactly as it was",
+    kept.find((r) => r.id === "a")?.output === long,
+  )
+  check(
+    "while the real content beside it is taken",
+    kept.find((r) => r.id === "b")?.output.startsWith("[elided]") === true,
+  )
+}
+
+{
+  // Under budget: not one byte is rewritten. This is what keeps ordinary runs
+  // byte-identical turn to turn, which is the whole reason they cache.
+  const turns: AgentTurn[] = [
+    { role: "user", content: "hello" },
+    { role: "assistant", content: "", toolCalls: [{ id: "a", name: "read_file", argumentsJson: "{}" }] },
+    { role: "tool", results: [{ id: "a", output: "x".repeat(5000) }] },
+  ]
+  const outcome = compactTurns({
+    turns,
+    calls: new Map([["a", { name: "read_file", path: "src/A.tsx" }]]),
+    budgetBytes: 100_000,
+  })
+  check("a transcript inside its budget is returned untouched", !outcome.compacted && outcome.turns === turns)
+}
+
+
+
+// ---------------------------------------------------------------------------
+section("find_usages, through the real workspace")
+// ---------------------------------------------------------------------------
+
+{
+  const files = { ...blankProject("Usages") }
+  // Imported and never rendered — the shape of "why isn't my section showing".
+  files["src/components/Reviews.tsx"] = `export default function Reviews() {
+  return <section>Reviews</section>
+}
+`
+  files["src/App.tsx"] = `import Hero from "./components/Hero"
+import Reviews from "./components/Reviews"
+
+export default function App() {
+  return <Hero />
+}
+`
+
+  const workspace = new ProjectWorkspace(files)
+  const hero = await workspace.execute("find_usages", JSON.stringify({ name: "Hero" }), esbuild)
+  const reviews = await workspace.execute("find_usages", JSON.stringify({ name: "Reviews" }), esbuild)
+  const nothing = await workspace.execute("find_usages", JSON.stringify({ name: "Ghost" }), esbuild)
+
+  check(
+    "it answers where a component is defined, imported and rendered",
+    /Defined in: src\/components\/Hero\.tsx/.test(hero) &&
+      /Imported by: src\/App\.tsx/.test(hero) &&
+      /Rendered in: src\/App\.tsx/.test(hero),
+    hero,
+  )
+  check(
+    "and states the imported-but-never-rendered case outright",
+    /never renders it/.test(reviews),
+    reviews,
+  )
+  check(
+    "an unknown name is a sentence, not an empty answer",
+    /Nothing exports or renders/.test(nothing) && /search_code/.test(nothing),
+    nothing,
+  )
+
+  /**
+   * The map is rebuilt per call rather than cached: a project changes under a
+   * run, and an answer from three edits ago is a confident lie.
+   */
+  await workspace.execute(
+    "write_file",
+    JSON.stringify({ path: "src/App.tsx", content: `import Reviews from "./components/Reviews"\n\nexport default function App() {\n  return <Reviews />\n}\n` }),
+    esbuild,
+  )
+  const after = await workspace.execute("find_usages", JSON.stringify({ name: "Reviews" }), esbuild)
+  check(
+    "and it sees edits the run has already made",
+    /Rendered in: src\/App\.tsx/.test(after) && !/never renders it/.test(after),
+    after,
+  )
+}
+
+
+
+// ---------------------------------------------------------------------------
+section("Does it RENDER, or does it only compile?")
+// ---------------------------------------------------------------------------
+
+/**
+ * esbuild proves a project parses. TypeScript proves the types line up.
+ * Neither runs a line of it, so neither has an opinion about `const items =
+ * null` followed by `items.map(…)` — which bundles, typechecks, and shows a
+ * blank page the moment it is opened. The creator's first look at their own
+ * site is a white screen and the run that produced it reported success.
+ */
+
+const RENDER_BASE = blankProject("Render Test")
+
+/**
+ * A declaration rather than `const withApp = (app) => ({…})`.
+ *
+ * This file has no semicolons, and an arrow whose body is a parenthesised
+ * object literal followed by a bare `{` block parses as neither — TS1005,
+ * "'=>' expected", pointing at the block rather than at the line that caused
+ * it. A declaration cannot be continued by the next line.
+ */
+function withApp(app: string) {
+  return { ...RENDER_BASE, "src/App.tsx": app }
+}
+
+{
+  const found = rootComponent(RENDER_BASE)
+  check(
+    "the component the page mounts is read out of the project, not assumed",
+    found?.module === "src/App.tsx" && found?.name === "default",
+    JSON.stringify(found),
+  )
+  check(
+    "a project with no entry is 'could not tell', not a guess",
+    rootComponent({ "src/Thing.tsx": "export default function Thing() { return null }" }) === null,
+  )
+}
+
+{
+  const clean = await renderCheck(RENDER_BASE)
+  check(
+    "the shipped starter renders",
+    clean.ran === true && clean.ok === true,
+    JSON.stringify(clean),
+  )
+}
+
+{
+  /**
+   * THE OBJECTION TO SERVER-RENDERING A BROWSER PAGE is that half of it
+   * touches `window`. Two things answer it, and both are asserted rather than
+   * assumed — a false alarm here would refuse a run that was correct.
+   *
+   * `renderToStaticMarkup` does not run effects, so the usual home of browser
+   * APIs never executes. What is left is module scope and render bodies, and
+   * those get a small shim.
+   */
+  const cases: Array<[string, string]> = [
+    [
+      "window in a render body",
+      `export default function App() {\n  const wide = window.innerWidth > 700\n  return <p>{wide ? "w" : "n"}</p>\n}\n`,
+    ],
+    [
+      "window inside useEffect",
+      `import { useEffect, useState } from "react"\nexport default function App() {\n  const [w, setW] = useState(0)\n  useEffect(() => setW(window.innerWidth), [])\n  return <p>{w}</p>\n}\n`,
+    ],
+    [
+      /**
+       * This one failed the first implementation. The shim was written beside
+       * the imports in the entry file, and ESM hoists imports above anything
+       * written next to them — so it ran AFTER every module's top-level code.
+       * It is emitted as a banner now: the first bytes of the file.
+       */
+      "document at module scope",
+      `const root = document.documentElement\nexport default function App() { return <p>{root ? "y" : "n"}</p> }\n`,
+    ],
+    [
+      "localStorage in a render body",
+      `export default function App() { return <p>{localStorage.getItem("x") ?? "none"}</p> }\n`,
+    ],
+    [
+      "matchMedia in a render body",
+      `export default function App() { return <p>{window.matchMedia("(max-width: 600px)").matches ? "s" : "l"}</p> }\n`,
+    ],
+  ]
+
+  for (const [label, app] of cases) {
+    const result = await renderCheck(withApp(app))
+    check(
+      `a browser API is not a false alarm — ${label}`,
+      result.ran === true && result.ok === true,
+      JSON.stringify(result),
+    )
+  }
+}
+
+{
+  const crash = await renderCheck({
+    ...RENDER_BASE,
+    "src/components/Hero.tsx": `const items = null\nexport default function Hero() {\n  return <section>{items.map(String)}</section>\n}\n`,
+  })
+  check(
+    "a page that compiles and throws is caught",
+    crash.ran === true && crash.ok === false && /reading 'map'/.test(renderFailure(crash)?.message ?? ""),
+    JSON.stringify(crash),
+  )
+  check(
+    "and the report names the component rather than React's internals",
+    renderFailure(crash)?.where === "Hero",
+    renderFailure(crash)?.where ?? "",
+  )
+  check(
+    "the words handed to the model say what to do about it",
+    /THE PAGE THREW WHILE RENDERING/.test(formatRenderFailure(crash)) &&
+      /Fix this before you finish/.test(formatRenderFailure(crash)),
+  )
+}
+
+{
+  const undefinedComponent = await renderCheck(
+    withApp(`import Hero from "./components/Hero"\nconst Missing = undefined\nexport default function App() { return <><Hero /><Missing /></> }\n`),
+  )
+  check(
+    "so is a component that turns out to be undefined",
+    undefinedComponent.ran === true && undefinedComponent.ok === false,
+    JSON.stringify(undefinedComponent),
+  )
+}
+
+// ---------------------------------------------------------------------------
+section("Rendering a model's code is sandboxed, or it does not happen")
+// ---------------------------------------------------------------------------
+
+{
+  /**
+   * THE ENVIRONMENT IS EMPTY.
+   *
+   * Everywhere else, generated code runs in the creator's browser or in an
+   * opaque-origin iframe. This is the first place it runs on our own machine,
+   * and the machine holds a service-role key. The child process is given a
+   * bare environment; this asserts it by planting a variable and throwing if
+   * the render can see it.
+   */
+  process.env.STORELIB_SANDBOX_PROBE = "leaked"
+  const probe = await renderCheck(
+    withApp(
+      `export default function App() {\n  if (process.env.STORELIB_SANDBOX_PROBE) throw new Error("the environment leaked in")\n  return <p>sealed</p>\n}\n`,
+    ),
+  )
+  delete process.env.STORELIB_SANDBOX_PROBE
+  check(
+    "not one of this process's environment variables is visible to it",
+    probe.ran === true && probe.ok === true,
+    JSON.stringify(probe),
+  )
+}
+
+{
+  /**
+   * AND IT CANNOT READ THE DISK. The bundler already refuses a project that
+   * imports `node:fs`, so this is defence behind a door that is already shut —
+   * which is the point of asserting it, because the day something gets past
+   * the first door this is what is left.
+   */
+  const nosy = await renderCheck(
+    withApp(
+      `export default function App() {\n  const fs = require("node:fs")\n  return <p>{fs.readFileSync("/etc/hostname", "utf8")}</p>\n}\n`,
+    ),
+  )
+  check(
+    "reaching for the filesystem is refused by the runtime, not by luck",
+    nosy.ran === true && nosy.ok === false && /permission|restricted|not allowed/i.test(renderFailure(nosy)?.message ?? ""),
+    JSON.stringify(nosy),
+  )
+}
+
+{
+  /**
+   * THE SANDBOX IS NAMED BY THE RUNTIME, NOT BY US.
+   *
+   * The permission model is `--experimental-permission` on Node 20 and
+   * `--permission` from 22. Guessing wrong makes the child exit before it
+   * prints anything, which reads as "could not check" — so the feature would
+   * be quietly dead on half the runtimes it might be deployed to. The checks
+   * above prove it is alive on THIS Node; this one proves it was alive because
+   * a flag was found rather than because a guess happened to match.
+   */
+  const flag = await permissionFlag()
+  check(
+    "a working permission flag was found for this Node",
+    flag === "--permission" || flag === "--experimental-permission",
+    String(flag),
+  )
+}
+
+{
+  /**
+   * `while (true) {}` is a thing a model writes. Without a timeout it is a run
+   * that never ends and a request that never answers.
+   */
+  const started = Date.now()
+  const stuck = await renderCheck(withApp(`export default function App() { while (true) {} }\n`))
+  const elapsed = Date.now() - started
+  check(
+    "a page stuck in a loop is stopped rather than waited for",
+    stuck.ran === true && stuck.ok === false && /stuck in a loop/.test(renderFailure(stuck)?.message ?? ""),
+    JSON.stringify(stuck),
+  )
+  check("and it is stopped in seconds, not minutes", elapsed < 20_000, `${elapsed}ms`)
+}
+
+// ---------------------------------------------------------------------------
+section("A run may not finish on a page that does not render")
+// ---------------------------------------------------------------------------
+
+{
+  /**
+   * End to end, through the real loop: the model writes something that
+   * compiles and throws, builds, and goes quiet. The build gate has to see it.
+   */
+  const CRASHES = `const items = null
+
+export default function App() {
+  return <main>{items.map(String)}</main>
+}
+`
+  const workspace = new ProjectWorkspace(blankProject("Gate"))
+  const provider = {
+    id: "scripted",
+    calls: 0,
+    async complete() {
+      this.calls++
+      if (this.calls === 1) {
+        return {
+          text: "",
+          toolCalls: [
+            { id: "w", name: "write_file", argumentsJson: JSON.stringify({ path: "src/App.tsx", content: CRASHES }) },
+            { id: "b", name: "run_build", argumentsJson: "{}" },
+          ],
+          raw: [],
+          usage: { inputTokens: 10, cachedInputTokens: 0, cacheWriteTokens: 0, outputTokens: 5 },
+          stop: "tool_calls" as const,
+        }
+      }
+      return {
+        text: "Rebuilt the page.",
+        toolCalls: [],
+        raw: [],
+        usage: { inputTokens: 10, cachedInputTokens: 0, cacheWriteTokens: 0, outputTokens: 5 },
+        stop: "done" as const,
+      }
+    },
+  }
+
+  const loop = agentLoop({
+    provider: provider as never,
+    model: "test-model",
+    prompt: "rebuild the page",
+    workspace,
+    esbuild,
+    maxTurns: 6,
+    render: async (files) => {
+      const result = await renderCheck(files)
+      if (!result.ran) return null
+      return { ok: result.ok, report: formatRenderFailure(result) }
+    },
+  })
+  const { result } = await drain(loop)
+
+  check(
+    "the build is red on a page that throws, even though it compiles",
+    workspace.buildOk === false,
+    `buildOk=${workspace.buildOk}`,
+  )
+  check(
+    "so the run does not succeed",
+    result.status === "failed",
+    `status=${result.status} error=${result.error}`,
+  )
+  check(
+    "and nothing is saved over the working site",
+    /nothing was changed/.test(result.error ?? ""),
+    `error=${result.error}`,
+  )
+  check(
+    "and the creator is told it rendered badly, not that it did not compile",
+    /threw when it was rendered/.test(result.error ?? "") && !/did not compile/.test(result.error ?? ""),
+    `error=${result.error}`,
+  )
+}
+
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {

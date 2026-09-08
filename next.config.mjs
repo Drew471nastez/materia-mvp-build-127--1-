@@ -55,7 +55,13 @@ const nextConfig = {
   },
   // `esbuild` ships a per-platform native binary and is loaded at runtime by
   // the Sites agent's run_build tool; bundling it breaks the binary lookup.
-  serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp', 'esbuild'],
+  //
+  // `typescript` is here for the same reason and was ALSO a devDependency,
+  // which is worse: run_build typechecks the generated project before a run is
+  // allowed to finish, and a production install without dev packages would
+  // have had no compiler — so the gate would have reported "could not check"
+  // for every run and quietly stopped gating anything. It is a dependency now.
+  serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp', 'esbuild', 'typescript'],
   // Note: Vercel serverless functions have a 4.5MB body size limit.
   // Large file uploads bypass the server via direct-to-storage signed URLs
   // (see /api/v2/upload/prepare). Chunked uploads (/api/v2/upload/chunk)
