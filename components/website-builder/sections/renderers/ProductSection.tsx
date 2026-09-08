@@ -82,12 +82,12 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
   return (
     <SectionWrapper bgColor={scheme.bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div
-        className={cn("w-full mx-auto", layout === "one_column" ? "max-w-2xl px-6" : "max-w-[1230px] flex flex-col md:flex-row")}
+        className={cn("w-full mx-auto", layout === "one_column" ? "max-w-2xl px-6" : "max-w-[1230px] flex flex-col @[768px]:flex-row")}
         style={{ color: scheme.text, paddingTop: `${s.padding_top ?? 48}px`, paddingBottom: `${s.padding_bottom ?? 48}px` }}
       >
         {/* Image column */}
         <div
-          className={cn(layout === "two_column" ? "px-6 md:px-8" : "mb-8")}
+          className={cn(layout === "two_column" ? "px-6 @[768px]:px-8" : "mb-8")}
           style={layout === "two_column" ? { width: imageWidth, flexShrink: 0 } : undefined}
         >
           {allImages.length > 0 ? (
@@ -136,7 +136,7 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
         </div>
 
         {/* Content column */}
-        <div className={cn("flex-1 min-w-0", layout === "two_column" ? "px-6 md:px-8 py-4" : "")}>
+        <div className={cn("flex-1 min-w-0", layout === "two_column" ? "px-6 @[768px]:px-8 py-4" : "")}>
           {/* Sale badge */}
           {isOnSale && (
             <span
@@ -149,7 +149,7 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
 
           {/* Title */}
           <h1
-            className="text-2xl md:text-3xl font-bold mb-4 leading-tight"
+            className="text-2xl @[768px]:text-3xl font-bold mb-4 leading-tight"
             style={{ fontFamily: theme.font_heading, color: scheme.text }}
           >
             {title}

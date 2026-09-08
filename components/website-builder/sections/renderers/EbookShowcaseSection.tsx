@@ -126,7 +126,7 @@ export function EbookShowcaseSection({ section, isEditing, isSelected, onClick }
             {content}
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 gap-10 items-center">
+          <div className="grid @[768px]:grid-cols-2 gap-10 items-center">
             {layout === "right" ? <>{content}{cover}</> : <>{cover}{content}</>}
           </div>
         )}

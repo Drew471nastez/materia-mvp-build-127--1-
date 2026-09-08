@@ -25,13 +25,13 @@ export function ProcessStepsSection({ section, isEditing, isSelected, onClick }:
             {!!s.subheading && <p className="opacity-70">{str(s.subheading)}</p>}
           </div>
         )}
-        <div className={layout === "horizontal" ? "grid gap-6 grid-cols-1 md:grid-cols-3 lg:grid-cols-4" : "space-y-8"}>
+        <div className={layout === "horizontal" ? "grid gap-6 grid-cols-1 @[768px]:grid-cols-3 @[1024px]:grid-cols-4" : "space-y-8"}>
           {blocks.map((b, i) => {
             const icon = str(b.settings.icon, "zap")
             return (
               <div
                 key={b.id}
-                className={`relative ${layout === "zigzag" && i % 2 === 1 ? "md:ml-20" : ""}`}
+                className={`relative ${layout === "zigzag" && i % 2 === 1 ? "@[768px]:ml-20" : ""}`}
               >
                 <div className="flex gap-4">
                   {showNumbers && (
@@ -54,7 +54,7 @@ export function ProcessStepsSection({ section, isEditing, isSelected, onClick }:
                 </div>
                 {layout === "horizontal" && i < blocks.length - 1 && (
                   <div
-                    className="hidden lg:block absolute top-5 right-0 translate-x-full w-full h-px"
+                    className="hidden @[1024px]:block absolute top-5 right-0 translate-x-full w-full h-px"
                     style={{ background: connector }}
                   />
                 )}

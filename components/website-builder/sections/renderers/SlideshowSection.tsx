@@ -30,7 +30,7 @@ export function SlideshowSection({ section, theme, isEditing, isSelected, onClic
         )}
         <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
           <div className="max-w-[1230px] mx-auto w-full px-8 text-center flex flex-col items-center">
-            {!!slideSettings.heading && <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: theme.font_heading }}>{str(slideSettings.heading as unknown)}</h2>}
+            {!!slideSettings.heading && <h2 className="text-4xl @[768px]:text-5xl font-bold mb-4" style={{ fontFamily: theme.font_heading }}>{str(slideSettings.heading as unknown)}</h2>}
             {!!slideSettings.subheading && <p className="text-lg opacity-80 max-w-xl mb-6">{str(slideSettings.subheading as unknown)}</p>}
             {!!slideSettings.button_text && (
               <button

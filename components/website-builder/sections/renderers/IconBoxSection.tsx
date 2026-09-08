@@ -41,7 +41,7 @@ export function IconBoxSection({ section, theme, isEditing, isSelected, onClick 
 
   const alignClass: Record<string, string> = { left: "text-left items-start", center: "text-center items-center", right: "text-right items-end" }
   const headerAlignClass: Record<string, string> = { left: "text-left", center: "text-center", right: "text-right" }
-  const colsClass: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-1 sm:grid-cols-2", 3: "grid-cols-1 sm:grid-cols-3", 4: "grid-cols-2 md:grid-cols-4", 5: "grid-cols-2 md:grid-cols-5" }
+  const colsClass: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-1 @[640px]:grid-cols-2", 3: "grid-cols-1 @[640px]:grid-cols-3", 4: "grid-cols-2 @[768px]:grid-cols-4", 5: "grid-cols-2 @[768px]:grid-cols-5" }
 
   return (
     <SectionWrapper bgColor={c.bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>

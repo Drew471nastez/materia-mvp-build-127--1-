@@ -22,7 +22,7 @@ export function TestimonialsSection({ section, theme, isEditing, isSelected, onC
         {blocks.length === 0 ? (
           <p className="text-center text-sm opacity-40" style={{ color: paraColor }}>Add testimonial blocks in the sidebar</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 @[640px]:grid-cols-2 @[768px]:grid-cols-3 gap-6">
             {blocks.map(block => (
               <div key={block.id} className="rounded-xl p-6 border" style={{ background: cardBg, borderColor: c.inset_border }}>
                 <p className="text-[14px] leading-relaxed mb-4" style={{ color: paraColor }}>

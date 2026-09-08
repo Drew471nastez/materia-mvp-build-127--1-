@@ -52,7 +52,7 @@ export function PromotionBannerSection({ section, theme, isEditing, isSelected, 
                 <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: c.image_overlay_text }}>{str(s.subheading)}</span>
               )}
               {!!s.heading && (
-                <h2 className="text-4xl md:text-5xl font-bold leading-tight" style={{ color: c.image_overlay_text, fontFamily: theme.font_heading }}>{str(s.heading)}</h2>
+                <h2 className="text-4xl @[768px]:text-5xl font-bold leading-tight" style={{ color: c.image_overlay_text, fontFamily: theme.font_heading }}>{str(s.heading)}</h2>
               )}
               {!!s.description && (
                 <p className="text-base opacity-90" style={{ color: c.image_overlay_text }}>{str(s.description)}</p>

@@ -106,7 +106,7 @@ export function MapEmbedSection({ section, isEditing, isSelected, onClick }: Sec
             {mapBlock}
           </div>
         ) : (
-          <div className={`grid gap-6 md:grid-cols-2 ${layout === "map_left" ? "" : ""}`}>
+          <div className={`grid gap-6 @[768px]:grid-cols-2 ${layout === "map_left" ? "" : ""}`}>
             {layout === "map_left" ? <>{mapBlock}{showInfo && infoBlock}</> : <>{showInfo && infoBlock}{mapBlock}</>}
           </div>
         )}

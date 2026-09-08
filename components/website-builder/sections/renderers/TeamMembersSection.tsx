@@ -18,9 +18,9 @@ export function TeamMembersSection({ section, isEditing, isSelected, onClick }: 
 
   const gridClass = layout === "list"
     ? "space-y-6"
-    : cols === "2" ? "grid gap-6 md:grid-cols-2"
-    : cols === "4" ? "grid gap-6 md:grid-cols-2 lg:grid-cols-4"
-    : "grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+    : cols === "2" ? "grid gap-6 @[768px]:grid-cols-2"
+    : cols === "4" ? "grid gap-6 @[768px]:grid-cols-2 @[1024px]:grid-cols-4"
+    : "grid gap-6 @[768px]:grid-cols-2 @[1024px]:grid-cols-3"
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>

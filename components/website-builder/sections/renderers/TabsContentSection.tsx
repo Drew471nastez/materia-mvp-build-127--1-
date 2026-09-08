@@ -72,7 +72,7 @@ export function TabsContentSection({ section, isEditing, isSelected, onClick }: 
         // eslint-disable-next-line @next/next/no-img-element
         <img src={str(activeBlock.settings.image)} alt="" className="w-full h-64 object-cover rounded mb-4" />
       )}
-      <div className={imagePos === "left" || imagePos === "right" ? "grid md:grid-cols-2 gap-6 items-center" : ""}>
+      <div className={imagePos === "left" || imagePos === "right" ? "grid @[768px]:grid-cols-2 gap-6 items-center" : ""}>
         {imagePos === "left" && !!activeBlock.settings.image && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={str(activeBlock.settings.image)} alt="" className="w-full rounded" />
@@ -115,7 +115,7 @@ export function TabsContentSection({ section, isEditing, isSelected, onClick }: 
             {panel}
           </>
         ) : (
-          <div className={`grid gap-6 ${position === "left" ? "md:grid-cols-[200px_1fr]" : "md:grid-cols-[1fr_200px]"}`}>
+          <div className={`grid gap-6 ${position === "left" ? "@[768px]:grid-cols-[200px_1fr]" : "@[768px]:grid-cols-[1fr_200px]"}`}>
             {position === "left" ? <>{tabBar}{panel}</> : <>{panel}{tabBar}</>}
           </div>
         )}

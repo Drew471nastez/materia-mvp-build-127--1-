@@ -47,8 +47,8 @@ export function TimelineSection({ section, isEditing, isSelected, onClick }: Sec
                     layout === "left"
                       ? "pl-14"
                       : isRight
-                        ? "md:ml-[50%] md:pl-10"
-                        : "md:mr-[50%] md:pr-10 md:text-right"
+                        ? "@[768px]:ml-[50%] @[768px]:pl-10"
+                        : "@[768px]:mr-[50%] @[768px]:pr-10 @[768px]:text-right"
                   }>
                     <div className="text-sm font-semibold mb-1" style={{ color: highlight }}>{str(b.settings.year)}</div>
                     <h3 className="text-xl font-bold mb-2">{str(b.settings.title)}</h3>

@@ -22,10 +22,10 @@ export function PressMentionsSection({ section, isEditing, isSelected, onClick }
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 60
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 60
 
-  const gridCols = cols === "3" ? "grid-cols-2 md:grid-cols-3"
-    : cols === "5" ? "grid-cols-2 md:grid-cols-5"
-    : cols === "6" ? "grid-cols-2 md:grid-cols-6"
-    : "grid-cols-2 md:grid-cols-4"
+  const gridCols = cols === "3" ? "grid-cols-2 @[768px]:grid-cols-3"
+    : cols === "5" ? "grid-cols-2 @[768px]:grid-cols-5"
+    : cols === "6" ? "grid-cols-2 @[768px]:grid-cols-6"
+    : "grid-cols-2 @[768px]:grid-cols-4"
 
   const logoStyle = grayscale
     ? { filter: "grayscale(1)", opacity: 0.7, transition: "filter 0.2s, opacity 0.2s" }

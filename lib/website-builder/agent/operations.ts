@@ -54,6 +54,16 @@ export type ThemeOp =
   | { kind: "move_section"; id: string; index: number }
   | { kind: "remove_section"; id: string }
   | { kind: "rename_section"; id: string; name: string }
+  /**
+   * HIDING IS NOT DELETING, and the difference is the creator's work.
+   *
+   * "Take the FAQ off for now", "hide the newsletter until launch" — every one
+   * of those is temporary, and the only tool the agent had was remove_section.
+   * So the questions somebody wrote were gone, and the only way back was Undo,
+   * in that session, before a reload. The editor's own eye toggle has always
+   * done this properly; the agent writes through the same flag.
+   */
+  | { kind: "set_section_visibility"; id: string; hidden: boolean }
   | { kind: "update_theme"; settings: Record<string, unknown> }
   /**
    * BLOCKS ARE WHERE THE CONTENT LIVES for half the library.
@@ -162,6 +172,14 @@ export function applyOp(state: ThemeState, op: ThemeOp): ThemeState {
       const rest = state.sections.filter((_, i) => i !== from)
       rest.splice(clampIndex(rest, op.index), 0, moving)
       return { ...state, sections: rest }
+    }
+
+    case "set_section_visibility": {
+      if (!state.sections.some((s) => s.id === op.id)) return state
+      return {
+        ...state,
+        sections: state.sections.map((s) => (s.id === op.id ? { ...s, hidden: op.hidden } : s)),
+      }
     }
 
     case "remove_section": {

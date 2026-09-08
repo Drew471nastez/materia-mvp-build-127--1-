@@ -1428,6 +1428,125 @@ section("The mobile sheet snaps where it should")
   )
 }
 
+// ===========================================================================
+section("Hiding a section is not deleting it")
+// ===========================================================================
+
+/**
+ * The agent had exactly one way to take something off a page, and it was
+ * destructive. "Take the FAQ off for now" and "delete the FAQ" reached the
+ * same tool, so the questions somebody had written were gone and the only way
+ * back was Undo — in that session, before a reload, if they noticed.
+ *
+ * The editor's own eye toggle has always done this properly. The agent writes
+ * through the same flag now.
+ */
+{
+  const { result } = await run(
+    [
+      { calls: [["set_section_visibility", { id: "faq-1", hidden: true }]] },
+      { text: "Hidden for now." },
+    ],
+    pageWithFaq(),
+  )
+  const after = applyOps(pageWithFaq(), result.ops)
+  const faq = after.sections.find((s) => s.id === "faq-1")
+
+  check("a section can be hidden", faq?.hidden === true, JSON.stringify(result.ops))
+  check("it is still on the page", after.sections.length === 3)
+  check(
+    "and its content is untouched, which is the whole point",
+    faq?.blocks?.length === 2 &&
+      faq?.blocks?.[0]?.settings.question === "What is your return policy?",
+  )
+}
+
+{
+  const hiddenPage = applyOps(pageWithFaq(), [
+    { kind: "set_section_visibility", id: "faq-1", hidden: true },
+  ])
+  const { result } = await run(
+    [
+      { calls: [["set_section_visibility", { id: "faq-1", hidden: false }]] },
+      { text: "Back." },
+    ],
+    hiddenPage,
+  )
+  const after = applyOps(hiddenPage, result.ops)
+  check(
+    "and shown again in one call, with everything still in it",
+    after.sections.find((s) => s.id === "faq-1")?.hidden === false &&
+      after.sections.find((s) => s.id === "faq-1")?.blocks?.length === 2,
+  )
+}
+
+{
+  /**
+   * Hiding what is already hidden must not count as a change. It would stream
+   * to the browser, land in the transcript as work that was done, and satisfy
+   * the "did anything actually happen" check with nothing to show.
+   */
+  const hiddenPage = applyOps(pageWithFaq(), [
+    { kind: "set_section_visibility", id: "faq-1", hidden: true },
+  ])
+  const { result } = await run(
+    [
+      { calls: [["set_section_visibility", { id: "faq-1", hidden: true }]] },
+      { text: "Already hidden." },
+    ],
+    hiddenPage,
+  )
+  check("hiding a hidden section is not reported as a change", result.ops.length === 0)
+}
+
+{
+  const { result } = await run([
+    { calls: [["set_section_visibility", { id: "nope-1", hidden: true }]] },
+    { text: "Could not find it." },
+  ])
+  check("an id that is not there changes nothing", result.ops.length === 0)
+}
+
+{
+  const { result } = await run([
+    { calls: [["set_section_visibility", { id: "hero-1" }]] },
+    { text: "Asked again." },
+  ])
+  check("and `hidden` has to be a boolean, not left to a default", result.ops.length === 0)
+}
+
+check(
+  "the model is told to prefer hiding, in the system prompt, not just given the tool",
+  /PREFER HIDING TO DELETING/.test(
+    readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"),
+  ),
+)
+
+/**
+ * The applier is tested DIRECTLY as well as through the loop. The loop refuses
+ * things before the applier sees them, so a loop-only test passes whether or
+ * not the applier does the right thing — and the applier is the half that also
+ * runs in the browser.
+ */
+{
+  const direct = applyOps(pageWithFaq(), [
+    { kind: "set_section_visibility", id: "faq-1", hidden: true },
+  ])
+  check(
+    "the browser's applier hides the same section the server did",
+    direct.sections.find((s) => s.id === "faq-1")?.hidden === true &&
+      direct.sections.length === 3,
+  )
+  const untouched = applyOps(pageWithFaq(), [
+    { kind: "set_section_visibility", id: "missing", hidden: true },
+  ])
+  check(
+    "and an id it has never heard of leaves the page alone rather than throwing",
+    untouched.sections.length === 3 &&
+      untouched.sections.every((s) => !s.hidden),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

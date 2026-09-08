@@ -16,7 +16,7 @@ export function CollectionListSection({ section, theme, isEditing, isSelected, o
 
   const ratioClass: Record<string, string> = { adapt: "aspect-[4/5]", square: "aspect-square", portrait: "aspect-[3/4]", landscape: "aspect-[4/3]" }
   const headerAlignClass: Record<string, string> = { left: "text-left", center: "text-center", right: "text-right" }
-  const colsClass: Record<number, string> = { 2: "grid-cols-2", 3: "grid-cols-2 md:grid-cols-3", 4: "grid-cols-2 md:grid-cols-4", 5: "grid-cols-2 md:grid-cols-5", 6: "grid-cols-2 md:grid-cols-6" }
+  const colsClass: Record<number, string> = { 2: "grid-cols-2", 3: "grid-cols-2 @[768px]:grid-cols-3", 4: "grid-cols-2 @[768px]:grid-cols-4", 5: "grid-cols-2 @[768px]:grid-cols-5", 6: "grid-cols-2 @[768px]:grid-cols-6" }
 
   const demoBlocks = blocks.length > 0 ? blocks : [
     { id: "d1", type: "collection", settings: { collection_title: "New arrivals", product_count: 24 } },

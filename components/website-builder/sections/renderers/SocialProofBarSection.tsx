@@ -97,12 +97,12 @@ export function SocialProofBarSection({ section, isEditing, isSelected, onClick 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div className={`${mw} mx-auto px-6`} style={{ color, paddingTop: padTop, paddingBottom: padBottom }}>
-        <div className={`flex flex-wrap items-center gap-4 sm:gap-6 ${justify}`}>
+        <div className={`flex flex-wrap items-center gap-4 @[640px]:gap-6 ${justify}`}>
           {items.map((el, i) => (
             <div key={i} className="flex items-center">
               {el}
               {showDividers && i < items.length - 1 && (
-                <div className="ml-4 sm:ml-6 h-5 w-px" style={{ background: dividerColor }} />
+                <div className="ml-4 @[640px]:ml-6 h-5 w-px" style={{ background: dividerColor }} />
               )}
             </div>
           ))}
