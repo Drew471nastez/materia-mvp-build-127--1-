@@ -23,6 +23,11 @@
 import * as esbuild from "esbuild"
 
 import { agentLoop } from "@/lib/sites/agent/loop"
+import {
+  type AgentQuestion,
+  type AnswerOutcome,
+  MAX_ASKS_PER_RUN,
+} from "@/lib/sites/agent/questions"
 import { compactTurns, transcriptBytes } from "@/lib/sites/agent/compaction"
 import {
   formatRenderFailure,
@@ -125,7 +130,12 @@ async function run(
   script: Scripted[],
   files = blankProject("Test Site"),
   maxTurns?: number,
-  extra: { maxTokens?: number; compactBytes?: number; prompt?: string } = {},
+  extra: {
+    maxTokens?: number
+    compactBytes?: number
+    prompt?: string
+    ask?: (question: AgentQuestion) => Promise<AnswerOutcome>
+  } = {},
 ) {
   const workspace = new ProjectWorkspace(files)
   const provider = scriptedProvider(script)
@@ -138,6 +148,7 @@ async function run(
     maxTurns,
     maxTokens: extra.maxTokens,
     compactBytes: extra.compactBytes,
+    ask: extra.ask,
   })
   const { events, result } = await drain(loop)
   return { result, events, workspace, provider }
@@ -1438,6 +1449,223 @@ function docFixture(): SiteDocument {
     "custom code survives a re-render",
     workspace.files["src/custom/RoiCalculator.tsx"]?.includes("RoiCalculator") === true,
   )
+}
+
+// ===========================================================================
+//  ASKING, DRIVEN — the loop actually stops and actually carries on
+// ===========================================================================
+/**
+ * The sequencing here is the whole feature and it is exactly what reading the
+ * source cannot check: does the question reach the screen BEFORE the wait,
+ * does an answer really come back as a tool result the model can act on, and
+ * does the run carry on afterwards rather than ending on the question.
+ */
+{
+  const seen: string[] = []
+  const { result, events, workspace } = await run(
+    [
+      {
+        calls: [
+          [
+            "ask_creator",
+            {
+              question: "What is the shop called?",
+              why: "It goes in the header",
+              suggestions: ["Not decided"],
+              placeholder: "e.g. Ferro",
+            },
+          ],
+        ],
+      },
+      { calls: [["write_file", { path: "src/App.tsx", content: GOOD_APP }]] },
+      { calls: [["run_build", {}]] },
+      { text: "Built it." },
+    ],
+    blankProject("Test Site"),
+    undefined,
+    {
+      ask: async (question) => {
+        seen.push(question.question)
+        return { kind: "answered", answer: "Ferro Barbers" }
+      },
+    },
+  )
+
+  check("the run succeeds after waiting", result.status === "succeeded", result.error ?? "")
+  check("the asker was actually called", seen.join() === "What is the shop called?")
+
+  const questionAt = events.findIndex((e) => e.type === "question")
+  const answeredAt = events.findIndex((e) => e.type === "answered")
+  check("the question is emitted", questionAt >= 0)
+  check(
+    "and the answer event comes after it, never before",
+    answeredAt > questionAt,
+    `question ${questionAt}, answered ${answeredAt}`,
+  )
+  check(
+    "the run says it is waiting while it waits",
+    events.some((e) => e.type === "state" && e.state === "asking"),
+  )
+  check(
+    "and goes back to executing afterwards",
+    (() => {
+      const asking = events.findIndex((e) => e.type === "state" && e.state === "asking")
+      const after = events.findIndex(
+        (e, i) => i > asking && e.type === "state" && e.state === "executing",
+      )
+      return asking >= 0 && after > asking
+    })(),
+  )
+  check(
+    "the answer reaches the model as the tool's result",
+    (() => {
+      // The turn AFTER the ask must carry the answer back, or the model is
+      // being asked to act on something it was never told.
+      const sent = JSON.stringify(workspace.questions)
+      return sent.includes("Ferro Barbers")
+    })(),
+  )
+  check(
+    "and the question is recorded with how it ended",
+    workspace.questions.length === 1 &&
+      workspace.questions[0].outcome === "answered" &&
+      workspace.questions[0].answer === "Ferro Barbers",
+  )
+}
+
+{
+  /**
+   * THE PROPERTY THE WHOLE FEATURE RESTS ON: the question is on screen BEFORE
+   * anything waits for it.
+   *
+   * Get this backwards and the run blocks on a question nobody has been shown,
+   * which looks exactly like a hang and ends in a timeout every time. It is
+   * also invisible to the tests above — they check that the `answered` event
+   * follows the `question` event, and that stays true when both are emitted
+   * after the wait.
+   *
+   * So the loop is driven by hand and the asker looks at what has actually
+   * been yielded at the moment it is called.
+   */
+  const events: AgentEvent[] = []
+  let sawQuestionBeforeWaiting: boolean | null = null
+
+  const workspace = new ProjectWorkspace(blankProject("Test Site"))
+  const loop = agentLoop({
+    provider: scriptedProvider([
+      { calls: [["ask_creator", { question: "Which town?", why: "w", suggestions: [], placeholder: "" }]] },
+      { calls: [["write_file", { path: "src/App.tsx", content: GOOD_APP }]] },
+      { calls: [["run_build", {}]] },
+      { text: "Done." },
+    ]),
+    model: "test-model",
+    prompt: "build me a site",
+    workspace,
+    esbuild,
+    ask: async () => {
+      sawQuestionBeforeWaiting = events.some((e) => e.type === "question")
+      return { kind: "answered", answer: "Cluj" }
+    },
+  })
+
+  for (;;) {
+    const step = await loop.next()
+    if (step.done) break
+    events.push(step.value as AgentEvent)
+  }
+
+  check(
+    "the question is on screen before anything waits for it",
+    sawQuestionBeforeWaiting === true,
+    `saw: ${sawQuestionBeforeWaiting}`,
+  )
+}
+
+{
+  /**
+   * A skip is a decision and has to move the run on exactly as an answer does.
+   * The failure this guards is a run that treats "skipped" as "not answered
+   * yet" and waits again, or ends.
+   */
+  const { result, workspace } = await run(
+    [
+      { calls: [["ask_creator", { question: "Which town?", why: "w", suggestions: [], placeholder: "" }]] },
+      { calls: [["write_file", { path: "src/App.tsx", content: GOOD_APP }]] },
+      { calls: [["run_build", {}]] },
+      { text: "Done." },
+    ],
+    blankProject("Test Site"),
+    undefined,
+    { ask: async () => ({ kind: "skipped" }) },
+  )
+  check("a skip carries the run on", result.status === "succeeded", result.error ?? "")
+  check("and is recorded as a skip, not as an empty answer", workspace.questions[0].outcome === "skipped")
+}
+
+{
+  /**
+   * NOBODY THERE. The tab was closed, or the deadline passed. The run must
+   * finish the site anyway — a build thrown away because a question went
+   * unanswered is the worst outcome available.
+   */
+  const { result } = await run(
+    [
+      { calls: [["ask_creator", { question: "Which town?", why: "w", suggestions: [], placeholder: "" }]] },
+      { calls: [["write_file", { path: "src/App.tsx", content: GOOD_APP }]] },
+      { calls: [["run_build", {}]] },
+      { text: "Done." },
+    ],
+    blankProject("Test Site"),
+    undefined,
+    { ask: async () => ({ kind: "timeout" }) },
+  )
+  check("silence does not lose the work", result.status === "succeeded", result.error ?? "")
+}
+
+{
+  /**
+   * A caller with no way to ask anybody — the preview worker. The model must
+   * be told rather than the run hanging on a promise nothing will settle.
+   */
+  const { result } = await run(
+    [
+      { calls: [["ask_creator", { question: "Which town?", why: "w", suggestions: [], placeholder: "" }]] },
+      { calls: [["write_file", { path: "src/App.tsx", content: GOOD_APP }]] },
+      { calls: [["run_build", {}]] },
+      { text: "Done." },
+    ],
+    blankProject("Test Site"),
+  )
+  check("no asker means told, not hung", result.status === "succeeded", result.error ?? "")
+}
+
+{
+  /**
+   * The cap, driven. Asking four times must not stop four times — the fourth
+   * gets a refusal it can act on, and the run continues.
+   */
+  let asked = 0
+  const ask = async () => {
+    asked += 1
+    return { kind: "skipped" } as const
+  }
+  const question = { question: "Which town?", why: "w", suggestions: [], placeholder: "" }
+  const { result } = await run(
+    [
+      { calls: [["ask_creator", question]] },
+      { calls: [["ask_creator", question]] },
+      { calls: [["ask_creator", question]] },
+      { calls: [["ask_creator", question]] },
+      { calls: [["write_file", { path: "src/App.tsx", content: GOOD_APP }]] },
+      { calls: [["run_build", {}]] },
+      { text: "Done." },
+    ],
+    blankProject("Test Site"),
+    undefined,
+    { ask },
+  )
+  check("a run cannot be turned into an interview", asked === MAX_ASKS_PER_RUN, `asked ${asked}`)
+  check("and the run still finishes", result.status === "succeeded", result.error ?? "")
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

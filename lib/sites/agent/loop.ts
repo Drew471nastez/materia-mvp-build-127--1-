@@ -18,11 +18,20 @@
  */
 
 import type { ProjectWorkspace } from "./tools"
+import type { ToolCall } from "./types"
 import { looksLikeQuestion, openSteps, refuseToFinish, type SiteScope } from "./plan"
 import { type CallInfo, compactTurns, compactionNote } from "./compaction"
 import type { Budget } from "./complexity"
 import type { ProjectFiles } from "../types"
 import type { SiteDocument } from "../document/schema"
+import {
+  type AgentQuestion,
+  type AnswerOutcome,
+  answerNote,
+  MAX_ASKS_PER_RUN,
+  parseQuestion,
+  tooManyAsksNote,
+} from "./questions"
 import { toolsFor } from "./tools"
 import {
   ZERO_USAGE,
@@ -84,7 +93,10 @@ Rules:
 - Use search_code to find where something lives instead of reading files one by one. Prefer replace_in_file over write_file for a small change — write_file replaces the whole file, and every full rewrite is a chance to drop something that was already right.
 - A SUCCESSFUL TOOL CALL IS NOT A COMPLETED TASK. Before you stop, compare the project as it now stands against what was actually asked for. If the request was broad, one edited component is not an answer to it.
 - Do not ask the creator for anything you could find out by reading the project. Look first.
-- ASK ABOUT THE BUSINESS, NEVER ABOUT THE CODE. If the request is too thin to build something specific from — "a site for my barber shop" names a trade and nothing else — call ask_creator ONCE, early, with up to four short questions: what it is called, where it is, what it charges, when it is open, who it is for. Then KEEP BUILDING. You will not get an answer during this run and you must not wait for one; choose the most plausible defaults, finish the whole site, and say in your reply which details you guessed at.
+- ASK ABOUT THE BUSINESS, NEVER ABOUT THE CODE. ask_creator asks ONE question and STOPS THE RUN until they answer or skip. Use it when a detail would genuinely change what you build and you cannot work it out — the name, the town, what they charge, when they are open, who it is for.
+- ASK AT THE MOMENT YOU NEED TO KNOW, not all at the start. You are about to write the header: that is when to ask what the place is called. Each answer should make the next question sharper — once you know it is a barber shop in Cluj, ask whether they take walk-ins, not "what industry are you in".
+- MAKE EACH QUESTION EARN ITS STOP. At most three in a run, and fewer is better. A question whose answer you could have inferred, or that changes one word nobody reads, is worse than a guess: it costs somebody their attention and the run its time. Never ask something you have already been told.
+- WRITE THEM LIKE A PERSON. One short sentence, specific to this business, with a line saying what it changes. Offer a few tappable answers where real guesses exist — price ranges, days of the week, styles — and none where they do not, such as a name. They can always skip, and a skip means decide it yourself and do not ask again in another form.
 - When you are done, reply with one or two plain sentences saying what you changed. No preamble, no markdown headings, no code in the reply.
 
 BUILDING A SITE FROM NOTHING
@@ -258,6 +270,15 @@ export interface LoopInput {
    * process it can sandbox, which the preview worker does not have.
    */
   render?: (files: ProjectFiles) => Promise<{ ok: boolean; report: string } | null>
+  /**
+   * PUTS A QUESTION IN FRONT OF THE CREATOR AND WAITS FOR THE ANSWER.
+   *
+   * Injected for the same reason the others are: waiting needs a row in a
+   * table that a different request can write to, and the loop has no database.
+   * A test injects an instant answerer; a caller with no way to ask leaves it
+   * out and the model is told nobody is there.
+   */
+  ask?: (question: AgentQuestion) => Promise<AnswerOutcome>
   signal?: AbortSignal
   maxTurns?: number
   /** Tokens, input plus output, for the whole run. A ceiling, not a target. */
@@ -309,6 +330,9 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
    * recognising anything the day somebody rewords a message.
    */
   const calls = new Map<string, CallInfo>()
+
+  /** How many times this run has already stopped to ask. Capped. */
+  let asks = 0
 
   /** Why the run stopped early, when it did. Not in itself a failure. */
   let ranOut: string | null = null
@@ -455,20 +479,31 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
       const results = []
       for (const call of turn.toolCalls) {
         calls.set(call.id, { name: call.name, path: pathOf(call.argumentsJson) })
+
+        /**
+         * ASKING IS THE ONE TOOL THE WORKSPACE CANNOT RUN.
+         *
+         * Everything else is a function of the project: it takes arguments,
+         * changes files, returns a string. This one has to reach the screen
+         * FIRST and then block until a person acts, so the order is emit,
+         * wait, answer — which only the loop can do, because only the loop can
+         * yield.
+         */
+        if (call.name === "ask_creator") {
+          const output = yield* askCreator({
+            call,
+            asks,
+            ask: input.ask,
+            workspace,
+          })
+          asks += 1
+          results.push({ id: call.id, output })
+          continue
+        }
+
         const output = await workspace.execute(call.name, call.argumentsJson, esbuild, typecheck, render)
         results.push({ id: call.id, output })
         yield { type: "tool", name: call.name, detail: describeCall(call.argumentsJson) }
-
-        /**
-         * The questions go out the moment they are asked, not at the end of
-         * the run. The whole point is that the creator reads them WHILE the
-         * site is still being built — holding them back until the run finishes
-         * would make asking pointless, since by then there is a site to react
-         * to instead.
-         */
-        if (call.name === "ask_creator" && workspace.questions.length > 0) {
-          yield { type: "questions", questions: workspace.questions }
-        }
 
         /**
          * The plan is re-sent whenever it moves, so the editor's checklist is
@@ -600,6 +635,77 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
   }
 
   return { status, message, error, usage, turns: turnCount }
+}
+
+/**
+ * Ask one question and wait, as a generator so it can emit before it blocks.
+ *
+ * The whole sequence is here rather than inline because it has four exits —
+ * over the cap, unparseable, nobody to ask, and a real answer — and inlining
+ * four exits inside the tool loop is how one of them ends up not pushing a
+ * result and stranding a tool call the provider is waiting on.
+ */
+async function* askCreator(input: {
+  call: ToolCall
+  asks: number
+  ask?: (question: AgentQuestion) => Promise<AnswerOutcome>
+  workspace: ProjectWorkspace
+}): AsyncGenerator<AgentEvent, string> {
+  const { call, asks, ask, workspace } = input
+
+  if (asks >= MAX_ASKS_PER_RUN) return tooManyAsksNote()
+
+  let args: Record<string, unknown>
+  try {
+    args = call.argumentsJson.trim() ? JSON.parse(call.argumentsJson) : {}
+  } catch {
+    return "Your arguments were not valid JSON. Send them again as a JSON object."
+  }
+
+  const question = parseQuestion(args, `q${asks + 1}`)
+  if (!question) {
+    return "That is not a question anybody can answer. Send one plain sentence about the business — its name, its town, its prices, its hours."
+  }
+
+  /**
+   * No asker at all: a caller that cannot show a question to anybody, such as
+   * the preview worker. Told rather than hung, and told as a timeout because
+   * that is what it amounts to — there is nobody there.
+   */
+  if (!ask) return answerNote(question, { kind: "timeout" })
+
+  yield { type: "tool", name: "ask_creator", detail: question.question }
+
+  /**
+   * ON SCREEN BEFORE THE WAIT, which is the entire reason this is a generator.
+   * A question that is asked and answered before anybody saw it is not a
+   * question.
+   */
+  yield { type: "question", question }
+  yield { type: "state", state: "asking" }
+
+  const outcome = await ask(question)
+
+  yield {
+    type: "answered",
+    questionId: question.id,
+    answer: outcome.kind === "answered" ? outcome.answer : "",
+    outcome: outcome.kind,
+  }
+  yield { type: "state", state: "executing" }
+
+  /**
+   * Recorded AFTER the wait, with how it ended. Pushing it beforehand would
+   * write a question to the transcript that the run may never have got an
+   * answer to, shown tomorrow as though somebody had chosen to leave it blank.
+   */
+  workspace.questions.push({
+    ...question,
+    answer: outcome.kind === "answered" ? outcome.answer : undefined,
+    outcome: outcome.kind,
+  })
+
+  return answerNote(question, outcome)
 }
 
 /**

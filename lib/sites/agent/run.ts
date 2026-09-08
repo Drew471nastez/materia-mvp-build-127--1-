@@ -44,6 +44,7 @@ import { readDocument, writeDocument } from "../document/store"
 import { isGenerated } from "../document/render"
 import type { ProjectFiles } from "../types"
 import { agentLoop, isEmptySite } from "./loop"
+import { createAsker } from "./asking"
 import { chooseModel, costOf } from "./models"
 import { ProjectWorkspace } from "./tools"
 import type { AgentEvent, AgentProvider } from "./types"
@@ -60,6 +61,20 @@ export interface RunInput {
 }
 
 /** Null when another edit is allowed, otherwise why not — in the user's words. */
+/**
+ * What the agent route gives a run, matching its `maxDuration = 300`. Written
+ * here as well because this is where it is spent, and a wait computed against
+ * a number nobody updated is a wait that outlives its own function.
+ */
+const RUN_BUDGET_MS = 300_000
+
+/**
+ * Held back from any wait, for the part that cannot be skipped: finishing the
+ * edits, building, typechecking, rendering and writing the files. A run killed
+ * during this saves nothing, so it is reserved rather than borrowed against.
+ */
+const BUILD_RESERVE_MS = 120_000
+
 export async function monthlyQuotaError(creatorId: string, plan: SitePlan): Promise<string | null> {
   const limit = siteLimits(plan).aiEditsPerMonth
   const since = new Date()
@@ -131,6 +146,16 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
 
   const versionId = await snapshot(siteId, files, prompt)
   const runId = await openRun({ siteId, creatorId, versionId, prompt, provider: provider.id, model })
+
+  /**
+   * When this run has to be building rather than waiting.
+   *
+   * Taken AFTER the run is opened, not at the top of the function: everything
+   * before this point — the ownership check, the quota, the snapshot — has
+   * already spent wall-clock time the route's budget was measured from, and a
+   * deadline that ignored it would promise time that is not there.
+   */
+  const startedAt = Date.now()
   if (!runId) {
     yield await failEarly("Could not start. Try again.")
     return
@@ -279,6 +304,21 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
       if (!result.ran) return null
       return { ok: result.ok, report: formatRenderFailure(result) }
     },
+    /**
+     * ASKING, WITH A DEADLINE MADE OF WHAT THE RUN CAN AFFORD.
+     *
+     * The route runs with maxDuration 300. A wait that ignored that would not
+     * wait forever — it would be killed mid-build with everything unsaved. So
+     * the asker is told when the run must be building again rather than being
+     * given a fixed window, and it declines to ask at all once too little time
+     * remains to both answer and finish.
+     */
+    ask: createAsker({
+      siteId,
+      runId,
+      deadline: startedAt + RUN_BUDGET_MS - BUILD_RESERVE_MS,
+      signal: cancelled.signal,
+    }),
     signal: cancelled.signal,
   })
   let step = await loop.next()
