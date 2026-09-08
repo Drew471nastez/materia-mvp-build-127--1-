@@ -2887,7 +2887,9 @@ check(
       /clientWidth \/ COVER_WIDTH/.test(card) &&
       !/scale\(calc\(100cqw/.test(card) &&
       // and it does not flash a full-size render before it has measured
-      /visibility: coverScale \? "visible" : "hidden"/.test(card)
+      // (the same expression now also waits for the frame's own greeting —
+      // measured AND greeted, both, before anything is shown)
+      /visibility: coverScale && coverReady \? "visible" : "hidden"/.test(card)
     )
   })(),
 )
@@ -4784,6 +4786,139 @@ check(
     return (
       /status === 503 \? "Not available just now" : "Nothing here yet"/.test(route) &&
       !/not yours|does not exist|forbidden/i.test(route)
+    )
+  })(),
+)
+
+// ===========================================================================
+section("A card shows a cover or it shows nothing — never somebody's error page")
+// ===========================================================================
+
+/**
+ * FIXING CAUSES ONE AT A TIME IS A LOSING GAME.
+ *
+ * The last "storelib.com refused to connect." was the cover route's 404,
+ * carrying no `frame-ancestors` for the blanket `X-Frame-Options: DENY` to be
+ * overridden by. That is fixed at the route. But a frame shows the browser's
+ * error page for a gateway timeout, a middleware refusal, a platform error
+ * page, a redirect to somewhere that refuses framing, an empty body, and
+ * whatever is invented next — none of which can be enumerated from a card.
+ *
+ * So the card stopped asking why. The document inside announces itself, and
+ * the frame is revealed only when that arrives. Proved in Chromium across
+ * every one of those, with the card's own rule driving it:
+ *
+ *   shown   a built cover
+ *   shown   the "nothing here yet" placeholder
+ *   shown   a cold cover that takes 4s
+ *   hidden  refused by X-Frame-Options (no CSP)
+ *   hidden  a middleware 403
+ *   hidden  a platform 504 page
+ *   hidden  a redirect to a page that refuses framing
+ *   hidden  an empty body
+ */
+
+check(
+  "the cover is revealed only once its own document says hello",
+  (() => {
+    const card = strip(read("components/sites/sites-dashboard.tsx"))
+    return (
+      /visibility: coverScale && coverReady \? "visible" : "hidden"/.test(card) &&
+      /data\?\.source === "storelib-preview" && data\.kind === "ready"/.test(card)
+    )
+  })(),
+)
+
+check(
+  "the sender is proved by its window, never by an origin that reads 'null'",
+  (() => {
+    const card = strip(read("components/sites/sites-dashboard.tsx"))
+    const at = card.indexOf("function useCoverReady")
+    const body = card.slice(at, card.indexOf("function SiteCard", at))
+    /**
+     * The frame is sandboxed onto an opaque origin, so `event.origin` is the
+     * string "null" for every sender and proves nothing at all. A reference to
+     * the window is the only thing that identifies it.
+     */
+    return (
+      /event\.source !== ref\.current\?\.contentWindow/.test(body) && !/event\.origin/.test(body)
+    )
+  })(),
+)
+
+check(
+  "and nothing races a timer against a cold build",
+  (() => {
+    const card = strip(read("components/sites/sites-dashboard.tsx"))
+    const at = card.indexOf("function useCoverReady")
+    const body = card.slice(at, card.indexOf("function SiteCard", at))
+    /**
+     * Measured in Chromium: `load` fires on a frame the browser refused, but
+     * on a cover that loads perfectly the ready message arrives AFTER `load` —
+     * so deciding there would hide working covers. A timeout only moves the
+     * race: a cold cover is a full bundle and can take many seconds. Waiting
+     * for the message and nothing else has no race in it.
+     */
+    return !/setTimeout|setInterval|onLoad|"load"/.test(body)
+  })(),
+)
+
+check(
+  "there is always something underneath the frame to see",
+  (() => {
+    const card = read("components/sites/sites-dashboard.tsx")
+    const placeholder = card.indexOf('className="absolute inset-0 grid place-items-center')
+    const frame = card.indexOf("<iframe")
+    // Underneath means EARLIER in the DOM: the frame paints on top of it.
+    return placeholder > 0 && frame > placeholder
+  })(),
+)
+
+check(
+  "every document the cover route can serve announces itself",
+  (() => {
+    const cover = read("lib/sites/cover.ts")
+    const preview = read("lib/sites/preview-document.ts")
+    /**
+     * A built cover comes from `previewDocument`, which already sent this. The
+     * placeholder did not — so a site that simply has nothing in it yet would
+     * have been indistinguishable from a refusal, and its own words would
+     * never have been shown.
+     */
+    const sends = (src: string) =>
+      /source: "storelib-preview", kind: "ready"/.test(src) ||
+      /source: "storelib-preview", kind: kind/.test(src)
+    return (
+      sends(preview) &&
+      sends(cover) &&
+      // and the placeholder really carries it, not just the module
+      /\$\{COVER_BRIDGE\}/.test(cover)
+    )
+  })(),
+)
+
+check(
+  "the words the frame sends are the words the card listens for",
+  (() => {
+    /**
+     * Two files, one contract, and nothing in the type system holding them
+     * together — a rename on either side would leave every card permanently
+     * blank with no error anywhere.
+     */
+    const card = strip(read("components/sites/sites-dashboard.tsx"))
+    const cover = read("lib/sites/cover.ts")
+    const preview = read("lib/sites/preview-document.ts")
+    const listensFor = card.match(/data\?\.source === "([^"]+)" && data\.kind === "([^"]+)"/)
+    if (!listensFor) return false
+    const [, source, kind] = listensFor
+    /**
+     * The kind is matched as a LITERAL anywhere in the sender, not as
+     * `kind: "…"`. The preview's bridge forwards a variable — `kind: kind` —
+     * and names the literal at its call site, `send("ready", "")`; requiring
+     * the object-literal shape would have failed a file that is correct.
+     */
+    return [cover, preview].every(
+      (src) => src.includes(`source: "${source}"`) && src.includes(`"${kind}"`),
     )
   })(),
 )

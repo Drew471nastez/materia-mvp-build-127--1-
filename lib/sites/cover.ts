@@ -60,8 +60,29 @@ export function coverPlaceholder(reason: string): string {
   body{display:grid;place-items:center;background:#faf9f7;color:#a8a29a;
        font:500 13px/1.4 ui-sans-serif,system-ui,sans-serif;text-align:center;padding:24px}
 </style>
-<div>${reason}</div>`
+<div>${reason}</div>
+${COVER_BRIDGE}`
 }
+
+/**
+ * The placeholder says hello too.
+ *
+ * The card keeps its frame invisible until the document inside it announces
+ * itself, because that is the only way to tell a cover apart from a browser
+ * error page without knowing why the error happened. A built cover comes from
+ * `previewDocument`, which already sends this. Without the same line here, a
+ * site that simply has nothing in it yet would be indistinguishable from a
+ * refusal — and its own words ("Nothing here yet") would never be shown.
+ *
+ * Same shape as the preview's bridge: posted to "*" because a sandboxed frame
+ * has no origin to name, and authenticated by the parent comparing
+ * `event.source` to the frame's window.
+ */
+const COVER_BRIDGE = `<script>
+window.addEventListener("load", function () {
+  try { parent.postMessage({ source: "storelib-preview", kind: "ready", message: "" }, "*") } catch (e) {}
+})
+</script>`
 
 export async function siteCover(site: Site): Promise<string> {
   const admin = createAdminClient()
