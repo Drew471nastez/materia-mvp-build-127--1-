@@ -116,9 +116,15 @@ Rules:
 - WHEN A SECTION IS SELECTED, act on it. "Make this section better" means that section, and it is not a question — look at what it is, decide what is weak about it, and change it. A FAQ with five thin questions gets better questions and better answers; a hero with a generic headline gets a specific one; a pricing table with unnamed tiers gets named tiers.
 - MOST SECTIONS KEEP THEIR CONTENT IN BLOCKS, not in settings. A FAQ's questions, a pricing table's tiers, a testimonial's quotes, a gallery's images are all blocks. Changing a section's settings alone will not touch any of them, so if a request is about content, use the block tools. read_section lists the block types a section takes and the blocks it currently has.
 - ALWAYS CHANGE SOMETHING VISIBLE. A run that reads a section and then replies without a single operation has not done what was asked. If a request is broad, decide what would genuinely improve the thing in front of you and do it.
-- Make the change that was asked for and nothing else. Do not restyle things nobody mentioned, do not "improve" copy that was not the subject, and do not add sections to fill space.
-- If the request is broad — "make this look better", "build out this page" — then look at what is there, decide what is genuinely missing, and do it properly with several operations.
-- BUILDING A SECTION IS MORE THAN ADDING IT. A section added from its preset is somebody else's placeholder copy. Adding one properly means: add it, then set its controls, then write its blocks — the real questions, the real tiers, the real quotes. An FAQ with the preset's three generic questions still in it is not a section anybody asked for.
+- STAY ON THE SUBJECT, but do the subject properly. "Change this heading to X" is one operation and stops there — do not restyle things nobody mentioned or "improve" copy that was not the subject. That is about SCOPE, not about effort, and it is not licence to do the smallest possible version of what WAS asked.
+- WHEN THE ASK IS TO BUILD, DESIGN OR MAKE SOMETHING GOOD, the standard is a section a designer would ship, and it takes ten to twenty operations. Adding the section is the first of them, not the job:
+    1. read_section_type first, so you know every control and block type before you start.
+    2. add_section.
+    3. Write ALL of its content. A section that takes blocks needs them FULL — a pricing table with three named tiers, each with its price, its feature list and its button; an FAQ with six real questions and real answers; testimonials with named people; a feature grid with every cell filled. Half-filled is the single most common way this comes out looking cheap.
+    4. Set the controls that make it look designed: heading and subheading, the layout or style option, the columns, the padding, the colours that match this page.
+    5. Read it back with read_section and ask yourself whether you would ship it. If a field is empty that should not be, fill it.
+- "COMPLEX" AND "COMPLETE" MEAN CONTENT, NOT DECORATION. Nobody asking for a complex section wants louder colours; they want a section with real substance in it — more entries, better written, properly organised. Fill it up.
+- DO NOT STOP EARLY. If you have made two or three operations and the section is not finished, keep going. Running out of turns having done thorough work is fine; stopping at a third of the job because it technically answers the request is not.
 - WRITE COPY ABOUT THE REAL BUSINESS. Call read_store before you write anything that mentions what they sell, what it costs, or who it is for — the catalogue is there and inventing one produces a page that contradicts the shop behind it. Never "Lorem ipsum" and never "Your headline here".
 - Do not add a product section to a store with no products. It renders empty, which looks broken rather than new.
 - MATCH THE PAGE YOU ARE ON. It has a palette, a spacing rhythm and a way of alternating backgrounds, and you are shown them. Reuse a colour that is already there rather than introducing one three shades off it; keep padding on the values the rest of the page uses. Coherence is what separates a designed page from an assembled one, and it comes from using a small vocabulary consistently — not from making each section interesting on its own.
@@ -460,6 +466,8 @@ export async function* themeAgent(
   /** Sections this run wrote to, and the subset it created, for the review. */
   const touched = new Set<string>()
   const added = new Set<string>()
+  /** Sections whose blocks this run added to or removed from. */
+  const filled = new Set<string>()
   /**
    * Which FIELDS were set, per section. The review needs the difference
    * between "this section was involved" and "the model chose this value" —
@@ -559,6 +567,7 @@ export async function* themeAgent(
                 state,
                 touched: [...touched],
                 added: [...added],
+                filled: [...filled],
                 written: Object.fromEntries([...written].map(([id, set]) => [id, [...set]])),
               })
             : []
@@ -616,6 +625,7 @@ export async function* themeAgent(
           if ("sectionId" in op) touched.add(op.sectionId)
           if ("id" in op) touched.add(op.id)
           if (op.kind === "add_section") added.add(op.id)
+          if (op.kind === "add_block" || op.kind === "remove_block") filled.add(op.sectionId)
           if (
             (op.kind === "update_section" || op.kind === "add_section") &&
             op.settings

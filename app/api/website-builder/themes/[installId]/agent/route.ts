@@ -24,7 +24,8 @@ import { MissingKeyError, openAIProvider } from "@/lib/sites/agent/openai-provid
 import { agentRateLimit } from "@/lib/sites/rate-limit"
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
-import { chooseModel } from "@/lib/sites/agent/models"
+import { DEFAULT_MODEL, STRONG_MODEL } from "@/lib/sites/agent/models"
+import { classifyRequest } from "@/lib/website-builder/agent/ambition"
 import { completeThemeExchange, startThemeExchange } from "@/lib/website-builder/agent/chat"
 
 export const dynamic = "force-dynamic"
@@ -142,14 +143,21 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       }
 
       try {
+        /**
+         * WHAT THIS REQUEST IS ASKING FOR, in this editor's own vocabulary.
+         *
+         * It used to call the CODE agent's classifier, which reads a language
+         * about files and dashboards that nobody types here. Measured: "build
+         * me a very good complex section" classified as small and got the
+         * cheap model, while "add a pricing section" classified as medium and
+         * got the strong one. Ambition was being penalised.
+         */
+        const shape = classifyRequest(body.prompt)
+
         const loop = themeAgent({
           provider: openAIProvider,
-          /**
-           * The section count stands in for the file count: the same
-           * question — is this a small change in a small thing — asked with
-           * the unit this editor actually has.
-           */
-          model: chooseModel(body.prompt, body.sections.length),
+          model: shape.strong ? STRONG_MODEL : DEFAULT_MODEL,
+          maxTurns: shape.maxTurns,
           prompt: body.prompt,
           page: body.page,
           state: { sections: body.sections, settings: body.settings },

@@ -344,6 +344,63 @@ function untouchedPresetFindings(section: SectionInstance): Finding[] {
   return out
 }
 
+/**
+ * A SECTION THAT CAME OUT THIN.
+ *
+ * "Build me a good complex section" answered with a pricing table holding one
+ * tier is the complaint this exists for. The model stops when the request is
+ * technically answered, and a section with one entry in it technically is one.
+ *
+ * The bar is the preset's own block count, halved — a type that ships three
+ * tiers is telling you three is what this section looks like when it is
+ * finished. Halved rather than matched, because "two plans, not three" is a
+ * real request and being argued with over it would be worse than the thinness
+ * it prevents. Below half, or below two, is not a smaller version of the
+ * section: it is an unfinished one.
+ *
+ * Only for sections this run ADDED. Trimming an existing section is somebody's
+ * decision, not a mistake.
+ */
+function thinFindings(section: SectionInstance): Finding[] {
+  const schema = SECTION_SCHEMAS[section.type]
+  const takesBlocks = (schema?.blocks ?? []).length > 0
+  if (!takesBlocks) return []
+
+  const expected = (schema?.presets?.[0]?.blocks ?? []).length
+  if (expected < 2) return []
+
+  const have = (section.blocks ?? []).length
+  const floor = Math.max(2, Math.ceil(expected / 2))
+  if (have >= floor) return []
+
+  return [
+    {
+      sectionId: section.id,
+      message: `This ${section.type} has ${have} ${
+        have === 1 ? "entry" : "entries"
+      } in it. The type ships with ${expected}, which is what it looks like finished — one or two makes the section look unfinished rather than concise. Add more with add_block, written properly. If fewer was actually what the creator asked for, say so in your reply instead of changing it.`,
+    },
+  ]
+}
+
+/**
+ * A block with nothing in it renders as a gap in a list, which is worse than
+ * one fewer entry — it looks broken rather than short.
+ */
+function emptyBlockFindings(section: SectionInstance): Finding[] {
+  const empty = (section.blocks ?? []).filter((block) => {
+    const values = Object.values(block.settings ?? {})
+    return !values.some((v) => typeof v === "string" && v.trim().length > 0)
+  })
+  if (empty.length === 0) return []
+  return [
+    {
+      sectionId: section.id,
+      message: `${empty.length} of this ${section.type}'s entries have no text in them at all. They render as gaps. Fill them or remove them.`,
+    },
+  ]
+}
+
 function emptyFindings(section: SectionInstance, written: Set<string>): Finding[] {
   const out: Finding[] = []
   for (const field of textFields(section.type)) {
@@ -418,6 +475,16 @@ export interface ReviewInput {
   /** Sections this run created, which are held to a higher bar on copy. */
   added: string[]
   /**
+   * Sections whose BLOCKS this run added to or removed from.
+   *
+   * "Make this section complex" on a section that already exists is the same
+   * request as building one, and answering it with a single new entry is the
+   * same failure. Held to the same bar — but only when the run actually worked
+   * on the content, so editing a heading on a short section is not an occasion
+   * to argue about its length.
+   */
+  filled?: string[]
+  /**
    * Which FIELDS the run set, per section. The difference between "this
    * section is involved" and "the model chose this value", and the whole
    * reason the checks below do not fire on the product's own presets.
@@ -455,7 +522,11 @@ export function reviewSections(input: ReviewInput): Finding[] {
     findings.push(...houseStyleFindings({ section, written, style }))
     findings.push(...emptyFindings(section, written))
     findings.push(...duplicateBlockFindings(section))
+    findings.push(...emptyBlockFindings(section))
     if (added.includes(id)) findings.push(...untouchedPresetFindings(section))
+    if (added.includes(id) || (input.filled ?? []).includes(id)) {
+      findings.push(...thinFindings(section))
+    }
 
     for (const field of textFields(section.type)) {
       if (written.has(field.id) && looksLikePlaceholder(section.settings?.[field.id])) {
