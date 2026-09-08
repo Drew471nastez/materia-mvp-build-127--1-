@@ -18,6 +18,14 @@ import { applyOps, buildSection, describeTheme, fieldIds, type ThemeOp, type The
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import type { AgentProvider, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { existsSync, readFileSync } from "node:fs"
+import { join } from "node:path"
+
+/**
+ * The repository root. The compiled suite runs from a temp directory, so a
+ * relative path would look for the app beside the JavaScript.
+ */
+const root = process.cwd()
 
 let passed = 0
 let failed = 0
@@ -289,6 +297,88 @@ section("What the model is told")
     "a new section starts from the schema's own preset, as the editor's Add does",
     built?.name === schema.name &&
       JSON.stringify(built?.settings) === JSON.stringify(schema.presets?.[0]?.settings ?? {}),
+  )
+}
+
+// ===========================================================================
+section("One door to the AI, not two")
+// ===========================================================================
+
+{
+  const sidebar = readFileSync(join(root, "components/app/sidebar.tsx"), "utf8")
+  /**
+   * The AI moved into the theme editor, where it edits the sections somebody
+   * is already looking at. Two menu entries for "build my website with AI",
+   * each leading somewhere different, is a choice nobody can make correctly on
+   * their first visit.
+   */
+  check(
+    "the AI code builder is not in the menu",
+    !/href: "\/app\/sites"/.test(sidebar) && !/href="\/app\/sites"/.test(sidebar),
+  )
+
+  /**
+   * HIDDEN, NOT DELETED — and the difference matters, because deleting the
+   * routes would take somebody's existing projects, transcripts and published
+   * sites with them. Going to the address still works.
+   */
+  check(
+    "but the code builder still exists and still answers",
+    existsSync(join(root, "app/app/sites/page.tsx")) &&
+      existsSync(join(root, "app/sites/[siteId]/page.tsx")),
+  )
+
+  check(
+    "and the theme editor is where the AI now lives",
+    (() => {
+      const editor = readFileSync(
+        join(root, "app/website-builder/editor/[installId]/page.tsx"),
+        "utf8",
+      )
+      return /<ThemeChat/.test(editor) && /aria-label="Ask AI"/.test(editor)
+    })(),
+  )
+}
+
+// ===========================================================================
+section("The editor has one accent, and it is the app's own")
+// ===========================================================================
+
+{
+  const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+
+  /**
+   * Purple appeared in thirty-one places beside a Save button that is black,
+   * so the editor had two accents and neither read as deliberate. A saturated
+   * purple on a builder also reads as "AI demo" rather than as a tool, which
+   * is the specific thing this was asked to stop looking like.
+   *
+   * Counted rather than forbidden outright: the one survivor is a COMMENT
+   * explaining that the inspector outline is blue and deliberately not purple,
+   * and a rule that cannot tell a mention from a use is a rule somebody
+   * deletes the first time it is wrong.
+   */
+  const uses = editor
+    .split("\n")
+    .filter((line) => /purple/.test(line))
+    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+  check("no purple is actually applied anywhere", uses.length === 0, uses.slice(0, 3).join(" | "))
+
+  /**
+   * One control size and one icon size across the top bar. Four icon sizes and
+   * three button heights in one strip is what made it read as unfinished, and
+   * it is the kind of thing that creeps back one control at a time.
+   */
+  const header = editor.slice(
+    editor.indexOf('<header className="relative h-12 bg-background'),
+    editor.indexOf("</header>"),
+  )
+  const literals = [...header.matchAll(/(?:text|bg|border)-neutral-\d+/g)].map((m) => m[0])
+  check(
+    "and the top bar uses theme tokens, not colour literals",
+    // The Save button's solid black is the one intentional literal.
+    literals.every((l) => l.startsWith("bg-neutral-900")),
+    [...new Set(literals)].join(", "),
   )
 }
 

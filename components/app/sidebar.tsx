@@ -301,11 +301,19 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/onepage", label: t("nav.onepage"), icon: Link2, forceNavigation: true },
     { href: "/store-builder", label: t("nav.storeBuilder"), icon: Store, forceNavigation: true },
     /*
-      Storelib AI — websites built by describing them. `forceNavigation`
-      because the editor is a full-viewport tool outside /app's shell, and a
-      client-side transition into it would leave this sidebar mounted behind it.
+      Storelib AI is NOT LISTED HERE ANY MORE.
+
+      The AI moved into the theme editor, where it edits the sections somebody
+      is already looking at — see components/website-builder/theme-chat.tsx.
+      Two doors to "build my website with AI", each leading somewhere
+      different, is a choice nobody can make correctly on their first visit.
+
+      HIDDEN, NOT DELETED. Everything under /app/sites still works and still
+      answers if you go there: the projects, the transcripts, the versions, the
+      published sites. Removing the routes would take somebody's work with
+      them, and that is not what "take it out of the menu" means. Putting the
+      line back is what turns it on again.
     */
-    { href: "/app/sites", label: "Storelib AI", icon: Sparkles },
     { href: "/app/emails", label: t("nav.emails"), icon: Mail },
     { href: "/app/payouts", label: t("nav.payouts"), icon: Wallet },
   ]
@@ -713,7 +721,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Settings", href: "/app/settings", icon: Settings },
     { label: "Emails", href: "/app/emails", icon: Mail },
     { label: "OnePage", href: "/app/onepage", icon: Link2 },
-    { label: "Storelib AI", href: "/app/sites", icon: Sparkles },
     { label: "Payments", href: "/app/settings/payments", icon: CreditCard },
     { label: "Billing", href: "/app/settings/billing", icon: CreditCard },
   ]
@@ -727,7 +734,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Orders", href: "/app/orders", icon: ShoppingCart, category: "Pages" },
     { label: "OnePage", href: "/app/onepage", icon: Link2, category: "Pages" },
     { label: "Store Builder", href: "/store-builder", icon: Store, category: "Pages" },
-    { label: "Storelib AI", href: "/app/sites", icon: Sparkles, category: "Pages" },
     { label: "Emails", href: "/app/emails", icon: Mail, category: "Pages" },
     { label: "Payouts", href: "/app/payouts", icon: Wallet, category: "Pages" },
     { label: "Settings", href: "/app/settings", icon: Settings, category: "Settings" },
