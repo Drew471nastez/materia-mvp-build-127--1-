@@ -23,7 +23,7 @@
  * Registered by scripts/run-push-tests.mjs, which passes the compile output
  * directory in PUSH_TEST_OUT.
  */
-import { existsSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 
@@ -40,6 +40,32 @@ function existingFile(path) {
   for (const ext of EXTENSIONS) if (existsSync(path + ext)) return path + ext
   for (const ext of EXTENSIONS) if (existsSync(join(path, `index${ext}`))) return join(path, `index${ext}`)
   return null
+}
+
+/**
+ * JSON, without the import attribute Node now insists on.
+ *
+ * lib/website-builder/section-schemas.ts imports forty-nine section schemas as
+ * JSON — `import faq from "…/faq.json"` — which a bundler handles and Node 22
+ * refuses without `with { type: "json" }`. Adding that attribute to the
+ * production module to satisfy a test runner would be the tail wagging the
+ * dog, and it is the kind of syntax that breaks a build for reasons nobody
+ * remembers a year later.
+ *
+ * Handing the file back as a module with a default export is exactly what a
+ * bundler does with it, so the code under test sees precisely what it sees in
+ * production — and the workaround stays inside the harness, where it belongs.
+ */
+export async function load(url, context, nextLoad) {
+  if (url.startsWith("file:") && url.endsWith(".json")) {
+    const source = readFileSync(new URL(url), "utf8")
+    return {
+      format: "module",
+      shortCircuit: true,
+      source: `export default ${source};`,
+    }
+  }
+  return nextLoad(url, context)
 }
 
 export async function resolve(specifier, context, nextResolve) {
@@ -60,6 +86,14 @@ export async function resolve(specifier, context, nextResolve) {
   if (bare.startsWith("@/") && OUT) {
     const found = existingFile(join(OUT, bare.slice(2)))
     if (found) return { url: pathToFileURL(found).href + query, shortCircuit: true }
+  }
+
+  // A relative .json import resolves straight to the file; `existingFile`
+  // would find it too, but only because it exists — being explicit keeps a
+  // future extension guess from turning `x.json` into `x.json.js`.
+  if (bare.startsWith(".") && bare.endsWith(".json") && context.parentURL?.startsWith("file:")) {
+    const candidate = new URL(bare, new URL(".", context.parentURL))
+    if (existsSync(candidate.pathname)) return { url: candidate.href, shortCircuit: true }
   }
 
   // Extensionless relative imports, which is how tsc emits them.

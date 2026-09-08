@@ -17,6 +17,7 @@ import {
   Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle,
   Type, Square, Rows3, Grid3x3, MousePointerClick,
   MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon,
+  Sparkles,
 } from "lucide-react"
 import {
   DndContext,
@@ -58,6 +59,8 @@ import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-sche
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { toast } from "sonner"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
+import { ThemeChat } from "@/components/website-builder/theme-chat"
+import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
 
 // ── Custom back-with-bar icon (topbar) ──────────────────────
 function BackWithBarIcon({ className }: { className?: string }) {
@@ -359,7 +362,7 @@ function FieldEditor({
         aria-checked={checked}
         className={cn(
           "relative inline-flex h-[22px] w-[38px] items-center rounded-full transition-colors shrink-0 cursor-pointer focus:outline-none",
-          checked ? "bg-purple-600" : "bg-gray-300",
+          checked ? "bg-foreground" : "bg-muted-foreground/30",
         )}
         onClick={() => onChange(!checked)}
       >
@@ -980,7 +983,7 @@ function WbImagePicker({
         className={cn(
           "relative w-full rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-1.5 py-5",
           emptyAspectClass,
-          dragOver ? "border-purple-400 bg-purple-50" : "border-border bg-[#fafafa] hover:border-purple-300 hover:bg-purple-50/30",
+          dragOver ? "border-foreground/40 bg-muted" : "border-border bg-[#fafafa] hover:border-foreground/25 hover:bg-muted/60",
         )}
         onClick={() => inputRef.current?.click()}
         onDragOver={e => { e.preventDefault(); setDragOver(true) }}
@@ -989,10 +992,10 @@ function WbImagePicker({
       >
         {uploading ? (
           <div className="flex flex-col items-center gap-2">
-            <div className="h-5 w-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+            <div className="h-5 w-5 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
             <p className="text-xs text-muted-foreground">Uploading... {progress}%</p>
             <div className="w-32 h-1.5 bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-purple-500 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+              <div className="h-full bg-foreground rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
           </div>
         ) : (
@@ -1253,7 +1256,7 @@ function WbToggle({
         aria-checked={checked}
         className={cn(
           "relative inline-flex h-[22px] w-[38px] items-center rounded-full transition-colors shrink-0 cursor-pointer focus:outline-none",
-          checked ? "bg-purple-600" : "bg-gray-300",
+          checked ? "bg-foreground" : "bg-muted-foreground/30",
         )}
         onClick={e => { e.preventDefault(); onChange(!checked) }}
       >
@@ -1896,7 +1899,7 @@ function ColorChip({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 h-7 px-1.5 rounded border border-border hover:border-purple-400 transition-colors cursor-pointer"
+        className="flex items-center gap-1 h-7 px-1.5 rounded border border-border hover:border-foreground/30 transition-colors cursor-pointer"
         aria-label="Pick color"
       >
         <span
@@ -2089,7 +2092,7 @@ function ColorSchemesEditor({
         <button
           type="button"
           onClick={resetScheme}
-          className="text-[11px] font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1"
+          className="text-[11px] font-medium text-foreground/70 hover:text-foreground flex items-center gap-1"
         >
           <RotateCcw className="h-3 w-3" />
           Reset
@@ -2285,7 +2288,7 @@ function NavLinkPicker({
               <button
                 key={p.url}
                 type="button"
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted text-left transition-colors"
                 onMouseDown={e => { e.preventDefault(); onChange(p.url); setOpen(false) }}
               >
                 <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -2303,7 +2306,7 @@ function NavLinkPicker({
               <button
                 key={c.id}
                 type="button"
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted text-left transition-colors"
                 onMouseDown={e => { e.preventDefault(); onChange(`/collections/${c.slug}`); setOpen(false) }}
               >
                 <FolderOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -2320,7 +2323,7 @@ function NavLinkPicker({
               <button
                 key={p.id}
                 type="button"
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted text-left transition-colors"
                 onMouseDown={e => { e.preventDefault(); onChange(`/products/${p.slug}`); setOpen(false) }}
               >
                 <ShoppingBag className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -2364,7 +2367,7 @@ function NavLinkPicker({
 
 // ── Sortable Nav Link Item ───────────────────────────────────
 // Supports 1-level nested submenus via `settings.parent_id` pointing to
-// the parent nav_link's id. Root items show a purple "Add Link to {label}"
+// the parent nav_link's id. Root items show an "Add Link to {label}"
 // button that creates a child. Children are draggable within their sibling
 // group and indented with a subtle left border.
 function SortableNavLink({
@@ -2415,11 +2418,11 @@ function SortableNavLink({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group border border-border rounded-lg overflow-hidden bg-background hover:border-purple-300 hover:shadow-sm transition-all",
+        "group border border-border rounded-lg overflow-hidden bg-background hover:border-foreground/25 hover:shadow-sm transition-all",
         isChild && "bg-muted/20",
       )}
     >
-      <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer list-none bg-muted/30 hover:bg-purple-50/40 transition-colors">
+      <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer list-none bg-muted/30 hover:bg-muted transition-colors">
         <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
@@ -2482,7 +2485,7 @@ function SortableNavLink({
                   onClick={e => { e.preventDefault(); onUpdateBlockSetting(block.id, field.id, !checked) }}
                   className={cn(
                     "relative inline-flex h-[22px] w-[38px] items-center rounded-full transition-colors shrink-0 focus:outline-none",
-                    checked ? "bg-purple-600" : "bg-gray-300",
+                    checked ? "bg-foreground" : "bg-muted-foreground/30",
                   )}
                 >
                   <span className={cn(
@@ -2779,7 +2782,7 @@ function HeaderSectionSettings({
                           }}
                         >
                           <SortableContext items={kids.map(b => b.id)} strategy={verticalListSortingStrategy}>
-                            <div className="pl-3 border-l-2 border-purple-200 space-y-2">
+                            <div className="pl-3 border-l-2 border-border space-y-2">
                               {kids.map((childBlock, childIdx) => (
                                 <SortableNavLink
                                   key={childBlock.id}
@@ -2805,7 +2808,7 @@ function HeaderSectionSettings({
             </DndContext>
             {(!schema?.max_blocks || roots.length < schema.max_blocks) && (
               <button
-                className="w-full flex items-center justify-center gap-1.5 py-3 text-sm font-medium text-purple-600 hover:text-purple-700 border border-dashed border-purple-300 hover:border-purple-400 rounded-lg transition-colors hover:bg-purple-50/50"
+                className="w-full flex items-center justify-center gap-1.5 py-3 text-sm font-medium text-foreground/70 hover:text-foreground border border-dashed border-border hover:border-foreground/30 rounded-lg transition-colors hover:bg-muted/60"
                 onClick={() => onAddBlock("nav_link")}
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -2911,7 +2914,7 @@ function HeaderSectionSettings({
               <button
                 type="button"
                 onClick={() => setLayoutPickerOpen(true)}
-                className="w-full group border border-border rounded-xl bg-background hover:border-purple-400 transition-colors overflow-hidden"
+                className="w-full group border border-border rounded-xl bg-background hover:border-foreground/30 transition-colors overflow-hidden"
               >
                 <div className="h-14 bg-muted/30 border-b border-border">
                   {currentLayoutMeta.preview}
@@ -2929,7 +2932,7 @@ function HeaderSectionSettings({
               <button
                 type="button"
                 onClick={() => setMobileLayoutPickerOpen(true)}
-                className="w-full group border border-border rounded-xl bg-background hover:border-purple-400 transition-colors overflow-hidden"
+                className="w-full group border border-border rounded-xl bg-background hover:border-foreground/30 transition-colors overflow-hidden"
               >
                 <div className="h-14 bg-muted/30 border-b border-border">
                   {mobilePreviewSummary}
@@ -3462,6 +3465,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // Set when the user clicks an "insert between" divider in the sidebar.
   // null = append before the footer (default).
   const [pendingInsertIndex, setPendingInsertIndex] = useState<number | null>(null)
+  /** The AI panel, docked beside the sidebar. Closed until asked for. */
+  const [aiOpen, setAiOpen] = useState(false)
+
+  /**
+   * ONE OPERATION FROM THE AI, APPLIED TO THE STATE THE PANELS ALREADY EDIT.
+   *
+   * `applyOp` is the SAME function the server used to produce this operation —
+   * see lib/website-builder/agent/operations.ts for why there is exactly one
+   * of it. What lands here is therefore what the model was working against.
+   *
+   * Split by kind because the editor keeps sections and theme settings in two
+   * pieces of state, and no operation reads across them: `update_theme`
+   * touches only settings, everything else touches only sections. Passing the
+   * half it does not read keeps the shared applier's signature honest without
+   * needing a joint updater React does not offer.
+   *
+   * Ordinary setState, so the preview repaints, `isDirty` flips, and Save
+   * behaves exactly as it does for a change made by hand.
+   */
+  const applyAiOp = useCallback((op: ThemeOp) => {
+    if (op.kind === "update_theme") {
+      setSettingsDraft(previous => applyOp({ sections: [], settings: previous }, op).settings as ThemeSettingsValues)
+      return
+    }
+    setSections(previous => applyOp({ sections: previous, settings: {} }, op).sections)
+  }, [])
+
   const [sidebarWidth, setSidebarWidth] = useState(288)
   const [isMobileView, setIsMobileView] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
@@ -4495,7 +4525,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <div className="mb-4">
               <div className="flex items-center justify-between px-1 mb-1.5">
                 <p className="text-xs font-bold text-foreground">Custom Pages</p>
-                <button className="text-purple-600 hover:text-purple-700 cursor-pointer" title="Add page" onClick={() => setAddPageOpen(true)}>
+                <button className="text-muted-foreground hover:text-foreground cursor-pointer" title="Add page" onClick={() => setAddPageOpen(true)}>
                   <Plus className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -4505,7 +4535,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     key={p.key}
                     className={cn(
                       "w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-muted/50",
-                      currentPage === p.key && !selectedProductPage ? "text-purple-600 font-medium bg-purple-50" : "text-foreground"
+                      currentPage === p.key && !selectedProductPage ? "text-foreground font-medium bg-muted" : "text-foreground"
                     )}
                     onClick={() => handlePageChange(p.key)}
                   >
@@ -4520,7 +4550,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <div className="mb-4">
             <div className="flex items-center justify-between px-1 mb-1.5">
               <p className="text-xs font-bold text-foreground">Product Pages</p>
-              <button className="text-purple-600 hover:text-purple-700" title="Add product page">
+              <button className="text-muted-foreground hover:text-foreground" title="Add product page">
                 <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -4536,7 +4566,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     key={p.id}
                     className={cn(
                       "w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-muted/50",
-                      selectedProductPage === p.title ? "text-purple-600 font-medium bg-purple-50" : "text-foreground"
+                      selectedProductPage === p.title ? "text-foreground font-medium bg-muted" : "text-foreground"
                     )}
                     onClick={() => handleSelectProductPage(p.id, p.title)}
                   >
@@ -4777,10 +4807,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           </div>
                         ))}
                         <button
-                          className="w-full flex items-center gap-2.5 px-3 py-3 text-sm text-purple-600 hover:bg-purple-50/60 rounded-lg transition-colors font-medium"
+                          className="w-full flex items-center gap-2.5 px-3 py-3 text-sm text-foreground/70 hover:bg-muted hover:text-foreground rounded-lg transition-colors font-medium"
                           onClick={() => { setPendingInsertIndex(null); setAddSectionOpen(true) }}
                         >
-                          <div className="h-8 w-8 rounded-lg border-2 border-dashed border-purple-300 flex items-center justify-center">
+                          <div className="h-8 w-8 rounded-lg border border-dashed border-border flex items-center justify-center">
                             <Plus className="h-4 w-4" />
                           </div>
                           Add section
@@ -5130,7 +5160,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors shrink-0 text-neutral-700"
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
                 onClick={() => {
                   if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
                   router.push("/app/website-builder")
@@ -5138,9 +5168,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 aria-label="Exit"
               >
                 {isMobileView ? (
-                  <X className="h-[17px] w-[17px]" />
+                  <X className="h-4 w-4" strokeWidth={1.75} />
                 ) : (
-                  <BackWithBarIcon className="h-[15px] w-[15px]" />
+                  <BackWithBarIcon className="h-4 w-4" />
                 )}
               </button>
             </TooltipTrigger>
@@ -5151,42 +5181,42 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               Moved up from the old vertical rail so the sidebar gets the full
               horizontal space for its panel content. */}
           {!isMobileView && (
-            <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-neutral-200">
+            <div className="flex items-center gap-0.5 ml-1.5 pl-1.5 border-l border-border">
               <button
                 className={cn(
-                  "h-8 w-8 flex items-center justify-center rounded-md transition-colors",
+                  "h-8 w-8 flex items-center justify-center rounded-lg transition-colors",
                   sidebarMode === "sections" && !pageBrowserOpen
-                    ? "bg-neutral-200/80 text-foreground"
-                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground",
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
                 onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }) }}
                 title="Sections"
               >
-                <Layers className="h-[17px] w-[17px]" />
+                <Layers className="h-4 w-4" strokeWidth={1.75} />
               </button>
               <button
                 className={cn(
-                  "h-8 w-8 flex items-center justify-center rounded-md transition-colors",
+                  "h-8 w-8 flex items-center justify-center rounded-lg transition-colors",
                   pageBrowserOpen
-                    ? "bg-neutral-200/80 text-foreground"
-                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground",
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
                 onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
                 title="Pages"
               >
-                <FileText className="h-[17px] w-[17px]" />
+                <FileText className="h-4 w-4" strokeWidth={1.75} />
               </button>
               <button
                 className={cn(
-                  "h-8 w-8 flex items-center justify-center rounded-md transition-colors",
+                  "h-8 w-8 flex items-center justify-center rounded-lg transition-colors",
                   sidebarMode === "settings" && !pageBrowserOpen
-                    ? "bg-neutral-200/80 text-foreground"
-                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground",
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
                 onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }}
                 title="General Settings"
               >
-                <Settings className="h-[17px] w-[17px]" />
+                <Settings className="h-4 w-4" strokeWidth={1.75} />
               </button>
             </div>
           )}
@@ -5205,7 +5235,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             align="center"
             menuWidth="w-52"
             trigger={
-              <button className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors shrink-0" title="Theme options">
+              <button className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0" title="Theme options">
                 <MoreHorizontal className="h-4 w-4" />
               </button>
             }
@@ -5261,11 +5291,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  className="h-9 w-9 hidden sm:flex items-center justify-center rounded-lg border border-neutral-200 bg-transparent hover:bg-neutral-100 transition-colors cursor-pointer"
+                  className="h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border border-border bg-transparent hover:bg-muted transition-colors cursor-pointer"
                   onClick={() => window.open(websiteUrl, "_blank")}
                   aria-label="View live website"
                 >
-                  <Globe className="h-4 w-4 text-neutral-600" />
+                  <Globe className="h-4 w-4" strokeWidth={1.75} />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">View live website</TooltipContent>
@@ -5273,7 +5303,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           )}
 
           {/* Device Switcher — pill toggle */}
-          <div className="hidden sm:flex items-center bg-neutral-100 rounded-lg p-0.5 shrink-0">
+          <div className="hidden sm:flex items-center bg-muted rounded-lg p-0.5 shrink-0">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -5281,7 +5311,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   onClick={() => setDevice("desktop")}
                   aria-label="Desktop"
                 >
-                  <Monitor className="h-3.5 w-3.5" />
+                  <Monitor className="h-4 w-4" strokeWidth={1.75} />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">Desktop</TooltipContent>
@@ -5293,14 +5323,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   onClick={() => setDevice("mobile")}
                   aria-label="Mobile"
                 >
-                  <Smartphone className="h-3.5 w-3.5" />
+                  <Smartphone className="h-4 w-4" strokeWidth={1.75} />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">Mobile</TooltipContent>
             </Tooltip>
           </div>
 
-          {/* Inspector toggle — purple when on.
+          {/* Inspector toggle — filled when on.
               When ON (default): clicking a section highlights it with the
               blue selection rectangle and opens its settings panel.
               When OFF: canvas behaves like a pure preview — no outlines,
@@ -5312,14 +5342,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 className={cn(
                   "h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border transition-all duration-150 shrink-0",
                   inspectorEnabled
-                    ? "bg-purple-600 border-purple-600 text-white shadow-sm hover:bg-purple-700"
-                    : "bg-transparent border-neutral-200 text-neutral-600 hover:bg-neutral-100",
+                    ? "bg-foreground border-foreground text-background hover:bg-foreground/90"
+                    : "bg-transparent border-border text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
                 onClick={() => setInspectorEnabled(v => !v)}
                 aria-label={inspectorEnabled ? "Disable section inspector" : "Enable section inspector"}
                 aria-pressed={inspectorEnabled}
               >
-                <MousePointerClick className="h-3.5 w-3.5" />
+                <MousePointerClick className="h-4 w-4" strokeWidth={1.75} />
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
@@ -5327,11 +5357,31 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipContent>
           </Tooltip>
 
+          {/* Ask AI */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className={cn(
+                  "h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border transition-colors cursor-pointer",
+                  aiOpen
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+                onClick={() => setAiOpen(open => !open)}
+                aria-label="Ask AI"
+                aria-pressed={aiOpen}
+              >
+                <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{aiOpen ? "Hide AI" : "Ask AI"}</TooltipContent>
+          </Tooltip>
+
           {/* Preview */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors cursor-pointer"
+                className="h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
                 onClick={() => {
                   if (!websiteUrl) return
                   const urlWithPreview = `${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}builder_preview=1&show_preview_bar=1`
@@ -5339,7 +5389,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 }}
                 aria-label="Preview"
               >
-                <ExternalLink className="h-3.5 w-3.5 text-neutral-600" />
+                <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Preview</TooltipContent>
@@ -5356,7 +5406,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   disabled={undoStack.length === 0}
                   aria-label="Undo"
                 >
-                  <Undo2 className="h-4 w-4 text-neutral-600" />
+                  <Undo2 className="h-4 w-4" strokeWidth={1.75} />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">Undo (⌘Z)</TooltipContent>
@@ -5370,7 +5420,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   disabled={redoStack.length === 0}
                   aria-label="Redo"
                 >
-                  <Redo2 className="h-4 w-4 text-neutral-600" />
+                  <Redo2 className="h-4 w-4" strokeWidth={1.75} />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">Redo (⌘⇧Z)</TooltipContent>
@@ -5381,7 +5431,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <Button
             size="sm"
             className={cn(
-              "h-9 cursor-pointer min-w-[80px] transition-all duration-200 text-white",
+              "h-8 cursor-pointer min-w-[76px] rounded-lg transition-all duration-200 text-white",
               saving
                 ? "bg-neutral-900 hover:bg-neutral-900"
                 : isDirty
@@ -5505,6 +5555,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               {renderSidebarContent()}
             </div>
           </MobileEditorSheet>
+        )}
+
+        {/* ── AI panel ──
+            A COLUMN, not an overlay. Docked between the section list and the
+            canvas so the preview stays fully visible and keeps its width to
+            the right of it — the page moving while you type is the point, and
+            a panel floating over the preview would hide the thing it is
+            changing. Hidden rather than unmounted so a conversation survives
+            being closed and reopened. */}
+        {!isMobileView && aiOpen && (
+          <div className="relative flex-shrink-0 border-r border-border" style={{ width: 340 }}>
+            <ThemeChat
+              installId={installId}
+              page={currentPage}
+              sections={sections}
+              settings={settingsDraft as Record<string, unknown>}
+              onRunStart={pushUndo}
+              onOp={applyAiOp}
+              onClose={() => setAiOpen(false)}
+            />
+          </div>
         )}
 
         {/* ── Canvas ──
@@ -5645,7 +5716,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       <div>
                         <p className="text-xl font-bold tracking-tight text-neutral-300 uppercase mb-1">Empty Page</p>
                         <p className="text-sm text-neutral-400 mb-4">Create your beautiful page by adding sections</p>
-                        <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors" onClick={() => setAddSectionOpen(true)}>
+                        <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted transition-colors" onClick={() => setAddSectionOpen(true)}>
                           <Plus className="h-4 w-4" />
                           Add a section
                         </button>
@@ -5714,7 +5785,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </Button>
             <Button
               size="sm"
-              className="bg-purple-600 text-white hover:bg-purple-700 min-w-[70px]"
+              className="bg-foreground text-background hover:bg-foreground/90 min-w-[70px]"
               onClick={handleAddCustomPage}
               disabled={!newPageTitle.trim() || addingPage}
             >
@@ -5747,7 +5818,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               Cancel
             </Button>
             <Button
-              className="bg-purple-600 text-white hover:bg-purple-700"
+              className="bg-foreground text-background hover:bg-foreground/90"
               onClick={() => {
                 setEditAllProductPages(true)
                 setEditAllConfirmOpen(false)
@@ -5824,7 +5895,7 @@ function SidebarSectionRow({
       <div
         className={cn(
           "group flex items-center gap-2 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors",
-          isSelected ? "bg-purple-600 text-white" : "hover:bg-muted text-foreground",
+          isSelected ? "bg-foreground text-background" : "hover:bg-muted text-foreground",
           section.hidden && "opacity-50",
         )}
         onClick={onSelect}
@@ -5840,7 +5911,7 @@ function SidebarSectionRow({
             className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
             onClick={e => e.stopPropagation()}
           >
-            <GripVertical className={cn("h-3.5 w-3.5 opacity-30", isSelected && "opacity-60")} />
+            <GripVertical className={cn("h-3.5 w-3.5 opacity-40", isSelected && "opacity-70")} strokeWidth={1.75} />
           </span>
         )}
         <SectionIcon type={section.type} className={isSelected ? "text-white" : "text-muted-foreground"} />
@@ -5853,18 +5924,18 @@ function SidebarSectionRow({
         {!isStructure && (
           <div className={cn("items-center gap-0.5 hidden group-hover:flex", isSelected && "flex")}>
             <button
-              className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10")}
+              className={cn("h-6 w-6 rounded-md flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10")}
               onClick={e => { e.stopPropagation(); onToggleHide() }}
               title={section.hidden ? "Show" : "Hide"}
             >
-              {section.hidden ? <Eye className="h-2.5 w-2.5" /> : <EyeOff className="h-2.5 w-2.5" />}
+              {section.hidden ? <Eye className="h-3.5 w-3.5" strokeWidth={1.75} /> : <EyeOff className="h-3.5 w-3.5" strokeWidth={1.75} />}
             </button>
             <button
-              className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20 text-red-300" : "hover:bg-red-100 text-red-400")}
+              className={cn("h-6 w-6 rounded-md flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20 text-red-300" : "hover:bg-red-100 text-red-400")}
               onClick={e => { e.stopPropagation(); onRemove() }}
               title="Remove"
             >
-              <Trash2 className="h-2.5 w-2.5" />
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
             </button>
           </div>
         )}

@@ -50,8 +50,19 @@ export type AgentToolName =
   | "update_theme"
   | "create_page"
 
-export interface ToolSpec {
-  name: AgentToolName
+/**
+ * `Name` is a parameter, defaulting to this agent's closed union.
+ *
+ * The default is what keeps `TOOL_SPECS: ToolSpec[]` meaning exactly what it
+ * meant — the sites agent's tool list stays closed, and the test that asserts
+ * that still holds. The parameter exists because a SECOND agent (the theme
+ * editor's, in lib/website-builder/agent) speaks the same provider protocol
+ * with a completely different vocabulary, and the alternative was widening
+ * this to `string` for everybody: giving up a real boundary to accommodate a
+ * caller that is not inside it.
+ */
+export interface ToolSpec<Name extends string = AgentToolName> {
+  name: Name
   description: string
   /** JSON Schema. `additionalProperties: false` + `required` on every one. */
   parameters: Record<string, unknown>
@@ -128,7 +139,11 @@ export interface ProviderRequest {
   model: string
   system: string
   turns: AgentTurn[]
-  tools: ToolSpec[]
+  /**
+   * Widened here on purpose: a provider does not care whose vocabulary it is
+   * relaying, and the request is where the two agents meet.
+   */
+  tools: ToolSpec<string>[]
   maxOutputTokens: number
   signal?: AbortSignal
   /**

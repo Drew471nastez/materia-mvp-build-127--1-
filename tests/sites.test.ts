@@ -191,15 +191,31 @@ check(
 )
 
 check(
-  "Storelib AI is reachable from the dashboard",
+  "the AI code builder is out of the menu but still there",
   (() => {
+    /**
+     * THIS ASSERTED THE OPPOSITE, and it was right until the decision changed.
+     *
+     * The AI moved into the theme editor, where it edits the sections somebody
+     * is already looking at. Two menu entries for "build my website with AI",
+     * each leading somewhere different, is a choice nobody can make correctly
+     * on their first visit — so the older door is closed.
+     *
+     * Closed, not bricked up. Everything under /app/sites still works and
+     * still answers: the projects, the transcripts, the versions, the
+     * published sites. Deleting the routes would have taken somebody's work
+     * with them, and that is not what "take it out of the menu" means. This
+     * asserts BOTH halves, because either one alone is a different decision.
+     */
     const sidebar = read("components/app/sidebar.tsx")
     const missing: string[] = []
-    if (!/href: "\/app\/sites", label: "Storelib AI"/.test(sidebar))
-      missing.push("Storelib AI is not in the left-hand nav")
-    // And findable by search, which is how half the dashboard is navigated.
-    if ((sidebar.match(/Storelib AI/g) || []).length < 3)
-      missing.push("Storelib AI is missing from the search lists")
+
+    if (/href: "\/app\/sites"/.test(sidebar) || /href="\/app\/sites"/.test(sidebar))
+      missing.push("the code builder is still linked from the dashboard nav")
+
+    if (!existsSync(join(root, "app/app/sites/page.tsx")))
+      missing.push("the code builder's route was deleted, not hidden")
+
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),
