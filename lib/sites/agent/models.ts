@@ -59,6 +59,41 @@ export const MODEL_RATES: Record<string, ModelRate> = {
     cacheWriteMultiplier: 1.25,
     maxOutputTokens: 128_000,
   },
+  /**
+   * Anthropic. Priced here for the same reason the others are: `rateFor`
+   * returns null for a model nobody has priced, `costOf` then reports
+   * `priced: false`, and a run whose cost is unknown is recorded as zero. A
+   * provider switch that silently made every run look free would be a
+   * reporting hole, not a saving.
+   *
+   * Cache multipliers match Anthropic's published ratios — a read is 0.1x the
+   * input rate and a write 1.25x — which happen to be the same shape as the
+   * OpenAI ones.
+   */
+  "claude-sonnet-5": {
+    id: "claude-sonnet-5",
+    inputPerMTok: 2,
+    outputPerMTok: 10,
+    cachedInputMultiplier: 0.1,
+    cacheWriteMultiplier: 1.25,
+    maxOutputTokens: 128_000,
+  },
+  "claude-opus-5": {
+    id: "claude-opus-5",
+    inputPerMTok: 5,
+    outputPerMTok: 25,
+    cachedInputMultiplier: 0.1,
+    cacheWriteMultiplier: 1.25,
+    maxOutputTokens: 128_000,
+  },
+  "claude-opus-4-8": {
+    id: "claude-opus-4-8",
+    inputPerMTok: 5,
+    outputPerMTok: 25,
+    cachedInputMultiplier: 0.1,
+    cacheWriteMultiplier: 1.25,
+    maxOutputTokens: 128_000,
+  },
 }
 
 /**
@@ -144,6 +179,19 @@ export function costOf(model: string, usage: TokenUsage): CostBreakdown {
  *
  * A big project still promotes a small request: a change in a thirty-file
  * codebase is unlikely to stay in one file whatever the sentence says.
+ */
+export function chooseTier(prompt: string, fileCount: number): "fast" | "strong" {
+  const budget = classifyComplexity(prompt)
+  if (budget.complexity !== "small") return "strong"
+  return fileCount > 25 ? "strong" : "fast"
+}
+
+/**
+ * The same question, answered with an OpenAI id.
+ *
+ * Kept because it is what this file has always exported and what the tests
+ * pin, but `chooseTier` is the one to reach for now: a model id is a VENDOR's
+ * name for a difficulty, and there are two vendors.
  */
 export function chooseModel(prompt: string, fileCount: number): string {
   const budget = classifyComplexity(prompt)

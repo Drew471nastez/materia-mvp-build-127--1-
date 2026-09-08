@@ -20,11 +20,18 @@ import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
 import { createClient } from "@/lib/supabase/server"
-import { MissingKeyError, openAIProvider } from "@/lib/sites/agent/openai-provider"
+// `MissingKeyError` only: the provider itself now comes from the resolver.
+import { MissingKeyError } from "@/lib/sites/agent/openai-provider"
 import { agentRateLimit } from "@/lib/sites/rate-limit"
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
-import { DEFAULT_MODEL, STRONG_MODEL } from "@/lib/sites/agent/models"
+import { describeAnthropicError } from "@/lib/sites/agent/anthropic-provider"
+import {
+  isConfigured,
+  NoProviderConfiguredError,
+  resolveProvider,
+  substitutionNotice,
+} from "@/lib/sites/agent/provider"
 import { classifyRequest } from "@/lib/website-builder/agent/ambition"
 import { completeThemeExchange, startThemeExchange } from "@/lib/website-builder/agent/chat"
 
@@ -64,6 +71,14 @@ const BodySchema = z.object({
    * the sentence was phrased.
    */
   lockToSelection: z.boolean().optional(),
+  /**
+   * WHOSE MODEL ANSWERS, from the switch in the panel. Untrusted and validated
+   * in resolveProvider — anything else falls back to the deployment default
+   * rather than reaching a client constructor.
+   */
+  provider: z.enum(["anthropic", "openai"]).optional(),
+  /** How hard a model to use. "strong" is the creator asking for Opus. */
+  tier: z.enum(["fast", "strong"]).optional(),
 })
 
 export async function POST(request: NextRequest, context: { params: Promise<{ installId: string }> }) {
@@ -94,8 +109,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     .maybeSingle()
   if (!install) return NextResponse.json({ error: "Theme not found." }, { status: 404 })
 
-  if (!process.env.OPENAI_API_KEY) {
-    // 503, not 500: nothing is broken, the deployment is not configured.
+  /**
+   * EITHER key will do now. Checking only OPENAI_API_KEY here would refuse
+   * every request on a deployment that has moved to Claude — the exact
+   * migration this change exists to make possible.
+   *
+   * 503, not 500: nothing is broken, the deployment is not configured.
+   */
+  if (!isConfigured("anthropic") && !isConfigured("openai")) {
     return NextResponse.json(
       { error: "Storelib AI is not configured yet — no model key is set." },
       { status: 503 },
@@ -154,10 +175,27 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          */
         const shape = classifyRequest(body.prompt)
 
+        /**
+         * The creator's switch, honoured where the deployment can honour it.
+         *
+         * `tier` is theirs to choose — Sonnet for everyday work, Opus when
+         * they know the change is hard — and the classifier's own opinion only
+         * decides the turn budget. A model that could promote itself to the
+         * dearer tier eventually would, and the bill is theirs.
+         */
+        const resolved = resolveProvider({ requested: body.provider, tier: body.tier })
+        const notice = substitutionNotice(resolved)
+        if (notice) send({ type: "thinking", text: notice })
+
         const loop = themeAgent({
-          provider: openAIProvider,
-          model: shape.strong ? STRONG_MODEL : DEFAULT_MODEL,
+          provider: resolved.provider,
+          model: resolved.model,
           maxTurns: shape.maxTurns,
+          /**
+           * Thinking depth, where the provider has such a dial. A build is
+           * the case that repays it; a one-word change is not.
+           */
+          effort: shape.scope === "build" ? "high" : "medium",
           prompt: body.prompt,
           page: body.page,
           state: { sections: body.sections, settings: body.settings },
@@ -242,12 +280,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           error: result.status === "failed" ? result.error : null,
         })
       } catch (thrown) {
+        const claude = describeAnthropicError(thrown)
         send({
           type: "error",
-          message:
-            thrown instanceof MissingKeyError
+          message: claude
+            ? claude
+            : thrown instanceof NoProviderConfiguredError
               ? "Storelib AI is not configured yet — no model key is set."
-              : thrown instanceof Error
+              : thrown instanceof MissingKeyError
+                ? "Storelib AI is not configured yet — no model key is set."
+                : thrown instanceof Error
                 ? thrown.message
                 : "The edit failed.",
         })

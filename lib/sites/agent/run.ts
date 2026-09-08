@@ -55,6 +55,17 @@ export interface RunInput {
   plan: SitePlan
   prompt: string
   provider: AgentProvider
+  /**
+   * The model id, in that provider's vocabulary.
+   *
+   * A FUNCTION, not a string, because the two inputs to that decision live in
+   * different places: which VENDOR is answering is the route's business, and
+   * how big the project is, is only known here — the files are loaded a few
+   * lines below. Passing a plain id would have meant the route calling
+   * `chooseTier(prompt, 0)` and silently dropping the rule that a change in a
+   * thirty-file project is unlikely to stay in one file.
+   */
+  pickModel?: (fileCount: number) => string
   /** esbuild for `run_build`. Injected — the route owns initialisation. */
   esbuild: unknown
   signal?: AbortSignal
@@ -141,7 +152,19 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
     return
   }
 
-  const model = chooseModel(prompt, Object.keys(files).length)
+  /**
+   * FROM THE CALLER when it has an opinion, which it does now that there are
+   * two vendors: a model id is one vendor's name for a difficulty, and
+   * `chooseModel` only knows OpenAI's. Handing an OpenAI id to Anthropic is a
+   * 404 at the first call, after the snapshot and the run row are already
+   * written.
+   *
+   * The fallback keeps this file vendor-free — no provider import reaches
+   * here — and keeps every existing caller working unchanged.
+   */
+  const model =
+    input.pickModel?.(Object.keys(files).length) ??
+    chooseModel(prompt, Object.keys(files).length)
   const admin = createAdminClient()
 
   const versionId = await snapshot(siteId, files, prompt)
