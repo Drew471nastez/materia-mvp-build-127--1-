@@ -1,0 +1,323 @@
+"use client"
+
+/**
+ * ===========================================================================
+ *  THE AI PANEL IN THE THEME EDITOR
+ * ===========================================================================
+ * It edits the SAME sections the panels on the left edit. Not a copy, not a
+ * parallel document — the operations that come back are applied to the state
+ * the colour pickers and the drag handles are already writing to.
+ *
+ * That is what makes the three things below true at once, and none of them
+ * would be if the AI wrote to the database behind the editor's back:
+ *
+ *   - the preview moves WHILE the model is working, because each operation is
+ *     applied the moment it arrives rather than at the end;
+ *   - Undo takes back the whole AI edit, because one snapshot is pushed before
+ *     the first operation and the operations are ordinary state changes after
+ *     that;
+ *   - Save is unchanged. It writes what is on screen, and it has no idea an AI
+ *     was involved.
+ *
+ * The applier is shared with the server — see lib/website-builder/agent/
+ * operations.ts for why there is exactly one of it.
+ */
+
+import * as React from "react"
+import { ArrowUp, Check, Loader2, Sparkles, Square, TriangleAlert, X } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+import type { ThemeOp } from "@/lib/website-builder/agent/operations"
+import type { SectionInstance } from "@/lib/website-builder/types"
+
+interface Exchange {
+  id: string
+  prompt: string
+  /** One line per change, in the creator's words: "Added Pricing". */
+  changes: string[]
+  reply?: string
+  error?: string
+  running: boolean
+}
+
+const SUGGESTIONS = [
+  "Add an FAQ section with five real questions",
+  "Make the hero headline shorter and punchier",
+  "Add a pricing section with three tiers",
+  "Give the whole site a warmer palette",
+]
+
+export function ThemeChat({
+  installId,
+  page,
+  sections,
+  settings,
+  onRunStart,
+  onOp,
+  onClose,
+}: {
+  installId: string
+  page: string
+  sections: SectionInstance[]
+  settings: Record<string, unknown>
+  /** Called once before the first change, so one Undo takes the lot back. */
+  onRunStart: () => void
+  onOp: (op: ThemeOp) => void
+  onClose: () => void
+}) {
+  const [exchanges, setExchanges] = React.useState<Exchange[]>([])
+  const [draft, setDraft] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
+  const abortRef = React.useRef<AbortController | null>(null)
+  const bottomRef = React.useRef<HTMLDivElement>(null)
+  const fieldRef = React.useRef<HTMLTextAreaElement>(null)
+
+  /**
+   * The live state, read at send time rather than captured in the callback.
+   *
+   * A run started thirty seconds ago must send what the page looks like NOW —
+   * including anything the person changed by hand while it was open — or the
+   * model plans against a page that no longer exists and addresses sections by
+   * ids that have moved.
+   */
+  const live = React.useRef({ sections, settings, page })
+  live.current = { sections, settings, page }
+
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+  }, [exchanges])
+
+  const send = React.useCallback(
+    async (text: string) => {
+      const prompt = text.trim()
+      if (!prompt || busy) return
+
+      const id = crypto.randomUUID()
+      setDraft("")
+      setBusy(true)
+      setExchanges((previous) => [...previous, { id, prompt, changes: [], running: true }])
+
+      const patch = (change: (exchange: Exchange) => Exchange) =>
+        setExchanges((previous) => previous.map((e) => (e.id === id ? change(e) : e)))
+
+      /** One snapshot, before anything moves, so Undo takes back the whole run. */
+      let snapshotTaken = false
+
+      try {
+        const controller = new AbortController()
+        abortRef.current = controller
+
+        const response = await fetch(`/api/website-builder/themes/${installId}/agent`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            prompt,
+            page: live.current.page,
+            sections: live.current.sections,
+            settings: live.current.settings,
+          }),
+        })
+
+        if (!response.ok || !response.body) {
+          const body = (await response.json().catch(() => ({}))) as { error?: string }
+          patch((e) => ({ ...e, running: false, error: body.error ?? "That did not go through." }))
+          return
+        }
+
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ""
+
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+
+          let newline = buffer.indexOf("\n")
+          while (newline !== -1) {
+            const line = buffer.slice(0, newline).trim()
+            buffer = buffer.slice(newline + 1)
+            newline = buffer.indexOf("\n")
+            if (!line) continue
+
+            let event: { type: string; op?: ThemeOp; label?: string; text?: string; message?: string }
+            try {
+              event = JSON.parse(line)
+            } catch {
+              continue
+            }
+
+            if (event.type === "op" && event.op) {
+              if (!snapshotTaken) {
+                onRunStart()
+                snapshotTaken = true
+              }
+              onOp(event.op)
+              const label = event.label ?? "Changed the page"
+              patch((e) => ({ ...e, changes: [...e.changes, label] }))
+            } else if (event.type === "message") {
+              const reply = event.text ?? ""
+              patch((e) => ({ ...e, reply, running: false }))
+            } else if (event.type === "error") {
+              const message = event.message ?? "The edit failed."
+              patch((e) => ({ ...e, running: false, error: message }))
+            }
+          }
+        }
+
+        patch((e) => ({ ...e, running: false }))
+      } catch (thrown) {
+        const stopped = thrown instanceof DOMException && thrown.name === "AbortError"
+        patch((e) => ({
+          ...e,
+          running: false,
+          /**
+           * A stop is the person deciding, not a fault — and changes already
+           * applied are NOT rolled back, because they are on screen and one
+           * Undo takes them back. Silently reverting work somebody watched
+           * happen would be the more surprising behaviour.
+           */
+          error: stopped ? undefined : "Lost the connection. Anything already changed is still here.",
+          reply: stopped ? "Stopped." : e.reply,
+        }))
+      } finally {
+        abortRef.current = null
+        setBusy(false)
+      }
+    },
+    [busy, installId, onOp, onRunStart],
+  )
+
+  return (
+    <div className="flex h-full w-full flex-col bg-background">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
+        <Sparkles className="h-4 w-4 text-foreground" strokeWidth={1.75} />
+        <span className="flex-1 text-[13px] font-medium">Ask AI</span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close AI panel"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <X className="h-4 w-4" strokeWidth={1.75} />
+        </button>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        {exchanges.length === 0 ? (
+          <div className="space-y-4">
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
+              Describe a change and it is made on this page. The AI edits the same sections the panels
+              do, so everything stays undoable and nothing saves until you press Save.
+            </p>
+            <div className="space-y-1.5">
+              {SUGGESTIONS.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => {
+                    setDraft(suggestion)
+                    fieldRef.current?.focus()
+                  }}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left text-[12.5px] leading-snug text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <ul className="space-y-5">
+            {exchanges.map((exchange) => (
+              <li key={exchange.id} className="space-y-2">
+                <p className="text-[13px] text-foreground">{exchange.prompt}</p>
+
+                {exchange.changes.length > 0 && (
+                  <ul className="space-y-1 border-l border-border pl-3">
+                    {exchange.changes.map((change, index) => (
+                      <li
+                        key={`${change}-${index}`}
+                        className="flex items-center gap-2 text-[12px] text-muted-foreground"
+                      >
+                        <Check className="h-3 w-3 shrink-0 text-emerald-500" strokeWidth={2} />
+                        <span className="truncate">{change}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {exchange.running && (
+                  <p className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Working
+                  </p>
+                )}
+
+                {exchange.reply && (
+                  <p className="text-[13px] leading-relaxed text-muted-foreground">{exchange.reply}</p>
+                )}
+
+                {exchange.error && (
+                  <p className="flex items-start gap-1.5 text-[12px] text-red-500">
+                    <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
+                    {exchange.error}
+                  </p>
+                )}
+              </li>
+            ))}
+            <div ref={bottomRef} />
+          </ul>
+        )}
+      </div>
+
+      <div className="shrink-0 border-t border-border p-2.5">
+        <div className="rounded-xl border border-border bg-background focus-within:border-foreground/30">
+          <textarea
+            ref={fieldRef}
+            rows={2}
+            value={draft}
+            disabled={busy}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault()
+                void send(draft)
+              }
+            }}
+            placeholder="Change this page…"
+            className="w-full resize-none bg-transparent px-3 pt-2.5 text-[13px] outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
+          />
+          <div className="flex items-center justify-between px-2 pb-2">
+            <span className="pl-1 text-[11px] text-muted-foreground/60">Enter to send</span>
+            {busy ? (
+              <button
+                type="button"
+                onClick={() => abortRef.current?.abort()}
+                aria-label="Stop"
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground text-background"
+              >
+                <Square className="h-3 w-3 fill-current" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void send(draft)}
+                disabled={draft.trim().length === 0}
+                aria-label="Send"
+                className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-lg transition-opacity",
+                  draft.trim().length === 0
+                    ? "bg-muted text-muted-foreground/50"
+                    : "bg-foreground text-background",
+                )}
+              >
+                <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.25} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

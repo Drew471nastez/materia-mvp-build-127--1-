@@ -17,6 +17,7 @@ import {
   Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle,
   Type, Square, Rows3, Grid3x3, MousePointerClick,
   MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon,
+  Sparkles,
 } from "lucide-react"
 import {
   DndContext,
@@ -58,6 +59,8 @@ import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-sche
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { toast } from "sonner"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
+import { ThemeChat } from "@/components/website-builder/theme-chat"
+import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
 
 // ── Custom back-with-bar icon (topbar) ──────────────────────
 function BackWithBarIcon({ className }: { className?: string }) {
@@ -3462,6 +3465,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // Set when the user clicks an "insert between" divider in the sidebar.
   // null = append before the footer (default).
   const [pendingInsertIndex, setPendingInsertIndex] = useState<number | null>(null)
+  /** The AI panel, docked beside the sidebar. Closed until asked for. */
+  const [aiOpen, setAiOpen] = useState(false)
+
+  /**
+   * ONE OPERATION FROM THE AI, APPLIED TO THE STATE THE PANELS ALREADY EDIT.
+   *
+   * `applyOp` is the SAME function the server used to produce this operation —
+   * see lib/website-builder/agent/operations.ts for why there is exactly one
+   * of it. What lands here is therefore what the model was working against.
+   *
+   * Split by kind because the editor keeps sections and theme settings in two
+   * pieces of state, and no operation reads across them: `update_theme`
+   * touches only settings, everything else touches only sections. Passing the
+   * half it does not read keeps the shared applier's signature honest without
+   * needing a joint updater React does not offer.
+   *
+   * Ordinary setState, so the preview repaints, `isDirty` flips, and Save
+   * behaves exactly as it does for a change made by hand.
+   */
+  const applyAiOp = useCallback((op: ThemeOp) => {
+    if (op.kind === "update_theme") {
+      setSettingsDraft(previous => applyOp({ sections: [], settings: previous }, op).settings as ThemeSettingsValues)
+      return
+    }
+    setSections(previous => applyOp({ sections: previous, settings: {} }, op).sections)
+  }, [])
+
   const [sidebarWidth, setSidebarWidth] = useState(288)
   const [isMobileView, setIsMobileView] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
@@ -5327,6 +5357,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipContent>
           </Tooltip>
 
+          {/* Ask AI */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className={cn(
+                  "h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border transition-colors cursor-pointer",
+                  aiOpen
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border text-neutral-600 hover:bg-muted",
+                )}
+                onClick={() => setAiOpen(open => !open)}
+                aria-label="Ask AI"
+                aria-pressed={aiOpen}
+              >
+                <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{aiOpen ? "Hide AI" : "Ask AI"}</TooltipContent>
+          </Tooltip>
+
           {/* Preview */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -5505,6 +5555,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               {renderSidebarContent()}
             </div>
           </MobileEditorSheet>
+        )}
+
+        {/* ── AI panel ──
+            A COLUMN, not an overlay. Docked between the section list and the
+            canvas so the preview stays fully visible and keeps its width to
+            the right of it — the page moving while you type is the point, and
+            a panel floating over the preview would hide the thing it is
+            changing. Hidden rather than unmounted so a conversation survives
+            being closed and reopened. */}
+        {!isMobileView && aiOpen && (
+          <div className="relative flex-shrink-0 border-r border-border" style={{ width: 340 }}>
+            <ThemeChat
+              installId={installId}
+              page={currentPage}
+              sections={sections}
+              settings={settingsDraft as Record<string, unknown>}
+              onRunStart={pushUndo}
+              onOp={applyAiOp}
+              onClose={() => setAiOpen(false)}
+            />
+          </div>
         )}
 
         {/* ── Canvas ──
