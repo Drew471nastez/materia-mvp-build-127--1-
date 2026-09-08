@@ -4,8 +4,9 @@
 // styles (underline, pill, box, minimal), 3 positions (top, left,
 // right), and animated panel transitions.
 
+import { cn } from "@/lib/utils"
 import { useState } from "react"
-import { str, SectionWrapper, type SectionProps } from "../_shared"
+import { str, SectionWrapper, type SectionProps, DynamicIcon } from "../_shared"
 
 export function TabsContentSection({ section, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -38,10 +39,17 @@ export function TabsContentSection({ section, isEditing, isSelected, onClick }: 
 
   const activeBlock = blocks[active]
   const imagePos = str(activeBlock?.settings.image_position, "right")
+  const alignment = str(s.alignment, "left")
 
   const tabBar = (
     <div
-      className={position === "top" ? "flex flex-wrap gap-2 mb-6" : "flex flex-col gap-2"}
+      className={cn(
+        position === "top" ? "flex flex-wrap gap-2 mb-6" : "flex flex-col gap-2",
+        // Alignment only means anything on a horizontal bar; a vertical rail
+        // is already as wide as its widest tab.
+        position === "top" && alignment === "center" && "justify-center",
+        position === "top" && alignment === "right" && "justify-end",
+      )}
       style={{ background: style === "box" ? tabBg : "transparent", padding: style === "box" ? 0 : undefined }}
     >
       {blocks.map((b, i) => (
@@ -52,6 +60,9 @@ export function TabsContentSection({ section, isEditing, isSelected, onClick }: 
           className="px-4 py-2 text-sm font-semibold flex items-center gap-2 transition"
           style={tabButtonStyle(i)}
         >
+          {!!b.settings.icon && (
+            <DynamicIcon name={str(b.settings.icon)} className="h-4 w-4" />
+          )}
           {str(b.settings.title, `Tab ${i + 1}`)}
           {!!b.settings.badge && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: tabActive, color: "#fff" }}>

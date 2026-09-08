@@ -3,7 +3,23 @@
 // Lookbook — full-width fashion hero with overlayed collection info and
 // an optional mood / overlay treatment.
 
+import { cn } from "@/lib/utils"
 import { str, SectionWrapper, hexToRgba, type SectionProps } from "../_shared"
+
+/**
+ * The six moods, as typography. A lookbook's mood is carried by how the
+ * collection name is set — a thin airy line, a heavy compressed block, a
+ * serif with wide letter-spacing — which is exactly what this control was
+ * naming and exactly what it never changed.
+ */
+const MOOD: Record<string, string> = {
+  minimal: "text-5xl @[768px]:text-7xl font-light",
+  bold: "text-5xl @[768px]:text-8xl font-black uppercase tracking-tight",
+  editorial: "text-5xl @[768px]:text-7xl font-serif italic",
+  street: "text-5xl @[768px]:text-8xl font-extrabold uppercase tracking-[-0.03em]",
+  luxury: "text-4xl @[768px]:text-6xl font-light uppercase tracking-[0.22em]",
+  bohemian: "text-5xl @[768px]:text-7xl font-serif tracking-wide",
+}
 
 export function LookbookSection({ section, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -24,6 +40,7 @@ export function LookbookSection({ section, isEditing, isSelected, onClick }: Sec
   const imgPos = str(s.hero_image_position, "center")
   const imgObjectPos = imgPos === "top" ? "center top" : imgPos === "bottom" ? "center bottom" : "center center"
   const ctaStyle = str(s.cta_style, "outline")
+  const mood = str(s.mood_style, "minimal")
   const ctaColor = str(s.cta_color, "#ffffff")
   const ctaTextColor = str(s.cta_text_color, "#111111")
 
@@ -56,12 +73,15 @@ export function LookbookSection({ section, isEditing, isSelected, onClick }: Sec
               </p>
             )}
             {!!s.collection_name && (
-              <h2 className="text-5xl @[768px]:text-7xl font-light leading-tight mb-3" style={{ color: headingColor }}>
+              <h2 className={cn("mb-3 leading-tight", MOOD[mood] ?? MOOD.minimal)} style={{ color: headingColor }}>
                 {str(s.collection_name)}
               </h2>
             )}
             {!!s.subtitle && <p className="text-lg mb-4 opacity-95">{str(s.subtitle)}</p>}
             {!!s.description && <p className="text-sm opacity-90 mb-6">{str(s.description)}</p>}
+            {/* `mood_style` offered six editorial treatments and set nothing;
+                every lookbook was the same. It shapes the typography, which is
+                what "mood" means in an editorial layout. */}
             {!!s.cta_text && (
               <a
                 href={str(s.cta_url, "#")}

@@ -13,6 +13,7 @@ export function TimelineSection({ section, isEditing, isSelected, onClick }: Sec
   const color = str(s.text_color, "#111111")
   const connector = str(s.connector_color, "#d0d0d0")
   const dotColor = str(s.dot_color, "#111111")
+  const connectorStyle = str(s.connector_style, "line")
   const dotSize = typeof s.dot_size === "number" ? s.dot_size : 16
   const layout = str(s.layout, "alternating")
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 80
@@ -29,8 +30,21 @@ export function TimelineSection({ section, isEditing, isSelected, onClick }: Sec
         )}
         <div className="relative">
           <div
+            /**
+             * The Connector Style control offered Line, Dots and Arrows and
+             * always drew a line. Dots and arrows are the same one-pixel
+             * column painted with a repeating gradient rather than a solid —
+             * no extra elements, so the dots line up with the entries exactly
+             * as the solid rule did.
+             */
             className={`absolute top-0 bottom-0 w-px ${layout === "center" || layout === "alternating" ? "left-1/2 -translate-x-1/2" : "left-5"}`}
-            style={{ background: connector }}
+            style={
+              connectorStyle === "dots"
+                ? { backgroundImage: `repeating-linear-gradient(to bottom, ${connector} 0 4px, transparent 4px 10px)` }
+                : connectorStyle === "arrows"
+                  ? { backgroundImage: `repeating-linear-gradient(to bottom, ${connector} 0 14px, transparent 14px 22px)` }
+                  : { background: connector }
+            }
           />
           <div className="space-y-12">
             {blocks.map((b, i) => {

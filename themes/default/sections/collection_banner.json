@@ -28,7 +28,7 @@
       "id": "description",
       "label": "Description",
       "type": "textarea",
-      "default": "Discover our curated selection of women's outerwear — from lightweight transitional jackets to heavyweight winter coats, crafted for style and function.",
+      "default": "Discover our curated selection of women's outerwear \u2014 from lightweight transitional jackets to heavyweight winter coats, crafted for style and function.",
       "placeholder": "Collection description"
     },
     {
@@ -170,7 +170,7 @@
       "id": "bg_color",
       "label": "Background Color",
       "type": "color",
-      "default": "#f8f8f8"
+      "default": "#1f2937"
     },
     {
       "id": "text_position",
@@ -224,7 +224,7 @@
       "settings": {
         "collection_name": "Women's Outerwear",
         "product_count_text": "142 products",
-        "description": "Discover our curated selection of women's outerwear — from lightweight transitional jackets to heavyweight winter coats, crafted for style and function.",
+        "description": "Discover our curated selection of women's outerwear \u2014 from lightweight transitional jackets to heavyweight winter coats, crafted for style and function.",
         "hero_image_alt": "Women's Outerwear Collection",
         "badge_text": "New Arrivals",
         "badge_color": "#111111",
@@ -238,7 +238,7 @@
         "overlay_opacity": 30,
         "overlay_color": "#000000",
         "text_color": "#ffffff",
-        "bg_color": "#f8f8f8",
+        "bg_color": "#1f2937",
         "text_position": "center",
         "padding_top": 0,
         "padding_bottom": 0

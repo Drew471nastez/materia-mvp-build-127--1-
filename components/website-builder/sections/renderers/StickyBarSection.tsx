@@ -7,9 +7,10 @@
 
 import { useState } from "react"
 import { X } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { str, SectionWrapper, type SectionProps } from "../_shared"
 
-export function StickyBarSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function StickyBarSection({ section, isEditing, isSelected, onClick, insideEditor }: SectionProps) {
   const s = section.settings
   const [dismissed, setDismissed] = useState(false)
   if (dismissed && !isEditing) return null
@@ -18,9 +19,28 @@ export function StickyBarSection({ section, isEditing, isSelected, onClick }: Se
   const color = str(s.text_color, "#ffffff")
   const padY = typeof s.padding_y === "number" ? s.padding_y : 12
   const showClose = s.show_close !== false
+  /**
+   * TOP OR BOTTOM. The panel has offered this from the start and the bar
+   * always rendered wherever it happened to sit in the section list — so a
+   * bar set to "Bottom" appeared at the top of the page.
+   *
+   * On a live page it is fixed to the chosen edge. Inside the editor it stays
+   * in flow: a fixed element in the canvas would float over the preview card
+   * and could not be selected or dragged.
+   */
+  const position = str(s.position, "top")
 
   return (
-    <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
+    <SectionWrapper
+      bgColor={bg}
+      isEditing={isEditing}
+      isSelected={isSelected}
+      onClick={onClick}
+      className={cn(
+        !insideEditor && "fixed inset-x-0 z-40",
+        !insideEditor && (position === "bottom" ? "bottom-0" : "top-0"),
+      )}
+    >
       <div
         className="flex items-center justify-center gap-3 px-6 text-sm"
         style={{ color, paddingTop: padY, paddingBottom: padY }}

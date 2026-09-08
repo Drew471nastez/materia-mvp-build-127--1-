@@ -4,6 +4,13 @@ import { cn } from "@/lib/utils"
 import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
 // ── Brand logos ──────────────────────────────────────────────
+const RATIO: Record<string, string | undefined> = {
+  adapt: undefined,
+  square: "1 / 1",
+  portrait: "3 / 4",
+  landscape: "4 / 3",
+}
+
 export function BrandLogoSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
@@ -35,6 +42,15 @@ export function BrandLogoSection({ section, theme, isEditing, isSelected, onClic
           <div className={cn("mb-8", headerAlignClass[headerAlign])}>
             {!!s.heading && <h2 className="text-2xl font-bold mb-1" style={{ color: c.heading, fontFamily: theme.font_heading }}>{str(s.heading)}</h2>}
             {!!s.description && <p className="text-sm" style={{ color: c.paragraph }}>{str(s.description)}</p>}
+          {bool(s.show_view_all_button) && (
+            <a
+              href={str(s.view_all_button_link, "#")}
+              className="text-sm font-semibold underline underline-offset-4"
+              style={{ color: c.link }}
+            >
+              View all
+            </a>
+          )}
           </div>
         )}
         <div className={cn("grid items-center justify-items-center", colsClass[cols] ?? "grid-cols-3 @[768px]:grid-cols-6")} style={{ gap: `${gap}px` }}>
@@ -46,8 +62,11 @@ export function BrandLogoSection({ section, theme, isEditing, isSelected, onClic
               <img
                 src={image}
                 alt={alt}
+                /* `image_ratio` offered Adapt, Square, Portrait and Landscape
+                   and every logo rendered at its own height, so a row of mixed
+                   logos never lined up. "adapt" keeps that behaviour. */
                 className={cn("object-contain", grayscale && "grayscale")}
-                style={{ width: imgWidth, opacity }}
+                style={{ width: imgWidth, opacity, aspectRatio: RATIO[str(s.image_ratio, "adapt")] }}
               />
             ) : (
               <div

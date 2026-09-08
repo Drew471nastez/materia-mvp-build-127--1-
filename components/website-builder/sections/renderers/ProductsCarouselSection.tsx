@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
@@ -19,6 +19,24 @@ export function ProductsCarouselSection({ section, theme, isEditing, isSelected,
   const headerAlign = str(s.header_alignment, "left")
   const headerAlignClass: Record<string, string> = { left: "text-left", center: "text-center", right: "text-right" }
   const scrollerRef = useRef<HTMLDivElement>(null)
+  const firstItemRef = useRef<HTMLDivElement>(null)
+  const [activePage, setActivePage] = useState(0)
+
+  // Which page the row is showing, read back from where it has been scrolled
+  // to — including by a swipe, which no button click would have told us about.
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    const onScroll = () => {
+      const item = firstItemRef.current
+      if (!item) return
+      const pageWidth = perRow * (item.offsetWidth + gap)
+      if (pageWidth <= 0) return
+      setActivePage(Math.round(el.scrollLeft / pageWidth))
+    }
+    el.addEventListener("scroll", onScroll, { passive: true })
+    return () => el.removeEventListener("scroll", onScroll)
+  }, [perRow, gap])
 
   const scroll = (dir: "left" | "right") => {
     const el = scrollerRef.current
@@ -78,8 +96,13 @@ export function ProductsCarouselSection({ section, theme, isEditing, isSelected,
             className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth flex-1 pb-2"
             style={{ gap: `${gap}px`, scrollbarWidth: "none" }}
           >
-            {placeholders.map(p => (
-              <div key={p.id} className="shrink-0 snap-start" style={{ flexBasis: itemBasis, minWidth: 160 }}>
+            {placeholders.map((p, i) => (
+              <div
+                key={p.id}
+                ref={i === 0 ? firstItemRef : undefined}
+                className="shrink-0 snap-start"
+                style={{ flexBasis: itemBasis, minWidth: 160 }}
+              >
                 <div className="aspect-[4/5] rounded-lg bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center text-white/50 text-xs mb-3">Image</div>
                 <div className="font-semibold text-sm" style={{ color: c.heading }}>{p.title}</div>
                 <div className="text-sm" style={{ color: c.paragraph }}>{p.price}</div>
@@ -87,6 +110,36 @@ export function ProductsCarouselSection({ section, theme, isEditing, isSelected,
             ))}
           </div>
         </div>
+        {/*
+          `show_dots` was declared and read by nothing, so a carousel with the
+          arrows turned off had no indication that there was anything beyond
+          the right edge. The dots follow the scroller rather than driving it —
+          the scroller is the source of truth, and a dot that disagreed with
+          where the row actually sits is worse than no dot.
+        */}
+        {bool(s.show_dots) && placeholders.length > perRow && (
+          <div className="mt-5 flex justify-center gap-2">
+            {Array.from({ length: Math.ceil(placeholders.length / perRow) }).map((_, page) => (
+              <button
+                key={page}
+                aria-label={`Go to page ${page + 1}`}
+                aria-current={page === activePage}
+                className={cn(
+                  "h-2 rounded-full transition-all",
+                  page === activePage ? "w-5" : "w-2 opacity-40",
+                )}
+                style={{ background: c.heading }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const el = scrollerRef.current
+                  const item = firstItemRef.current
+                  if (!el || !item) return
+                  el.scrollTo({ left: page * perRow * (item.offsetWidth + gap), behavior: "smooth" })
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </SectionWrapper>
   )

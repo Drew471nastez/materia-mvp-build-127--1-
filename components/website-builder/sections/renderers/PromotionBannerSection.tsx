@@ -41,7 +41,20 @@ export function PromotionBannerSection({ section, theme, isEditing, isSelected, 
       <div style={{ paddingTop: Number(s.padding_top ?? 0), paddingBottom: Number(s.padding_bottom ?? 0) }}>
         <div className="relative w-full overflow-hidden" style={{ minHeight }}>
           {img ? (
-            <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            /**
+              * A `<picture>` rather than a swap in JS: the browser picks before
+              * it fetches, so a phone never downloads the desktop banner. The
+              * Mobile image control was in the panel and read by nothing, so
+              * every phone got the wide crop — usually a banner whose subject
+              * is off the edge.
+              */
+            <picture>
+              {!!s.image_mobile && (
+                <source media="(max-width: 640px)" srcSet={str(s.image_mobile)} />
+              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            </picture>
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-neutral-700 to-neutral-900" />
           )}

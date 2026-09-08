@@ -91,6 +91,34 @@
       "type": "header"
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "White",
+          "value": "white"
+        },
+        {
+          "label": "Light",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Black",
+          "value": "black"
+        },
+        {
+          "label": "Highlight",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "overlay_color",
       "label": "Overlay color",
       "type": "color",
@@ -105,6 +133,13 @@
       "step": 5,
       "unit": "%",
       "default": 30
+    },
+    {
+      "id": "bg_color",
+      "label": "Background",
+      "type": "color",
+      "default": "#111827",
+      "info": "Shown behind the media, and on its own before an image is chosen."
     },
     {
       "id": "text_color",

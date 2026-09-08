@@ -6,7 +6,7 @@
 // table).
 
 import { Check, X } from "lucide-react"
-import { str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { str, bool, SectionWrapper, maxWidth, type SectionProps } from "../_shared"
 
 function isYes(v: string): boolean | null {
   const t = v.trim().toLowerCase()
@@ -38,7 +38,10 @@ export function ComparisonTableSection({ section, isEditing, isSelected, onClick
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="max-w-[1230px] mx-auto px-6" style={{ color, paddingTop: padTop, paddingBottom: padBottom }}>
+      <div
+        className="mx-auto px-6"
+        style={{ maxWidth: maxWidth(s.max_width), color, paddingTop: padTop, paddingBottom: padBottom }}
+      >
         {(!!s.heading || !!s.subheading) && (
           <div className="text-center mb-10">
             {!!s.heading && <h2 className="text-3xl font-bold mb-2">{str(s.heading)}</h2>}
@@ -47,7 +50,15 @@ export function ComparisonTableSection({ section, isEditing, isSelected, onClick
         )}
         <div className="overflow-x-auto">
           <table className="w-full text-left" style={{ borderCollapse: "separate", borderSpacing: 0, borderRadius: radius, overflow: "hidden", border: `1px solid ${border}` }}>
-            <thead>
+            {/*
+              `sticky_header` defaults to ON and did nothing. A comparison
+              table is the one place it matters: scroll past ten rows and you
+              no longer know which column is which plan.
+            */}
+            <thead
+              className={bool(s.sticky_header, true) ? "sticky top-0 z-10" : undefined}
+              style={bool(s.sticky_header, true) ? { background: bg } : undefined}
+            >
               <tr>
                 <th className="p-4" style={{ background: headerBg }}></th>
                 {columns.map((col, i) => {

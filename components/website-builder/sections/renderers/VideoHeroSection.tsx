@@ -15,7 +15,13 @@ export function VideoHeroSection({ section, isEditing, isSelected, onClick }: Se
   const textColor = str(s.text_color, "#ffffff")
   const alignment = str(s.alignment, "center")
   const headingSize = typeof s.font_size_heading === "number" ? s.font_size_heading : 56
-  const bg = str(s.video_poster) ? "#000" : "#111"
+  /**
+   * The surface behind the video — and the whole section before one has
+   * been chosen. It shipped white text over no background at all, which on
+   * the default scheme is white on white: an empty-looking section the
+   * second somebody clicks Add.
+   */
+  const bg = str(s.bg_color) || (str(s.video_poster) ? "#000" : "#111")
   const maxWidthMap: Record<string, string> = { narrow: "max-w-xl", medium: "max-w-3xl", wide: "max-w-5xl", full: "max-w-none" }
   const mw = maxWidthMap[str(s.max_width, "medium")] ?? "max-w-3xl"
   const videoUrl = str(s.video_url)

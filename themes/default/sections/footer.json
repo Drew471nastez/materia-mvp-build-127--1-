@@ -31,7 +31,7 @@
       "id": "copyright",
       "label": "Copyright text",
       "type": "text",
-      "placeholder": "© 2026 My Store. All rights reserved."
+      "placeholder": "\u00a9 2026 My Store. All rights reserved."
     },
     {
       "id": "hdr_newsletter",
@@ -104,22 +104,53 @@
       "type": "header"
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "White",
+          "value": "white"
+        },
+        {
+          "label": "Light",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Black",
+          "value": "black"
+        },
+        {
+          "label": "Highlight",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background",
       "type": "color",
-      "default": "#0f172a"
+      "default": "",
+      "info": "Leave empty to use the color scheme."
     },
     {
       "id": "text_color",
       "label": "Text color",
       "type": "color",
-      "default": "#94a3b8"
+      "default": "",
+      "info": "Leave empty to use the color scheme."
     },
     {
       "id": "heading_color",
       "label": "Column heading color",
       "type": "color",
-      "default": "#f8fafc"
+      "default": "",
+      "info": "Leave empty to use the color scheme."
     },
     {
       "id": "accent_color",
@@ -250,7 +281,7 @@
       "settings": {
         "logo_text": "My Store",
         "tagline": "Quality products for modern life.",
-        "copyright": "© 2026 My Store. All rights reserved.",
+        "copyright": "\u00a9 2026 My Store. All rights reserved.",
         "show_newsletter": false,
         "show_social": true,
         "bg_color": "#0f172a",

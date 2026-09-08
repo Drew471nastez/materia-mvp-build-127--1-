@@ -1,30 +1,97 @@
 "use client"
 
+/**
+ * ===========================================================================
+ *  RICH TEXT
+ * ===========================================================================
+ * The body is a `richtext` field and it was rendered inside a `<p>` as plain
+ * text, so a paragraph break or a link showed as markup on the page. Eleven of
+ * its sixteen controls did nothing besides: the eyebrow, the whole button —
+ * text, link, style, colour, label colour, corner radius — the colours, the
+ * heading size and the padding.
+ */
+
+import type { CSSProperties } from "react"
 import { cn } from "@/lib/utils"
-import { sectionColors, str, SectionWrapper, type SectionProps } from "../_shared"
+import {
+  num,
+  sectionColors,
+  sectionPadding,
+  str,
+  SectionWrapper,
+  type SectionProps,
+} from "../_shared"
+
+const WIDTH: Record<string, string> = {
+  narrow: "max-w-xl",
+  medium: "max-w-2xl",
+  wide: "max-w-4xl",
+  full: "max-w-[1230px]",
+}
 
 export function RichTextSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = c.bg
-  const headingColor = c.heading
-  const bodyColor = c.paragraph
+
+  const bg = str(s.bg_color) || c.bg
+  const headingColor = str(s.text_color) || c.heading
+  const bodyColor = str(s.text_color) || c.paragraph
   const align = str(s.alignment, "left")
-  const maxWidthMap: Record<string, string> = { narrow: "max-w-xl", medium: "max-w-2xl", wide: "max-w-4xl", full: "max-w-none" }
-  const mw = maxWidthMap[str(s.max_width, "medium")] ?? "max-w-2xl"
+
+  const buttonStyle = str(s.button_style, "filled")
+  const buttonColor = str(s.button_color) || c.primary_btn_bg
+  const buttonLabel = str(s.button_text_color) || c.primary_btn_text
+  const radius = { borderRadius: `${num(s.button_border_radius, 8)}px` }
+  const button: CSSProperties =
+    buttonStyle === "outline"
+      ? { background: "transparent", color: buttonColor, border: `2px solid ${buttonColor}`, ...radius }
+      : buttonStyle === "ghost"
+        ? { background: "transparent", color: buttonColor, border: "1px solid transparent", ...radius }
+        : { background: buttonColor, color: buttonLabel, border: `1px solid ${buttonColor}`, ...radius }
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className={cn("px-8 py-16 mx-auto", mw === "max-w-none" ? "max-w-[1230px]" : mw)} style={{ textAlign: align as any }}>
+      <div
+        className={cn("px-8 mx-auto", WIDTH[str(s.max_width, "medium")] ?? WIDTH.medium)}
+        style={{ textAlign: align as CSSProperties["textAlign"], ...sectionPadding(s, 60) }}
+      >
+        {!!s.eyebrow && (
+          <span
+            className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em]"
+            style={{ color: buttonColor }}
+          >
+            {str(s.eyebrow)}
+          </span>
+        )}
         {!!s.heading && (
-          <h2 className="text-3xl font-bold mb-4" style={{ color: headingColor, fontFamily: theme.font_heading }}>
+          <h2
+            className="font-bold mb-4 text-2xl @[768px]:text-[length:var(--rt-heading)]"
+            style={
+              {
+                color: headingColor,
+                fontFamily: theme.font_heading,
+                "--rt-heading": `${num(s.font_size_heading, 36)}px`,
+              } as CSSProperties
+            }
+          >
             {str(s.heading)}
           </h2>
         )}
         {!!s.body && (
-          <p className="text-lg leading-relaxed" style={{ color: bodyColor }}>
-            {str(s.body)}
-          </p>
+          <div
+            className="text-lg leading-relaxed [&_a]:underline [&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5"
+            style={{ color: bodyColor }}
+            dangerouslySetInnerHTML={{ __html: str(s.body) }}
+          />
+        )}
+        {!!s.button_text && (
+          <a
+            href={str(s.button_url, "#")}
+            className="mt-6 inline-block px-6 py-3 text-sm font-semibold transition-opacity hover:opacity-90"
+            style={button}
+          >
+            {str(s.button_text)}
+          </a>
         )}
       </div>
     </SectionWrapper>

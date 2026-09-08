@@ -141,6 +141,13 @@
       "default": 45
     },
     {
+      "id": "bg_color",
+      "label": "Background",
+      "type": "color",
+      "default": "#111827",
+      "info": "Shown behind the media, and on its own before an image is chosen."
+    },
+    {
       "id": "text_color",
       "label": "Text color",
       "type": "color",

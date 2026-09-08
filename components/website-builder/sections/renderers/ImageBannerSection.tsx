@@ -1,34 +1,130 @@
 "use client"
 
+/**
+ * ===========================================================================
+ *  THE IMAGE BANNER
+ * ===========================================================================
+ * Twelve of eighteen controls did nothing. The whole button — text, link,
+ * style, colour, label colour, radius — was declared and never rendered, so a
+ * banner could not have a call to action. The overlay colour was hard-coded to
+ * black whatever the picker said, the text colour came from the scheme rather
+ * than the control, and the alignment, heading size, content width and padding
+ * were ignored.
+ *
+ * It also shipped white text with no image and no background of its own, which
+ * on the default white scheme is white on white. The overlay is what makes the
+ * text legible, so it is painted whether or not an image has been chosen yet.
+ */
+
+import type { CSSProperties } from "react"
 import { cn } from "@/lib/utils"
-import { sectionColors, str, SectionWrapper, type SectionProps } from "../_shared"
+import {
+  maxWidth,
+  num,
+  sectionColors,
+  sectionPadding,
+  str,
+  SectionWrapper,
+  type SectionProps,
+} from "../_shared"
+
+const ASPECT: Record<string, string> = {
+  "16:9": "aspect-video",
+  "3:1": "aspect-[3/1]",
+  "4:3": "aspect-[4/3]",
+  "21:9": "aspect-[21/9]",
+  auto: "min-h-[320px]",
+}
 
 export function ImageBannerSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const aspectMap: Record<string, string> = { "16:9": "aspect-video", "3:1": "aspect-[3/1]", "4:3": "aspect-[4/3]", auto: "" }
-  const aspect = aspectMap[str(s.aspect_ratio, "16:9")] ?? "aspect-video"
-  const textColor = c.image_overlay_text
+
+  const aspect = ASPECT[str(s.aspect_ratio, "16:9")] ?? ASPECT["16:9"]
+  const textColor = str(s.text_color) || c.image_overlay_text
+  const alignment = str(s.alignment, "center")
+  const image = str(s.image_url)
+
+  const buttonStyle = str(s.button_style, "filled")
+  const buttonColor = str(s.button_color) || c.primary_btn_bg
+  const buttonLabel = str(s.button_text_color) || c.primary_btn_text
+  const radius = { borderRadius: `${num(s.button_border_radius, 8)}px` }
+  const button: CSSProperties =
+    buttonStyle === "outline"
+      ? { background: "transparent", color: buttonColor, border: `2px solid ${buttonColor}`, ...radius }
+      : buttonStyle === "ghost"
+        ? { background: "transparent", color: buttonColor, border: "1px solid transparent", ...radius }
+        : { background: buttonColor, color: buttonLabel, border: `1px solid ${buttonColor}`, ...radius }
 
   return (
     <SectionWrapper isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className={cn("relative w-full overflow-hidden bg-neutral-900", aspect)}>
-        {s.image_url ? (
-          <img src={str(s.image_url)} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center">
-            <span className="text-white/60 text-sm">Add an image</span>
+      <div style={sectionPadding(s, 0)}>
+        <div
+          className={cn("relative w-full overflow-hidden", aspect)}
+          style={{ background: str(s.bg_color, "#111827") }}
+        >
+          {image ? (
+            <img
+              src={image}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <div className="absolute inset-0" style={{ background: str(s.bg_color, "#111827") }} />
+          )}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: str(s.overlay_color, "#000000"),
+              opacity: num(s.overlay_opacity, 30) / 100,
+            }}
+          />
+          <div
+            className={cn(
+              "absolute inset-0 mx-auto flex flex-col justify-center gap-3 px-8",
+              alignment === "left"
+                ? "items-start text-left"
+                : alignment === "right"
+                  ? "items-end text-right"
+                  : "items-center text-center",
+            )}
+            style={{ maxWidth: maxWidth(s.max_width) }}
+          >
+            {!!s.heading && (
+              <h2
+                className="font-bold text-3xl @[768px]:text-[length:var(--banner-heading)]"
+                style={
+                  {
+                    color: textColor,
+                    fontFamily: theme.font_heading,
+                    "--banner-heading": `${num(s.font_size_heading, 48)}px`,
+                  } as CSSProperties
+                }
+              >
+                {str(s.heading)}
+              </h2>
+            )}
+            {!!s.subheading && (
+              <p className="max-w-xl text-lg opacity-90" style={{ color: textColor }}>
+                {str(s.subheading)}
+              </p>
+            )}
+            {!!s.button_text && (
+              <a
+                href={str(s.button_url, "#")}
+                className="mt-2 inline-block px-6 py-3 text-sm font-semibold transition-opacity hover:opacity-90"
+                style={button}
+              >
+                {str(s.button_text)}
+              </a>
+            )}
+            {!s.heading && !s.subheading && !s.button_text && !image && (
+              <span className="text-sm text-white/60">Add an image</span>
+            )}
           </div>
-        )}
-        {!!(s.heading || s.subheading) && (
-          <>
-            <div className="absolute inset-0" style={{ background: "#000", opacity: (Number(s.overlay_opacity ?? 30)) / 100 }} />
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 text-center">
-              {!!s.heading && <h2 className="text-3xl font-bold" style={{ color: textColor }}>{str(s.heading)}</h2>}
-              {!!s.subheading && <p className="text-lg opacity-80" style={{ color: textColor }}>{str(s.subheading)}</p>}
-            </div>
-          </>
-        )}
+        </div>
       </div>
     </SectionWrapper>
   )

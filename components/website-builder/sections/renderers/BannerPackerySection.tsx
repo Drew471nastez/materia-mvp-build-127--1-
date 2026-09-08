@@ -1,9 +1,15 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { sectionColors, str, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
 // ── Banner packery (masonry banners) ─────────────────────────
+/** An anchor when the tile links somewhere, a plain box when it does not. */
+function TileTag({ href, className, children }: { href: string; className: string; children: React.ReactNode }) {
+  if (href) return <a href={href} className={className}>{children}</a>
+  return <div className={className}>{children}</div>
+}
+
 export function BannerPackerySection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
@@ -42,6 +48,13 @@ export function BannerPackerySection({ section, theme, isEditing, isSelected, on
     "bottom-right": "items-end justify-end text-right",
   }
 
+  const contentAlign =
+    str(s.content_alignment, "left") === "center"
+      ? "items-center text-center"
+      : str(s.content_alignment, "left") === "right"
+        ? "items-end text-right"
+        : "items-start text-left"
+
   return (
     <SectionWrapper bgColor={c.bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div
@@ -52,6 +65,15 @@ export function BannerPackerySection({ section, theme, isEditing, isSelected, on
           <div className={cn("mb-8", headerAlignClass[headerAlign])}>
             {!!s.heading && <h2 className="text-3xl font-bold mb-2" style={{ color: c.heading, fontFamily: theme.font_heading }}>{str(s.heading)}</h2>}
             {!!s.description && <p className="text-base" style={{ color: c.paragraph }}>{str(s.description)}</p>}
+          {bool(s.show_view_all_button) && (
+            <a
+              href={str(s.view_all_url, "#")}
+              className="text-sm font-semibold underline underline-offset-4"
+              style={{ color: c.link }}
+            >
+              View all
+            </a>
+          )}
           </div>
         )}
         <div className="grid grid-cols-12 grid-rows-2 auto-rows-[200px]" style={{ gap: `${gap}px` }}>
@@ -60,7 +82,14 @@ export function BannerPackerySection({ section, theme, isEditing, isSelected, on
             const overlay = Number(block.settings.image_overlay_opacity ?? 0) / 100
             const pos = str(block.settings.content_position, "bottom-left")
             return (
-              <div key={block.id} className={cn("relative overflow-hidden rounded-lg bg-neutral-900", spans[i] ?? "col-span-6 row-span-1")}>
+              /* A tile with an `image_link` is a link. The control was in the
+                 panel and nothing read it, so a banner grid built to lead
+                 somewhere led nowhere. */
+              <TileTag
+                key={block.id}
+                href={str(block.settings.image_link)}
+                className={cn("relative block overflow-hidden rounded-lg bg-neutral-900", spans[i] ?? "col-span-6 row-span-1")}
+              >
                 {img ? (
                   <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" />
                 ) : (
@@ -68,18 +97,28 @@ export function BannerPackerySection({ section, theme, isEditing, isSelected, on
                 )}
                 {overlay > 0 && <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${overlay})` }} />}
                 <div className={cn("absolute inset-0 p-6 flex flex-col", posClass[pos])}>
-                  <div className="flex flex-col gap-2 max-w-[75%]">
+                  {/* `content_alignment` is the section-wide default; a tile
+                      that names its own `content_position` still wins. */}
+                  <div
+                    className={cn(
+                      "flex flex-col gap-2 max-w-[75%]",
+                      !block.settings.content_position && contentAlign,
+                    )}
+                  >
                     {!!block.settings.subheading && <span className="text-xs uppercase tracking-widest font-semibold text-white/90">{str(block.settings.subheading)}</span>}
                     {!!block.settings.heading && <h3 className="text-2xl font-bold text-white leading-tight" style={{ fontFamily: theme.font_heading }}>{str(block.settings.heading)}</h3>}
                     {!!block.settings.description && <p className="text-sm text-white/80">{str(block.settings.description)}</p>}
                     {!!block.settings.first_button_label && (
-                      <a className="inline-block mt-2 text-sm font-semibold text-white underline underline-offset-4 self-start">
+                      <a
+                        href={str(block.settings.first_button_link, "#")}
+                        className="inline-block mt-2 text-sm font-semibold text-white underline underline-offset-4 self-start"
+                      >
                         {str(block.settings.first_button_label)}
                       </a>
                     )}
                   </div>
                 </div>
-              </div>
+              </TileTag>
             )
           })}
         </div>
