@@ -1162,6 +1162,75 @@ section("Autosave writes the draft, never the live site")
   )
 }
 
+// ===========================================================================
+section("Switching pages does not lose or misfile work")
+// ===========================================================================
+
+{
+  const editor = readFileSync(
+    join(root, "app/website-builder/editor/[installId]/page.tsx"),
+    "utf8",
+  )
+  const at = editor.indexOf("const handlePageChange = async (page: PageKey)")
+  const body = editor.slice(at, editor.indexOf("\n  }", editor.indexOf("switchingPage.current = false", at)))
+
+  check(
+    "the page you are leaving is saved before you leave it",
+    (() => {
+      /**
+       * This function replaces `sections` with the new page's, so anything not
+       * yet written was simply gone — no warning, no save. Autosave narrowed
+       * the window to a second and a half; it did not close it, and that is
+       * exactly long enough to change a heading and click another page.
+       *
+       * AWAITED, so the write lands while `currentPage` and `sections` still
+       * agree about which page they describe.
+       */
+      return /await saveDraft\(\{ quiet: true \}\)/.test(body) && /if \(isDirty && !saving/.test(body)
+    })(),
+  )
+
+  check(
+    "and an autosave cannot fire into the middle of the switch",
+    (() => {
+      /**
+       * THE CORRUPTION AUTOSAVE CREATED. `currentPage` is set to the new page
+       * BEFORE the new sections are awaited, so for a few hundred milliseconds
+       * `currentPage` says "about" while `sections` still holds home's. An
+       * autosave firing there writes HOME'S SECTIONS UNDER THE ABOUT KEY.
+       */
+      return (
+        /switchingPage\.current = true/.test(body) &&
+        /if \(switchingPage\.current\) return/.test(editor)
+      )
+    })(),
+  )
+
+  check(
+    "the guard is read when the timer fires, not when it was scheduled",
+    (() => {
+      /**
+       * A ref, not state. State captured at schedule time would be false —
+       * the switch had not started yet — which is precisely the case that
+       * matters.
+       */
+      return /const switchingPage = useRef\(false\)/.test(editor)
+    })(),
+  )
+
+  check(
+    "and a failed switch does not turn autosave off forever",
+    (() => {
+      /**
+       * The fetches can reject — a dropped connection, a 500 — and a flag left
+       * true would switch autosave off for the rest of the session. Every
+       * change after that would sit unsaved behind a guard nobody can see.
+       */
+      return /\} finally \{\s*switchingPage\.current = false/.test(body)
+    })(),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

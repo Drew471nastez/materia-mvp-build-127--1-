@@ -3435,6 +3435,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * resetting to a comfortable false.
    */
   const [unpublished, setUnpublished] = useState(false)
+
+  /**
+   * A PAGE SWITCH IS IN FLIGHT.
+   *
+   * `handlePageChange` sets `currentPage` to the new page and only then awaits
+   * that page's sections, so for a few hundred milliseconds `currentPage` says
+   * "about" while `sections` still holds home's. An autosave firing in that
+   * window writes HOME'S SECTIONS UNDER THE ABOUT PAGE KEY — real corruption,
+   * and one that autosave created: before it, nothing wrote on a timer.
+   *
+   * A ref rather than state: it is read inside a timeout that must see the
+   * value as of when it FIRES, not as of the render that scheduled it.
+   */
+  const switchingPage = useRef(false)
   const [expandedSettings, setExpandedSettings] = useState<string | null>(null)
   const [editSchemeKey, setEditSchemeKey] = useState<ColorSchemeKey | null>(null)
   const [addSectionOpen, setAddSectionOpen] = useState(false)
@@ -3940,45 +3954,71 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
 
   const handlePageChange = async (page: PageKey) => {
-    // IMPORTANT: do NOT flip `canvasLoading` on for simple page switches —
-    // the skeleton should only appear on the very first editor mount
-    // (handled by the `loading` state) or on a direct product deep-link
-    // (handled by the `canvasLoading` useState initializer). Leave the
-    // previously-rendered sections on screen until the new page is ready
-    // so the editor feels instant instead of flashing a spinner every
-    // time the user clicks a different page.
-    setSectionsLoading(true)
+    /**
+     * WHAT YOU WERE WORKING ON IS SAVED BEFORE YOU LEAVE IT.
+     *
+     * This function replaces `sections` with the new page's, so anything not
+     * yet written was simply gone — no warning, no save. Autosave narrowed the
+     * window to a second and a half; it did not close it, and a second and a
+     * half is exactly long enough to change a heading and click another page.
+     *
+     * Awaited, not fired and forgotten: the write must land while
+     * `currentPage` and `sections` still agree about which page they describe.
+     */
+    if (isDirty && !saving && !publishing) {
+      await saveDraft({ quiet: true })
+    }
+    switchingPage.current = true
+    /**
+     * try/finally, because the fetches below can reject — a dropped
+     * connection, a 500 — and a flag left true would switch autosave off for
+     * the rest of the session. Every change after that would sit unsaved
+     * behind a guard nobody could see.
+     */
+    try {
 
-    // If leaving home, capture home's header/footer from in-memory state
-    // so they remain the universal version. Otherwise, fetch from API.
-    const leavingHomeHF =
-      currentPage === "home"
-        ? {
-            header: sections.find(s => s.type === "header"),
-            footer: sections.find(s => s.type === "footer"),
-          }
-        : null
+      // IMPORTANT: do NOT flip `canvasLoading` on for simple page switches —
+      // the skeleton should only appear on the very first editor mount
+      // (handled by the `loading` state) or on a direct product deep-link
+      // (handled by the `canvasLoading` useState initializer). Leave the
+      // previously-rendered sections on screen until the new page is ready
+      // so the editor feels instant instead of flashing a spinner every
+      // time the user clicks a different page.
+      setSectionsLoading(true)
 
-    setCurrentPage(page)
-    setSelectedPanel({ type: "pages" })
-    setPageBrowserOpen(false)
-    setSelectedProductPage(null)
-    setEditAllProductPages(false)
-    updatePageUrl(page)
+      // If leaving home, capture home's header/footer from in-memory state
+      // so they remain the universal version. Otherwise, fetch from API.
+      const leavingHomeHF =
+        currentPage === "home"
+          ? {
+              header: sections.find(s => s.type === "header"),
+              footer: sections.find(s => s.type === "footer"),
+            }
+          : null
 
-    // Load new page sections, then — if not home — splice in home's
-    // header/footer so every page renders identically to home.
-    const [loaded, homeHF] = await Promise.all([
-      fetchPageSections(page),
-      page !== "home"
-        ? (leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter())
-        : Promise.resolve<{ header?: SectionInstance; footer?: SectionInstance }>({}),
-    ])
-    const merged = page !== "home" ? mergeWithHomeHeaderFooter(loaded, homeHF) : loaded
-    setSections(merged)
+      setCurrentPage(page)
+      setSelectedPanel({ type: "pages" })
+      setPageBrowserOpen(false)
+      setSelectedProductPage(null)
+      setEditAllProductPages(false)
+      updatePageUrl(page)
 
-    setSectionsLoading(false)
-    setCanvasLoading(false)
+      // Load new page sections, then — if not home — splice in home's
+      // header/footer so every page renders identically to home.
+      const [loaded, homeHF] = await Promise.all([
+        fetchPageSections(page),
+        page !== "home"
+          ? (leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter())
+          : Promise.resolve<{ header?: SectionInstance; footer?: SectionInstance }>({}),
+      ])
+      const merged = page !== "home" ? mergeWithHomeHeaderFooter(loaded, homeHF) : loaded
+      setSections(merged)
+
+      setSectionsLoading(false)
+      setCanvasLoading(false)
+    } finally {
+      switchingPage.current = false
+    }
   }
 
   const handleSelectProductPage = async (productId: string, productTitle: string) => {
@@ -4397,6 +4437,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   useEffect(() => {
     if (!isDirty || saving || publishing || loading) return
     const timer = setTimeout(() => {
+      // Checked when it FIRES, not when it was scheduled: the switch may have
+      // started in between, and that is the whole window this guards.
+      if (switchingPage.current) return
       void saveDraft({ quiet: true })
     }, AUTOSAVE_DELAY_MS)
     return () => clearTimeout(timer)
