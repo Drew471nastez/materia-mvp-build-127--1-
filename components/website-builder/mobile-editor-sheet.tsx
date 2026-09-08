@@ -30,10 +30,17 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import {
+  DRAG_THRESHOLD_PX,
+  dragIntent,
+  offsetsFor,
+  releaseVelocity,
+  snapTarget,
+  type DragIntent,
+  type Sample,
+} from "./sheet-gestures"
 
 const PEEK_HEIGHT = 72
-const VELOCITY_THRESHOLD = 0.4
-const FLICK_MIN_DISTANCE = 8
 const SNAP_DURATION_MS = 360
 const SNAP_EASING = "cubic-bezier(0.32, 0.72, 0, 1)"
 
@@ -71,6 +78,8 @@ export function MobileEditorSheet({
   openFull = false,
 }: Props) {
   const sheetRef = React.useRef<HTMLDivElement>(null)
+  /** The grab bar. A touch that starts here is a drag and needs no arbitration. */
+  const handleRef = React.useRef<HTMLDivElement>(null)
   const overlayRef = React.useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = React.useState(false)
   /** What is actually visible, which is not the window once a keyboard is up. */
@@ -99,7 +108,8 @@ export function MobileEditorSheet({
     }
   }, [])
 
-  const height = Math.round(viewport * tallest)
+  const height = offsetsFor({ viewport, detents: stops, peekHeight }).height
+  void tallest
 
   /**
    * translateY for each stop, tallest first — and SORTED, which is the whole
@@ -113,13 +123,10 @@ export function MobileEditorSheet({
    * jumped to the peek. Sorting is what makes index order and screen order the
    * same thing.
    */
-  const offsets = React.useMemo(() => {
-    const list = stops
-      .map((f) => Math.max(0, Math.round(height - viewport * f)))
-      .sort((a, b) => a - b)
-    // The peek is the closed position and is always the largest offset.
-    return [...list, Math.max(height - peekHeight, 0)]
-  }, [stops, height, viewport, peekHeight])
+  const offsets = React.useMemo(
+    () => offsetsFor({ viewport, detents: stops, peekHeight }).offsets,
+    [stops, viewport, peekHeight],
+  )
 
   const closedY = offsets[offsets.length - 1]
   const openY = openFull ? offsets[0] : (offsets[Math.max(0, offsets.length - 2)] ?? 0)
@@ -133,13 +140,42 @@ export function MobileEditorSheet({
 
   const drag = React.useRef({
     startY: 0,
+    startX: 0,
     startTime: 0,
     lastY: 0,
     lastTime: 0,
     active: false,
     baseY: 0,
     currentY: 0,
+    /**
+     * Decided ONCE, on the first movement past the threshold, and kept for the
+     * rest of the gesture. Re-deciding mid-drag is how a sheet snatches itself
+     * away from a finger halfway down a list.
+     */
+    intent: "undecided" as DragIntent,
+    /** The scrollable thing under the finger, if there is one. */
+    scroller: null as HTMLElement | null,
+    /** Recent positions, for the release speed. */
+    samples: [] as Sample[],
   })
+
+  /**
+   * The nearest scrollable ancestor between the touch and the sheet.
+   *
+   * "Scrollable" means it can actually scroll — `overflow-y-auto` on a box
+   * whose content fits is not something a person can scroll, and treating it
+   * as one would leave that part of the sheet undraggable for no reason.
+   */
+  const scrollerUnder = (target: EventTarget | null): HTMLElement | null => {
+    let node = target instanceof HTMLElement ? target : null
+    while (node && node !== sheetRef.current) {
+      const style = window.getComputedStyle(node)
+      const scrolls = /(auto|scroll|overlay)/.test(style.overflowY)
+      if (scrolls && node.scrollHeight > node.clientHeight + 1) return node
+      node = node.parentElement
+    }
+    return null
+  }
 
   const applyTransform = (y: number) => {
     const sheet = sheetRef.current
@@ -173,11 +209,21 @@ export function MobileEditorSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, openY, closedY])
 
-  const startDrag = (clientY: number) => {
+  const startDrag = (clientY: number, clientX = 0, target: EventTarget | null = null, immediate = false) => {
+    const now = performance.now()
     drag.current.startY = clientY
+    drag.current.startX = clientX
     drag.current.lastY = clientY
-    drag.current.startTime = performance.now()
-    drag.current.lastTime = drag.current.startTime
+    drag.current.startTime = now
+    drag.current.lastTime = now
+    drag.current.samples = [{ y: clientY, t: now }]
+    /**
+     * The handle and the mouse are unambiguous — nothing else could be meant —
+     * so they skip the arbitration. A touch anywhere else has to declare
+     * itself first.
+     */
+    drag.current.intent = immediate ? "sheet" : "undecided"
+    drag.current.scroller = immediate ? null : scrollerUnder(target)
     drag.current.active = true
     /**
      * Measured from where the sheet ACTUALLY IS, not from whether it is
@@ -190,8 +236,38 @@ export function MobileEditorSheet({
     if (overlay) overlay.style.pointerEvents = "none"
   }
 
-  const moveDrag = (clientY: number) => {
+  const moveDrag = (clientY: number, clientX = drag.current.startX) => {
     if (!drag.current.active) return
+
+    const now = performance.now()
+    drag.current.samples.push({ y: clientY, t: now })
+    // Enough for a 100ms window at any sane touch rate, and bounded so a long
+    // drag does not grow an array for ever.
+    if (drag.current.samples.length > 12) drag.current.samples.shift()
+
+    /**
+     * ONE DECISION PER GESTURE. Until it is made, nothing moves — which is
+     * what stops a tap on a button inside the sheet nudging it a pixel.
+     */
+    if (drag.current.intent === "undecided") {
+      drag.current.intent = dragIntent({
+        deltaX: clientX - drag.current.startX,
+        deltaY: clientY - drag.current.startY,
+        scrollTop: drag.current.scroller?.scrollTop ?? 0,
+        hasScroller: !!drag.current.scroller,
+      })
+      /**
+       * The drag starts from where the finger is NOW, not from where it
+       * touched down: the threshold has already been travelled, and counting
+       * it would make the sheet jump six pixels the instant it takes over.
+       */
+      if (drag.current.intent === "sheet") {
+        drag.current.startY = clientY
+        drag.current.startX = clientX
+      }
+    }
+    if (drag.current.intent !== "sheet") return
+
     const list = offsetsRef.current
     const cY = list[list.length - 1]
     let nextY = drag.current.baseY + (clientY - drag.current.startY)
@@ -209,11 +285,29 @@ export function MobileEditorSheet({
     if (!drag.current.active) return
     drag.current.active = false
 
+    const wasDragging = drag.current.intent === "sheet"
+    drag.current.intent = "undecided"
+    drag.current.scroller = null
+    /**
+     * A gesture the sheet never took over is the scroller's business, and
+     * snapping on it would move the sheet somebody was only reading in.
+     *
+     * But `startDrag` has already made the sheet ready to be dragged — the
+     * transition off, the overlay deaf — because at touchdown nobody yet knows
+     * what the gesture is. Both have to be put back, or one scroll leaves an
+     * overlay that no longer closes the sheet when tapped.
+     */
+    if (!wasDragging) {
+      setTransition(true)
+      const overlay = overlayRef.current
+      if (overlay) overlay.style.pointerEvents = openRef.current ? "auto" : "none"
+      return
+    }
+
     const list = offsetsRef.current
     const cY = list[list.length - 1]
-    const elapsed = Math.max(drag.current.lastTime - drag.current.startTime, 1)
     const totalDelta = drag.current.lastY - drag.current.startY
-    const velocity = totalDelta / elapsed
+    const velocity = releaseVelocity(drag.current.samples)
     const current = Math.max(0, Math.min(drag.current.currentY, cY))
 
     /**
@@ -224,19 +318,7 @@ export function MobileEditorSheet({
      * one further in the direction of the flick is what makes a sheet feel
      * like it has weight.
      */
-    let index = 0
-    let best = Number.POSITIVE_INFINITY
-    for (let i = 0; i < list.length; i++) {
-      const distance = Math.abs(list[i] - current)
-      if (distance < best) {
-        best = distance
-        index = i
-      }
-    }
-    if (Math.abs(velocity) > VELOCITY_THRESHOLD && Math.abs(totalDelta) > FLICK_MIN_DISTANCE) {
-      index = velocity < 0 ? Math.max(0, index - 1) : Math.min(list.length - 1, index + 1)
-    }
-
+    const index = snapTarget({ offsets: list, current, velocity, totalDelta })
     const targetY = list[index]
     setTransition(true)
     drag.current.currentY = targetY
@@ -247,6 +329,69 @@ export function MobileEditorSheet({
     if (overlay) overlay.style.pointerEvents = nowOpen ? "auto" : "none"
     if (nowOpen !== openRef.current) onOpenChangeRef.current(nowOpen)
   }
+
+  /**
+   * =========================================================================
+   *  TOUCH, ON THE WHOLE SHEET
+   * =========================================================================
+   * These used to sit on the 28px grab bar alone. Everywhere else — the tabs,
+   * the section list, the settings, the ninety-odd percent of the sheet a
+   * thumb actually lands on — a drag did nothing at all. That is what "the
+   * dragging is not accurate" is: not an imprecise drag, an absent one.
+   *
+   * Registered by hand rather than with onTouchMove because React attaches
+   * touchmove PASSIVELY at the root, and a passive listener's
+   * `preventDefault` is ignored with a console warning. Without it the browser
+   * keeps its own overscroll — the rubber-band glow, pull-to-refresh — while
+   * the sheet is being dragged, and the two fight over the same finger.
+   */
+  React.useEffect(() => {
+    const sheet = sheetRef.current
+    if (!sheet) return
+
+    const onStart = (e: TouchEvent) => {
+      // A pinch is not a drag. Anything already in flight is abandoned rather
+      // than left half-owned by a finger that has stopped reporting.
+      if (e.touches.length !== 1) {
+        if (drag.current.active) endDrag()
+        return
+      }
+      const touch = e.touches[0]
+      const onHandle = !!handleRef.current?.contains(e.target as Node)
+      startDrag(touch.clientY, touch.clientX, e.target, onHandle)
+    }
+
+    const onMove = (e: TouchEvent) => {
+      if (!drag.current.active || e.touches.length !== 1) return
+      const touch = e.touches[0]
+      moveDrag(touch.clientY, touch.clientX)
+      /**
+       * Only once the sheet owns the gesture. Calling this on an undecided or
+       * scrolling touch would kill scrolling inside the sheet entirely, which
+       * is the other half of what was asked for.
+       */
+      if (drag.current.intent === "sheet" && e.cancelable) e.preventDefault()
+    }
+
+    const onEnd = () => {
+      if (drag.current.active) endDrag()
+    }
+
+    sheet.addEventListener("touchstart", onStart, { passive: true })
+    sheet.addEventListener("touchmove", onMove, { passive: false })
+    sheet.addEventListener("touchend", onEnd)
+    sheet.addEventListener("touchcancel", onEnd)
+    return () => {
+      sheet.removeEventListener("touchstart", onStart)
+      sheet.removeEventListener("touchmove", onMove)
+      sheet.removeEventListener("touchend", onEnd)
+      sheet.removeEventListener("touchcancel", onEnd)
+    }
+    // `mounted` is the dependency that matters: the sheet is not in the DOM
+    // until it is true, so an effect that ran once on the server-safe first
+    // render would attach to nothing and never try again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted])
 
   // Global mouse listeners, so a mouseup outside the handle still ends a drag.
   React.useEffect(() => {
@@ -293,18 +438,23 @@ export function MobileEditorSheet({
           transition: `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}`,
           willChange: "transform",
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          /**
+           * `pan-y`, not `none`. `none` would hand every touch to us and kill
+           * native scrolling inside the sheet — smooth, momentum-carrying,
+           * compositor-driven scrolling that no JS reimplementation matches.
+           * The arbitration only takes the gestures that are the sheet's.
+           */
+          touchAction: "pan-y",
         }}
       >
         <div
+          ref={handleRef}
           className="flex shrink-0 cursor-grab select-none justify-center bg-background pb-1.5 pt-2.5 active:cursor-grabbing"
-          style={{ touchAction: "none" }}
-          onTouchStart={(e) => startDrag(e.touches[0].clientY)}
-          onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
-          onTouchEnd={endDrag}
-          onTouchCancel={endDrag}
           onMouseDown={(e) => {
             e.preventDefault()
-            startDrag(e.clientY)
+            // A mouse is unambiguous — there is no scroll gesture to confuse
+            // it with — so it drags immediately, as it always did.
+            startDrag(e.clientY, e.clientX, e.target, true)
           }}
         >
           <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />

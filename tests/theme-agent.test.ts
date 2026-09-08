@@ -35,6 +35,12 @@ import {
 import { classifyRequest } from "@/lib/website-builder/agent/ambition"
 import { contrastRatio, parseColor, reviewSections } from "@/lib/website-builder/agent/review"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
+import {
+  dragIntent,
+  offsetsFor,
+  releaseVelocity,
+  snapTarget,
+} from "@/components/website-builder/sheet-gestures"
 import type { AgentProvider, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { existsSync, readFileSync } from "node:fs"
@@ -1364,11 +1370,12 @@ section("The mobile sheet snaps where it should")
  * wrong stop — not something a type checker can see, and not something a
  * screenshot catches either, because it only shows up under a finger.
  *
- * The implementation is mirrored here rather than imported: the component is
- * a client module full of DOM and refs, and the arithmetic is the part worth
- * pinning. The assertions below check the SAME properties the component's
- * comments claim, so a change to one that breaks the other shows up as a
- * disagreement between this and the file.
+ * THIS USED TO BE A MIRROR. The arithmetic was copied into this file with a
+ * comment explaining that the component was "full of DOM and refs" and so
+ * could not be imported. A mirror passes while the original changes; the only
+ * thing it really pinned was itself. The maths now lives in a pure module —
+ * components/website-builder/sheet-gestures — and both the component and this
+ * file import the same functions.
  */
 {
   const sheet = readFileSync(
@@ -1376,32 +1383,10 @@ section("The mobile sheet snaps where it should")
     "utf8",
   )
 
-  function offsetsFor(viewport: number, detents: number[], peekHeight: number) {
-    const stops = [...detents].sort((a, b) => a - b)
-    const height = Math.round(viewport * stops[stops.length - 1])
-    const list = stops
-      .map((f) => Math.max(0, Math.round(height - viewport * f)))
-      .sort((a, b) => a - b)
-    return { height, offsets: [...list, Math.max(height - peekHeight, 0)] }
-  }
+  const snap = (offsets: number[], current: number, velocity: number, totalDelta: number) =>
+    snapTarget({ offsets, current, velocity, totalDelta })
 
-  function snap(offsets: number[], current: number, velocity: number, delta: number) {
-    let index = 0
-    let best = Number.POSITIVE_INFINITY
-    for (let i = 0; i < offsets.length; i++) {
-      const d = Math.abs(offsets[i] - current)
-      if (d < best) {
-        best = d
-        index = i
-      }
-    }
-    if (Math.abs(velocity) > 0.4 && Math.abs(delta) > 8) {
-      index = velocity < 0 ? Math.max(0, index - 1) : Math.min(offsets.length - 1, index + 1)
-    }
-    return index
-  }
-
-  const { height, offsets } = offsetsFor(800, [0.5, 0.92], 72)
+  const { height, offsets } = offsetsFor({ viewport: 800, detents: [0.5, 0.92], peekHeight: 72 })
 
   check(
     "the offsets ascend, so index order is screen order",
@@ -1432,7 +1417,7 @@ section("The mobile sheet snaps where it should")
   )
   check("released between stops it takes the nearest", snap(offsets, 200, 0, 0) === 1)
 
-  const single = offsetsFor(800, [0.5], 72)
+  const single = offsetsFor({ viewport: 800, detents: [0.5], peekHeight: 72 })
   check(
     "one detent still behaves like the old two-position sheet",
     single.offsets.length === 2 && single.offsets[0] === 0,
@@ -1440,10 +1425,15 @@ section("The mobile sheet snaps where it should")
   )
 
   check(
-    "and the component sorts its offsets, which is what makes all of that true",
-    /\.sort\(\(a, b\) => a - b\)/.test(
-      sheet.slice(sheet.indexOf("const offsets = React.useMemo"), sheet.indexOf("const closedY")),
-    ),
+    "and the component gets its offsets from the module the assertions above drive",
+    /**
+     * This used to grep the component for `.sort(...)`, because the component
+     * did the sorting. It does not any more — `offsetsFor` does, and the check
+     * above drives `offsetsFor` directly. What is worth pinning now is that
+     * the component has not gone back to computing its own.
+     */
+    /offsetsFor\(\{ viewport, detents: stops, peekHeight \}\)\.offsets/.test(sheet) &&
+      !/const list = stops$/m.test(sheet),
   )
 
   check(
@@ -1455,6 +1445,201 @@ section("The mobile sheet snaps where it should")
      * cannot.
      */
     /window\.visualViewport/.test(sheet) && /vv\?\.addEventListener\("scroll", update\)/.test(sheet),
+  )
+}
+
+// ===========================================================================
+section("What a touch on the sheet is FOR")
+// ===========================================================================
+
+/**
+ * The hard part of a bottom sheet, and the thing that was missing entirely.
+ *
+ * Before this, only a 28px grab bar carried touch handlers. A drag anywhere
+ * else — the tabs, the section list, the settings, the ninety-odd percent of
+ * the sheet a thumb actually lands on — did nothing at all. "The dragging is
+ * not accurate" is not an imprecise drag; it is an absent one.
+ *
+ * Handing every touch to the sheet instead is the opposite failure: a list you
+ * cannot scroll. So the same downward drag has to mean "close the sheet" when
+ * the content is at its top and "scroll" when it is not, decided once per
+ * gesture.
+ */
+{
+  const sheet = readFileSync(
+    join(root, "components/website-builder/mobile-editor-sheet.tsx"),
+    "utf8",
+  )
+
+  check(
+    "a touch that has barely moved is a tap, and moves nothing",
+    dragIntent({ deltaX: 2, deltaY: 3, scrollTop: 0, hasScroller: false }) === "undecided",
+  )
+  check(
+    "a sideways swipe belongs to whatever is underneath",
+    dragIntent({ deltaX: 40, deltaY: 10, scrollTop: 0, hasScroller: true }) === "scroll",
+  )
+  check(
+    "where nothing scrolls, every vertical drag is the sheet's",
+    dragIntent({ deltaX: 0, deltaY: 30, scrollTop: 0, hasScroller: false }) === "sheet" &&
+      dragIntent({ deltaX: 0, deltaY: -30, scrollTop: 0, hasScroller: false }) === "sheet",
+  )
+  check(
+    "pulling down from the top of a list closes the sheet",
+    /** The content cannot go further that way, so it can only mean the sheet. */
+    dragIntent({ deltaX: 0, deltaY: 30, scrollTop: 0, hasScroller: true }) === "sheet",
+  )
+  check(
+    "but pulling down mid-list scrolls, which is the whole point",
+    dragIntent({ deltaX: 0, deltaY: 30, scrollTop: 220, hasScroller: true }) === "scroll",
+  )
+  check(
+    "and pushing up in a list scrolls even at the top",
+    dragIntent({ deltaX: 0, deltaY: -30, scrollTop: 0, hasScroller: true }) === "scroll",
+  )
+
+  /**
+   * A thumb travelling up a phone drifts sideways. A sheet that refuses to
+   * open because the arc was not vertical enough is infuriating in a way
+   * nobody can describe, so the horizontal test is biased, not a tie-break.
+   */
+  check(
+    "a mostly-vertical drag with some sideways drift still opens the sheet",
+    dragIntent({ deltaX: 14, deltaY: -30, scrollTop: 0, hasScroller: false }) === "sheet",
+  )
+
+  check(
+    "the release speed is the speed at RELEASE, not the average of the drag",
+    /**
+     * THE BUG. The old calculation was (lastY - startY) / (lastTime -
+     * startTime) — the mean over the whole gesture. Pull a sheet slowly for
+     * two seconds and then flick, and that reads as slow: the flick is
+     * averaged away and the sheet settles where it was.
+     *
+     * Same samples, both ways. The mean is ~0.06 px/ms, under the 0.4
+     * threshold; the last 100ms is 1.0 and carries the sheet on.
+     */
+    (() => {
+      const samples = [
+        { y: 400, t: 0 },
+        { y: 380, t: 900 },
+        { y: 360, t: 1800 },
+        { y: 300, t: 1850 },
+        { y: 250, t: 1900 },
+      ]
+      const mean = (samples[4].y - samples[0].y) / (samples[4].t - samples[0].t)
+      return Math.abs(mean) < 0.4 && Math.abs(releaseVelocity(samples)) > 0.4
+    })(),
+  )
+  check(
+    "a gesture that stops before the finger lifts is not a flick",
+    releaseVelocity([
+      { y: 400, t: 0 },
+      { y: 200, t: 40 },
+      { y: 198, t: 120 },
+      { y: 198, t: 200 },
+    ]) < 0.4,
+  )
+  check(
+    "one sample is no speed at all, rather than a division by zero",
+    releaseVelocity([{ y: 10, t: 5 }]) === 0 &&
+      Number.isFinite(releaseVelocity([{ y: 10, t: 5 }, { y: 90, t: 5 }])),
+  )
+
+  // ── and that the component actually uses all of it ──────────────────────
+
+  check(
+    "the whole sheet takes touches, not a 28px handle",
+    /**
+     * Anchored on `sheetRef` inside the listener registration: asserting on
+     * `addEventListener\("touchstart"` alone would pass if it were attached to
+     * the grab bar, which is the defect.
+     */
+    /sheet\.addEventListener\("touchstart", onStart/.test(sheet) &&
+      /const sheet = sheetRef\.current/.test(
+        sheet.slice(sheet.indexOf("TOUCH, ON THE WHOLE SHEET"), sheet.indexOf("Global mouse listeners")),
+      ),
+  )
+  check(
+    "touchmove is registered non-passively, or preventDefault is a no-op",
+    /**
+     * React attaches touchmove PASSIVELY at the root, so an onTouchMove that
+     * calls preventDefault does nothing but log a warning — and the browser
+     * keeps its own overscroll and pull-to-refresh while the sheet is being
+     * dragged. Hence the hand-registered listener.
+     */
+    /addEventListener\("touchmove", onMove, \{ passive: false \}\)/.test(sheet) &&
+      !/onTouchMove=/.test(sheet),
+  )
+  check(
+    "and it only preventDefaults once the sheet owns the gesture",
+    // Doing it unconditionally kills scrolling inside the sheet entirely.
+    /if \(drag\.current\.intent === "sheet" && e\.cancelable\) e\.preventDefault\(\)/.test(sheet),
+  )
+  check(
+    "and React really does register touchmove passively, which is why",
+    /**
+     * NOT FROM MEMORY. Read out of the installed React: it registers
+     * touchstart, touchmove and wheel with `passive: true` on the root
+     * container, so `preventDefault` inside an `onTouchMove` prop is ignored.
+     *
+     * If a React upgrade ever changes that, this goes red and the
+     * hand-registered listener above can be simplified back to a prop. Until
+     * then it is load-bearing.
+     */
+    (() => {
+      const path = join(root, "node_modules/react-dom/cjs/react-dom-client.development.js")
+      if (!existsSync(path)) return false
+      const react = readFileSync(path, "utf8")
+      return /passiveBrowserEventsSupported \|\|\s*\("touchstart" !== domEventName &&\s*"touchmove" !== domEventName/.test(
+        react,
+      )
+    })(),
+  )
+  check(
+    "touch-action is pan-y, so children still scroll on the compositor",
+    /touchAction: "pan-y"/.test(sheet) && !/touchAction: "none"/.test(sheet),
+  )
+  check(
+    "the decision is made once and kept for the rest of the gesture",
+    /if \(drag\.current\.intent === "undecided"\) \{/.test(sheet) &&
+      /drag\.current\.intent = dragIntent\(\{/.test(sheet),
+  )
+  check(
+    "the drag starts where the finger is now, so the sheet does not jump",
+    // The threshold has already been travelled; counting it would snap the
+    // sheet six pixels the instant it takes over.
+    /if \(drag\.current\.intent === "sheet"\) \{\s*drag\.current\.startY = clientY/.test(sheet),
+  )
+  check(
+    "a gesture the sheet never took does not snap it",
+    /if \(!wasDragging\) \{/.test(sheet),
+  )
+  check(
+    "and that gesture gives the overlay back its taps",
+    /**
+     * `startDrag` deafens the overlay at touchdown, before anyone knows what
+     * the gesture is. A scroll that did not restore it leaves an overlay that
+     * no longer closes the sheet when tapped.
+     */
+    /overlay\.style\.pointerEvents = openRef\.current \? "auto" : "none"/.test(
+      sheet.slice(sheet.indexOf("if (!wasDragging) {")),
+    ),
+  )
+  check(
+    "a pinch is not a drag",
+    /if \(e\.touches\.length !== 1\)/.test(sheet),
+  )
+  check(
+    "the listeners attach once the sheet is in the DOM, not before it exists",
+    // `mounted` gates the render; an effect with [] would attach to null and
+    // never try again.
+    /\}, \[mounted\]\)/.test(sheet),
+  )
+  check(
+    "the maths is imported by the component, not copied into it",
+    /from "\.\/sheet-gestures"/.test(sheet) &&
+      /snapTarget\(\{ offsets: list, current, velocity, totalDelta \}\)/.test(sheet),
   )
 }
 
