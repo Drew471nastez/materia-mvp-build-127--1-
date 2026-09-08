@@ -26,6 +26,7 @@ import {
   ImagePlus,
   ListPlus,
   Loader2,
+  MessageCircleQuestion,
   RotateCcw,
   Sparkles,
   Square,
@@ -36,7 +37,7 @@ import { StorelibMark } from "@/components/storelib-mark"
 
 import { cn } from "@/lib/utils"
 import type { AgentEvent } from "@/lib/sites/agent/types"
-import { answersPrompt, type AgentQuestion } from "@/lib/sites/agent/questions"
+import type { AgentQuestion, AskedQuestion } from "@/lib/sites/agent/questions"
 
 /** Mirrors lib/sites/chat.ts — the wire shape of a stored message. */
 interface StoredMessage {
@@ -44,7 +45,7 @@ interface StoredMessage {
   role: "user" | "assistant"
   content: string
   steps: Array<{ name: string; detail: string }>
-  questions: AgentQuestion[]
+  questions: AskedQuestion[]
   filesChanged: string[]
   versionId: string | null
   error: string | null
@@ -80,7 +81,7 @@ export interface Exchange {
   /** The raw tool calls. Detail, behind a toggle — never the main thread. */
   steps: Step[]
   /** Where the run is, from its own state events. */
-  phase?: "inspecting" | "planning" | "executing" | "verifying" | "repairing"
+  phase?: "inspecting" | "planning" | "executing" | "asking" | "verifying" | "repairing"
   /**
    * The agent's prose as it works — "I'll transform this into a digital
    * products store. First, let me check the current catalogue."
@@ -91,10 +92,13 @@ export interface Exchange {
    * commentary, not a transcript, and stacking it turns the card into a wall.
    */
   notes: string[]
-  /** What the agent asked, if it asked anything. Rendered as something to tap. */
+  /**
+   * What the agent asked, in the order it asked. Only the last can still be
+   * open — the run stops on each one, so there is never more than one waiting.
+   */
   questions?: AgentQuestion[]
-  /** Answers already sent, so the cards collapse instead of asking twice. */
-  answered?: boolean
+  /** How each question ended, keyed by its id. Absent while still waiting. */
+  settled?: Record<string, { answer: string; outcome: "answered" | "skipped" | "timeout" }>
   /** What the agent said it would do, and how far it has got. */
   plan?: Array<{ title: string; done: boolean }>
   /** Something broke and was repaired — worth showing, and only if it happened. */
@@ -141,9 +145,16 @@ function milestonesFor(exchange: Exchange): Milestone[] {
   const phase = exchange.phase
   if (!phase && !exchange.plan?.length) return []
 
+  /**
+   * "asking" sits with "executing" rather than after it: the run stops to ask
+   * IN THE MIDDLE of building, so a question does not mean the work has
+   * advanced past anything. Given its own position it would mark every step
+   * before it as done the moment a question appeared.
+   */
   const order = ["inspecting", "planning", "executing", "verifying", "repairing"] as const
+  const progress = phase === "asking" ? "executing" : phase
   const reached = (what: (typeof order)[number]) =>
-    !!phase && order.indexOf(phase) >= order.indexOf(what)
+    !!progress && order.indexOf(progress) >= order.indexOf(what)
 
   const done = !exchange.running
   const list: Milestone[] = []
@@ -269,9 +280,16 @@ export function RunProgress({ exchange }: { exchange: Exchange }) {
   if (milestones.length === 0 && exchange.steps.length === 0 && !note) return null
 
   const title = exchange.running
-    ? exchange.reconnecting
-      ? "Still working"
-      : "Working"
+    ? exchange.phase === "asking"
+      ? /**
+         * Waiting is not working, and saying "Working" while the run is
+         * stopped on a question somebody has not noticed is how a person sits
+         * watching a spinner that will never move on its own.
+         */
+        "Waiting on you"
+      : exchange.reconnecting
+        ? "Still working"
+        : "Working"
     : exchange.error
       ? "Stopped"
       : "Done"
@@ -290,7 +308,8 @@ export function RunProgress({ exchange }: { exchange: Exchange }) {
             // The mark itself pulses while there is something to wait for, so
             // the card reads as live without a second spinner competing with
             // the one already on the active milestone.
-            exchange.running && "animate-pulse text-foreground",
+            exchange.running && "text-foreground",
+            exchange.running && exchange.phase !== "asking" && "animate-pulse",
           )}
         />
         <span className="flex-1 text-sm font-medium">{title}</span>
@@ -366,8 +385,16 @@ export function RunProgress({ exchange }: { exchange: Exchange }) {
 
             {exchange.running && (
               <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
-                <Sparkles className="h-3.5 w-3.5 shrink-0 animate-pulse" />
-                {exchange.reconnecting ? "Still working — you can close this and come back." : "Working"}
+                {exchange.phase === "asking" ? (
+                  <MessageCircleQuestion className="h-3.5 w-3.5 shrink-0" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5 shrink-0 animate-pulse" />
+                )}
+                {exchange.phase === "asking"
+                  ? "Paused — answer below and it carries on"
+                  : exchange.reconnecting
+                    ? "Still working — you can close this and come back."
+                    : "Working"}
               </p>
             )}
 
@@ -419,110 +446,128 @@ export function RunProgress({ exchange }: { exchange: Exchange }) {
 }
 
 /**
- * WHAT THE AGENT WANTED TO KNOW, as something to tap.
+ * ONE QUESTION, ANSWERABLE WHILE THE RUN IS STILL GOING.
  *
- * "A site for my barber shop" names a trade and nothing else, so the agent
- * asks — and carries on building while it waits, which is why these cards sit
- * beside a finished site rather than in front of an empty one. See
- * lib/sites/agent/questions.ts for why asking must not mean waiting.
+ * The first version put four of these on screen at once and disabled every
+ * control while a run was in flight — so the one moment they mattered was the
+ * one moment they could not be touched, and by the time they were live the
+ * site had already been built around guesses. Both are fixed here: one
+ * question, and it is live precisely BECAUSE a run is going, since the run is
+ * stopped waiting for it.
  *
- * Every question can be skipped. A required field here would turn a helpful
- * question into a toll gate on somebody who just wants to look at their site.
+ * Skip is a first-class answer and sits beside the others rather than being
+ * hidden as a link. Somebody who does not care which town gets written in the
+ * footer should be able to say so in one tap, and the agent is told they
+ * declined rather than being left to guess whether the tab was closed.
  */
-export function QuestionCards({
-  questions,
-  disabled,
-  onSend,
+export function QuestionCard({
+  question,
+  pending,
+  settled,
+  onAnswer,
+  onSkip,
 }: {
-  questions: AgentQuestion[]
-  disabled: boolean
-  onSend: (answers: Array<{ question: string; answer: string }>) => void
+  question: AgentQuestion
+  /** A submission is in flight. Everything locks, nothing is hidden. */
+  pending: boolean
+  /** How it ended, once it has. Absent while it is still being asked. */
+  settled?: { answer: string; outcome: "answered" | "skipped" | "timeout" }
+  onAnswer: (answer: string) => void
+  onSkip: () => void
 }) {
-  const [answers, setAnswers] = React.useState<Record<string, string>>({})
-  const filled = questions.filter((q) => (answers[q.id] ?? "").trim().length > 0).length
+  const [draft, setDraft] = React.useState("")
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  /**
+   * Focused on arrival, because the run is STOPPED until this is dealt with.
+   * Anything that makes somebody hunt for where to type is spending their
+   * time and the run's budget at once.
+   */
+  React.useEffect(() => {
+    if (!settled) inputRef.current?.focus()
+  }, [settled])
+
+  if (settled) {
+    return (
+      <div className="flex items-start gap-2.5 rounded-[14px] border border-border/60 bg-card/40 px-3.5 py-3">
+        <MessageCircleQuestion className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/60" />
+        <div className="min-w-0 space-y-0.5">
+          <p className="text-[13px] text-muted-foreground/70">{question.question}</p>
+          <p className="text-[13px] text-foreground">
+            {settled.outcome === "answered"
+              ? settled.answer
+              : settled.outcome === "skipped"
+                ? "Skipped"
+                : "No answer — it carried on"}
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-2.5">
-      <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
-        <Sparkles className="h-3.5 w-3.5 shrink-0" />
-        A few things that would make this yours
-      </p>
-
-      {questions.map((question) => (
-        <div
-          key={question.id}
-          className="animate-in fade-in slide-in-from-bottom-1 space-y-2 rounded-[12px] border border-border bg-card/60 px-3 py-2.5 duration-300"
-        >
-          <div>
-            <p className="text-[13px] text-foreground">{question.question}</p>
-            {question.why && (
-              <p className="mt-0.5 text-[11px] text-muted-foreground/70">{question.why}</p>
-            )}
-          </div>
-
-          {question.suggestions.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {question.suggestions.map((suggestion) => {
-                const chosen = (answers[question.id] ?? "") === suggestion
-                return (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() =>
-                      setAnswers((previous) => ({
-                        ...previous,
-                        // Tapping the chosen chip again clears it, so a
-                        // mis-tap is one tap to undo rather than a selection
-                        // there is no way out of.
-                        [question.id]: chosen ? "" : suggestion,
-                      }))
-                    }
-                    className={cn(
-                      "rounded-full border px-2.5 py-1 text-[11px] transition-colors",
-                      chosen
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-                    )}
-                  >
-                    {suggestion}
-                  </button>
-                )
-              })}
-            </div>
+    <div className="animate-in fade-in zoom-in-95 space-y-3 rounded-[16px] border border-foreground/15 bg-card px-4 py-3.5 shadow-[0_1px_20px_-8px_rgba(0,0,0,0.5)] duration-300">
+      <div className="flex items-start gap-2.5">
+        <MessageCircleQuestion className="mt-0.5 h-4 w-4 shrink-0 text-foreground" />
+        <div className="min-w-0">
+          <p className="text-sm leading-snug text-foreground">{question.question}</p>
+          {question.why && (
+            <p className="mt-1 text-[11.5px] leading-snug text-muted-foreground/70">{question.why}</p>
           )}
-
-          <input
-            value={answers[question.id] ?? ""}
-            disabled={disabled}
-            onChange={(event) =>
-              setAnswers((previous) => ({ ...previous, [question.id]: event.target.value }))
-            }
-            placeholder={question.placeholder ?? "Or type your own"}
-            className="w-full rounded-[9px] border border-border bg-background/40 px-2.5 py-1.5 text-[13px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/30"
-          />
         </div>
-      ))}
-
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          disabled={disabled || filled === 0}
-          onClick={() =>
-            onSend(
-              questions.map((q) => ({ question: q.question, answer: answers[q.id] ?? "" })),
-            )
-          }
-          className="shrink-0 whitespace-nowrap rounded-full bg-foreground px-3 py-1.5 text-[12px] font-medium text-background transition-opacity disabled:opacity-40"
-        >
-          {filled === 0
-            ? "Answer to continue"
-            : `Send ${filled} answer${filled === 1 ? "" : "s"}`}
-        </button>
-        <span className="text-[11px] text-muted-foreground/70">
-          Or ignore these — the site is already built.
-        </span>
       </div>
+
+      {question.suggestions.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {question.suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              disabled={pending}
+              onClick={() => onAnswer(suggestion)}
+              className="rounded-full border border-border bg-background/40 px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground disabled:opacity-40"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          const text = draft.trim()
+          if (!text || pending) return
+          onAnswer(text)
+        }}
+        className="flex items-center gap-2"
+      >
+        <input
+          ref={inputRef}
+          value={draft}
+          disabled={pending}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder={question.placeholder ?? "Type your answer"}
+          className="min-w-0 flex-1 rounded-[10px] border border-border bg-background/50 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-muted-foreground/45 focus:border-foreground/35 disabled:opacity-40"
+        />
+        <button
+          type="submit"
+          disabled={pending || draft.trim().length === 0}
+          aria-label="Send answer"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity disabled:opacity-30"
+        >
+          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowUp className="h-3.5 w-3.5" />}
+        </button>
+      </form>
+
+      <button
+        type="button"
+        disabled={pending}
+        onClick={onSkip}
+        className="text-[11.5px] text-muted-foreground/60 transition-colors hover:text-foreground disabled:opacity-40"
+      >
+        Skip — decide this for me
+      </button>
     </div>
   )
 }
@@ -543,6 +588,8 @@ export function ChatPane({
   const [loadingHistory, setLoadingHistory] = React.useState(true)
   const [draft, setDraft] = React.useState("")
   const [busy, setBusy] = React.useState(false)
+  /** The question whose answer is in flight, so only that card locks. */
+  const [answering, setAnswering] = React.useState<string | null>(null)
   const [reconnecting, setReconnecting] = React.useState(false)
   const [historyError, setHistoryError] = React.useState(false)
 
@@ -713,13 +760,17 @@ export function ChatPane({
           }))
           open.reply = message.content || undefined
           /**
-           * Restored with the message, so a creator who reloaded before
-           * answering still sees what was asked. Marked answered, because the
-           * run they belong to is over — re-offering the form would send the
-           * same answers into a conversation that already moved on.
+           * Restored with the message, so a creator who reloaded still sees
+           * what was asked and what they said.
+           *
+           * All settled, because the run they belong to is over: a card still
+           * offering a text box would post an answer to a question nothing is
+           * waiting for, and get a 409 for it.
            */
           open.questions = message.questions?.length ? message.questions : undefined
-          open.answered = true
+          open.settled = Object.fromEntries(
+            (message.questions ?? []).map((q) => [q.id, { answer: q.answer ?? "", outcome: q.outcome }]),
+          )
           open.filesChanged = message.filesChanged
           open.versionId = message.versionId ?? undefined
           open.error = message.error ?? undefined
@@ -749,6 +800,60 @@ export function ChatPane({
       cancelled = true
     }
   }, [siteId])
+
+  /**
+   * ANSWERING WHILE THE RUN IS STILL GOING, which is the whole point.
+   *
+   * It does not go through `send`: this is not a new message and must not
+   * start a second run. The run that asked is blocked in another request
+   * polling a row, and this writes that row — see lib/sites/agent/asking.ts.
+   *
+   * The card is NOT settled here. The run's own `answered` event does that, so
+   * what the card shows is what the agent actually received; settling
+   * optimistically would show an answer that a timeout had already discarded.
+   */
+  const answerQuestion = React.useCallback(
+    async (exchangeId: string, questionId: string, answer: string, skipped: boolean) => {
+      setAnswering(questionId)
+      try {
+        const response = await fetch(`/api/sites/${siteId}/agent/answer`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ questionId, answer, skipped }),
+        })
+        if (!response.ok) {
+          const body = (await response.json().catch(() => ({}))) as { error?: string }
+          /**
+           * 409 means the run stopped waiting — a timeout, or another tab got
+           * there first. Settled as a timeout so the card stops offering a box
+           * that leads nowhere, rather than leaving somebody typing into it.
+           */
+          setExchanges((previous) =>
+            previous.map((e) =>
+              e.id === exchangeId
+                ? {
+                    ...e,
+                    settled: {
+                      ...(e.settled ?? {}),
+                      [questionId]: {
+                        answer: body.error ?? "That is no longer waiting.",
+                        outcome: "timeout" as const,
+                      },
+                    },
+                  }
+                : e,
+            ),
+          )
+        }
+      } catch {
+        // The network, not the run. Leaving the card open is right: the run is
+        // still waiting and a second tap is the correct thing to do.
+      } finally {
+        setAnswering(null)
+      }
+    },
+    [siteId],
+  )
 
   const send = React.useCallback(
     async (text: string) => {
@@ -830,9 +935,21 @@ export function ChatPane({
                */
               const text = event.text
               patch((e) => ({ ...e, notes: [...e.notes, text] }))
-            } else if (event.type === "questions") {
-              const questions = event.questions
-              patch((e) => ({ ...e, questions }))
+            } else if (event.type === "question") {
+              const question = event.question
+              patch((e) => ({ ...e, questions: [...(e.questions ?? []), question] }))
+            } else if (event.type === "answered") {
+              /**
+               * Also arrives for an answer THIS tab did not send — another
+               * device, or the run timing out — so the card settles from the
+               * run's own account of what happened rather than from whichever
+               * browser happened to submit.
+               */
+              const { questionId, answer, outcome } = event
+              patch((e) => ({
+                ...e,
+                settled: { ...(e.settled ?? {}), [questionId]: { answer, outcome } },
+              }))
             } else if (event.type === "state") {
               const phase = event.state
               patch((e) => ({ ...e, phase, repaired: e.repaired || phase === "repairing" }))
@@ -1143,26 +1260,16 @@ export function ChatPane({
 
                 {exchange.reply && <p className="text-sm leading-relaxed text-muted-foreground">{exchange.reply}</p>}
 
-                {exchange.questions && exchange.questions.length > 0 && !exchange.answered && (
-                  <QuestionCards
-                    questions={exchange.questions}
-                    disabled={busy}
-                    onSend={(answers) => {
-                      const prompt = answersPrompt(answers)
-                      if (!prompt) return
-                      /**
-                       * Marked answered BEFORE the send, so the cards go on
-                       * the tap rather than when the next run starts. A form
-                       * that stays live while its answers are in flight is one
-                       * somebody submits twice.
-                       */
-                      setExchanges((previous) =>
-                        previous.map((e) => (e.id === exchange.id ? { ...e, answered: true } : e)),
-                      )
-                      void send(prompt)
-                    }}
+                {exchange.questions?.map((question) => (
+                  <QuestionCard
+                    key={question.id}
+                    question={question}
+                    pending={answering === question.id}
+                    settled={exchange.settled?.[question.id]}
+                    onAnswer={(answer) => void answerQuestion(exchange.id, question.id, answer, false)}
+                    onSkip={() => void answerQuestion(exchange.id, question.id, "", true)}
                   />
-                )}
+                ))}
 
                 {exchange.filesChanged.length > 0 && (
                   <div className="flex items-center gap-3">

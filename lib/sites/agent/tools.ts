@@ -28,7 +28,7 @@ import "server-only"
 
 import { filePathError, MAX_FILES_PER_PROJECT, MAX_FILE_BYTES } from "../file-path"
 import { completeStep, emptyPlan, setSteps, type RunPlan } from "./plan"
-import { type AgentQuestion, askedNote, parseQuestions } from "./questions"
+import type { AskedQuestion } from "./questions"
 import { bundleProject, formatBuildErrors } from "../bundle"
 import { scanForSecrets } from "../preflight"
 import {
@@ -284,42 +284,32 @@ export const TOOL_SPECS: ToolSpec[] = [
   {
     name: "ask_creator",
     description:
-      "Ask the creator up to four short questions about their business — its name, where it is, what it charges, when it is open, who it is for. Use this when the request is too thin to build something specific from ('a site for my barber shop' says almost nothing). YOU WILL NOT GET AN ANSWER DURING THIS RUN, and you must not wait for one: ask, then carry on and build the whole site using the best defaults you can justify. The answers come back later as a new message. Ask ONCE per run, early, and only about things you genuinely cannot infer.",
+      "Ask the creator ONE short question about their business and WAIT for the answer before carrying on. Use it when a detail would change what you build and you cannot infer it — the name, the town, what they charge, when they are open, who it is for. Ask the moment you need to know, not all at the start, so each question can build on the last answer. Ask only what genuinely changes the site: a question they could not care about is worse than a guess. You may ask at most three times in a run and the run stops until they answer or skip.",
     parameters: {
       type: "object",
       properties: {
-        questions: {
+        question: {
+          type: "string",
+          description:
+            'One sentence, plain language, specific to THIS business. "What is your shop called?" — not "Please provide your business details."',
+        },
+        why: {
+          type: "string",
+          description:
+            'Very short: what their answer changes. "It goes in the header and the footer." Shown under the question.',
+        },
+        suggestions: {
           type: "array",
-          description: "One to four questions. Ask about the business, never about code.",
-          items: {
-            type: "object",
-            properties: {
-              question: {
-                type: "string",
-                description: 'One sentence, in plain language. "What is the shop called?"',
-              },
-              why: {
-                type: "string",
-                description:
-                  'Optional, very short: what it changes. "It goes in the header and the footer."',
-              },
-              suggestions: {
-                type: "array",
-                items: { type: "string" },
-                description:
-                  "Up to five tappable answers — a few words each. They are a shortcut, not a closed list; the creator can always type their own.",
-              },
-              placeholder: {
-                type: "string",
-                description: "Optional hint for the text box, a few words.",
-              },
-            },
-            required: ["question", "why", "suggestions", "placeholder"],
-            additionalProperties: false,
-          },
+          items: { type: "string" },
+          description:
+            "Up to five tappable answers, a few words each, that a real person might actually pick. They are a shortcut, not a closed list — there is always a text box beside them. Send an empty array when no sensible guesses exist, such as for a name.",
+        },
+        placeholder: {
+          type: "string",
+          description: 'Hint for the text box, a few words. "e.g. Ferro Barbers"',
         },
       },
-      required: ["questions"],
+      required: ["question", "why", "suggestions", "placeholder"],
       additionalProperties: false,
     },
   },
@@ -443,7 +433,7 @@ export class ProjectWorkspace {
    * deciding what reaches the client is what keeps the transcript and the
    * stream saying the same thing.
    */
-  questions: AgentQuestion[] = []
+  questions: AskedQuestion[] = []
 
   /** Whether the document changed, so the caller knows to persist it. */
   documentChanged = false
@@ -612,21 +602,15 @@ export class ProjectWorkspace {
 
       case "ask_creator": {
         /**
-         * ONCE PER RUN. A model that asks, builds a little, and asks again
-         * turns the chat into an interrogation — and the second batch arrives
-         * after the creator has already started answering the first.
+         * Handled in the loop, never here.
+         *
+         * Asking has to reach the screen BEFORE anything waits on it, and this
+         * method returns a string — by the time it returned, the question
+         * would have been asked and answered with nobody having seen it. The
+         * loop emits the event and then waits, so this is unreachable and says
+         * so rather than pretending to work.
          */
-        if (this.questions.length > 0) {
-          return "You have already asked this run. Keep building with the defaults you chose; the answers arrive as a separate message."
-        }
-
-        const questions = parseQuestions(args)
-        if (questions.length === 0) {
-          return "No usable questions — each one needs a `question` string. Ask about the business (its name, where it is, its prices, its hours), not about code."
-        }
-
-        this.questions = questions
-        return askedNote(questions)
+        return "ask_creator is handled by the run, not by the workspace."
       }
 
       case "set_plan": {

@@ -41,10 +41,10 @@ import {
 import { isGenerated, renderDocument } from "@/lib/sites/document/render"
 import { SECTIONS, sectionSpec } from "@/lib/sites/document/sections"
 import {
-  answersPrompt,
-  askedNote,
-  MAX_QUESTIONS,
-  parseQuestions,
+  type AgentQuestion,
+  answerNote,
+  MAX_ASKS_PER_RUN,
+  parseQuestion,
 } from "@/lib/sites/agent/questions"
 import { classifyComplexity } from "@/lib/sites/agent/complexity"
 import {
@@ -4576,7 +4576,15 @@ check(
     const loop = strip(read("lib/sites/agent/loop.ts"))
     return (
       /type: "state"/.test(types) &&
-      /"inspecting" \| "planning" \| "executing" \| "verifying" \| "repairing"/.test(types) &&
+      /**
+       * Membership, not formatting. Pinning the union as one line broke the
+       * day "asking" was added and the type was wrapped — which told nobody
+       * anything, since what matters is that the state exists and the client
+       * renders it, never how prettier laid it out.
+       */
+      ["inspecting", "planning", "executing", "asking", "verifying", "repairing"].every((state) =>
+        new RegExp(`\\| "${state}"`).test(types),
+      ) &&
       /type: "plan"; steps: Array<\{ title: string; done: boolean \}>/.test(types) &&
       /yield \{\s*type: "plan"/.test(loop) &&
       /state: workspace\.buildOk === false \? "repairing" : "verifying"/.test(loop)
@@ -5895,153 +5903,257 @@ check(
 )
 
 // ===========================================================================
-section("The agent asks, and does not wait")
+section("The agent asks one thing and waits for it")
 // ===========================================================================
 
 /**
- * "Build me a landing page for my barber shop" names a trade and nothing else.
- * Without the shop's name, its town, its prices and its hours the model invents
- * them, and a site full of invented details is one somebody has to correct line
- * by line — worse than being asked four questions.
+ * THIS SECTION USED TO ASSERT THE OPPOSITE, and the reversal is the point.
  *
- * The design decision this section defends is that ASKING MUST NOT MEAN
- * WAITING. A creator who types one sentence and gets a form back has been
- * handed homework and has nothing to look at.
+ * The first design asked four questions at once and kept building, on the
+ * reasoning that a form in front of an empty page is homework. In practice the
+ * answers arrived when there was nothing left for them to change cheaply — the
+ * copy was written and the pages laid out — so they became a correction pass
+ * rather than an input. The chat also disabled the controls while a run was
+ * going, so the one moment they mattered was the one moment they were dead.
+ *
+ * One question, asked mid-build, with the run stopped until it is answered or
+ * skipped.
  */
 {
-  const asked = parseQuestions({
-    questions: [
-      { question: "  What is   the shop called?  ", why: "It goes in the header", suggestions: ["Skip"] },
-      { question: "Which town?", suggestions: ["Bucharest", "Bucharest", "Cluj"] },
-    ],
-  })
+  const asked = parseQuestion(
+    {
+      question: "  What is   the shop called?  ",
+      why: "It goes in the header and the footer",
+      suggestions: ["Skip", "Skip", "Not decided yet"],
+      placeholder: "e.g. Ferro Barbers",
+    },
+    "q1",
+  )
 
-  check("questions are parsed and their whitespace collapsed", asked.length === 2 && asked[0].question === "What is the shop called?")
+  check(
+    "a question is parsed and its whitespace collapsed",
+    asked?.question === "What is the shop called?",
+  )
 
   check(
     "a repeated suggestion is not rendered twice",
     // Two identical chips read as a bug in the page, not as a repeated answer.
-    asked[1].suggestions.join() === "Bucharest,Cluj",
+    asked?.suggestions.join() === "Skip,Not decided yet",
   )
 
   check(
-    "more than four questions is not a form somebody fills in",
-    /**
-     * A creator answers four and abandons eight, and the run proceeds on
-     * defaults either way — so asking more buys nothing and costs the whole
-     * interaction.
-     */
-    parseQuestions({
-      questions: Array.from({ length: 9 }, (_, i) => ({ question: `Q${i}?` })),
-    }).length === MAX_QUESTIONS,
-  )
-
-  check(
-    "malformed questions are dropped, never thrown",
+    "a question nobody could answer is refused, never thrown",
     /**
      * A bad tool call is something the agent is told about and can retry. It
      * is never a reason to end a run that is otherwise building a site.
      */
-    parseQuestions({ questions: [null, 7, {}, { question: "" }, { question: "Real?" }] }).length === 1,
+    parseQuestion({}, "q1") === null && parseQuestion({ question: "   " }, "q1") === null,
   )
 
   check(
-    "asking tells the model in so many words to keep building",
+    "one question at a time is the shape of the tool, not a rule in the prompt",
     (() => {
-      const note = askedNote(asked)
-      // The worst outcome available is a model that asks and then stops,
-      // leaving a creator with a form and no site. The tool result says so.
-      return /DO NOT WAIT/.test(note) && /Carry on building/.test(note) && /separate message/.test(note)
+      const tools = strip(read("lib/sites/agent/tools.ts"))
+      const at = tools.indexOf('name: "ask_creator"')
+      const spec = tools.slice(at, tools.indexOf("additionalProperties: false", at))
+      /**
+       * The old spec took an ARRAY of questions, so "ask one at a time" was a
+       * sentence a model could agree with and ignore. A schema that has no
+       * room for a second question cannot be ignored.
+       */
+      return /question: \{\s*type: "string"/.test(spec) && !/type: "array",\s*items:\s*\{\s*type: "object"/.test(spec)
     })(),
   )
 
   check(
-    "the loop never blocks on an answer",
+    "asking stops the run until it hears back",
     (() => {
       const loop = strip(read("lib/sites/agent/loop.ts"))
-      const tools = strip(read("lib/sites/agent/tools.ts"))
-      const at = tools.indexOf('case "ask_creator"')
-      const handler = tools.slice(at, tools.indexOf("case \"set_plan\"", at))
+      const at = loop.indexOf("async function* askCreator")
+      const body = loop.slice(at, loop.indexOf("\nfunction isEmptySite", at))
+      /**
+       * The order is everything: emit, THEN wait. A question asked and
+       * answered before anybody saw it is not a question, and that is what an
+       * ordinary async tool handler would have produced — it cannot yield.
+       */
+      const emitted = body.indexOf('yield { type: "question", question }')
+      const waited = body.indexOf("await ask(question)")
+      return emitted > 0 && waited > emitted
+    })(),
+  )
+
+  check(
+    "and the three ways it can end are three different sentences",
+    (() => {
+      const question: AgentQuestion = { id: "q1", question: "Which town?", suggestions: [] }
+      const answered = answerNote(question, { kind: "answered", answer: "Cluj" })
+      const skipped = answerNote(question, { kind: "skipped" })
+      const timeout = answerNote(question, { kind: "timeout" })
+      /**
+       * A model that cannot tell a skip from silence will treat a skip as a
+       * licence to ask the same thing again in another form.
+       */
       return (
-        // The event goes out mid-run, so the questions are read WHILE the site
-        // is still being built rather than after it is finished.
-        /yield \{ type: "questions", questions: workspace\.questions \}/.test(loop) &&
-        // and the handler returns a note rather than awaiting anything
-        !/await/.test(handler) &&
-        /return askedNote\(questions\)/.test(handler)
+        answered.includes("Cluj") &&
+        /do not ask again/i.test(skipped) &&
+        /Nobody answered/.test(timeout) &&
+        /Do not ask anything else/.test(timeout) &&
+        answered !== skipped &&
+        skipped !== timeout
       )
     })(),
   )
 
   check(
-    "asking twice in one run is refused",
+    "a run cannot turn into an interview",
     (() => {
-      const tools = strip(read("lib/sites/agent/tools.ts"))
-      const at = tools.indexOf('case "ask_creator"')
-      const handler = tools.slice(at, tools.indexOf("case \"set_plan\"", at))
-      /**
-       * A model that asks, builds a little and asks again turns the chat into
-       * an interrogation — and the second batch lands after the creator has
-       * already started answering the first.
-       */
-      return /if \(this\.questions\.length > 0\)/.test(handler)
+      const loop = strip(read("lib/sites/agent/loop.ts"))
+      return (
+        /if \(asks >= MAX_ASKS_PER_RUN\) return tooManyAsksNote\(\)/.test(loop) &&
+        /asks \+= 1/.test(loop) &&
+        MAX_ASKS_PER_RUN <= 3
+      )
     })(),
   )
 
   check(
-    "an answer carries its question back",
+    "the wait is bounded by what the run can afford, not by a constant",
     (() => {
-      const prompt = answersPrompt([
-        { question: "What is the shop called?", answer: "Ferro" },
-        { question: "Which town?", answer: "   " },
-      ])
+      const asking = strip(read("lib/sites/agent/asking.ts"))
+      const run = strip(read("lib/sites/agent/run.ts"))
       /**
-       * "Ferro" alone is a fact with no home: the next run has a fresh
-       * transcript and no idea what was asked. An unanswered question is left
-       * out entirely rather than sent as an empty one.
+       * The route runs with maxDuration 300. A wait that ignored that would
+       * not wait forever — the function would be KILLED mid-build and
+       * everything done so far thrown away unsaved, which is far worse than a
+       * guessed town name.
        */
-      return prompt.includes("What is the shop called? Ferro") && !prompt.includes("Which town?")
+      return (
+        /Math\.min\(MAX_WAIT_MS, input\.deadline - now\(\)\)/.test(asking) &&
+        /if \(room < MIN_USEFUL_WAIT_MS\) return \{ kind: "timeout" \}/.test(asking) &&
+        /deadline: startedAt \+ RUN_BUDGET_MS - BUILD_RESERVE_MS/.test(run)
+      )
     })(),
   )
 
   check(
-    "answering nothing sends nothing",
-    answersPrompt([{ question: "Which town?", answer: "" }]) === "",
+    "and the reserve really is smaller than the budget it is taken from",
+    (() => {
+      const run = read("lib/sites/agent/run.ts")
+      const budget = Number(/RUN_BUDGET_MS = ([\d_]+)/.exec(run)?.[1].replace(/_/g, ""))
+      const reserve = Number(/BUILD_RESERVE_MS = ([\d_]+)/.exec(run)?.[1].replace(/_/g, ""))
+      const route = read("app/api/sites/[siteId]/agent/route.ts")
+      const maxDuration = Number(/maxDuration = (\d+)/.exec(route)?.[1])
+      /**
+       * Three numbers in two files that have to agree. If the route's duration
+       * is ever raised or lowered and this is not, the deadline promises time
+       * the function does not have.
+       */
+      return budget === maxDuration * 1000 && reserve > 0 && reserve < budget
+    })(),
   )
 
   check(
-    "the questions are kept with the message that asked them",
+    "an answer cannot be overwritten by a second one",
+    (() => {
+      const asking = strip(read("lib/sites/agent/asking.ts"))
+      /**
+       * A double tap, two tabs, or an answer racing the timeout. The
+       * `is("answered_at", null)` makes the update a compare-and-swap, so
+       * whoever got there first is what the run acts on — which is also what
+       * the person saw happen.
+       */
+      const at = asking.indexOf("export async function recordAnswer")
+      const body = asking.slice(at)
+      return /\.is\("answered_at", null\)/.test(body) && /\.eq\("site_id", input\.siteId\)/.test(body)
+    })(),
+  )
+
+  check(
+    "and a question id from another site is not enough to answer it",
+    (() => {
+      const route = strip(read("app/api/sites/[siteId]/agent/answer/route.ts"))
+      const asking = strip(read("lib/sites/agent/asking.ts"))
+      /**
+       * The write uses the service role, so RLS is not deciding here — the
+       * getSite read through the user's own client is. A question id is not a
+       * secret, so the update is scoped by site as well.
+       */
+      return (
+        /const site = await getSite\(siteId\)/.test(route) &&
+        /return NextResponse\.json\(\{ error: "Site not found\." \}, \{ status: 404 \}\)/.test(route) &&
+        /\.eq\("site_id", input\.siteId\)/.test(asking)
+      )
+    })(),
+  )
+
+  check(
+    "the chat answers WHILE the run is going, which is the whole complaint",
+    (() => {
+      const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+      const at = pane.indexOf("function QuestionCard(")
+      const card = pane.slice(at, pane.indexOf("export function ChatPane"))
+      /**
+       * THE BUG THIS EXISTS FOR. The first version passed `disabled={busy}`,
+       * so every control was dead for the entire run — and since the run only
+       * ended after the site was built, the questions could only ever be
+       * answered too late.
+       *
+       * Now only the card with a submission in flight locks, and the run being
+       * busy is the REASON the card is live: the run is stopped waiting for it.
+       */
+      return (
+        !/disabled=\{busy\}/.test(card) &&
+        /pending=\{answering === question\.id\}/.test(pane) &&
+        // it posts to the answer route rather than starting a second run
+        /\/api\/sites\/\$\{siteId\}\/agent\/answer/.test(pane) &&
+        !/void send\(answersPrompt/.test(pane)
+      )
+    })(),
+  )
+
+  check(
+    "the card settles from the run, not from whichever tab submitted",
+    (() => {
+      const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+      /**
+       * Settling optimistically would show an answer that a timeout had
+       * already discarded — and a second device watching the same run would
+       * show nothing at all.
+       */
+      return /event\.type === "answered"/.test(pane) && /settled: \{ \.\.\.\(e\.settled \?\? \{\}\), \[questionId\]/.test(pane)
+    })(),
+  )
+
+  check(
+    "waiting is not called working",
+    (() => {
+      const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+      /**
+       * Saying "Working" while the run is stopped on a question nobody has
+       * noticed is how somebody sits watching a spinner that will never move
+       * on its own.
+       */
+      return /"Waiting on you"/.test(pane) && /Paused — answer below and it carries on/.test(pane)
+    })(),
+  )
+
+  check(
+    "what was asked and what was said are kept together",
     (() => {
       const chat = strip(read("lib/sites/chat.ts"))
       const run = strip(read("lib/sites/agent/run.ts"))
+      const loop = strip(read("lib/sites/agent/loop.ts"))
       /**
-       * Without this they live only in the event stream: ask four questions,
-       * reload before answering, and they are gone — along with any idea that
-       * the agent wanted to know anything.
-       *
-       * Written from the WORKSPACE, not from the collected events, so the
-       * stream and the transcript cannot disagree about what was asked.
+       * Recorded AFTER the wait, with its outcome. Pushing the question before
+       * waiting would write one the run may never have got an answer to, shown
+       * tomorrow as though somebody had chosen to leave it blank.
        */
+      const at = loop.indexOf("async function* askCreator")
+      const body = loop.slice(at, loop.indexOf("\nfunction isEmptySite", at))
       return (
         /questions, files_changed/.test(chat) &&
-        /questions: Array\.isArray\(row\.questions\) \? row\.questions : \[\]/.test(chat) &&
-        /questions: workspace\.questions/.test(run)
-      )
-    })(),
-  )
-
-  check(
-    "and the chat renders them as something to tap, never as a required field",
-    (() => {
-      const pane = strip(read("components/sites/editor/chat-pane.tsx"))
-      const at = pane.indexOf("function QuestionCards")
-      const body = pane.slice(at, pane.indexOf("export function ChatPane"))
-      return (
-        /suggestions\.map\(\(suggestion\)/.test(body) &&
-        // free text is always available beside the chips
-        /placeholder=\{question\.placeholder/.test(body) &&
-        // and every one of them can be ignored
-        /the site is already built/.test(body)
+        /questions: workspace\.questions/.test(run) &&
+        body.indexOf("workspace.questions.push") > body.indexOf("await ask(question)")
       )
     })(),
   )

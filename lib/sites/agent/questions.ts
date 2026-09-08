@@ -4,37 +4,56 @@
  * ===========================================================================
  * "Build me a landing page for my barber shop" is not enough to build a good
  * site from. What is it called? Which town? What does a cut cost? When is it
- * open? Without those, the model invents them, and a site full of invented
- * details is one the creator has to correct line by line — which is worse than
- * being asked four questions up front.
+ * open? Without those the model invents them, and a site full of invented
+ * details is one the creator has to correct line by line.
  *
  * ---------------------------------------------------------------------------
- *  ASKING MUST NOT MEAN WAITING
+ *  ASKING MEANS WAITING. THIS FILE USED TO ARGUE THE OPPOSITE.
  * ---------------------------------------------------------------------------
- * The obvious design is to stop and wait for an answer. It is the wrong one.
+ * The first version asked and kept going: four questions on screen at once, a
+ * site built on defaults, answers folded in afterwards as a follow-up message.
+ * The reasoning was that a form in front of an empty page is homework.
  *
- * A creator who types one sentence and gets a form back has been given
- * homework, and the run they started has produced nothing they can look at.
- * Worse, a run that blocks has to hold a server-side conversation open across
- * a reply that might never come.
+ * It was wrong in practice, for a reason the reasoning missed. By the time the
+ * run had finished there was nothing left for the answers to change cheaply —
+ * the copy was written, the pages were laid out, and "actually we are in Cluj"
+ * meant redoing work that had just been done. The questions had become a
+ * correction pass rather than an input. Worse, the chat disabled the answer
+ * controls while a run was going, so the one moment they were useful was the
+ * one moment they could not be touched.
  *
- * So the agent asks AND KEEPS BUILDING. It puts the questions on screen, fills
- * the site with the best defaults it can justify, and finishes. The answers
- * arrive as an ordinary next message and refine what is already there — which
- * is also the honest order, because a creator can tell you what is wrong with
- * a site far more easily than they can specify one from nothing.
+ * So the run WAITS now:
  *
- * That is why `ask_creator` returns immediately with an instruction to carry
- * on, and why nothing in the loop waits on it.
+ *   ONE QUESTION AT A TIME. Four at once is a form. One is a conversation, and
+ *   it also lets the second question depend on the first answer — which is the
+ *   only way the questions get sharper rather than generic.
+ *
+ *   MID-BUILD, NOT AFTER. The agent asks the moment it needs to know, and the
+ *   answer changes what it builds next rather than what it rebuilds.
+ *
+ *   ANSWER OR SKIP, BOTH MOVE IT ON. Skipping is a decision and is passed to
+ *   the model as one. Silence is not: see the timeout below.
+ *
+ * ---------------------------------------------------------------------------
+ *  WHY THE WAIT IS BOUNDED ANYWAY
+ * ---------------------------------------------------------------------------
+ * The route runs with maxDuration 300. A run that waits forever does not wait
+ * forever — it is killed mid-build and everything it had done is lost, which
+ * is a far worse outcome than a guessed town name.
+ *
+ * So the wait has a deadline, and it is subtracted from the run's own budget
+ * rather than being a constant: waiting is only allowed while enough time
+ * remains to finish building afterwards. Past that the model is told plainly
+ * that nobody answered and to use its judgement.
  *
  * ---------------------------------------------------------------------------
  *  WHY THE SHAPE IS VALIDATED HERE
  * ---------------------------------------------------------------------------
- * These strings are rendered as interface — chips somebody taps. A model that
- * emits twelve questions, or a question that is three sentences long, produces
- * a chat pane nobody can use. The bounds are enforced where the data is
- * parsed rather than in the component, because a component that has to defend
- * itself against its own data is a component that will be got wrong once.
+ * These strings are rendered as interface — chips somebody taps. A question
+ * three sentences long produces a card nobody can read. The bounds are
+ * enforced where the data is parsed rather than in the component, because a
+ * component that has to defend itself against its own data is one that will be
+ * got wrong once.
  */
 
 /** One thing the agent wants to know. */
@@ -55,11 +74,27 @@ export interface AgentQuestion {
 }
 
 /**
- * Four. A creator will answer four questions and abandon eight, and the run
- * has to be able to proceed on defaults regardless — so asking more buys
- * nothing and costs the whole interaction.
+ * A question after the fact: what was asked and what came back.
+ *
+ * Separate from AgentQuestion because the two are true at different times.
+ * AgentQuestion is what goes on screen while the run is stopped; this is what
+ * is written to the transcript once it is over, and it is what somebody sees
+ * when they reopen the site tomorrow.
  */
-export const MAX_QUESTIONS = 4
+export interface AskedQuestion extends AgentQuestion {
+  answer?: string
+  outcome: "answered" | "skipped" | "timeout"
+}
+
+/**
+ * How many times one run may stop to ask.
+ *
+ * Not how many can be on screen — that is always exactly one. This is the
+ * total across a run, and it is what keeps "ask when you need to know" from
+ * becoming an interview. Three is enough to get a name, a place and a price,
+ * which is most of what a generic site is missing.
+ */
+export const MAX_ASKS_PER_RUN = 3
 
 /** Long enough for "What are your opening hours?", short enough to be a chip. */
 const MAX_QUESTION_CHARS = 160
@@ -73,84 +108,77 @@ function clean(value: unknown, limit: number): string {
 }
 
 /**
- * The model's arguments, turned into questions worth rendering.
+ * The model's arguments, turned into the one question it may ask.
  *
- * Returns `[]` rather than throwing for anything malformed. A bad tool call is
+ * Returns null rather than throwing for anything malformed. A bad tool call is
  * something the agent is told about and can retry — it is never a reason to
  * end a run that is otherwise building a site correctly.
  */
-export function parseQuestions(args: Record<string, unknown>): AgentQuestion[] {
-  const raw = Array.isArray(args.questions) ? args.questions : []
-  const out: AgentQuestion[] = []
+export function parseQuestion(args: Record<string, unknown>, id: string): AgentQuestion | null {
+  const question = clean(args.question, MAX_QUESTION_CHARS)
+  if (!question) return null
 
-  for (const entry of raw) {
+  const suggestions = (Array.isArray(args.suggestions) ? args.suggestions : [])
+    .map((s) => clean(s, MAX_SUGGESTION_CHARS))
+    .filter(Boolean)
     /**
-     * The cap is on questions KEPT, not on entries read.
-     *
-     * Slicing the raw array first meant four malformed entries could discard a
-     * valid fifth — the creator would be told nothing was asked while the
-     * model believed it had asked. Counting what survives is the only version
-     * that means "at most four questions".
+     * Deduplicated, because two identical chips read as a bug in the page
+     * rather than as a repeated suggestion.
      */
-    if (out.length >= MAX_QUESTIONS) break
-    if (!entry || typeof entry !== "object") continue
-    const record = entry as Record<string, unknown>
+    .filter((s, index, all) => all.indexOf(s) === index)
+    .slice(0, MAX_SUGGESTIONS)
 
-    const question = clean(record.question, MAX_QUESTION_CHARS)
-    if (!question) continue
-
-    const suggestions = (Array.isArray(record.suggestions) ? record.suggestions : [])
-      .map((s) => clean(s, MAX_SUGGESTION_CHARS))
-      .filter(Boolean)
-      /**
-       * Deduplicated, because two identical chips read as a bug in the page
-       * rather than as a repeated suggestion.
-       */
-      .filter((s, index, all) => all.indexOf(s) === index)
-      .slice(0, MAX_SUGGESTIONS)
-
-    out.push({
-      id: `q${out.length + 1}`,
-      question,
-      why: clean(record.why, MAX_WHY_CHARS) || undefined,
-      suggestions,
-      placeholder: clean(record.placeholder, MAX_SUGGESTION_CHARS) || undefined,
-    })
+  return {
+    id,
+    question,
+    why: clean(args.why, MAX_WHY_CHARS) || undefined,
+    suggestions,
+    placeholder: clean(args.placeholder, MAX_SUGGESTION_CHARS) || undefined,
   }
+}
 
-  return out
+/** How a question ended. `timeout` is nobody home, which is not a skip. */
+export type AnswerOutcome =
+  | { kind: "answered"; answer: string }
+  | { kind: "skipped" }
+  | { kind: "timeout" }
+
+/**
+ * What the model reads when the wait is over.
+ *
+ * The three outcomes are deliberately different sentences, because they are
+ * different facts and a model that cannot tell them apart will treat a skip as
+ * a licence to ask the same thing again in another form.
+ */
+export function answerNote(question: AgentQuestion, outcome: AnswerOutcome): string {
+  switch (outcome.kind) {
+    case "answered":
+      return [
+        `They answered: ${outcome.answer}`,
+        "Use it everywhere it belongs — the header, the footer, the page copy, the contact details, the page titles — not only in the one place you were thinking of. Then carry on building.",
+      ].join(" ")
+
+    case "skipped":
+      return [
+        `They skipped "${question.question}".`,
+        "That is an answer: they do not want to decide it, so decide it for them with something plausible and do not ask again in another form. Carry on building.",
+      ].join(" ")
+
+    case "timeout":
+    default:
+      return [
+        "Nobody answered — they may have stepped away.",
+        "Do not ask anything else this run. Use your best judgement for this and everything like it, finish the whole site, and say in your reply which details you chose so they know what to correct.",
+      ].join(" ")
+  }
 }
 
 /**
- * What the model is told after asking.
+ * Told to the model when it tries to ask once too often.
  *
- * Phrased as an instruction to continue, and deliberately blunt about it: the
- * failure this guards against is a model that asks a question and then stops,
- * leaving a creator with a form and no site. That is the single worst outcome
- * available here, so the tool's own result says not to do it.
+ * A refusal it can act on rather than an error: the run is not in trouble, it
+ * simply has to decide this one itself.
  */
-export function askedNote(questions: AgentQuestion[]): string {
-  return [
-    `Asked the creator ${questions.length} question${questions.length === 1 ? "" : "s"}. They are on screen now.`,
-    "DO NOT WAIT FOR AN ANSWER AND DO NOT STOP. You will not receive one during this run — the answers come back as a separate message afterwards.",
-    "Carry on building the whole site now, using the most plausible defaults you can justify for anything you asked about. Say in your final reply which details you guessed at, so they know what to correct.",
-  ].join(" ")
-}
-
-/**
- * Turned back into a prompt when the creator answers.
- *
- * Includes the QUESTION beside each answer rather than the answer alone,
- * because "Tuesday to Saturday, 9 to 6" on its own is a fact with no home —
- * the next run has a fresh transcript and no idea what was asked.
- */
-export function answersPrompt(
-  answers: Array<{ question: string; answer: string }>,
-): string {
-  const filled = answers.filter((a) => a.answer.trim().length > 0)
-  if (filled.length === 0) return ""
-  return [
-    "Here are the answers to what you asked. Update the site so it uses them everywhere they belong — the header, the footer, the page copy, the contact details, the metadata — not only in one place.",
-    ...filled.map((a) => `- ${a.question} ${a.answer.trim()}`),
-  ].join("\n")
+export function tooManyAsksNote(): string {
+  return `You have already asked ${MAX_ASKS_PER_RUN} questions this run, which is the limit. Decide the rest yourself with plausible defaults, finish the site, and say in your reply what you chose.`
 }

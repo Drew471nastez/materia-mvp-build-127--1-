@@ -15,7 +15,7 @@ import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import type { AgentQuestion } from "./agent/questions"
+import type { AskedQuestion } from "./agent/questions"
 
 export interface ChatStep {
   name: string
@@ -28,7 +28,7 @@ export interface StoredMessage {
   content: string
   steps: ChatStep[]
   /** What the agent asked the creator during this run. Usually empty. */
-  questions: AgentQuestion[]
+  questions: AskedQuestion[]
   filesChanged: string[]
   versionId: string | null
   error: string | null
@@ -61,7 +61,7 @@ export async function readChat(siteId: string): Promise<StoredMessage[]> {
     role: "user" | "assistant"
     content: string
     steps: ChatStep[] | null
-    questions: AgentQuestion[] | null
+    questions: AskedQuestion[] | null
     files_changed: string[] | null
     version_id: string | null
     error: string | null
@@ -159,7 +159,7 @@ export async function completeExchange(input: {
   runId: string | null
   reply: string
   steps: ChatStep[]
-  questions: AgentQuestion[]
+  questions: AskedQuestion[]
   filesChanged: string[]
   versionId: string | null
   error: string | null

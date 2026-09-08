@@ -178,7 +178,14 @@ export type AgentEvent =
    */
   | {
       type: "state"
-      state: "inspecting" | "planning" | "executing" | "verifying" | "repairing"
+      state:
+        | "inspecting"
+        | "planning"
+        | "executing"
+        /** Stopped, with a question on screen, waiting for a person. */
+        | "asking"
+        | "verifying"
+        | "repairing"
     }
   /**
    * The plan and its progress, re-sent whenever either changes. The whole list
@@ -187,11 +194,23 @@ export type AgentEvent =
    */
   | { type: "plan"; steps: Array<{ title: string; done: boolean }> }
   /**
-   * WHAT THE AGENT WANTS TO KNOW, while it carries on without the answer.
+   * WHAT THE AGENT WANTS TO KNOW, and the run is stopped until it hears back.
    *
-   * Not a request the run waits on — see ./questions for why waiting is the
-   * wrong design. The chat renders these as something to tap; the answers come
-   * back as an ordinary next message.
+   * One at a time. The plural version of this event asked four things at once
+   * and did not wait for any of them, which turned the questions into a
+   * correction pass after the site was already built — see ./questions.
    */
-  | { type: "questions"; questions: AgentQuestion[] }
+  | { type: "question"; question: AgentQuestion }
+  /**
+   * How that question ended, so the card can settle into what was said and any
+   * other tab watching the same run sees the same thing.
+   *
+   * `timeout` is not a skip: nobody was there, and the agent is told so.
+   */
+  | {
+      type: "answered"
+      questionId: string
+      answer: string
+      outcome: "answered" | "skipped" | "timeout"
+    }
   | { type: "error"; message: string }
