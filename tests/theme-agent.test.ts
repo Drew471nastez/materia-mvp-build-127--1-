@@ -917,6 +917,144 @@ section("The conversation survives a refresh")
   )
 }
 
+// ===========================================================================
+section("An AI edit behaves exactly like an edit made by hand")
+// ===========================================================================
+
+/**
+ * The AI writes the same state the panels write, which is the whole design —
+ * but "the same state" is not the same as "the same code path". Every hand-edit
+ * handler in the editor does things BESIDE calling setSections, and each one it
+ * skipped was a real defect that looked, on screen, like the edit had worked.
+ */
+{
+  const editor = readFileSync(
+    join(root, "app/website-builder/editor/[installId]/page.tsx"),
+    "utf8",
+  )
+  const at = editor.indexOf("const applyAiOp = useCallback")
+  const body = editor.slice(at, editor.indexOf("}, [sections])", at))
+
+  check(
+    "an AI edit marks the editor dirty",
+    /**
+     * THE WORST OF THE THREE. `isDirty` is a manual flag — every hand-edit
+     * handler sets it and this one did not, so the AI changed the page, the
+     * preview updated, and Save stayed greyed out reading "Saved". The work
+     * could not be saved and leaving the tab gave no warning: the entire AI
+     * edit was lost on reload while looking like it had worked.
+     */
+    /setIsDirty\(true\)/.test(body),
+  )
+
+  check(
+    "a section the AI deletes does not stay selected",
+    /**
+     * `removeSection` clears the selection when it deletes the open section.
+     * Without this the inspector points at a section that no longer exists —
+     * a blank settings panel beside a page that just changed, which reads as
+     * the editor having broken.
+     */
+    /op\.kind === "remove_section"/.test(body) && /setSelectedPanel\(/.test(body),
+  )
+
+  check(
+    "and a header logo written by the AI reaches the theme too",
+    (() => {
+      /**
+       * The logo lives in two places: the header section and the theme
+       * settings. `updateSectionSetting` mirrors one into the other. An AI
+       * edit that skipped the mirror leaves them disagreeing, which surfaces
+       * later as the logo reverting on another page.
+       */
+      return /LOGO_SYNC_HEADER_TO_THEME/.test(body) && /setSettingsDraft/.test(body)
+    })(),
+  )
+}
+
+{
+  /**
+   * Header nav links nest: a submenu item carries `parent_id` pointing at the
+   * link it sits under. The editor's own delete cascades; an AI delete that did
+   * not would leave blocks whose parent is gone, rendering as stray top-level
+   * links in a navigation nobody thought they had touched.
+   */
+  const withNav: ThemeState = {
+    sections: [
+      {
+        id: "header-1",
+        type: "header",
+        name: "Header",
+        settings: {},
+        blocks: [
+          { id: "n1", type: "nav_link", settings: { label: "Shop" } },
+          { id: "n2", type: "nav_link", settings: { label: "Shoes", parent_id: "n1" } },
+          { id: "n3", type: "nav_link", settings: { label: "About" } },
+        ],
+      },
+    ],
+    settings: {},
+  }
+
+  const after = applyOps(withNav, [
+    { kind: "remove_block", sectionId: "header-1", blockId: "n1" },
+  ])
+
+  check(
+    "removing a parent link takes its children with it",
+    after.sections[0].blocks?.map((b) => b.id).join() === "n3",
+    after.sections[0].blocks?.map((b) => b.id).join(),
+  )
+}
+
+// ===========================================================================
+section("The panel does not drop what the run tells it")
+// ===========================================================================
+
+{
+  const panel = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
+
+  check(
+    "the agent's own words reach the screen",
+    /**
+     * The loop streams `thinking` between tool calls and the panel dropped it,
+     * so a run that spent twenty seconds reading a section and the catalogue
+     * showed "Working" and nothing else. Latest line only — commentary, not a
+     * transcript.
+     */
+    /event\.type === "thinking"/.test(panel) && /exchange\.note/.test(panel),
+  )
+
+  check(
+    "a run stops if you move to another page",
+    (() => {
+      /**
+       * Switching pages swaps `sections` for a different page's, and the
+       * operations coming back address the OLD page by id. Update, move and
+       * remove all no-op on an id that is not there — but `add_section` names
+       * no existing id and would land a new section on whichever page is open.
+       * Somebody would find a pricing table on their About page with no idea
+       * where it came from.
+       */
+      return (
+        /const startedOn = live\.current\.page/.test(panel) &&
+        /live\.current\.page !== startedOn/.test(panel) &&
+        /controller\.abort\(\)/.test(panel)
+      )
+    })(),
+  )
+
+  check(
+    "and the page is checked before an operation is applied, not after",
+    (() => {
+      const guard = panel.indexOf("live.current.page !== startedOn")
+      const apply = panel.indexOf("onOp(event.op)")
+      // A check that runs after the apply is a check that has already lost.
+      return guard > 0 && apply > guard
+    })(),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

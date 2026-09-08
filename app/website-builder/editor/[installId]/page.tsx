@@ -3436,12 +3436,67 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * behaves exactly as it does for a change made by hand.
    */
   const applyAiOp = useCallback((op: ThemeOp) => {
+    /**
+     * MARKED DIRTY, LIKE EVERY OTHER EDIT.
+     *
+     * `isDirty` is a manual flag: every hand-edit handler in this file sets it,
+     * and this one did not. So the AI changed the page, the preview updated,
+     * and Save stayed greyed out reading "Saved" — the work could not be saved,
+     * and leaving the tab gave no warning either. The whole AI edit was lost on
+     * reload while looking, on screen, like it had worked.
+     *
+     * (The comment here used to claim isDirty flipped. It did not. A comment
+     * asserting the property that is missing is worse than no comment.)
+     */
+    setIsDirty(true)
+
     if (op.kind === "update_theme") {
       setSettingsDraft(previous => applyOp({ sections: [], settings: previous }, op).settings as ThemeSettingsValues)
       return
     }
+
+    /**
+     * THE LOGO LIVES IN TWO PLACES and the hand-edit path keeps them together.
+     *
+     * `updateSectionSetting` mirrors the header's logo fields into the theme
+     * settings, because the header section and the theme both hold one. An AI
+     * edit that skipped the mirror would leave the two disagreeing — the header
+     * showing a new logo and the theme still holding the old one, which
+     * surfaces later as the logo reverting on another page.
+     */
+    if (op.kind === "update_section") {
+      const target = sections.find(s => s.id === op.id)
+      if (target?.type === "header") {
+        const mirrored: Record<string, unknown> = {}
+        for (const [key, value] of Object.entries(op.settings)) {
+          const themeKey = LOGO_SYNC_HEADER_TO_THEME[key]
+          if (themeKey) mirrored[themeKey] = value
+        }
+        if (Object.keys(mirrored).length > 0) {
+          setSettingsDraft(previous => ({ ...previous, ...mirrored }) as ThemeSettingsValues)
+        }
+      }
+    }
+
+    /**
+     * A SECTION THE AI DELETES CANNOT STAY SELECTED.
+     *
+     * `removeSection` clears the selection when it deletes the open one, and
+     * this did not — so the inspector was left pointing at a section that no
+     * longer exists. It degrades to a blank panel rather than crashing, but a
+     * blank settings panel beside a page that just changed reads as the editor
+     * having broken.
+     */
+    if (op.kind === "remove_section") {
+      // Read from the panel state directly: `selectedSectionId` is derived
+      // further down the component and is not in scope here.
+      setSelectedPanel(previous =>
+        previous.type === "section" && previous.sectionId === op.id ? { type: "pages" } : previous,
+      )
+    }
+
     setSections(previous => applyOp({ sections: previous, settings: {} }, op).sections)
-  }, [])
+  }, [sections])
 
   const [sidebarWidth, setSidebarWidth] = useState(288)
   const [isMobileView, setIsMobileView] = useState(false)

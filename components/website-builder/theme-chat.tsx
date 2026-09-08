@@ -38,6 +38,13 @@ interface Exchange {
   reply?: string
   error?: string
   running: boolean
+  /**
+   * The agent's own words while it works. It streams these between tool calls
+   * and the panel used to drop them, so a run that spent twenty seconds
+   * reading a section and the catalogue showed "Working" and nothing else.
+   * Latest line only — this is commentary, not a transcript.
+   */
+  note?: string
 }
 
 const SUGGESTIONS = [
@@ -174,6 +181,18 @@ export function ThemeChat({
       /** One snapshot, before anything moves, so Undo takes back the whole run. */
       let snapshotTaken = false
 
+      /**
+       * THE RUN BELONGS TO THE PAGE IT STARTED ON.
+       *
+       * Switching pages swaps `sections` for a different page's, and the
+       * operations coming back address the OLD page by id. Most would miss
+       * harmlessly — update, move and remove all no-op on an id that is not
+       * there — but `add_section` names no existing id and would land a new
+       * section on whichever page happens to be open. Somebody would find a
+       * pricing table on their About page with no idea where it came from.
+       */
+      const startedOn = live.current.page
+
       try {
         const controller = new AbortController()
         abortRef.current = controller
@@ -220,7 +239,24 @@ export function ThemeChat({
               continue
             }
 
-            if (event.type === "op" && event.op) {
+            /**
+             * Checked per operation rather than once: the page can change at
+             * any point during a run, and the next event is where it matters.
+             */
+            if (live.current.page !== startedOn) {
+              controller.abort()
+              patch((e) => ({
+                ...e,
+                running: false,
+                reply: "Stopped — you moved to another page. Nothing was applied there.",
+              }))
+              return
+            }
+
+            if (event.type === "thinking") {
+              const note = event.text ?? ""
+              patch((e) => ({ ...e, note }))
+            } else if (event.type === "op" && event.op) {
               if (!snapshotTaken) {
                 onRunStart()
                 snapshotTaken = true
@@ -330,6 +366,15 @@ export function ThemeChat({
                       </li>
                     ))}
                   </ul>
+                )}
+
+                {exchange.note && exchange.running && (
+                  <p
+                    key={exchange.note}
+                    className="animate-in fade-in text-[12.5px] leading-relaxed text-muted-foreground duration-300"
+                  >
+                    {exchange.note}
+                  </p>
                 )}
 
                 {exchange.running && (

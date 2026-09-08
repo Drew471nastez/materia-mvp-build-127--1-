@@ -211,7 +211,21 @@ export function applyOp(state: ThemeState, op: ThemeOp): ThemeState {
       })
 
     case "remove_block":
-      return editBlocks(state, op.sectionId, (blocks) => blocks.filter((b) => b.id !== op.blockId))
+      /**
+       * CASCADES, because the editor's own delete does.
+       *
+       * Header nav links nest: a submenu item carries `parent_id` pointing at
+       * the link it sits under. Removing the parent and leaving the children
+       * produces blocks whose parent is gone — they render as stray top-level
+       * links, or as nothing, depending on the section. `removeBlock` in the
+       * editor has always cascaded; an AI delete that did not would quietly
+       * corrupt a navigation nobody thought they had touched.
+       */
+      return editBlocks(state, op.sectionId, (blocks) =>
+        blocks.filter(
+          (b) => b.id !== op.blockId && (b.settings?.parent_id as string | undefined) !== op.blockId,
+        ),
+      )
 
     default:
       return state
