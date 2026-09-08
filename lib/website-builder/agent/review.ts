@@ -27,6 +27,7 @@
  * findings can be shown in the editor later without a round trip.
  */
 
+import { houseStyleFindings, readHouseStyle } from "./house-style"
 import { SECTION_SCHEMAS } from "../section-schemas"
 import type { SchemaField, SectionInstance } from "../types"
 import type { ThemeState } from "./operations"
@@ -179,10 +180,48 @@ function readableColor(section: SectionInstance, id: string, theme: Record<strin
  * page in ways nobody asked for. The check is worth having exactly where the
  * model chose the colour, and nowhere else.
  */
+/**
+ * A pair the rest of the page already uses is this site's standard, not
+ * something this edit introduced.
+ *
+ * The product's own button is white on #6366f1 — 4.47:1, three hundredths
+ * under AA. A model that reuses it is being consistent, which is what it was
+ * asked to be, and telling it to fix the brand colour is an argument it cannot
+ * win and should not be having.
+ */
+function pairIsEstablished(
+  state: ThemeState,
+  section: SectionInstance,
+  fg: string,
+  bg: string,
+  touched: Set<string>,
+): boolean {
+  return state.sections.some((other) => {
+    if (other.id === section.id || touched.has(other.id)) return false
+    const ids = new Set((SECTION_SCHEMAS[other.type]?.fields ?? []).map((f) => f.id))
+    for (const [foreground, backgrounds] of PAIRS) {
+      if (!ids.has(foreground)) continue
+      const backgroundId = backgrounds.find((id) => ids.has(id))
+      if (!backgroundId) continue
+      const otherFg = readableColor(other, foreground, state.settings)
+      const otherBg = readableColor(other, backgroundId, state.settings)
+      if (
+        otherFg?.toLowerCase() === fg.toLowerCase() &&
+        otherBg?.toLowerCase() === bg.toLowerCase()
+      ) {
+        return true
+      }
+    }
+    return false
+  })
+}
+
 function contrastFindings(
   section: SectionInstance,
   theme: Record<string, unknown>,
   written: Set<string>,
+  state?: ThemeState,
+  touched?: Set<string>,
 ): Finding[] {
   const ids = new Set((SECTION_SCHEMAS[section.type]?.fields ?? []).map((f) => f.id))
   const out: Finding[] = []
@@ -201,6 +240,7 @@ function contrastFindings(
 
     const ratio = contrastRatio(fg, bg)
     if (ratio === null || ratio >= MINIMUM_RATIO) continue
+    if (state && touched && pairIsEstablished(state, section, fg, bg, touched)) continue
 
     out.push({
       sectionId: section.id,
@@ -395,6 +435,13 @@ export interface ReviewInput {
 export function reviewSections(input: ReviewInput): Finding[] {
   const { state, touched, added } = input
   const findings: Finding[] = []
+  /**
+   * The page's own system, read from the page. See ./house-style for why this
+   * matters more than any amount of instruction about taste: coherence comes
+   * from a shared vocabulary, and an edit that invents a fourth near-identical
+   * grey is what makes a page read as machine-made.
+   */
+  const style = readHouseStyle(state, touched)
 
   for (const id of new Set(touched)) {
     const section = state.sections.find((s) => s.id === id)
@@ -402,7 +449,10 @@ export function reviewSections(input: ReviewInput): Finding[] {
 
     const written = new Set(input.written?.[id] ?? [])
 
-    findings.push(...contrastFindings(section, state.settings, written))
+    findings.push(
+      ...contrastFindings(section, state.settings, written, state, new Set(touched)),
+    )
+    findings.push(...houseStyleFindings({ section, written, style }))
     findings.push(...emptyFindings(section, written))
     findings.push(...duplicateBlockFindings(section))
     if (added.includes(id)) findings.push(...untouchedPresetFindings(section))
