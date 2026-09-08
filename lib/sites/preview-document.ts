@@ -93,6 +93,57 @@ const RUNTIME_BRIDGE = `
   // Told explicitly, because "it rendered" and "it did not throw" are not the
   // same claim and only the frame knows the difference.
   window.addEventListener("load", function () { send("ready", "") })
+
+  /**
+   * A LINK MUST NOT TAKE THE PREVIEW WITH IT.
+   *
+   * This is a srcdoc document, and a srcdoc document inherits its base URL
+   * from the page around it. So <a href="/about"> inside a generated site does
+   * not point at the generated site — it points at storelib.com/about, a real
+   * page, which like every page on that domain is served with
+   * X-Frame-Options: DENY. Clicking it navigated the frame there and the
+   * browser refused, so the preview was replaced by "storelib.com refused to
+   * connect." and the creator's work was gone from the screen.
+   *
+   * Measured, both directions, by counting load events on the frame: without
+   * this the frame loads TWICE on a click — it left — and with it, once.
+   *
+   * Capture phase, so a handler in the site itself cannot get there first and
+   * stop this from running.
+   */
+  var findLink = function (node) {
+    while (node && node.nodeType === 1) {
+      if (String(node.tagName).toUpperCase() === "A") return node
+      node = node.parentNode
+    }
+    return null
+  }
+
+  document.addEventListener("click", function (e) {
+    var link = findLink(e.target)
+    if (!link) return
+    var href = link.getAttribute("href") || ""
+
+    /**
+     * An in-page anchor is the one link that genuinely belongs to this
+     * document — "#pricing" scrolls, it does not leave — so it is left alone.
+     * A bare "#" is the placeholder every generated page uses for a button and
+     * only jumps to the top, which is not what anybody clicking it wanted.
+     */
+    if (href.length > 1 && href.charAt(0) === "#") return
+
+    e.preventDefault()
+    send("navigate", href)
+  }, true)
+
+  /**
+   * A form does the same thing by a different route: <form action="/subscribe">
+   * submits by NAVIGATING, and lands in exactly the same place.
+   */
+  document.addEventListener("submit", function (e) {
+    e.preventDefault()
+    send("navigate", (e.target && e.target.getAttribute && e.target.getAttribute("action")) || "")
+  }, true)
 })()
 </script>`
 

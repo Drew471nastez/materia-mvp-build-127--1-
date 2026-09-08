@@ -50,6 +50,17 @@ export function PreviewPane({
   nonce: number
 }) {
   const [runtimeError, setRuntimeError] = React.useState<RuntimeError | null>(null)
+  /**
+   * Where a click inside the preview was trying to go, for the few seconds
+   * after it was stopped from going there.
+   */
+  const [heldLink, setHeldLink] = React.useState<string | null>(null)
+  /**
+   * Bumped to put the preview back after it navigated away despite everything.
+   * Part of the iframe's key, so a bump re-mounts it on the srcDoc.
+   */
+  const [restores, setRestores] = React.useState(0)
+  const loadsRef = React.useRef(0)
   const frameRef = React.useRef<HTMLIFrameElement>(null)
 
   /**
@@ -64,6 +75,12 @@ export function PreviewPane({
       const data = event.data
       if (!data || data.source !== "storelib-preview") return
       if (data.kind === "error") setRuntimeError({ message: String(data.message), stack: String(data.stack ?? "") })
+      /**
+       * A link inside the preview was stopped. Told rather than swallowed: a
+       * nav that appears to do nothing reads as a broken site, and the creator
+       * needs to know it works once the site is published.
+       */
+      if (data.kind === "navigate") setHeldLink(String(data.message ?? ""))
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
@@ -78,7 +95,47 @@ export function PreviewPane({
   }, [build.status, build.code, build.css, html])
 
   // A new document is a new run: last render's exception is not this one's.
-  React.useEffect(() => setRuntimeError(null), [srcDoc])
+  React.useEffect(() => {
+    setRuntimeError(null)
+    setHeldLink(null)
+    setRestores(0)
+  }, [srcDoc])
+
+  // The load counter belongs to the document currently in the frame, and a
+  // restore mounts a fresh one.
+  React.useEffect(() => {
+    loadsRef.current = 0
+  }, [srcDoc, restores])
+
+  // The notice is a nudge, not a state to sit in.
+  React.useEffect(() => {
+    if (!heldLink && heldLink !== "") return
+    const timer = window.setTimeout(() => setHeldLink(null), 4000)
+    return () => window.clearTimeout(timer)
+  }, [heldLink])
+
+  /**
+   * THE PREVIEW CAME BACK, OR SOMETHING ELSE DID.
+   *
+   * The click guard in the preview document holds links and forms, which is
+   * every ordinary way out. It cannot hold `window.location = "/x"` written by
+   * a model, and a frame that has navigated shows whatever it landed on —
+   * usually the browser's own refusal, since every page on this domain denies
+   * framing.
+   *
+   * A second load event on the same document means exactly that: the frame is
+   * no longer showing the preview. It is put back rather than diagnosed,
+   * because what it went to does not matter and cannot be read from here — the
+   * frame is on an opaque origin.
+   *
+   * Capped, so a document that navigates on sight cannot become a reload loop.
+   */
+  const onFrameLoad = React.useCallback(() => {
+    loadsRef.current += 1
+    if (loadsRef.current <= 1) return
+    setHeldLink("")
+    setRestores((n) => (n < 2 ? n + 1 : n))
+  }, [])
 
   const failed = build.status === "failed"
 
@@ -90,14 +147,29 @@ export function PreviewPane({
           style={{ width: WIDTHS[viewport], maxWidth: "100%" }}
         >
           <iframe
-            key={nonce}
+            key={`${nonce}-${restores}`}
             ref={frameRef}
             title="Preview"
             srcDoc={srcDoc}
             sandbox="allow-scripts"
+            onLoad={onFrameLoad}
             className="h-full w-full border-0"
           />
         </div>
+
+        {heldLink !== null && (
+          /**
+           * Deliberately a small pill rather than an overlay: nothing is wrong,
+           * a link simply does not leave the preview.
+           */
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4">
+            <p className="pointer-events-auto max-w-full truncate rounded-full border border-border bg-background/95 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur">
+              {heldLink
+                ? `Links open on the published site — this one goes to ${heldLink}`
+                : "Links open on the published site"}
+            </p>
+          </div>
+        )}
 
         {failed && <ErrorOverlay title="This did not build" errors={build.errors} />}
         {!failed && runtimeError && (

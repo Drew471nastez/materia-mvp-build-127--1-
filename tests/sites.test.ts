@@ -4923,6 +4923,127 @@ check(
   })(),
 )
 
+// ===========================================================================
+section("A link inside the preview must not take the preview with it")
+// ===========================================================================
+
+/**
+ * THE OTHER "refused to connect", and the one a creator hits by hand.
+ *
+ * The preview is a srcdoc document, and a srcdoc document inherits its base
+ * URL from the page around it. So `<a href="/about">` in a generated site does
+ * not point at the generated site — it points at storelib.com/about, a real
+ * page, which like every page on that domain is served with
+ * `X-Frame-Options: DENY`. Clicking it navigated the frame there, the browser
+ * refused, and the creator's work was replaced by a full-frame error.
+ *
+ * Measured in Chromium by counting load events on the frame, with the document
+ * `previewDocument` actually produces rather than an imitation of it:
+ *
+ *   frame load events: 1                    ← it never left
+ *   ready
+ *   navigate:/about                         ← held
+ *   navigate:/pricing                       ← held
+ *   navigate:https://example.com/x          ← held
+ *   navigate:#                              ← held
+ *   navigate:/subscribe                     ← the form, held
+ *   (#features produced nothing — an in-page anchor still scrolls)
+ *
+ * Without the guard the same document loads TWICE: it left.
+ */
+
+check(
+  "every link in a generated site is held inside the frame",
+  (() => {
+    const doc = previewDocument({ code: "", css: "", html: "<body><a href='/about'>a</a></body>" })
+    return (
+      /document\.addEventListener\("click"/.test(doc) &&
+      /e\.preventDefault\(\)/.test(doc) &&
+      /send\("navigate", href\)/.test(doc) &&
+      // capture phase, so a handler in the site cannot get there first
+      /\}, true\)/.test(doc)
+    )
+  })(),
+)
+
+check(
+  "an in-page anchor is left alone, because it does not leave",
+  (() => {
+    const doc = previewDocument({ code: "", css: "", html: "<body></body>" })
+    /**
+     * "#pricing" scrolls and belongs to this document. A bare "#" is the
+     * placeholder every generated page uses for a button and only jumps to the
+     * top, which is never what the person clicking it wanted.
+     */
+    return /if \(href\.length > 1 && href\.charAt\(0\) === "#"\) return/.test(doc)
+  })(),
+)
+
+check(
+  "a form is held too — it navigates by a different route to the same place",
+  (() => {
+    const doc = previewDocument({ code: "", css: "", html: "<body></body>" })
+    return /document\.addEventListener\("submit"/.test(doc) && /send\("navigate"/.test(doc)
+  })(),
+)
+
+check(
+  "the editor says where the link went rather than swallowing the click",
+  (() => {
+    const pane = strip(read("components/sites/editor/preview-pane.tsx"))
+    /**
+     * A nav that appears to do nothing reads as a broken site. The creator
+     * needs to know the link is real and works once published.
+     */
+    return (
+      /data\.kind === "navigate"/.test(pane) &&
+      /setHeldLink/.test(pane) &&
+      /Links open on the published site/.test(pane)
+    )
+  })(),
+)
+
+check(
+  "and if the frame leaves anyway, the preview is put back",
+  (() => {
+    const pane = strip(read("components/sites/editor/preview-pane.tsx"))
+    /**
+     * The click guard holds links and forms, which is every ordinary way out.
+     * It cannot hold `window.location = "/x"` written by a model. A second
+     * load event on the same document means the frame is no longer showing the
+     * preview — what it went to cannot be read from here, because the frame is
+     * on an opaque origin, and does not need to be.
+     *
+     * Capped, so a document that navigates on sight cannot become a loop.
+     */
+    return (
+      /loadsRef\.current \+= 1/.test(pane) &&
+      /onLoad=\{onFrameLoad\}/.test(pane) &&
+      /key=\{`\$\{nonce\}-\$\{restores\}`\}/.test(pane) &&
+      /setRestores\(\(n\) => \(n < 2 \? n \+ 1 : n\)\)/.test(pane)
+    )
+  })(),
+)
+
+check(
+  "the frame still cannot navigate the page around it",
+  (() => {
+    const pane = strip(read("components/sites/editor/preview-pane.tsx"))
+    /**
+     * Holding links is about the frame's own navigation. The sandbox is what
+     * stops the frame navigating the EDITOR, and it has to stay exactly as
+     * narrow as it is — allow-same-origin would hand generated code the
+     * session, allow-top-navigation would let it replace the editor.
+     */
+    return (
+      /sandbox="allow-scripts"/.test(pane) &&
+      !/allow-same-origin/.test(pane) &&
+      !/allow-top-navigation/.test(pane) &&
+      !/allow-popups/.test(pane)
+    )
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")
