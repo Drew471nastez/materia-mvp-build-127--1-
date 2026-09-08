@@ -215,6 +215,12 @@ export interface LoopInput {
   esbuild: unknown
   /** Injected so the browser preview, which has no compiler, simply skips it. */
   typecheck?: (files: ProjectFiles) => Promise<{ ok: boolean; report: string } | null>
+  /**
+   * Renders the project once to catch what compiling cannot: a page that
+   * builds and then throws. Injected for the same reason — it needs a Node
+   * process it can sandbox, which the preview worker does not have.
+   */
+  render?: (files: ProjectFiles) => Promise<{ ok: boolean; report: string } | null>
   signal?: AbortSignal
   maxTurns?: number
   /** Tokens, input plus output, for the whole run. A ceiling, not a target. */
@@ -232,7 +238,7 @@ export interface LoopInput {
 }
 
 export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, LoopResult> {
-  const { provider, model, prompt, workspace, esbuild, signal, context, typecheck } = input
+  const { provider, model, prompt, workspace, esbuild, signal, context, typecheck, render } = input
   const maxTurns = input.maxTurns ?? input.budget?.maxTurns ?? MAX_TURNS
   const maxTokens = input.maxTokens ?? input.budget?.maxTokens ?? MAX_TOKENS
 
@@ -396,7 +402,7 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
       const results = []
       for (const call of turn.toolCalls) {
         calls.set(call.id, { name: call.name, path: pathOf(call.argumentsJson) })
-        const output = await workspace.execute(call.name, call.argumentsJson, esbuild, typecheck)
+        const output = await workspace.execute(call.name, call.argumentsJson, esbuild, typecheck, render)
         results.push({ id: call.id, output })
         yield { type: "tool", name: call.name, detail: describeCall(call.argumentsJson) }
 
@@ -489,22 +495,33 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
     }
 
     if (status === "succeeded") {
-      const build = workspace.buildResult
-      if (build && !build.ok) {
-        status = "failed"
-        error = "The edit did not compile, so nothing was changed."
-      } else if (!build && (workspace.changed.size > 0 || workspace.deleted.size > 0)) {
-        /**
-         * Files changed and the model never built. Believing it here is how a
-         * broken site gets saved by a model that simply forgot the last step,
-         * so the loop builds for itself rather than trusting the omission.
-         */
+      const changedAnything = workspace.changed.size > 0 || workspace.deleted.size > 0
+
+      /**
+       * Files changed and no verdict describes them — the model never built,
+       * or it built and then edited again. Believing that is how a broken site
+       * gets saved by a model that simply forgot the last step, so the loop
+       * builds for itself rather than trusting the omission.
+       */
+      if (changedAnything && workspace.buildOk === null) {
         yield { type: "tool", name: "run_build", detail: "" }
-        const verdict = await workspace.execute("run_build", "{}", esbuild)
-        if (verdict.startsWith("Build FAILED")) {
-          status = "failed"
-          error = "The edit did not compile, so nothing was changed."
-        }
+        await workspace.execute("run_build", "{}", esbuild, typecheck, render)
+      }
+
+      /**
+       * THE COMPOSITE VERDICT, not the bundler's.
+       *
+       * This used to read `workspace.buildResult.ok` — esbuild's answer alone —
+       * and then string-match "Build FAILED" on the rebuild. Both looked only
+       * at whether the project PARSED. So a project that failed its typecheck
+       * or threw on render passed the last gate before saving, and once the
+       * refusal cap was reached it was written over the creator's working
+       * site. The net that catches what the model got wrong has to check at
+       * least as much as the gate the model was held to.
+       */
+      if (workspace.buildOk === false) {
+        status = "failed"
+        error = workspace.buildProblem
       }
     }
   } catch (thrown) {

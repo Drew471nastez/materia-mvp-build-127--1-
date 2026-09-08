@@ -4267,16 +4267,27 @@ check(
     const at = tools.indexOf('case "run_build"')
     const body = tools.slice(at, tools.indexOf("case \"read_build_errors\"", at))
     /**
-     * The verdict now covers types as well as bundling. esbuild STRIPS types
-     * rather than checking them, so a green bundle said only "this parses" —
-     * and the agent, told not to finish on a failing build, could finish on a
-     * project that throws the moment somebody opens it.
+     * THREE STAGES, AND THE ORDER IS THE POINT.
+     *
+     * esbuild strips types rather than checking them, so a green bundle said
+     * only "this parses". TypeScript then proves the types line up, and still
+     * executes nothing — so `const items = null` followed by `items.map(…)`
+     * passed both and showed a blank page the moment it was opened. The third
+     * stage renders the project.
+     *
+     * A failure at any stage records `false`. Only reaching the end records a
+     * pass, and a check that could not run never speaks for one that did.
      */
     return (
-      /this\.lastBuildOk = false/.test(body) &&
-      /this\.lastBuildOk = types\.ok/.test(body) &&
-      // and "could not check" is never reported as "clean"
-      /if \(!types\) \{/.test(body)
+      /const types = typecheck \? await typecheck/.test(body) &&
+      /const rendered = render \? await render/.test(body) &&
+      /if \(types && !types\.ok\) \{/.test(body) &&
+      /if \(rendered && !rendered\.ok\) \{/.test(body) &&
+      (body.match(/this\.lastBuildOk = false/g) ?? []).length === 3 &&
+      // the render is only reached once the types are clean
+      body.indexOf("await typecheck") < body.indexOf("await render") &&
+      // and a pass is the LAST thing in the handler, after every stage
+      body.lastIndexOf("this.lastBuildOk = true") > body.indexOf("await render")
     )
   })(),
 )

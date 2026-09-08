@@ -24,6 +24,13 @@ import * as esbuild from "esbuild"
 
 import { agentLoop } from "@/lib/sites/agent/loop"
 import { compactTurns, transcriptBytes } from "@/lib/sites/agent/compaction"
+import {
+  formatRenderFailure,
+  permissionFlag,
+  renderCheck,
+  renderFailure,
+  rootComponent,
+} from "@/lib/sites/render-check"
 import { ProjectWorkspace } from "@/lib/sites/agent/tools"
 import { blankProject } from "@/lib/sites/starter"
 import type { LoopResult } from "@/lib/sites/agent/loop"
@@ -959,6 +966,300 @@ export default function App() {
     "and it sees edits the run has already made",
     /Rendered in: src\/App\.tsx/.test(after) && !/never renders it/.test(after),
     after,
+  )
+}
+
+
+
+// ---------------------------------------------------------------------------
+section("Does it RENDER, or does it only compile?")
+// ---------------------------------------------------------------------------
+
+/**
+ * esbuild proves a project parses. TypeScript proves the types line up.
+ * Neither runs a line of it, so neither has an opinion about `const items =
+ * null` followed by `items.map(…)` — which bundles, typechecks, and shows a
+ * blank page the moment it is opened. The creator's first look at their own
+ * site is a white screen and the run that produced it reported success.
+ */
+
+const RENDER_BASE = blankProject("Render Test")
+
+/**
+ * A declaration rather than `const withApp = (app) => ({…})`.
+ *
+ * This file has no semicolons, and an arrow whose body is a parenthesised
+ * object literal followed by a bare `{` block parses as neither — TS1005,
+ * "'=>' expected", pointing at the block rather than at the line that caused
+ * it. A declaration cannot be continued by the next line.
+ */
+function withApp(app: string) {
+  return { ...RENDER_BASE, "src/App.tsx": app }
+}
+
+{
+  const found = rootComponent(RENDER_BASE)
+  check(
+    "the component the page mounts is read out of the project, not assumed",
+    found?.module === "src/App.tsx" && found?.name === "default",
+    JSON.stringify(found),
+  )
+  check(
+    "a project with no entry is 'could not tell', not a guess",
+    rootComponent({ "src/Thing.tsx": "export default function Thing() { return null }" }) === null,
+  )
+}
+
+{
+  const clean = await renderCheck(RENDER_BASE)
+  check(
+    "the shipped starter renders",
+    clean.ran === true && clean.ok === true,
+    JSON.stringify(clean),
+  )
+}
+
+{
+  /**
+   * THE OBJECTION TO SERVER-RENDERING A BROWSER PAGE is that half of it
+   * touches `window`. Two things answer it, and both are asserted rather than
+   * assumed — a false alarm here would refuse a run that was correct.
+   *
+   * `renderToStaticMarkup` does not run effects, so the usual home of browser
+   * APIs never executes. What is left is module scope and render bodies, and
+   * those get a small shim.
+   */
+  const cases: Array<[string, string]> = [
+    [
+      "window in a render body",
+      `export default function App() {\n  const wide = window.innerWidth > 700\n  return <p>{wide ? "w" : "n"}</p>\n}\n`,
+    ],
+    [
+      "window inside useEffect",
+      `import { useEffect, useState } from "react"\nexport default function App() {\n  const [w, setW] = useState(0)\n  useEffect(() => setW(window.innerWidth), [])\n  return <p>{w}</p>\n}\n`,
+    ],
+    [
+      /**
+       * This one failed the first implementation. The shim was written beside
+       * the imports in the entry file, and ESM hoists imports above anything
+       * written next to them — so it ran AFTER every module's top-level code.
+       * It is emitted as a banner now: the first bytes of the file.
+       */
+      "document at module scope",
+      `const root = document.documentElement\nexport default function App() { return <p>{root ? "y" : "n"}</p> }\n`,
+    ],
+    [
+      "localStorage in a render body",
+      `export default function App() { return <p>{localStorage.getItem("x") ?? "none"}</p> }\n`,
+    ],
+    [
+      "matchMedia in a render body",
+      `export default function App() { return <p>{window.matchMedia("(max-width: 600px)").matches ? "s" : "l"}</p> }\n`,
+    ],
+  ]
+
+  for (const [label, app] of cases) {
+    const result = await renderCheck(withApp(app))
+    check(
+      `a browser API is not a false alarm — ${label}`,
+      result.ran === true && result.ok === true,
+      JSON.stringify(result),
+    )
+  }
+}
+
+{
+  const crash = await renderCheck({
+    ...RENDER_BASE,
+    "src/components/Hero.tsx": `const items = null\nexport default function Hero() {\n  return <section>{items.map(String)}</section>\n}\n`,
+  })
+  check(
+    "a page that compiles and throws is caught",
+    crash.ran === true && crash.ok === false && /reading 'map'/.test(renderFailure(crash)?.message ?? ""),
+    JSON.stringify(crash),
+  )
+  check(
+    "and the report names the component rather than React's internals",
+    renderFailure(crash)?.where === "Hero",
+    renderFailure(crash)?.where ?? "",
+  )
+  check(
+    "the words handed to the model say what to do about it",
+    /THE PAGE THREW WHILE RENDERING/.test(formatRenderFailure(crash)) &&
+      /Fix this before you finish/.test(formatRenderFailure(crash)),
+  )
+}
+
+{
+  const undefinedComponent = await renderCheck(
+    withApp(`import Hero from "./components/Hero"\nconst Missing = undefined\nexport default function App() { return <><Hero /><Missing /></> }\n`),
+  )
+  check(
+    "so is a component that turns out to be undefined",
+    undefinedComponent.ran === true && undefinedComponent.ok === false,
+    JSON.stringify(undefinedComponent),
+  )
+}
+
+// ---------------------------------------------------------------------------
+section("Rendering a model's code is sandboxed, or it does not happen")
+// ---------------------------------------------------------------------------
+
+{
+  /**
+   * THE ENVIRONMENT IS EMPTY.
+   *
+   * Everywhere else, generated code runs in the creator's browser or in an
+   * opaque-origin iframe. This is the first place it runs on our own machine,
+   * and the machine holds a service-role key. The child process is given a
+   * bare environment; this asserts it by planting a variable and throwing if
+   * the render can see it.
+   */
+  process.env.STORELIB_SANDBOX_PROBE = "leaked"
+  const probe = await renderCheck(
+    withApp(
+      `export default function App() {\n  if (process.env.STORELIB_SANDBOX_PROBE) throw new Error("the environment leaked in")\n  return <p>sealed</p>\n}\n`,
+    ),
+  )
+  delete process.env.STORELIB_SANDBOX_PROBE
+  check(
+    "not one of this process's environment variables is visible to it",
+    probe.ran === true && probe.ok === true,
+    JSON.stringify(probe),
+  )
+}
+
+{
+  /**
+   * AND IT CANNOT READ THE DISK. The bundler already refuses a project that
+   * imports `node:fs`, so this is defence behind a door that is already shut —
+   * which is the point of asserting it, because the day something gets past
+   * the first door this is what is left.
+   */
+  const nosy = await renderCheck(
+    withApp(
+      `export default function App() {\n  const fs = require("node:fs")\n  return <p>{fs.readFileSync("/etc/hostname", "utf8")}</p>\n}\n`,
+    ),
+  )
+  check(
+    "reaching for the filesystem is refused by the runtime, not by luck",
+    nosy.ran === true && nosy.ok === false && /permission|restricted|not allowed/i.test(renderFailure(nosy)?.message ?? ""),
+    JSON.stringify(nosy),
+  )
+}
+
+{
+  /**
+   * THE SANDBOX IS NAMED BY THE RUNTIME, NOT BY US.
+   *
+   * The permission model is `--experimental-permission` on Node 20 and
+   * `--permission` from 22. Guessing wrong makes the child exit before it
+   * prints anything, which reads as "could not check" — so the feature would
+   * be quietly dead on half the runtimes it might be deployed to. The checks
+   * above prove it is alive on THIS Node; this one proves it was alive because
+   * a flag was found rather than because a guess happened to match.
+   */
+  const flag = await permissionFlag()
+  check(
+    "a working permission flag was found for this Node",
+    flag === "--permission" || flag === "--experimental-permission",
+    String(flag),
+  )
+}
+
+{
+  /**
+   * `while (true) {}` is a thing a model writes. Without a timeout it is a run
+   * that never ends and a request that never answers.
+   */
+  const started = Date.now()
+  const stuck = await renderCheck(withApp(`export default function App() { while (true) {} }\n`))
+  const elapsed = Date.now() - started
+  check(
+    "a page stuck in a loop is stopped rather than waited for",
+    stuck.ran === true && stuck.ok === false && /stuck in a loop/.test(renderFailure(stuck)?.message ?? ""),
+    JSON.stringify(stuck),
+  )
+  check("and it is stopped in seconds, not minutes", elapsed < 20_000, `${elapsed}ms`)
+}
+
+// ---------------------------------------------------------------------------
+section("A run may not finish on a page that does not render")
+// ---------------------------------------------------------------------------
+
+{
+  /**
+   * End to end, through the real loop: the model writes something that
+   * compiles and throws, builds, and goes quiet. The build gate has to see it.
+   */
+  const CRASHES = `const items = null
+
+export default function App() {
+  return <main>{items.map(String)}</main>
+}
+`
+  const workspace = new ProjectWorkspace(blankProject("Gate"))
+  const provider = {
+    id: "scripted",
+    calls: 0,
+    async complete() {
+      this.calls++
+      if (this.calls === 1) {
+        return {
+          text: "",
+          toolCalls: [
+            { id: "w", name: "write_file", argumentsJson: JSON.stringify({ path: "src/App.tsx", content: CRASHES }) },
+            { id: "b", name: "run_build", argumentsJson: "{}" },
+          ],
+          raw: [],
+          usage: { inputTokens: 10, cachedInputTokens: 0, cacheWriteTokens: 0, outputTokens: 5 },
+          stop: "tool_calls" as const,
+        }
+      }
+      return {
+        text: "Rebuilt the page.",
+        toolCalls: [],
+        raw: [],
+        usage: { inputTokens: 10, cachedInputTokens: 0, cacheWriteTokens: 0, outputTokens: 5 },
+        stop: "done" as const,
+      }
+    },
+  }
+
+  const loop = agentLoop({
+    provider: provider as never,
+    model: "test-model",
+    prompt: "rebuild the page",
+    workspace,
+    esbuild,
+    maxTurns: 6,
+    render: async (files) => {
+      const result = await renderCheck(files)
+      if (!result.ran) return null
+      return { ok: result.ok, report: formatRenderFailure(result) }
+    },
+  })
+  const { result } = await drain(loop)
+
+  check(
+    "the build is red on a page that throws, even though it compiles",
+    workspace.buildOk === false,
+    `buildOk=${workspace.buildOk}`,
+  )
+  check(
+    "so the run does not succeed",
+    result.status === "failed",
+    `status=${result.status} error=${result.error}`,
+  )
+  check(
+    "and nothing is saved over the working site",
+    /nothing was changed/.test(result.error ?? ""),
+    `error=${result.error}`,
+  )
+  check(
+    "and the creator is told it rendered badly, not that it did not compile",
+    /threw when it was rendered/.test(result.error ?? "") && !/did not compile/.test(result.error ?? ""),
+    `error=${result.error}`,
   )
 }
 

@@ -350,6 +350,15 @@ export class ProjectWorkspace {
    */
   private editsSinceBuild = 0
 
+  /**
+   * WHICH CHECK SAID NO, so the creator is told what actually happened.
+   *
+   * "The edit did not compile" is the right sentence for a syntax error and
+   * the wrong one for a page that compiled and threw on render — and the loop
+   * used to say it for both, because it only ever looked at the bundler.
+   */
+  private lastProblem: "bundle" | "types" | "render" | null = null
+
   constructor(files: ProjectFiles) {
     this.files = { ...files }
   }
@@ -366,6 +375,7 @@ export class ProjectWorkspace {
     argumentsJson: string,
     esbuild: unknown,
     typecheck?: (files: ProjectFiles) => Promise<{ ok: boolean; report: string } | null>,
+    render?: (files: ProjectFiles) => Promise<{ ok: boolean; report: string } | null>,
   ): Promise<string> {
     let args: Record<string, unknown>
     try {
@@ -609,6 +619,7 @@ export class ProjectWorkspace {
 
         if (!bundled) {
           this.lastBuildOk = false
+          this.lastProblem = "bundle"
           return report
         }
 
@@ -623,15 +634,39 @@ export class ProjectWorkspace {
          */
         const types = typecheck ? await typecheck(this.files).catch(() => null) : null
 
-        if (!types) {
-          // Cannot check is not the same as clean, but the bundle did pass and
-          // refusing to finish over a missing compiler would strand the run.
-          this.lastBuildOk = true
-          return report
+        if (types && !types.ok) {
+          this.lastBuildOk = false
+          this.lastProblem = "types"
+          return `${report}\n\n${types.report}`
         }
 
-        this.lastBuildOk = types.ok
-        return types.ok ? report : `${report}\n\n${types.report}`
+        /**
+         * AND DOES IT ACTUALLY RUN?
+         *
+         * The two checks above prove the project parses and that its types
+         * line up. Neither executes a line of it, so neither has an opinion
+         * about `const items = null` followed by `items.map(…)` — which
+         * bundles, typechecks, and shows a blank page the moment it is opened.
+         * The page is rendered once, here, before the run may finish.
+         */
+        const rendered = render ? await render(this.files).catch(() => null) : null
+
+        if (rendered && !rendered.ok) {
+          this.lastBuildOk = false
+          this.lastProblem = "render"
+          return `${report}\n\n${rendered.report}`
+        }
+
+        /**
+         * Cannot check is not the same as clean. It is recorded as a pass
+         * because the bundle DID pass and refusing to finish over a missing
+         * compiler would strand every run on a deployment without one — but
+         * the two checks above are the ones that make a green build mean
+         * something, and their absence is logged where it happens, not here.
+         */
+        this.lastBuildOk = true
+        this.lastProblem = null
+        return report
       }
 
       case "read_build_errors":
@@ -658,6 +693,19 @@ export class ProjectWorkspace {
   /** The last build's output, for the loop's own check before it saves. */
   get buildResult(): BuildResult | null {
     return this.editsSinceBuild > 0 ? null : this.lastBuild
+  }
+
+  /** Why the last verdict was red, in one sentence for the creator. */
+  get buildProblem(): string {
+    switch (this.lastProblem) {
+      case "types":
+        return "The edit did not typecheck, so nothing was changed."
+      case "render":
+        return "The edit compiled but the page threw when it was rendered, so nothing was changed."
+      case "bundle":
+      default:
+        return "The edit did not compile, so nothing was changed."
+    }
   }
 
   /** Only what changed. A whole-project write would clobber untouched files. */
