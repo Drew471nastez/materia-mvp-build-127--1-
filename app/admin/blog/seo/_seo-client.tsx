@@ -128,9 +128,99 @@ export default function SeoAdminClient() {
 
   // Creator products state
   const [expandedCreator, setExpandedCreator] = useState<string | null>(null)
+
+  /**
+   * Bulk moderation.
+   *
+   * `selected` holds creator ids rather than usernames: a username can be
+   * changed, and a moderation action that resolves by name would act on
+   * whoever holds it at the moment the request lands rather than on whoever
+   * was reviewed.
+   */
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [moderating, setModerating] = useState(false)
+  const [moderationNote, setModerationNote] = useState<string | null>(null)
   const [creatorProducts, setCreatorProducts] = useState<Record<string, any[]>>({})
   const [loadingProducts, setLoadingProducts] = useState<string | null>(null)
   const [deletingProduct, setDeletingProduct] = useState<string | null>(null)
+
+  /**
+   * A dry run, then a question, then the action.
+   *
+   * The count comes back from the server and is echoed to it, so a set that
+   * moved between reading and confirming is refused rather than acted on.
+   */
+  const moderate = useCallback(
+    async (action: "ban" | "unban" | "delete") => {
+      const ids = [...selected]
+      if (ids.length === 0) return
+
+      setModerating(true)
+      setModerationNote(null)
+      try {
+        const preview = await fetch(`/api/admin/creators/moderate?ids=${ids.join(",")}`)
+        const plan = await preview.json()
+        if (!preview.ok) {
+          setModerationNote(plan.error || "Could not read what this would affect.")
+          return
+        }
+
+        const names = (plan.targets || [])
+          .slice(0, 6)
+          .map((t: { username: string | null }) => "@" + (t.username || "unknown"))
+          .join(", ")
+        const more = plan.count > 6 ? ` and ${plan.count - 6} more` : ""
+        const orders = plan.withOrders > 0 ? `\n\n${plan.withOrders} of them have orders.` : ""
+
+        const verb =
+          action === "delete"
+            ? "PERMANENTLY DELETE"
+            : action === "ban"
+              ? "Ban"
+              : "Unban"
+        const consequence =
+          action === "delete"
+            ? "\n\nThis removes their account, products, files and buyers' records. It cannot be undone."
+            : action === "ban"
+              ? "\n\nTheir storefront closes and their published products are unpublished. This can be reversed."
+              : ""
+
+        if (!window.confirm(`${verb} ${plan.count} creator${plan.count === 1 ? "" : "s"}?\n\n${names}${more}${orders}${consequence}`)) {
+          return
+        }
+
+        const reason =
+          action === "unban" ? null : window.prompt("Reason (kept in the moderation log):", "") ?? null
+
+        const response = await fetch("/api/admin/creators/moderate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, creatorIds: ids, confirm: plan.count, reason }),
+        })
+        const result = await response.json()
+
+        if (!response.ok) {
+          setModerationNote(result.error || "That did not go through.")
+          return
+        }
+
+        setModerationNote(
+          `${action === "delete" ? "Deleted" : action === "ban" ? "Banned" : "Unbanned"} ${result.done}` +
+            (result.failed?.length ? ` — ${result.failed.length} failed.` : "."),
+        )
+        setSelected(new Set())
+        // Declared below; referenced from inside the callback, which runs long
+        // after. It is deliberately not a dependency — adding it would put a
+        // later `const` in an array evaluated during this render.
+        void loadMetrics()
+      } catch {
+        setModerationNote("That did not go through.")
+      } finally {
+        setModerating(false)
+      }
+    },
+    [selected],
+  )
 
   const loadCreatorProducts = useCallback(async (creatorId: string) => {
     if (creatorProducts[creatorId]) {
@@ -408,6 +498,54 @@ export default function SeoAdminClient() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-neutral-900">{loading ? "…" : filteredCreators.length} creator storefronts</h2>
+                {selected.size > 0 && (
+                  /**
+                   * Shown only when something is selected, and the destructive
+                   * button is not the one nearest the thumb. Ban is the default
+                   * answer for nearly everything: it stops the account without
+                   * destroying the buyers' records attached to it.
+                   */
+                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
+                    <span className="text-xs font-medium text-neutral-700">
+                      {selected.size} selected
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelected(new Set())}
+                      className="text-xs text-neutral-500 hover:text-neutral-800"
+                    >
+                      Clear
+                    </button>
+                    <span className="flex-1" />
+                    <button
+                      type="button"
+                      disabled={moderating}
+                      onClick={() => moderate("ban")}
+                      className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                    >
+                      Ban &amp; unpublish
+                    </button>
+                    <button
+                      type="button"
+                      disabled={moderating}
+                      onClick={() => moderate("unban")}
+                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 disabled:opacity-50"
+                    >
+                      Unban
+                    </button>
+                    <button
+                      type="button"
+                      disabled={moderating}
+                      onClick={() => moderate("delete")}
+                      className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      Delete permanently
+                    </button>
+                  </div>
+                )}
+                {moderationNote && (
+                  <p className="mt-2 text-xs text-neutral-600">{moderationNote}</p>
+                )}
                 <p className="text-xs text-neutral-400 mt-0.5">Each storefront has ProfilePage + BreadcrumbList schema and subdomain canonical</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -449,6 +587,20 @@ export default function SeoAdminClient() {
                   return (
                     <div key={creator.id} className="p-4">
                       <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(creator.id)}
+                          onChange={(event) => {
+                            setSelected((previous) => {
+                              const next = new Set(previous)
+                              if (event.target.checked) next.add(creator.id)
+                              else next.delete(creator.id)
+                              return next
+                            })
+                          }}
+                          aria-label={`Select ${creator.username || "creator"}`}
+                          className="h-4 w-4 shrink-0 accent-neutral-900"
+                        />
                         <div className="w-9 h-9 rounded-full bg-neutral-200 overflow-hidden shrink-0 flex items-center justify-center text-sm font-semibold text-neutral-500">
                           {creator.avatar_url ? (
                             <Image src={creator.avatar_url} alt={creator.display_name || creator.username || ""} width={36} height={36} className="w-full h-full object-cover" unoptimized />

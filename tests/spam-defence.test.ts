@@ -583,6 +583,149 @@ check(
   "        components/platform/language-modal.tsx",
 )
 
+// ===========================================================================
+console.log("\nBulk moderation: ban is reversible, delete is not, and they differ\n")
+// ===========================================================================
+
+/**
+ * Offering a ban and a delete as one button with a different adjective is how
+ * the wrong one gets pressed. A ban is a judgement — reviewable, reversible,
+ * and it keeps the evidence. Delete cascades into auth.users and cannot be
+ * undone by anyone, including whoever asked for it.
+ */
+
+const moderate = read("app/api/admin/creators/moderate/route.ts")
+
+check(
+  "moderation is behind the admin session, on both verbs",
+  (() => {
+    const guards = moderate.match(/if \(!\(await isAdminAuthenticated\(\)\)\)/g) ?? []
+    return guards.length >= 2 && /export async function GET/.test(moderate) && /export async function POST/.test(moderate)
+  })(),
+)
+
+check(
+  "the dry run changes nothing",
+  (() => {
+    const get = moderate.slice(moderate.indexOf("export async function GET"), moderate.indexOf("export async function POST"))
+    /**
+     * GET is the default verb and has to stay incapable of acting — an
+     * operator reads the whole batch before agreeing to any of it.
+     */
+    return !/\.update\(|\.delete\(|\.insert\(|deleteAllUserData/.test(get)
+  })(),
+)
+
+check(
+  "acting requires the count to be echoed back",
+  (() => {
+    /**
+     * Not a checkbox: a number read off the dry run and typed back. If the set
+     * moved between reviewing and confirming, the numbers disagree and the
+     * request is refused rather than performed on a different set.
+     */
+    return /body\.confirm !== ids\.length/.test(moderate) && /Send confirm: \$\{ids\.length\}/.test(moderate)
+  })(),
+)
+
+check(
+  "deleting an account with orders is refused unless forced",
+  (() => {
+    /**
+     * An account with orders is a paying relationship — somebody's receipts,
+     * somebody's downloads, and in most places somebody's tax records.
+     * Deleting takes those with it, so it is a second decision rather than a
+     * consequence of the first.
+     */
+    return (
+      /action === "delete" && !body\.force/.test(moderate) &&
+      /status: 409/.test(moderate) &&
+      /Ban them instead/.test(moderate)
+    )
+  })(),
+)
+
+check(
+  "a ban takes the products down with the storefront",
+  (() => {
+    /**
+     * A ban that closes the storefront but leaves the products reachable from
+     * search and from every link already posted is not a ban.
+     */
+    return (
+      /banned_at: new Date\(\)\.toISOString\(\)/.test(moderate) &&
+      /store_published: false/.test(moderate) &&
+      /\.update\(\{ status: "unpublished" \}\)/.test(moderate)
+    )
+  })(),
+)
+
+check(
+  "an unban does not republish anything",
+  (() => {
+    const unban = moderate.slice(moderate.indexOf('action === "unban"'), moderate.indexOf("} else {", moderate.indexOf('action === "unban"')))
+    /**
+     * Which products should come back is the creator's decision. Guessing
+     * would put something live that they may have taken down themselves before
+     * any of this happened.
+     */
+    return /banned_at: null/.test(unban) && !/status: "published"/.test(unban)
+  })(),
+)
+
+check(
+  "what was destroyed outlives the destruction",
+  (() => {
+    /**
+     * A delete cascades into auth.users and leaves nothing behind, so the one
+     * thing that must survive is the record that it happened. Without it,
+     * "where did that account go" has no answer at all.
+     */
+    const sql = read("sql/20260919_creator_bans.sql")
+    return (
+      /admin_moderation_log/.test(moderate) &&
+      /create table if not exists public\.admin_moderation_log/.test(sql) &&
+      /enable row level security/.test(sql) &&
+      // no policy: an audit log a user can read tells them they were reported
+      !/create policy/.test(sql)
+    )
+  })(),
+)
+
+check(
+  "a batch is bounded",
+  (() => /ids\.length > 200/.test(moderate))(),
+)
+
+check(
+  "the admin UI selects by id, not by username",
+  (() => {
+    const client = read("app/admin/blog/seo/_seo-client.tsx")
+    /**
+     * A username can be changed. An action that resolves by name would act on
+     * whoever holds it when the request lands, rather than on whoever was
+     * reviewed.
+     */
+    return (
+      /const \[selected, setSelected\] = useState<Set<string>>/.test(client) &&
+      /next\.add\(creator\.id\)/.test(client) &&
+      /creatorIds: ids/.test(client)
+    )
+  })(),
+)
+
+check(
+  "and it asks before it acts, naming what happens",
+  (() => {
+    const client = read("app/admin/blog/seo/_seo-client.tsx")
+    return (
+      /window\.confirm\(/.test(client) &&
+      /cannot be undone/.test(client) &&
+      /confirm: plan\.count/.test(client)
+    )
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")
