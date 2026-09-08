@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Monitor, Tablet, Smartphone, Loader2, Globe, Save,
+  ArrowLeft, Monitor, Tablet, Smartphone, Loader2, Globe, Save, Code2,
   ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2,
   Copy, Settings, Check, Layers, Palette, X, RotateCcw,
   Layout, AlignLeft, Image, ShoppingBag, MessageSquare,
@@ -5620,6 +5620,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Preview</TooltipContent>
+          </Tooltip>
+
+          {/*
+            EDIT CODE — the way into the file browser.
+
+            It already existed at /website-builder/code/[installId], with a
+            tree, tabs, dirty markers and a save route, and NOTHING IN THE
+            PRODUCT LINKED TO IT. The only way in was to know the URL. Shopify
+            puts the same door next to the preview, which is where somebody
+            looks for it.
+
+            Unsaved theme work is left alone: this is a different surface, so
+            it opens in its own tab rather than navigating away from a draft.
+          */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                onClick={() =>
+                  window.open(`/website-builder/code/${installId}`, "_blank", "noopener,noreferrer")
+                }
+                aria-label="Edit code"
+              >
+                <Code2 className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Edit code</TooltipContent>
           </Tooltip>
 
           {/* Undo / Redo — hidden on mobile (both actions live in the

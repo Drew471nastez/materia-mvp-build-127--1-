@@ -1,16 +1,16 @@
 "use client"
 
-import { useEffect, useState, useCallback, use } from "react"
+import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Save, Loader2, File, Folder, FolderOpen,
   ChevronRight, X, AlertCircle, Check, RotateCcw, Code2,
-  RefreshCw,
+  RefreshCw, Search,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { ThemeInstall, ThemeFileNode } from "@/lib/website-builder/types"
-import { buildThemeFileTree } from "@/lib/website-builder/theme-file-tree"
+import { buildThemeFileTree, flattenTree } from "@/lib/website-builder/theme-file-tree"
 import { toast } from "sonner"
 
 // ── File tree node ────────────────────────────────────────────
@@ -117,6 +117,21 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   const [customizedPaths, setCustomizedPaths] = useState<Set<string>>(new Set())
   const [dirtyPaths, setDirtyPaths] = useState<Set<string>>(new Set())
   const [openTabs, setOpenTabs] = useState<ThemeFileNode[]>([])
+  /** Filter over the tree. Sixty-one files is too many to hunt through. */
+  const [filter, setFilter] = useState("")
+
+  /**
+   * THE TWO LAYERS THAT HAVE TO SCROLL TOGETHER.
+   *
+   * The editor is a transparent <textarea> over a rendered copy of the same
+   * text with line numbers — the usual trick. It only works while the two are
+   * scrolled to the same place, and nothing was keeping them there: the
+   * textarea scrolled and the visible layer did not, so on any file longer
+   * than the window the caret walked away from the text under it. Every
+   * section file is two hundred lines.
+   */
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const displayRef = useRef<HTMLDivElement>(null)
 
   const isDirty = fileContent !== originalContent
 
@@ -168,6 +183,45 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     })
   }
 
+  /**
+   * The tree, filtered.
+   *
+   * Sixty-one files across six folders, and no way to find one but scrolling.
+   * A folder survives the filter when any file under it matches, so typing
+   * "faq" leaves `sections` open with one file in it rather than emptying the
+   * panel and looking broken.
+   */
+  const visibleTree = useMemo(() => {
+    const needle = filter.trim().toLowerCase()
+    if (!needle) return fileTree
+
+    const prune = (nodes: ThemeFileNode[]): ThemeFileNode[] =>
+      nodes
+        .map((node) => {
+          if (node.type === "file") {
+            return node.path.toLowerCase().includes(needle) ? node : null
+          }
+          const children = prune(node.children ?? [])
+          return children.length > 0 ? { ...node, children } : null
+        })
+        .filter((node): node is ThemeFileNode => node !== null)
+
+    return prune(fileTree)
+  }, [fileTree, filter])
+
+  /**
+   * A filter that leaves every folder shut has found nothing, as far as
+   * anybody can see. Searching opens them.
+   */
+  useEffect(() => {
+    if (!filter.trim()) return
+    setOpenFolders((previous) => {
+      const next = new Set(previous)
+      for (const node of visibleTree) if (node.type === "folder") next.add(node.path)
+      return next
+    })
+  }, [filter, visibleTree])
+
   const saveFile = async () => {
     if (!selectedFile || !isDirty) return
     setSaving(true)
@@ -190,6 +244,45 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     }
     setSaving(false)
   }
+
+  /**
+   * ⌘S / Ctrl+S.
+   *
+   * `preventDefault` first: without it the browser opens its own Save-page
+   * dialog, which is the single most jarring thing a code editor on the web
+   * can do. The ref is read inside the handler rather than captured, so the
+   * listener does not need re-binding on every keystroke.
+   */
+  const saveRef = useRef(saveFile)
+  saveRef.current = saveFile
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault()
+        void saveRef.current()
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
+
+  /**
+   * LEAVING WITH UNSAVED WORK.
+   *
+   * Nothing here autosaves — a code file is not a draft — so closing the tab
+   * threw the edit away silently. The browser's own confirmation is the only
+   * one that can block a navigation it initiated.
+   */
+  useEffect(() => {
+    if (!isDirty && dirtyPaths.size === 0) return
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [isDirty, dirtyPaths])
 
   const revertFile = async () => {
     if (!selectedFile) return
@@ -303,11 +396,37 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       <div className="flex flex-1 overflow-hidden">
         {/* ── File explorer ── */}
         <aside className="w-56 bg-[#13131f] border-r border-white/10 flex flex-col overflow-hidden shrink-0">
-          <div className="px-3 py-2.5 border-b border-white/10">
+          <div className="px-3 py-2.5 border-b border-white/10 space-y-2">
             <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Explorer</p>
+            {/* Sixty-one files. Scrolling for one is not a way to find it. */}
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-neutral-600" />
+              <input
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Find a file…"
+                spellCheck={false}
+                className="w-full rounded-md border border-white/10 bg-black/30 py-1 pl-7 pr-6 text-[11.5px] text-neutral-200 outline-none placeholder:text-neutral-600 focus:border-white/25"
+              />
+              {filter && (
+                <button
+                  type="button"
+                  onClick={() => setFilter("")}
+                  aria-label="Clear the filter"
+                  className="absolute right-1 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded text-neutral-500 hover:bg-white/10 hover:text-neutral-200"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </div>
+            {filter.trim() && (
+              <p className="text-[10px] text-neutral-600">
+                {flattenTree(visibleTree).length} of {flattenTree(fileTree).length} files
+              </p>
+            )}
           </div>
           <div className="flex-1 overflow-y-auto py-1 px-1">
-            {fileTree.map(node => (
+            {visibleTree.map(node => (
               <FileTreeNode
                 key={node.path}
                 node={node}
@@ -397,16 +516,29 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
             <div className="flex-1 overflow-hidden relative">
               {/* Editable textarea overlaid on the line display */}
               <textarea
-                className="absolute inset-0 w-full h-full bg-transparent text-transparent caret-white font-mono text-[12px] leading-5 resize-none focus:outline-none px-[2.75rem] py-0 z-10"
+                ref={textareaRef}
+                className="absolute inset-0 w-full h-full bg-transparent text-transparent caret-white font-mono text-[12px] leading-5 resize-none focus:outline-none px-[2.75rem] py-2 z-10"
                 value={fileContent}
                 onChange={e => handleContentChange(e.target.value)}
+                /*
+                  The scroll position of the layer somebody TYPES in is the one
+                  that matters; the rendered copy follows it. Doing it the other
+                  way round fights the browser, which scrolls a textarea itself
+                  to keep the caret visible.
+                */
+                onScroll={e => {
+                  const display = displayRef.current
+                  if (!display) return
+                  display.scrollTop = e.currentTarget.scrollTop
+                  display.scrollLeft = e.currentTarget.scrollLeft
+                }}
                 spellCheck={false}
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="off"
               />
               {/* Visual display with line numbers */}
-              <div className="absolute inset-0 overflow-auto pointer-events-none">
+              <div ref={displayRef} className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="py-2 min-h-full">
                   {lines.map((line, i) => (
                     <CodeLine key={i} line={line} lineNumber={i + 1} />
