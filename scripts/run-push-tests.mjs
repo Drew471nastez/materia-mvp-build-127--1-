@@ -61,7 +61,15 @@ try {
       files: SUITES,
     }),
   )
-  execFileSync("npx", ["tsc", "-p", tsconfigPath], { stdio: "inherit" })
+  /**
+   * `pnpm exec`, not `npx`. This project is pnpm — one lockfile, a
+   * `packageManager` field, a pnpm-shaped node_modules — and npx is the one
+   * command in it that was not. That is not only tidiness: npx will FETCH a
+   * package from the registry when it cannot find the binary locally, so a
+   * broken install turns into a silent download of some other tsc and a suite
+   * that passes against the wrong compiler. `pnpm exec` fails instead.
+   */
+  execFileSync("pnpm", ["exec", "tsc", "-p", tsconfigPath], { stdio: "inherit" })
 
   /**
    * NOTHING IS REWRITTEN. Resolution is a loader hook — see

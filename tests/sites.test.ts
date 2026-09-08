@@ -5218,6 +5218,110 @@ check(
   })(),
 )
 
+// ===========================================================================
+section("The lockfile and package.json agree, or the deploy does not start")
+// ===========================================================================
+
+/**
+ * ERR_PNPM_OUTDATED_LOCKFILE, and it was self-inflicted.
+ *
+ * `typescript` was moved from devDependencies to dependencies — correct, and
+ * necessary, because run_build typechecks a project before a run may finish
+ * and a production install without dev packages has no compiler. But
+ * package.json was edited and pnpm-lock.yaml was not, and CI installs with
+ * --frozen-lockfile. The build never started.
+ *
+ * The lesson is not "remember to run pnpm install". Nobody remembers. This is
+ * the shape of mistake a test catches in a second and a person catches after a
+ * failed deploy, so it is a test.
+ */
+
+/** The dependency names pnpm-lock.yaml records for the root project. */
+function lockfileDependencies(): { dependencies: string[]; devDependencies: string[] } {
+  const lines = read("pnpm-lock.yaml").split("\n")
+  const out: Record<string, string[]> = { dependencies: [], devDependencies: [] }
+
+  let inRoot = false
+  let section: string | null = null
+
+  for (const line of lines) {
+    if (/^  \.:\s*$/.test(line)) {
+      inRoot = true
+      continue
+    }
+    if (!inRoot) continue
+    // Any other importer, or the end of the importers block.
+    if (/^\S/.test(line) || /^  \S/.test(line)) break
+
+    const header = line.match(/^    (dependencies|devDependencies|optionalDependencies):\s*$/)
+    if (header) {
+      section = header[1]
+      continue
+    }
+
+    const entry = line.match(/^      '?([^':]+)'?:\s*$/)
+    if (entry && section && out[section]) out[section].push(entry[1])
+  }
+
+  return { dependencies: out.dependencies, devDependencies: out.devDependencies }
+}
+
+check(
+  "every dependency in package.json is in the lockfile, in the same group",
+  (() => {
+    const pkg = JSON.parse(read("package.json"))
+    const lock = lockfileDependencies()
+    const same = (a: string[], b: string[]) =>
+      a.length === b.length && [...a].sort().join() === [...b].sort().join()
+    return (
+      same(Object.keys(pkg.dependencies ?? {}), lock.dependencies) &&
+      same(Object.keys(pkg.devDependencies ?? {}), lock.devDependencies)
+    )
+  })(),
+  (() => {
+    const pkg = JSON.parse(read("package.json"))
+    const lock = lockfileDependencies()
+    const missing = Object.keys(pkg.dependencies ?? {}).filter((d) => !lock.dependencies.includes(d))
+    const stray = lock.dependencies.filter((d) => !(d in (pkg.dependencies ?? {})))
+    return `dependencies missing from the lockfile: ${missing.join(", ") || "none"}; in the lockfile but not package.json: ${stray.join(", ") || "none"}. Run pnpm install.`
+  })(),
+)
+
+check(
+  "there is exactly one lockfile, and it is pnpm's",
+  (() => {
+    /**
+     * package-lock.json sat beside pnpm-lock.yaml, a month older, tracked in
+     * git, referenced by nothing. Two lockfiles make the package manager a
+     * guess — the platform picks one by detection order, and the one it picks
+     * is not necessarily the one anybody has been installing with.
+     */
+    const others = ["package-lock.json", "yarn.lock", "bun.lockb", "bun.lock"]
+    return existsSync(join(root, "pnpm-lock.yaml")) && others.every((f) => !existsSync(join(root, f)))
+  })(),
+)
+
+check(
+  "the pnpm version is pinned rather than inherited from whatever CI has",
+  (() => {
+    const pkg = JSON.parse(read("package.json"))
+    return typeof pkg.packageManager === "string" && /^pnpm@\d+\.\d+\.\d+/.test(pkg.packageManager)
+  })(),
+)
+
+check(
+  "and nothing installs with npm behind pnpm's back",
+  (() => {
+    /**
+     * `npx` FETCHES from the registry when it cannot find a binary locally, so
+     * a broken install becomes a silent download of some other tsc and a suite
+     * that passes against the wrong compiler. `pnpm exec` fails instead.
+     */
+    const runner = read("scripts/run-push-tests.mjs")
+    return /execFileSync\("pnpm", \["exec", "tsc"/.test(runner) && !/"npx"/.test(runner)
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")
