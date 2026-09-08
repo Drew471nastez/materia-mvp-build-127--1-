@@ -3,15 +3,28 @@
 /**
  * The live preview.
  *
- * The iframe is `sandbox="allow-scripts"` and deliberately NOT
- * `allow-same-origin` — see the header of lib/sites/preview-document.ts for why
- * those two together would hand generated code the editor's session.
+ * SERVED FROM A URL, NOT srcdoc, and the reason is navigation. A srcdoc
+ * document's base URL is the page around it, so "#/about" in a generated site
+ * meant storelib.com/sites/<id>#/about — a different document, and one that
+ * denies framing. Clicking a menu item replaced the creator's work with
+ * "storelib.com refused to connect.", and a hash router could not work at all
+ * because location.hash cannot change without leaving.
+ *
+ * The shell at /api/sites/preview-frame has its own URL, so a hash link is a
+ * same-document fragment and the site's router runs exactly as it will once
+ * published. Each build is posted into it.
+ *
+ * The iframe is still `sandbox="allow-scripts"` and deliberately NOT
+ * `allow-same-origin`, and the response now carries a CSP sandbox directive of
+ * its own so that holds even if this attribute is ever widened — see the
+ * header of lib/sites/preview-document.ts.
  */
+const SHELL_URL = "/api/sites/preview-frame"
 
 import * as React from "react"
 import { AlertCircle } from "lucide-react"
 
-import { previewDocument, previewPlaceholder } from "@/lib/sites/preview-document"
+import { placeholderPayload, previewPayload, type PreviewPayload } from "@/lib/sites/preview-document"
 import { cn } from "@/lib/utils"
 import type { BuildError } from "@/lib/sites/types"
 import type { BundleState } from "./use-bundler"
@@ -50,6 +63,8 @@ export function PreviewPane({
   nonce: number
 }) {
   const [runtimeError, setRuntimeError] = React.useState<RuntimeError | null>(null)
+  /** The shell has loaded and can take a build. Reset on every remount. */
+  const [shellReady, setShellReady] = React.useState(false)
   /**
    * Where a click inside the preview was trying to go, for the few seconds
    * after it was stopped from going there.
@@ -57,7 +72,7 @@ export function PreviewPane({
   const [heldLink, setHeldLink] = React.useState<string | null>(null)
   /**
    * Bumped to put the preview back after it navigated away despite everything.
-   * Part of the iframe's key, so a bump re-mounts it on the srcDoc.
+   * Part of the iframe's key, so a bump re-mounts the shell.
    */
   const [restores, setRestores] = React.useState(0)
   const loadsRef = React.useRef(0)
@@ -81,17 +96,18 @@ export function PreviewPane({
        * needs to know it works once the site is published.
        */
       if (data.kind === "navigate") setHeldLink(String(data.message ?? ""))
+      if (data.kind === "ready") setShellReady(true)
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
   }, [])
 
-  const srcDoc = React.useMemo(() => {
+  const payload: PreviewPayload = React.useMemo(() => {
     if (build.status === "ok" && build.code) {
-      return previewDocument({ code: build.code, css: build.css, html })
+      return previewPayload({ code: build.code, css: build.css, html })
     }
-    if (build.status === "failed") return previewPlaceholder("")
-    return previewPlaceholder(build.status === "building" ? "Building…" : "Waiting for the first build…")
+    if (build.status === "failed") return placeholderPayload("")
+    return placeholderPayload(build.status === "building" ? "Building…" : "Waiting for the first build…")
   }, [build.status, build.code, build.css, html])
 
   // A new document is a new run: last render's exception is not this one's.
@@ -99,13 +115,26 @@ export function PreviewPane({
     setRuntimeError(null)
     setHeldLink(null)
     setRestores(0)
-  }, [srcDoc])
+  }, [payload])
 
   // The load counter belongs to the document currently in the frame, and a
   // restore mounts a fresh one.
   React.useEffect(() => {
     loadsRef.current = 0
-  }, [srcDoc, restores])
+    setShellReady(false)
+  }, [nonce, restores])
+
+  /**
+   * The build goes in as soon as there is a shell to take it, and again
+   * whenever it changes. Posted rather than rendered: the shell is served once
+   * and lives for the session, so a rebuild replaces its body and styles
+   * instead of reloading the frame — which is what keeps the creator's scroll
+   * position and the site's current route across a keystroke.
+   */
+  React.useEffect(() => {
+    if (!shellReady) return
+    frameRef.current?.contentWindow?.postMessage(payload, "*")
+  }, [shellReady, payload])
 
   // The notice is a nudge, not a state to sit in.
   React.useEffect(() => {
@@ -150,7 +179,7 @@ export function PreviewPane({
             key={`${nonce}-${restores}`}
             ref={frameRef}
             title="Preview"
-            srcDoc={srcDoc}
+            src={SHELL_URL}
             sandbox="allow-scripts"
             onLoad={onFrameLoad}
             className="h-full w-full border-0"

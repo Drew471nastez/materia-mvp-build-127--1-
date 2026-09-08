@@ -13,12 +13,44 @@
  * origin: no cookies, no storage, no DOM access upward, and the CSS isolation
  * the brief asks for comes free.
  *
- * That choice is why this file builds a STRING instead of serving a route. A
- * srcdoc document has no origin of its own to be same-origin with; a real URL
- * under the app would be same-origin with the editor the moment anybody added
- * allow-same-origin to fix a symptom.
+ * That argument used to end "…which is why this file builds a STRING instead
+ * of serving a route": a srcdoc document has no origin of its own to be
+ * same-origin with, while a real URL under the app would be same-origin with
+ * the editor the moment anybody added allow-same-origin to fix a symptom.
  *
- * The generated site therefore gets no credentials of any kind, which is the
+ * ============================================================================
+ *  WHY THE PREVIEW IS SERVED FROM A URL AFTER ALL
+ * ============================================================================
+ * Because srcdoc broke navigation, and not in a small way. A srcdoc document's
+ * own URL is `about:srcdoc` and its BASE URL is the editor's, so every link in
+ * a generated site pointed at storelib.com rather than at the site — and every
+ * page on that domain denies framing. Clicking a menu item replaced the
+ * creator's work with "storelib.com refused to connect."
+ *
+ * Holding the links stopped the crash but not the cause: a hash route could
+ * not work at all, because `location.hash` in a srcdoc document cannot change
+ * without leaving. Measured, both shapes side by side, same document:
+ *
+ *   srcdoc   2 load events — it left.   #/about → hash stayed ""
+ *   served   1 load event  — it stayed. #/about → hash=#/about
+ *                                       #features → hash=#features
+ *
+ * So the preview is served from `/api/sites/preview-frame`, and hash routing
+ * behaves exactly as it will once the site is published.
+ *
+ * ============================================================================
+ *  AND THE SANDBOX GOT STRONGER, NOT WEAKER
+ * ============================================================================
+ * The old worry was real: an attribute is one token wide, and `allow-scripts
+ * allow-same-origin` on a same-origin URL is full access to the editor.
+ *
+ * The response therefore carries `Content-Security-Policy: sandbox
+ * allow-scripts` of its own. A CSP sandbox directive is applied by the browser
+ * to the RESPONSE, so it holds whatever the iframe tag says — adding
+ * allow-same-origin to the attribute no longer grants anything. What was a
+ * convention enforced by a code review is now enforced by the server.
+ *
+ * The generated site still gets no credentials of any kind, which is the
  * brief's rule stated as a mechanism rather than as a policy.
  */
 
@@ -125,63 +157,63 @@ const RUNTIME_BRIDGE = `
     var href = link.getAttribute("href") || ""
 
     /**
-     * EVERY link is prevented, including a hash one, and that correction is
-     * the whole point of this block.
+     * A HASH LINK IS LEFT ALONE NOW, AND THAT IS THE POINT OF THE MOVE.
      *
-     * The first version exempted "#..." on the reasoning that an in-page
-     * anchor scrolls rather than leaves. That reasoning is about an ordinary
-     * page. THIS document is srcdoc: its own URL is "about:srcdoc" and its
-     * BASE URL is the editor's, so "#features" resolves to
-     * storelib.com/sites/<id>#features — a different document, and one that
-     * denies framing like every page on that domain.
+     * While this document was srcdoc its base URL was the editor's, so
+     * "#/about" resolved to storelib.com/sites/<id>#/about — a different
+     * document, and one that denies framing. It had to be held, which meant a
+     * hash router could not work at all.
      *
-     * Measured in a real srcdoc frame rather than reasoned about a second
-     * time. All four navigated away; the frame loaded twice in every case:
+     * Served from its own URL, "#/about" is a same-document fragment:
+     * location.hash changes, hashchange fires, and the site's own router runs
+     * exactly as it will once published. Measured side by side, same document:
+     * srcdoc left (two load events, hash unchanged); served stayed (one load
+     * event, hash=#/about).
      *
-     *   #/booking     a hash route, which is how generated sites do pages
-     *   #features     an in-page anchor whose element is right there
-     *   #             a bare placeholder
-     *   /about        the plain path already known about
-     *
-     * So the scroll is done HERE instead of being delegated to a browser that
-     * would leave to do it.
+     * A PATH is still held. "/about" resolves against this URL's origin and
+     * lands on storelib.com/about, which is a real page and denies framing —
+     * the crash this whole guard exists for.
      */
+    if (href.charAt(0) === "#") return
+
     e.preventDefault()
-
-    if (href.charAt(0) === "#") {
-      var id = href.slice(1)
-      // A bare "#" is the placeholder every generated page uses for a button.
-      // Stopping it is the whole behaviour — there is nothing to say about it.
-      if (!id) return
-
-      /**
-       * getElementById and getElementsByName, because neither takes a
-       * SELECTOR. The first version used querySelector with the id
-       * interpolated into an attribute selector, which needs escaping — and
-       * the escape, written inside a template literal inside TypeScript, came
-       * out of the compiler as an invalid regular expression. The whole bridge
-       * then failed to parse, which removes every listener in it silently:
-       * no ready message, no click guard, and every link navigating again.
-       * There is now a test that compiles this script and fails on that.
-       */
-      var target = document.getElementById(id)
-      if (!target) {
-        var named = document.getElementsByName(id)
-        target = named && named.length ? named[0] : null
-      }
-
-      if (target && target.scrollIntoView) {
-        target.scrollIntoView({ behavior: "smooth", block: "start" })
-        return
-      }
-
-      // Nothing here answers to it — "#/booking" is a route, not an anchor.
-      send("navigate", href)
-      return
-    }
-
     send("navigate", href)
   }, true)
+
+  /**
+   * EACH BUILD ARRIVES BY MESSAGE.
+   *
+   * The shell is served once and then lives for the session; the editor
+   * rebuilds on every keystroke and posts the result here. Only the parent can
+   * reach this frame, so there is nothing to authenticate — an opaque origin
+   * has no other window that could address it.
+   *
+   * The import map is NOT part of a build. A document may declare one only
+   * once and only before any module loads, so it belongs to the shell — which
+   * is also why applying a build replaces the body and the styles rather than
+   * rewriting the document.
+   */
+  window.addEventListener("message", function (event) {
+    var payload = event.data
+    if (!payload || payload.kind !== "storelib-apply") return
+    if (event.source !== parent) return
+
+    var style = document.getElementById("storelib-css")
+    if (style) style.textContent = payload.css || ""
+
+    document.body.innerHTML = payload.body || ""
+
+    if (payload.code) {
+      // A fresh element every time: a module is evaluated once per element, so
+      // reusing one would show the first build forever.
+      var script = document.createElement("script")
+      script.type = "module"
+      script.textContent = payload.code
+      document.body.appendChild(script)
+    }
+
+    send("applied", "")
+  })
 
   /**
    * A form does the same thing by a different route: <form action="/subscribe">
@@ -193,6 +225,57 @@ const RUNTIME_BRIDGE = `
   }, true)
 })()
 </script>`
+
+/**
+ * The document served at /api/sites/preview-frame.
+ *
+ * Everything that must exist ONCE and before any module: the import map, the
+ * stylesheet element a build writes into, and the bridge that receives builds
+ * and reports back. It carries no project data at all — a build arrives by
+ * message from the editor — so the route needs no session and can be cached.
+ */
+export function previewShell(): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script type="importmap">${JSON.stringify(IMPORT_MAP)}</script>
+${RUNTIME_BRIDGE}
+<style id="storelib-css"></style>
+<style>html,body{height:100%;margin:0}</style>
+</head>
+<body></body>
+</html>`
+}
+
+/** One build, in the shape the shell applies. */
+export interface PreviewPayload {
+  kind: "storelib-apply"
+  css: string
+  body: string
+  code: string
+}
+
+export function previewPayload({ code, css, html }: PreviewInput): PreviewPayload {
+  return {
+    kind: "storelib-apply",
+    css: css ?? "",
+    body: bodyFromHtml(html),
+    code,
+  }
+}
+
+/** What the shell shows before the first build, or when one fails. */
+export function placeholderPayload(message: string): PreviewPayload {
+  const safe = message.replace(/[<&]/g, (c) => (c === "<" ? "&lt;" : "&amp;"))
+  return {
+    kind: "storelib-apply",
+    css: `body{display:grid;place-items:center;background:#fff;color:#6b6b72;font:500 13px/1.5 ui-sans-serif,system-ui,sans-serif}`,
+    body: `<div>${safe}</div>`,
+    code: "",
+  }
+}
 
 export function previewDocument({ code, css, html }: PreviewInput): string {
   return `<!doctype html>

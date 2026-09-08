@@ -22,7 +22,7 @@ import { toSiteSlug, siteSlugError, pageSlugError } from "@/lib/sites/slug"
 import { siteLimits, siteGate, siteCountGate, sitePageGate } from "@/lib/sites/plan"
 import { entryPoint, reachableFiles, resolveSpecifier, unavailableDependencies } from "@/lib/sites/module-graph"
 import { filePathError, projectError } from "@/lib/sites/file-path"
-import { bodyFromHtml, previewDocument } from "@/lib/sites/preview-document"
+import { bodyFromHtml, previewDocument, previewPayload, previewShell } from "@/lib/sites/preview-document"
 import { MODEL_RATES, chooseModel, costOf, rateFor, DEFAULT_MODEL, STRONG_MODEL } from "@/lib/sites/agent/models"
 import { ZERO_USAGE, addUsage } from "@/lib/sites/agent/types"
 import { blankProject } from "@/lib/sites/starter"
@@ -4971,54 +4971,143 @@ check(
 )
 
 check(
-  "a hash link is held too, because in a srcdoc frame it also leaves",
+  "a hash link is left alone, because the preview has its own URL now",
   (() => {
-    const doc = previewDocument({ code: "", css: "", html: "<body></body>" })
+    const doc = previewShell()
     /**
-     * THE CORRECTION THAT MATTERS, and the one a creator hit by hand.
+     * THIS ASSERTION HAS BEEN WRONG TWICE, IN OPPOSITE DIRECTIONS, AND THE
+     * REASON IS THE SAME BOTH TIMES: what a hash link does depends entirely on
+     * what the document's URL is.
      *
-     * The first version exempted "#..." on the reasoning that an in-page
-     * anchor scrolls rather than leaves. That reasoning is about an ordinary
-     * page. This document is srcdoc: its own URL is about:srcdoc and its BASE
-     * URL is the editor's, so "#features" resolves to
-     * storelib.com/sites/<id>#features — a different document, and one that
-     * denies framing like every page on that domain.
+     * While the preview was srcdoc its base URL was the editor's, so "#/about"
+     * resolved to storelib.com/sites/<id>#/about — a different document, and
+     * one that denies framing. It had to be held, which meant a hash router
+     * could not work at all and a creator clicking their own menu got a notice
+     * instead of a page.
      *
-     * Measured in a real srcdoc frame. All four navigated away, two loads each:
+     * The preview is served from /api/sites/preview-frame now, so a hash link
+     * is a same-document fragment. Measured over the DevTools protocol with
+     * real timers, against this exact shell:
      *
-     *   #/booking   a hash route, which is how generated sites do pages
-     *   #features   an in-page anchor whose element is right there
-     *   #           a bare placeholder
-     *   /about      the plain path already known about
-     *
-     * So preventDefault comes FIRST, unconditionally, and the scroll is done
-     * here rather than delegated to a browser that would leave to do it.
+     *   #/about    → location.hash = "#/about"     a hash router works
+     *   #features  → location.hash = "#features"   an anchor scrolls
+     *   /about     → held                          it would leave the origin
+     *   loads: 1                                   it never navigated
      */
     const at = doc.indexOf('document.addEventListener("click"')
-    const body = doc.slice(at, doc.indexOf('document.addEventListener("submit"', at))
+    const body = doc.slice(at, doc.indexOf('window.addEventListener("message"', at))
     return (
-      body.indexOf("e.preventDefault()") < body.indexOf('href.charAt(0) === "#"') &&
-      /target\.scrollIntoView\(/.test(body) &&
+      /if \(href\.charAt\(0\) === "#"\) return/.test(body) &&
+      body.indexOf('href.charAt(0) === "#"') < body.indexOf("e.preventDefault()") &&
       /send\("navigate", href\)/.test(body)
     )
   })(),
 )
 
 check(
-  "an anchor that exists is scrolled to, and one that does not is a route",
+  "a path is still held, because it would leave the origin",
   (() => {
-    const doc = previewDocument({ code: "", css: "", html: "<body></body>" })
+    const doc = previewShell()
     /**
-     * "#features" is an element on the page and scrolling is what was wanted.
-     * "#/booking" answers to nothing here — it is another page of the site,
-     * and it works once published. Proved in a browser with the real document:
-     * the anchor scrolled and produced no message, the route was reported.
+     * "/about" resolves against this URL's origin and lands on
+     * storelib.com/about — a real page, which denies framing. That is the
+     * crash the guard exists for and it is unchanged by the move.
+     */
+    return /e\.preventDefault\(\)/.test(doc) && /document\.addEventListener\("submit"/.test(doc)
+  })(),
+)
+
+check(
+  "a build arrives by message, and only from the editor",
+  (() => {
+    const doc = previewShell()
+    return (
+      /payload\.kind !== "storelib-apply"/.test(doc) &&
+      /event\.source !== parent/.test(doc) &&
+      // the body and styles are replaced; the document is not rewritten
+      /document\.body\.innerHTML = payload\.body/.test(doc) &&
+      /getElementById\("storelib-css"\)/.test(doc)
+    )
+  })(),
+)
+
+check(
+  "the import map belongs to the shell, never to a build",
+  (() => {
+    const shell = previewShell()
+    const payload = previewPayload({ code: "x", css: "y", html: "<body><p>z</p></body>" })
+    /**
+     * A document may declare an import map ONCE, and only before any module
+     * loads. Putting it in a build would mean the second build's map is
+     * rejected — so the shell owns it, and a build is only CSS, body and code.
      */
     return (
-      /var target = document\.getElementById\(id\)/.test(doc) &&
-      /document\.getElementsByName\(id\)/.test(doc) &&
-      // a bare "#" is a placeholder button: stopped, and nothing said about it
-      /if \(!id\) return/.test(doc)
+      /type="importmap"/.test(shell) &&
+      !/importmap/.test(JSON.stringify(payload)) &&
+      payload.kind === "storelib-apply"
+    )
+  })(),
+)
+
+check(
+  "the shell carries no project data, so the route needs no session",
+  (() => {
+    const shell = previewShell()
+    const route = strip(read("app/api/sites/preview-frame/route.ts"))
+    /**
+     * The same bytes for every creator: an import map, an empty stylesheet and
+     * the bridge. Nothing to authorise and nothing to leak, which is what makes
+     * it cacheable — and why the path has no site id in it.
+     */
+    return (
+      !/siteId|params/.test(route) &&
+      !/resolveSite|createClient/.test(route) &&
+      /export const dynamic = "force-static"/.test(route) &&
+      shell.length < 12_000
+    )
+  })(),
+)
+
+check(
+  "the sandbox is enforced by the response, not by an attribute",
+  (() => {
+    const route = strip(read("app/api/sites/preview-frame/route.ts"))
+    const pane = strip(read("components/sites/editor/preview-pane.tsx"))
+    /**
+     * The old objection to serving the preview from a URL was sound: a real URL
+     * is same-origin with the editor, and `allow-scripts allow-same-origin` on
+     * the iframe would hand generated code the creator's session. An attribute
+     * is one token wide and one careless edit from being wrong.
+     *
+     * A CSP sandbox directive is applied to the RESPONSE, so it holds whatever
+     * the tag says. Verified over the DevTools protocol against an iframe with
+     * NO sandbox attribute at all: contentDocument came back null — the frame
+     * was still opaque. This is stricter than what it replaced, not looser.
+     */
+    return (
+      /"sandbox allow-scripts"/.test(route) &&
+      /frame-ancestors 'self'/.test(route) &&
+      // and the attribute is still there as well, doing the same thing twice
+      /sandbox="allow-scripts"/.test(pane) &&
+      !/allow-same-origin/.test(pane)
+    )
+  })(),
+)
+
+check(
+  "the preview is served, and a rebuild does not reload the frame",
+  (() => {
+    const pane = strip(read("components/sites/editor/preview-pane.tsx"))
+    /**
+     * Posting the build rather than re-rendering the document is what keeps the
+     * creator's scroll position and the site's current route across a
+     * keystroke — the frame is loaded once per session, not once per edit.
+     */
+    return (
+      /src=\{SHELL_URL\}/.test(pane) &&
+      !/srcDoc/.test(pane) &&
+      /contentWindow\?\.postMessage\(payload, "\*"\)/.test(pane) &&
+      /if \(data\.kind === "ready"\) setShellReady\(true\)/.test(pane)
     )
   })(),
 )
