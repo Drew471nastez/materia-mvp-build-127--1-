@@ -24,8 +24,9 @@
  */
 
 import * as React from "react"
-import { ArrowUp, Check, Loader2, Sparkles, Square, TriangleAlert, X } from "lucide-react"
+import { ArrowUp, Check, Loader2, RotateCcw, Square, TriangleAlert, X } from "lucide-react"
 
+import { StorelibMark } from "@/components/storelib-mark"
 import { cn } from "@/lib/utils"
 import type { ThemeOp } from "@/lib/website-builder/agent/operations"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -47,11 +48,16 @@ interface Exchange {
   note?: string
 }
 
+/**
+ * Written to show what it can actually do, not to be safe. Each one exercises
+ * a different part: blocks, one section's controls, a section built from
+ * nothing, and the theme's own settings.
+ */
 const SUGGESTIONS = [
-  "Add an FAQ section with five real questions",
-  "Make the hero headline shorter and punchier",
-  "Add a pricing section with three tiers",
-  "Give the whole site a warmer palette",
+  "Add an FAQ with five questions about what I sell",
+  "Build a pricing section with three real tiers",
+  "Make this section's heading shorter and tighten the spacing",
+  "Give the whole site a warmer palette and rounder buttons",
 ]
 
 export function ThemeChat({
@@ -81,9 +87,19 @@ export function ThemeChat({
 }) {
   const [exchanges, setExchanges] = React.useState<Exchange[]>([])
   const [loadingHistory, setLoadingHistory] = React.useState(true)
-  const [historyError, setHistoryError] = React.useState(false)
+  const [historyError, setHistoryError] = React.useState<null | "not_set_up" | "read_failed">(null)
   const [draft, setDraft] = React.useState("")
   const [busy, setBusy] = React.useState(false)
+  /**
+   * THE NEXT THING TO ASK, WHILE THE LAST ONE IS STILL GOING.
+   *
+   * The box used to be `disabled` for the whole run, so the moment you had a
+   * second thought you had to hold it in your head and watch a spinner. A run
+   * is one request in and one answer out — there is no reason a person cannot
+   * be writing the next one — so Enter during a run queues it and it goes the
+   * instant the run ends.
+   */
+  const [queued, setQueued] = React.useState<string | null>(null)
   const abortRef = React.useRef<AbortController | null>(null)
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const fieldRef = React.useRef<HTMLTextAreaElement>(null)
@@ -125,7 +141,10 @@ export function ThemeChat({
            * would let somebody believe their history was gone when it is
            * sitting in the table.
            */
-          if (!cancelled) setHistoryError(true)
+          const body = (await response.json().catch(() => ({}))) as { reason?: string }
+          if (!cancelled) {
+            setHistoryError(body.reason === "not_set_up" ? "not_set_up" : "read_failed")
+          }
           return
         }
         const body = (await response.json()) as {
@@ -155,7 +174,7 @@ export function ThemeChat({
         }
         setExchanges(restored)
       } catch {
-        if (!cancelled) setHistoryError(true)
+        if (!cancelled) setHistoryError("read_failed")
       } finally {
         if (!cancelled) setLoadingHistory(false)
       }
@@ -297,11 +316,52 @@ export function ThemeChat({
     [busy, installId, onOp, onRunStart],
   )
 
+  /**
+   * Drains the queue when the run that was in the way finishes. `send` refuses
+   * while `busy`, so this cannot fire into the middle of one.
+   */
+  React.useEffect(() => {
+    if (busy || !queued) return
+    const next = queued
+    setQueued(null)
+    void send(next)
+  }, [busy, queued, send])
+
+  /** Enter sends, or queues if something is already running. */
+  const submit = React.useCallback(
+    (text: string) => {
+      const prompt = text.trim()
+      if (!prompt) return
+      setDraft("")
+      if (busy) {
+        setQueued(prompt)
+        return
+      }
+      void send(prompt)
+    },
+    [busy, send],
+  )
+
+  /**
+   * The box grows with what is in it, to a point. Two fixed rows is enough for
+   * "make it blue" and not enough for the kind of instruction that is worth
+   * writing — and a box you cannot see the bottom of is one people stop
+   * writing long things in.
+   */
+  const resize = React.useCallback(() => {
+    const field = fieldRef.current
+    if (!field) return
+    field.style.height = "auto"
+    field.style.height = `${Math.min(field.scrollHeight, 160)}px`
+  }, [])
+
+  React.useEffect(resize, [draft, resize])
+
   return (
     <div className="flex h-full w-full flex-col bg-background">
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
-        <Sparkles className="h-4 w-4 text-foreground" strokeWidth={1.75} />
-        <span className="flex-1 text-[13px] font-medium">Ask AI</span>
+        <StorelibMark className="h-[18px] w-[18px] shrink-0 rounded-[5px]" />
+        <span className="flex-1 text-[13px] font-medium">Ask Storelib</span>
         <button
           type="button"
           onClick={onClose}
@@ -318,10 +378,18 @@ export function ThemeChat({
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Loading
           </p>
-        ) : historyError ? (
+        ) : historyError === "not_set_up" ? (
+          <div className="rounded-[10px] border border-amber-500/30 bg-amber-500/5 px-3 py-3">
+            <p className="text-[13px] font-medium">Chat history is not switched on yet.</p>
+            <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
+              This database has nowhere to keep the conversation, so it will not survive a reload.
+              Everything else works — ask for a change and it is made.
+            </p>
+          </div>
+        ) : historyError === "read_failed" ? (
           <div className="rounded-[10px] border border-red-500/30 bg-red-500/5 px-3 py-3">
             <p className="text-[13px] font-medium">We could not load this conversation.</p>
-            <p className="mt-1 text-[11.5px] text-muted-foreground">
+            <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
               Nothing has been lost — this is a problem reading it, not a problem with it. You can
               still ask for a change.
             </p>
@@ -329,8 +397,9 @@ export function ThemeChat({
         ) : exchanges.length === 0 ? (
           <div className="space-y-4">
             <p className="text-[13px] leading-relaxed text-muted-foreground">
-              Describe a change and it is made on this page. The AI edits the same sections the panels
-              do, so everything stays undoable and nothing saves until you press Save.
+              Describe a change and it is made on this page. It writes the same sections, blocks and
+              controls the panels do — the same sliders, pickers and colours — so everything stays
+              undoable and nothing saves until you press Save.
             </p>
             <div className="space-y-1.5">
               {SUGGESTIONS.map((suggestion) => (
@@ -340,6 +409,7 @@ export function ThemeChat({
                   onClick={() => {
                     setDraft(suggestion)
                     fieldRef.current?.focus()
+                    requestAnimationFrame(resize)
                   }}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left text-[12.5px] leading-snug text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
                 >
@@ -389,13 +459,38 @@ export function ThemeChat({
                 )}
 
                 {exchange.error && (
-                  <p className="flex items-start gap-1.5 text-[12px] text-red-500">
-                    <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
-                    {exchange.error}
-                  </p>
+                  <div className="space-y-1.5">
+                    <p className="flex items-start gap-1.5 text-[12px] text-red-500">
+                      <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
+                      {exchange.error}
+                    </p>
+                    {/*
+                      A failed run leaves the request sitting there with no way
+                      to make it again except retyping it, which is the moment
+                      most people give up on a feature rather than on the
+                      network.
+                    */}
+                    <button
+                      type="button"
+                      onClick={() => submit(exchange.prompt)}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11.5px] text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground disabled:opacity-40"
+                    >
+                      <RotateCcw className="h-3 w-3" strokeWidth={2} />
+                      Try again
+                    </button>
+                  </div>
                 )}
               </li>
             ))}
+            {queued && (
+              <li className="flex items-start gap-2 text-[12.5px] text-muted-foreground/70">
+                <span className="mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
+                <span>
+                  Up next: <span className="text-foreground/70">{queued}</span>
+                </span>
+              </li>
+            )}
             <div ref={bottomRef} />
           </ul>
         )}
@@ -403,38 +498,46 @@ export function ThemeChat({
 
       <div className="shrink-0 border-t border-border p-2.5">
         <div className="rounded-xl border border-border bg-background focus-within:border-foreground/30">
+          {/*
+            NOT `disabled` while a run is going. Waiting for a spinner before
+            you are allowed to type your next thought is the difference between
+            a conversation and a form. Enter during a run queues it instead.
+          */}
           <textarea
             ref={fieldRef}
             rows={2}
             value={draft}
-            disabled={busy}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault()
-                void send(draft)
+                submit(draft)
               }
             }}
-            placeholder="Change this page…"
-            className="w-full resize-none bg-transparent px-3 pt-2.5 text-[13px] outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
+            placeholder={busy ? "Ask for the next change…" : "Change this page…"}
+            className="w-full resize-none bg-transparent px-3 pt-2.5 text-[13px] leading-snug outline-none placeholder:text-muted-foreground/50"
           />
           <div className="flex items-center justify-between px-2 pb-2">
-            <span className="pl-1 text-[11px] text-muted-foreground/60">Enter to send</span>
-            {busy ? (
+            <span className="pl-1 text-[11px] text-muted-foreground/60">
+              {busy ? "Enter queues it" : "Enter to send, ⇧Enter for a new line"}
+            </span>
+            <div className="flex items-center gap-1.5">
+              {busy && (
+                <button
+                  type="button"
+                  onClick={() => abortRef.current?.abort()}
+                  aria-label="Stop"
+                  title="Stop"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <Square className="h-2.5 w-2.5 fill-current" />
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => abortRef.current?.abort()}
-                aria-label="Stop"
-                className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground text-background"
-              >
-                <Square className="h-3 w-3 fill-current" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void send(draft)}
+                onClick={() => submit(draft)}
                 disabled={draft.trim().length === 0}
-                aria-label="Send"
+                aria-label={busy ? "Queue" : "Send"}
                 className={cn(
                   "flex h-7 w-7 items-center justify-center rounded-lg transition-opacity",
                   draft.trim().length === 0
@@ -444,7 +547,7 @@ export function ThemeChat({
               >
                 <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.25} />
               </button>
-            )}
+            </div>
           </div>
         </div>
       </div>

@@ -30,7 +30,36 @@ export interface ThemeMessage {
 }
 
 /** Thrown when the transcript could not be read, as opposed to being empty. */
-export class ThemeChatUnavailableError extends Error {}
+export class ThemeChatUnavailableError extends Error {
+  /**
+   * TRUE WHEN THE TABLE IS NOT THERE YET.
+   *
+   * "We could not load this conversation" is the right thing to say about a
+   * read that failed and the wrong thing to say about a feature whose
+   * migration has not been run — one is a fault to report and the other is a
+   * step somebody has to take, and the panel cannot tell them apart from a
+   * 503. Postgres says 42P01 for a missing relation; PostgREST reports the
+   * same thing as PGRST205 when its schema cache has never seen the table.
+   */
+  readonly notSetUp: boolean
+
+  constructor(message: string, notSetUp = false) {
+    super(message)
+    this.notSetUp = notSetUp
+  }
+}
+
+/** A missing table, however the layer in front of Postgres chose to say it. */
+function isMissingTable(error: { code?: string; message?: string } | null): boolean {
+  const code = error?.code ?? ""
+  if (code === "42P01" || code === "PGRST205" || code === "PGRST202") return true
+  const message = (error?.message ?? "").toLowerCase()
+  return (
+    message.includes("does not exist") ||
+    message.includes("could not find the table") ||
+    message.includes("schema cache")
+  )
+}
 
 /**
  * The conversation for one theme, oldest first. RLS decides visibility.
@@ -58,7 +87,7 @@ export async function readThemeChat(installId: string): Promise<ThemeMessage[]> 
    * A FAILED READ IS NOT AN EMPTY CONVERSATION. Swallowing the error would
    * show somebody a blank panel and let them believe their history was gone.
    */
-  if (error) throw new ThemeChatUnavailableError(error.message)
+  if (error) throw new ThemeChatUnavailableError(error.message, isMissingTable(error))
 
   type Row = {
     id: string

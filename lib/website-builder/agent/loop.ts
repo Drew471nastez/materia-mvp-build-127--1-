@@ -33,16 +33,19 @@
 
 import {
   applyOp,
-  blockFieldIds,
+  blockFieldsFor,
   blockSpecs,
+  buildSection,
+  checkSettings,
+  describeFields,
   describeSection,
   describeSectionTypes,
   describeStore,
   describeTheme,
   describeThemeSettings,
-  fieldIds,
+  fieldsFor,
   maxBlocks,
-  themeFieldIds,
+  themeFieldsFor,
   type StoreFacts,
   type ThemeOp,
   type ThemeState,
@@ -87,7 +90,7 @@ Rules:
 - Address a section by the id shown in square brackets. Never invent an id.
 - read_section before you change one. You are shown the page's structure, not every setting, so writing a field you have not read is guessing.
 - update_section MERGES the settings you send. Send only the fields you are changing; everything you leave out keeps its value.
-- Only use field ids that the section's schema actually has. A field that does not exist is silently ignored, so the change would appear to work and do nothing. If you are unsure, call read_section — it lists them.
+- EVERY SETTING IS A CONTROL, and the control decides what it will take. A select takes one of its listed choices and nothing else. A toggle takes true or false. A slider takes a number inside its range. A colour takes a hex value like "#1a1a1a". A field id that does not exist, and a value the control cannot take, are BOTH silently ignored by the renderer — the change would look like it worked and do nothing. read_section lists every control on a section and what each one accepts; read_section_type does the same for a type you have not added yet.
 - The header and footer cannot be moved, removed, or inserted around. They are the same on every page.
 - PREFER HIDING TO DELETING. "Take this off for now", "hide it until launch", "I don't want this here yet" all mean set_section_visibility, not remove_section. A hidden section keeps its settings and its content and comes back in one call; a removed one is gone, and whoever wrote that content wrote it once. Remove only when somebody clearly wants it gone for good.
 - WHEN A SECTION IS SELECTED, act on it. "Make this section better" means that section, and it is not a question — look at what it is, decide what is weak about it, and change it. A FAQ with five thin questions gets better questions and better answers; a hero with a generic headline gets a specific one; a pricing table with unnamed tiers gets named tiers.
@@ -95,6 +98,7 @@ Rules:
 - ALWAYS CHANGE SOMETHING VISIBLE. A run that reads a section and then replies without a single operation has not done what was asked. If a request is broad, decide what would genuinely improve the thing in front of you and do it.
 - Make the change that was asked for and nothing else. Do not restyle things nobody mentioned, do not "improve" copy that was not the subject, and do not add sections to fill space.
 - If the request is broad — "make this look better", "build out this page" — then look at what is there, decide what is genuinely missing, and do it properly with several operations.
+- BUILDING A SECTION IS MORE THAN ADDING IT. A section added from its preset is somebody else's placeholder copy. Adding one properly means: add it, then set its controls, then write its blocks — the real questions, the real tiers, the real quotes. An FAQ with the preset's three generic questions still in it is not a section anybody asked for.
 - WRITE COPY ABOUT THE REAL BUSINESS. Call read_store before you write anything that mentions what they sell, what it costs, or who it is for — the catalogue is there and inventing one produces a page that contradicts the shop behind it. Never "Lorem ipsum" and never "Your headline here".
 - Do not add a product section to a store with no products. It renders empty, which looks broken rather than new.
 - When you are done, reply with one plain sentence saying what you changed. No preamble, no markdown, no lists.`
@@ -131,8 +135,21 @@ function toolSpecs(addable: string[]): ToolSpec<string>[] {
       },
     },
     {
+      name: "read_section_type",
+      description:
+        "Look up what a KIND of section can do before you add one — every control it has, what each control accepts, and the blocks it takes. Use this when you are planning something and the section is not on the page yet.",
+      parameters: {
+        type: "object",
+        properties: {
+          sectionType: { type: "string", description: "A section type, e.g. \"pricing\"." },
+        },
+        required: ["sectionType"],
+        additionalProperties: false,
+      },
+    },
+    {
       name: "add_section",
-      description: `Add a section to the page. Available types:\n${describeSectionTypes(addable)}`,
+      description: `Add a section to the page. It arrives filled from its preset and this tool hands back every control it has, so you can follow up with update_section and add_block to make it this store's. Available types:\n${describeSectionTypes(addable)}`,
       parameters: {
         type: "object",
         properties: {
@@ -536,26 +553,45 @@ function execute(
       }
 
       /**
-       * THE FAILURE THIS CATCHES IS A SILENT ONE.
+       * THE FAILURE THIS CATCHES IS A SILENT ONE, and it has two levels.
        *
-       * An unknown field id is merged into the settings and then ignored by
-       * the renderer, so the tool reports success, the model reports success,
-       * and nothing on the page changes. Refusing it here is the only place
-       * anybody finds out.
+       * An unknown field id merges into the settings and is then ignored by
+       * the renderer. So does a value the control cannot take — "rounded" in a
+       * select whose choices are simple | boxed | bordered, 500 in a slider
+       * that stops at 16. Both report success and move nothing. Refusing them
+       * here, with the control's own description, is the only place anybody
+       * finds out.
        */
-      const allowed = fieldIds(found.type)
-      const unknown = Object.keys(settings).filter((key) => !allowed.includes(key))
-      if (unknown.length > 0) {
-        return {
-          output: `${found.type} has no field${unknown.length === 1 ? "" : "s"} called ${unknown
-            .map((u) => `"${u}"`)
-            .join(", ")}. It accepts: ${allowed.join(", ")}. Nothing was changed — send the change again using those ids.`,
-        }
-      }
+      const checked = checkSettings(fieldsFor(found.type), settings, found.type)
+      if (checked.error) return { output: checked.error }
 
       return {
-        output: `Updated ${found.type} [${id}]: ${Object.keys(settings).join(", ")}.`,
-        op: { kind: "update_section", id, settings },
+        output: `Updated ${found.type} [${id}]: ${Object.keys(checked.settings!).join(", ")}.${
+          checked.notes.length > 0 ? ` (${checked.notes.join("; ")})` : ""
+        }`,
+        op: { kind: "update_section", id, settings: checked.settings! },
+      }
+    }
+
+    case "read_section_type": {
+      const wanted = typeof args.sectionType === "string" ? args.sectionType : ""
+      const schema = SECTION_SCHEMAS[wanted]
+      if (!schema) {
+        return { output: `There is no section type "${wanted}". The types are listed on add_section.` }
+      }
+      const specimen = buildSection(`preview-${wanted}`, wanted)
+      return {
+        output: [
+          `${wanted} — ${schema.name}${schema.description ? `: ${schema.description}` : ""}`,
+          `CONTROLS\n${describeFields(wanted)}`,
+          specimen
+            ? `WHAT IT LOOKS LIKE WHEN ADDED (its preset)\n${JSON.stringify(
+                { settings: specimen.settings, blocks: specimen.blocks },
+              ).slice(0, 2_000)}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
       }
     }
 
@@ -564,23 +600,37 @@ function execute(
       if (!SECTION_SCHEMAS[sectionType]) {
         return { output: `There is no section type "${sectionType}". Use one of the types listed on this tool.` }
       }
-      const settings = parseSettings(args.settingsJson) ?? undefined
+      let settings = parseSettings(args.settingsJson) ?? undefined
+      let notes: string[] = []
       if (settings && Object.keys(settings).length > 0) {
-        const allowed = fieldIds(sectionType)
-        const unknown = Object.keys(settings).filter((key) => !allowed.includes(key))
-        if (unknown.length > 0) {
-          return {
-            output: `${sectionType} has no field${unknown.length === 1 ? "" : "s"} called ${unknown
-              .map((u) => `"${u}"`)
-              .join(", ")}. It accepts: ${allowed.join(", ")}. Nothing was added — send it again using those ids.`,
-          }
-        }
+        const checked = checkSettings(fieldsFor(sectionType), settings, sectionType)
+        if (checked.error) return { output: `${checked.error}\n\nNothing was added.` }
+        settings = checked.settings
+        notes = checked.notes
       }
       const index = typeof args.index === "number" ? args.index : undefined
       const fresh = newId(sectionType)
+      const op: ThemeOp = { kind: "add_section", id: fresh, sectionType, index, settings }
+
+      /**
+       * The new section is handed back IN FULL — every control it has, the
+       * blocks it takes, and the values its preset started it with.
+       *
+       * A section arrives filled from a preset, and the whole point of adding
+       * one is then to make it this store's. Without this the model has an id
+       * and no idea what it can set, so it either calls read_section (a whole
+       * round trip for something already known here) or, far worse, writes
+       * from memory and gets refused.
+       */
+      const created = applyOp(state, op).sections.find((s) => s.id === fresh)
       return {
-        output: `Added ${sectionType} as [${fresh}].`,
-        op: { kind: "add_section", id: fresh, sectionType, index, settings },
+        output: [
+          `Added ${sectionType} as [${fresh}].${notes.length > 0 ? ` (${notes.join("; ")})` : ""}`,
+          created ? describeSection(created) : "",
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+        op,
       }
     }
 
@@ -665,21 +715,20 @@ function execute(
       if (!settings) {
         return { output: 'Send `settingsJson` as a JSON object in a string, e.g. {"question":"…"}.' }
       }
-      const allowed = blockFieldIds(section.type, blockType)
-      const unknown = Object.keys(settings).filter((key) => !allowed.includes(key))
-      if (unknown.length > 0) {
-        return {
-          output: `A ${blockType} block has no field${unknown.length === 1 ? "" : "s"} called ${unknown
-            .map((u) => `"${u}"`)
-            .join(", ")}. It accepts: ${allowed.join(", ")}.`,
-        }
-      }
+      const checked = checkSettings(
+        blockFieldsFor(section.type, blockType),
+        settings,
+        `a ${blockType} block`,
+      )
+      if (checked.error) return { output: `${checked.error}\n\nNothing was added.` }
 
       const index = typeof args.index === "number" && args.index >= 0 ? args.index : undefined
       const blockId = newId(blockType)
       return {
-        output: `Added a ${blockType} block [${blockId}] to ${section.type}.`,
-        op: { kind: "add_block", sectionId, blockId, blockType, index, settings },
+        output: `Added a ${blockType} block [${blockId}] to ${section.type}.${
+          checked.notes.length > 0 ? ` (${checked.notes.join("; ")})` : ""
+        }`,
+        op: { kind: "add_block", sectionId, blockId, blockType, index, settings: checked.settings! },
       }
     }
 
@@ -702,19 +751,18 @@ function execute(
       if (!settings) {
         return { output: 'Send `settingsJson` as a JSON object in a string.' }
       }
-      const allowed = blockFieldIds(section.type, block.type)
-      const unknown = Object.keys(settings).filter((key) => !allowed.includes(key))
-      if (unknown.length > 0) {
-        return {
-          output: `A ${block.type} block has no field${unknown.length === 1 ? "" : "s"} called ${unknown
-            .map((u) => `"${u}"`)
-            .join(", ")}. It accepts: ${allowed.join(", ")}. Nothing was changed.`,
-        }
-      }
+      const checked = checkSettings(
+        blockFieldsFor(section.type, block.type),
+        settings,
+        `a ${block.type} block`,
+      )
+      if (checked.error) return { output: checked.error }
 
       return {
-        output: `Updated block [${blockId}]: ${Object.keys(settings).join(", ")}.`,
-        op: { kind: "update_block", sectionId, blockId, settings },
+        output: `Updated block [${blockId}]: ${Object.keys(checked.settings!).join(", ")}.${
+          checked.notes.length > 0 ? ` (${checked.notes.join("; ")})` : ""
+        }`,
+        op: { kind: "update_block", sectionId, blockId, settings: checked.settings! },
       }
     }
 
@@ -756,22 +804,18 @@ function execute(
 
       /**
        * The same refusal the section and block writes make, for the same
-       * reason: an id the theme does not have merges into the settings and is
-       * then ignored by the renderer. Success reported, nothing changed.
+       * reason: an id the theme does not have — or a value its control cannot
+       * take — merges into the settings and is then ignored by the renderer.
+       * Success reported, nothing changed.
        */
-      const allowed = themeFieldIds()
-      const unknown = Object.keys(settings).filter((key) => !allowed.includes(key))
-      if (unknown.length > 0) {
-        return {
-          output: `The theme has no setting${unknown.length === 1 ? "" : "s"} called ${unknown
-            .map((u) => `"${u}"`)
-            .join(", ")}. Nothing was changed — the ids it does have are listed on this tool.`,
-        }
-      }
+      const checked = checkSettings(themeFieldsFor(), settings, "The theme")
+      if (checked.error) return { output: checked.error }
 
       return {
-        output: `Updated the theme: ${Object.keys(settings).join(", ")}.`,
-        op: { kind: "update_theme", settings },
+        output: `Updated the theme: ${Object.keys(checked.settings!).join(", ")}.${
+          checked.notes.length > 0 ? ` (${checked.notes.join("; ")})` : ""
+        }`,
+        op: { kind: "update_theme", settings: checked.settings! },
       }
     }
 

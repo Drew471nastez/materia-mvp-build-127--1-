@@ -17,6 +17,8 @@ import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/lo
 import {
   applyOps,
   buildSection,
+  describeFields,
+  describeSection,
   describeStore,
   describeTheme,
   describeThemeSettings,
@@ -692,7 +694,7 @@ section("One door to the AI, not two")
         join(root, "app/website-builder/editor/[installId]/page.tsx"),
         "utf8",
       )
-      return /<ThemeChat/.test(editor) && /aria-label="Ask AI"/.test(editor)
+      return /<ThemeChat/.test(editor) && /aria-label="Ask Storelib"/.test(editor)
     })(),
   )
 }
@@ -1544,6 +1546,376 @@ check(
     "and an id it has never heard of leaves the page alone rather than throwing",
     untouched.sections.length === 3 &&
       untouched.sections.every((s) => !s.hidden),
+  )
+}
+
+// ===========================================================================
+section("The model can see the controls, not just their names")
+// ===========================================================================
+
+/**
+ * EVERY SETTING IN THIS EDITOR IS A CONTROL — a slider with a range, a picker
+ * with a list, a colour well, a toggle. The model was shown field IDS and
+ * nothing else, so it wrote values blind: "rounded" into a select whose
+ * choices are accordion | boxed | minimal, 500 into a slider that stops at
+ * 120, "yes" into a toggle, "warm beige" into a colour.
+ *
+ * Every one of those merges cleanly and is then ignored by the renderer. The
+ * tool says it worked and the page does not move — the same silent failure as
+ * an unknown id, one level down.
+ */
+{
+  const controls = describeFields("faq")
+  check(
+    "a select lists its actual choices",
+    controls.includes("accordion | boxed | minimal"),
+    controls.slice(0, 200),
+  )
+  check("a slider carries its range and step", /padding_top[^\n]*0-120 step 4/.test(controls))
+  check("a toggle says what it takes", /show_count[^\n]*true or false/.test(controls))
+  check("a colour says it wants a hex value", /bg_color[^\n]*hex colour/.test(controls))
+  check(
+    "and the label is there, so the model knows what the control is FOR",
+    controls.includes("— Style:") && controls.includes("— Padding top:"),
+  )
+}
+
+{
+  /**
+   * `header` and `paragraph` are the editor's own furniture — a group title
+   * and a note. 163 of the schema's fields are `header`. Offering them as
+   * writable is an invitation to write one, and a write to one merges a key
+   * nothing reads.
+   */
+  const everyId = Object.keys(SECTION_SCHEMAS).flatMap((type) => fieldIds(type))
+  const schemaFields = Object.values(SECTION_SCHEMAS).flatMap((schema) => schema.fields ?? [])
+  const furniture = schemaFields.filter((f) => f.type === "header" || f.type === "paragraph")
+  check("the schema really does contain that furniture", furniture.length > 100)
+  check(
+    "and none of it is offered as a setting the model may write",
+    furniture.every((f) => !everyId.includes(f.id)),
+  )
+}
+
+// ===========================================================================
+section("A value the control cannot take is refused, not merged")
+// ===========================================================================
+
+{
+  const { result } = await run(
+    [
+      { calls: [["update_section", { id: "faq-1", settingsJson: JSON.stringify({ style: "rounded" }) }]] },
+      { text: "Tried." },
+    ],
+    pageWithFaq(),
+  )
+  check("a choice that is not on the picker changes nothing", result.ops.length === 0)
+}
+
+{
+  const outputs: string[] = []
+  const { result } = await run(
+    [
+      { calls: [["update_section", { id: "faq-1", settingsJson: JSON.stringify({ style: "rounded" }) }]] },
+      { calls: [["update_section", { id: "faq-1", settingsJson: JSON.stringify({ style: "boxed" }) }]] },
+      { text: "Fixed." },
+    ],
+    pageWithFaq(),
+  )
+  void outputs
+  check(
+    "and the model can recover, because it was told what the choices are",
+    result.ops.length === 1 &&
+      result.ops[0].kind === "update_section" &&
+      (result.ops[0] as { settings: Record<string, unknown> }).settings.style === "boxed",
+  )
+}
+
+{
+  const { result } = await run(
+    [
+      {
+        calls: [
+          ["update_section", { id: "faq-1", settingsJson: JSON.stringify({ bg_color: "warm beige" }) }],
+        ],
+      },
+      { text: "Tried." },
+    ],
+    pageWithFaq(),
+  )
+  check("a colour that is not a colour changes nothing", result.ops.length === 0)
+}
+
+{
+  const { result } = await run(
+    [
+      {
+        calls: [
+          ["update_section", { id: "faq-1", settingsJson: JSON.stringify({ show_count: "yes" }) }],
+        ],
+      },
+      { text: "Tried." },
+    ],
+    pageWithFaq(),
+  )
+  check("a toggle given a word that is not true or false changes nothing", result.ops.length === 0)
+}
+
+{
+  /**
+   * Coerced, not refused. "60" into a slider is a quoting slip and its meaning
+   * is not in doubt; spending a round trip on it helps nobody.
+   */
+  const { result } = await run(
+    [
+      {
+        calls: [
+          [
+            "update_section",
+            { id: "faq-1", settingsJson: JSON.stringify({ padding_top: "40", show_count: "true" }) },
+          ],
+        ],
+      },
+      { text: "Done." },
+    ],
+    pageWithFaq(),
+  )
+  const settings = (result.ops[0] as { settings: Record<string, unknown> } | undefined)?.settings
+  check(
+    'a number sent as "40" is read as 40',
+    settings?.padding_top === 40,
+    JSON.stringify(settings),
+  )
+  check('and "true" is read as true', settings?.show_count === true)
+}
+
+{
+  /**
+   * CLAMPED, not refused. A slider that stops at 120 and a model that asked
+   * for 500 agree about the direction; the control's own maximum is the
+   * answer, and it is what the editor's slider would produce from the same
+   * drag.
+   */
+  const { result } = await run(
+    [
+      {
+        calls: [
+          ["update_section", { id: "faq-1", settingsJson: JSON.stringify({ padding_top: 500 }) }],
+        ],
+      },
+      { text: "Done." },
+    ],
+    pageWithFaq(),
+  )
+  const settings = (result.ops[0] as { settings: Record<string, unknown> } | undefined)?.settings
+  check("a slider is held to its maximum rather than written past it", settings?.padding_top === 120)
+}
+
+{
+  const { result } = await run(
+    [
+      {
+        calls: [
+          [
+            "add_block",
+            {
+              sectionId: "faq-1",
+              blockType: "faq_item",
+              index: -1,
+              settingsJson: JSON.stringify({ question: "Do you ship?", open_by_default: "nope" }),
+            },
+          ],
+        ],
+      },
+      { text: "Tried." },
+    ],
+    pageWithFaq(),
+  )
+  check("blocks are checked the same way sections are", result.ops.length === 0)
+}
+
+{
+  const { result } = await run([
+    {
+      calls: [
+        ["update_theme", { settingsJson: JSON.stringify({ logo_width: 9_000 }) }],
+      ],
+    },
+    { text: "Done." },
+  ])
+  const settings = (result.ops[0] as { settings: Record<string, unknown> } | undefined)?.settings
+  check(
+    "and so are the theme's own controls",
+    settings?.logo_width === 300,
+    JSON.stringify(settings),
+  )
+}
+
+// ===========================================================================
+section("Building a section, with everything it needs to build it properly")
+// ===========================================================================
+
+{
+  const { events } = await run([
+    { calls: [["read_section_type", { sectionType: "pricing" }]] },
+    { text: "Looked." },
+  ])
+  void events
+  check(
+    "a type can be read before it is added — the controls exist without a section",
+    describeFields("pricing").includes("— "),
+  )
+}
+
+{
+  /**
+   * A section arrives filled from somebody else's preset, and the whole point
+   * of adding one is then to make it this store's. Handing back its controls
+   * with the id saves a round trip and, more to the point, stops the model
+   * writing from memory and being refused.
+   */
+  const { result } = await run([
+    { calls: [["add_section", { sectionType: "faq", index: 1, settingsJson: "{}" }]] },
+    { text: "Added." },
+  ])
+  const added = applyOps(page(), result.ops).sections.find((s) => s.type === "faq")
+  check("a new section is described in full when it is added", added !== undefined)
+  check(
+    "and that description carries the controls and the blocks it takes",
+    added !== undefined &&
+      describeSection(added).includes("CONTROLS THIS SECTION HAS") &&
+      describeSection(added).includes("BLOCK TYPES THIS SECTION TAKES"),
+  )
+}
+
+check(
+  "the model is told that adding a section is not finishing one",
+  /BUILDING A SECTION IS MORE THAN ADDING IT/.test(
+    readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"),
+  ),
+)
+
+check(
+  "and that a value the control cannot take is as silent a failure as a wrong id",
+  /EVERY SETTING IS A CONTROL/.test(
+    readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"),
+  ),
+)
+
+// ===========================================================================
+section("There is one script to run, and it survives being run twice")
+// ===========================================================================
+
+/**
+ * The panel's "we could not load this conversation" has one cause on a fresh
+ * deployment: theme_chat_messages does not exist yet. Five migrations were
+ * outstanding and spread across five files, which is five chances to run four.
+ *
+ * VERIFIED ON POSTGRES 16, not read: run on an empty database every part
+ * skips itself and the script still completes; run on a realistic schema it
+ * creates everything; run a second time it is a clean no-op with ONE policy,
+ * not two. The RLS policy was then driven with two creators — each sees only
+ * their own conversation, naming somebody else's install id returns nothing,
+ * and writing into it is refused by the policy.
+ */
+{
+  const script = readFileSync(join(root, "sql/RUN_THIS_ALL_PENDING.sql"), "utf8")
+
+  for (const [name, needle] of [
+    ["sites.document", "add column if not exists document jsonb"],
+    ["creator bans", "add column if not exists banned_at"],
+    ["the products status a ban writes", "check (status in ('draft', 'published', 'unpublished'))"],
+    ["chat questions", "add column if not exists questions jsonb"],
+    ["agent questions", "create table if not exists public.site_agent_questions"],
+    ["the theme conversation", "create table if not exists public.theme_chat_messages"],
+  ] as const) {
+    check(`the one script carries ${name}`, script.includes(needle))
+  }
+
+  /**
+   * Guarded, because a script that aborts halfway leaves a database with some
+   * migrations applied and no way to tell which — worse than one that refuses
+   * to start.
+   */
+  check(
+    "and every part checks its table exists rather than aborting the script",
+    (script.match(/to_regclass\(/g) ?? []).length >= 6,
+  )
+  check(
+    "it can be run twice",
+    script.includes("add column if not exists") &&
+      script.includes("create table if not exists") &&
+      script.includes("where schemaname = 'public' and tablename = 'theme_chat_messages'"),
+  )
+}
+
+// ===========================================================================
+section("The panel says the true thing, and does not make you wait to type")
+// ===========================================================================
+
+{
+  const chat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
+
+  /**
+   * "We could not load this conversation" is right about a read that failed
+   * and wrong about a migration nobody has run — one is a fault to report,
+   * the other is a step to take, and a 503 alone cannot tell them apart.
+   */
+  check(
+    "a missing table and a failed read are different messages",
+    /historyError === "not_set_up"/.test(chat) && /historyError === "read_failed"/.test(chat),
+  )
+  check(
+    "the not-set-up message does not claim anything is broken",
+    /Chat history is not switched on yet/.test(chat),
+  )
+
+  /**
+   * The box was `disabled` for the whole run. Waiting for a spinner before you
+   * are allowed to type your next thought is the difference between a
+   * conversation and a form.
+   */
+  /**
+   * Anchored on the TEXTAREA. A looser search for `disabled={busy}` passes or
+   * fails on the Try-again button, which is a different control and is
+   * supposed to be disabled mid-run — the check would have been reading the
+   * wrong element and reporting on the right one.
+   */
+  const composer = chat.slice(chat.indexOf("<textarea"), chat.indexOf("<textarea") + 900)
+  check(
+    "the composer is not disabled while a run is going",
+    composer.includes("<textarea") && !/disabled/.test(composer),
+    composer.slice(0, 300),
+  )
+  check(
+    "and a message typed during a run is queued rather than dropped",
+    /setQueued\(prompt\)/.test(chat) && /if \(busy \|\| !queued\) return/.test(chat),
+  )
+  check("a failed exchange can be sent again without retyping it", /Try again/.test(chat))
+  check("the box grows with what is in it", /field\.style\.height = `\$\{Math\.min/.test(chat))
+
+  check(
+    "the panel wears the Storelib mark, not a generic star",
+    /<StorelibMark/.test(chat) && !/Sparkles/.test(chat),
+  )
+}
+
+{
+  const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  check(
+    "and so does the button that opens it",
+    /<StorelibMark className=\{cn\("h-\[18px\] w-\[18px\]/.test(editor) &&
+      !/Sparkles/.test(editor),
+  )
+  /**
+   * Measured in Chromium: 32x32 button, an 18x18 mark, painted rgb(139, 86,
+   * 250). Inverting the button to solid black was fine for a line-art sparkle
+   * and is not for a logo — a brand mark on a black tile reads as a different
+   * brand.
+   */
+  check(
+    "the mark keeps its own colour in both states",
+    /aiOpen\s*\n?\s*\? "border-foreground bg-muted"/.test(editor),
   )
 }
 
