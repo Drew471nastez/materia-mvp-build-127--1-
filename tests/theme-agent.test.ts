@@ -1817,6 +1817,27 @@ section("There is one script to run, and it survives being run twice")
  * not two. The RLS policy was then driven with two creators — each sees only
  * their own conversation, naming somebody else's install id returns nothing,
  * and writing into it is refused by the policy.
+ *
+ * ---------------------------------------------------------------------------
+ *  TWO THINGS THE FIRST VERSION GOT WRONG, ON A REAL DATABASE
+ * ---------------------------------------------------------------------------
+ * It hard-coded the products vocabulary as ('draft','published','unpublished')
+ * and a live catalogue had other statuses in it, so:
+ *
+ *   ERROR: 23514: check constraint "products_status_check" of relation
+ *   "products" is violated by some row
+ *
+ * The fixture here had only the three values, so the test passed and the
+ * database did not. The constraint is now BUILT FROM the statuses actually
+ * present, unioned with the three the code needs — no row is rewritten.
+ *
+ * And worse than the error: the SQL editor runs a script as ONE TRANSACTION,
+ * so that failure rolled back everything behind it. Nothing was created at
+ * all — including the theme-chat table the whole script exists for. Every part
+ * now has its own exception block. Break-tested with a products.status of type
+ * integer, where the check cannot be built at any vocabulary: part 2b reported
+ * "did not apply: invalid input syntax for type integer" and theme_chat_
+ * messages, site_agent_questions and admin_moderation_log all still landed.
  */
 {
   const script = readFileSync(join(root, "sql/RUN_THIS_ALL_PENDING.sql"), "utf8")
@@ -1824,7 +1845,7 @@ section("There is one script to run, and it survives being run twice")
   for (const [name, needle] of [
     ["sites.document", "add column if not exists document jsonb"],
     ["creator bans", "add column if not exists banned_at"],
-    ["the products status a ban writes", "check (status in ('draft', 'published', 'unpublished'))"],
+    ["the products status a ban writes", "'draft', 'published', 'unpublished'"],
     ["chat questions", "add column if not exists questions jsonb"],
     ["agent questions", "create table if not exists public.site_agent_questions"],
     ["the theme conversation", "create table if not exists public.theme_chat_messages"],
@@ -1840,6 +1861,36 @@ section("There is one script to run, and it survives being run twice")
   check(
     "and every part checks its table exists rather than aborting the script",
     (script.match(/to_regclass\(/g) ?? []).length >= 6,
+  )
+
+  /**
+   * The products vocabulary is READ, not asserted. Hard-coding it is what
+   * failed on a real catalogue, and hard-coding a longer guess would only move
+   * the failure.
+   */
+  check(
+    "the products constraint is built from the statuses already in the table",
+    script.includes("select coalesce(array_agg(distinct status), '{}')") &&
+      script.includes("execute format(") &&
+      !/check \(status in \('draft', 'published', 'unpublished'\)\)/.test(script),
+  )
+  check(
+    "and it says which values it kept, rather than changing them quietly",
+    script.includes("raise notice 'products.status now allows: %', quoted"),
+  )
+
+  /**
+   * The SQL editor runs the whole script as one transaction. Without a handler
+   * per part, the first failure takes every part behind it with it — which is
+   * how a run produced no theme-chat table and no error anybody could act on.
+   */
+  check(
+    "one part failing cannot roll back the parts behind it",
+    (script.match(/exception when others then/g) ?? []).length >= 7,
+  )
+  check(
+    "and a part that could not apply says so",
+    (script.match(/raise notice '[^']*did not apply: %', sqlerrm/g) ?? []).length >= 6,
   )
   check(
     "it can be run twice",

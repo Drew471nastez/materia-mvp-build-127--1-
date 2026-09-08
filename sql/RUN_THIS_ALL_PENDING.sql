@@ -8,9 +8,16 @@
 --  so running it twice changes nothing the second time.
 --
 --  SAFE TO RUN EARLY. Each part checks that the table it extends is actually
---  there (`to_regclass`) and skips itself if not, rather than aborting the
---  script and leaving half of it applied. A deployment missing the Sites
---  feature gets the theme-chat table and skips the rest.
+--  there (`to_regclass`) and skips itself if not. A deployment missing the
+--  Sites feature gets the theme-chat table and skips the rest.
+--
+--  ONE PART CANNOT TAKE THE OTHERS DOWN. The SQL editor runs a whole script as
+--  a SINGLE TRANSACTION, so the first version of this file — which failed on
+--  the products constraint — rolled back everything behind it and created
+--  nothing at all, including the theme-chat table that is the whole point.
+--  Every part now runs inside its own exception block: a part that cannot
+--  apply says so with `notice` and undoes only itself, and the summary at the
+--  bottom tells you exactly what landed.
 --
 --  It contains five things:
 --    1. sites.document          — the canonical page/section/theme state
@@ -55,6 +62,8 @@ begin
 
   comment on column public.sites.document is
     'Canonical page/section/theme state. The source; site_files rows are rendered from it.';
+exception when others then
+  raise notice 'part 1 did not apply: %', sqlerrm;
 end $$;
 
 
@@ -84,6 +93,8 @@ begin
 
   comment on column public.creators.banned_at is
     'When an operator banned this creator. Null means active. Their products are set to unpublished at the same moment.';
+exception when others then
+  raise notice 'part 2 did not apply: %', sqlerrm;
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -92,26 +103,31 @@ end $$;
 -- Deletion cascades into auth.users and cannot be undone, so the one thing
 -- that must survive it is the record that it happened. Without this, "where
 -- did that account go" has no answer at all.
-create table if not exists public.admin_moderation_log (
-  id uuid primary key default gen_random_uuid(),
-  action text not null check (action in ('ban', 'unban', 'delete')),
-  creator_id uuid,
-  user_id uuid,
-  username text,
-  reason text,
-  -- Counts at the moment of the action: what was actually destroyed.
-  products_affected int default 0,
-  created_at timestamptz not null default now()
-);
-
-create index if not exists admin_moderation_log_created_idx
-  on public.admin_moderation_log (created_at desc);
-
-alter table public.admin_moderation_log enable row level security;
-
+--
 -- No policy: the service role writes it, and nothing else may read it. An
 -- audit log a user can read is an audit log that tells somebody they were
 -- reported.
+do $$
+begin
+  create table if not exists public.admin_moderation_log (
+    id uuid primary key default gen_random_uuid(),
+    action text not null check (action in ('ban', 'unban', 'delete')),
+    creator_id uuid,
+    user_id uuid,
+    username text,
+    reason text,
+    -- Counts at the moment of the action: what was actually destroyed.
+    products_affected int default 0,
+    created_at timestamptz not null default now()
+  );
+
+  create index if not exists admin_moderation_log_created_idx
+    on public.admin_moderation_log (created_at desc);
+
+  alter table public.admin_moderation_log enable row level security;
+exception when others then
+  raise notice 'the moderation log did not apply: %', sqlerrm;
+end $$;
 
 -- ---------------------------------------------------------------------------
 --  MAKING 'unpublished' LEGAL ON PRODUCTS
@@ -126,18 +142,53 @@ alter table public.admin_moderation_log enable row level security;
 --
 -- Without this, the ban's `update products set status = 'unpublished'` is a
 -- 23514 check violation. postgrest-js does not throw on that, so the ban would
--- have reported success while every product stayed published and buyable — the
--- storefront closed and the shelves still full.
+-- have reported success while every product stayed published and buyable.
 --
--- 'draft' would have avoided the migration, but it conflates "an operator took
--- this down" with "the creator has not finished it yet", and unbanning could
--- never tell them apart.
+-- ---------------------------------------------------------------------------
+--  THE CONSTRAINT IS BUILT FROM WHAT IS ACTUALLY IN THE TABLE
+-- ---------------------------------------------------------------------------
+-- The first version of this hard-coded ('draft', 'published', 'unpublished')
+-- and failed on a real database with:
+--
+--   ERROR: 23514: check constraint "products_status_check" of relation
+--   "products" is violated by some row
+--
+-- because a live store has statuses this project has used at some point and
+-- this file did not know about. Guessing the list again would just move the
+-- failure.
+--
+-- So it READS the distinct statuses already present, adds the three the code
+-- needs, and builds the check from the union. Nothing is normalised, nothing
+-- is rewritten, no row is touched — the values somebody's catalogue actually
+-- carries are values that stay legal. It still refuses a typo that is in
+-- neither set, which is the point of having the constraint at all.
+--
+-- NULL is deliberately not in the list: `status in (...)` yields NULL for a
+-- NULL status, and a CHECK passes on NULL. Rows with no status stay legal
+-- without the constraint having to mention them.
 do $$
+declare
+  present text[];
+  allowed text[];
+  quoted  text;
 begin
   if to_regclass('public.products') is null then
     raise notice 'skipping 2b: public.products does not exist here';
     return;
   end if;
+
+  select coalesce(array_agg(distinct status), '{}')
+    into present
+    from public.products
+   where status is not null;
+
+  select array_agg(v order by v)
+    into allowed
+    from (
+      select distinct unnest(present || array['draft', 'published', 'unpublished']) as v
+    ) u;
+
+  select string_agg(quote_literal(v), ', ' order by v) into quoted from unnest(allowed) v;
 
   if exists (
     select 1 from pg_constraint
@@ -147,9 +198,14 @@ begin
     alter table public.products drop constraint products_status_check;
   end if;
 
-  alter table public.products
-    add constraint products_status_check
-    check (status in ('draft', 'published', 'unpublished'));
+  execute format(
+    'alter table public.products add constraint products_status_check check (status in (%s))',
+    quoted
+  );
+
+  raise notice 'products.status now allows: %', quoted;
+exception when others then
+  raise notice 'part 2b did not apply: %', sqlerrm;
 end $$;
 
 
@@ -176,6 +232,8 @@ begin
 
   comment on column public.site_chat_messages.questions is
     'What the agent asked the creator during this run: [{id, question, why, suggestions, placeholder}]. Empty when it asked nothing.';
+exception when others then
+  raise notice 'part 3 did not apply: %', sqlerrm;
 end $$;
 
 
@@ -222,6 +280,8 @@ begin
     on public.site_agent_questions (site_id, created_at desc);
 
   alter table public.site_agent_questions enable row level security;
+exception when others then
+  raise notice 'part 4 did not apply: %', sqlerrm;
 end $$;
 
 -- No policy, so only the service role reaches it. Both routes that touch this
@@ -271,6 +331,8 @@ begin
     on public.theme_chat_messages (install_id, created_at);
 
   alter table public.theme_chat_messages enable row level security;
+exception when others then
+  raise notice 'part 5 did not apply: %', sqlerrm;
 end $$;
 
 -- Readable by the creator who owns the theme, through the same ownership path
@@ -296,6 +358,8 @@ begin
   ) then
     execute format('create policy tcm_own on public.theme_chat_messages using (%s) with check (%s)', owned, owned);
   end if;
+exception when others then
+  raise notice 'the theme-chat policy did not apply: %', sqlerrm;
 end $$;
 
 
