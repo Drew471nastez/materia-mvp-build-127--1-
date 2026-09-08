@@ -543,6 +543,12 @@ function FieldEditor({
 
 
 // ── Section Preview — renders the real section scaled down ───
+/**
+ * Long enough that a drag or a burst of typing settles into one write, short
+ * enough that closing the tab a second later has already saved.
+ */
+const AUTOSAVE_DELAY_MS = 1_500
+
 const PREVIEW_RENDER_WIDTH = 800
 const PREVIEW_THEME: ThemeSettingsValues = {
   primary_color: "#6366f1",
@@ -3409,6 +3415,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
+
+  /**
+   * THE DRAFT IS AHEAD OF WHAT IS LIVE.
+   *
+   * `isDirty` used to serve both questions — "is there anything unsaved" and
+   * "is the live site behind" — and one flag could, right up until autosave.
+   * With autosave writing drafts every couple of seconds, `isDirty` is false
+   * almost always, and a button reading its value would have said "Saved" on a
+   * published theme whose visitors were still seeing last week's page. Somebody
+   * would believe they had published when they had not.
+   *
+   * So: `isDirty` means "not written to the draft yet" and is cleared by
+   * autosave. This means "the draft has changes the public site has not seen"
+   * and is cleared only by publishing.
+   *
+   * Seeded from the server's own answer — `has_draft` is `draft_sections IS NOT
+   * NULL`, and publishing nulls it — so it survives a reload rather than
+   * resetting to a comfortable false.
+   */
+  const [unpublished, setUnpublished] = useState(false)
   const [expandedSettings, setExpandedSettings] = useState<string | null>(null)
   const [editSchemeKey, setEditSchemeKey] = useState<ColorSchemeKey | null>(null)
   const [addSectionOpen, setAddSectionOpen] = useState(false)
@@ -3636,6 +3662,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=${page}`)
     if (!res.ok) return []
     const data = await res.json()
+    // The server's own answer to "is the draft ahead of live". See `unpublished`.
+    if (data.has_draft) setUnpublished(true)
     let loaded: SectionInstance[] = data.sections ?? []
 
     // `_product_data` is a runtime-only injection used by the preview; it
@@ -4337,6 +4365,46 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => window.removeEventListener("keydown", handler)
   }, [handleUndo, handleRedo])
 
+  /**
+   * Every change puts the draft ahead of the public site.
+   *
+   * Derived from `isDirty` going true rather than added to the twelve handlers
+   * that set it — twelve call sites is twelve chances for the next one to
+   * forget, and forgetting here means a creator is told they have published
+   * when they have not.
+   */
+  useEffect(() => {
+    if (isDirty) setUnpublished(true)
+  }, [isDirty])
+
+  /**
+   * ===========================================================================
+   *  AUTOSAVE — THE DRAFT ONLY, NEVER THE LIVE SITE
+   * ===========================================================================
+   * `handleSave` PUBLISHES when the theme is live. Autosave calling it would
+   * push every keystroke to the public site: a half-written headline visible to
+   * customers, and no way to work on something without shipping it. So this
+   * calls `saveDraft` directly and publishing stays a decision somebody makes.
+   *
+   * Debounced rather than run on every change. A drag produces a change per
+   * frame, and a request per frame would be a request storm that arrives out of
+   * order — the last one to land wins, and that is not necessarily the last one
+   * sent.
+   *
+   * Not while a save is already going, and not while the AI is mid-run: both
+   * would write a state nobody has finished producing.
+   */
+  useEffect(() => {
+    if (!isDirty || saving || publishing || loading) return
+    const timer = setTimeout(() => {
+      void saveDraft({ quiet: true })
+    }, AUTOSAVE_DELAY_MS)
+    return () => clearTimeout(timer)
+    // `saveDraft` is redefined on every render and is not a dependency worth
+    // tracking: what should restart the timer is a CHANGE, not a re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDirty, saving, publishing, loading, sections, settingsDraft])
+
   // Save header/footer to all pages so they stay universal
   const syncHeaderFooterToAllPages = async (mode: "draft" | "publish" = "draft") => {
     const header = sections.find(s => s.type === "header")
@@ -4370,7 +4438,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return { ...sec, settings: rest }
     })
 
-  const saveDraft = async () => {
+  const saveDraft = async (options: { quiet?: boolean } = {}) => {
     try {
       const settingsRes = await fetch(`/api/website-builder/themes/${installId}/settings`, {
         method: "PUT",
@@ -4390,6 +4458,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       })
       if (!sectionsRes.ok) {
         const d = await sectionsRes.json().catch(() => ({}))
+        // A FAILED autosave is not quiet. Silence here is how somebody keeps
+        // working for an hour against a server that stopped accepting writes.
         showNotification(d.error ?? "Failed to save sections", "error")
         return
       }
@@ -4398,7 +4468,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       await syncHeaderFooterToAllPages("draft")
 
       setIsDirty(false)
-      showNotification("Changes saved successfully")
+      /**
+       * Autosave says nothing. A toast every couple of seconds is noise that
+       * trains somebody to ignore the one that matters — the bar already shows
+       * the state.
+       */
+      if (!options.quiet) showNotification("Changes saved successfully")
     } catch {
       showNotification("Failed to save", "error")
     }
@@ -4456,6 +4531,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
 
       setIsDirty(false)
+      setUnpublished(false)
       setHasPublished(true)
       showNotification("Changes saved and published")
     } catch {
@@ -5283,8 +5359,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               },
             ]}
           />
-          {isDirty && (
-            <span className="text-xs text-amber-600 hidden md:inline ml-2">Unsaved changes</span>
+          {/* Autosave means "unsaved" is rarely true and rarely interesting.
+              What somebody needs to know on a live theme is that the public
+              site is behind — which is a different fact and outlives a save. */}
+          {(install?.status === "published" ? unpublished : isDirty) && (
+            <span className="text-xs text-muted-foreground hidden md:inline ml-2">
+              {install?.status === "published" ? "Not published yet" : "Unsaved changes"}
+            </span>
           )}
         </div>
         </div>
@@ -5459,31 +5540,45 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           {/* Undo / Redo — hidden on mobile (both actions live in the
               three-dots sheet on mobile so the topbar has room for Save). */}
           
-          {/* Save button — publishes automatically if theme is live */}
-          <Button
-            size="sm"
-            className={cn(
-              "h-8 cursor-pointer min-w-[76px] rounded-lg transition-all duration-200 text-white",
-              saving
-                ? "bg-neutral-900 hover:bg-neutral-900"
-                : isDirty
-                  ? "bg-neutral-900 hover:bg-black"
-                  : "bg-neutral-900/40 hover:bg-neutral-900/40 cursor-default"
-            )}
-            onClick={handleSave}
-            disabled={saving || !isDirty}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
-                <span>Saving...</span>
-              </>
-            ) : isDirty ? (
-              <span>Save</span>
-            ) : (
-              <span>Saved</span>
-            )}
-          </Button>
+          {/* The button says what is actually true.
+              On a LIVE theme it is Publish: the draft is saved automatically,
+              so "Save" would be a button for something that has already
+              happened, and greying it out would say "Saved" over a public site
+              that is still showing last week's page. It is enabled exactly
+              when the draft is ahead of what visitors see.
+              On a theme that is not live there is nothing to publish TO, so it
+              stays Save and follows `isDirty`. */}
+          {(() => {
+            const live = install?.status === "published"
+            const pending = live ? unpublished : isDirty
+            const busyNow = saving || publishing
+            return (
+              <Button
+                size="sm"
+                className={cn(
+                  "h-8 cursor-pointer min-w-[86px] rounded-lg transition-all duration-200 text-white",
+                  busyNow
+                    ? "bg-neutral-900 hover:bg-neutral-900"
+                    : pending
+                      ? "bg-neutral-900 hover:bg-black"
+                      : "bg-neutral-900/40 hover:bg-neutral-900/40 cursor-default",
+                )}
+                onClick={handleSave}
+                disabled={busyNow || !pending}
+              >
+                {busyNow ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                    <span>{live ? "Publishing" : "Saving"}</span>
+                  </>
+                ) : pending ? (
+                  <span>{live ? "Publish" : "Save"}</span>
+                ) : (
+                  <span>{live ? "Published" : "Saved"}</span>
+                )}
+              </Button>
+            )
+          })()}
         </div>
       </header>
 
