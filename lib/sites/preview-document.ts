@@ -234,6 +234,51 @@ const RUNTIME_BRIDGE = `
  * and reports back. It carries no project data at all — a build arrives by
  * message from the editor — so the route needs no session and can be cached.
  */
+/**
+ * THE WHITE STRIP AT THE TOP OR BOTTOM OF A SITE.
+ *
+ * Two causes, both of them the browser doing exactly what it is told, and
+ * both invisible to anything that only checks whether the code compiles.
+ *
+ *  1. `body` has an 8px margin by default. A site whose stylesheet forgets to
+ *     reset it gets a white frame on all four edges — most obvious at the top,
+ *     where it reads as a stray line above the page.
+ *
+ *  2. MARGIN COLLAPSE. A first child with a top margin — an <h1>, a <p>, any
+ *     default — pushes the whole page down rather than moving inside its
+ *     parent, unless something in between establishes a block formatting
+ *     context. The gap it leaves shows the canvas, which is white. This is the
+ *     one that survives a stylesheet with margin:0 on body and looks like a
+ *     bug in the site rather than in the CSS.
+ *
+ * And `min-height` on the body is the third: a page shorter than the window
+ * leaves the rest of the viewport painted with the canvas colour, which on a
+ * dark site is a white band under the footer.
+ *
+ * FIRST, so a site can still override any of it. The old version put this
+ * AFTER the project's stylesheet, which meant a fixed `height: 100%` won over
+ * whatever the site asked for — a reset that overrules the thing it is meant
+ * to be resetting for.
+ */
+const BASE_RESET = `<style>
+  html, body { margin: 0; padding: 0; }
+  body { min-height: 100vh; min-height: 100dvh; }
+  /* Stops a first child's top margin escaping the page and showing canvas. */
+  #root { display: flow-root; min-height: inherit; }
+  /*
+   * AND STOPS IT ESCAPING EACH SECTION, which is the case that survived the
+   * rule above. Measured on a hero with a background whose first child is an
+   * <h1>: the h1's default 0.67em margin collapses out of the section, so the
+   * section starts 21px lower and the page background shows in the gap. That
+   * is the strip people see above a hero.
+   *
+   * :where() so the whole selector weighs nothing — a section the site styles
+   * as flex or grid keeps its own display, because a reset must lose every
+   * argument it has with the project.
+   */
+  :where(#root) > * { display: flow-root; }
+</style>`
+
 export function previewShell(): string {
   return `<!doctype html>
 <html lang="en">
@@ -242,8 +287,8 @@ export function previewShell(): string {
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script type="importmap">${JSON.stringify(IMPORT_MAP)}</script>
 ${RUNTIME_BRIDGE}
+${BASE_RESET}
 <style id="storelib-css"></style>
-<style>html,body{height:100%;margin:0}</style>
 </head>
 <body></body>
 </html>`
@@ -386,6 +431,7 @@ export function publishedDocument({
 ${description ? `<meta name="description" content="${escapeAttribute(description)}" />\n` : ""}<meta property="og:title" content="${escapeAttribute(declaredTitle || "Site")}" />
 ${description ? `<meta property="og:description" content="${escapeAttribute(description)}" />\n` : ""}<meta name="twitter:card" content="summary_large_image" />
 <script type="importmap">${JSON.stringify(importMap)}</script>
+${BASE_RESET}
 ${css ? `<link rel="stylesheet" href="./app.css${assetVersion}" />` : ""}
 <script type="module" src="./app.js${assetVersion}"></script>
 </head>

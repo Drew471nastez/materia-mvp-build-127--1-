@@ -5570,6 +5570,107 @@ check(
   })(),
 )
 
+// ===========================================================================
+section("No white strip above the header or below the footer")
+// ===========================================================================
+
+/**
+ * THREE CAUSES, ALL OF THEM THE BROWSER DOING AS IT IS TOLD, none of them
+ * visible to a check that only asks whether the code compiles.
+ *
+ *   1. `body` has an 8px margin by default — a white frame on all four edges.
+ *   2. MARGIN COLLAPSE. A first child's top margin escapes its parent rather
+ *      than moving inside it, so a hero with a background starts lower than
+ *      its box and the page shows through the gap. This one survives a
+ *      stylesheet that resets body, and looks like a bug in the site.
+ *   3. A page shorter than the window leaves the rest painted with the canvas
+ *      colour — a white band under the footer on a dark site.
+ *
+ * Measured in Chromium on a deliberately badly-built site: a hero with a
+ * background whose first child is an <h1>, no body reset, content far shorter
+ * than the viewport.
+ *
+ *   without the reset   margin-top=8px   strip above hero=21px   below=490px
+ *   with the reset      margin-top=0px   strip above hero= 0px   below=  0px
+ *
+ * The 21px is the h1's own 0.67em, and it was still there after the first
+ * attempt — which only stopped margins escaping the ROOT, not each section.
+ */
+
+check(
+  "the reset lands before the project's stylesheet, never after it",
+  (() => {
+    const doc = read("lib/sites/preview-document.ts")
+    const shell = previewShell()
+    /**
+     * Order is the whole point. The first version put this AFTER the project's
+     * CSS, so a fixed `height: 100%` won over whatever the site asked for — a
+     * reset that overrules the thing it is meant to be resetting for.
+     */
+    return (
+      doc.includes("const BASE_RESET") &&
+      shell.indexOf("html, body { margin: 0") < shell.indexOf('id="storelib-css"')
+    )
+  })(),
+)
+
+check(
+  "a published site gets the same reset as the preview",
+  (() => {
+    const published = previewDocument({ code: "", css: "", html: "<body><div id='root'></div></body>" })
+    const doc = strip(read("lib/sites/preview-document.ts"))
+    // The preview shell and publishedDocument both interpolate the one reset.
+    return (published.length > 0) && (doc.match(/\$\{BASE_RESET\}/g) ?? []).length === 2
+  })(),
+)
+
+check(
+  "margins cannot escape the page, or a section",
+  (() => {
+    const shell = previewShell()
+    return (
+      /#root \{ display: flow-root/.test(shell) &&
+      // the case that survived the first attempt: escaping a SECTION, not the root
+      /:where\(#root\) > \* \{ display: flow-root; \}/.test(shell)
+    )
+  })(),
+)
+
+check(
+  "the reset loses every argument it has with the project",
+  (() => {
+    const shell = previewShell()
+    /**
+     * `:where()` weighs nothing, so a section the site styles as flex or grid
+     * keeps its own display. Verified in the browser: a .flexy section stayed
+     * `display: flex` with the reset applied. A plain `#root > *` selector
+     * would have outweighed the class and silently flattened it.
+     */
+    return /:where\(#root\)/.test(shell) && !/[^:]\bwhere\b/.test(shell.replace(/:where/g, ""))
+  })(),
+)
+
+check(
+  "a page shorter than the window still paints to the bottom",
+  (() => {
+    const shell = previewShell()
+    return /min-height: 100vh; min-height: 100dvh;/.test(shell)
+  })(),
+)
+
+check(
+  "and the agent is told the page must reach all four edges",
+  (() => {
+    const loop = read("lib/sites/agent/loop.ts")
+    const at = loop.indexOf("export const SYSTEM_PROMPT")
+    const prompt = loop.slice(at, loop.indexOf("PRESERVATION_RULES", at))
+    return (
+      /MUST REACH ALL FOUR EDGES/.test(prompt) &&
+      /first child's top margin escapes its parent/.test(prompt)
+    )
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")
