@@ -24,7 +24,7 @@
  */
 
 import * as React from "react"
-import { ArrowUp, Check, Loader2, RotateCcw, Square, TriangleAlert, X } from "lucide-react"
+import { ArrowUp, Check, Loader2, Lock, RotateCcw, Square, TriangleAlert, X } from "lucide-react"
 
 import { StorelibMark } from "@/components/storelib-mark"
 import { cn } from "@/lib/utils"
@@ -100,6 +100,18 @@ export function ThemeChat({
    * instant the run ends.
    */
   const [queued, setQueued] = React.useState<string | null>(null)
+  /**
+   * ONLY THE OPEN SECTION MAY CHANGE.
+   *
+   * On by default whenever a section is selected, because that is what
+   * selecting one means: asking for "a bit more space" on a FAQ and getting a
+   * reworded hero back is an edit you have to check the whole page to trust.
+   *
+   * A toggle rather than a rule, and shown as a chip, so the scope of the edit
+   * is something the creator sets and can SEE — not something inferred from
+   * how they happened to phrase the sentence.
+   */
+  const [lockOn, setLockOn] = React.useState(true)
   const abortRef = React.useRef<AbortController | null>(null)
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const fieldRef = React.useRef<HTMLTextAreaElement>(null)
@@ -112,8 +124,23 @@ export function ThemeChat({
    * model plans against a page that no longer exists and addresses sections by
    * ids that have moved.
    */
-  const live = React.useRef({ sections, settings, page, selectedSectionId })
-  live.current = { sections, settings, page, selectedSectionId }
+  const selectedSection = React.useMemo(
+    () => (selectedSectionId ? sections.find((s) => s.id === selectedSectionId) : undefined),
+    [sections, selectedSectionId],
+  )
+  const locked = !!selectedSection && lockOn
+
+  /**
+   * A NEW SELECTION IS A FRESH INTENT. Clearing the lock to add a section, then
+   * clicking a different section, should not leave the next edit quietly
+   * unscoped — the chip would say one thing and the last click meant another.
+   */
+  React.useEffect(() => {
+    setLockOn(true)
+  }, [selectedSectionId])
+
+  const live = React.useRef({ sections, settings, page, selectedSectionId, locked })
+  live.current = { sections, settings, page, selectedSectionId, locked }
 
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
@@ -226,6 +253,7 @@ export function ThemeChat({
             sections: live.current.sections,
             settings: live.current.settings,
             selectedSectionId: live.current.selectedSectionId,
+            lockToSelection: live.current.locked,
           }),
         })
 
@@ -497,6 +525,45 @@ export function ThemeChat({
       </div>
 
       <div className="shrink-0 border-t border-border p-2.5">
+        {/*
+          THE SCOPE OF THE EDIT, WHERE YOU ARE ABOUT TO TYPE IT.
+          Not buried in a menu and not implied by the sentence: the chip says
+          what will change before you ask for it, and one click changes the
+          answer.
+        */}
+        {selectedSection && (
+          <div className="mb-2 flex items-center gap-1.5 px-0.5">
+            {locked ? (
+              <>
+                <span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border border-foreground/15 bg-muted/60 py-1 pl-2 pr-1 text-[11.5px] text-foreground">
+                  <Lock className="h-3 w-3 shrink-0 opacity-60" strokeWidth={2} />
+                  <span className="truncate">Only {selectedSection.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setLockOn(false)}
+                    aria-label={`Stop limiting edits to ${selectedSection.name}`}
+                    title="Edit the whole page instead"
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" strokeWidth={2.25} />
+                  </button>
+                </span>
+                <span className="truncate text-[11px] text-muted-foreground/70">
+                  nothing else will change
+                </span>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setLockOn(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11.5px] text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
+              >
+                <Lock className="h-3 w-3 opacity-60" strokeWidth={2} />
+                Editing the whole page — limit to {selectedSection.name}
+              </button>
+            )}
+          </div>
+        )}
         <div className="rounded-xl border border-border bg-background focus-within:border-foreground/30">
           {/*
             NOT `disabled` while a run is going. Waiting for a spinner before

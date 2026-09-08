@@ -60,11 +60,18 @@ import type {
 import { addUsage, ZERO_USAGE } from "@/lib/sites/agent/types"
 
 /**
- * Ten. A theme edit is a handful of operations and a sentence, not an
- * investigation: there is no build to fix and no test to re-run, so a model
- * still going at eleven is looping rather than working.
+ * A theme edit is a handful of operations and a sentence, not an
+ * investigation: there is no build to fix and no test to re-run.
+ *
+ * Sixteen, not ten. Ten was set before the block tools and before sections
+ * were described control by control, and "build out this page properly" is now
+ * genuinely a dozen calls: read the type, add it, set its controls, write four
+ * blocks. Running out mid-edit is not a disaster any more — see the end of the
+ * loop, where a run that ran out of room reports the work it did rather than
+ * calling itself a failure — but it used to be, and the ceiling should not be
+ * the thing shaping the work.
  */
-export const MAX_TURNS = 10
+export const MAX_TURNS = 16
 
 /** Input plus output for the whole run. A ceiling, not a target. */
 export const MAX_TOKENS = 300_000
@@ -306,6 +313,23 @@ function toolSpecs(addable: string[]): ToolSpec<string>[] {
   ]
 }
 
+/**
+ * The closing sentence, from the work rather than from the model.
+ *
+ * Used when a run does real work and then runs out of room before writing one.
+ * Deliberately plain: it lists what happened, because that is all it knows —
+ * the model's own sentence is better when there is one, and this is what makes
+ * its absence stop mattering.
+ */
+function summarise(done: string[]): string {
+  if (done.length === 0) return ""
+  const unique = [...new Set(done)]
+  if (unique.length === 1) return `${unique[0]}.`
+  if (unique.length === 2) return `${unique[0]} and ${unique[1].toLowerCase()}.`
+  const last = unique[unique.length - 1].toLowerCase()
+  return `${unique.slice(0, -1).join(", ")} and ${last}.`
+}
+
 /** A short line for the chat: "Added a pricing section", not "add_section". */
 function labelFor(op: ThemeOp, state: ThemeState): string {
   const nameOf = (id: string) => {
@@ -358,6 +382,26 @@ export interface ThemeAgentInput {
    */
   selectedSectionId?: string
   /**
+   * ONLY THIS SECTION MAY CHANGE.
+   *
+   * Selecting a section and asking for "a bit more space" should not come back
+   * with a reworded hero and a new palette. The model was TOLD which section
+   * was open and left free to touch anything, so sometimes it did — and an
+   * edit that changes more than you asked for is one you have to inspect the
+   * whole page to trust.
+   *
+   * With this set, every write is checked against the open section: its
+   * settings, its blocks, its name. Anything else is refused with an
+   * explanation the model can pass on, so the answer is "the FAQ is the only
+   * thing open — clear the lock and I'll add a section" rather than a surprise
+   * somewhere else on the page.
+   *
+   * Reads are NOT restricted. Looking at the header to match its type scale
+   * changes nothing, and a model that cannot look produces a section that
+   * matches nothing.
+   */
+  lockToSelection?: boolean
+  /**
    * Reads what the store sells. Injected for the same reason everything else
    * is: the loop has no database, and a test needs a store it can write.
    * Absent means the agent is told it cannot see the catalogue rather than
@@ -376,6 +420,8 @@ export async function* themeAgent(
   input: ThemeAgentInput,
 ): AsyncGenerator<ThemeAgentEvent, ThemeAgentResult> {
   const { provider, model, prompt, page, addable, signal } = input
+  /** Only meaningful with a section actually selected. */
+  const locked = input.lockToSelection ? input.selectedSectionId : undefined
   const maxTurns = input.maxTurns ?? MAX_TURNS
   const newId = input.newId ?? ((type: string) => `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`)
 
@@ -384,7 +430,15 @@ export async function* themeAgent(
   let usage: TokenUsage = ZERO_USAGE
   let message = ""
   let status: ThemeAgentResult["status"] = "failed"
+  /**
+   * The value nobody should ever read. Every exit below sets its own, and the
+   * block at the end of this function turns "ran out of room having done real
+   * work" into a success. It stays only as the answer to "the loop body never
+   * ran at all", which is a bug rather than an outcome.
+   */
   let error: string | null = "The edit did not finish."
+  /** What was done, in the creator's words, for the summary at the end. */
+  const done: string[] = []
 
   /**
    * The selected section is sent IN FULL up front — settings and blocks —
@@ -405,9 +459,11 @@ export async function* themeAgent(
       content: [
         describeTheme(state, page),
         `THEME SETTINGS\n${JSON.stringify(state.settings, null, 2).slice(0, 3_000)}`,
-        selected
-          ? `THE CREATOR HAS THIS SECTION SELECTED AND OPEN. "this section", "this", "it" and "here" all mean THIS one unless they clearly name another.\n\n${describeSection(selected)}`
-          : "",
+        selected && locked
+          ? `THE CREATOR HAS THIS SECTION OPEN AND LOCKED. It is the ONLY thing you may change — its settings, its blocks, its name. You may READ anything else on the page to match it, but every write to another section, and every change to the theme, will be refused. If what they asked for genuinely needs more than this section, do what you can here and say plainly what the rest would take.\n\n${describeSection(selected)}`
+          : selected
+            ? `THE CREATOR HAS THIS SECTION SELECTED AND OPEN. "this section", "this", "it" and "here" all mean THIS one unless they clearly name another.\n\n${describeSection(selected)}`
+            : "",
         `REQUEST\n${prompt}`,
       ]
         .filter(Boolean)
@@ -474,7 +530,7 @@ export async function* themeAgent(
           continue
         }
 
-        const { output, op } = execute(call.name, call.argumentsJson, state, newId)
+        const { output, op } = execute(call.name, call.argumentsJson, state, newId, locked)
         if (op) {
           /**
            * Labelled against the state BEFORE the operation, so "Removed FAQ"
@@ -483,6 +539,7 @@ export async function* themeAgent(
           const label = labelFor(op, state)
           state = applyOp(state, op)
           ops.push(op)
+          done.push(label)
           yield { type: "op", op, label }
         }
         results.push({ id: call.id, output })
@@ -500,13 +557,52 @@ export async function* themeAgent(
   }
 
   /**
-   * A run that changed nothing and said nothing did not do the thing that was
-   * asked, whatever the model believes. Reported as a failure so the editor
-   * says so rather than showing an empty success.
+   * =========================================================================
+   *  RUNNING OUT OF ROOM IS NOT FAILING
+   * =========================================================================
+   * This is where "The edit did not finish." came from, and it was wrong every
+   * time somebody saw it.
+   *
+   * The loop ends for three reasons that are not the model saying it is done:
+   * the turn ceiling, the token budget, and an abort. In the first two the
+   * page has usually ALREADY CHANGED — the operations were applied and
+   * streamed to the browser as they happened, so the creator watched their
+   * page get better and was then told the edit failed. Nothing had failed. The
+   * model simply had not got round to writing its closing sentence.
+   *
+   * So: work done is a finished edit. What is missing is the sentence, and a
+   * sentence can be written from the operations, which is what `done` is for.
+   *
+   * A run with NO operations is the only real failure, and it says what
+   * happened rather than that something vague did not finish.
    */
-  if (status === "succeeded" && ops.length === 0 && !message) {
-    status = "failed"
-    error = "Nothing was changed."
+  if (status !== "refused") {
+    if (ops.length > 0) {
+      // Work was done. Whatever stopped the loop, this edit happened.
+      status = "succeeded"
+      error = null
+      if (!message) message = summarise(done)
+    } else if (message) {
+      // It answered without changing anything, which is a real outcome:
+      // "your FAQ already covers that" is a useful reply, not a failure.
+      status = "succeeded"
+      error = null
+    } else if (error === null || error === "The edit did not finish.") {
+      /**
+       * Nothing changed, nothing said, and no specific reason — either the
+       * model replied with an empty string (`error` already cleared to null on
+       * that path) or the loop simply ran out.
+       *
+       * An empty success is worse than a failure: it tells somebody their
+       * change was made when it was not. And "did not finish" describes the
+       * machinery rather than the situation, leaving them nothing to do about
+       * it. Any OTHER error at this point is specific — cancelled, the token
+       * budget, something the provider said — and is kept as it is.
+       */
+      status = "failed"
+      error =
+        "I could not work out a change to make for that. Say which section, or what you want it to look like."
+    }
   }
 
   return { status, message, error, usage, ops }
@@ -525,6 +621,8 @@ function execute(
   argumentsJson: string,
   state: ThemeState,
   newId: (type: string) => string,
+  /** When set, the only section any operation may touch. */
+  locked?: string,
 ): { output: string; op?: ThemeOp } {
   let args: Record<string, unknown>
   try {
@@ -535,6 +633,46 @@ function execute(
 
   const id = typeof args.id === "string" ? args.id : ""
   const found = state.sections.find((s) => s.id === id)
+
+  /**
+   * =========================================================================
+   *  THE LOCK, ENFORCED HERE RATHER THAN ASKED FOR IN THE PROMPT
+   * =========================================================================
+   * A rule in the system prompt is a request. This is the check, and it is at
+   * the one place every operation passes through, so there is no tool that can
+   * be added later and quietly not be covered — a write either names the open
+   * section or it does not happen.
+   *
+   * Reads are deliberately not listed: they change nothing, and a model that
+   * may not look at the header cannot match the header.
+   */
+  if (locked) {
+    const lockedSection = state.sections.find((s) => s.id === locked)
+    const lockedName = lockedSection
+      ? `${SECTION_SCHEMAS[lockedSection.type]?.name ?? lockedSection.type} [${locked}]`
+      : `[${locked}]`
+
+    const wholePage: Record<string, string> = {
+      add_section: "adding a section",
+      remove_section: "removing a section",
+      move_section: "moving a section",
+      update_theme: "changing the theme, which applies to every page",
+      set_section_visibility: "hiding or showing a section",
+    }
+    if (wholePage[name]) {
+      return {
+        output: `${lockedName} is the only thing open, so ${wholePage[name]} is not available in this edit. Do what you can inside ${lockedName}, and tell the creator in your reply that ${wholePage[name]} needs the lock cleared first.`,
+      }
+    }
+
+    const target =
+      typeof args.sectionId === "string" ? args.sectionId : name === "read_section" ? "" : id
+    if (target && target !== locked) {
+      return {
+        output: `${lockedName} is the only section you may change in this edit. Nothing was changed. Use read_section if you need to look at another one.`,
+      }
+    }
+  }
 
   switch (name) {
     case "read_section": {

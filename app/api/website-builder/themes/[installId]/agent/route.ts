@@ -56,6 +56,13 @@ const BodySchema = z.object({
   settings: z.record(z.unknown()),
   /** Which section the creator has open, so "this section" resolves. */
   selectedSectionId: z.string().max(128).optional(),
+  /**
+   * Whether that section is the ONLY thing this edit may change. Sent by the
+   * panel, which shows it as a chip the creator can clear — so the scope of an
+   * edit is something they set and can see, not something inferred from how
+   * the sentence was phrased.
+   */
+  lockToSelection: z.boolean().optional(),
 })
 
 export async function POST(request: NextRequest, context: { params: Promise<{ installId: string }> }) {
@@ -148,6 +155,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           state: { sections: body.sections, settings: body.settings },
           addable: ADDABLE_SECTIONS,
           selectedSectionId: body.selectedSectionId,
+          lockToSelection: body.lockToSelection === true && !!body.selectedSectionId,
           /**
            * READ THROUGH THE USER'S OWN CLIENT, so RLS decides what the model
            * is shown. The service role would read every creator's catalogue
