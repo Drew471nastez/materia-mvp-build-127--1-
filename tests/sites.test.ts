@@ -41,6 +41,12 @@ import {
 import { isGenerated, renderDocument } from "@/lib/sites/document/render"
 import { SECTIONS, sectionSpec } from "@/lib/sites/document/sections"
 import {
+  answersPrompt,
+  askedNote,
+  MAX_QUESTIONS,
+  parseQuestions,
+} from "@/lib/sites/agent/questions"
+import {
   type CompletionState,
   MAX_REFUSALS,
   MIN_PAGES,
@@ -1309,6 +1315,14 @@ check(
       "delete_file", "update_manifest", "search_code", "find_usages",
       "replace_in_file", "set_plan", "complete_step", "run_build",
       "read_build_errors",
+      /**
+       * `ask_creator` earns its place the same way `update_manifest` does: it
+       * touches no file, opens no connection and runs nothing. It parses a few
+       * strings onto the workspace, which the loop turns into an event. The
+       * boundary this test guards — the agent cannot reach outside the project
+       * — is unchanged by it.
+       */
+      "ask_creator",
     ]
     const forbidden = ["run_sql", "install_package", "fetch_url", "exec", "bash", "http_request"]
 
@@ -5706,9 +5720,62 @@ check(
     return (
       /const \[showActivity, setShowActivity\] = React\.useState\(false\)/.test(body) &&
       /Activity \(\{exchange\.steps\.length\}\)/.test(body) &&
-      /showActivity && \(/.test(body) &&
+      /**
+       * It animates open now instead of mounting, so the old `showActivity &&`
+       * is gone — closed is a `grid-rows-[0fr]` row rather than an absent one.
+       * Asserting on the class is what keeps this honest: a panel that is
+       * merely transparent would still be reachable by tab and read aloud.
+       */
+      /showActivity \? "grid-rows-\[1fr\] opacity-100" : "grid-rows-\[0fr\] opacity-0"/.test(body) &&
       // and the main thread renders milestones, not filenames
       /milestones\.map\(\(milestone\)/.test(body)
+    )
+  })(),
+)
+
+check(
+  "the run is one card that can be shut, not loose lines in the flow",
+  (() => {
+    const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+    const at = pane.indexOf("export function RunProgress")
+    const body = pane.slice(at, pane.indexOf("export function QuestionCards"))
+    /**
+     * A long run used to push the conversation off the screen and there was no
+     * single thing to look at that said "this is happening now". The header
+     * stays when the body is shut, so a finished run becomes one line rather
+     * than disappearing.
+     */
+    return (
+      /const \[open, setOpen\] = React\.useState\(true\)/.test(body) &&
+      /aria-expanded=\{open\}/.test(body) &&
+      // and it animates by grid rows, because height cannot animate to auto
+      // and a measured pixel height goes stale every few seconds during a run
+      /open \? "grid-rows-\[1fr\] opacity-100" : "grid-rows-\[0fr\] opacity-0"/.test(body) &&
+      // the header names the state rather than always saying the same thing
+      /"Still working"/.test(body) &&
+      /"Working"/.test(body) &&
+      /"Stopped"/.test(body) &&
+      /"Done"/.test(body)
+    )
+  })(),
+)
+
+check(
+  "the agent's own words are shown, not dropped",
+  (() => {
+    const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+    /**
+     * `thinking` events were streamed and then thrown away, which is why the
+     * card had a state and a checklist and nothing that read like somebody
+     * talking. Only the LATEST line is shown — this is a running commentary,
+     * and stacking it turns the card into a wall.
+     */
+    return (
+      /event\.type === "thinking"/.test(pane) &&
+      /notes: \[\.\.\.e\.notes, text\]/.test(pane) &&
+      /exchange\.notes\[exchange\.notes\.length - 1\]/.test(pane) &&
+      // and the plan is announced above the steps, as its own moment
+      /Created plan/.test(pane)
     )
   })(),
 )
@@ -5724,10 +5791,167 @@ check(
      */
     return (
       /if \(!phase && !exchange\.plan\?\.length\) return \[\]/.test(pane) &&
-      /if \(milestones\.length === 0 && exchange\.steps\.length === 0\) return null/.test(pane)
+      // The card also has the agent's own commentary now, and a run that said
+      // something has something to show even with no milestones and no tools.
+      /if \(milestones\.length === 0 && exchange\.steps\.length === 0 && !note\) return null/.test(
+        pane,
+      )
     )
   })(),
 )
+
+// ===========================================================================
+section("The agent asks, and does not wait")
+// ===========================================================================
+
+/**
+ * "Build me a landing page for my barber shop" names a trade and nothing else.
+ * Without the shop's name, its town, its prices and its hours the model invents
+ * them, and a site full of invented details is one somebody has to correct line
+ * by line — worse than being asked four questions.
+ *
+ * The design decision this section defends is that ASKING MUST NOT MEAN
+ * WAITING. A creator who types one sentence and gets a form back has been
+ * handed homework and has nothing to look at.
+ */
+{
+  const asked = parseQuestions({
+    questions: [
+      { question: "  What is   the shop called?  ", why: "It goes in the header", suggestions: ["Skip"] },
+      { question: "Which town?", suggestions: ["Bucharest", "Bucharest", "Cluj"] },
+    ],
+  })
+
+  check("questions are parsed and their whitespace collapsed", asked.length === 2 && asked[0].question === "What is the shop called?")
+
+  check(
+    "a repeated suggestion is not rendered twice",
+    // Two identical chips read as a bug in the page, not as a repeated answer.
+    asked[1].suggestions.join() === "Bucharest,Cluj",
+  )
+
+  check(
+    "more than four questions is not a form somebody fills in",
+    /**
+     * A creator answers four and abandons eight, and the run proceeds on
+     * defaults either way — so asking more buys nothing and costs the whole
+     * interaction.
+     */
+    parseQuestions({
+      questions: Array.from({ length: 9 }, (_, i) => ({ question: `Q${i}?` })),
+    }).length === MAX_QUESTIONS,
+  )
+
+  check(
+    "malformed questions are dropped, never thrown",
+    /**
+     * A bad tool call is something the agent is told about and can retry. It
+     * is never a reason to end a run that is otherwise building a site.
+     */
+    parseQuestions({ questions: [null, 7, {}, { question: "" }, { question: "Real?" }] }).length === 1,
+  )
+
+  check(
+    "asking tells the model in so many words to keep building",
+    (() => {
+      const note = askedNote(asked)
+      // The worst outcome available is a model that asks and then stops,
+      // leaving a creator with a form and no site. The tool result says so.
+      return /DO NOT WAIT/.test(note) && /Carry on building/.test(note) && /separate message/.test(note)
+    })(),
+  )
+
+  check(
+    "the loop never blocks on an answer",
+    (() => {
+      const loop = strip(read("lib/sites/agent/loop.ts"))
+      const tools = strip(read("lib/sites/agent/tools.ts"))
+      const at = tools.indexOf('case "ask_creator"')
+      const handler = tools.slice(at, tools.indexOf("case \"set_plan\"", at))
+      return (
+        // The event goes out mid-run, so the questions are read WHILE the site
+        // is still being built rather than after it is finished.
+        /yield \{ type: "questions", questions: workspace\.questions \}/.test(loop) &&
+        // and the handler returns a note rather than awaiting anything
+        !/await/.test(handler) &&
+        /return askedNote\(questions\)/.test(handler)
+      )
+    })(),
+  )
+
+  check(
+    "asking twice in one run is refused",
+    (() => {
+      const tools = strip(read("lib/sites/agent/tools.ts"))
+      const at = tools.indexOf('case "ask_creator"')
+      const handler = tools.slice(at, tools.indexOf("case \"set_plan\"", at))
+      /**
+       * A model that asks, builds a little and asks again turns the chat into
+       * an interrogation — and the second batch lands after the creator has
+       * already started answering the first.
+       */
+      return /if \(this\.questions\.length > 0\)/.test(handler)
+    })(),
+  )
+
+  check(
+    "an answer carries its question back",
+    (() => {
+      const prompt = answersPrompt([
+        { question: "What is the shop called?", answer: "Ferro" },
+        { question: "Which town?", answer: "   " },
+      ])
+      /**
+       * "Ferro" alone is a fact with no home: the next run has a fresh
+       * transcript and no idea what was asked. An unanswered question is left
+       * out entirely rather than sent as an empty one.
+       */
+      return prompt.includes("What is the shop called? Ferro") && !prompt.includes("Which town?")
+    })(),
+  )
+
+  check(
+    "answering nothing sends nothing",
+    answersPrompt([{ question: "Which town?", answer: "" }]) === "",
+  )
+
+  check(
+    "the questions are kept with the message that asked them",
+    (() => {
+      const chat = strip(read("lib/sites/chat.ts"))
+      const run = strip(read("lib/sites/agent/run.ts"))
+      /**
+       * Without this they live only in the event stream: ask four questions,
+       * reload before answering, and they are gone — along with any idea that
+       * the agent wanted to know anything.
+       *
+       * Written from the WORKSPACE, not from the collected events, so the
+       * stream and the transcript cannot disagree about what was asked.
+       */
+      return (
+        /questions, files_changed/.test(chat) &&
+        /questions: Array\.isArray\(row\.questions\) \? row\.questions : \[\]/.test(chat) &&
+        /questions: workspace\.questions/.test(run)
+      )
+    })(),
+  )
+
+  check(
+    "and the chat renders them as something to tap, never as a required field",
+    (() => {
+      const pane = strip(read("components/sites/editor/chat-pane.tsx"))
+      const at = pane.indexOf("function QuestionCards")
+      const body = pane.slice(at, pane.indexOf("export function ChatPane"))
+      return (
+        /suggestions\.map\(\(suggestion\)/.test(body) &&
+        // free text is always available beside the chips
+        /placeholder=\{question\.placeholder/.test(body) &&
+        // and every one of them can be ignored
+        /the site is already built/.test(body)
+      )
+    })(),
+  )
+}
 
 // ===========================================================================
 section("No white strip above the header or below the footer")

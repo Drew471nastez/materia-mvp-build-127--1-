@@ -356,7 +356,7 @@ section("What the model is told")
   check(
     "the tool list handed to the provider is the closed set",
     first.tools.map((t) => t.name).join() ===
-      "list_files,read_file,write_file,create_file,delete_file,update_manifest,search_code,find_usages,replace_in_file,set_plan,complete_step,run_build,read_build_errors",
+      "list_files,read_file,write_file,create_file,delete_file,update_manifest,search_code,find_usages,replace_in_file,set_plan,complete_step,run_build,read_build_errors,ask_creator",
   )
   check(
     "every tool schema is strict-mode legal",

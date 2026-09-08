@@ -15,6 +15,7 @@ import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import type { AgentQuestion } from "./agent/questions"
 
 export interface ChatStep {
   name: string
@@ -26,6 +27,8 @@ export interface StoredMessage {
   role: "user" | "assistant"
   content: string
   steps: ChatStep[]
+  /** What the agent asked the creator during this run. Usually empty. */
+  questions: AgentQuestion[]
   filesChanged: string[]
   versionId: string | null
   error: string | null
@@ -40,7 +43,7 @@ export async function readChat(siteId: string): Promise<StoredMessage[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("site_chat_messages")
-    .select("id, role, content, steps, files_changed, version_id, error, created_at")
+    .select("id, role, content, steps, questions, files_changed, version_id, error, created_at")
     .eq("site_id", siteId)
     /**
      * NEWEST first, then reversed below.
@@ -58,6 +61,7 @@ export async function readChat(siteId: string): Promise<StoredMessage[]> {
     role: "user" | "assistant"
     content: string
     steps: ChatStep[] | null
+    questions: AgentQuestion[] | null
     files_changed: string[] | null
     version_id: string | null
     error: string | null
@@ -85,6 +89,12 @@ export async function readChat(siteId: string): Promise<StoredMessage[]> {
     role: row.role,
     content: row.content,
     steps: Array.isArray(row.steps) ? row.steps : [],
+    /**
+     * Read from JSONB that predates the column, so a row written before this
+     * existed comes back null rather than absent. Defaulted here rather than
+     * relying on the column default, which only applies to new rows.
+     */
+    questions: Array.isArray(row.questions) ? row.questions : [],
     filesChanged: row.files_changed ?? [],
     versionId: row.version_id,
     error: row.error,
@@ -149,6 +159,7 @@ export async function completeExchange(input: {
   runId: string | null
   reply: string
   steps: ChatStep[]
+  questions: AgentQuestion[]
   filesChanged: string[]
   versionId: string | null
   error: string | null
@@ -161,6 +172,7 @@ export async function completeExchange(input: {
     role: "assistant",
     content: input.reply,
     steps: input.steps,
+    questions: input.questions,
     files_changed: input.filesChanged,
     version_id: input.versionId,
     error: input.error,

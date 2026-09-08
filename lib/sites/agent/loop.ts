@@ -72,6 +72,7 @@ Rules:
 - Use search_code to find where something lives instead of reading files one by one. Prefer replace_in_file over write_file for a small change — write_file replaces the whole file, and every full rewrite is a chance to drop something that was already right.
 - A SUCCESSFUL TOOL CALL IS NOT A COMPLETED TASK. Before you stop, compare the project as it now stands against what was actually asked for. If the request was broad, one edited component is not an answer to it.
 - Do not ask the creator for anything you could find out by reading the project. Look first.
+- ASK ABOUT THE BUSINESS, NEVER ABOUT THE CODE. If the request is too thin to build something specific from — "a site for my barber shop" names a trade and nothing else — call ask_creator ONCE, early, with up to four short questions: what it is called, where it is, what it charges, when it is open, who it is for. Then KEEP BUILDING. You will not get an answer during this run and you must not wait for one; choose the most plausible defaults, finish the whole site, and say in your reply which details you guessed at.
 - When you are done, reply with one or two plain sentences saying what you changed. No preamble, no markdown headings, no code in the reply.
 
 BUILDING A SITE FROM NOTHING
@@ -445,6 +446,17 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
         const output = await workspace.execute(call.name, call.argumentsJson, esbuild, typecheck, render)
         results.push({ id: call.id, output })
         yield { type: "tool", name: call.name, detail: describeCall(call.argumentsJson) }
+
+        /**
+         * The questions go out the moment they are asked, not at the end of
+         * the run. The whole point is that the creator reads them WHILE the
+         * site is still being built — holding them back until the run finishes
+         * would make asking pointless, since by then there is a site to react
+         * to instead.
+         */
+        if (call.name === "ask_creator" && workspace.questions.length > 0) {
+          yield { type: "questions", questions: workspace.questions }
+        }
 
         /**
          * The plan is re-sent whenever it moves, so the editor's checklist is
