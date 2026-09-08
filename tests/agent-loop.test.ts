@@ -92,6 +92,39 @@ function section(title: string) {
 //  A provider that returns a script, and records what it was asked
 // ---------------------------------------------------------------------------
 
+/**
+ * Is this schema legal under OpenAI strict mode, at every depth?
+ *
+ * Two rules, and they apply to every object in the tree: `additionalProperties`
+ * must be present and false, and every declared property must appear in
+ * `required`. A schema that breaks either is refused at request time with a
+ * 400, so this is the difference between a tool that works and a feature that
+ * has never once run.
+ */
+function strictLegal(schema: unknown): boolean {
+  if (!schema || typeof schema !== "object") return true
+  const node = schema as {
+    type?: string
+    properties?: Record<string, unknown>
+    required?: string[]
+    additionalProperties?: unknown
+    items?: unknown
+  }
+
+  if (node.type === "object") {
+    if (node.additionalProperties !== false) return false
+    const declared = Object.keys(node.properties ?? {})
+    if (!declared.every((key) => (node.required ?? []).includes(key))) return false
+    if (!declared.every((key) => strictLegal((node.properties ?? {})[key]))) return false
+  }
+
+  // An array's item schema is a schema too, and a free-form object hiding
+  // inside one is refused for exactly the same reason.
+  if (node.items && !strictLegal(node.items)) return false
+
+  return true
+}
+
 type Scripted = { text?: string; calls?: Array<[string, Record<string, unknown>]>; stop?: ProviderTurn["stop"] }
 
 function scriptedProvider(script: Scripted[]): AgentProvider & { requests: ProviderRequest[] } {

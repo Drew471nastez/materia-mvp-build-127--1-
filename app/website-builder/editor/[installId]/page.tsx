@@ -531,65 +531,16 @@ function FieldEditor({
 }
 
 // ── Section icon map ─────────────────────────────────────────
-const SECTION_ICONS: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
-  header: Rows3,
-  footer: Rows3,
-  hero: Square,
-  rich_text: Type,
-  image_banner: Image,
-  product: Square,
-  product_list: Rows3,
-  testimonials: MessageSquare,
-  faq: HelpCircle,
-  cta: MousePointerClick,
-  stats: BarChart2,
-  feature_grid: Grid3x3,
-  logo_bar: Rows3,
-  gallery: Grid3x3,
-  pricing: DollarSign,
-  video_hero: Play,
-  split_content: Columns,
-  image_section: Image,
-  slideshow: Play,
-  team_members: Users,
-  countdown_timer: Clock,
-  trust_badges: Shield,
-  newsletter: Mail,
-  social_feed: Rss,
-  contact_form: Mail,
-  video_embed: Play,
-  timeline: Clock,
-  tabs_content: Rows3,
-  custom_html: Code,
-  announcement_banner: Bell,
-  press_mentions: Award,
-  process_steps: ArrowRight,
-  comparison_table: Grid3x3,
-  ebook_showcase: BookOpen,
-  author_bio: Users,
-  chapter_preview: BookOpen,
-  lookbook: Grid3x3,
-  size_guide: Shirt,
-  collection_banner: Square,
-  map_embed: MapPin,
-  sticky_bar: Rows3,
-  social_proof_bar: Rows3,
-  // Ported from Shopify theme
-  scrolling_text: MoveHorizontal,
-  counter: Hash,
-  image_comparison: Columns2,
-  collection_list: Grid,
-  icon_box: LayoutGrid,
-  promotion_banner: Megaphone,
-  banner_packery: LayoutDashboard,
-  products_carousel: ShoppingBag,
-  brand_logo: BadgeIcon,
-}
+/*
+ * The per-section icon map lived here and is gone with the icons themselves.
+ *
+ * Forty-nine section types were mapped onto a couple of dozen lucide glyphs,
+ * so the same picture stood for several different sections and none of them
+ * was the thing it named. An icon that does not identify anything is
+ * decoration in the one place a list has to be scannable — people read the
+ * name.
+ */
 
-function SectionIcon({ type, className }: { type: string; className?: string }) {
-  const Icon = SECTION_ICONS[type] ?? Square
-  return <Icon className={cn("h-3.5 w-3.5", className)} strokeWidth={2} />
-}
 
 // ── Section Preview — renders the real section scaled down ───
 const PREVIEW_RENDER_WIDTH = 800
@@ -3222,7 +3173,7 @@ function HeaderSectionSettings({
     ]
     const currentMobileLayout = (typeof s.mobile_header_layout === "string" ? s.mobile_header_layout : "logo_center_hamburger_left")
     return (
-      <div className="flex flex-col h-full animate-in fade-in duration-150">
+      <div className="flex flex-col h-full">
         <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
           <button
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -3333,7 +3284,7 @@ function HeaderSectionSettings({
     }
 
     return (
-      <div className="flex flex-col h-full animate-in fade-in duration-150">
+      <div className="flex flex-col h-full">
         <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
           <button
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -3385,7 +3336,7 @@ function HeaderSectionSettings({
     return (
       <div
         key={`sub-${activeTab}`}
-        className="flex flex-col h-full animate-in fade-in duration-150"
+        className="flex flex-col h-full"
       >
         <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
           <button
@@ -3406,7 +3357,7 @@ function HeaderSectionSettings({
 
   // ── Main tab list ──────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-150">
+    <div className="flex flex-col h-full">
       <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
         <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={onBack} aria-label="Back">
           <ArrowLeft className="h-4 w-4" />
@@ -4492,7 +4443,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     ].filter(p => p.name.toLowerCase().includes(search))
 
     return (
-      <div className="flex flex-col h-full animate-in fade-in duration-150">
+      <div className="flex flex-col h-full">
         {/* Header with back button */}
         <div className="px-4 py-3 border-b border-border shrink-0">
           <button
@@ -4620,7 +4571,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       } else {
         // Global theme settings
         return (
-          <div className="flex flex-col h-full animate-in fade-in duration-150">
+          <div className="flex flex-col h-full">
             <div className="px-4 py-3 border-b border-border shrink-0">
               <p className="text-sm font-semibold">General Settings</p>
               <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
@@ -4741,7 +4692,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         : (PAGE_META[currentPage]?.label ?? currentPage)
 
       return (
-        <div className="flex flex-col h-full animate-in fade-in duration-150">
+        <div className="flex flex-col h-full">
           {/* Page selector — opens Pages panel */}
           <div className="px-3 py-3 border-b border-border shrink-0">
             <button
@@ -4761,7 +4712,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               ))}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-3 space-y-0.5 animate-in fade-in duration-150">
+            <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
               {/* Header (global) */}
               {header && (
                 <div className="border border-border rounded-lg mb-3">
@@ -4879,7 +4830,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
 
       return (
-        <div className="flex flex-col h-full animate-in fade-in duration-150">
+        <div className="flex flex-col h-full">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
             <button
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -5220,15 +5171,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </button>
             </div>
           )}
-        </div>
-
-        {/* CENTER: theme name + Live badge + 3-dots menu + unsaved indicator */}
-        <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
-          <span className="text-sm font-semibold text-foreground truncate hidden md:block max-w-[220px]">{install?.name}</span>
+<div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-sm font-medium text-foreground truncate hidden md:block max-w-[180px]">{install?.name}</span>
           {install?.status === "published" && (
-            <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-200 text-[10px] font-semibold uppercase tracking-wide shrink-0 px-2 py-0">
+            <span className="hidden md:inline-flex items-center gap-1.5 shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               Live
-            </Badge>
+            </span>
           )}
           <ResponsiveActionMenu
             title="Actions"
@@ -5283,27 +5232,44 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <span className="text-xs text-amber-600 hidden md:inline ml-2">Unsaved changes</span>
           )}
         </div>
+        </div>
 
-        {/* RIGHT: view live, device switcher, undo/redo, save */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* View Live — globe icon only */}
-          {websiteUrl && (
+        {/* CENTER: theme name + Live badge + 3-dots menu + unsaved indicator */}
+        
+
+        {/* CENTRE: history and breakpoints — the two things that are
+            about LOOKING at the page rather than about the project. */}
+        <div className="flex flex-1 items-center justify-center gap-2 min-w-0">
+<div className="hidden sm:flex items-center border border-border rounded-lg overflow-hidden shrink-0">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  className="h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border border-border bg-transparent hover:bg-muted transition-colors cursor-pointer"
-                  onClick={() => window.open(websiteUrl, "_blank")}
-                  aria-label="View live website"
+                  className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  onClick={handleUndo}
+                  disabled={undoStack.length === 0}
+                  aria-label="Undo"
                 >
-                  <Globe className="h-4 w-4" strokeWidth={1.75} />
+                  <Undo2 className="h-4 w-4" strokeWidth={1.75} />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">View live website</TooltipContent>
+              <TooltipContent side="bottom">Undo (⌘Z)</TooltipContent>
             </Tooltip>
-          )}
-
-          {/* Device Switcher — pill toggle */}
-          <div className="hidden sm:flex items-center bg-muted rounded-lg p-0.5 shrink-0">
+            <div className="w-px h-5 bg-border" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  onClick={handleRedo}
+                  disabled={redoStack.length === 0}
+                  aria-label="Redo"
+                >
+                  <Redo2 className="h-4 w-4" strokeWidth={1.75} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Redo (⌘⇧Z)</TooltipContent>
+            </Tooltip>
+          </div>
+<div className="hidden sm:flex items-center bg-muted rounded-lg p-0.5 shrink-0">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -5329,7 +5295,47 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <TooltipContent side="bottom">Mobile</TooltipContent>
             </Tooltip>
           </div>
+        </div>
 
+        {/* RIGHT: where the site is, and what to do with it. */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* The address, as an address.
+              A globe icon said "there is a website somewhere"; the domain says
+              WHICH website, which is the thing somebody actually wants to
+              check before they publish — and it is one fewer hover to find
+              out. Falls back to the icon where there is no room for text. */}
+          {websiteUrl && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="hidden lg:flex h-8 items-center gap-1.5 rounded-lg border border-border bg-transparent px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
+                  onClick={() => window.open(websiteUrl, "_blank")}
+                  aria-label="View live website"
+                >
+                  <span className="max-w-[180px] truncate">{websiteUrlDisplay}</span>
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">View live website</TooltipContent>
+            </Tooltip>
+          )}
+          {websiteUrl && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="h-8 w-8 hidden sm:flex lg:hidden items-center justify-center rounded-lg border border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                  onClick={() => window.open(websiteUrl, "_blank")}
+                  aria-label="View live website"
+                >
+                  <Globe className="h-4 w-4" strokeWidth={1.75} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">View live website</TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* Device Switcher — pill toggle */}
+          
           {/* Inspector toggle — filled when on.
               When ON (default): clicking a section highlights it with the
               blue selection rectangle and opens its settings panel.
@@ -5397,36 +5403,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
           {/* Undo / Redo — hidden on mobile (both actions live in the
               three-dots sheet on mobile so the topbar has room for Save). */}
-          <div className="hidden sm:flex items-center border border-border rounded-lg overflow-hidden shrink-0">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  onClick={handleUndo}
-                  disabled={undoStack.length === 0}
-                  aria-label="Undo"
-                >
-                  <Undo2 className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Undo (⌘Z)</TooltipContent>
-            </Tooltip>
-            <div className="w-px h-5 bg-border" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  onClick={handleRedo}
-                  disabled={redoStack.length === 0}
-                  aria-label="Redo"
-                >
-                  <Redo2 className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Redo (⌘⇧Z)</TooltipContent>
-            </Tooltip>
-          </div>
-
+          
           {/* Save button — publishes automatically if theme is live */}
           <Button
             size="sm"
@@ -5839,17 +5816,40 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 // exactly between two sections. Clicking it opens the Add Section
 // library with the insert position pre-set.
 function InsertSectionDivider({ onClick }: { onClick: () => void }) {
+  /**
+   * ===========================================================================
+   *  WHY THIS STOPPED FLICKERING
+   * ===========================================================================
+   * It was `h-3 -my-1` holding a 20px pill. Two separate problems, both
+   * producing the same symptom — a list that jumps and flashes as the cursor
+   * moves down it.
+   *
+   *   THE NEGATIVE MARGIN made every divider overlap the rows above and below
+   *   it, so a few pixels of every row belonged to two hover targets at once.
+   *   Moving down the list crossed those zones repeatedly and the hover states
+   *   fought over which was active.
+   *
+   *   THE PILL WAS BIGGER THAN ITS STRIP — 20px inside 12px — so it stuck out
+   *   into the rows and took the pointer with it, and `group-hover:scale`
+   *   moved that boundary again while the cursor sat on it.
+   *
+   * Now: no negative margin, so the strip owns its own space; the pill does
+   * not take the pointer at all, so the strip is the only hover target there
+   * is; and nothing under the cursor changes size.
+   */
   return (
-    <div className="group relative h-3 -my-1 flex items-center justify-center cursor-pointer select-none" onClick={onClick}>
-      {/* Hover line */}
-      <div className="absolute inset-x-2 h-px bg-neutral-900/60 opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
-      {/* Plus pill in the centre */}
-      <div className="relative z-10 h-5 w-5 rounded-full bg-white border border-neutral-300 shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-[opacity,transform,box-shadow] duration-200 ease-out group-hover:shadow-md group-hover:scale-[1.08]">
-        <Plus className="h-3 w-3 text-neutral-900 transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)] group-hover:rotate-180" strokeWidth={2.5} />
+    <div
+      className="group relative flex h-2.5 cursor-pointer select-none items-center justify-center"
+      onClick={onClick}
+    >
+      <div className="pointer-events-none absolute inset-x-2 h-px bg-foreground/50 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+      <div className="pointer-events-none relative z-10 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
+        <Plus className="h-2.5 w-2.5 text-foreground" strokeWidth={2.5} />
       </div>
     </div>
   )
 }
+
 
 // ── Sortable wrapper for drag-and-drop ───────────────────────
 function SortableSectionRow(props: Parameters<typeof SidebarSectionRow>[0]) {
@@ -5914,7 +5914,6 @@ function SidebarSectionRow({
             <GripVertical className={cn("h-3.5 w-3.5 opacity-40", isSelected && "opacity-70")} strokeWidth={1.75} />
           </span>
         )}
-        <SectionIcon type={section.type} className={isSelected ? "text-white" : "text-muted-foreground"} />
         <span className="flex-1 text-sm font-medium truncate">{section.name}</span>
         {section.hidden && (
           <EyeOff className={cn("h-3 w-3 shrink-0", isSelected ? "opacity-60" : "opacity-40")} />
@@ -5922,7 +5921,12 @@ function SidebarSectionRow({
 
         {/* Hover actions — only eye + trash */}
         {!isStructure && (
-          <div className={cn("items-center gap-0.5 hidden group-hover:flex", isSelected && "flex")}>
+          <div
+            className={cn(
+              "flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100",
+              isSelected && "opacity-100",
+            )}
+          >
             <button
               className={cn("h-6 w-6 rounded-md flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10")}
               onClick={e => { e.stopPropagation(); onToggleHide() }}
