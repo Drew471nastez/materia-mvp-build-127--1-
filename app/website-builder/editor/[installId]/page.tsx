@@ -5547,12 +5547,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <TooltipTrigger asChild>
               <button
                 className={cn(
-                  "h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border transition-colors cursor-pointer",
+                  // Shown on every size. It was `hidden sm:flex`, which hid the
+                  // AI from the device most likely to want it.
+                  "h-8 w-8 flex items-center justify-center rounded-lg border transition-colors cursor-pointer",
                   aiOpen
                     ? "border-foreground bg-foreground text-background"
                     : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
-                onClick={() => setAiOpen(open => !open)}
+                onClick={() => {
+                  setAiOpen(open => !open)
+                  // The section sheet and the AI sheet cannot both own the
+                  // bottom of the screen.
+                  if (isMobileView) setMobileSidebarOpen(false)
+                }}
                 aria-label="Ask AI"
                 aria-pressed={aiOpen}
               >
@@ -5674,7 +5681,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              states — finger tracks in real time. */
           <MobileEditorSheet
             open={mobileSidebarOpen}
-            onOpenChange={setMobileSidebarOpen}
+            onOpenChange={(next) => {
+              setMobileSidebarOpen(next)
+              // Two sheets cannot both own the bottom of the screen. Whichever
+              // is being opened wins; the other gets out of the way.
+              if (next) setAiOpen(false)
+            }}
           >
             {/* Segmented tabs — Sections / Pages / Settings */}
             <div className="px-3 pt-1 pb-2 shrink-0 bg-background">
@@ -5734,6 +5746,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             a panel floating over the preview would hide the thing it is
             changing. Hidden rather than unmounted so a conversation survives
             being closed and reopened. */}
+        {/* The AI on a phone.
+            It was desktop-only — `!isMobileView` — so the one place somebody
+            is most likely to want to describe a change rather than hunt for a
+            control had no way to. It opens straight to the tallest stop,
+            because a conversation is the case that needs the room and starting
+            at half only ever has one answer. */}
+        {isMobileView && aiOpen && (
+          <MobileEditorSheet open onOpenChange={(next) => setAiOpen(next)} openFull>
+            <ThemeChat
+              installId={installId}
+              page={currentPage}
+              sections={sections}
+              settings={settingsDraft as Record<string, unknown>}
+              selectedSectionId={selectedSectionId ?? undefined}
+              onRunStart={pushUndo}
+              onOp={applyAiOp}
+              onClose={() => setAiOpen(false)}
+            />
+          </MobileEditorSheet>
+        )}
+
         {!isMobileView && aiOpen && (
           <div className="relative flex-shrink-0 border-r border-border" style={{ width: 340 }}>
             <ThemeChat
