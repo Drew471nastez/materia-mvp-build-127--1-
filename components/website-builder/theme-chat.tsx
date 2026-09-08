@@ -73,6 +73,8 @@ export function ThemeChat({
   onClose: () => void
 }) {
   const [exchanges, setExchanges] = React.useState<Exchange[]>([])
+  const [loadingHistory, setLoadingHistory] = React.useState(true)
+  const [historyError, setHistoryError] = React.useState(false)
   const [draft, setDraft] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const abortRef = React.useRef<AbortController | null>(null)
@@ -93,6 +95,68 @@ export function ThemeChat({
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
   }, [exchanges])
+
+  /**
+   * THE CONVERSATION SURVIVES A REFRESH.
+   *
+   * It used to live only in this component's state, so reloading the editor
+   * left the sections changed and no record of what had been asked for or
+   * why — which is exactly the question somebody has when they come back to a
+   * page they built last week.
+   *
+   * Restored as pairs: the transcript stores one row for the question and one
+   * for the reply, and the panel shows one exchange.
+   */
+  React.useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const response = await fetch(`/api/website-builder/themes/${installId}/chat`)
+        if (!response.ok) {
+          /**
+           * A FAILED READ IS NOT AN EMPTY CONVERSATION. Showing a blank panel
+           * would let somebody believe their history was gone when it is
+           * sitting in the table.
+           */
+          if (!cancelled) setHistoryError(true)
+          return
+        }
+        const body = (await response.json()) as {
+          messages: Array<{ id: string; role: string; content: string; ops: unknown[]; error: string | null }>
+        }
+        if (cancelled) return
+
+        const restored: Exchange[] = []
+        for (const message of body.messages) {
+          if (message.role === "user") {
+            restored.push({ id: message.id, prompt: message.content, changes: [], running: false })
+            continue
+          }
+          const open = restored[restored.length - 1]
+          if (!open) continue
+          open.reply = message.content || undefined
+          open.error = message.error ?? undefined
+          /**
+           * The operations are summarised rather than replayed. Replaying them
+           * would apply the same edits a second time to a page that already
+           * has them — the transcript is a record, not a script.
+           */
+          open.changes =
+            message.ops.length > 0
+              ? [`${message.ops.length} change${message.ops.length === 1 ? "" : "s"}`]
+              : []
+        }
+        setExchanges(restored)
+      } catch {
+        if (!cancelled) setHistoryError(true)
+      } finally {
+        if (!cancelled) setLoadingHistory(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [installId])
 
   const send = React.useCallback(
     async (text: string) => {
@@ -213,7 +277,20 @@ export function ThemeChat({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-        {exchanges.length === 0 ? (
+        {loadingHistory ? (
+          <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Loading
+          </p>
+        ) : historyError ? (
+          <div className="rounded-[10px] border border-red-500/30 bg-red-500/5 px-3 py-3">
+            <p className="text-[13px] font-medium">We could not load this conversation.</p>
+            <p className="mt-1 text-[11.5px] text-muted-foreground">
+              Nothing has been lost — this is a problem reading it, not a problem with it. You can
+              still ask for a change.
+            </p>
+          </div>
+        ) : exchanges.length === 0 ? (
           <div className="space-y-4">
             <p className="text-[13px] leading-relaxed text-muted-foreground">
               Describe a change and it is made on this page. The AI edits the same sections the panels

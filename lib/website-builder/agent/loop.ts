@@ -37,9 +37,11 @@ import {
   blockSpecs,
   describeSection,
   describeSectionTypes,
+  describeStore,
   describeTheme,
   fieldIds,
   maxBlocks,
+  type StoreFacts,
   type ThemeOp,
   type ThemeState,
 } from "./operations"
@@ -90,7 +92,8 @@ Rules:
 - ALWAYS CHANGE SOMETHING VISIBLE. A run that reads a section and then replies without a single operation has not done what was asked. If a request is broad, decide what would genuinely improve the thing in front of you and do it.
 - Make the change that was asked for and nothing else. Do not restyle things nobody mentioned, do not "improve" copy that was not the subject, and do not add sections to fill space.
 - If the request is broad — "make this look better", "build out this page" — then look at what is there, decide what is genuinely missing, and do it properly with several operations.
-- Write real copy for this business, never "Lorem ipsum" and never "Your headline here".
+- WRITE COPY ABOUT THE REAL BUSINESS. Call read_store before you write anything that mentions what they sell, what it costs, or who it is for — the catalogue is there and inventing one produces a page that contradicts the shop behind it. Never "Lorem ipsum" and never "Your headline here".
+- Do not add a product section to a store with no products. It renders empty, which looks broken rather than new.
 - When you are done, reply with one plain sentence saying what you changed. No preamble, no markdown, no lists.`
 
 function toolSpecs(addable: string[]): ToolSpec<string>[] {
@@ -243,6 +246,12 @@ function toolSpecs(addable: string[]): ToolSpec<string>[] {
       },
     },
     {
+      name: "read_store",
+      description:
+        "Read what this store actually sells — its name, whether it is live, and its products with their kinds and prices. Do this before writing copy that mentions the business or its catalogue, and before adding a product section: a store with no products renders one empty.",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+    {
       name: "update_theme",
       description:
         "Change whole-theme settings — colours, fonts, corner radius, container width. These apply to every page, so use them when the request is about the site as a whole rather than one section.",
@@ -310,6 +319,13 @@ export interface ThemeAgentInput {
    * happened.
    */
   selectedSectionId?: string
+  /**
+   * Reads what the store sells. Injected for the same reason everything else
+   * is: the loop has no database, and a test needs a store it can write.
+   * Absent means the agent is told it cannot see the catalogue rather than
+   * being left to invent one.
+   */
+  readStore?: () => Promise<StoreFacts | null>
   /** Groups this theme's requests for the provider's prompt cache. */
   cacheKey?: string
   signal?: AbortSignal
@@ -403,6 +419,23 @@ export async function* themeAgent(
 
       const results: Array<{ id: string; output: string }> = []
       for (const call of turn.toolCalls) {
+        /**
+         * The one tool that has to wait on something. `execute` is synchronous
+         * on purpose — every other tool is a pure function of the theme — so
+         * this is handled here rather than making the whole executor async for
+         * one caller.
+         */
+        if (call.name === "read_store") {
+          const facts = input.readStore ? await input.readStore() : null
+          results.push({
+            id: call.id,
+            output: facts
+              ? describeStore(facts)
+              : "The catalogue is not available from here. Write copy that does not depend on knowing the products, and say so in your reply.",
+          })
+          continue
+        }
+
         const { output, op } = execute(call.name, call.argumentsJson, state, newId)
         if (op) {
           /**
