@@ -107,13 +107,13 @@ function toolSpecs(addable: string[]): ToolSpec<string>[] {
         type: "object",
         properties: {
           id: { type: "string", description: "The section id." },
-          settings: {
-            type: "object",
-            description: "Field id → new value. Only the fields you are changing.",
-            additionalProperties: true,
+          settingsJson: {
+            type: "string",
+            description:
+              'A JSON OBJECT AS A STRING: field id → new value, only the fields you are changing. e.g. {"heading":"Questions, answered","style":"boxed"}',
           },
         },
-        required: ["id", "settings"],
+        required: ["id", "settingsJson"],
         additionalProperties: false,
       },
     },
@@ -129,13 +129,13 @@ function toolSpecs(addable: string[]): ToolSpec<string>[] {
             description:
               "Position in the list. Omit to put it at the end, above the footer. Clamped so it can never land above the header or below the footer.",
           },
-          settings: {
-            type: "object",
-            description: "Optional starting settings, merged over the section's defaults.",
-            additionalProperties: true,
+          settingsJson: {
+            type: "string",
+            description:
+              'A JSON OBJECT AS A STRING, merged over the section\'s defaults. Send "{}" for none.',
           },
         },
-        required: ["sectionType", "index", "settings"],
+        required: ["sectionType", "index", "settingsJson"],
         additionalProperties: false,
       },
     },
@@ -180,13 +180,12 @@ function toolSpecs(addable: string[]): ToolSpec<string>[] {
       parameters: {
         type: "object",
         properties: {
-          settings: {
-            type: "object",
-            description: "Theme setting id → new value.",
-            additionalProperties: true,
+          settingsJson: {
+            type: "string",
+            description: 'A JSON OBJECT AS A STRING: theme setting id → new value.',
           },
         },
-        required: ["settings"],
+        required: ["settingsJson"],
         additionalProperties: false,
       },
     },
@@ -375,8 +374,13 @@ function execute(
 
     case "update_section": {
       if (!found) return { output: notFound(id, state) }
-      const settings = plainObject(args.settings)
-      if (!settings) return { output: "Send `settings` as an object of field id → value." }
+      const settings = parseSettings(args.settingsJson)
+      if (!settings) {
+        return {
+          output:
+            'Send `settingsJson` as a JSON object in a string, e.g. {"heading":"New heading"}.',
+        }
+      }
 
       /**
        * THE FAILURE THIS CATCHES IS A SILENT ONE.
@@ -407,8 +411,8 @@ function execute(
       if (!SECTION_SCHEMAS[sectionType]) {
         return { output: `There is no section type "${sectionType}". Use one of the types listed on this tool.` }
       }
-      const settings = plainObject(args.settings) ?? undefined
-      if (settings) {
+      const settings = parseSettings(args.settingsJson) ?? undefined
+      if (settings && Object.keys(settings).length > 0) {
         const allowed = fieldIds(sectionType)
         const unknown = Object.keys(settings).filter((key) => !allowed.includes(key))
         if (unknown.length > 0) {
@@ -453,8 +457,10 @@ function execute(
     }
 
     case "update_theme": {
-      const settings = plainObject(args.settings)
-      if (!settings) return { output: "Send `settings` as an object of setting id → value." }
+      const settings = parseSettings(args.settingsJson)
+      if (!settings) {
+        return { output: 'Send `settingsJson` as a JSON object in a string, e.g. {"radius":12}.' }
+      }
       return {
         output: `Updated the theme: ${Object.keys(settings).join(", ")}.`,
         op: { kind: "update_theme", settings },
@@ -472,7 +478,32 @@ function notFound(id: string, state: ThemeState): string {
   return `There is no section with id "${id}" on this page. The sections are: ${list}`
 }
 
-function plainObject(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null
-  return value as Record<string, unknown>
+/**
+ * Settings arrive as a JSON STRING, not as a nested object, and that is not a
+ * stylistic choice.
+ *
+ * The provider sends every tool with strict: true, and strict mode requires
+ * `additionalProperties: false` on EVERY object in a schema. A settings map is
+ * free-form by definition — its keys are whichever fields that section happens
+ * to have — so there is no way to declare it as an object and stay legal.
+ * Declaring it anyway is what produced, on the very first prompt:
+ *
+ *   400 Invalid schema for function 'update_section':
+ *   In context=('properties', 'settings'), 'additionalProperties' is required
+ *   to be supplied and to be false.
+ *
+ * A string is legal, carries JSON's types intact — numbers stay numbers,
+ * booleans stay booleans — and costs one parse.
+ */
+function parseSettings(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== "string") return null
+  const text = value.trim()
+  if (!text) return {}
+  try {
+    const parsed = JSON.parse(text)
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null
+    return parsed as Record<string, unknown>
+  } catch {
+    return null
+  }
 }

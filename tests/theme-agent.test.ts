@@ -109,7 +109,7 @@ section("It edits the same state the panels edit")
 
 {
   const { result } = await run([
-    { calls: [["add_section", { sectionType: "faq", index: 2, settings: {} }]] },
+    { calls: [["add_section", { sectionType: "faq", index: 2, settingsJson: "{}" }]] },
     { text: "Added an FAQ." },
   ])
   check("a section is added", result.status === "succeeded" && result.ops.length === 1, result.error ?? "")
@@ -135,7 +135,7 @@ section("It edits the same state the panels edit")
    * the page changes. Refusing it is the only place anybody finds out.
    */
   const { result } = await run([
-    { calls: [["update_section", { id: "hero-1", settings: { nonsense_field: "x" } }]] },
+    { calls: [["update_section", { id: "hero-1", settingsJson: JSON.stringify({ nonsense_field: "x" }) }]] },
     { text: "Done." },
   ])
   check("an unknown field is refused, not silently merged", result.ops.length === 0)
@@ -144,7 +144,7 @@ section("It edits the same state the panels edit")
 {
   const allowed = fieldIds("hero")
   const { result } = await run([
-    { calls: [["update_section", { id: "hero-1", settings: { [allowed[0]]: "Real heading" } }]] },
+    { calls: [["update_section", { id: "hero-1", settingsJson: JSON.stringify({ [allowed[0]]: "Real heading" }) }]] },
     { text: "Done." },
   ])
   check("a real field is written", result.ops.length === 1 && result.ops[0].kind === "update_section")
@@ -171,7 +171,7 @@ section("It edits the same state the panels edit")
 
 {
   const { result } = await run([
-    { calls: [["add_section", { sectionType: "faq", index: 0, settings: {} }]] },
+    { calls: [["add_section", { sectionType: "faq", index: 0, settingsJson: "{}" }]] },
     { text: "Done." },
   ])
   const replayed = applyOps(page(), result.ops)
@@ -184,7 +184,7 @@ section("It edits the same state the panels edit")
 
 {
   const { result } = await run([
-    { calls: [["add_section", { sectionType: "not_a_real_section", index: 1, settings: {} }]] },
+    { calls: [["add_section", { sectionType: "not_a_real_section", index: 1, settingsJson: "{}" }]] },
     { text: "Done." },
   ])
   check("an invented section type is refused", result.ops.length === 0)
@@ -192,10 +192,43 @@ section("It edits the same state the panels edit")
 
 {
   const { result } = await run([
-    { calls: [["update_section", { id: "does-not-exist", settings: {} }]] },
+    { calls: [["update_section", { id: "does-not-exist", settingsJson: "{}" }]] },
     { text: "Done." },
   ])
   check("an invented id is refused", result.ops.length === 0)
+}
+
+{
+  /**
+   * Settings travel as a JSON string because strict mode leaves no legal way
+   * to declare a free-form object. That moves one failure from the schema to
+   * the parser, so the parser has to be told-not-thrown like every other tool
+   * error — a model that sends slightly wrong JSON gets to correct it.
+   */
+  const { result } = await run([
+    { calls: [["update_section", { id: "hero-1", settingsJson: "{not json" }]] },
+    { text: "Done." },
+  ])
+  check("malformed settings JSON is refused, not thrown", result.ops.length === 0)
+
+  const allowed = fieldIds("hero")
+  const typed = await run([
+    {
+      calls: [
+        ["update_section", { id: "hero-1", settingsJson: JSON.stringify({ [allowed[0]]: "x" }) }],
+      ],
+    },
+    { text: "Done." },
+  ])
+  check(
+    "and a value keeps the type JSON gave it",
+    /**
+     * The reason a string beats a list of key/value pairs: numbers stay
+     * numbers and booleans stay booleans through one JSON.parse, where a
+     * flattened pair list would hand every setting to the renderer as text.
+     */
+    typeof applyOps(page(), typed.result.ops).sections[1].settings[allowed[0]] === "string",
+  )
 }
 
 {
@@ -210,7 +243,7 @@ section("It edits the same state the panels edit")
 
 {
   const { events } = await run([
-    { calls: [["add_section", { sectionType: "faq", index: 2, settings: {} }]] },
+    { calls: [["add_section", { sectionType: "faq", index: 2, settingsJson: "{}" }]] },
     { text: "Done." },
   ])
   /**
@@ -262,6 +295,86 @@ section("It edits the same state the panels edit")
      */
     applyOps(before, [{ kind: "update_section", id: "nope", settings: { a: 1 } }]).sections.length ===
       before.sections.length,
+  )
+}
+
+// ===========================================================================
+section("The tool schemas are legal, or nothing works at all")
+// ===========================================================================
+
+{
+  /**
+   * THE BUG THIS EXISTS FOR, and it shipped.
+   *
+   *   400 Invalid schema for function 'update_section':
+   *   In context=('properties', 'settings'), 'additionalProperties' is
+   *   required to be supplied and to be false.
+   *
+   * `settings` was declared as a nested free-form object. The provider sends
+   * every tool with strict: true, and strict mode applies to EVERY object in
+   * the schema — not the outermost one. OpenAI refused the whole request, so
+   * the feature never ran once.
+   *
+   * The sites agent's version of this check only looked at the top level,
+   * which is precisely why nothing caught it. This one recurses.
+   */
+  function strictLegal(schema: unknown): boolean {
+    if (!schema || typeof schema !== "object") return true
+    const node = schema as {
+      type?: string
+      properties?: Record<string, unknown>
+      required?: string[]
+      additionalProperties?: unknown
+      items?: unknown
+    }
+    if (node.type === "object") {
+      if (node.additionalProperties !== false) return false
+      const declared = Object.keys(node.properties ?? {})
+      if (!declared.every((key) => (node.required ?? []).includes(key))) return false
+      if (!declared.every((key) => strictLegal((node.properties ?? {})[key]))) return false
+    }
+    if (node.items && !strictLegal(node.items)) return false
+    return true
+  }
+
+  /**
+   * Captured from a real run rather than imported, so this checks what is
+   * actually SENT — including anything the loop assembles at call time.
+   */
+  let sent: Array<{ name: string; parameters: unknown }> = []
+  const capturing: AgentProvider = {
+    id: "capturing",
+    async complete(request) {
+      sent = request.tools.map((t) => ({ name: t.name, parameters: t.parameters }))
+      return {
+        text: "Done.",
+        toolCalls: [],
+        raw: [],
+        usage: { inputTokens: 1, cachedInputTokens: 0, cacheWriteTokens: 0, outputTokens: 1 },
+        stop: "done",
+      }
+    },
+  }
+
+  const probe = themeAgent({
+    provider: capturing,
+    model: "test",
+    prompt: "hello",
+    state: page(),
+    page: "home",
+    addable: ADDABLE_SECTIONS,
+  })
+  for (;;) {
+    const step = await probe.next()
+    if (step.done) break
+  }
+
+  check("the tools were sent at all", sent.length > 0)
+  const illegal = sent.filter((t) => !strictLegal(t.parameters)).map((t) => t.name)
+  check(
+    "and every one is strict-mode legal, at every depth",
+    illegal.length === 0,
+    illegal.join(", "),
   )
 }
 
