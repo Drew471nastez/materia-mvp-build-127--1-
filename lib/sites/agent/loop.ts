@@ -22,7 +22,7 @@ import { looksLikeQuestion, openSteps, refuseToFinish } from "./plan"
 import { type CallInfo, compactTurns, compactionNote } from "./compaction"
 import type { Budget } from "./complexity"
 import type { ProjectFiles } from "../types"
-import { TOOL_SPECS } from "./tools"
+import { toolsFor } from "./tools"
 import {
   ZERO_USAGE,
   addUsage,
@@ -337,7 +337,7 @@ export async function* agentLoop(input: LoopInput): AsyncGenerator<AgentEvent, L
          * objects and the strings are shared, so the copy costs nothing.
          */
         turns: [...turns],
-        tools: TOOL_SPECS,
+        tools: toolsFor(workspace.hasDocument),
         maxOutputTokens: 32_000,
         cacheKey: input.cacheKey,
         signal,

@@ -31,6 +31,18 @@ import type { Page, PropSpec, PropValue, SectionInstance, SiteDocument, Theme } 
 
 export type OpResult = { ok: true; doc: SiteDocument } | { ok: false; error: string }
 
+/**
+ * The refusal text, or "".
+ *
+ * Narrowed with `in` rather than on `ok`, because a boolean literal is only a
+ * discriminant under strictNullChecks — and this module is compiled by more
+ * than one config, including a test harness that has it off. A helper is one
+ * place to be careful instead of a dozen.
+ */
+export function opError(result: OpResult): string {
+  return "error" in result ? result.error : ""
+}
+
 const THEME_KEYS: Array<keyof Theme> = [
   "background",
   "surface",
