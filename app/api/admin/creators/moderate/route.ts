@@ -256,36 +256,67 @@ export async function POST(request: NextRequest) {
     }
   }
 
+/**
+ * postgrest-js does not throw. `await admin.from(...).update(...)` resolves to
+ * `{ error }` and, if nothing reads it, a refused write is indistinguishable
+ * from a successful one.
+ *
+ * That is not hypothetical here. `products.status` is
+ * `CHECK (status IN ('draft', 'published', 'unpublished'))` only AFTER the
+ * migration that widens it; before that, writing "unpublished" is a 23514 and
+ * the ban would have reported success while every product stayed published and
+ * purchasable. Exactly the thing a ban is for.
+ *
+ * So every write in the ban path goes through this, and a refusal becomes a
+ * throw that the loop records in `failed` against the creator it belongs to.
+ */
+async function must<T extends { error: { message: string } | null }>(
+  write: PromiseLike<T>,
+  what: string,
+): Promise<void> {
+  const { error } = await write
+  if (error) throw new Error(`Could not ${what}: ${error.message}`)
+}
+
   const done: string[] = []
   const failed: Array<{ creatorId: string; error: string }> = []
 
   for (const target of targets) {
     try {
       if (action === "ban") {
-        await admin
-          .from("creators")
-          .update({
-            banned_at: new Date().toISOString(),
-            banned_reason: body.reason ?? null,
-            store_published: false,
-          })
-          .eq("id", target.creatorId)
+        await must(
+          admin
+            .from("creators")
+            .update({
+              banned_at: new Date().toISOString(),
+              banned_reason: body.reason ?? null,
+              store_published: false,
+            })
+            .eq("id", target.creatorId),
+          "close the storefront",
+        )
 
         /**
          * The products go dark in the same breath. A ban that leaves the
          * storefront closed but the products reachable from search and from
          * every link already posted is not a ban.
          */
-        await admin
-          .from("products")
-          .update({ status: "unpublished" })
-          .eq("creator_id", target.creatorId)
-          .eq("status", "published")
+        await must(
+          admin
+            .from("products")
+            .update({ status: "unpublished" })
+            .eq("creator_id", target.creatorId)
+            .eq("status", "published"),
+          "unpublish the products",
+        )
       } else if (action === "unban") {
-        await admin
-          .from("creators")
-          .update({ banned_at: null, banned_reason: null })
-          .eq("id", target.creatorId)
+        await must(
+          admin
+            .from("creators")
+            .update({ banned_at: null, banned_reason: null })
+            .eq("id", target.creatorId),
+          "lift the ban",
+        )
         /**
          * Products are NOT republished. Which of them should come back is the
          * creator's decision, and guessing would put something live that they

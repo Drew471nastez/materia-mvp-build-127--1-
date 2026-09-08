@@ -60,6 +60,8 @@ function check(name: string, ok: boolean, detail?: string) {
 
 const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
+/** Comment lines out, so an assertion matches code and not the prose beside it. */
+const strip = (src: string) => src.replace(/^\s*(\/\/|\*|\/\*).*$/gm, "")
 
 console.log("\nThe link farm stays out, and real sellers stay in\n")
 
@@ -723,6 +725,60 @@ check(
 )
 
 check(
+  "every write in the ban path is checked, because postgrest does not throw",
+  (() => {
+    /**
+     * `await admin.from(...).update(...)` resolves to `{ error }`. Nothing
+     * throws. So a refused write and a successful one look identical, and the
+     * loop's try/catch — which is what puts a creator in `failed` — never
+     * sees it.
+     *
+     * This was live: `products.status` allowed only ('draft', 'published'),
+     * so writing "unpublished" was a 23514, swallowed, and the ban reported
+     * success with every product still published and buyable. Storefront
+     * closed, shelves full.
+     *
+     * The bare-write pattern must not come back, so this counts: the ban
+     * branch may contain no `await admin.from(...)` that is not wrapped.
+     */
+    const at = moderate.indexOf('if (action === "ban") {')
+    const branch = strip(moderate.slice(at, moderate.indexOf("} else {", at)))
+    const bare = (branch.match(/await\s+admin\s*\n?\s*\.from\(/g) ?? []).length
+    return (
+      /async function must</.test(moderate) &&
+      /if \(error\) throw new Error/.test(moderate) &&
+      /await must\(/.test(branch) &&
+      bare === 0
+    )
+  })(),
+)
+
+check(
+  "and the status a ban writes is one the products table accepts",
+  (() => {
+    /**
+     * The other half. Checking the error turns a silent failure into a visible
+     * one; it does not make the ban work. `products` was created with
+     * CHECK (status IN ('draft', 'published')) and nothing widened it, while
+     * `sites` and `theme_installs` had allowed 'unpublished' all along — the
+     * vocabulary existed everywhere except the table a ban writes to.
+     *
+     * Asserted against the migration rather than against a live database,
+     * which the tests do not have: the value the route writes must appear in
+     * the constraint the migration installs.
+     */
+    const migration = read("sql/20260919_creator_bans.sql")
+    const written = moderate.match(/\.update\(\{ status: "([a-z]+)" \}\)/)?.[1]
+    const constraint = migration.match(/check \(status in \(([^)]*)\)\)/)?.[1] ?? ""
+    return (
+      written !== undefined &&
+      /alter table public\.products/.test(migration) &&
+      constraint.includes(`'${written}'`)
+    )
+  })(),
+)
+
+check(
   "the admin UI selects by id, not by username",
   (() => {
     const client = read("app/admin/blog/seo/_seo-client.tsx")
@@ -772,8 +828,6 @@ check(
     return /signup-guard/.test(page) && /supabase\.auth\.signUp/.test(page)
   })(),
 )
-
-const strip = (src: string) => src.replace(/^\s*(\/\/|\*|\/\*).*$/gm, "")
 
 check(
   "the hook refuses anything it cannot verify",
