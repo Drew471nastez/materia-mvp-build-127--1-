@@ -366,6 +366,32 @@ check(
     if (siteLimits("pro").maxSites <= siteLimits("free").maxSites)
       missing.push("Pro does not allow more sites than Free")
 
+    /**
+     * THE AI EDIT LADDER HAS TO KEEP CLIMBING.
+     *
+     * Free was raised from 20 to 200, which is what Growth used to offer — and
+     * for a moment the two were identical. A paid tier whose headline feature
+     * gives exactly what the free one does is not a tier, and nothing here
+     * would have said so: every other assertion in this block is about
+     * booleans and site counts.
+     *
+     * Written as a comparison rather than against literals, so the numbers can
+     * be tuned without touching this.
+     */
+    if (siteLimits("growth").aiEditsPerMonth <= siteLimits("free").aiEditsPerMonth)
+      missing.push("Growth offers no more AI edits than Free")
+    if (siteLimits("pro").aiEditsPerMonth <= siteLimits("growth").aiEditsPerMonth)
+      missing.push("Pro offers no more AI edits than Growth")
+
+    /**
+     * And the floor is high enough to finish a site. An "AI edit" now means a
+     * whole first generation — four pages, fourteen sections — and a creator
+     * iterates a dozen times before it looks like theirs. Twenty ran out
+     * mid-build, which is the worst place for a quota to stop somebody.
+     */
+    if (siteLimits("free").aiEditsPerMonth < 200)
+      missing.push("Free has too few AI edits to finish a site")
+
     // The gates return the reason, not a boolean, so five components cannot
     // write five slightly different upgrade prompts.
     if (siteGate("free", "customDomain") === null) missing.push("Free is not gated on custom domains")

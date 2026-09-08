@@ -42,7 +42,17 @@ const LIMITS: Record<SitePlan, SiteLimits> = {
     customCode: false,
     premiumTemplates: false,
     shopify: false,
-    aiEditsPerMonth: 20,
+    /**
+     * Two hundred, not twenty.
+     *
+     * Twenty was set when an "AI edit" meant changing a word. It now means a
+     * whole first generation — four pages, fourteen sections, questions asked
+     * and answered along the way — and a creator building a site iterates a
+     * dozen times before it looks like theirs. Twenty ran out mid-build, which
+     * is the worst place for a quota to stop somebody: they have paid nothing,
+     * seen nothing finished, and have no reason to come back.
+     */
+    aiEditsPerMonth: 200,
   },
   growth: {
     maxSites: 3,
@@ -52,7 +62,13 @@ const LIMITS: Record<SitePlan, SiteLimits> = {
     customCode: false,
     premiumTemplates: true,
     shopify: false,
-    aiEditsPerMonth: 200,
+    /**
+     * Raised with free rather than left where it was. Free went to 200, which
+     * is what growth used to offer — a paid tier whose headline feature gives
+     * you exactly what the free one does is not a tier. The ladder has to keep
+     * climbing or the price has nothing behind it.
+     */
+    aiEditsPerMonth: 500,
   },
   pro: {
     maxSites: 10,
