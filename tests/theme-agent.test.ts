@@ -14,7 +14,15 @@
  */
 
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
-import { applyOps, buildSection, describeTheme, fieldIds, type ThemeOp, type ThemeState } from "@/lib/website-builder/agent/operations"
+import {
+  applyOps,
+  buildSection,
+  describeStore,
+  describeTheme,
+  fieldIds,
+  type ThemeOp,
+  type ThemeState,
+} from "@/lib/website-builder/agent/operations"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import type { AgentProvider, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -726,6 +734,186 @@ section("The editor has one accent, and it is the app's own")
     // The Save button's solid black is the one intentional literal.
     literals.every((l) => l.startsWith("bg-neutral-900")),
     [...new Set(literals)].join(", "),
+  )
+}
+
+// ===========================================================================
+section("It knows what the store sells")
+// ===========================================================================
+
+{
+  const facts = {
+    storeName: "andrewullz",
+    live: true,
+    totalProducts: 42,
+    publishedProducts: 2,
+    products: [
+      { title: "Lightroom Presets", type: "digital", priceCents: 1900, published: true },
+      { title: "Free Starter Pack", type: "digital", priceCents: 0, published: true },
+      { title: "Draft Course", type: "course", priceCents: 9900, published: false },
+    ],
+  }
+
+  let seen = ""
+  const { result } = await (async () => {
+    const loop = themeAgent({
+      provider: scriptedProvider([
+        { calls: [["read_store", {}]] },
+        {
+          calls: [
+            ["update_section", { id: "hero-1", settingsJson: JSON.stringify({ heading: "x" }) }],
+          ],
+        },
+        { text: "Done." },
+      ]),
+      model: "test",
+      prompt: "write a better headline",
+      state: page(),
+      page: "home",
+      addable: ADDABLE_SECTIONS,
+      readStore: async () => facts,
+    })
+    for (;;) {
+      const step = await loop.next()
+      if (step.done) return { result: step.value }
+    }
+  })()
+
+  check("the run completes with the catalogue read", result.status === "succeeded", result.error ?? "")
+
+  seen = describeStore(facts)
+  check(
+    "the catalogue names the real products and their prices",
+    seen.includes("Lightroom Presets") && seen.includes("19.00") && seen.includes("andrewullz"),
+    seen.slice(0, 120),
+  )
+  check("a free product is called free, not 0.00", seen.includes("free"))
+  check("a draft is marked as one", seen.includes("(draft)"))
+  check(
+    "and a truncated list says how many are missing",
+    // Thirty are fetched; forty-two exist. A model told three products exist
+    // will write "our three products", which is wrong on the page.
+    seen.includes("39 more"),
+    seen,
+  )
+
+  check(
+    "an empty store is told not to promise a catalogue",
+    (() => {
+      const empty = describeStore({
+        storeName: "new-shop",
+        live: false,
+        totalProducts: 0,
+        publishedProducts: 0,
+        products: [],
+      })
+      return /no products yet/.test(empty) && /would render empty/.test(empty)
+    })(),
+  )
+}
+
+{
+  /**
+   * No reader at all — a caller that cannot reach a catalogue. The model must
+   * be told rather than left to invent one, and the run must still finish.
+   */
+  const { result } = await run(
+    [
+      { calls: [["read_store", {}]] },
+      { calls: [["update_section", { id: "hero-1", settingsJson: JSON.stringify({ heading: "x" }) }]] },
+      { text: "Done." },
+    ],
+    page(),
+  )
+  check("no catalogue means told, not hung", result.status === "succeeded", result.error ?? "")
+}
+
+{
+  const route = readFileSync(
+    join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"),
+    "utf8",
+  )
+  check(
+    "the catalogue is read as the user, so RLS decides what the model sees",
+    (() => {
+      const at = route.indexOf("readStore: async () => {")
+      const body = route.slice(at, route.indexOf("},\n        })", at))
+      /**
+       * The service role would read every creator's catalogue and rely on this
+       * route's filter being correct — one mistake and somebody else's
+       * products are in a model's context. The user's own client cannot make
+       * that mistake, because the policy is the check.
+       */
+      return (
+        at > 0 &&
+        /supabase\n?\s*\.from\("products"\)/.test(body) &&
+        !/createAdminClient/.test(body) &&
+        // and it is scoped to this creator as well, belt and braces
+        /\.eq\("creator_id"/.test(body)
+      )
+    })(),
+  )
+}
+
+// ===========================================================================
+section("The conversation survives a refresh")
+// ===========================================================================
+
+{
+  const chat = readFileSync(join(root, "lib/website-builder/agent/chat.ts"), "utf8")
+  const route = readFileSync(
+    join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"),
+    "utf8",
+  )
+  const panel = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
+
+  check(
+    "the question is recorded before the model is reached",
+    /**
+     * So a run that dies — a crash, a timeout, a closed tab — still leaves the
+     * request in the transcript. One that only records what succeeded is one
+     * where nobody can see the model was asked the same thing three times.
+     */
+    route.indexOf("await startThemeExchange(") < route.indexOf("themeAgent({"),
+  )
+
+  check(
+    "and the transcript is written server-side, never posted by the client",
+    /**
+     * A client that writes its own transcript can write one that never
+     * happened, and this is the record somebody consults to find out why their
+     * page looks like it does.
+     */
+    /completeThemeExchange\(/.test(route) &&
+      !/method: "POST"[\s\S]{0,200}\/chat/.test(panel) &&
+      /createAdminClient/.test(chat),
+  )
+
+  check(
+    "reading it uses the user's client, so RLS decides",
+    (() => {
+      const at = chat.indexOf("export async function readThemeChat")
+      const body = chat.slice(at, chat.indexOf("export async function startThemeExchange"))
+      return /await createClient\(\)/.test(body) && !/createAdminClient/.test(body)
+    })(),
+  )
+
+  check(
+    "a failed read is not shown as an empty conversation",
+    /**
+     * Swallowing the error would show somebody a blank panel and let them
+     * believe their history was gone when it is sitting in the table.
+     */
+    /throw new ThemeChatUnavailableError/.test(chat) && /historyError/.test(panel),
+  )
+
+  check(
+    "and restoring does not replay the operations",
+    /**
+     * Replaying them would apply the same edits a second time to a page that
+     * already has them. The transcript is a record, not a script.
+     */
+    /message\.ops\.length/.test(panel) && !/onOp\(message/.test(panel),
   )
 }
 

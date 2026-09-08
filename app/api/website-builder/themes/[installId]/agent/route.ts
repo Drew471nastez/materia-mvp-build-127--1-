@@ -25,6 +25,7 @@ import { agentRateLimit } from "@/lib/sites/rate-limit"
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import { chooseModel } from "@/lib/sites/agent/models"
+import { completeThemeExchange, startThemeExchange } from "@/lib/website-builder/agent/chat"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -107,6 +108,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   }
   const body = parsed.data
 
+  /**
+   * The question is recorded BEFORE the model is reached, so a run that dies —
+   * a crash, a timeout, a closed tab — still leaves the request in the
+   * transcript. A transcript that only records what succeeded is one where
+   * nobody can see the model was asked the same thing three times.
+   */
+  await startThemeExchange({ installId, pageKey: body.page, prompt: body.prompt })
+
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     async start(controller) {
@@ -139,6 +148,51 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           state: { sections: body.sections, settings: body.settings },
           addable: ADDABLE_SECTIONS,
           selectedSectionId: body.selectedSectionId,
+          /**
+           * READ THROUGH THE USER'S OWN CLIENT, so RLS decides what the model
+           * is shown. The service role would read every creator's catalogue
+           * and rely on this route's filter being right — one mistake there
+           * and somebody else's products end up in a model's context.
+           *
+           * Never throws: a catalogue that will not load is reported to the
+           * model as "not available" and the run carries on writing copy that
+           * does not depend on it. Failing the edit over it would be worse.
+           */
+          readStore: async () => {
+            try {
+              const [{ data: profile }, { data: rows, count }] = await Promise.all([
+                supabase
+                  .from("creators")
+                  .select("slug, store_published")
+                  .eq("id", (creator as { id: string }).id)
+                  .maybeSingle(),
+                supabase
+                  .from("products")
+                  .select("title, type, price_cents, status", { count: "exact" })
+                  .eq("creator_id", (creator as { id: string }).id)
+                  .order("created_at", { ascending: false })
+                  .limit(30),
+              ])
+
+              type Row = { title: string; type: string; price_cents: number; status: string }
+              const products = ((rows as Row[] | null) ?? []).map((p) => ({
+                title: p.title,
+                type: p.type,
+                priceCents: p.price_cents,
+                published: p.status === "published",
+              }))
+
+              return {
+                storeName: (profile as { slug?: string } | null)?.slug ?? "this store",
+                live: (profile as { store_published?: boolean } | null)?.store_published === true,
+                totalProducts: count ?? products.length,
+                publishedProducts: products.filter((p) => p.published).length,
+                products,
+              }
+            } catch {
+              return null
+            }
+          },
           // Groups this theme's requests for the provider's prompt cache. A
           // theme id, never anything about the person.
           cacheKey: `theme:${installId}`,
@@ -157,6 +211,20 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         } else {
           send({ type: "message", text: result.message || "Done." })
         }
+
+        /**
+         * Recorded from the RESULT, not from what was streamed. The two agree
+         * today; if they ever stop, the transcript should say what the run
+         * actually did rather than what a browser happened to receive before
+         * somebody closed the tab.
+         */
+        await completeThemeExchange({
+          installId,
+          pageKey: body.page,
+          reply: result.message || (result.status === "failed" ? "" : "Done."),
+          ops: result.ops,
+          error: result.status === "failed" ? result.error : null,
+        })
       } catch (thrown) {
         send({
           type: "error",

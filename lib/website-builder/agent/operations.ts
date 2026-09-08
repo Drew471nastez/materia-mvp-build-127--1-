@@ -350,6 +350,52 @@ export function describeSection(section: SectionInstance): string {
 }
 
 /**
+ * WHAT THE STORE ACTUALLY SELLS.
+ *
+ * Without this the agent knows the shape of a page and nothing about the
+ * business behind it, so "write a better headline" produces a headline about
+ * a generic shop — and every product section it adds is a promise about
+ * products it has never seen.
+ *
+ * Deliberately small: names, kinds and prices. Not descriptions, not images,
+ * not order history. Enough to write copy that is true, and nothing that would
+ * fill the context or leave a customer's details in a model's transcript.
+ */
+export interface StoreFacts {
+  storeName: string
+  live: boolean
+  totalProducts: number
+  publishedProducts: number
+  products: Array<{ title: string; type: string; priceCents: number; published: boolean }>
+}
+
+export function describeStore(facts: StoreFacts): string {
+  if (facts.totalProducts === 0) {
+    return [
+      `STORE: ${facts.storeName}${facts.live ? " (live)" : " (not published yet)"}`,
+      "It has no products yet. Do not write copy that promises a catalogue, and do not add a product section — it would render empty.",
+    ].join("\n")
+  }
+
+  const money = (cents: number) =>
+    cents === 0 ? "free" : `${(cents / 100).toFixed(2)}`
+
+  return [
+    `STORE: ${facts.storeName}${facts.live ? " (live)" : " (not published yet)"}`,
+    `${facts.publishedProducts} published of ${facts.totalProducts} products.`,
+    "PRODUCTS",
+    ...facts.products.map(
+      (p) => `  ${p.title} — ${p.type}, ${money(p.priceCents)}${p.published ? "" : " (draft)"}`,
+    ),
+    facts.products.length < facts.totalProducts
+      ? `  …and ${facts.totalProducts - facts.products.length} more.`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n")
+}
+
+/**
  * Every section type that can be added, with what it is for.
  *
  * Sent once per run rather than fetched by a tool: it is the vocabulary, and a
