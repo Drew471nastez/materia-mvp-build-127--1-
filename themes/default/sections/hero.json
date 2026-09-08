@@ -167,7 +167,8 @@
       "id": "bg_color",
       "label": "Background color",
       "type": "color",
-      "default": "#0f172a"
+      "default": "",
+      "info": "Leave empty to use the color scheme."
     },
     {
       "id": "bg_gradient",
@@ -207,10 +208,39 @@
       "type": "header"
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "White",
+          "value": "white"
+        },
+        {
+          "label": "Light",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Black",
+          "value": "black"
+        },
+        {
+          "label": "Highlight",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "text_color",
       "label": "Text color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the color scheme."
     },
     {
       "id": "font_size_heading",

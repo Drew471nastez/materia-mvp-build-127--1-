@@ -21,7 +21,7 @@
       "id": "description",
       "label": "Description",
       "type": "textarea",
-      "default": "Use our size guide to find your ideal fit. Sizes are based on body measurements — if you're between sizes, we recommend sizing up for a relaxed fit.",
+      "default": "Use our size guide to find your ideal fit. Sizes are based on body measurements \u2014 if you're between sizes, we recommend sizing up for a relaxed fit.",
       "placeholder": "Introductory description"
     },
     {
@@ -144,6 +144,14 @@
       "default": "#e0e0e0"
     },
     {
+      "id": "highlight_size",
+      "label": "Highlight this size",
+      "type": "text",
+      "default": "",
+      "placeholder": "M",
+      "info": "The row to pick out \u2014 usually the size you recommend most. Leave empty for none."
+    },
+    {
       "id": "highlight_color",
       "label": "Highlight Color",
       "type": "color",
@@ -180,7 +188,7 @@
       "name": "Size Guide",
       "settings": {
         "heading": "Find Your Perfect Fit",
-        "description": "Use our size guide to find your ideal fit. Sizes are based on body measurements — if you're between sizes, we recommend sizing up for a relaxed fit.",
+        "description": "Use our size guide to find your ideal fit. Sizes are based on body measurements \u2014 if you're between sizes, we recommend sizing up for a relaxed fit.",
         "note_text": "Measurements are in cm unless toggled to inches.",
         "unit_system": "metric",
         "show_unit_toggle": true,

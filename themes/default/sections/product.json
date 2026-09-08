@@ -58,12 +58,6 @@
       ]
     },
     {
-      "id": "bg_color",
-      "label": "Background",
-      "type": "color",
-      "default": "#ffffff"
-    },
-    {
       "id": "color_scheme",
       "label": "Color Scheme",
       "type": "select",
@@ -223,12 +217,6 @@
       "id": "header_styling",
       "label": "Styling",
       "type": "header"
-    },
-    {
-      "id": "text_color",
-      "label": "Text color",
-      "type": "color",
-      "default": "#0f172a"
     },
     {
       "id": "padding_top",

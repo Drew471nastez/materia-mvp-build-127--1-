@@ -20,6 +20,7 @@ import {
   RefreshCw, Rocket,
 } from "lucide-react"
 import type { CSSProperties } from "react"
+import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 
 // ── Shared props every section receives ─────────────────────
@@ -95,6 +96,156 @@ export function str(v: unknown, fallback = ""): string {
 
 export function bool(v: unknown, fallback = false): boolean {
   return typeof v === "boolean" ? v : fallback
+}
+
+/**
+ * A number a slider produced, which is not always a number.
+ *
+ * Settings arrive as `Record<string, unknown>`: the panel writes numbers, the
+ * model writes `"80"`, and an older saved section can hold either. `Number("")`
+ * is 0, so an empty string has to be rejected explicitly or a cleared padding
+ * slider silently means "none" instead of "the default".
+ */
+export function num(v: unknown, fallback: number): number {
+  if (typeof v === "number") return Number.isFinite(v) ? v : fallback
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v)
+    if (Number.isFinite(n)) return n
+  }
+  return fallback
+}
+
+/**
+ * The vertical rhythm of a section, from its own two sliders.
+ *
+ * Sixteen renderers offered `padding_top` and `padding_bottom` in the panel
+ * and then rendered a hard-coded `py-16`. Two sections next to each other
+ * could not be given different spacing — which is most of what "make it look
+ * designed" comes down to.
+ *
+ * The defaults are per-section on purpose: they are whatever that renderer
+ * hard-coded before, so honouring the slider does not silently re-space every
+ * page that already exists.
+ */
+export function sectionPadding(
+  settings: Record<string, unknown>,
+  topDefault: number,
+  bottomDefault = topDefault,
+): CSSProperties {
+  return {
+    paddingTop: `${Math.max(0, num(settings.padding_top, topDefault))}px`,
+    paddingBottom: `${Math.max(0, num(settings.padding_bottom, bottomDefault))}px`,
+  }
+}
+
+// ── Time, in a zone somebody chose ──────────────────────────
+
+/**
+ * The offset of a time zone at a given instant, in milliseconds.
+ *
+ * `Intl` will format an instant into any IANA zone but will not parse one, so
+ * the offset is recovered by formatting and reading the wall clock back. This
+ * is the standard trick and it is exact, including across a DST boundary,
+ * because the offset is asked for at the instant in question rather than
+ * assumed from the zone.
+ */
+function zoneOffset(instant: number, timeZone: string): number {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).formatToParts(instant)
+    const at = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? "0")
+    const wall = Date.UTC(at("year"), at("month") - 1, at("day"), at("hour") % 24, at("minute"), at("second"))
+    return wall - instant
+  } catch {
+    // An unknown zone name is the creator's typo, not a reason to fail.
+    return 0
+  }
+}
+
+/**
+ * A wall-clock time, read in the zone the creator picked.
+ *
+ * "31 December, 23:59" means midnight in Los Angeles to somebody running a
+ * sale from Los Angeles, and the countdown section has offered a Time zone
+ * control from the day it shipped — while parsing the date in whatever zone
+ * the VISITOR happens to be in. A sale ending at midnight PT ended at 8pm for
+ * somebody in London and at 4pm the next day in Sydney.
+ *
+ * Two passes: the first offset is the one at the naive instant, the second at
+ * the corrected instant. That second pass is what gets a time within an hour
+ * of a DST change right.
+ */
+export function parseInZone(wallClock: string, timeZone?: string): number {
+  const text = wallClock.trim().replace(" ", "T")
+  if (!text) return NaN
+  // An explicit offset or a trailing Z means the author has already said which
+  // instant they mean, and a zone control must not move it.
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/.test(text)) return Date.parse(text)
+
+  const naive = Date.parse(/\d{2}:\d{2}/.test(text) ? `${text}Z` : `${text}T00:00:00Z`)
+  if (!Number.isFinite(naive)) return NaN
+  if (!timeZone) return Date.parse(text)
+
+  const once = naive - zoneOffset(naive, timeZone)
+  return naive - zoneOffset(once, timeZone)
+}
+
+export interface CountdownPart {
+  label: string
+  value: number
+}
+
+/**
+ * A live countdown to a wall-clock time in a zone. Null once it has run out,
+ * and null when there is nothing to count down to, so a caller renders nothing
+ * rather than a row of zeroes.
+ */
+export function useCountdown(
+  endsAt: string,
+  timeZone?: string,
+): { parts: CountdownPart[]; remaining: number } | null {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!endsAt) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [endsAt])
+
+  if (!endsAt) return null
+  const end = parseInZone(endsAt, timeZone)
+  if (!Number.isFinite(end)) return null
+  const remaining = end - now
+  if (remaining <= 0) return null
+
+  return {
+    remaining,
+    parts: [
+      { label: "days", value: Math.floor(remaining / 86_400_000) },
+      { label: "hrs", value: Math.floor((remaining % 86_400_000) / 3_600_000) },
+      { label: "min", value: Math.floor((remaining % 3_600_000) / 60_000) },
+      { label: "sec", value: Math.floor((remaining % 60_000) / 1000) },
+    ],
+  }
+}
+
+/** The four content widths the schemas offer, in the px the canvas uses. */
+export const MAX_WIDTHS: Record<string, string> = {
+  narrow: "720px",
+  medium: "960px",
+  wide: "1230px",
+  full: "100%",
+}
+
+export function maxWidth(v: unknown, fallback = "wide"): string {
+  return MAX_WIDTHS[str(v, fallback)] ?? MAX_WIDTHS[fallback] ?? "1230px"
 }
 
 // Convert a hex colour ("#rgb" / "#rrggbb") to "rgba(r, g, b, a)".

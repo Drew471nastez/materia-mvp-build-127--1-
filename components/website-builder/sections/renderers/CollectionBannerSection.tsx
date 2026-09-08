@@ -57,13 +57,47 @@ export function CollectionBannerSection({ section, isEditing, isSelected, onClic
   )
 
   const filters = (bool(s.show_filters, true) || bool(s.show_sort, true)) && (
-    <div className="max-w-[1230px] mx-auto px-6 py-6 flex flex-wrap items-center gap-3 text-sm">
+    <div
+      className={
+        str(s.filter_style, "pills") === "sidebar"
+          ? "max-w-[1230px] mx-auto px-6 py-6 flex items-start gap-6 text-sm"
+          : "max-w-[1230px] mx-auto px-6 py-6 flex flex-wrap items-center gap-3 text-sm"
+      }
+    >
       {bool(s.show_filters, true) && (
-        <div className="flex gap-2 flex-wrap">
-          {["All", "New", "Sale", "Size", "Color"].map(f => (
-            <span key={f} className="px-3 py-1 rounded-full border" style={{ borderColor: "#e5e7eb" }}>{f}</span>
-          ))}
-        </div>
+        /**
+         * Pills, dropdowns or a sidebar rail — the control offered all three
+         * and always drew pills. A shop with fifteen filters and a "Sidebar"
+         * setting got the same overflowing row of pills as everybody else.
+         */
+        str(s.filter_style, "pills") === "dropdowns" ? (
+          <div className="flex flex-wrap gap-2">
+            {["Size", "Color", "Price"].map(f => (
+              <select
+                key={f}
+                className="rounded border px-3 py-1.5 text-sm"
+                style={{ borderColor: "#e5e7eb" }}
+                defaultValue=""
+              >
+                <option value="">{f}</option>
+              </select>
+            ))}
+          </div>
+        ) : str(s.filter_style, "pills") === "sidebar" ? (
+          <div className="flex flex-col gap-2 pr-6">
+            {["All", "New", "Sale", "Size", "Color"].map(f => (
+              <span key={f} className="border-l-2 pl-3 text-sm" style={{ borderColor: "#e5e7eb" }}>
+                {f}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="flex gap-2 flex-wrap">
+            {["All", "New", "Sale", "Size", "Color"].map(f => (
+              <span key={f} className="px-3 py-1 rounded-full border" style={{ borderColor: "#e5e7eb" }}>{f}</span>
+            ))}
+          </div>
+        )
       )}
       {bool(s.show_sort, true) && (
         <select className="ml-auto px-3 py-1.5 rounded border text-sm" style={{ borderColor: "#e5e7eb" }}>

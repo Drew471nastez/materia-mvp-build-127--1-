@@ -1,37 +1,134 @@
 "use client"
 
+/**
+ * ===========================================================================
+ *  SPLIT CONTENT
+ * ===========================================================================
+ * The schema calls the image `image`, the body copy `body` and the button's
+ * destination `button_url`. The renderer read `image_url`, `text` and
+ * `button_link` — three names the schema has never had. So the image slot
+ * showed its grey "Image" placeholder no matter what was uploaded, the body
+ * copy never appeared at all, and every button linked to "#".
+ *
+ * The eyebrow, the aspect ratio, the button's style and colours, the heading
+ * size and the content width were declared and ignored.
+ */
+
+import type { CSSProperties } from "react"
 import { cn } from "@/lib/utils"
-import { sectionColors, str, buttonRadiusStyle, SectionWrapper, type SectionProps } from "../_shared"
+import {
+  maxWidth,
+  num,
+  sectionColors,
+  sectionPadding,
+  str,
+  SectionWrapper,
+  type SectionProps,
+} from "../_shared"
+
+const ASPECT: Record<string, string> = {
+  square: "1 / 1",
+  portrait: "3 / 4",
+  landscape: "4 / 3",
+  wide: "16 / 9",
+}
 
 export function SplitContentSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = c.bg
-  const headingColor = c.heading
-  const paraColor = c.paragraph
-  const imagePos = str(s.image_position, "left")
-  const imgUrl = str(s.image_url, "")
+
+  const bg = str(s.bg_color) || c.bg
+  const headingColor = str(s.text_color) || c.heading
+  const paraColor = str(s.text_color) || c.paragraph
+  const imagePos = str(s.image_position, "right")
+  const image = str(s.image)
+  const ratio = ASPECT[str(s.image_aspect_ratio, "square")] ?? ASPECT.square
+
+  const buttonStyle = str(s.button_style, "filled")
+  const buttonColor = str(s.button_color) || c.primary_btn_bg
+  const buttonLabel = str(s.button_text_color) || c.primary_btn_text
+  const radius = { borderRadius: `${num(s.button_border_radius, 8)}px` }
+  const button: CSSProperties =
+    buttonStyle === "outline"
+      ? { background: "transparent", color: buttonColor, border: `2px solid ${buttonColor}`, ...radius }
+      : buttonStyle === "ghost"
+        ? { background: "transparent", color: buttonColor, border: "1px solid transparent", ...radius }
+        : { background: buttonColor, color: buttonLabel, border: `1px solid ${buttonColor}`, ...radius }
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className={cn("flex flex-col @[768px]:flex-row items-center gap-8 px-8 max-w-[1230px] mx-auto", imagePos === "right" && "@[768px]:flex-row-reverse")} style={{ paddingTop: `${s.padding_top ?? 60}px`, paddingBottom: `${s.padding_bottom ?? 60}px` }}>
-        <div className="flex-1 min-w-0">
-          {imgUrl ? (
-            <img src={imgUrl} alt="" className="w-full h-auto rounded-lg object-cover" style={{ maxHeight: "500px" }} loading="lazy" decoding="async" />
+      <div
+        className={cn(
+          "flex flex-col @[768px]:flex-row items-center gap-10 px-8 mx-auto",
+          // `image_position` names where the IMAGE goes, so "right" is the
+          // reversed row. It read the same way before and defaulted to "left"
+          // while the schema defaulted to "right" — so the panel and the page
+          // disagreed about which preset you had chosen.
+          imagePos === "right" && "@[768px]:flex-row-reverse",
+        )}
+        style={{ maxWidth: maxWidth(s.max_width), ...sectionPadding(s, 60) }}
+      >
+        <div className="flex-1 min-w-0 w-full">
+          {image ? (
+            <img
+              src={image}
+              alt=""
+              className="w-full rounded-lg object-cover"
+              style={{ aspectRatio: ratio }}
+              loading="lazy"
+              decoding="async"
+            />
           ) : (
-            <div className="w-full aspect-[4/3] rounded-lg bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center">
+            <div
+              className="w-full rounded-lg bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center"
+              style={{ aspectRatio: ratio }}
+            >
               <span className="text-white/60 text-sm">Image</span>
             </div>
           )}
         </div>
         <div className="flex-1 min-w-0">
-          {!!s.heading && <h2 className="text-3xl font-bold mb-4" style={{ color: headingColor, fontFamily: theme.font_heading }}>{str(s.heading)}</h2>}
-          {!!s.text && <p className="text-base leading-relaxed mb-6" style={{ color: paraColor }}>{str(s.text)}</p>}
+          {!!s.eyebrow && (
+            <span
+              className="mb-3 block text-xs font-semibold uppercase tracking-[0.18em]"
+              style={{ color: paraColor, opacity: 0.85 }}
+            >
+              {str(s.eyebrow)}
+            </span>
+          )}
+          {!!s.heading && (
+            <h2
+              className="font-bold mb-3 text-3xl @[768px]:text-[length:var(--split-heading)]"
+              style={
+                {
+                  color: headingColor,
+                  fontFamily: theme.font_heading,
+                  "--split-heading": `${num(s.font_size_heading, 40)}px`,
+                } as CSSProperties
+              }
+            >
+              {str(s.heading)}
+            </h2>
+          )}
+          {!!s.subheading && (
+            <p className="text-lg mb-4" style={{ color: paraColor, opacity: 0.9 }}>
+              {str(s.subheading)}
+            </p>
+          )}
+          {!!s.body && (
+            <div
+              className="text-base leading-relaxed mb-6 [&_a]:underline [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5"
+              style={{ color: paraColor }}
+              // The field is a `richtext` control, which is what the editor
+              // writes into it. Rendering it as text showed the markup.
+              dangerouslySetInnerHTML={{ __html: str(s.body) }}
+            />
+          )}
           {!!s.button_text && (
             <a
-              href={str(s.button_link, "#")}
-              className="inline-block px-6 py-3 text-sm font-semibold"
-              style={{ background: c.primary_btn_bg, color: c.primary_btn_text, border: `1px solid ${c.primary_btn_border}`, ...buttonRadiusStyle(theme) }}
+              href={str(s.button_url, "#")}
+              className="inline-block px-6 py-3 text-sm font-semibold transition-opacity hover:opacity-90"
+              style={button}
             >
               {str(s.button_text)}
             </a>

@@ -1,10 +1,63 @@
 "use client"
 
+import type { CSSProperties }  from "react"
+
 // Press mentions — logos (optionally grayscale) with optional pull
 // quotes. Supports logos-only, logos-with-quotes, or a single featured
 // quote + logo row layout.
 
+import { cn } from "@/lib/utils"
 import { str, bool, SectionWrapper, type SectionProps } from "../_shared"
+
+/**
+ * A press logo, optionally tinted to one colour.
+ *
+ * A dozen mastheads in a dozen brand colours is noise, which is why the panel
+ * has offered a "Logo tint color" from the start — and why nothing reading it
+ * left every press row either full-colour or grey.
+ *
+ * A CSS filter cannot recolour an arbitrary image, so the tint is a MASK: the
+ * wrapper is painted in the chosen colour and the logo's own transparency
+ * becomes the stencil. The image stays in the tree, sized and laid out as
+ * before but invisible, so the wrapper takes exactly its dimensions and
+ * `object-contain` and `mask-size: contain` agree about where the mark sits.
+ */
+function Logo({
+  src,
+  alt,
+  tint,
+  style,
+  className,
+}: {
+  src: string
+  alt: string
+  tint: string
+  style: CSSProperties
+  className?: string
+}) {
+  // eslint-disable-next-line @next/next/no-img-element
+  const img = <img src={src} alt={alt} className={cn("h-8 object-contain", !tint && className)} style={tint ? { ...style, opacity: 0 } : style} />
+  if (!tint) return img
+  return (
+    <span
+      aria-hidden="true"
+      className={cn("inline-block", className)}
+      style={{
+        backgroundColor: tint,
+        WebkitMaskImage: `url(${src})`,
+        maskImage: `url(${src})`,
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+        WebkitMaskPosition: "center",
+        maskPosition: "center",
+        WebkitMaskSize: "contain",
+        maskSize: "contain",
+      }}
+    >
+      {img}
+    </span>
+  )
+}
 
 export function PressMentionsSection({ section, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -27,7 +80,19 @@ export function PressMentionsSection({ section, isEditing, isSelected, onClick }
     : cols === "6" ? "grid-cols-2 @[768px]:grid-cols-6"
     : "grid-cols-2 @[768px]:grid-cols-4"
 
-  const logoStyle = grayscale
+  /**
+   * `logo_color` tints the marks to one colour, which is what a press row
+   * usually wants: a dozen brand logos in a dozen brand colours is noise. The
+   * picker was in the panel and nothing read it, so every logo kept its own
+   * colours or went grey.
+   *
+   * A CSS filter cannot recolour an arbitrary image, so the tint is applied as
+   * a mask — the logo becomes a stencil filled with the chosen colour, which
+   * works for the transparent PNGs and SVGs press logos come as.
+   */
+  const tint = str(s.logo_color)
+
+  const logoStyle = grayscale && !tint
     ? { filter: "grayscale(1)", opacity: 0.7, transition: "filter 0.2s, opacity 0.2s" }
     : { opacity: 0.85 }
 
@@ -56,7 +121,13 @@ export function PressMentionsSection({ section, isEditing, isSelected, onClick }
               <div key={b.id} className="p-6 rounded" style={{ background: cardBg }}>
                 {!!b.settings.logo_url && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={str(b.settings.logo_url)} alt={str(b.settings.publication_name)} className="h-8 object-contain mb-3" style={logoStyle} />
+                  <Logo
+                    src={str(b.settings.logo_url)}
+                    alt={str(b.settings.publication_name)}
+                    tint={tint}
+                    style={logoStyle}
+                    className="mb-3"
+                  />
                 )}
                 {!!b.settings.quote && (
                   <p className="text-sm opacity-80 mb-2">{str(b.settings.quote)}</p>
@@ -73,7 +144,7 @@ export function PressMentionsSection({ section, isEditing, isSelected, onClick }
                 <a key={b.id} href={str(b.settings.url, "#")} className={hoverColor ? "hover:opacity-100 hover:[filter:none] transition" : ""}>
                   {logo ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={logo} alt={str(b.settings.publication_name)} className="h-8 object-contain" style={logoStyle} />
+                    <Logo src={logo} alt={str(b.settings.publication_name)} tint={tint} style={logoStyle} />
                   ) : (
                     <div className="text-lg font-serif opacity-60">{str(b.settings.publication_name, "Publication")}</div>
                   )}

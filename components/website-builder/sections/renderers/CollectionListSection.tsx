@@ -16,6 +16,7 @@ export function CollectionListSection({ section, theme, isEditing, isSelected, o
 
   const ratioClass: Record<string, string> = { adapt: "aspect-[4/5]", square: "aspect-square", portrait: "aspect-[3/4]", landscape: "aspect-[4/3]" }
   const headerAlignClass: Record<string, string> = { left: "text-left", center: "text-center", right: "text-right" }
+  const displayMode = str(s.display_mode, "grid")
   const colsClass: Record<number, string> = { 2: "grid-cols-2", 3: "grid-cols-2 @[768px]:grid-cols-3", 4: "grid-cols-2 @[768px]:grid-cols-4", 5: "grid-cols-2 @[768px]:grid-cols-5", 6: "grid-cols-2 @[768px]:grid-cols-6" }
 
   const demoBlocks = blocks.length > 0 ? blocks : [
@@ -42,7 +43,19 @@ export function CollectionListSection({ section, theme, isEditing, isSelected, o
             )}
           </div>
         )}
-        <div className={cn("grid", colsClass[cols])} style={{ gap: `${gap}px` }}>
+        {/*
+          `display_mode` offered Grid and Carousel and always drew the grid.
+          A carousel is the same cards in a snapping scroller, which is what
+          the control has been promising.
+        */}
+        <div
+          className={cn(
+            displayMode === "carousel"
+              ? "flex overflow-x-auto snap-x snap-mandatory pb-2 [&>*]:w-[70%] [&>*]:shrink-0 [&>*]:snap-start @[768px]:[&>*]:w-[32%]"
+              : cn("grid", colsClass[cols]),
+          )}
+          style={{ gap: `${gap}px` }}
+        >
           {demoBlocks.map(block => {
             const url = str(block.settings.url, "#")
             const img = str(block.settings.collection_image)

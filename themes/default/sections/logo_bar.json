@@ -76,6 +76,39 @@
       "default": false
     },
     {
+      "id": "hdr_colors",
+      "label": "Colors",
+      "type": "header"
+    },
+    {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "White",
+          "value": "white"
+        },
+        {
+          "label": "Light",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Black",
+          "value": "black"
+        },
+        {
+          "label": "Highlight",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "hdr_padding",
       "label": "Padding",
       "type": "header"
@@ -84,13 +117,15 @@
       "id": "bg_color",
       "label": "Background color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the color scheme."
     },
     {
       "id": "text_color",
       "label": "Text color",
       "type": "color",
-      "default": "#6b7280"
+      "default": "",
+      "info": "Leave empty to use the color scheme."
     },
     {
       "id": "padding_top",

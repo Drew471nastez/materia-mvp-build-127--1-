@@ -50,6 +50,18 @@ export function ProcessStepsSection({ section, isEditing, isSelected, onClick }:
                   <div className="flex-1">
                     <h3 className="font-semibold text-lg mb-1">{str(b.settings.title, "Step")}</h3>
                     <p className="text-sm opacity-80">{str(b.settings.description)}</p>
+                    {/* The Step image control has been in the panel from the
+                        start and nothing rendered what it uploaded. */}
+                    {!!b.settings.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={str(b.settings.image)}
+                        alt=""
+                        className="mt-3 w-full max-w-sm rounded-lg object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    )}
                   </div>
                 </div>
                 {layout === "horizontal" && i < blocks.length - 1 && (

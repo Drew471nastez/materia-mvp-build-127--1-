@@ -5,6 +5,7 @@
 // rows are sample data; creators should swap this for their real
 // chart data in their own ThemePack override.
 
+import { cn } from "@/lib/utils"
 import { useState } from "react"
 import { str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
@@ -31,6 +32,10 @@ export function SizeGuideSection({ section, isEditing, isSelected, onClick }: Se
   const headerBg = str(s.header_bg_color, "#f5f5f5")
   const borderColor = str(s.border_color, "#e0e0e0")
   const showToggle = bool(s.show_unit_toggle, true)
+  const chartStyle = str(s.chart_style, "bordered-table")
+  // The size the guide recommends, if the creator named one. The Highlight
+  // Color was a picker with nothing to colour until this control existed.
+  const highlightRow = str(s.highlight_size).trim().toLowerCase()
   const showFit = bool(s.show_fit_guide, true)
   const showModel = bool(s.show_model_measurements, true)
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 60
@@ -62,7 +67,22 @@ export function SizeGuideSection({ section, isEditing, isSelected, onClick }: Se
           </div>
         )}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm" style={{ borderCollapse: "separate", borderSpacing: 0, border: `1px solid ${borderColor}`, borderRadius: 8, overflow: "hidden" }}>
+          {/*
+            `chart_style` offered Minimal Table, Bordered Table, Cards and
+            Visual, and every size guide was the bordered table. Minimal drops
+            the outer rule and the zebra fill; cards and visual stack each size
+            as its own block, which is the only readable shape on a phone.
+          */}
+          <table
+            className={cn("w-full text-left text-sm", chartStyle === "cards" || chartStyle === "visual" ? "block @[560px]:table" : "")}
+            style={{
+              borderCollapse: "separate",
+              borderSpacing: 0,
+              border: chartStyle === "minimal-table" ? "none" : `1px solid ${borderColor}`,
+              borderRadius: 8,
+              overflow: "hidden",
+            }}
+          >
             <thead>
               <tr style={{ background: headerBg }}>
                 <th className="p-3 font-semibold">Size</th>
@@ -73,7 +93,24 @@ export function SizeGuideSection({ section, isEditing, isSelected, onClick }: Se
             </thead>
             <tbody>
               {rows.map((r, i) => (
-                <tr key={r.label} style={{ background: i % 2 === 1 ? headerBg : undefined }}>
+                <tr
+                  key={r.label}
+                  /**
+                   * The Highlight Color picks out the recommended size — the
+                   * one thing somebody is looking for in a size chart. It was
+                   * in the panel and read by nothing.
+                   */
+                  style={{
+                    background:
+                      highlightRow && r.label.toLowerCase() === highlightRow
+                        ? str(s.highlight_color, "#fff3e0")
+                        : chartStyle === "minimal-table"
+                          ? undefined
+                          : i % 2 === 1
+                            ? headerBg
+                            : undefined,
+                  }}
+                >
                   <td className="p-3 font-semibold border-t" style={{ borderColor }}>{r.label}</td>
                   <td className="p-3 border-t" style={{ borderColor }}>{r.chest}</td>
                   <td className="p-3 border-t" style={{ borderColor }}>{r.waist}</td>

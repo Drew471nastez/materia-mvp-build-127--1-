@@ -496,11 +496,17 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // Resolve color scheme (falls back to explicit bg/text colors if still set)
   const schemeKey = (str(s.color_scheme, "white") as HeaderColorScheme)
   const scheme = resolveScheme(theme, schemeKey)
-  const transparent = bool(s.header_transparent, false)
-  // transparent_on_hero only takes effect when this header sits over a hero block.
+  /**
+   * `header_transparent` is the control the panel offers; `transparent_on_hero`
+   * is what it used to be called. Headers saved under the old name are still
+   * out there, so it stays as the FALLBACK — read only when the current
+   * control has never been set. It was a second primary read before, which
+   * meant a creator turning the toggle off could not turn transparency off.
+   */
+  const transparent = bool(s.header_transparent, bool(s.transparent_on_hero, false))
   // We approximate this by using transparent background only when the toggle is on
   // — the consumer (page renderer) wraps the header above the hero in those cases.
-  const bg = (transparent || bool(s.transparent_on_hero, false)) ? "transparent" : scheme.bg
+  const bg = transparent ? "transparent" : scheme.bg
   const textColor = scheme.heading
   const navLinkColor = scheme.nav_link
   const borderColor = scheme.inset_border
@@ -602,8 +608,10 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     target.addEventListener("scroll", onScroll as EventListener, { passive: true })
     return () => target.removeEventListener("scroll", onScroll as EventListener)
   }, [renderingInsideEditor, headerStickyEnabled, headerStickyOnScrollUp])
-  const transparentOnHero = bool(s.transparent_on_hero, false)
-  const navAlignment = str(s.nav_alignment, "right") // legacy field, used by default layout
+  const transparentOnHero = transparent
+  // A control at last, rather than a value nobody could set. Read by the
+  // default "logo left, nav right" layout.
+  const navAlignment = str(s.nav_alignment, "right")
 
   const paddingVw = Number.isFinite(Number(s.vertical_padding_vw))
     ? Number(s.vertical_padding_vw)
@@ -942,10 +950,20 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         <a
           href={str(s.cta_url, "#")}
           className={cn(
-            "ml-1 font-semibold text-white px-3 py-1.5 text-[13px] shrink-0",
+            "ml-1 font-semibold px-3 py-1.5 text-[13px] shrink-0",
             hasDeviceMode ? (forceMobile ? "hidden" : "") : "hidden md:inline-block",
           )}
-          style={{ background: theme.primary_color ?? "#6366f1", ...buttonRadiusStyle(theme) }}
+          /**
+           * The header offered a CTA colour and a CTA label colour and painted
+           * the button with the THEME's primary colour and hard-coded white
+           * text. Both pickers are read now; both default to what was being
+           * painted, so no header that already exists changes.
+           */
+          style={{
+            background: str(s.cta_color) || theme.primary_color || "#6366f1",
+            color: str(s.cta_text_color, "#ffffff"),
+            ...buttonRadiusStyle(theme),
+          }}
           onClick={e => {
             if (isEditing) {
               e.preventDefault()

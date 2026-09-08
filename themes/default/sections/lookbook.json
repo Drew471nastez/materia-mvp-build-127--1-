@@ -200,7 +200,7 @@
       "id": "bg_color",
       "label": "Background Color",
       "type": "color",
-      "default": "#f5f0eb"
+      "default": "#26221f"
     },
     {
       "id": "text_color",
@@ -292,7 +292,7 @@
         "overlay_style": "dark",
         "overlay_color": "#000000",
         "overlay_opacity": 35,
-        "bg_color": "#f5f0eb",
+        "bg_color": "#26221f",
         "text_color": "#ffffff",
         "heading_color": "#ffffff",
         "accent_color": "#d4a96a",

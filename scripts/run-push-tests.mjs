@@ -34,6 +34,8 @@ const SUITES = [
   "tests/section-responsive.test.ts",
   "tests/anthropic-provider.test.ts",
   "tests/theme-code-editor.test.ts",
+  "tests/section-settings.test.ts",
+  "tests/section-render.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
@@ -57,6 +59,13 @@ try {
         target: "es2022",
         module: "esnext",
         moduleResolution: "bundler",
+        /**
+         * The section renderers are TSX, and tests/section-render.test.ts
+         * imports them to render each section for real. `react-jsx` is what
+         * Next.js compiles them with; without it tsc refuses the JSX and the
+         * suite cannot see a section at all.
+         */
+        jsx: "react-jsx",
         skipLibCheck: true,
         strict: false,
         baseUrl: ".",

@@ -11,6 +11,34 @@
       "type": "header"
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "White",
+          "value": "white"
+        },
+        {
+          "label": "Light",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Black",
+          "value": "black"
+        },
+        {
+          "label": "Highlight",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "slide_height",
       "label": "Slide height",
       "type": "range",

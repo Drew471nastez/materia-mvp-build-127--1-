@@ -104,6 +104,24 @@ export function EbookShowcaseSection({ section, isEditing, isSelected, onClick }
         {!!s.read_time && <div>{str(s.read_time)} read</div>}
         {!!s.release_date && <div>Released {str(s.release_date)}</div>}
       </div>
+      {/*
+        The Excerpt / First Chapter Preview ships with a full paragraph of
+        default copy and no renderer read it — so the one thing that sells a
+        book, a taste of the writing, was never on the page.
+      */}
+      {!!s.excerpt && (
+        <div className="mt-4 border-t pt-4" style={{ borderColor: "rgba(0,0,0,0.1)" }}>
+          <h4 className="mb-2 text-sm font-bold uppercase tracking-widest">Excerpt</h4>
+          <div className="space-y-2 text-sm leading-relaxed opacity-85">
+            {str(s.excerpt)
+              .split("\n")
+              .filter(Boolean)
+              .map((line, i) => (
+                <p key={i}>{line}</p>
+              ))}
+          </div>
+        </div>
+      )}
       {bool(s.show_table_of_contents, true) && !!s.toc_items && (
         <div className="mt-4 pt-4 border-t" style={{ borderColor: "rgba(0,0,0,0.1)" }}>
           <h4 className="text-sm font-bold uppercase tracking-widest mb-2">Table of contents</h4>

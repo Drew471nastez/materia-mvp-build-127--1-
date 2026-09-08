@@ -6,7 +6,9 @@ import { sectionColors, str, SectionWrapper, type SectionProps } from "../_share
 export function ImageSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = c.bg
+  // The scheme, or an explicit colour when the creator has set one. The
+  // picker was in the panel and read by nothing.
+  const bg = str(s.bg_color) || c.bg
   const imgUrl = str(s.image_url, "")
   const caption = str(s.caption, "")
   const aspectRatio = str(s.aspect_ratio, "auto")
@@ -23,7 +25,11 @@ export function ImageSection({ section, theme, isEditing, isSelected, onClick }:
             <span className="text-white/60 text-sm">Add an image</span>
           </div>
         )}
-        {caption && <p className="text-center text-sm text-neutral-500 mt-3">{caption}</p>}
+        {caption && (
+          <p className="mt-3 text-center text-sm" style={{ color: c.paragraph }}>
+            {caption}
+          </p>
+        )}
       </div>
     </SectionWrapper>
   )

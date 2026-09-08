@@ -8,7 +8,7 @@
 // inline version it replaced.
 // ============================================================
 
-import { FileText, Heart, Package, Share2 } from "lucide-react"
+import { Facebook, FileText, Heart, Instagram, Package, Share2, Twitter } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import {
@@ -45,6 +45,18 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
 
   const allImages = thumbnailUrl ? [thumbnailUrl, ...galleryUrls] : galleryUrls
   const [activeImage, setActiveImage] = useState(0)
+  const [lightbox, setLightbox] = useState<number | null>(null)
+
+  const galleryLayout = str(s.multiple_images_layout, "stacked")
+  const clickAction = str(s.image_click_action, "none")
+  const zoomOnHover = str(s.image_hover_action, "none") === "zoom"
+
+  /**
+   * `format` sizes the page: compact for a simple digital download, wide when
+   * the images are the point. It offered three widths and produced one.
+   */
+  const format = str(s.format, "standard")
+  const formatWidth = format === "compact" ? "860px" : format === "wide" ? "1440px" : "1230px"
 
   const formatPrice = (cents: number) => {
     const val = cents / 100
@@ -79,11 +91,33 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
 
   const visibleFiles = showAllFiles ? files : files.slice(0, 4)
 
+  /**
+   * A star line, above the title or above the description — the section
+   * offered the toggle and the position and rendered neither.
+   *
+   * Declared here rather than beside the other settings because it reads
+   * `scheme` and `primaryColor`, which are resolved further down; a const
+   * cannot be used before it is initialised.
+   */
+  const reviewsSummary = bool(s.show_reviews_summary) ? (
+    <div className="mb-3 flex items-center gap-2 text-sm" style={{ color: scheme.muted }}>
+      <span style={{ color: primaryColor }}>★★★★★</span>
+      <span>4.9 · 128 reviews</span>
+    </div>
+  ) : null
+
   return (
     <SectionWrapper bgColor={scheme.bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div
-        className={cn("w-full mx-auto", layout === "one_column" ? "max-w-2xl px-6" : "max-w-[1230px] flex flex-col @[768px]:flex-row")}
-        style={{ color: scheme.text, paddingTop: `${s.padding_top ?? 48}px`, paddingBottom: `${s.padding_bottom ?? 48}px` }}
+        className={cn("w-full mx-auto", layout === "one_column" ? "px-6" : "flex flex-col @[768px]:flex-row")}
+        // `format` — Standard, Compact or Wide — set the page width and set
+        // nothing. A one-column layout keeps its own narrower measure.
+        style={{
+          maxWidth: layout === "one_column" ? "42rem" : formatWidth,
+          color: scheme.text,
+          paddingTop: `${s.padding_top ?? 48}px`,
+          paddingBottom: `${s.padding_bottom ?? 48}px`,
+        }}
       >
         {/* Image column */}
         <div
@@ -92,15 +126,76 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
         >
           {allImages.length > 0 ? (
             <div>
+              {/*
+                MULTIPLE IMAGES LAYOUT. The control offered Slideshow, Stacked,
+                Stacked (2 col) and Carousel; every product page was the
+                slideshow — one big image with a thumbnail strip — whichever
+                was chosen. "Stacked" is the layout most product pages actually
+                want: every image down the page, nothing to click.
+              */}
+              {galleryLayout === "stacked" || galleryLayout === "stacked_2col" ? (
+                <div className={cn("grid gap-3", galleryLayout === "stacked_2col" && "@[560px]:grid-cols-2")}>
+                  {allImages.map((image, i) => (
+                    <div
+                      key={i}
+                      className={cn("w-full overflow-hidden rounded-lg", zoomOnHover && "group")}
+                      style={{ background: scheme.surface }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={image}
+                        alt={title}
+                        className={cn(
+                          "w-full h-auto object-contain transition-transform duration-500",
+                          zoomOnHover && "group-hover:scale-105",
+                          clickAction !== "none" && "cursor-zoom-in",
+                        )}
+                        loading={i === 0 ? "eager" : "lazy"}
+                        decoding="async"
+                        onClick={clickAction === "none" ? undefined : (e) => { e.stopPropagation(); setLightbox(i) }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : galleryLayout === "carousel" ? (
+                <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
+                  {allImages.map((image, i) => (
+                    <div
+                      key={i}
+                      className="w-[82%] shrink-0 snap-start overflow-hidden rounded-lg @[560px]:w-[48%]"
+                      style={{ background: scheme.surface }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={image}
+                        alt={title}
+                        className={cn("h-full w-full object-contain", clickAction !== "none" && "cursor-zoom-in")}
+                        loading="lazy"
+                        decoding="async"
+                        onClick={clickAction === "none" ? undefined : (e) => { e.stopPropagation(); setLightbox(i) }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+              <>
               {/* Main image */}
-              <div className="w-full overflow-hidden rounded-lg" style={{ background: scheme.surface }}>
+              <div
+                className={cn("w-full overflow-hidden rounded-lg", zoomOnHover && "group")}
+                style={{ background: scheme.surface }}
+              >
                 <img
                   src={allImages[activeImage] ?? allImages[0]}
                   alt={title}
-                  className="w-full h-auto object-contain"
+                  className={cn(
+                    "w-full h-auto object-contain transition-transform duration-500",
+                    zoomOnHover && "group-hover:scale-105",
+                    clickAction !== "none" && "cursor-zoom-in",
+                  )}
                   style={{ maxHeight: "600px" }}
                   loading="lazy"
                   decoding="async"
+                  onClick={clickAction === "none" ? undefined : (e) => { e.stopPropagation(); setLightbox(activeImage) }}
                 />
               </div>
               {/* Thumbnails */}
@@ -120,6 +215,8 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
                     </button>
                   ))}
                 </div>
+              )}
+              </>
               )}
             </div>
           ) : (
@@ -146,6 +243,8 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
               On Sale
             </span>
           )}
+
+          {str(s.reviews_position, "above_title") === "above_title" && reviewsSummary}
 
           {/* Title */}
           <h1
@@ -220,7 +319,27 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
                 <span className="underline">Share</span>
               </button>
             )}
+            {/* "Show social media icons" was a toggle over nothing. The links
+                are the store's, from the theme, so a product page does not ask
+                for them a second time. */}
+            {bool(s.show_social_icons) && (
+              <div className="flex items-center gap-3">
+                {[
+                  { href: str(theme.social_instagram), Icon: Instagram, label: "Instagram" },
+                  { href: str(theme.social_twitter), Icon: Twitter, label: "X" },
+                  { href: str(theme.social_facebook), Icon: Facebook, label: "Facebook" },
+                ]
+                  .filter((x) => !!x.href)
+                  .map(({ href, Icon, label }) => (
+                    <a key={label} href={href} aria-label={label} className="hover:opacity-80">
+                      <Icon className="h-4 w-4" />
+                    </a>
+                  ))}
+              </div>
+            )}
           </div>
+
+          {str(s.reviews_position, "above_title") === "above_description" && reviewsSummary}
 
           {/* Description — rendered as text (whitespace-pre-wrap preserves
               line breaks). We deliberately do NOT use dangerouslySetInnerHTML
@@ -277,6 +396,23 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
           )}
         </div>
       </div>
+      {lightbox !== null && allImages[lightbox] && (
+        /* "Image click action" offered Zoom and Lightbox and neither did
+           anything — clicking a product image did nothing at all. */
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-6"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setLightbox(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={allImages[lightbox]}
+            alt={title}
+            className={cn("max-h-[85vh] w-auto object-contain", clickAction === "zoom" && "scale-110")}
+          />
+        </div>
+      )}
     </SectionWrapper>
   )
 }

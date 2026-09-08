@@ -52,6 +52,34 @@
       "default": false
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "White",
+          "value": "white"
+        },
+        {
+          "label": "Light",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Black",
+          "value": "black"
+        },
+        {
+          "label": "Highlight",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "accent_color",
       "label": "Accent / star color",
       "type": "color",
@@ -72,13 +100,15 @@
       "id": "bg_color",
       "label": "Background color",
       "type": "color",
-      "default": "#f9fafb"
+      "default": "",
+      "info": "Leave empty to use the color scheme."
     },
     {
       "id": "text_color",
       "label": "Text color",
       "type": "color",
-      "default": "#111827"
+      "default": "",
+      "info": "Leave empty to use the color scheme."
     },
     {
       "id": "padding_top",
@@ -142,7 +172,7 @@
         },
         {
           "id": "rating",
-          "label": "Star rating (1–5)",
+          "label": "Star rating (1\u20135)",
           "type": "range",
           "default": 5,
           "min": 1,

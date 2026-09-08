@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
-import { resolveScheme, str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { resolveScheme, str, bool, parseInZone, SectionWrapper, type SectionProps } from "../_shared"
 
 // ── Countdown timer ──────────────────────────────────────────
 export function CountdownTimerSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
@@ -28,10 +28,22 @@ export function CountdownTimerSection({ section, theme, isEditing, isSelected, o
     return () => clearInterval(id)
   }, [])
 
-  // Default: 2 days from now if no end date set
-  const endTime = endStr ? Date.parse(endStr.replace(" ", "T")) : now + 1000 * 60 * 60 * 48
+  /**
+   * READ IN THE ZONE THE CREATOR PICKED.
+   *
+   * The section has offered a Time zone control from the day it shipped and
+   * parsed the date in whatever zone the VISITOR was in. A sale set to end at
+   * midnight Pacific ended at 8pm for somebody in London and at 4pm the next
+   * afternoon in Sydney — every visitor saw a different deadline, and none of
+   * them saw the one the creator set.
+   *
+   * Default: 2 days from now if no end date is set.
+   */
+  const parsed = endStr ? parseInZone(endStr, str(s.timezone, "UTC")) : NaN
+  // A date somebody has half-typed is not a countdown that has expired.
+  const endTime = Number.isFinite(parsed) ? parsed : now + 1000 * 60 * 60 * 48
   const diff = Math.max(0, endTime - now)
-  const expired = diff === 0 && !!endStr
+  const expired = diff === 0 && Number.isFinite(parsed)
 
   const days = Math.floor(diff / 86400000)
   const hours = Math.floor((diff % 86400000) / 3600000)

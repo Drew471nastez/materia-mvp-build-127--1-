@@ -57,9 +57,19 @@ export function ImageComparisonSection({ section, theme, isEditing, isSelected, 
         <a
           href={str(buttonBlock.settings.first_button_link, "#")}
           className="inline-flex items-center justify-center px-6 py-2.5 text-sm font-semibold self-start"
+          /* The Button type control offered Primary, Outline and Link and
+             every button was the filled primary. */
           style={{
-            background: c.primary_btn_bg, color: c.primary_btn_text, border: `1px solid ${c.primary_btn_border}`,
             ...buttonRadiusStyle(theme),
+            ...(str(buttonBlock.settings.first_button_type, "primary") === "outline"
+              ? { background: "transparent", color: c.primary_btn_bg, border: `2px solid ${c.primary_btn_bg}` }
+              : str(buttonBlock.settings.first_button_type, "primary") === "link"
+                ? { background: "transparent", color: c.link, border: "none", padding: 0, textDecoration: "underline" }
+                : {
+                    background: c.primary_btn_bg,
+                    color: c.primary_btn_text,
+                    border: `1px solid ${c.primary_btn_border}`,
+                  }),
           }}
         >
           {str(buttonBlock.settings.first_button_label)}

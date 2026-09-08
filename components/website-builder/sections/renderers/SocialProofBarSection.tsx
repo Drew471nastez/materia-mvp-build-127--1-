@@ -49,6 +49,9 @@ export function SocialProofBarSection({ section, isEditing, isSelected, onClick 
       <div key="rating" className="flex items-center gap-2">
         <Stars value={rating} color={starColor} />
         <span className="font-semibold">{rating.toFixed(1)}</span>
+        {!!s.review_count && (
+          <span className="text-sm opacity-70">({str(s.review_count)})</span>
+        )}
         {!!s.rating_label && <span className="opacity-70 text-sm">{str(s.rating_label)}</span>}
       </div>
     )
