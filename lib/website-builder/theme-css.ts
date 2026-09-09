@@ -188,7 +188,7 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
   if (gap > 0) {
     // Between sections, never above the first or below the last — a gap there
     // reads as a broken page rather than as spacing.
-    rules.push(`${root} [data-section]+[data-section]{margin-top:var(--theme-section-gap);}`)
+    rules.push(`${root} [data-section]:not([data-chrome])+[data-section]:not([data-chrome]){margin-top:var(--theme-section-gap);}`)
   }
 
   // ── Buttons ─────────────────────────────────────────────────────────────
@@ -227,11 +227,20 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
     const from = ANIMATION_FROM[str(t.animation_style, "fade-up")] ?? ANIMATION_FROM["fade-up"]
     rules.push(
       `@keyframes storelibSectionIn{from{${from}}to{opacity:1;transform:none;}}`,
-      `${root} [data-section]{animation:storelibSectionIn var(--theme-animation-duration) cubic-bezier(0.22,1,0.36,1) both;}`,
+      /**
+       * NOT THE HEADER, NOT THE FOOTER.
+       *
+       * Measured in Chromium: with the animation on every section, a sticky
+       * header sat 16px below where it should — `translateY(16px)` is the
+       * from-state of "fade up", and the header's own `transform` is what
+       * slides it away on scroll, so the two were fighting over the same
+       * property. Chrome appears with the page; only content enters.
+       */
+      `${root} [data-section]:not([data-chrome]){animation:storelibSectionIn var(--theme-animation-duration) cubic-bezier(0.22,1,0.36,1) both;}`,
       // Each section a little after the one above it, capped so the tenth
       // section is not still waiting a second after the page has settled.
       ...Array.from({ length: 8 }, (_, i) =>
-        `${root} [data-section]:nth-of-type(${i + 2}){animation-delay:calc(var(--theme-animation-stagger) * ${i + 1});}`,
+        `${root} [data-section]:not([data-chrome]):nth-of-type(${i + 2}){animation-delay:calc(var(--theme-animation-stagger) * ${i + 1});}`,
       ),
       // Somebody who has asked their system for less motion has asked.
       `@media (prefers-reduced-motion:reduce){${root} [data-section]{animation:none;}}`,

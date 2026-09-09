@@ -1266,26 +1266,36 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     : "px-4 md:px-[5%]"
 
   const stickyHidden = headerStickyEnabled && headerStickyOnScrollUp && !stickyVisible
-  // Sticky behaviour needs to work in BOTH places:
-  //  • Live site (`renderingInsideEditor === false`) — wrapped in a
-  //    marketing layout `<main className="[overflow-x:clip]">` which kills
-  //    `position: sticky` in most browsers. Use `position: fixed` + a
-  //    spacer div.
-  //  • Editor canvas (`renderingInsideEditor === true`) — content scrolls
-  //    inside `<main className="overflow-y-auto">` (desktop) or
-  //    `#wb-preview-root` (mobile phone frame). Use `position: sticky`
-  //    there since the scroll ancestor is a simple overflow container.
-  //
-  // CRITICAL: we gate on `renderingInsideEditor`, NOT `isEditing`. The
-  // Inspector toggle in the editor topbar flips `isEditing` but must NOT
-  // flip the sticky-mode — otherwise the header flips into `position:
-  // fixed` and overlays the editor's own topbar/sidebar chrome as soon
-  // as the user turns the inspector off.
-  // Sticky is ALWAYS active when `headerStickyEnabled` — no activation gate.
-  // The scroll-up hide animation is the only dynamic bit; it's driven by
-  // `stickyVisible` which slides the header off/on with `translateY(-100%)`.
-  const useStickyFixed = !renderingInsideEditor && headerStickyEnabled
-  const useStickyInFlow = renderingInsideEditor && headerStickyEnabled
+
+  /**
+   * ===========================================================================
+   *  ONE STICKY MODE, AND IT IS `position: sticky`
+   * ===========================================================================
+   * The live site used `position: fixed` plus an in-flow spacer, on the
+   * grounds that the marketing layout's `<main className="[overflow-x:clip]">`
+   * "kills `position: sticky` in most browsers". That is true of
+   * `overflow: hidden` and NOT true of `clip` — not making a scroll container
+   * is the entire reason `clip` exists. Measured in Chromium against the real
+   * layout, flex wrapper and all: sticky pins at 0 and returns to 44px, exactly
+   * as it should.
+   *
+   * The fixed version produced both of the bugs a creator could see on their
+   * published site and not in the editor:
+   *
+   *   • A header pinned to `top: 0` COVERS THE ANNOUNCEMENT BAR, and the
+   *     spacer underneath it reserves the header's height a second time — so
+   *     the bar vanished and a band of empty background appeared below the
+   *     header.
+   *
+   *   • Scrolling back to the top slid the header DOWN OVER the bar, because
+   *     a fixed header has no natural position to return to.
+   *
+   * Sticky has neither problem: the bar scrolls away, the header pins, and on
+   * the way back the header lands under the bar again because that is where it
+   * lives. And the editor and the published page now run the same branch,
+   * which is what stops the two disagreeing a third time.
+   */
+  const useSticky = headerStickyEnabled
 
   const headerRef = useRef<HTMLDivElement | null>(null)
   const [measuredH, setMeasuredH] = useState(0)
@@ -1293,7 +1303,9 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     // Measure for both the live fixed header (so the spacer reserves the
     // right height) and the editor sticky header (so the mobile drawer can
     // start just below it).
-    if (!headerStickyEnabled) { setMeasuredH(0); return }
+    // Measured whenever the header is sticky OR transparent: the transparent
+    // overlay below needs the height to cancel out with a negative margin.
+    if (!headerStickyEnabled && !transparent) { setMeasuredH(0); return }
     const el = headerRef.current
     if (!el) return
     const update = () => setMeasuredH(el.offsetHeight)
@@ -1429,39 +1441,42 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     />
   )
 
-  // 1) Live sticky: fixed header + spacer. Transform lives on the fixed
-  // wrapper so the whole header (bg + content) slides together.
-  if (useStickyFixed) {
-    return (
-      <>
-        {/* In-flow spacer to reserve header height */}
-        <div id={wrapperId} style={{ height: measuredH || undefined, background: bg }} />
-        <div
-          ref={headerRef}
-          className="fixed top-0 left-0 right-0 z-[60] will-change-transform isolate"
-          style={{
-            backgroundColor: bg,
-            opacity: 1,
-            transform: hideTransform,
-            transition: hideTransition,
-          }}
-        >
-          {headerInner}
-        </div>
-        {cartOpen && (
-          <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />
-        )}
-        {mobileDrawer}
-      </>
-    )
-  }
+  /**
+   * THE TRANSPARENT HEADER TAKES NO SPACE.
+   *
+   * "Make header transparent" is for a header sitting over a hero image, and
+   * in flow it only ever showed the page background instead. A negative bottom
+   * margin of exactly its own height cancels the space it occupies, so the
+   * section below starts underneath it — the overlay the control describes,
+   * without leaving `position: sticky` behind. Verified in Chromium: the
+   * header's top and the hero's top land on the same pixel.
+   */
+  const overlayMargin: React.CSSProperties | undefined = transparent
+    ? {
+        /**
+         * A CSS variable with a real default rather than a plain negative
+         * number, because `measuredH` comes from a layout effect and there is
+         * no layout effect on the server. With a bare `-measuredH` the header
+         * took full space in the first paint and jumped up on hydration — a
+         * layout that needs JavaScript to be correct is a layout that flashes.
+         *
+         * 72px is a header with the default 64px logo and its padding; the
+         * measured value replaces it a frame later, so the correction is a few
+         * pixels rather than the whole header.
+         */
+        marginBottom: "calc(-1 * var(--storelib-header-h, 72px))",
+        ...(measuredH ? ({ "--storelib-header-h": `${measuredH}px` } as React.CSSProperties) : {}),
+      }
+    : undefined
 
-  // 2) Editor sticky (inside canvas scroll container). Transform lives on
-  // the SectionWrapper's root div, not on an inner wrapper, so when the
-  // header slides up the WHOLE thing (background + content) goes with it.
-  if (useStickyInFlow) {
+  // 1) Sticky — the editor canvas and the published page, the same branch.
+  //    The transform lives on the SectionWrapper's root div rather than on an
+  //    inner wrapper, so when the header slides up the WHOLE thing (background
+  //    and content) goes with it.
+  if (useSticky) {
     return (
       <SectionWrapper
+        isChrome
         id={wrapperId}
         bgColor={bg}
         isEditing={isEditing}
@@ -1485,6 +1500,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           transform: hideTransform,
           transition: hideTransition,
           pointerEvents: stickyHidden ? "none" : undefined,
+          ...overlayMargin,
         }}
         forwardRef={(el: HTMLDivElement | null) => {
           headerRef.current = el
@@ -1500,9 +1516,24 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     )
   }
 
-  // 3) Plain non-sticky.
+  // 2) Plain non-sticky. Still honours transparency, which it did not before:
+  //    a transparent header with sticky turned off simply showed the page
+  //    background, so the control meant two different things.
   return (
-    <SectionWrapper id={wrapperId} bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick} canvasRoundedTopPx={canvasRoundedTopPx}>
+    <SectionWrapper
+      isChrome
+      id={wrapperId}
+      bgColor={bg}
+      isEditing={isEditing}
+      isSelected={isSelected}
+      onClick={onClick}
+      canvasRoundedTopPx={canvasRoundedTopPx}
+      className={transparent ? "z-[60]" : undefined}
+      style={overlayMargin}
+      forwardRef={(el: HTMLDivElement | null) => {
+        headerRef.current = el
+      }}
+    >
       {headerInner}
       {cartOpen && (
         <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />

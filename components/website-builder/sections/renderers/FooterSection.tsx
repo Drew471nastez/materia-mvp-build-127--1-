@@ -101,6 +101,7 @@ export function FooterSection({
 
   return (
     <SectionWrapper
+      isChrome
       bgColor={bg}
       isEditing={isEditing}
       isSelected={isSelected}

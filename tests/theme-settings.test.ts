@@ -192,7 +192,12 @@ section("The stylesheet is scoped, or it would leak into the editor")
     unscoped.length === 0,
     unscoped.join(" | "),
   )
-  check("a section gap is only ever between sections", /\[data-section\]\+\[data-section\]/.test(css))
+  check(
+    "a section gap is only ever between sections, and never around the chrome",
+    // A gap above the header or below the footer is not spacing, it is a page
+    // that looks broken.
+    /\[data-section\]:not\(\[data-chrome\]\)\+\[data-section\]:not\(\[data-chrome\]\)/.test(css),
+  )
   check(
     "one long word cannot push the page sideways",
     /**
@@ -269,6 +274,98 @@ section("One page, four surfaces")
      */
     /background:var\(--theme-bg\)/.test(themeStylesheet({} as ThemeSettingsValues)) &&
       /font-family:var\(--theme-font-body\)/.test(themeStylesheet({} as ThemeSettingsValues)),
+  )
+}
+
+// ===========================================================================
+section("The header, the announcement bar, and the space between them")
+// ===========================================================================
+
+/**
+ * Reported from a published site, with a screenshot of the editor next to it
+ * showing the same page correct:
+ *
+ *   • The announcement bar did not appear, and a band of empty background sat
+ *     under the header instead.
+ *   • Scrolling back to the top slid the header down OVER the bar.
+ *
+ * Both came from one decision. The live site rendered the sticky header as
+ * `position: fixed; top: 0` plus an in-flow spacer, on the grounds that the
+ * marketing layout's `overflow-x: clip` "kills position: sticky". That is true
+ * of `overflow: hidden` and NOT of `clip` — not creating a scroll container is
+ * the entire reason `clip` exists, and it was measured in Chromium against the
+ * real layout before this changed.
+ *
+ * A header fixed at top:0 covers whatever is above it, and the spacer reserves
+ * its height a second time. A fixed header also has no natural position to
+ * return to, so coming back to the top it animates down across the bar.
+ *
+ * The behaviour itself is measured by scripts/check-sticky-header.mjs, in a
+ * browser, in all three configurations. What is pinned here is that the two
+ * things that caused it cannot come back.
+ */
+{
+  const header = readFileSync(
+    join(root, "components/website-builder/sections/renderers/HeaderSection.tsx"),
+    "utf8",
+  )
+  const source = stripComments(header)
+
+  check(
+    "the header is sticky rather than fixed",
+    /**
+     * Both halves matter, and a break test is why. The first version only
+     * looked for the literal `className="fixed top-0 left-0 right-0`, so
+     * moving the same classes inside a `cn(…)` call put the bug straight back
+     * with the suite still green.
+     *
+     * `fixed top-0 right-0` is left alone deliberately: that is the mobile
+     * navigation drawer, which is supposed to be fixed.
+     */
+    !/fixed top-0 left-0|fixed inset-x-0 top-0/.test(source) &&
+      /"sticky top-0 z-\[60\]/.test(source),
+  )
+  check(
+    "and there is no spacer standing in for the space it no longer takes",
+    !/In-flow spacer/.test(header) && !/height: measuredH \|\| undefined/.test(source),
+  )
+  check(
+    "the editor and the published page take the same branch",
+    /**
+     * They took different ones — `useStickyFixed` versus `useStickyInFlow` —
+     * which is exactly why the bug was invisible in the editor.
+     */
+    !/useStickyFixed|useStickyInFlow/.test(source) && /const useSticky = headerStickyEnabled/.test(source),
+  )
+  check(
+    "a transparent header overlays without waiting for JavaScript",
+    /**
+     * The overlay is a negative margin of the header's own height, and that
+     * height comes from a layout effect — which does not run on the server. A
+     * bare `-measuredH` made the header take full space in the first paint and
+     * jump on hydration.
+     */
+    /var\(--storelib-header-h, 72px\)/.test(source),
+  )
+
+  const css = themeStylesheet({ animations_enabled: true, section_gap: 24 } as ThemeSettingsValues)
+  check(
+    "and the entrance animation leaves the chrome alone",
+    /**
+     * Measured: with the animation on every section a sticky header sat 16px
+     * low — `translateY(16px)` is the from-state of "fade up", and the
+     * header's own `transform` is what slides it away on scroll, so the two
+     * were fighting over one property.
+     */
+    /\[data-section\]:not\(\[data-chrome\]\)\{animation:storelibSectionIn/.test(css) &&
+      !/\[data-section\]\{animation:storelibSectionIn/.test(css),
+  )
+  check(
+    "which means the header and the footer have to say they are chrome",
+    /isChrome/.test(header) &&
+      /isChrome/.test(
+        readFileSync(join(root, "components/website-builder/sections/renderers/FooterSection.tsx"), "utf8"),
+      ),
   )
 }
 
