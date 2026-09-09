@@ -397,13 +397,20 @@ section("The header, the announcement bar, and the space between them")
        * page background — filmed, it is a white band that grows toward the
        * announcement bar's height and snaps shut.
        */
-      /const settled = originOf\(\) \+ el\.offsetHeight/.test(source) &&
+      /const settled = origin \+ el\.offsetHeight/.test(source) &&
       /const mayMove = y >= settled/.test(source) &&
       !/y >= originOf\(\) - 1/.test(source) &&
+      /**
+       * Measured from RECTS, not by walking `offsetParent`. That walk skips
+       * ancestors which are not positioned, so inside the editor it never
+       * reached the preview scroller and accumulated the editor page's own
+       * offsets instead — `settled` came out enormous and the header never
+       * hid at all.
+       */
+      /const rel = el\.getBoundingClientRect\(\)\.top - containerTop\(\)/.test(source) &&
+      /if \(rel > 1 \|\| y <= 1\) origin = Math\.max\(0, y \+ rel\)/.test(source) &&
+      !/let parent = el\.offsetParent/.test(source) &&
       !/y < 80/.test(source) &&
-      // Read from offsetTop, because the rect is displaced by the very
-      // transform this decides whether to apply.
-      /let top = el\.offsetTop/.test(source) &&
       // And it is written to the node, not to React state — a render is a
       // reconcile and a commit after the scroll that caused it, and those
       // frames are the white flash.

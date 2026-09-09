@@ -627,14 +627,28 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
      * `getBoundingClientRect().top`, because the rect is displaced by the very
      * transform this decides whether to apply.
      */
-    const originOf = () => {
-      let top = el.offsetTop
-      let parent = el.offsetParent as HTMLElement | null
-      while (parent && parent !== target && parent !== document.body) {
-        top += parent.offsetTop
-        parent = parent.offsetParent as HTMLElement | null
-      }
-      return Math.max(0, top)
+    /**
+     * WHERE THE HEADER'S BOX SITS IN THE SCROLLING CONTENT.
+     *
+     * This used to walk `offsetParent`, and that is wrong inside the editor:
+     * `offsetParent` SKIPS ancestors that are not positioned, so the walk never
+     * reaches `#wb-preview-root` and instead accumulates the editor page's own
+     * offsets. `settled` came out enormous, `mayMove` was never true, and the
+     * header simply never hid — the reveal looked like it was not implemented.
+     *
+     * Rects instead, which are the same in both surfaces. The catch is that a
+     * PINNED header reports a top of zero, so measuring then would say the box
+     * lives wherever you have scrolled to. So the sample is only taken when the
+     * header is demonstrably NOT pinned — its top still below the container's,
+     * or the scroller at rest — and the last good value is kept otherwise. The
+     * first sample is taken on mount, at whatever position the page loads at.
+     */
+    const containerTop = () => (target === window ? 0 : (target as HTMLElement).getBoundingClientRect().top)
+    let origin = 0
+    const sampleOrigin = () => {
+      const rel = el.getBoundingClientRect().top - containerTop()
+      const y = getY()
+      if (rel > 1 || y <= 1) origin = Math.max(0, y + rel)
     }
 
     const REVEAL = "transform 350ms cubic-bezier(0.22, 0.61, 0.36, 1)"
@@ -647,6 +661,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     let lastY = getY()
     let hidden = false
     apply(false, false)
+    sampleOrigin()
 
     const onScroll = () => {
       const y = getY()
@@ -674,7 +689,8 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
        * header's own are settings, and a header that measured itself once at
        * mount is a header that is wrong after the first edit.
        */
-      const settled = originOf() + el.offsetHeight
+      sampleOrigin()
+      const settled = origin + el.offsetHeight
       const mayMove = y >= settled
 
       if (!mayMove) hidden = false
