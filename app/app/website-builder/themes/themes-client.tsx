@@ -159,7 +159,7 @@ export function ThemeMarketplaceClient({
                 </button>
               )}
             </div>
-            <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+            <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
               <Chip active={filter === "all"} onClick={() => setFilter("all")}>All</Chip>
               {THEME_INDUSTRIES.map((i) => (
                 <Chip key={i.key} active={filter === i.key} onClick={() => setFilter(i.key)}>
@@ -177,7 +177,7 @@ export function ThemeMarketplaceClient({
             <p className="mt-1 text-[13px] text-[#6b7280]">Try another word, or clear the industry filter.</p>
           </div>
         ) : (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((t) => {
               const inLibrary = added.has(t.id)
               return (
@@ -193,7 +193,7 @@ export function ThemeMarketplaceClient({
                   >
                     <ThemeCover spec={coverSpecFromDefinition(t)} className="h-full w-full transition-transform duration-500 ease-out group-hover:scale-[1.02] motion-reduce:transform-none" />
                     {inLibrary && (
-                      <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 shadow-sm ring-1 ring-inset ring-emerald-600/15">
+                      <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 shadow-sm ring-1 ring-inset ring-emerald-600/15">
                         <Check className="h-3 w-3" />
                         In library
                       </span>

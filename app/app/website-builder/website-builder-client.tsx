@@ -451,13 +451,13 @@ export function WebsiteBuilderClient({
         <section aria-labelledby="live-heading">
           <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {live ? (
-              <div className="grid gap-0 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
-                <div className="bg-[#f8f9fa] p-4 sm:p-5 lg:border-r lg:border-[#eceef1]">
+              <div className="grid grid-cols-1 gap-0 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+                <div className="min-w-0 bg-[#f8f9fa] p-4 sm:p-5 lg:border-r lg:border-[#eceef1]">
                   <BrowserFrame url={siteDisplay || undefined} className="shadow-[0_8px_24px_-12px_rgba(15,23,42,0.18)]">
                     <WebsiteCover install={live} eager />
                   </BrowserFrame>
                 </div>
-                <div className="flex flex-col p-5 sm:p-6">
+                <div className="flex min-w-0 flex-col p-5 sm:p-6">
                   <div className="flex items-center gap-2">
                     <StatusPill status="published" />
                     <span className="text-[12px] text-[#9ca3af]">Your live website</span>
@@ -470,7 +470,7 @@ export function WebsiteBuilderClient({
                     <MetaRow label="Last saved" value={relativeTime(live.saved_at) ?? "—"} />
                     {live.theme && <MetaRow label="Theme" value={`${live.theme.name} · v${live.theme.version}`} />}
                   </dl>
-                  <div className="mt-auto pt-6">
+                  <div className="mt-6">
                     <div className="flex gap-2">
                       <Button
                         onClick={() => go(editorHref(username, live.id))}
@@ -585,28 +585,32 @@ export function WebsiteBuilderClient({
                   const def = getThemeDefinition(i.theme_id)
                   const isBusy = busy?.startsWith(i.id) ?? false
                   return (
-                    <li key={i.id} className="group flex items-center gap-4 p-3 transition-colors hover:bg-[#fafbfc] sm:p-4">
+                    <li key={i.id} className="flex items-center gap-3 p-3 transition-colors hover:bg-[#fafbfc] sm:gap-4 sm:p-4">
+                      {/* The whole left of the row opens the editor — on a phone it is
+                          the only Customize there is. */}
                       <button
                         type="button"
                         onClick={() => go(editorHref(username, i.id))}
-                        className="relative w-[112px] shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-[144px]"
+                        className="flex min-w-0 flex-1 items-center gap-4 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40"
                         aria-label={`Customize ${i.name}`}
                       >
-                        <span className="block aspect-[16/10]">
-                          <WebsiteCover install={i} />
+                        <span className="relative block w-24 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-36">
+                          <span className="block aspect-[16/10]">
+                            <WebsiteCover install={i} />
+                          </span>
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span className="truncate text-[14.5px] font-semibold text-[#1a1a2e]">{i.name}</span>
+                            <StatusPill status={i.status} />
+                          </span>
+                          <span className="mt-1 block truncate text-[12.5px] text-[#6b7280]">
+                            Saved {relativeTime(i.saved_at) ?? "—"}
+                            {i.theme && <> · {i.theme.name}</>}
+                            {def && <> · {getIndustry(def.industry).label}</>}
+                          </span>
                         </span>
                       </button>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="truncate text-[14.5px] font-semibold text-[#1a1a2e]">{i.name}</span>
-                          <StatusPill status={i.status} />
-                        </div>
-                        <p className="mt-1 truncate text-[12.5px] text-[#6b7280]">
-                          Saved {relativeTime(i.saved_at) ?? "—"}
-                          {i.theme && <> · {i.theme.name}</>}
-                          {def && <> · {getIndustry(def.industry).label}</>}
-                        </p>
-                      </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Button
                           variant="outline"
@@ -619,7 +623,7 @@ export function WebsiteBuilderClient({
                         </Button>
                         <Button
                           onClick={() => go(editorHref(username, i.id))}
-                          className="h-9 rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-medium text-white hover:bg-[#2d2d44]"
+                          className="hidden h-9 rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-medium text-white hover:bg-[#2d2d44] sm:inline-flex"
                         >
                           Customize
                         </Button>
@@ -663,7 +667,7 @@ export function WebsiteBuilderClient({
             </Link>
           </SectionHeading>
           <h2 id="explore-heading" className="sr-only">Explore themes</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {explore.map((t) => (
               <ExploreCard
                 key={t.id}

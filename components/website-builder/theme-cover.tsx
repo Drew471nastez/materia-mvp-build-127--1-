@@ -183,8 +183,15 @@ export function ThemeCover({
   const gridY = heroY + heroH
   const gridH = H - gridY
 
-  const lines = wrap(spec.headline, spec.layout === "center" ? 30 : 24)
-  const headlineSize = lines.some((l) => l.length > 22) ? 44 : 52
+  // The split layout keeps its text left of the image plate at x=700, so it
+  // wraps sooner and never grows past 44px; centred text has the full width.
+  const lines = wrap(spec.headline, spec.layout === "center" ? 30 : spec.layout === "split" ? 18 : 24)
+  const headlineSize = spec.layout === "split" ? (lines.some((l) => l.length > 16) ? 40 : 44) : lines.some((l) => l.length > 22) ? 44 : 52
+  const headlineY = spec.layout === "center" ? heroY + 158 : heroY + 160
+  const subY = headlineY + (lines.length - 1) * (headlineSize + 10) + 14 + 18
+  // Buttons sit a fixed distance under the subheading, so a two-line headline
+  // pushes them down instead of drawing them over the text.
+  const ctaY = Math.min(subY + 30, heroY + heroH - 66)
   const ctaW = Math.max(120, Math.min(260, spec.cta.length * 12 + 48))
   const ctaTextColor = contrastText(spec.primary)
 
@@ -204,19 +211,17 @@ export function ThemeCover({
             {spec.brand.toUpperCase()}
           </text>
           {lines.map((l, i) => (
-            <text key={i} x={cx} y={heroY + 158 + i * (headlineSize + 10)} textAnchor="middle" fill={onHero} fontFamily={heading} fontSize={headlineSize} fontWeight={700} letterSpacing={-1}>
+            <text key={i} x={cx} y={headlineY + i * (headlineSize + 10)} textAnchor="middle" fill={onHero} fontFamily={heading} fontSize={headlineSize} fontWeight={700} letterSpacing={-1}>
               {l}
             </text>
           ))}
-          <text x={cx} y={heroY + 158 + lines.length * (headlineSize + 10) + 14} textAnchor="middle" fill={onHeroMuted} fontFamily={body} fontSize={19}>
+          <text x={cx} y={subY} textAnchor="middle" fill={onHeroMuted} fontFamily={body} fontSize={19}>
             {spec.sub}
           </text>
-          <g transform={`translate(${cx - ctaW / 2}, ${heroY + heroH - 96})`}>
-            <rect width={ctaW} height={44} rx={btnR} fill={spec.primary} />
-            <text x={ctaW / 2} y={28} textAnchor="middle" fill={ctaTextColor} fontFamily={body} fontSize={16} fontWeight={600}>
-              {spec.cta}
-            </text>
-          </g>
+          <rect x={cx - ctaW / 2} y={ctaY} width={ctaW} height={44} rx={btnR} fill={spec.primary} />
+          <text x={cx} y={ctaY + 28} textAnchor="middle" fill={ctaTextColor} fontFamily={body} fontSize={16} fontWeight={600}>
+            {spec.cta}
+          </text>
         </g>
       )
     }
@@ -227,23 +232,23 @@ export function ThemeCover({
           {spec.brand.toUpperCase()}
         </text>
         {lines.map((l, i) => (
-          <text key={i} x={x0} y={heroY + 160 + i * (headlineSize + 10)} fill={onHero} fontFamily={heading} fontSize={headlineSize} fontWeight={700} letterSpacing={-1}>
+          <text key={i} x={x0} y={headlineY + i * (headlineSize + 10)} fill={onHero} fontFamily={heading} fontSize={headlineSize} fontWeight={700} letterSpacing={-1}>
             {l}
           </text>
         ))}
-        <text x={x0} y={heroY + 160 + lines.length * (headlineSize + 10) + 14} fill={onHeroMuted} fontFamily={body} fontSize={18}>
-          {spec.sub.length > 62 ? spec.sub.slice(0, 60).trimEnd() + "…" : spec.sub}
+        <text x={x0} y={subY} fill={onHeroMuted} fontFamily={body} fontSize={18}>
+          {spec.layout === "split"
+            ? spec.sub.length > 50 ? spec.sub.slice(0, 48).trimEnd() + "…" : spec.sub
+            : spec.sub.length > 62 ? spec.sub.slice(0, 60).trimEnd() + "…" : spec.sub}
         </text>
-        <g transform={`translate(${x0}, ${heroY + heroH - 96})`}>
-          <rect width={ctaW} height={44} rx={btnR} fill={spec.primary} />
-          <text x={ctaW / 2} y={28} textAnchor="middle" fill={ctaTextColor} fontFamily={body} fontSize={16} fontWeight={600}>
-            {spec.cta}
-          </text>
-          <rect x={ctaW + 14} width={132} height={44} rx={btnR} fill="none" stroke={withAlpha(spec.heroText, 0.35)} strokeWidth={1.5} />
-          <text x={ctaW + 14 + 66} y={28} textAnchor="middle" fill={onHero} fontFamily={body} fontSize={16} fontWeight={500}>
-            Learn more
-          </text>
-        </g>
+        <rect x={x0} y={ctaY} width={ctaW} height={44} rx={btnR} fill={spec.primary} />
+        <text x={x0 + ctaW / 2} y={ctaY + 28} textAnchor="middle" fill={ctaTextColor} fontFamily={body} fontSize={16} fontWeight={600}>
+          {spec.cta}
+        </text>
+        <rect x={x0 + ctaW + 14} y={ctaY} width={132} height={44} rx={btnR} fill="none" stroke={withAlpha(spec.heroText, 0.35)} strokeWidth={1.5} />
+        <text x={x0 + ctaW + 14 + 66} y={ctaY + 28} textAnchor="middle" fill={onHero} fontFamily={body} fontSize={16} fontWeight={500}>
+          Learn more
+        </text>
       </g>
     )
     if (spec.layout === "left") return textBlock
@@ -278,7 +283,7 @@ export function ThemeCover({
       <rect width={W} height={H} fill={spec.bg} />
 
       {/* nav */}
-      <rect x={0} y={navY} width={W} height={navH} fill={spec.heroBg === spec.bg ? spec.bg : spec.bg} />
+      <rect x={0} y={navY} width={W} height={navH} fill={spec.bg} />
       <line x1={0} y1={navH - 0.5} x2={W} y2={navH - 0.5} stroke={spec.border} strokeWidth={1} />
       <text x={64} y={navY + 40} fill={spec.text} fontFamily={heading} fontSize={22} fontWeight={700} letterSpacing={-0.4}>
         {spec.brand}
@@ -288,12 +293,14 @@ export function ThemeCover({
           {l}
         </text>
       ))}
-      <g transform={`translate(${W - 180}, ${navY + 16})`}>
-        <rect width={116} height={32} rx={radius(spec.buttonStyle, 32)} fill={spec.primary} />
-        <text x={58} y={21} textAnchor="middle" fill={ctaTextColor} fontFamily={body} fontSize={13.5} fontWeight={600}>
-          {spec.cta.length > 12 ? "Shop" : spec.cta}
-        </text>
-      </g>
+      {/* No `transform` anywhere in this SVG: the app's global stylesheet
+          sets `transform: none !important` on everything inside a `.group`
+          for touch devices, and a cover sits inside `.group` cards. Absolute
+          coordinates cannot be overridden. */}
+      <rect x={W - 180} y={navY + 16} width={116} height={32} rx={radius(spec.buttonStyle, 32)} fill={spec.primary} />
+      <text x={W - 180 + 58} y={navY + 16 + 21} textAnchor="middle" fill={ctaTextColor} fontFamily={body} fontSize={13.5} fontWeight={600}>
+        {spec.cta.length > 12 ? "Shop" : spec.cta}
+      </text>
 
       {/* hero */}
       <rect x={0} y={heroY} width={W} height={heroH} fill={spec.heroBg} />
