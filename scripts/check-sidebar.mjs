@@ -207,10 +207,10 @@ try {
 
     const active = rows.filter((r) => r.bg === "rgb(232, 232, 232)")
     expect(active.length === 1, "one row is active", active.length)
-    expect(active[0]?.color === "rgb(32, 32, 32)" && active[0]?.fw === "550", "and it is #202020 at weight 550", JSON.stringify(active[0]))
+    expect(active[0]?.color === "rgb(32, 32, 32)" && active[0]?.fw === "605", "and it is #202020 at weight 605", JSON.stringify(active[0]))
     const resting = rows.filter((r) => r.bg === "rgba(0, 0, 0, 0)" && r.color === "rgb(102, 102, 102)")
     expect(resting.length >= 6, "the rest are #666666 on nothing", resting.length)
-    expect(resting.every((r) => r.fw === "450"), "at weight 450, not a rounded 400 or 500", JSON.stringify([...new Set(resting.map((r) => r.fw))]))
+    expect(resting.every((r) => r.fw === "495"), "at weight 495, not a rounded 500", JSON.stringify([...new Set(resting.map((r) => r.fw))]))
 
     expect(m.icons.every((i) => i.box === "20x20"), "every icon box is 20×20", JSON.stringify(m.icons.map((i) => i.box)))
     expect(
@@ -256,7 +256,14 @@ try {
       JSON.stringify(m.icons.map((i) => (i.active ? "filled" : "outline"))),
     )
     expect(
-      m.icons.every((i) => i.outline.stroke === "2.4px"),
+      /*
+        0.3 in a 24-unit viewBox, rendered at 20px, computes to 0.25px. The
+        number moved with the library: Remix draws 2 units of stroke in a
+        24-unit box where Phosphor drew 16 in 256, so the 2.4 that meant
+        "+15%" there would be a blot here. Computed style reports SVG
+        stroke-width in user units, hence "0.3px" rather than a real 0.25px.
+      */
+      m.icons.every((i) => i.outline.stroke === "0.3px"),
       "the outline layer carries the ~15% thickening stroke",
       JSON.stringify(m.icons.map((i) => i.outline.stroke)),
     )

@@ -29,7 +29,7 @@
  * ---------------------------------------------------------------------------
  *  ICONS
  * ---------------------------------------------------------------------------
- * Phosphor, 20px, resting and filled weights stacked in one box and
+ * Remix Icon, 20px, the line and fill variants stacked in one box and
  * cross-faded so the fill arrives rather than appears. Every icon sits in a
  * fixed 20×20 box, so nothing an icon does can move the label beside it.
  */
@@ -39,21 +39,33 @@ import { usePathname } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import {
-  CaretDown,
-  ChartBar,
-  Envelope,
-  GearSix,
-  Globe,
-  HouseSimple,
-  Lightning,
-  LinkSimple,
-  Package,
-  Receipt,
-  Storefront,
-  UsersThree,
-  Wallet,
-  type Icon as PhosphorIcon,
-} from "@phosphor-icons/react"
+  RiArrowDownSLine,
+  RiBankCardFill,
+  RiBankCardLine,
+  RiBarChartBoxFill,
+  RiBarChartBoxLine,
+  RiBox3Fill,
+  RiBox3Line,
+  RiFileList3Fill,
+  RiFileList3Line,
+  RiFlashlightFill,
+  RiFlashlightLine,
+  RiGlobalFill,
+  RiGlobalLine,
+  RiGroupFill,
+  RiGroupLine,
+  RiHome5Fill,
+  RiHome5Line,
+  RiMailFill,
+  RiMailLine,
+  RiScissorsFill,
+  RiScissorsLine,
+  RiSettings3Fill,
+  RiSettings3Line,
+  RiStore2Fill,
+  RiStore2Line,
+  type RemixiconComponentType,
+} from "@remixicon/react"
 
 import { cn } from "@/lib/utils"
 
@@ -101,46 +113,76 @@ const ROW =
   "transition-[background-color,color] duration-[140ms] ease-out"
 
 /**
- * 450, which is a real weight rather than a rounded one.
+ * 495 and 605 — a real 10% heavier than the 450/550 they replace, and real is
+ * the operative word.
  *
  * `next/font` loads Inter as a VARIABLE font — the call in app/layout.tsx asks
  * for no specific weights, which is what makes the whole 100–900 axis
- * available. On a static font 450 would snap to 400 or 500 and the difference
- * between a resting row and an active one would be twice what it should be.
+ * available, so 495 renders as 495. On a static font it would snap to 500,
+ * 605 would snap to 600, and "ten per cent heavier" would land wherever the
+ * rounding happened to put it.
  */
 /** Long enough to read as a change, short enough not to lag the click. */
 const FILL_TRANSITION = "opacity 160ms cubic-bezier(0.2, 0, 0, 1)"
 
-const REST_WEIGHT = 450
-const ACTIVE_WEIGHT = 550
+const REST_WEIGHT = 495
+const ACTIVE_WEIGHT = 605
 
 export type NavChild = { href: string; label: string }
 
 export type NavItemData = {
   href: string
   label: string
-  icon: PhosphorIcon
+  icon: NavIconPair
   /** Leaves the /app router tree, so it cannot be a client-side push. */
   forceNavigation?: boolean
   children?: NavChild[]
 }
 
-/** The icons the sidebar uses, exported so the shell can build its nav list. */
 /**
- * Simple and geometric rather than descriptive — a house, a parcel, bars, a
- * receipt. At 20px an icon has about a dozen strokes to work with, and the
- * ones that survive that are the ones with a single obvious silhouette.
+ * A LINE VARIANT AND A FILL VARIANT OF THE SAME GLYPH.
+ *
+ * Not one component with a weight prop — Remix ships each icon as two
+ * components, and the pair is what the cross-fade needs: something to fade
+ * from and something to fade to.
  */
+export type NavIconPair = { line: RemixiconComponentType; fill: RemixiconComponentType }
+
+/** The icons the sidebar uses, exported so the shell can build its nav list. */
 export const NAV_ICONS = {
-  dashboard: HouseSimple,
-  products: Package,
-  analytics: ChartBar,
-  orders: Receipt,
-  onepage: Globe,
-  storeBuilder: Storefront,
-  emails: Envelope,
-  payouts: Wallet,
-} as const
+  dashboard: { line: RiHome5Line, fill: RiHome5Fill },
+  products: { line: RiBox3Line, fill: RiBox3Fill },
+  analytics: { line: RiBarChartBoxLine, fill: RiBarChartBoxFill },
+  orders: { line: RiFileList3Line, fill: RiFileList3Fill },
+  onepage: { line: RiGlobalLine, fill: RiGlobalFill },
+  storeBuilder: { line: RiStore2Line, fill: RiStore2Fill },
+  emails: { line: RiMailLine, fill: RiMailFill },
+  payouts: { line: RiBankCardLine, fill: RiBankCardFill },
+} as const satisfies Record<string, NavIconPair>
+
+/**
+ * The rows that are not routes — the two unavailable tools and Settings.
+ * Kept beside NAV_ICONS rather than inlined so every icon in the rail is
+ * declared in one place and none of them can drift out of the family.
+ */
+const NAV_ICONS_EXTRA = {
+  settings: { line: RiSettings3Line, fill: RiSettings3Fill },
+  /*
+    SCISSORS, NOT A CHAIN LINK — and not by preference.
+
+    RiLinksLine and RiLinksFill are THE SAME PATH. Remix ships a "fill"
+    export for that icon that is byte-identical to its line version, so the
+    row could never fill: the cross-fade would run and land on the glyph it
+    started from. The browser probe caught it by comparing the two path
+    strings, which is the only way to catch it — nothing about the types or
+    the names says the pair is a pair in name only.
+
+    Scissors has a real filled form, and for a link SHORTENER it is the
+    better metaphor anyway.
+  */
+  linkShortener: { line: RiScissorsLine, fill: RiScissorsFill },
+  communities: { line: RiGroupLine, fill: RiGroupFill },
+} as const satisfies Record<string, NavIconPair>
 
 /**
  * A 20×20 box with a 20px icon in it.
@@ -149,28 +191,34 @@ export const NAV_ICONS = {
  * different icon can never move the text or change the row's width.
  *
  * ---------------------------------------------------------------------------
- *  WHY PHOSPHOR AND NOT LUCIDE
+ *  WHY REMIX ICON
  * ---------------------------------------------------------------------------
- * The reference fills the icon of the row you are on — a solid house, a solid
- * chart square. Lucide cannot do that. Its icons are strokes rather than
- * shapes: reading the path data, `store` has four open subpaths, `package`
- * three, `chart-line` two. Handing those to a fill paints the region an open
- * path implies, which is not the glyph. There is no filled variant to switch
- * to, and no combination of stroke width gets you a filled one.
+ * The requirement that decides this is that the row you are on must be FILLED,
+ * which rules out most libraries outright. Lucide's icons are strokes rather
+ * than shapes — reading the path data, `store` has four open subpaths,
+ * `package` three — and handing an open path to a fill paints the region it
+ * implies rather than the glyph. There is no filled variant to switch to.
  *
- * Phosphor ships six real weights of every icon, `fill` among them, which is
- * exactly what the reference is showing and what the brief asked for first.
+ * Phosphor has one, and was used here first, but its regular weight is a hair
+ * of a thing: 16 units of stroke in a 256-unit box, 6.25% of the frame. Remix
+ * draws 2 units in a 24-unit box — 8.3%, a third heavier before anything is
+ * added to it — on a rounded geometric grid, which is the bold-and-round
+ * look this was asked for. Every icon ships as a `…Line` and a `…Fill`
+ * component with genuinely different path data.
+ *
  * It is used HERE ONLY — the rest of the app is Lucide and stays Lucide.
  */
 function NavIcon({
-  icon: Icon,
+  icon,
   active,
   color,
 }: {
-  icon: PhosphorIcon
+  icon: NavIconPair
   active: boolean
   color: string
 }) {
+  const Line = icon.line
+  const Fill = icon.fill
   return (
     <span
       data-nav-icon={active ? "filled" : "outline"}
@@ -178,26 +226,24 @@ function NavIcon({
       style={{ color }}
     >
       {/*
-        BOTH WEIGHTS, STACKED, CROSS-FADED.
-        
-        A Phosphor weight is a different path — `d` changes entirely — and
-        there is no way to transition from one path to another in CSS. Swapping
-        the prop therefore snaps: outline one frame, solid the next.
+        BOTH VARIANTS, STACKED, CROSS-FADED.
+
+        The line and the fill are different paths — `d` changes entirely — and
+        there is no way to transition from one path to another in CSS.
+        Swapping the component therefore snaps: outline one frame, solid the
+        next.
 
         Rendering both in the same 20×20 box and fading between them gives the
-        fill somewhere to come from. They are the same glyph at the same size
-        in the same place, so the eye reads one icon thickening rather than two
-        icons trading places.
+        fill somewhere to come from. Same glyph, same size, same place, so the
+        eye reads one icon thickening rather than two icons trading places.
       */}
-      <Icon
+      <Line
         size={20}
-        weight="regular"
         data-variant="outline"
         style={{ position: "absolute", opacity: active ? 0 : 1, transition: FILL_TRANSITION }}
       />
-      <Icon
+      <Fill
         size={20}
-        weight="fill"
         data-variant="filled"
         style={{ position: "absolute", opacity: active ? 1 : 0, transition: FILL_TRANSITION }}
       />
@@ -273,7 +319,7 @@ export function ComingSoonItem({
   icon,
   label,
 }: {
-  icon: PhosphorIcon
+  icon: NavIconPair
   label: string
 }) {
   const ref = useRef<HTMLSpanElement>(null)
@@ -446,9 +492,8 @@ export function DesktopNavItem({
             className="absolute right-[10px] top-1/2 flex h-5 w-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-[6px]"
             style={{ color: active ? ACTIVE_TEXT : hovered ? HOVER_TEXT : LABEL_TEXT }}
           >
-            <CaretDown
+            <RiArrowDownSLine
               size={16}
-              weight="bold"
               style={{
                 transformOrigin: "center",
                 transform: `rotate(${expanded ? 180 : 0}deg)`,
@@ -568,15 +613,18 @@ export function DesktopSidebarContent({
       {/*
         A RESTING ICON, ~15% MORE PRONOUNCED.
 
-        Phosphor does not stroke anything — measured, by rendering one: every
-        weight is a FILLED PATH describing the shape, `regular` included. So
-        there is no `stroke-width` to raise, and the weights it does offer
-        jump from regular to bold, which is far more than fifteen per cent.
+        Remix does not stroke anything either — measured, by rendering one: a
+        `…Line` icon is a FILLED PATH that describes the shape of a stroke, not
+        a stroked one. There is no `stroke-width` on it to raise.
 
-        A stroke of the icon's own colour laid over the fill thickens every
-        edge instead. Phosphor's regular outline is 16 units wide in a 256-unit
-        box; a 2.4 stroke adds 1.2 to each side of every edge, which is that
-        outline plus fifteen per cent exactly.
+        A stroke of the icon's own colour laid over that fill thickens every
+        edge instead. Remix draws 2 units of stroke in a 24-unit box, so 0.3
+        adds 0.15 to each side of every edge: that outline plus fifteen per
+        cent, exactly.
+
+        The number changed with the library. Phosphor's box is 256 units wide
+        with a 16-unit stroke, where the same fifteen per cent was 2.4 — carry
+        that value over to a 24-unit box and every icon becomes a blot.
 
         The outline layer only. The filled one is a solid shape, and a stroke
         around it would just make it very slightly bigger.
@@ -584,7 +632,7 @@ export function DesktopSidebarContent({
       <style>{`
         [data-nav-icon] svg[data-variant="outline"] path {
           stroke: currentColor;
-          stroke-width: 2.4;
+          stroke-width: 0.3;
         }
       `}</style>
       {/* px-[7px] — the rows carry their own 14px inner padding, so the
@@ -613,8 +661,8 @@ export function DesktopSidebarContent({
             {toolsLabel}
           </p>
           <div className="space-y-[2px]">
-            <ComingSoonItem icon={LinkSimple} label={linkShortenerLabel} />
-            <ComingSoonItem icon={UsersThree} label={communitiesLabel} />
+            <ComingSoonItem icon={NAV_ICONS_EXTRA.linkShortener} label={linkShortenerLabel} />
+            <ComingSoonItem icon={NAV_ICONS_EXTRA.communities} label={communitiesLabel} />
           </div>
         </div>
 
@@ -637,7 +685,7 @@ export function DesktopSidebarContent({
             <p className="text-[11px] text-neutral-600">{upgradeSubtitle}</p>
           </div>
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 transition-colors duration-[140ms] ease-out group-hover:bg-gray-200">
-            <Lightning size={14} weight="fill" className="text-violet-500" />
+            <RiFlashlightFill size={14} className="text-violet-500" />
           </div>
         </Link>
 
@@ -648,7 +696,7 @@ export function DesktopSidebarContent({
           style={rowStyle(settingsActive, settingsHovered)}
         >
           <NavIcon
-            icon={GearSix}
+            icon={NAV_ICONS_EXTRA.settings}
             active={settingsActive}
             color={settingsActive ? ACTIVE_TEXT : settingsHovered ? HOVER_TEXT : REST_TEXT}
           />
