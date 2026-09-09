@@ -415,6 +415,19 @@ section("The header, the announcement bar, and the space between them")
 
   const css = themeStylesheet({ animations_enabled: true, section_gap: 24 } as ThemeSettingsValues)
   check(
+    "the call to action can be long without taking the page with it",
+    /**
+     * `shrink-0` on a nowrap label fixes a flex item at whatever its text
+     * needs, for ever. Measured at 834px with a forty-character button label —
+     * somebody's real button copy — the header ran 104px past the edge of the
+     * page and took the document into horizontal scroll.
+     *
+     * The theme's `overflow-wrap: anywhere` cannot reach it: an item that is
+     * not allowed to shrink never gets down to its min-content width at all.
+     */
+    /"ml-1 min-w-0 max-w-\[160px\] truncate font-semibold/.test(source),
+  )
+  check(
     "and the entrance animation leaves the chrome alone",
     /**
      * Measured: with the animation on every section a sticky header sat 16px
