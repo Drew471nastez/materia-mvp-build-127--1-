@@ -174,7 +174,7 @@ check(
 )
 
 // ===========================================================================
-section("Three devices, and each one changes what renders")
+section("Two devices, and each one changes what renders")
 // ===========================================================================
 
 const editor = readFileSync(
@@ -183,13 +183,33 @@ const editor = readFileSync(
 )
 
 check(
-  "there is a tablet, at a real tablet's width",
-  /tablet: 834/.test(editor) && /mobile: 390/.test(editor),
+  "the phone is a real phone's width",
+  /**
+   * 390 is iPhone 14/15/16 and the Pro — the commonest width there is, and
+   * narrow enough that what survives it survives a 375px phone too. A preview
+   * at a width no phone has is a preview that lies.
+   */
+  /mobile: 390/.test(editor),
 )
 
 check(
-  "and a button for it",
-  /\{ id: "tablet", label: "Tablet", Icon: Tablet \}/.test(editor),
+  "and there is no tablet",
+  /**
+   * Removed on request, and it was the right call: nobody designs to 834, a
+   * layout that works at 390 and at 1280 works between them, and a breakpoint
+   * that exists only in a preview is one nobody tests against. It was a third
+   * choice the builder offered and did nothing with.
+   */
+  !/tablet: 834/.test(editor) &&
+    !/id: "tablet"/.test(editor) &&
+    !/"desktop" \| "tablet" \| "mobile"/.test(editor),
+)
+
+check(
+  "and the two that remain are one toggling control, not a segmented group",
+  // Two opposites are a toggle. The icon shows where you are; the tooltip says
+  // what pressing it does.
+  /setDevice\(device === "desktop" \? "mobile" : "desktop"\)/.test(editor),
 )
 
 /**

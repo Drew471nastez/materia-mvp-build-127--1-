@@ -103,7 +103,23 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
     "--theme-line-height": String(num(t.line_height_base, 1.6)),
     "--theme-heading-weight": str(t.heading_weight, "700"),
     "--theme-heading-transform": str(t.heading_transform, "none"),
-    "--theme-heading-tracking": `${num(t.heading_letter_spacing, 0)}em`,
+    /**
+     * PIXELS, AND THE CONTROL ALWAYS SAID PIXELS.
+     *
+     * The setting is `{ min: -2, max: 8, step: 0.5, unit: "px" }` — a slider
+     * labelled in px, stepping half a pixel at a time — and this line wrote its
+     * value in `em`. One step below zero, which the panel presents as
+     * "-0.5px", emitted `-0.5em`: half the font size of negative tracking, so
+     * at a 60px hero heading every letter landed thirty pixels on top of the
+     * one before it and the headline rendered as a single white smear. It is
+     * the only setting in this file whose unit disagreed with its control.
+     *
+     * Clamped to the control's own range as well, because the broken value is
+     * already saved in themes and would go on wrecking them until somebody
+     * touched the slider again. The clamp is what makes existing sites correct
+     * on the next render rather than on the next edit.
+     */
+    "--theme-heading-tracking": `${Math.max(-2, Math.min(8, num(t.heading_letter_spacing, 0)))}px`,
 
     // ── Layout ────────────────────────────────────────────────────────────
     "--theme-page-width": `${num(t.page_width, 1280)}px`,

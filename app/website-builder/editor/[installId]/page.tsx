@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Monitor, Tablet, Smartphone, Loader2, Globe, Save, Code2,
+  ArrowLeft, Monitor, Smartphone, Loader2, Globe, Save, Code2,
   ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2,
   Copy, Settings, Check, Layers, Palette, X, RotateCcw,
   Layout, AlignLeft, Image, ShoppingBag, MessageSquare,
@@ -569,10 +569,21 @@ const AUTOSAVE_DELAY_MS = 1_500
  * what you see is a real width rather than a made-up one — and it grows when
  * you close the AI panel or the sidebar.
  */
-export type DeviceMode = "desktop" | "tablet" | "mobile"
+/**
+ * TWO, NOT THREE. Tablet was a third preview whose width nobody designs to:
+ * a layout that works at 390 and at 1280 works at 834, and a breakpoint that
+ * only exists in a preview is a breakpoint nobody tests against. It was a
+ * choice the builder asked for and did nothing with.
+ */
+export type DeviceMode = "desktop" | "mobile"
 
+/**
+ * 390px — iPhone 14/15/16 and the Pro, the single most common width in the
+ * wild, and narrow enough that anything which survives it survives an older
+ * 375px phone too. The preview is worth nothing if it is not a real phone's
+ * width.
+ */
 const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
-  tablet: 834,
   mobile: 390,
 }
 
@@ -774,7 +785,7 @@ function AddSectionModal({
           <div className="w-full h-px bg-border/60 shrink-0" />
 
           {/* Section list — single column */}
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 pb-8">
+          <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overscroll-contain px-4 pt-3 pb-8">
             <div className="flex flex-col gap-3">
               {visibleSections.map((type) => (
                 <SectionCard key={type} type={type} mobile />
@@ -811,7 +822,7 @@ function AddSectionModal({
         {/* Body: sidebar + grid */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Left categories sidebar */}
-          <nav className="w-[150px] sm:w-[180px] border-r border-border shrink-0 overflow-y-auto py-2 bg-muted/20">
+          <nav className="w-[150px] sm:w-[180px] border-r border-border shrink-0 overflow-y-auto wb-slim-scroll py-2 bg-muted/20">
             {allCategories.map((cat) => (
               <button
                 key={cat.key}
@@ -829,7 +840,7 @@ function AddSectionModal({
           </nav>
 
           {/* Right: 1-column grid */}
-          <div className="flex-1 overflow-y-auto overscroll-contain p-5">
+          <div className="flex-1 overflow-y-auto wb-slim-scroll overscroll-contain p-5">
             <div className="grid grid-cols-1 gap-4">
               {visibleSections.map((type) => (
                 <SectionCard key={type} type={type} />
@@ -3217,7 +3228,7 @@ function HeaderSectionSettings({
           </button>
           <span className="text-sm font-semibold">Choose mobile header layout</span>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+        <div className="flex-1 overflow-y-auto wb-slim-scroll px-5 py-4 space-y-3">
           {mobileLayoutOptions.map(opt => {
             const active = currentMobileLayout === opt.id
             return (
@@ -3328,7 +3339,7 @@ function HeaderSectionSettings({
           </button>
           <span className="text-sm font-semibold">Choose header layout</span>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+        <div className="flex-1 overflow-y-auto wb-slim-scroll px-5 py-4 space-y-3">
           {layoutOptions.map(opt => {
             const active = currentLayout === opt.id
             return (
@@ -3381,7 +3392,7 @@ function HeaderSectionSettings({
           </button>
           <span className="text-sm font-semibold">{tab.label}</span>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto wb-slim-scroll px-5 py-4">
           {renderSubPanel(activeTab)}
         </div>
       </div>
@@ -3398,7 +3409,7 @@ function HeaderSectionSettings({
         <span className="text-sm font-semibold">Header Settings</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto wb-slim-scroll">
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -4668,7 +4679,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 pb-4">
+        <div className="flex-1 overflow-y-auto wb-slim-scroll px-3 pb-4">
 
           {/* Custom Pages */}
           {allCustomPages.length > 0 && (
@@ -4775,7 +4786,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <p className="text-sm font-semibold">General Settings</p>
               <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
             </div>
-            <div className="flex-1 overflow-y-auto p-2">
+            <div className="flex-1 overflow-y-auto wb-slim-scroll p-2">
               {THEME_SETTINGS_GROUPS.map(group => (
                 <div key={group.id} className="mb-0.5">
                   <button
@@ -4905,13 +4916,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
           {/* Skeleton loading when switching pages */}
           {sectionsLoading ? (
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            <div className="flex-1 overflow-y-auto wb-slim-scroll p-3 space-y-2">
               {[1, 2, 3, 4, 5].map(i => (
                 <div key={i} className="h-12 rounded-lg bg-muted/60 animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
               ))}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
+            <div className="flex-1 overflow-y-auto wb-slim-scroll p-3 space-y-0.5">
               {/* Header (global) */}
               {header && (
                 <div className="border border-border rounded-lg mb-3">
@@ -5043,7 +5054,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto wb-slim-scroll">
             {/* Per-section color scheme picker (uses global Color Schemes) */}
             <SectionColorSchemePicker
               value={typeof section.settings.color_scheme === "string" ? section.settings.color_scheme : "white"}
@@ -5194,7 +5205,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </button>
             <span className="text-sm font-semibold">Theme settings</span>
           </div>
-          <div className="flex-1 overflow-y-auto p-3">
+          <div className="flex-1 overflow-y-auto wb-slim-scroll p-3">
             {THEME_SETTINGS_GROUPS.map(group => (
               <div key={group.id} className="mb-1">
                 <button
@@ -5372,11 +5383,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           )}
 <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-sm font-medium text-foreground truncate hidden md:block max-w-[180px]">{install?.name}</span>
+          {/*
+            THE DOT IS THE WHOLE BADGE.
+
+            "Live" in a bordered pill is a word, a border and a colour all
+            saying one thing, sitting next to the theme's name where the name
+            is what you are reading. The dot says it in one glyph, and the
+            word is still there for anyone who hovers or is using a screen
+            reader — where it belongs, rather than occupying the bar.
+          */}
           {install?.status === "published" && (
-            <span className="hidden md:inline-flex items-center gap-1.5 shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Live
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="hidden md:flex h-4 w-4 shrink-0 items-center justify-center"
+                  aria-label="Site is live"
+                >
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Site is live</TooltipContent>
+            </Tooltip>
           )}
           <ResponsiveActionMenu
             title="Actions"
@@ -5473,35 +5500,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <TooltipContent side="bottom">Redo (⌘⇧Z)</TooltipContent>
             </Tooltip>
           </div>
-          {/* Three devices, and each one now changes what renders rather
-              than only how wide the card is. See DEVICE_WIDTH. */}
-          <div className="hidden sm:flex items-center bg-muted rounded-lg p-0.5 shrink-0">
-            {([
-              { id: "desktop", label: "Desktop", Icon: Monitor },
-              { id: "tablet", label: "Tablet", Icon: Tablet },
-              { id: "mobile", label: "Mobile", Icon: Smartphone },
-            ] as const).map(({ id, label, Icon }) => (
-              <Tooltip key={id}>
-                <TooltipTrigger asChild>
-                  <button
-                    className={cn(
-                      "h-7 w-7 flex items-center justify-center rounded-md transition-all duration-150",
-                      device === id ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                    )}
-                    onClick={() => setDevice(id)}
-                    aria-label={label}
-                    aria-pressed={device === id}
-                  >
-                    <Icon className="h-4 w-4" strokeWidth={1.75} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {label}
-                  {id !== "desktop" && ` — ${DEVICE_WIDTH[id]}px`}
-                </TooltipContent>
-              </Tooltip>
-            ))}
-          </div>
+          {/*
+            ONE CONTROL, TWO STATES.
+
+            It was a segmented group of three, which is the shape you use when
+            the options are peers you pick between. There are two here and they
+            are opposites, so it is a toggle: the icon shows WHERE YOU ARE and
+            the tooltip says what pressing it does. Nothing is hidden behind a
+            second click and there is no third option to reason about.
+          */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground shrink-0"
+                onClick={() => setDevice(device === "desktop" ? "mobile" : "desktop")}
+                aria-label={device === "desktop" ? "Switch to phone preview" : "Switch to desktop preview"}
+                aria-pressed={device === "mobile"}
+              >
+                {device === "desktop" ? (
+                  <Monitor className="h-4 w-4" strokeWidth={1.75} />
+                ) : (
+                  <Smartphone className="h-4 w-4" strokeWidth={1.75} />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {device === "desktop" ? "Switch to phone" : `Switch to desktop (phone is ${DEVICE_WIDTH.mobile}px)`}
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* RIGHT: where the site is, and what to do with it. */}
@@ -5730,7 +5756,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         {!isMobileView ? (
           <div className="relative flex-shrink-0 border-r border-border bg-background flex h-full overflow-hidden">
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden" style={{ width: sidebarWidth, minWidth: 260 }}>
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+              <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
                 {renderSidebarContent()}
               </div>
             </div>
@@ -5794,7 +5820,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background">
+            <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
               {renderSidebarContent()}
             </div>
           </MobileEditorSheet>

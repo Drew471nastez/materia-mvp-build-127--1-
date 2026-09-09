@@ -305,6 +305,34 @@ section("The header, the announcement bar, and the space between them")
  * things that caused it cannot come back.
  */
 {
+  /**
+   * THE UNIT A CONTROL DECLARES IS THE UNIT ITS CSS MUST WRITE.
+   *
+   * `heading_letter_spacing` is `{ min: -2, max: 8, step: 0.5, unit: "px" }` —
+   * a slider labelled and stepped in pixels — and the stylesheet wrote its
+   * value in `em`. One step below zero reads as "-0.5px" in the panel and
+   * emitted `-0.5em`, which at a 60px heading is thirty pixels of negative
+   * tracking per letter: the headline rendered as a single white smear, and
+   * the setting that caused it looked innocuous.
+   *
+   * This checks the whole file rather than that one line, because the fault is
+   * a CLASS of fault and the next one will be a different setting.
+   */
+  const css = stripComments(readFileSync(join(root, "lib/website-builder/theme-css.ts"), "utf8"))
+  check(
+    "heading tracking is written in the unit its control declares",
+    /"--theme-heading-tracking": `\$\{Math\.max\(-2, Math\.min\(8, num\(t\.heading_letter_spacing, 0\)\)\)\}px`/.test(css) &&
+      !/heading_letter_spacing, 0\)\}em/.test(css),
+  )
+  check(
+    "and no theme variable is emitted in em at all",
+    // Every length in this file comes from a px-declared control or is a
+    // unitless multiplier. An `em` here is a unit mismatch waiting to happen.
+    !/\}em`/.test(css),
+  )
+}
+
+{
   const header = readFileSync(
     join(root, "components/website-builder/sections/renderers/HeaderSection.tsx"),
     "utf8",

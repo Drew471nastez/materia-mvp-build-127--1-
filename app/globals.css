@@ -568,18 +568,22 @@ html.capacitor body {
     height: 0;
   }
 
-  /* Website-builder slim scrollbar — used inside editor dropdowns (URL
-     picker, page/product pickers) where the standard chrome scrollbar
-     looks chunky and out of place. Modern light-gray thumb, no track,
-     rounds to the scrollbar's full width. 4px wide, fades in on hover. */
+  /* Website-builder slim scrollbar.
+     Every scrolling surface in the editor, not only the dropdowns it was
+     written for: the settings sidebar is the one people live in, and it was
+     still wearing the chrome default while the pickers beside it were slim.
+     Thumb only, no track, rounded to its own width, and it stays out of the
+     way until the pointer is over the panel it belongs to. */
   .wb-slim-scroll {
     scrollbar-width: thin;
-    scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+    /* Firefox has no hover selector for the thumb, so it gets the resting
+       colour and simply stays subtle. */
+    scrollbar-color: transparent transparent;
   }
 
   .wb-slim-scroll::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+    width: 6px;
+    height: 6px;
   }
 
   .wb-slim-scroll::-webkit-scrollbar-track {
@@ -587,9 +591,15 @@ html.capacitor body {
   }
 
   .wb-slim-scroll::-webkit-scrollbar-thumb {
-    background-color: rgba(148, 163, 184, 0.35);
+    /* Transparent until the pointer is in the panel. A thumb that is always
+       drawn is a second border down the side of every list. */
+    background-color: transparent;
     border-radius: 999px;
-    transition: background-color 160ms ease-out;
+    transition: background-color 180ms ease-out;
+  }
+
+  .wb-slim-scroll:hover {
+    scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
   }
 
   .wb-slim-scroll:hover::-webkit-scrollbar-thumb {
