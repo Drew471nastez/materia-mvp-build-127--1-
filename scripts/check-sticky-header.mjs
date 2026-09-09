@@ -165,10 +165,11 @@ const EXPECTED = {
     [!r.endsOverBar, "not over it"],
     [r.endNoBand, "and there is no empty band under it afterwards"],
     [r.heightStable, "its height is unchanged by the whole cycle"],
-    // The reveal is the ONE mode that animates, so this is the one mode
-    // allowed to carry the machinery for it.
-    [r.transform !== "none", "this mode does carry a transform, because it animates"],
-    [r.willChange === "transform", "and asks for the layer it will actually use"],
+    // The transform is owned by the scroll effect and written to the node, so
+    // the SERVER markup carries none — which is the right first paint: before
+    // hydration the header is simply in its place, never translated.
+    [r.transform === "none", "the server markup ships it untranslated"],
+    [r.willChange === "transform", "but this mode does ask for the layer it will use"],
   ],
 }
 

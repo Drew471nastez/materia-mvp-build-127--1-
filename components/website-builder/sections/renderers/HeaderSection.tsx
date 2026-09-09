@@ -563,112 +563,107 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // Scroll-direction detection uses a 4px hysteresis so sub-pixel momentum
   // trackpad scroll doesn't flicker the state. The reveal/hide transition
   // uses Glozin's fadeInSticky curve (see `hideTransition` below).
-  const [stickyVisible, setStickyVisible] = useState(true)
   /**
-   * WHILE IT IS NOT PINNED THE HEADER MUST NOT ANIMATE, OR MOVE AT ALL.
+   * ═══════════════════════════════════════════════════════════════════════
+   *  THE REVEAL IS DRIVEN FROM THE SCROLL EVENT, NOT FROM REACT STATE
+   * ═══════════════════════════════════════════════════════════════════════
    *
-   * The reveal slides the header in from `translateY(-100%)`. That is right
-   * while it is PINNED — it comes down from off-screen. It is wrong at the top
-   * of the page, because up there the header's own position is BELOW the
-   * announcement bar, so -100% starts it above its own box — on top of the bar
-   * — and leaves the box it came from empty underneath. Both reported symptoms
-   * are that one state. The `pinned` test in the scroll handler is what stops
-   * it being entered; this switches the TRANSITION off as well, so arriving
-   * back at the top is the header simply being where it lives rather than
-   * travelling there across the bar.
+   * It used to be `useState` + a style prop, and that is what made it flash.
+   * Scrolling is handled on the compositor; a React state update is a render,
+   * a reconcile and a commit later. Flick to the top and for those few frames
+   * the page has already arrived while the header is still holding
+   * `translateY(-100%)` — displaced up over the announcement bar with its own
+   * sticky space left empty underneath. That is the white band, for exactly as
+   * long as the render lag, which is why it reads as a millisecond flicker
+   * rather than as a layout bug.
+   *
+   * Written straight to the node instead, in the scroll handler, so the header
+   * moves on the same tick as the scroll that moved it. It also means the
+   * header no longer re-renders on scroll at all.
+   *
+   * AND THE HIDDEN STATE CANNOT OUTLIVE BEING PINNED. `hidden && pinned` is
+   * the value applied, not `hidden` — so there is no ordering between two
+   * pieces of state to get wrong, and no frame in which an unpinned header is
+   * translated. That was the previous fix's remaining hole: the gate decided
+   * when to CHANGE `hidden`, but the transform still rendered from `hidden`
+   * alone.
+   *
+   * The transition stays ON while pinned, which is the smooth reveal, and is
+   * off only while unpinned — where there is nothing to travel, because the
+   * header is never translated there.
    */
-  const [unpinned, setUnpinned] = useState(true)
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const clear = () => {
+      el.style.transform = ""
+      el.style.transition = ""
+      el.style.pointerEvents = ""
+    }
     if (!headerStickyEnabled || !headerStickyOnScrollUp) {
-      setStickyVisible(true)
-      setUnpinned(true)
+      clear()
       return
     }
-    const getScrollTarget = (): Window | HTMLElement => {
+
+    const target = ((): HTMLElement | Window => {
       if (!renderingInsideEditor) return window
-      // Inside the editor: prefer the explicit preview root (most
-      // reliable). Fall back to the closest scrollable ancestor of the
-      // header, and finally window. The explicit lookup avoids the race
-      // where `scrollAnchorRef.current` hasn't attached yet when this
-      // effect first runs.
-      const explicit = typeof document !== "undefined"
-        ? (document.getElementById("wb-preview-root") as HTMLElement | null)
-        : null
-      if (explicit) return explicit
-      let el: HTMLElement | null = scrollAnchorRef.current
-      while (el) {
-        const style = window.getComputedStyle(el)
-        const oy = style.overflowY
-        if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight) {
-          return el
-        }
-        el = el.parentElement
+      const preview = typeof document !== "undefined" ? document.getElementById("wb-preview-root") : null
+      if (preview) return preview
+      let node: HTMLElement | null = scrollAnchorRef.current
+      while (node) {
+        const oy = window.getComputedStyle(node).overflowY
+        if ((oy === "auto" || oy === "scroll") && node.scrollHeight > node.clientHeight) return node
+        node = node.parentElement
       }
       return window
-    }
-    const target = getScrollTarget()
+    })()
+
     const getY = () => (target === window ? window.scrollY : (target as HTMLElement).scrollTop)
 
     /**
-     * ─────────────────────────────────────────────────────────────────────
-     *  THE HEADER MAY ONLY HIDE WHILE IT IS PINNED
-     * ─────────────────────────────────────────────────────────────────────
-     *
-     * `translateY(-100%)` reads as "off the top of the screen" ONLY when the
-     * header is pinned at the top. When it is still sitting in its own place —
-     * under the announcement bar — the same transform moves it up OVER the
-     * bar, and because `position: sticky` keeps the element's space in the
-     * page, the space it came from is left EMPTY. One state, both reported
-     * symptoms at once: a band of background under the header, and the header
-     * across the announcement bar.
-     *
-     * This used to be gated on `y < 80` — a magic number standing in for "the
-     * header is roughly pinned by now". It is the header's own position that
-     * decides that, and it is knowable: anything above the header (an
-     * announcement bar, and its height is a setting) pushes that number down.
-     * A bar taller than 80px put the whole range between 80 and the header's
-     * real origin into "allowed to hide while unpinned", which is precisely
-     * the broken state.
-     *
-     * `offsetTop` rather than `getBoundingClientRect().top`: the rect is moved
-     * by the very transform we are deciding whether to apply, so reading it
-     * here would feed the header's own animation back into the condition.
-     * `offsetTop` is the static position and is unaffected by both the sticky
-     * offset and the transform.
+     * How far down the page the header's own box sits — the announcement bar's
+     * height, plus anything else above it. `offsetTop` and not
+     * `getBoundingClientRect().top`, because the rect is displaced by the very
+     * transform this decides whether to apply.
      */
     const originOf = () => {
-      const el = headerRef.current
-      if (!el) return 0
       let top = el.offsetTop
       let parent = el.offsetParent as HTMLElement | null
-      // Walk up to the scroll container, so a header nested inside wrappers
-      // still reports its distance from the thing that actually scrolls.
       while (parent && parent !== target && parent !== document.body) {
         top += parent.offsetTop
         parent = parent.offsetParent as HTMLElement | null
       }
-      return top
+      return Math.max(0, top)
+    }
+
+    const REVEAL = "transform 350ms cubic-bezier(0.22, 0.61, 0.36, 1)"
+    const apply = (hide: boolean, pinned: boolean) => {
+      el.style.transition = pinned ? REVEAL : "none"
+      el.style.transform = hide ? "translateY(-100%)" : "translateY(0)"
+      el.style.pointerEvents = hide ? "none" : ""
     }
 
     let lastY = getY()
+    let hidden = false
+    apply(false, false)
+
     const onScroll = () => {
       const y = getY()
-      // One pixel of slack, so the frame the header pins on is already
-      // counted as pinned rather than flickering on the boundary.
-      const pinned = y >= Math.max(0, originOf()) - 1
-      setUnpinned(!pinned)
-      if (!pinned) {
-        setStickyVisible(true)
-      } else if (y > lastY + 4) {
-        setStickyVisible(false) // scrolling down
-      } else if (y < lastY - 4) {
-        setStickyVisible(true)  // scrolling up
-      }
+      // One pixel of slack so the frame it pins on already counts as pinned.
+      const pinned = y >= originOf() - 1
+      if (!pinned) hidden = false
+      else if (y > lastY + 4) hidden = true
+      else if (y < lastY - 4) hidden = false
       lastY = y
+      apply(hidden && pinned, pinned)
     }
+
     target.addEventListener("scroll", onScroll as EventListener, { passive: true })
-    return () => target.removeEventListener("scroll", onScroll as EventListener)
+    return () => {
+      target.removeEventListener("scroll", onScroll as EventListener)
+      clear()
+    }
   }, [renderingInsideEditor, headerStickyEnabled, headerStickyOnScrollUp])
   const transparentOnHero = transparent
   // A control at last, rather than a value nobody could set. Read by the
@@ -1326,7 +1321,6 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     ? (forceMobile ? "px-4" : "px-[5%]")
     : "px-4 md:px-[5%]"
 
-  const stickyHidden = headerStickyEnabled && headerStickyOnScrollUp && !stickyVisible
 
   /**
    * ===========================================================================
@@ -1489,11 +1483,6 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
    * is there, because then it genuinely animates on every scroll.
    */
   const revealEnabled = headerStickyEnabled && headerStickyOnScrollUp
-  const hideTransform = stickyHidden ? "translateY(-100%)" : "translateY(0)"
-  /** No transition while we are at the top — see the note on `atTop`. Coming
-   *  home, the header is already where it belongs and has nothing to travel
-   *  from; animating there is what walked it across the announcement bar. */
-  const hideTransition = unpinned ? "none" : "transform 350ms cubic-bezier(0.22, 0.61, 0.36, 1)"
 
   const mobileDrawer = (
     <HeaderMobileNavDrawer
@@ -1577,7 +1566,8 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         canvasRoundedTopPx={canvasRoundedTopPx}
         className={cn(
           "sticky top-0 z-[60] isolate",
-          // Only when it actually animates — see the note above `hideTransform`.
+          // Only when it actually animates — the reveal effect above writes
+          // the transform straight to this node on scroll.
           revealEnabled && "will-change-transform",
           // Suppress the hover ring on the sticky header — it looks broken
           // when it appears over the sliding transform. The SELECTED ring
@@ -1592,8 +1582,10 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           opacity: 1,
           // Absent entirely when the reveal is off, so the header is a plain
           // sticky box with no compositor layer of its own.
-          ...(revealEnabled ? { transform: hideTransform, transition: hideTransition } : null),
-          pointerEvents: stickyHidden ? "none" : undefined,
+          // NOT set here. `transform`, `transition` and `pointerEvents` are
+          // owned by the reveal effect and written straight to the node, so a
+          // React render can never race the scroll that moved it — and so this
+          // prop cannot overwrite them on an unrelated re-render.
           ...overlayMargin,
         }}
         forwardRef={(el: HTMLDivElement | null) => {

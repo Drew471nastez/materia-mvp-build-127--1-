@@ -351,14 +351,13 @@ section("The header, the announcement bar, and the space between them")
      * so this is the copy that actually bites when somebody edits this file.
      */
     /const revealEnabled = headerStickyEnabled && headerStickyOnScrollUp/.test(source) &&
-      // The promotion and the transform are both conditional on it.
+      // The promotion is conditional on it.
       /revealEnabled && "will-change-transform"/.test(source) &&
-      /\.\.\.\(revealEnabled \? \{ transform: hideTransform, transition: hideTransition \} : null\)/.test(source) &&
       // And the class list no longer carries the promotion unconditionally.
       !/"sticky top-0 z-\[60\] will-change-transform/.test(source),
   )
   check(
-    "it can only hide while it is actually pinned",
+    "it can never be translated while it is unpinned",
     /**
      * The reveal slides the header in from `translateY(-100%)`. That is right
      * while it is PINNED. At the top of the page it is wrong: up there the
@@ -367,16 +366,25 @@ section("The header, the announcement bar, and the space between them")
      * across the bar. That is the reported overlap, and it only happens on the
      * way home.
      */
-    /const \[unpinned, setUnpinned\] = useState\(true\)/.test(source) &&
-      /const hideTransition = unpinned \? "none"/.test(source) &&
+    /**
+     * `hidden && pinned` is the value APPLIED, not `hidden`. That is the
+     * difference between a gate on when the hidden flag may change and a
+     * guarantee that an unpinned header is never translated — the first still
+     * leaves a frame where a stale flag paints the broken state.
+     */
+    /apply\(hidden && pinned, pinned\)/.test(source) &&
       // The gate is the header's OWN position, not a magic number. `y < 80`
-      // let it hide while still unpinned whenever the announcement bar was
-      // taller than 80px — which is the broken state itself.
-      /const pinned = y >= Math\.max\(0, originOf\(\)\) - 1/.test(source) &&
+      // let it hide while still unpinned whenever the bar was taller than 80px.
+      /const pinned = y >= originOf\(\) - 1/.test(source) &&
       !/y < 80/.test(source) &&
       // Read from offsetTop, because the rect is displaced by the very
       // transform this decides whether to apply.
-      /let top = el\.offsetTop/.test(source),
+      /let top = el\.offsetTop/.test(source) &&
+      // And it is written to the node, not to React state — a render is a
+      // reconcile and a commit after the scroll that caused it, and those
+      // frames are the white flash.
+      /el\.style\.transform = hide \?/.test(source) &&
+      !/setStickyVisible|setUnpinned/.test(source),
   )
   check(
     "the editor and the published page take the same branch",
