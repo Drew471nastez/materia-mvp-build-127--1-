@@ -212,8 +212,11 @@ export function PublishPanel(props: PublishPanelProps) {
         // entirely when closed rather than leaving a peek of its own.
         layer="raised"
         peekHeight={0}
+        // As tall as the card, not 62% of whatever screen this is: the
+        // difference was a band of empty dark under the buttons.
+        fit
       >
-        <div className="px-5 pb-8 pt-2">
+        <div className="px-5 pb-[calc(1rem+env(safe-area-inset-bottom,_0px))] pt-1">
           <Body {...props} />
         </div>
       </MobileEditorSheet>

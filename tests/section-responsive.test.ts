@@ -619,7 +619,9 @@ check(
   "the code pane is a rounded card inset from the canvas on a desktop, the whole screen on a phone",
   /absolute inset-2 z-\[80\] rounded-xl/.test(modeSwitch) &&
     /fixed inset-0 z-\[120\] flex flex-col/.test(modeSwitch) &&
-    /scale-\[0\.98\]/.test(modeSwitch),
+    // It lifts in and settles out — a small translate, not a shrink, so the
+    // code never looks like it is zooming at you.
+    /translate-y-2 opacity-0/.test(modeSwitch),
 )
 
 check(
@@ -722,9 +724,41 @@ check(
   // Off screen should mean not painted and not casting a shadow up onto the
   // bottom edge; and the open animation must never be skipped.
   /const settleVisibility = \(isOpen: boolean/.test(sheetSrc) &&
-    /visibility: peekHeight === 0 && !open \? "hidden" : "visible"/.test(sheetSrc) &&
+    // Set once on mount, never from the render: an inline `visibility` that
+    // followed `open` hid the sheet in the same commit that asked it to
+    // slide down, so every raised sheet vanished instead of closing.
+    /sheet\.style\.visibility = peekHeight === 0 && !openRef\.current \? "hidden" : "visible"/.test(sheetSrc) &&
+    !/visibility: peekHeight === 0 && !open/.test(sheetSrc) &&
     /settleVisibility\(nowOpen, ms\)/.test(sheetSrc) &&
     /willChange: "opacity"/.test(sheetSrc),
+)
+
+check(
+  "menus and the publish card are as tall as their content, never half a screen",
+  // A six-row menu at 50% was clipped under the browser's toolbar; the
+  // publish card at 62% floated over a band of nothing.
+  /peekHeight=\{0\} fit>/.test(menu) &&
+    /peekHeight=\{0\}\s*\n(?:\s*\/\/.*\n)*\s*fit\s*\n\s*>/.test(publish) &&
+    /fit\?: boolean/.test(sheetSrc) &&
+    /new ResizeObserver\(measure\)/.test(sheetSrc),
+)
+
+check(
+  "a menu row can be a link, so 'View live site' opens a real new tab",
+  /href\?: string/.test(menu) &&
+    /<a\s*\n\s*href=\{item\.href\}\s*\n\s*target=\{item\.target\}/.test(menu) &&
+    /label: "View live site",[\s\S]{0,200}href: websiteUrl,[\s\S]{0,80}target: "_blank"/.test(editor) &&
+    !/onClick=\{\(\) => window\.open\(websiteUrl, "_blank"\)\}/.test(editor),
+)
+
+check(
+  "the canvas never hands a scroll to a parent that swallows it",
+  /if \(el\.scrollTop <= 0\) el\.scrollTop = 1/.test(editor) && /else if \(el\.scrollTop >= max\) el\.scrollTop = max - 1/.test(editor),
+)
+
+check(
+  "the editor dissolves in and out instead of cutting",
+  /wb-editor-enter/.test(editor) && /leaving && "wb-editor-leaving"/.test(editor) && /\.wb-editor-leaving \{/.test(readFileSync(join(root, "app/globals.css"), "utf8")),
 )
 
 check(
