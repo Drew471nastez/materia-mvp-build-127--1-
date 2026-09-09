@@ -3465,6 +3465,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
+  /** Set the instant Exit is pressed. Going back can take a second or more
+   *  on a phone, and a button that does nothing for that second is a button
+   *  somebody presses again. */
+  const [leaving, setLeaving] = useState(false)
   const publishBtnRef = useRef<HTMLDivElement | null>(null)
   const [previewMode, setPreviewMode] = useState<PreviewMode>("preview")
   const [isDirty, setIsDirty] = useState(false)
@@ -5339,15 +5343,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white active:scale-90 active:bg-white/15 transition-[background-color,transform,color] duration-150 shrink-0"
                 onClick={() => {
                   if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
+                  setLeaving(true)
                   router.push("/app/website-builder")
                 }}
-                aria-label="Exit"
+                aria-label="Back"
               >
                 {isMobileView ? (
-                  <X className="h-4 w-4" strokeWidth={1.75} />
+                  <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
                 ) : (
                   <BackWithBarIcon className="h-4 w-4" />
                 )}
@@ -5355,6 +5360,38 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipTrigger>
             <TooltipContent side="bottom">Exit</TooltipContent>
           </Tooltip>
+
+          {/* Undo and redo, on the bar at every size. They had slipped into
+              the three-dots menu only, which is two taps for the two things
+              somebody reaches for most while editing. */}
+          <div className="flex items-center gap-0.5 ml-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="h-8 w-8 flex items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white active:scale-90 transition-[background-color,transform] duration-150 disabled:opacity-30 disabled:active:scale-100"
+                  onClick={handleUndo}
+                  disabled={undoStack.length === 0}
+                  aria-label="Undo"
+                >
+                  <Undo2 className="h-4 w-4" strokeWidth={1.75} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Undo</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="h-8 w-8 flex items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white active:scale-90 transition-[background-color,transform] duration-150 disabled:opacity-30 disabled:active:scale-100"
+                  onClick={handleRedo}
+                  disabled={redoStack.length === 0}
+                  aria-label="Redo"
+                >
+                  <Redo2 className="h-4 w-4" strokeWidth={1.75} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Redo</TooltipContent>
+            </Tooltip>
+          </div>
 
           {/* Desktop: sidebar mode toggles (Pages / Sections / General Settings)
               Moved up from the old vertical rail so the sidebar gets the full
@@ -5440,6 +5477,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     onClick: () => window.open(websiteUrl, "_blank"),
                   }]
                 : []),
+              {
+                label: previewMode === "code" ? "Back to preview" : "View code",
+                icon: <Code2 className="h-4 w-4" />,
+                onClick: () => {
+                  const next = previewMode === "code" ? "preview" : "code"
+                  setPreviewMode(next)
+                  if (next === "code") { setMobileSidebarOpen(false); setAiOpen(false) }
+                },
+              },
               {
                 label: "Theme settings",
                 icon: <Settings className="h-4 w-4" />,
@@ -5543,26 +5589,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           />
           )}
 
-          {isMobileView && (
-            <PreviewModeSwitch
-              compact
-              thirdLabel="Settings"
-              mode={previewMode}
-              onChange={(m) => {
-                setPreviewMode(m)
-                // A sheet under a code pane is a sheet you cannot reach.
-                if (m === "code") { setMobileSidebarOpen(false); setAiOpen(false) }
-              }}
-              onSections={() => {
-                setPreviewMode("preview")
-                setSidebarMode("settings")
-                setPageBrowserOpen(false)
-                setSelectedPanel({ type: "theme_settings" })
-                setAiOpen(false)
-                setMobileSidebarOpen(true)
-              }}
-            />
-          )}
           {/* Open the real thing, to the right of the page it opens. */}
           {websiteUrl && (
             <Tooltip>
@@ -5620,10 +5646,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <button
                 type="button"
                 className={cn(
-                  "h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border transition-all duration-150 shrink-0",
+                  "h-8 w-8 flex items-center justify-center rounded-lg border transition-all duration-150 shrink-0 active:scale-90",
                   inspectorEnabled
-                    ? "bg-foreground border-foreground text-background hover:bg-foreground/90"
-                    : "bg-transparent border-border text-muted-foreground hover:bg-muted hover:text-foreground",
+                    ? "bg-white border-white text-neutral-900"
+                    : "bg-transparent border-white/15 text-white/70 hover:bg-white/10 hover:text-white",
                 )}
                 onClick={() => setInspectorEnabled(v => !v)}
                 aria-label={inspectorEnabled ? "Disable section inspector" : "Enable section inspector"}
@@ -5644,16 +5670,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 className={cn(
                   // Shown on every size. It was `hidden sm:flex`, which hid the
                   // AI from the device most likely to want it.
-                  "h-8 w-8 flex items-center justify-center rounded-lg border transition-colors cursor-pointer",
+                  "wb-ai-button h-8 w-8 flex items-center justify-center rounded-lg transition-[transform,box-shadow] duration-150 cursor-pointer active:scale-90",
                   /*
                     The mark keeps its own colour in both states. Inverting the
                     button to solid black used to be fine for a line-art
                     sparkle and is not for a logo — a brand mark on a black
                     tile reads as a different brand.
                   */
-                  aiOpen
-                    ? "border-foreground bg-muted"
-                    : "border-border hover:bg-muted",
+                  aiOpen ? "wb-ai-button-open" : "",
                 )}
                 onClick={() => {
                   setAiOpen(open => !open)
@@ -5749,6 +5773,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             Lives on the bar's bottom edge so it has no height of its own. */}
         <WbLoadProgressBar active={sectionsLoading} />
       </header>
+
+      {/* Leaving. Rendered the moment Back is pressed: going back can take a
+          second or more on a phone, and a second of nothing is a second in
+          which the button gets pressed again. */}
+      {leaving && (
+        <div className="wb-leaving" role="status" aria-live="polite" aria-label="Going back">
+          <div className="flex flex-col items-center gap-3">
+            <div className="wb-leaving-bar" />
+            <span className="text-[13px] text-white/70">Going back</span>
+          </div>
+        </div>
+      )}
 
       {/* ── Top notification bar ── */}
       <div
@@ -5958,6 +5994,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     // (48px) and the always-visible bottom-sheet peek (72px).
                     width: "100%",
                     height: "calc(100svh - 48px - 72px)",
+                    // The card is the scroller. Say so to the browser: a
+                    // vertical drag here is a scroll and nothing else, and a
+                    // scroll that reaches the end stays in the card rather
+                    // than bouncing the page, which on iOS is where a touch
+                    // scroll gets stuck.
+                    touchAction: "pan-y",
+                    overscrollBehavior: "contain",
+                    WebkitOverflowScrolling: "touch",
                   }
                 : device === "desktop"
                   ? {

@@ -437,6 +437,69 @@ check(
     /<WbLoadProgressBar active=\{sectionsLoading\} \/>\s*<\/header>/.test(editor),
 )
 
+
+// ===========================================================================
+section("The bar answers a touch, and the phone scrolls")
+// ===========================================================================
+
+const menu = readFileSync(join(root, "components/ui/responsive-action-menu.tsx"), "utf8")
+const css = readFileSync(join(root, "app/globals.css"), "utf8")
+
+check(
+  "Back is an arrow, and pressing it answers instantly with a leaving screen",
+  // Going back can take a second on a phone; a second of nothing is a second
+  // in which the button gets pressed again.
+  /aria-label="Back"/.test(editor) &&
+    /setLeaving\(true\)\s*\n\s*router\.push\("\/app\/website-builder"\)/.test(editor) &&
+    /\{leaving && \(\s*<div className="wb-leaving"/.test(editor) &&
+    /\.wb-leaving \{[\s\S]{0,300}position: fixed/.test(css),
+)
+
+check(
+  "undo and redo are on the bar at every size, not only in the three-dots menu",
+  /onClick=\{handleUndo\}/.test(editor.slice(editor.indexOf("<header"), editor.indexOf("</header>"))) &&
+    /onClick=\{handleRedo\}/.test(editor.slice(editor.indexOf("<header"), editor.indexOf("</header>"))),
+)
+
+check(
+  "the compact mode pill is off the phone bar, and Code lives in the three-dots menu",
+  !/<PreviewModeSwitch\s+compact/.test(editor) &&
+    /label: previewMode === "code" \? "Back to preview" : "View code"/.test(editor),
+)
+
+check(
+  "the inspector toggle is on the bar at every size",
+  (() => {
+    const at = editor.indexOf('aria-label={inspectorEnabled ? "Disable section inspector"')
+    const cls = editor.slice(at - 900, at)
+    return at > 0 && /"h-8 w-8 flex items-center justify-center rounded-lg border/.test(cls) && !/hidden sm:flex/.test(cls)
+  })(),
+)
+
+check(
+  "the AI button has depth and a shimmer, and no hairline border",
+  /wb-ai-button h-8 w-8 flex/.test(editor) &&
+    !/aiOpen\s*\?\s*"border-foreground bg-muted"/.test(editor) &&
+    /\.wb-ai-button::before \{[\s\S]{0,600}conic-gradient/.test(css) &&
+    /@keyframes wb-ai-shimmer/.test(css) &&
+    // Only for people who have not asked for less motion.
+    /prefers-reduced-motion: no-preference\) \{\s*\.wb-ai-button::before \{ animation: wb-ai-shimmer/.test(css),
+)
+
+check(
+  "the three-dots phone menu rides the editor's own sheet, with its drag physics",
+  /<MobileEditorSheet open=\{sheetOpen\} onOpenChange=\{setSheetOpen\}/.test(menu) &&
+    !/enableDragToClose/.test(menu) &&
+    !/data-drag-handle/.test(menu),
+)
+
+check(
+  "the phone preview card owns its touch scrolling",
+  // A vertical drag on the card is a scroll and nothing else, and reaching the
+  // end stays in the card rather than bouncing the page.
+  /touchAction: "pan-y",\s*\n\s*overscrollBehavior: "contain"/.test(editor),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
