@@ -165,6 +165,23 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
     `${root} h1,${root} h2,${root} h3,${root} h4{font-family:var(--theme-font-heading),ui-sans-serif,system-ui,sans-serif;font-weight:var(--theme-heading-weight);text-transform:var(--theme-heading-transform);letter-spacing:var(--theme-heading-tracking);}`,
     // Links, unless a section has painted them itself.
     `${root} a:not([style*="color"]){color:inherit;}`,
+    /**
+     * LONG WORDS DO NOT PUSH THE PAGE SIDEWAYS.
+     *
+     * Measured in Chromium at 390px: with the shipped demo copy every one of
+     * the fifty sections was clean, and with ONE unbreakable string in a text
+     * field — a long product name, a pasted URL, an email address — THIRTY-FIVE
+     * of them pushed the page into horizontal scroll. Up to 866px of it.
+     *
+     * `anywhere` rather than `break-word` on purpose: only `anywhere` shrinks
+     * an element's min-content width, and it is the min-content width that
+     * makes a flex or grid child refuse to get narrower than its longest word.
+     * `break-word` wraps the text and leaves the blowout.
+     *
+     * One rule, inherited by everything in every section, so the fifty-first
+     * section cannot forget it.
+     */
+    `${root} [data-section]{overflow-wrap:anywhere;}`,
   ]
 
   const gap = num(t.section_gap, 0)

@@ -1,0 +1,1 @@
+{"compilerOptions":{"outDir":"/tmp/claude-0/-home-user-materia-mvp-build-127--1-/68737670-c97a-5eb7-8405-30ea4d9942e8/scratchpad/build","rootDir":".","target":"es2022","module":"esnext","moduleResolution":"bundler","skipLibCheck":true,"strict":false,"jsx":"react-jsx","baseUrl":".","paths":{"@/*":["./*"]}},"files":["scripts/.tmp/emit.ts"]}
