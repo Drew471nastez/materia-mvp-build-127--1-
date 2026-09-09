@@ -470,7 +470,8 @@ check(
     return (
       /onClick=\{handleUndo\}/.test(pair) &&
       /onClick=\{handleRedo\}/.test(pair) &&
-      /\{isMobileView && \(\s*<div className="flex items-center gap-1\.5">\s*\{undoRedo\}/.test(header) &&
+      // A phone puts them next to the menu; a desktop on the right.
+      /\{isMobileView && undoRedo\}/.test(header) &&
       /\{!isMobileView && undoRedo\}/.test(header)
     )
   })(),
@@ -483,16 +484,15 @@ check(
 )
 
 check(
-  "the inspector is on the desktop bar with depth; a phone reaches it from the menu",
-  // On a phone it read as the AI button, beside the mark that actually was.
+  "the inspector is on the bar at every size, with depth, and not hidden in a menu",
   (() => {
     const at = editor.indexOf('aria-label={inspectorEnabled ? "Disable section inspector"')
     const cls = editor.slice(at - 1200, at)
     return (
       at > 0 &&
-      /\{!isMobileView && \(\s*<Tooltip>/.test(cls) &&
+      !/\{!isMobileView && \(\s*<Tooltip>[\s\S]{0,400}wb-inspector/.test(cls) &&
       /"wb-depth wb-inspector h-8 w-8 flex items-center justify-center rounded-lg/.test(cls) &&
-      /label: inspectorEnabled \? "Turn inspector off" : "Turn inspector on"/.test(editor)
+      !/label: inspectorEnabled \? "Turn inspector off"/.test(editor)
     )
   })(),
 )
@@ -540,12 +540,13 @@ check(
 )
 
 check(
-  "undo and redo are a pair on the desktop's right, the AI beside them and not between them, all with depth",
+  "the right of the bar runs undo, redo, inspector, AI, Publish — the two builder tools together",
   (() => {
     const pair = editor.slice(editor.indexOf("const undoRedo = ("), editor.indexOf("// ── Main editor layout"))
     const u = pair.indexOf('aria-label="Undo"')
     const r = pair.indexOf('aria-label="Redo"')
     const placed = headerSrc.indexOf("{!isMobileView && undoRedo}")
+    const insp = headerSrc.indexOf('aria-label={inspectorEnabled ? "Disable section inspector"')
     const ai = headerSrc.indexOf('aria-label="Ask Storelib"')
     const pub = headerSrc.indexOf("const live = install?.status")
     const left = headerSrc.indexOf("Desktop: sidebar mode toggles")
@@ -553,7 +554,8 @@ check(
       u > 0 &&
       r > u &&
       placed > left &&
-      ai > placed &&
+      insp > placed &&
+      ai > insp &&
       pub > ai &&
       /wb-depth h-8 w-8[^"]*"\s*\n\s*onClick=\{handleUndo\}/.test(pair) &&
       /wb-depth h-8 w-8[^"]*"\s*\n\s*onClick=\{handleRedo\}/.test(pair)
@@ -719,20 +721,30 @@ check(
 )
 
 check(
-  "on a phone the bar reads Back, menu, undo and redo in the middle, one sparkle, Publish",
+  "on a phone the bar reads Back, menu, undo, redo on the left, then inspector, AI, Publish",
   (() => {
     const header = editor.slice(editor.indexOf("<header"), editor.indexOf("</header>"))
-    const centre = header.indexOf("{undoRedo}")
+    const menu = header.indexOf("<ResponsiveActionMenu")
+    const left = header.indexOf("{isMobileView && undoRedo}")
+    const insp = header.indexOf('aria-label={inspectorEnabled ? "Disable section inspector"')
     const ai = header.indexOf('aria-label="Ask Storelib"')
     const pub = header.indexOf("const live = install?.status")
-    return (
-      centre > 0 &&
-      ai > centre &&
-      pub > ai &&
-      /isMobileView \? \(\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*<Sparkles/.test(header) &&
-      /<StorelibMark className=/.test(header)
-    )
+    return menu > 0 && left > menu && insp > left && ai > insp && pub > ai
   })(),
+)
+
+check(
+  "a sheet renders into the body, so the layer it declares is the layer it gets",
+  /**
+   * z-index only compares inside one stacking context. The publish sheet is
+   * rendered next to the button that opens it, inside a `relative z-50`
+   * header — so its z-[80] was measured against the header's own children,
+   * and the header at z-50 still lost to the persistent peek at z-50 later in
+   * the tree. No number fixes that from inside; the sheet has to leave.
+   */
+  /import \{ createPortal \} from "react-dom"/.test(sheetSrc) &&
+    /return createPortal\(\s*<>/.test(sheetSrc) &&
+    /<\/>,\s*document\.body,\s*\)/.test(sheetSrc),
 )
 
 check(

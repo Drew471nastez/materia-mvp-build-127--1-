@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, Sparkles,
+  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon,
 } from "lucide-react"
 import {
   DndContext,
@@ -5522,16 +5522,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   setAiOpen(false)
                 },
               },
-              ...(isMobileView
-                ? [
-                    {
-                      // Off the phone's bar, where it looked like the AI.
-                      label: inspectorEnabled ? "Turn inspector off" : "Turn inspector on",
-                      icon: <MousePointerClick className="h-4 w-4" />,
-                      onClick: () => setInspectorEnabled((v) => !v),
-                    },
-                  ]
-                : []),
               {
                 label: "Undo",
                 icon: <Undo2 className="h-4 w-4" />,
@@ -5554,6 +5544,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               },
             ]}
           />
+          {/* A phone puts undo and redo here, straight after the menu, rather
+              than in the middle of the bar. Centred, they were an island
+              between the project's name and the page's; here they are the
+              end of the row of things you do TO the project, which is where
+              a thumb already is. */}
+          {isMobileView && undoRedo}
           {/* Autosave means "unsaved" is rarely true and rarely interesting.
               What somebody needs to know on a live theme is that the public
               site is behind — which is a different fact and outlives a save. */}
@@ -5578,12 +5574,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           on the right — and everything about the PROJECT stays on the edges.
         */}
         <div className="flex flex-1 items-center justify-center gap-1.5 min-w-0">
-          {/* A phone's centre: undo and redo, and nothing else. */}
-          {isMobileView && (
-            <div className="flex items-center gap-1.5">
-              {undoRedo}
-            </div>
-          )}
           {/* Format, to the left of the page it applies to. */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -5662,11 +5652,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               blue selection rectangle and opens its settings panel.
               When OFF: canvas behaves like a pure preview — no outlines,
               no section-click interception. */}
-          {/* Desktop only. On a phone it read as the AI button, sitting next
-              to the mark that actually was, and two buttons that look like
-              the special one is one too many. The phone reaches it from the
-              menu. */}
-          {!isMobileView && (
+          {/* Undo and redo are a pair and sit as one: the left button and
+              the right button. On a desktop they are here; a phone puts them
+              beside the menu, on the left. */}
+          {!isMobileView && undoRedo}
+
+          {/* The inspector, immediately beside the AI at every size. The two
+              of them are the builder's own tools — everything else on this
+              side is about the site — so they stand together, and the pair
+              is what a thumb reaches for on a phone. */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -5686,13 +5680,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               {inspectorEnabled ? "Inspector: on, click to disable" : "Inspector: off, click to enable"}
             </TooltipContent>
           </Tooltip>
-          )}
-
-          {/* Undo and redo are a pair and sit as one: the left button and
-              the right button. The AI stands beside them, not between them,
-              because an undo you have to look past a logo to find is slower
-              than one that is where your hand went. */}
-          {!isMobileView && undoRedo}
 
           {/* Ask AI */}
           <Tooltip>
@@ -5719,14 +5706,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 aria-label="Ask Storelib"
                 aria-pressed={aiOpen}
               >
-                {isMobileView ? (
-                  // The phone's one special button is a sparkle, which is
-                  // what "the AI" looks like on every phone; the mark stays
-                  // on the desktop, where there is room to know it.
-                  <Sparkles className={cn("h-4 w-4 transition-opacity", aiOpen ? "opacity-100" : "opacity-80")} strokeWidth={1.75} />
-                ) : (
-                  <StorelibMark className={cn("h-[18px] w-[18px] rounded-[5px] transition-opacity", aiOpen ? "opacity-100" : "opacity-80")} />
-                )}
+                <StorelibMark className={cn("h-[18px] w-[18px] rounded-[5px] transition-opacity", aiOpen ? "opacity-100" : "opacity-80")} />
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">{aiOpen ? "Hide Storelib AI" : "Ask Storelib"}</TooltipContent>

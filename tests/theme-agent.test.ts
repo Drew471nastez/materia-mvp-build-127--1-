@@ -2281,10 +2281,9 @@ section("The panel says the true thing, and does not make you wait to type")
   const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   check(
     "and so does the button that opens it",
-    // The mark on a desktop, where there is room to know it; a sparkle on a
-    // phone, where the mark beside the inspector read as two of the same.
+    // One button at every size: the mark, with its own glow.
     /<StorelibMark className=\{cn\("h-\[18px\] w-\[18px\]/.test(editor) &&
-      /isMobileView \? \([\s\S]{0,400}<Sparkles className=/.test(editor),
+      !/Sparkles/.test(editor),
   )
   /**
    * Measured in Chromium: 32x32 button, an 18x18 mark, painted rgb(139, 86,

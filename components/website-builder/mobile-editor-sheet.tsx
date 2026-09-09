@@ -29,6 +29,7 @@
  */
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import {
   DRAG_THRESHOLD_PX,
@@ -499,7 +500,21 @@ export function MobileEditorSheet({
 
   if (!mounted) return null
 
-  return (
+  /**
+   * =========================================================================
+   *  PORTALLED, OR THE LAYER IS A LIE
+   * =========================================================================
+   * `z-index` is only comparable inside one stacking context. The publish
+   * sheet is rendered next to the button that opens it, which is inside a
+   * `relative z-50` header — so its z-[80] was being compared against the
+   * header's other children, and the whole header, at z-50, still lost to the
+   * persistent peek sheet at the same z-50 later in the tree.
+   *
+   * No amount of raising the number fixes that from inside. The sheet has to
+   * leave, so it is rendered into `document.body`, where the layers it
+   * declares are the layers it gets.
+   */
+  return createPortal(
     <>
       <div
         ref={overlayRef}
@@ -554,6 +569,7 @@ export function MobileEditorSheet({
         </div>
         {children}
       </div>
-    </>
+    </>,
+    document.body,
   )
 }
