@@ -4,19 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Monitor, Smartphone, Loader2, Globe, Save, Code2,
-  ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2,
-  Copy, Settings, Check, Layers, Palette, X, RotateCcw,
-  Layout, AlignLeft, Image, ShoppingBag, MessageSquare,
-  HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid,
-  DollarSign, LayoutTemplate, Video, Users, MapPin, Mail,
-  Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield,
-  Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package,
-  Menu, Undo2, Redo2, PanelLeft, ExternalLink, Link2,
-  Search, FileText, ArrowRight, FolderOpen, MoreHorizontal,
-  Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle,
-  Type, Square, Rows3, Grid3x3, MousePointerClick,
-  MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon,
+  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon,
 } from "lucide-react"
 import {
   DndContext,
@@ -48,6 +36,7 @@ import { cn } from "@/lib/utils"
 import { PageSwitcher } from "@/components/website-builder/page-switcher"
 import { PublishPanel } from "@/components/website-builder/publish-panel"
 import { PreviewModeSwitch, CodePane, type PreviewMode } from "@/components/website-builder/preview-mode-switch"
+import { ProjectSettings } from "@/components/website-builder/project-settings"
 import { createClient } from "@/lib/supabase/client"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -3471,6 +3460,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [leaving, setLeaving] = useState(false)
   const publishBtnRef = useRef<HTMLDivElement | null>(null)
   const [previewMode, setPreviewMode] = useState<PreviewMode>("preview")
+  const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
 
   /**
@@ -5361,49 +5351,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <TooltipContent side="bottom">Exit</TooltipContent>
           </Tooltip>
 
-          {/* Undo and redo, on the bar at every size. They had slipped into
-              the three-dots menu only, which is two taps for the two things
-              somebody reaches for most while editing. */}
-          <div className="flex items-center gap-0.5 ml-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="h-8 w-8 flex items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white active:scale-90 transition-[background-color,transform] duration-150 disabled:opacity-30 disabled:active:scale-100"
-                  onClick={handleUndo}
-                  disabled={undoStack.length === 0}
-                  aria-label="Undo"
-                >
-                  <Undo2 className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Undo</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="h-8 w-8 flex items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white active:scale-90 transition-[background-color,transform] duration-150 disabled:opacity-30 disabled:active:scale-100"
-                  onClick={handleRedo}
-                  disabled={redoStack.length === 0}
-                  aria-label="Redo"
-                >
-                  <Redo2 className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Redo</TooltipContent>
-            </Tooltip>
-          </div>
-
           {/* Desktop: sidebar mode toggles (Pages / Sections / General Settings)
               Moved up from the old vertical rail so the sidebar gets the full
               horizontal space for its panel content. */}
           {!isMobileView && (
-            <div className="flex items-center gap-0.5 ml-1.5 pl-1.5 border-l border-border">
+            <div className="flex items-center gap-0.5 ml-1.5 pl-1.5 border-l border-white/15">
               <button
                 className={cn(
                   "h-8 w-8 flex items-center justify-center rounded-lg transition-colors",
                   sidebarMode === "sections" && !pageBrowserOpen
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    ? "bg-white/15 text-white"
+                    : "text-white/70 hover:bg-white/10 hover:text-white",
                 )}
                 onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }) }}
                 title="Sections"
@@ -5414,8 +5372,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 className={cn(
                   "h-8 w-8 flex items-center justify-center rounded-lg transition-colors",
                   pageBrowserOpen
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    ? "bg-white/15 text-white"
+                    : "text-white/70 hover:bg-white/10 hover:text-white",
                 )}
                 onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
                 title="Pages"
@@ -5426,8 +5384,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 className={cn(
                   "h-8 w-8 flex items-center justify-center rounded-lg transition-colors",
                   sidebarMode === "settings" && !pageBrowserOpen
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    ? "bg-white/15 text-white"
+                    : "text-white/70 hover:bg-white/10 hover:text-white",
                 )}
                 onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }}
                 title="General Settings"
@@ -5437,7 +5395,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
           )}
 <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-sm font-medium text-foreground truncate hidden md:block max-w-[180px]">{install?.name}</span>
+          <span className="text-sm font-medium text-white truncate hidden md:block max-w-[180px]">{install?.name}</span>
           {/*
             THE DOT IS THE WHOLE BADGE.
 
@@ -5465,23 +5423,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             align="center"
             menuWidth="w-52"
             trigger={
-              <button className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0" title="Theme options">
+              <button className="h-8 w-8 flex items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors shrink-0" title="Theme options">
                 <MoreHorizontal className="h-4 w-4" />
               </button>
             }
             items={[
-              ...(websiteUrl
-                ? [{
-                    label: "View Live",
-                    icon: <ExternalLink className="h-4 w-4" />,
-                    onClick: () => window.open(websiteUrl, "_blank"),
-                  }]
-                : []),
               {
                 label: previewMode === "code" ? "Back to preview" : "View code",
                 icon: <Code2 className="h-4 w-4" />,
                 onClick: () => {
-                  const next = previewMode === "code" ? "preview" : "code"
+                  const next: PreviewMode = previewMode === "code" ? "preview" : "code"
                   setPreviewMode(next)
                   if (next === "code") { setMobileSidebarOpen(false); setAiOpen(false) }
                 },
@@ -5494,6 +5445,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   setPageBrowserOpen(false)
                   setSelectedPanel({ type: "theme_settings" })
                   if (isMobileView) setMobileSidebarOpen(true)
+                },
+              },
+              {
+                // The desktop pill has a Project Settings segment. A phone has
+                // no pill, so this is the phone's way in; on a desktop it is
+                // the same page from a second door.
+                label: "Project settings",
+                icon: <SlidersHorizontal className="h-4 w-4" />,
+                onClick: () => {
+                  setPreviewMode("settings")
+                  setProjectSettingsOpen(true)
+                  setMobileSidebarOpen(false)
+                  setAiOpen(false)
                 },
               },
               {
@@ -5522,7 +5486,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               What somebody needs to know on a live theme is that the public
               site is behind — which is a different fact and outlives a save. */}
           {(install?.status === "published" ? unpublished : isDirty) && (
-            <span className="text-xs text-muted-foreground hidden md:inline ml-2">
+            <span className="text-xs text-white/70 hidden md:inline ml-2">
               {install?.status === "published" ? "Not published yet" : "Unsaved changes"}
             </span>
           )}
@@ -5613,27 +5577,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               WHICH website, which is the thing somebody actually wants to
               check before they publish — and it is one fewer hover to find
               out. Falls back to the icon where there is no room for text. */}
-          {websiteUrl && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="hidden lg:flex h-8 items-center gap-1.5 rounded-lg border border-border bg-transparent px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
-                  onClick={() => window.open(websiteUrl, "_blank")}
-                  aria-label="View live website"
-                >
-                  <span className="max-w-[180px] truncate">{websiteUrlDisplay}</span>
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">View live website</TooltipContent>
-            </Tooltip>
-          )}
-          {/* The icon-only twin of the pill above is gone: the centre of the
-              bar now carries "open the live page" beside the page it opens,
-              and two buttons doing one thing on one bar is one of them being
-              in the wrong place. The pill stays, because it says WHICH site,
-              which is information rather than a second copy of an action. */}
-
           {/* Device Switcher — pill toggle */}
           
           {/* Inspector toggle — filled when on.
@@ -5646,10 +5589,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <button
                 type="button"
                 className={cn(
-                  "h-8 w-8 flex items-center justify-center rounded-lg border transition-all duration-150 shrink-0 active:scale-90",
-                  inspectorEnabled
-                    ? "bg-white border-white text-neutral-900"
-                    : "bg-transparent border-white/15 text-white/70 hover:bg-white/10 hover:text-white",
+                  "wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white transition-[transform,color,box-shadow] duration-200 shrink-0 active:scale-90",
+                  inspectorEnabled && "wb-inspector-on",
                 )}
                 onClick={() => setInspectorEnabled(v => !v)}
                 aria-label={inspectorEnabled ? "Disable section inspector" : "Enable section inspector"}
@@ -5663,6 +5604,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipContent>
           </Tooltip>
 
+          {/* Undo, the AI, redo: the three things reached for most while
+              editing, together, with the same depth. Undo and redo bracket
+              the AI because an AI edit is the one most often undone. */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[transform,color] duration-150 disabled:active:scale-100 shrink-0"
+                  onClick={handleUndo}
+                  disabled={undoStack.length === 0}
+                  aria-label="Undo"
+                >
+                  <Undo2 className="h-4 w-4" strokeWidth={1.75} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Undo</TooltipContent>
+            </Tooltip>
           {/* Ask AI */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -5693,12 +5650,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipTrigger>
             <TooltipContent side="bottom">{aiOpen ? "Hide Storelib AI" : "Ask Storelib"}</TooltipContent>
           </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[transform,color] duration-150 disabled:active:scale-100 shrink-0"
+                  onClick={handleRedo}
+                  disabled={redoStack.length === 0}
+                  aria-label="Redo"
+                >
+                  <Redo2 className="h-4 w-4" strokeWidth={1.75} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Redo</TooltipContent>
+            </Tooltip>
 
           {/* Preview */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                className="h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border border-white/15 text-white/70 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
                 onClick={() => {
                   if (!websiteUrl) return
                   const urlWithPreview = `${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}builder_preview=1&show_preview_bar=1`
@@ -5733,7 +5703,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   size="sm"
                   className={cn(
                     "h-8 cursor-pointer min-w-[92px] rounded-full transition-all duration-200 text-white gap-2",
-                    live ? "bg-[#2f5cff] hover:bg-[#2851e6]" : "bg-neutral-100 text-neutral-900 hover:bg-white",
+                    live ? "bg-[#2f5cff] hover:bg-[#2851e6]" : "bg-white/10 text-white hover:bg-white/15",
                   )}
                   onClick={() => {
                     if (!live) { void handleSave(); return }
@@ -5773,6 +5743,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             Lives on the bar's bottom edge so it has no height of its own. */}
         <WbLoadProgressBar active={sectionsLoading} />
       </header>
+
+      <ProjectSettings
+        open={projectSettingsOpen}
+        onClose={() => {
+          setProjectSettingsOpen(false)
+          setPreviewMode("preview")
+        }}
+        installId={installId}
+        name={install?.name ?? ""}
+        onRenamed={(name) => setInstall((cur) => (cur ? { ...cur, name } : cur))}
+        websiteUrl={websiteUrl}
+        websiteUrlDisplay={websiteUrlDisplay}
+        live={install?.status === "published"}
+        publishedAt={install?.published_at ?? null}
+      />
 
       {/* Leaving. Rendered the moment Back is pressed: going back can take a
           second or more on a phone, and a second of nothing is a second in
@@ -5965,12 +5950,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <div className="pointer-events-auto rounded-full bg-[#171717] shadow-lg">
                 <PreviewModeSwitch
                   mode={previewMode}
-                  onChange={setPreviewMode}
-                  onSections={() => {
-                    setPreviewMode("preview")
-                    setSidebarMode("sections")
-                    setPageBrowserOpen(false)
-                    setSelectedPanel({ type: "pages" })
+                  onChange={(m) => {
+                    setPreviewMode(m)
+                    if (m === "settings") setProjectSettingsOpen(true)
                   }}
                 />
               </div>

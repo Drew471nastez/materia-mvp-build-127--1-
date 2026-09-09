@@ -660,6 +660,52 @@ html.capacitor body {
     .wb-ai-button::before { animation: wb-ai-shimmer 4s linear infinite; }
   }
 
+  /* Depth for the bar's icon buttons: the same recipe as the AI button
+     without its ring. A thing you press, on a dark bar, reads as pressed
+     because it has a top highlight and a shadow underneath, not because it
+     turns white. */
+  .wb-depth {
+    background: #262626;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06) inset,
+      0 1px 2px rgba(0, 0, 0, 0.5),
+      0 4px 10px -4px rgba(0, 0, 0, 0.6);
+  }
+  .wb-depth:hover:not(:disabled) { background: #2e2e2e; }
+  .wb-depth:active:not(:disabled) {
+    background: #1f1f1f;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) inset;
+  }
+  .wb-depth:disabled { opacity: 0.35; }
+
+  /* The inspector, on. The ICON fills and glows; the button stays what it
+     was. Filling the whole button white on a dark bar is a flashlight. */
+  .wb-inspector-on svg {
+    fill: currentColor;
+    filter: drop-shadow(0 0 6px rgba(125, 162, 255, 0.9));
+  }
+  .wb-inspector-on {
+    color: #9db6ff;
+    box-shadow:
+      0 0 0 1px rgba(47, 92, 255, 0.55),
+      0 0 16px -2px rgba(47, 92, 255, 0.55),
+      0 1px 2px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Project settings: a whole page over the builder, arriving from a touch
+     below and a touch smaller, which is what makes it a page opening rather
+     than a modal appearing. */
+  .wb-settings-in {
+    animation: wb-settings-in 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  @keyframes wb-settings-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.985); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-settings-in { animation: none; }
+  }
+
   /* Leaving the builder. Shown the instant Back is pressed, over everything,
      so a navigation that takes a second on a phone is a second with a
      visible answer rather than a second of nothing. */

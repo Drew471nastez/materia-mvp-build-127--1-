@@ -1290,7 +1290,7 @@ section("Autosave writes the draft, never the live site")
         // pending, because the panel is where the answer to "what is pending"
         // lives. Draft: Save while dirty, Saved once written, no panel.
         /live \? "Publish" : pending \? "Save" : "Saved"/.test(body) &&
-        /live \? setPublishOpen\(\(v\) => !v\) : handleSave\(\)/.test(body)
+        /if \(!live\) \{ void handleSave\(\); return \}\s*setPublishOpen\(\(v\) => !v\)/.test(body)
       )
     })(),
   )
@@ -2290,7 +2290,11 @@ section("The panel says the true thing, and does not make you wait to type")
    */
   check(
     "the mark keeps its own colour in both states",
-    /aiOpen\s*\n?\s*\? "border-foreground bg-muted"/.test(editor),
+    // Open or closed, only the mark's opacity moves. The tile under it has
+    // depth of its own now and never inverts.
+    /<StorelibMark className=\{cn\("h-\[18px\] w-\[18px\] rounded-\[5px\] transition-opacity", aiOpen \? "opacity-100" : "opacity-80"\)\}/.test(
+      editor,
+    ) && !/aiOpen\s*\n?\s*\? "border-foreground bg-muted"/.test(editor),
   )
 }
 

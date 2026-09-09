@@ -278,10 +278,10 @@ check(
 )
 
 check(
-  "and the live link is not also duplicated on the right",
-  // Two buttons doing one thing on one bar is one of them being in the wrong
-  // place. The domain pill stays, because it says WHICH site.
-  (editor.match(/aria-label="View live website"/g) ?? []).length === 1,
+  "and the live link is not on the bar at all",
+  // Opening the live site is in the centre pill's Publish flow and in the
+  // publish panel. A third copy on the right was one being in the wrong place.
+  (editor.match(/aria-label="View live website"/g) ?? []).length === 0,
 )
 
 check(
@@ -393,8 +393,11 @@ check(
 )
 
 check(
-  "a phone's centre is Preview / Code / Settings, icons only, Preview by default",
-  /\{isMobileView && \(\s*<PreviewModeSwitch\s+compact\s+thirdLabel="Settings"/.test(editor) &&
+  "a phone has no centre pill; the desktop pill is Preview / Code / Project Settings, Preview by default",
+  // A 3-segment pill in a 390px bar is what the user called not a good idea
+  // on a phone. Code and Settings are reached from the menu there.
+  /\{!isMobileView && \(\s*<div[^>]*>\s*<div[^>]*>\s*<PreviewModeSwitch/.test(editor) &&
+    !/isMobileView && \(\s*<PreviewModeSwitch/.test(editor) &&
     /useState<PreviewMode>\("preview"\)/.test(editor),
 )
 
@@ -472,7 +475,7 @@ check(
   (() => {
     const at = editor.indexOf('aria-label={inspectorEnabled ? "Disable section inspector"')
     const cls = editor.slice(at - 900, at)
-    return at > 0 && /"h-8 w-8 flex items-center justify-center rounded-lg border/.test(cls) && !/hidden sm:flex/.test(cls)
+    return at > 0 && /"wb-depth h-8 w-8 flex items-center justify-center rounded-lg/.test(cls) && !/hidden sm:flex/.test(cls)
   })(),
 )
 
@@ -498,6 +501,86 @@ check(
   // A vertical drag on the card is a scroll and nothing else, and reaching the
   // end stays in the card rather than bouncing the page.
   /touchAction: "pan-y",\s*\n\s*overscrollBehavior: "contain"/.test(editor),
+)
+
+
+// ===========================================================================
+section("A dark bar stays dark, and settings is a page")
+// ===========================================================================
+
+const settingsPage = readFileSync(join(root, "components/website-builder/project-settings.tsx"), "utf8")
+const modeSwitch = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
+const headerSrc = editor.slice(editor.indexOf("<header className"), editor.indexOf("</header>"))
+
+check(
+  "no view-live surface remains on the bar or in its menu",
+  // Opening the live site lives in the centre and in Publish. A third and a
+  // fourth copy is two of them being in the wrong place.
+  !/aria-label="View live website"/.test(headerSrc) && !/label: "View Live"/.test(headerSrc),
+)
+
+check(
+  "undo, the AI, redo — together on the right, with depth",
+  (() => {
+    const u = headerSrc.indexOf('aria-label="Undo"')
+    const ai = headerSrc.indexOf('aria-label="Ask Storelib"')
+    const r = headerSrc.indexOf('aria-label="Redo"')
+    const left = headerSrc.indexOf("Desktop: sidebar mode toggles")
+    return u > 0 && ai > u && r > ai && u > left && /wb-depth h-8 w-8[^"]*"\s*\n\s*onClick=\{handleUndo\}/.test(headerSrc)
+  })(),
+)
+
+check(
+  "the inspector has depth by default and glows through its icon when on, not a white button",
+  /wb-depth h-8 w-8[^"]*"[\s\S]{0,60}inspectorEnabled && "wb-inspector-on"/.test(headerSrc) &&
+    !/bg-white border-white text-neutral-900/.test(headerSrc) &&
+    /\.wb-inspector-on svg \{\s*fill: currentColor/.test(css),
+)
+
+check(
+  "nothing on the bar can flash light when pressed",
+  /**
+   * The bar is dark and every control on it used the light theme's hover and
+   * active classes, so pressing anything flashed a white tile. That is the
+   * "it becomes white, it is cheap" complaint as a class of fault.
+   */
+  !/hover:bg-muted/.test(headerSrc) &&
+    !/text-muted-foreground/.test(headerSrc) &&
+    !/"bg-muted text-foreground"/.test(headerSrc) &&
+    !/border border-border/.test(headerSrc) &&
+    !/bg-neutral-100 text-neutral-900/.test(headerSrc),
+)
+
+check(
+  "the mode pill is one bubble that slides, measured from rects",
+  // Three buttons swapping backgrounds say "something changed somewhere";
+  // one bubble that travels says where from and where to.
+  /data-seg=\{m\}/.test(modeSwitch) &&
+    /getBoundingClientRect\(\)/.test(modeSwitch) &&
+    /transform: `translateX\(\$\{bubble\.left\}px\)`/.test(modeSwitch) &&
+    /seg\("settings", "Project Settings", Settings\)/.test(modeSwitch),
+)
+
+check(
+  "the code pane is a rounded card inset from the canvas, arriving by scale and fade",
+  /absolute inset-2 z-20 overflow-hidden rounded-2xl/.test(modeSwitch) && /scale-\[0\.98\]/.test(modeSwitch),
+)
+
+check(
+  "project settings is a full page over the builder, closed by Back or Escape, and it can rename",
+  /<ProjectSettings/.test(editor) &&
+    /fixed inset-0 z-\[150\]/.test(settingsPage) &&
+    /Back to project/.test(settingsPage) &&
+    /e\.key === "Escape"/.test(settingsPage) &&
+    /method: "PATCH"/.test(settingsPage) &&
+    /JSON\.stringify\(\{ name: draft\.trim\(\) \}\)/.test(settingsPage),
+)
+
+check(
+  "and it only offers sections something real stands behind",
+  // The reference has Analytics, Knowledge, Skills, Backups. A nav entry that
+  // opens an empty panel is a promise the product cannot keep.
+  !/Analytics|Knowledge|Skills|Backups/.test(settingsPage.slice(settingsPage.indexOf("const NAV"))),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
