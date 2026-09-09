@@ -130,6 +130,7 @@ function run() {
       return {
         box: Math.round(b.width) + "x" + Math.round(b.height),
         active: el.getAttribute("data-nav-icon") === "filled",
+        drawn: el.getAttribute("data-icon-drawn"),
         outline: layer("outline"),
         filled: layer("filled"),
       }
@@ -266,14 +267,33 @@ try {
         Remix, a magic number per library. Solar's linear icons are stroked
         for real, so this now reads the drawing weight itself.
       */
-      m.icons.every((i) => i.outline.stroke === "1.5px"),
-      "the resting layer is stroked at 1.5, the weight it is drawn at",
-      JSON.stringify(m.icons.map((i) => i.outline.stroke)),
+      m.icons.filter((i) => i.drawn === "stroke").every((i) => i.outline.stroke === "1.5px"),
+      "every stroked resting layer is stroked at 1.5, the weight it is drawn at",
+      JSON.stringify(m.icons.filter((i) => i.drawn === "stroke").map((i) => i.outline.stroke)),
     )
     expect(
-      m.icons.every((i) => i.outline.fill === "none"),
+      m.icons.filter((i) => i.drawn === "stroke").every((i) => i.outline.fill === "none"),
       "and is a stroke rather than a fill shaped like one",
-      JSON.stringify(m.icons.map((i) => i.outline.fill)),
+      JSON.stringify(m.icons.filter((i) => i.drawn === "stroke").map((i) => i.outline.fill)),
+    )
+    /*
+      THE ONE EXCEPTION, PINNED DOWN RATHER THAN WAVED THROUGH.
+
+      Home is Phosphor's House, which is a FILLED PATH shaped like a stroke —
+      it has no stroke-width to assert. Rather than loosen the rule for every
+      icon, the element says how it is drawn, and this checks that exactly one
+      claims the exemption and that it really is fill-drawn.
+    */
+    const filledOutline = m.icons.filter((i) => i.drawn === "fill")
+    expect(
+      filledOutline.length === 1,
+      "exactly one icon is drawn as a filled outline rather than a stroke",
+      JSON.stringify(m.icons.map((i) => i.drawn)),
+    )
+    expect(
+      filledOutline.every((i) => i.outline.stroke === "none" && i.outline.fill !== "none"),
+      "and it really is one, so the exemption cannot be claimed by a stroked icon",
+      JSON.stringify(filledOutline.map((i) => [i.outline.stroke, i.outline.fill])),
     )
     expect(
       m.icons.every((i) => i.filled.fill !== "none"),
