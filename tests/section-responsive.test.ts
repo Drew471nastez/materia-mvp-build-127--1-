@@ -318,6 +318,7 @@ section("Publish is a place, not a button")
 // ===========================================================================
 
 const publish = readFileSync(join(root, "components/website-builder/publish-panel.tsx"), "utf8")
+const modeSwitch = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
 
 check(
   "the button opens a panel that says when it last went out and what is pending",
@@ -359,7 +360,7 @@ section("The code is where the preview is")
 
 check(
   "the code editor is reached from a switch over the canvas, not a button on the bar",
-  /<PreviewModeSwitch/.test(editor) && /<CodePane installId=\{installId\}/.test(editor) && !/aria-label="Edit code"/.test(editor),
+  /<PreviewModeSwitch/.test(editor) && /<CodePane\s*\n\s*installId=\{installId\}/.test(editor) && !/aria-label="Edit code"/.test(editor),
 )
 
 check(
@@ -402,9 +403,12 @@ check(
 )
 
 check(
-  "the code pane is not gated to desktop",
-  /^\s*<CodePane installId=\{installId\} visible=\{previewMode === "code"\} \/>/m.test(editor) &&
-    !/!isMobileView && <CodePane/.test(editor),
+  "the code pane is not gated to desktop, and on a phone it is a page with a way back",
+  // A card inset in a canvas is a desktop shape; at 390px the canvas IS the
+  // screen, so the code takes the screen and carries its own Back.
+  /<CodePane\s*\n\s*installId=\{installId\}\s*\n\s*visible=\{previewMode === "code"\}\s*\n\s*fullScreen=\{isMobileView\}\s*\n\s*onClose=\{\(\) => setPreviewMode\("preview"\)\}/.test(editor) &&
+    !/!isMobileView && <CodePane/.test(editor) &&
+    /aria-label="Back to the editor"/.test(modeSwitch),
 )
 
 check(
@@ -527,7 +531,6 @@ section("A dark bar stays dark, and settings is a page")
 // ===========================================================================
 
 const settingsPage = readFileSync(join(root, "components/website-builder/project-settings.tsx"), "utf8")
-const modeSwitch = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
 const publishPanel = readFileSync(join(root, "components/website-builder/publish-panel.tsx"), "utf8")
 const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
 const headerSrc = editor.slice(editor.indexOf("<header className"), editor.indexOf("</header>"))
@@ -612,8 +615,17 @@ check(
 )
 
 check(
-  "the code pane is a rounded card inset from the canvas, arriving by scale and fade",
-  /absolute inset-2 z-\[80\] overflow-hidden rounded-xl/.test(modeSwitch) && /scale-\[0\.98\]/.test(modeSwitch),
+  "the code pane is a rounded card inset from the canvas on a desktop, the whole screen on a phone",
+  /absolute inset-2 z-\[80\] rounded-xl/.test(modeSwitch) &&
+    /fixed inset-0 z-\[120\] flex flex-col/.test(modeSwitch) &&
+    /scale-\[0\.98\]/.test(modeSwitch),
+)
+
+check(
+  "and the full-screen one is portalled, or 'the whole screen' quietly means 'the whole canvas'",
+  // `position: fixed` is measured against the nearest ancestor carrying a
+  // transform, and the canvas it is rendered inside animates one.
+  /if \(!fullScreen\) return body/.test(modeSwitch) && /return createPortal\(body, document\.body\)/.test(modeSwitch),
 )
 
 check(
@@ -695,8 +707,10 @@ check(
    * menu and Publish, which are earlier in the tree than the persistent
    * peek, opened UNDER it. A raised layer wins whatever the order.
    */
-  /layer === "raised" \? "z-\[80\]" : "z-50"/.test(sheetSrc) &&
-    /layer === "raised" \? "z-\[70\]" : "z-40"/.test(sheetSrc) &&
+  // Inline, not a class: a utility class can be merged away by `cn`, or tie
+  // with another of the same specificity and lose on source order.
+  /zIndex: layer === "raised" \? 80 : 50/.test(sheetSrc) &&
+    /zIndex: layer === "raised" \? 70 : 40/.test(sheetSrc) &&
     /layer="raised" peekHeight=\{0\}/.test(menu) &&
     /layer="raised"\s*\n\s*peekHeight=\{0\}/.test(publish) &&
     /<MobileEditorSheet open=\{aiOpen\}[\s\S]{0,120}layer="raised" peekHeight=\{0\}/.test(editor),
@@ -760,6 +774,54 @@ check(
   /\.wb-leaving::before \{[\s\S]{0,500}will-change: transform/.test(css) &&
     /@keyframes wb-leaving-shimmer \{\s*to \{ transform: translateX\(300%\) skewX\(-14deg\); \}/.test(css) &&
     /prefers-reduced-motion: reduce\) \{\s*\.wb-leaving::before \{ animation: none; \}/.test(css),
+)
+
+
+// ===========================================================================
+section("The code editor, on a phone")
+// ===========================================================================
+
+check(
+  "the files and the code take turns rather than sharing 390 pixels",
+  /**
+   * A 224px explorer beside an editor works on a desktop and leaves neither
+   * usable on a phone: a third of the screen is a list you are not reading,
+   * the rest a column of code four words wide.
+   */
+  /const \[narrow, setNarrow\] = useState\(false\)/.test(codePage) &&
+    /matchMedia\("\(max-width: 767px\)"\)/.test(codePage) &&
+    /narrow\s*\n\s*\? showFiles\s*\n\s*\? "w-full flex-1 min-w-0"\s*\n\s*: "hidden"/.test(codePage) &&
+    /narrow && showFiles && "hidden"/.test(codePage) &&
+    /\/\/ On a phone, picking a file is the gesture that means "show me the code"\.\s*\n\s*setShowFiles\(false\)/.test(codePage),
+)
+
+check(
+  "and there is a way back to the list once a file is open",
+  /onClick=\{\(\) => setShowFiles\(true\)\}/.test(codePage) && /Files\s*\n\s*<\/button>/.test(codePage),
+)
+
+check(
+  "Save and Revert are on the file, not on a bar that disappears when the editor frames the page",
+  // `!embedded` hides the top bar, which took Save and Revert with it — and a
+  // phone has no Cmd-S, so there was no way to save at all.
+  (() => {
+    const header = codePage.slice(codePage.indexOf("{!embedded && ("), codePage.indexOf("</header>"))
+    const row = codePage.slice(codePage.indexOf("{selectedFile && ("), codePage.indexOf("{/* Code area */}"))
+    return !/onClick=\{saveFile\}/.test(header) && /onClick=\{saveFile\}/.test(row) && /onClick=\{revertFile\}/.test(row)
+  })(),
+)
+
+check(
+  "the code is 16px on a phone, so tapping it does not zoom the page",
+  // Safari zooms when a field with text under 16px takes focus. Both layers
+  // read one constant, or the caret drifts from its character.
+  /const CODE_TEXT = "text-\[16px\] leading-6 md:text-\[12px\] md:leading-5"/.test(codePage) &&
+    (codePage.match(/CODE_TEXT/g) ?? []).length >= 4,
+)
+
+check(
+  "file rows and tab closes are big enough for a finger",
+  /narrow \? "py-2\.5" : "py-1"/.test(codePage) && /narrow \? "h-7 w-7 -mr-1\.5" : "h-4 w-4"/.test(codePage),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

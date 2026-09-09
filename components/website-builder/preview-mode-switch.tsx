@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { Code2, Globe, Loader2, Settings } from "lucide-react"
+import { createPortal } from "react-dom"
+import { ArrowLeft, Code2, Globe, Loader2, Settings } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -147,33 +148,102 @@ export function PreviewModeSwitch({
  * preview underneath is made invisible while it shows, so nothing of the
  * site can bleed through its corners or over its edge.
  */
-export function CodePane({ installId, visible }: { installId: string; visible: boolean }) {
+export function CodePane({
+  installId,
+  visible,
+  /**
+   * A phone has no room for a card inset in a canvas: the canvas IS the
+   * phone. There, the code is a page of its own over the whole screen, with
+   * the one control a page over a page cannot do without.
+   */
+  fullScreen = false,
+  onClose,
+}: {
+  installId: string
+  visible: boolean
+  fullScreen?: boolean
+  onClose?: () => void
+}) {
   const [everShown, setEverShown] = useState(visible)
   const [loaded, setLoaded] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
   useEffect(() => {
     if (visible) setEverShown(true)
   }, [visible])
+
+  // Escape leaves it, the way leaving any page over another one should.
+  useEffect(() => {
+    if (!fullScreen || !visible || !onClose) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [fullScreen, visible, onClose])
+
   if (!everShown) return null
-  return (
+
+  const body = (
     <div
       className={cn(
-        "absolute inset-2 z-[80] overflow-hidden rounded-xl border border-white/10 bg-[#0e0e0e] shadow-[0_24px_80px_-24px_rgba(0,0,0,0.8)]",
+        "overflow-hidden bg-[#0e0e0e]",
+        fullScreen
+          ? "fixed inset-0 z-[120] flex flex-col"
+          : "absolute inset-2 z-[80] rounded-xl border border-white/10 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.8)]",
         "transition-[opacity,transform] duration-200 ease-out",
         visible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-[0.98]",
       )}
       aria-hidden={!visible}
     >
-      {!loaded && (
-        <div className="absolute inset-0 flex items-center justify-center text-white/50">
-          <Loader2 className="h-5 w-5 animate-spin" />
+      {fullScreen && (
+        /* Its own bar, because it covers the editor's. Back is the first
+           thing on it. */
+        <div
+          className="flex shrink-0 items-center gap-2 border-b border-white/10 bg-[#171717] px-2 py-1.5 text-white"
+          style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 6px)" }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Back to the editor"
+            className="flex h-9 items-center gap-1.5 rounded-lg px-2 text-[15px] font-medium text-white/85 transition-[background-color,transform] duration-150 hover:bg-white/10 hover:text-white active:scale-95"
+          >
+            <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
+            Editor
+          </button>
+          <span className="ml-1 flex items-center gap-1.5 text-[15px] font-medium text-white/60">
+            <Code2 className="h-4 w-4" strokeWidth={1.75} />
+            Code
+          </span>
         </div>
       )}
-      <iframe
-        title="Code editor"
-        src={`/website-builder/code/${installId}?embedded=1`}
-        onLoad={() => setLoaded(true)}
-        className={cn("h-full w-full border-0 bg-[#0e0e0e] transition-opacity duration-300", loaded ? "opacity-100" : "opacity-0")}
-      />
+      <div className="relative min-h-0 flex-1">
+        {!loaded && (
+          <div className="absolute inset-0 flex items-center justify-center text-white/50">
+            <Loader2 className="h-5 w-5 animate-spin" />
+          </div>
+        )}
+        <iframe
+          title="Code editor"
+          src={`/website-builder/code/${installId}?embedded=1`}
+          onLoad={() => setLoaded(true)}
+          className={cn(
+            "h-full w-full border-0 bg-[#0e0e0e] transition-opacity duration-300",
+            loaded ? "opacity-100" : "opacity-0",
+          )}
+        />
+      </div>
     </div>
   )
+
+  /**
+   * Portalled when it covers the screen. `position: fixed` is measured against
+   * the nearest ancestor carrying a transform, and the canvas it is rendered
+   * inside animates one — so "the whole screen" would have quietly meant "the
+   * whole canvas", which is the thing it exists to stop.
+   */
+  if (!fullScreen) return body
+  if (!mounted) return null
+  return createPortal(body, document.body)
 }

@@ -22,6 +22,7 @@ function FileTreeNode({
   selectedPath,
   onSelectFile,
   dirtyPaths,
+  narrow = false,
 }: {
   node: ThemeFileNode
   depth?: number
@@ -30,6 +31,8 @@ function FileTreeNode({
   selectedPath: string | null
   onSelectFile: (node: ThemeFileNode) => void
   dirtyPaths: Set<string>
+  /** A finger needs about forty-four points; a mouse needs about twenty. */
+  narrow?: boolean
 }) {
   const isOpen = openFolders.has(node.path)
   const isSelected = selectedPath === node.path
@@ -39,16 +42,19 @@ function FileTreeNode({
     return (
       <div>
         <button
-          className="w-full flex items-center gap-1 px-2 py-1 hover:bg-white/5 text-left transition-colors rounded"
+          className={cn(
+            "w-full flex items-center gap-1 px-2 hover:bg-white/5 text-left transition-colors rounded",
+            narrow ? "py-2.5" : "py-1",
+          )}
           style={{ paddingLeft: `${8 + depth * 12}px` }}
           onClick={() => onToggleFolder(node.path)}
         >
           {isOpen ? (
-            <FolderOpen className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+            <FolderOpen className={cn("text-amber-400 shrink-0", narrow ? "h-4 w-4" : "h-3.5 w-3.5")} />
           ) : (
-            <Folder className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+            <Folder className={cn("text-amber-400 shrink-0", narrow ? "h-4 w-4" : "h-3.5 w-3.5")} />
           )}
-          <span className="text-[12px] text-neutral-300">{node.name}</span>
+          <span className={cn("text-neutral-300", narrow ? "text-[14px]" : "text-[12px]")}>{node.name}</span>
           <ChevronRight className={cn("h-3 w-3 text-neutral-500 ml-auto transition-transform", isOpen && "rotate-90")} />
         </button>
         {isOpen && node.children?.map(child => (
@@ -61,6 +67,7 @@ function FileTreeNode({
             selectedPath={selectedPath}
             onSelectFile={onSelectFile}
             dirtyPaths={dirtyPaths}
+            narrow={narrow}
           />
         ))}
       </div>
@@ -70,14 +77,15 @@ function FileTreeNode({
   return (
     <button
       className={cn(
-        "w-full flex items-center gap-1.5 py-1 hover:bg-white/5 text-left transition-colors rounded",
+        "w-full flex items-center gap-1.5 hover:bg-white/5 text-left transition-colors rounded",
+        narrow ? "py-2.5" : "py-1",
         isSelected && "bg-white/10",
       )}
       style={{ paddingLeft: `${8 + depth * 12}px` }}
       onClick={() => onSelectFile(node)}
     >
-      <File className={cn("h-3.5 w-3.5 shrink-0", node.isCustomized ? "text-blue-400" : "text-neutral-500")} />
-      <span className={cn("text-[12px] flex-1 truncate", isSelected ? "text-white" : "text-neutral-300")}>
+      <File className={cn("shrink-0", narrow ? "h-4 w-4" : "h-3.5 w-3.5", node.isCustomized ? "text-blue-400" : "text-neutral-500")} />
+      <span className={cn("flex-1 truncate", narrow ? "text-[14px]" : "text-[12px]", isSelected ? "text-white" : "text-neutral-300")}>
         {node.name}
       </span>
       {isDirty && <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0 mr-1" />}
@@ -86,14 +94,29 @@ function FileTreeNode({
   )
 }
 
+/**
+ * ONE METRIC, TWO LAYERS.
+ *
+ * The editor is a transparent textarea over a rendered copy of the same text.
+ * They only line up while their font size and line height are identical, so
+ * the numbers live here and both layers read them — a size changed in one
+ * place and not the other is a caret that drifts a line further from its
+ * character with every line down the file.
+ *
+ * Sixteen pixels on a phone is not a style choice. Safari zooms the page when
+ * a field with text under 16px takes focus, and a code editor that zooms the
+ * moment you tap it cannot be typed in.
+ */
+const CODE_TEXT = "text-[16px] leading-6 md:text-[12px] md:leading-5"
+
 // ── Syntax: very simple line coloring for JSON ────────────────
 function CodeLine({ line, lineNumber }: { line: string; lineNumber: number }) {
   return (
     <div className="flex hover:bg-white/[0.02] group">
-      <span className="w-10 shrink-0 text-right pr-4 text-neutral-600 text-[12px] select-none group-hover:text-neutral-500">
+      <span className={cn("w-10 shrink-0 text-right pr-4 text-neutral-600 select-none group-hover:text-neutral-500", CODE_TEXT)}>
         {lineNumber}
       </span>
-      <span className="flex-1 text-[12px] font-mono whitespace-pre text-neutral-200 leading-5">
+      <span className={cn("flex-1 font-mono whitespace-pre text-neutral-200", CODE_TEXT)}>
         {line}
       </span>
     </div>
@@ -122,6 +145,29 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   const [openTabs, setOpenTabs] = useState<ThemeFileNode[]>([])
   /** Filter over the tree. Sixty-one files is too many to hunt through. */
   const [filter, setFilter] = useState("")
+
+  /**
+   * =========================================================================
+   *  ONE THING AT A TIME ON A PHONE
+   * =========================================================================
+   * A 224px explorer beside an editor works on a desktop and leaves neither
+   * usable at 390px: a third of the screen is a file list you are not reading
+   * and the rest is a column of code four words wide.
+   *
+   * So on a narrow screen they take turns. The files ARE the screen until you
+   * pick one; then the code is the screen, with a way back to the files. That
+   * is the shape every phone file editor has, and it is the only one that
+   * fits.
+   */
+  const [narrow, setNarrow] = useState(false)
+  const [showFiles, setShowFiles] = useState(true)
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 767px)")
+    const sync = () => setNarrow(mql.matches)
+    sync()
+    mql.addEventListener("change", sync)
+    return () => mql.removeEventListener("change", sync)
+  }, [])
 
   /**
    * THE TWO LAYERS THAT HAVE TO SCROLL TOGETHER.
@@ -170,6 +216,8 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
     setSelectedFile(node)
     setLoadingFile(true)
+    // On a phone, picking a file is the gesture that means "show me the code".
+    setShowFiles(false)
 
     const res = await fetch(`/api/website-builder/themes/${installId}/files?path=${encodeURIComponent(node.path)}`)
     if (res.ok) {
@@ -367,42 +415,21 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
         )}
 
         <div className="flex-1" />
-
-        {selectedFile && (
-          <div className="flex items-center gap-2">
-            {customizedPaths.has(selectedFile.path) && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={revertFile}
-                className="h-7 px-2.5 text-[12px] text-neutral-400 hover:text-white gap-1.5"
-              >
-                <RotateCcw className="h-3 w-3" />
-                Revert
-              </Button>
-            )}
-            <Button
-              size="sm"
-              onClick={saveFile}
-              disabled={saving || !isDirty}
-              className={cn(
-                "h-7 px-3 text-[12px] gap-1.5",
-                isDirty
-                  ? "bg-indigo-600 hover:bg-indigo-500 text-white"
-                  : "bg-white/5 text-neutral-500 cursor-default",
-              )}
-            >
-              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-              {isDirty ? "Save" : "Saved"}
-            </Button>
-          </div>
-        )}
       </header>
       )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* ── File explorer ── */}
-        <aside className="w-56 bg-[#141414] border-r border-white/10 flex flex-col overflow-hidden shrink-0">
+        <aside
+          className={cn(
+            "bg-[#141414] flex flex-col overflow-hidden",
+            narrow
+              ? showFiles
+                ? "w-full flex-1 min-w-0"
+                : "hidden"
+              : "w-56 shrink-0 border-r border-white/10",
+          )}
+        >
           <div className="px-3 py-2.5 border-b border-white/10 space-y-2">
             <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Explorer</p>
             {/* Sixty-one files. Scrolling for one is not a way to find it. */}
@@ -442,6 +469,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                 selectedPath={selectedFile?.path ?? null}
                 onSelectFile={openFile}
                 dirtyPaths={dirtyPaths}
+                narrow={narrow}
               />
             ))}
           </div>
@@ -460,7 +488,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
         </aside>
 
         {/* ── Editor area ── */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className={cn("flex-1 flex flex-col overflow-hidden min-w-0", narrow && showFiles && "hidden")}>
           {/* Tabs */}
           {openTabs.length > 0 && (
             <div className="flex items-end bg-[#141414] border-b border-white/10 overflow-x-auto shrink-0">
@@ -471,7 +499,8 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   <button
                     key={tab.path}
                     className={cn(
-                      "flex items-center gap-2 px-3 py-2 text-[12px] border-r border-white/10 whitespace-nowrap hover:bg-white/5 transition-colors relative",
+                      "flex items-center gap-2 px-3 border-r border-white/10 whitespace-nowrap hover:bg-white/5 transition-colors relative",
+                      narrow ? "py-2.5 text-[13px]" : "py-2 text-[12px]",
                       isActive ? "bg-[#0e0e0e] text-white border-t-2 border-t-indigo-500" : "text-neutral-500",
                     )}
                     onClick={() => openFile(tab)}
@@ -480,10 +509,15 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                     {tab.name}
                     {isTabDirty && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
                     <span
-                      className="h-4 w-4 rounded hover:bg-white/10 flex items-center justify-center ml-1"
+                      role="button"
+                      aria-label={`Close ${tab.name}`}
+                      className={cn(
+                        "rounded hover:bg-white/10 flex items-center justify-center ml-1 shrink-0",
+                        narrow ? "h-7 w-7 -mr-1.5" : "h-4 w-4",
+                      )}
                       onClick={e => { e.stopPropagation(); closeTab(tab.path) }}
                     >
-                      <X className="h-2.5 w-2.5" />
+                      <X className={narrow ? "h-3.5 w-3.5" : "h-2.5 w-2.5"} />
                     </span>
                   </button>
                 )
@@ -491,18 +525,63 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
             </div>
           )}
 
-          {/* File path breadcrumb */}
+          {/* Where the file is, how to get back to the list, and the two
+              things that can be done to it. Save and Revert live HERE rather
+              than on the page's top bar, because that bar is hidden whenever
+              the theme editor frames this page — which left them unreachable
+              exactly where they are needed, since a phone has no Cmd-S. */}
           {selectedFile && (
-            <div className="px-4 py-1.5 bg-[#0e0e0e] border-b border-white/5 flex items-center gap-1 text-[11px] text-neutral-500">
-              {selectedFile.path.split("/").map((part, i, arr) => (
-                <span key={i} className="flex items-center gap-1">
-                  {i > 0 && <ChevronRight className="h-3 w-3 opacity-50" />}
-                  <span className={i === arr.length - 1 ? "text-neutral-300" : ""}>{part}</span>
-                </span>
-              ))}
-              {customizedPaths.has(selectedFile.path) && (
-                <span className="ml-2 text-blue-400 text-[10px]">● Modified</span>
+            <div className="flex items-center gap-2 border-b border-white/5 bg-[#0e0e0e] px-2 py-1.5 md:px-4">
+              {narrow && (
+                <button
+                  type="button"
+                  onClick={() => setShowFiles(true)}
+                  className="flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-[13px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white active:scale-95"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Files
+                </button>
               )}
+              <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden text-[11px] text-neutral-500">
+                {narrow ? (
+                  <span className="truncate text-[12px] text-neutral-300">{selectedFile.name}</span>
+                ) : (
+                  selectedFile.path.split("/").map((part, i, arr) => (
+                    <span key={i} className="flex items-center gap-1">
+                      {i > 0 && <ChevronRight className="h-3 w-3 opacity-50" />}
+                      <span className={i === arr.length - 1 ? "text-neutral-300" : ""}>{part}</span>
+                    </span>
+                  ))
+                )}
+                {customizedPaths.has(selectedFile.path) && (
+                  <span className="ml-2 shrink-0 text-[10px] text-blue-400">● Modified</span>
+                )}
+              </div>
+              {customizedPaths.has(selectedFile.path) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={revertFile}
+                  className="h-8 shrink-0 gap-1.5 px-2.5 text-[12px] text-neutral-400 hover:text-white"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Revert</span>
+                </Button>
+              )}
+              <Button
+                size="sm"
+                onClick={saveFile}
+                disabled={saving || !isDirty}
+                className={cn(
+                  "h-8 shrink-0 gap-1.5 px-3 text-[12px]",
+                  isDirty
+                    ? "bg-indigo-600 hover:bg-indigo-500 text-white"
+                    : "bg-white/5 text-neutral-500 cursor-default",
+                )}
+              >
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                {isDirty ? "Save" : "Saved"}
+              </Button>
             </div>
           )}
 
@@ -524,7 +603,10 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               {/* Editable textarea overlaid on the line display */}
               <textarea
                 ref={textareaRef}
-                className="absolute inset-0 w-full h-full bg-transparent text-transparent caret-white font-mono text-[12px] leading-5 resize-none focus:outline-none px-[2.75rem] py-2 z-10"
+                className={cn(
+                  "absolute inset-0 w-full h-full bg-transparent text-transparent caret-white font-mono resize-none focus:outline-none px-[2.75rem] py-2 z-10",
+                  CODE_TEXT,
+                )}
                 value={fileContent}
                 onChange={e => handleContentChange(e.target.value)}
                 /*

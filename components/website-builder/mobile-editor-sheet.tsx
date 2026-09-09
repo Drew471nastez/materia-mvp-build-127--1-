@@ -520,8 +520,9 @@ export function MobileEditorSheet({
         ref={overlayRef}
         aria-hidden="true"
         onClick={() => onOpenChange(false)}
-        className={cn("fixed inset-0 bg-black/30", layer === "raised" ? "z-[70]" : "z-40")}
+        className="fixed inset-0 bg-black/30"
         style={{
+          zIndex: layer === "raised" ? 70 : 40,
           opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
           transition: `opacity ${SNAP_DURATION_MS}ms ${SNAP_EASING}`,
@@ -536,10 +537,16 @@ export function MobileEditorSheet({
         aria-modal={open}
         className={cn(
           "fixed left-0 right-0 bottom-0 flex flex-col overflow-hidden rounded-t-[20px] bg-background shadow-[0_-12px_40px_-12px_rgba(17,24,39,0.22)]",
-          layer === "raised" ? "z-[80]" : "z-50",
           className,
         )}
         style={{
+          /**
+           * Inline, not a class. A utility class can be merged away by
+           * `cn`, or tie with another class of the same specificity and lose
+           * on source order — neither of which is visible from here. A number
+           * on the element is the one thing that cannot be quietly overridden.
+           */
+          zIndex: layer === "raised" ? 80 : 50,
           height: `${height}px`,
           visibility: peekHeight === 0 && !open ? "hidden" : "visible",
           transform: `translateY(${open ? openY : closedY}px)`,

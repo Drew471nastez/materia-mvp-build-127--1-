@@ -209,7 +209,7 @@ section("It is reachable, and it works on a file longer than the window")
      * preview seen the other way round, so the door is a switch over the
      * canvas, beside the thing it switches.
      */
-    /<PreviewModeSwitch/.test(editor) && /<CodePane installId=\{installId\}/.test(editor),
+    /<PreviewModeSwitch/.test(editor) && /<CodePane\s*\n\s*installId=\{installId\}/.test(editor),
   )
   check(
     "and it loads in place, so unsaved theme work is not navigated away from",

@@ -5967,7 +5967,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               : device === "desktop" ? "items-start p-2" : "items-center py-6 px-6",
           )}
         >
-          <CodePane installId={installId} visible={previewMode === "code"} />
+          <CodePane
+            installId={installId}
+            visible={previewMode === "code"}
+            fullScreen={isMobileView}
+            onClose={() => setPreviewMode("preview")}
+          />
           <div
             id="wb-preview-root"
             className={cn(
