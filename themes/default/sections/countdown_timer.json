@@ -16,7 +16,7 @@
       "id": "subheading",
       "label": "Subheading",
       "type": "textarea",
-      "default": "Don't miss out — our biggest sale of the year ends soon.",
+      "default": "Don't miss out. Our biggest sale of the year ends soon.",
       "placeholder": "Supporting text"
     },
     {

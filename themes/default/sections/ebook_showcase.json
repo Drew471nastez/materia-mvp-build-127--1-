@@ -144,7 +144,7 @@
       "id": "excerpt",
       "label": "Excerpt / First Chapter Preview",
       "type": "textarea",
-      "default": "Chapter 1: The Foundations of Modern Business\n\nEvery great business begins with a single insight—a moment of clarity where opportunity meets preparation...",
+      "default": "Chapter 1: The Foundations of Modern Business\n\nEvery great business begins with a single insight, a moment of clarity where opportunity meets preparation...",
       "placeholder": "Paste a short excerpt or first chapter preview"
     },
     {
@@ -195,7 +195,7 @@
       "id": "buy_button_text",
       "label": "Buy Button Text",
       "type": "text",
-      "default": "Buy Now — $27",
+      "default": "Buy Now for $27",
       "placeholder": "e.g. Buy Now"
     },
     {
@@ -335,13 +335,13 @@
         "read_time": "4 hours",
         "release_date": "January 2026",
         "description": "Unlock the strategies used by the world's most successful entrepreneurs. Whether you're launching your first venture or scaling an existing business, this guide delivers actionable frameworks, real-world case studies, and proven systems.",
-        "excerpt": "Chapter 1: The Foundations of Modern Business\n\nEvery great business begins with a single insight—a moment of clarity where opportunity meets preparation...",
+        "excerpt": "Chapter 1: The Foundations of Modern Business\n\nEvery great business begins with a single insight, a moment of clarity where opportunity meets preparation...",
         "show_table_of_contents": true,
         "toc_items": "Part 1: Foundations\nChapter 1: The Modern Business Landscape\nChapter 2: Identifying Opportunity\nPart 2: Building Systems\nChapter 3: Operations That Scale\nChapter 4: Team & Culture",
         "rating_value": 4.8,
         "review_count": 1247,
         "show_stars": true,
-        "buy_button_text": "Buy Now — $27",
+        "buy_button_text": "Buy Now for $27",
         "buy_button_url": "#",
         "buy_button_color": "#1a1a1a",
         "buy_button_text_color": "#ffffff",

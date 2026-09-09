@@ -112,7 +112,7 @@ export function PressMentionsSection({ section, isEditing, isSelected, onClick }
         {featured && (
           <blockquote className="text-center mb-10 max-w-2xl mx-auto">
             <p className="text-2xl font-serif italic" style={{ color: accent }}>{str(featured.settings.quote)}</p>
-            <footer className="mt-3 text-sm opacity-70">— {str(featured.settings.publication_name)}</footer>
+            <footer className="mt-3 text-sm opacity-70">{str(featured.settings.publication_name)}</footer>
           </blockquote>
         )}
         {layout === "logos_quotes" ? (

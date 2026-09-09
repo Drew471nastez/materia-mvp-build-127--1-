@@ -171,7 +171,20 @@ export function nearestInPalette(
 export function describeHouseStyle(style: HouseStyle): string {
   if (!style.established) return ""
 
-  const lines: string[] = ["THIS PAGE'S OWN DESIGN SYSTEM — match it unless the request is to change it."]
+  const lines: string[] = [
+    "THIS PAGE'S OWN DESIGN SYSTEM. Match it unless the request is to change it.",
+    /**
+     * THE HOUSE HAS NO EM DASHES IN IT.
+     *
+     * Every piece of copy this agent writes lands on somebody's shop, and an
+     * em dash reads as machine-written to the people who notice it. It is also
+     * the single most common tell in generated text. The instruction is here,
+     * in the style block, rather than buried in the loop prompt, because this
+     * is the section the model is told to MATCH — a rule about how the page
+     * reads belongs beside the rules about how it looks.
+     */
+    "Never use an em dash (—) in any copy you write. Use a comma, a colon, a full stop or a new sentence. The same goes for a hyphen standing in for one.",
+  ]
 
   if (style.palette.length > 0) {
     lines.push(

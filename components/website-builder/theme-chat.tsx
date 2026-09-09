@@ -81,7 +81,7 @@ const ENGINES = [
   {
     id: "claude",
     label: "Claude Sonnet",
-    detail: "Default — fast, good at everything here",
+    detail: "Default, fast and good at everything here",
     provider: "anthropic",
     tier: "fast",
   },
@@ -383,7 +383,7 @@ export function ThemeChat({
               patch((e) => ({
                 ...e,
                 running: false,
-                reply: "Stopped — you moved to another page. Nothing was applied there.",
+                reply: "Stopped, you moved to another page. Nothing was applied there.",
               }))
               return
             }
@@ -561,14 +561,14 @@ export function ThemeChat({
             <p className="text-[13px] font-medium">Chat history is not switched on yet.</p>
             <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
               This database has nowhere to keep the conversation, so it will not survive a reload.
-              Everything else works — ask for a change and it is made.
+              Everything else works. Ask for a change and it is made.
             </p>
           </div>
         ) : historyError === "read_failed" ? (
           <div className="rounded-[10px] border border-red-500/30 bg-red-500/5 px-3 py-3">
             <p className="text-[13px] font-medium">We could not load this conversation.</p>
             <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
-              Nothing has been lost — this is a problem reading it, not a problem with it. You can
+              Nothing has been lost. This is a problem reading it, not a problem with it. You can
               still ask for a change.
             </p>
           </div>
@@ -576,7 +576,7 @@ export function ThemeChat({
           <div className="space-y-4">
             <p className="text-[13px] leading-relaxed text-muted-foreground">
               Describe a change and it is made on this page. It writes the same sections, blocks and
-              controls the panels do — the same sliders, pickers and colours — so everything stays
+              controls the panels do, the same sliders, pickers and colours, so everything stays
               undoable and nothing saves until you press Save.
             </p>
             <div className="space-y-1.5">
@@ -709,7 +709,7 @@ export function ThemeChat({
                 className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11.5px] text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
               >
                 <Lock className="h-3 w-3 opacity-60" strokeWidth={2} />
-                Editing the whole page — limit to {selectedSection.name}
+                Editing the whole page. Limit to {selectedSection.name}
               </button>
             )}
           </div>

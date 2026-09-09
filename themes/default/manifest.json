@@ -3,7 +3,7 @@
   "slug": "default",
   "version": "1.0.0",
   "storelib_api": 1,
-  "description": "Built-in Storelib default theme — the baseline for every new store.",
+  "description": "Built-in Storelib default theme, the baseline for every new store.",
   "section_order": [
     "header",
     "hero",

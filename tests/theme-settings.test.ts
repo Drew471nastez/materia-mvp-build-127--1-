@@ -306,6 +306,38 @@ section("The header, the announcement bar, and the space between them")
  */
 {
   /**
+   * NO EM DASHES IN ANYTHING A VISITOR READS.
+   *
+   * Asked for directly: the dash reads as machine-written, and it was all over
+   * the shipped theme defaults — every new store started with it in their
+   * hero, their sticky bar and their author bio.
+   *
+   * The themes are checked as DATA rather than by eye, and the agent is
+   * checked for the instruction that stops it writing new ones, because the
+   * agent is what fills most pages and a one-off sweep would be undone by the
+   * next generated section.
+   */
+  const themeFiles = (function walk(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(join(dir, e.name)) : e.name.endsWith(".json") ? [join(dir, e.name)] : [],
+    )
+  })(join(root, "themes"))
+  const offenders = themeFiles.filter((f) => readFileSync(f, "utf8").includes("\u2014"))
+  check(
+    "no shipped theme copy contains an em dash",
+    offenders.length === 0,
+    offenders.length ? `        ${offenders.length} file(s), e.g. ${offenders[0]}` : undefined,
+  )
+  check(
+    "and the agent is told never to write one",
+    /Never use an em dash/.test(
+      readFileSync(join(root, "lib/website-builder/agent/house-style.ts"), "utf8"),
+    ),
+  )
+}
+
+{
+  /**
    * THE UNIT A CONTROL DECLARES IS THE UNIT ITS CSS MUST WRITE.
    *
    * `heading_letter_spacing` is `{ min: -2, max: 8, step: 0.5, unit: "px" }` —

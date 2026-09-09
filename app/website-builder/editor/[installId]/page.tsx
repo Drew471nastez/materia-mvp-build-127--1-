@@ -2007,7 +2007,7 @@ function ColorSchemesEditor({
       <h3 className="text-[15px] font-semibold">Edit Section Color Scheme</h3>
       <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
         <Info className="h-3 w-3 shrink-0 mt-0.5" />
-        <p className="flex-1">Click on any element in the preview, then its settings will appear. Each scheme is global — every section using it updates.</p>
+        <p className="flex-1">Click on any element in the preview, then its settings will appear. Each scheme is global. Every section using it updates.</p>
       </div>
 
       {/* ─── Step 1: Choose color scheme (dropdown) ─── */}
@@ -3003,9 +3003,9 @@ function HeaderSectionSettings({
                     value={typeof s.header_width === "string" ? s.header_width : "wide"}
                     onChange={e => onUpdateSetting("header_width", e.target.value)}
                   >
-                    <option value="narrow">Narrow — 960px</option>
-                    <option value="medium">Medium — 1140px</option>
-                    <option value="wide">Wide — 1280px</option>
+                    <option value="narrow">Narrow (960px)</option>
+                    <option value="medium">Medium (1140px)</option>
+                    <option value="wide">Wide (1280px)</option>
                     <option value="full">Full width</option>
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -3065,7 +3065,7 @@ function HeaderSectionSettings({
                     onUpdateSetting("header_sticky_on_scroll_up", false)
                   }
                 }}
-                info="Only reveal the header when scrolling up — hides on scroll down."
+                info="Only reveal the header when scrolling up. Hides on scroll down."
               />
               <WbToggle
                 label="Make header transparent"
@@ -5121,7 +5121,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer list-none bg-muted/30 hover:bg-muted/50">
                           <span className="text-sm font-medium">
                             {blockSchema?.name ?? block.type}
-                            {!!block.settings.author && <span className="ml-1 opacity-50">— {String(block.settings.author)}</span>}
+                            {!!block.settings.author && <span className="ml-1 opacity-50">{String(block.settings.author)}</span>}
                           </span>
                           <div className="flex items-center gap-1.5">
                             <button
@@ -5592,7 +5592,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              {inspectorEnabled ? "Inspector: on — click to disable" : "Inspector: off — click to enable"}
+              {inspectorEnabled ? "Inspector: on, click to disable" : "Inspector: off, click to enable"}
             </TooltipContent>
           </Tooltip>
 

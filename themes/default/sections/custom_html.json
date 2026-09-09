@@ -21,7 +21,7 @@
       "id": "info_note",
       "label": "Use this block to add custom HTML, CSS, or JS.",
       "type": "paragraph",
-      "info": "Custom code is rendered as-is. Use <style> tags for CSS and <script> tags for JavaScript. Changes take effect on save and preview. Note: some scripts may conflict with the editor — test in preview mode."
+      "info": "Custom code is rendered as-is. Use <style> tags for CSS and <script> tags for JavaScript. Changes take effect on save and preview. Note: some scripts may conflict with the editor, so test in preview mode."
     },
     {
       "id": "bg_color",

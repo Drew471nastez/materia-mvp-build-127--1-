@@ -21,7 +21,7 @@
       "id": "subheading",
       "label": "Subheading",
       "type": "text",
-      "default": "From a small workshop to a global brand — here's how it happened.",
+      "default": "From a small workshop to a global brand. Here's how it happened.",
       "placeholder": "Section subheading"
     },
     {
@@ -192,7 +192,7 @@
       "name": "Timeline",
       "settings": {
         "heading": "Our Story",
-        "subheading": "From a small workshop to a global brand — here's how it happened.",
+        "subheading": "From a small workshop to a global brand. Here's how it happened.",
         "layout": "alternating",
         "connector_style": "line",
         "bg_color": "#ffffff",

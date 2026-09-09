@@ -112,7 +112,7 @@
           "id": "description",
           "label": "Description",
           "type": "textarea",
-          "default": "Create your account in under a minute — no credit card required.",
+          "default": "Create your account in under a minute, no credit card required.",
           "placeholder": "Step description"
         },
         {
@@ -152,7 +152,7 @@
           "settings": {
             "number": "01",
             "title": "Sign up for free",
-            "description": "Create your account in under a minute — no credit card required.",
+            "description": "Create your account in under a minute, no credit card required.",
             "icon": "user-plus"
           }
         },

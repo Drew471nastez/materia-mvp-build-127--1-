@@ -14,7 +14,7 @@
       "id": "text",
       "label": "Text",
       "type": "text",
-      "default": "Free shipping on orders over $75 — Shop now",
+      "default": "Free shipping on orders over $75. Shop now",
       "placeholder": "Short promotional message"
     },
     {
@@ -90,7 +90,7 @@
     {
       "name": "Sticky Bar",
       "settings": {
-        "text": "Free shipping on orders over $75 — Shop now",
+        "text": "Free shipping on orders over $75. Shop now",
         "link_text": "Shop now",
         "link_url": "#",
         "position": "top",
