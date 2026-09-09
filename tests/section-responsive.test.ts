@@ -870,17 +870,29 @@ section("A sheet ends where the screen ends, not where the page does")
 // ===========================================================================
 
 check(
-  "sheets are anchored to the visible bottom, not to `bottom: 0`",
+  "a sheet stays on `bottom: 0` and lifts its content clear of the browser's bar by measuring it",
   /**
-   * A fixed element is placed against the layout viewport, and on a phone
-   * that runs behind the browser's own toolbars — so a sheet pinned to the
-   * bottom had its last inch underneath Safari's bar, which is where the
-   * Publish button was. Anchoring by `top`, from the visible area's offset
-   * and height, lands its bottom edge on the bottom edge somebody can see.
+   * Positioning the sheet by `top` from `visualViewport.offsetTop + height`
+   * was WRONG and shipped once: Safari already keeps a bottom-anchored fixed
+   * element above its toolbar, so the correction was a second one and the
+   * publish card went further under the bar. What is correct is to measure
+   * the overlap with a probe and pad past it — zero where there is no
+   * overlap, so it is safe on every browser.
    */
-  !/fixed left-0 right-0 bottom-0 flex flex-col/.test(sheetSrc) &&
-    /top: `\$\{viewportTop \+ viewport - height\}px`/.test(sheetSrc) &&
-    /setViewportTop\(Math\.round\(vv\?\.offsetTop \?\? 0\)\)/.test(sheetSrc),
+  /fixed left-0 right-0 bottom-0 flex flex-col/.test(sheetSrc) &&
+    !/viewportTop/.test(sheetSrc) &&
+    /function browserChromeGap\(\): number/.test(sheetSrc) &&
+    /probe\.getBoundingClientRect\(\)\.top/.test(sheetSrc) &&
+    /paddingBottom: `calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{chromeGap\}px\)`/.test(sheetSrc) &&
+    // and the height grows by it too, or padding just pushes content out again
+    /const safe = safeAreaBottom\(\) \+ browserChromeGap\(\)/.test(sheetSrc),
+)
+
+check(
+  "a content-sized sheet opens all the way up, not to a fraction of a screen it no longer fills",
+  // Its stops are its own height and away; the 0.62/0.92 detents describe a
+  // sheet sized to the screen and pushed a content-sized one under the bar.
+  /fit && contentHeight > 0\s*\n\s*\? \/\/ One stop[\s\S]{0,80}\[0, Math\.max\(height - peekHeight, 0\)\]/.test(sheetSrc),
 )
 
 check(
@@ -896,6 +908,34 @@ check(
   // There is no hover on a phone, so a hover-only divider is no divider, and
   // the list read as one block.
   /absolute inset-x-2 h-px bg-border transition-colors duration-150 group-hover:bg-foreground\/50/.test(editor),
+)
+
+
+// ===========================================================================
+section("The website list, and the row of themes under it")
+// ===========================================================================
+
+const wbPage = readFileSync(join(root, "app/app/website-builder/website-builder-client.tsx"), "utf8")
+
+check(
+  "the explore row is inset from both edges, scroll padding included",
+  /**
+   * A snap container's snapport starts at its PADDING BOX, so a `snap-start`
+   * card aligns to the screen edge and the row's own `px-4` is scrolled
+   * straight past — which is why these cards sat flush while every other
+   * block on the page was inset.
+   */
+  /snap-x snap-mandatory[^"]*px-4[^"]*scroll-px-4/.test(wbPage) && /sm:scroll-px-0/.test(wbPage),
+)
+
+check(
+  "no row in the library is labelled Offline or Draft",
+  // Both name the same ordinary thing, a site you have not published, in
+  // language that sounds like a fault.
+  (() => {
+    const rows = wbPage.slice(wbPage.indexOf("aria-label={`Edit ${i.name}`}"))
+    return !/<StatusDot status=\{i\.status\}/.test(rows) && (wbPage.match(/<StatusDot /g) ?? []).length === 1
+  })(),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

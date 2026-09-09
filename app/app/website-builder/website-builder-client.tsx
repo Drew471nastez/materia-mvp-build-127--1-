@@ -612,9 +612,14 @@ export function WebsiteBuilderClient({
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[14.5px] font-semibold text-[#1a1a2e]">{i.name}</span>
+                          {/* No status word here. "Offline" and "Draft" name
+                              the same ordinary thing — a site you have not
+                              published — in language that sounds like a
+                              fault, on every row you have not published yet.
+                              The live site is called out in its own block
+                              above; everything in the library is simply a
+                              website you are working on. */}
                           <span className="mt-1 flex items-center gap-2 text-[12.5px] text-[#6b7280]">
-                            <StatusDot status={i.status} />
-                            <span className="text-[#d1d5db]">·</span>
                             <span className="truncate">
                               Edited {since(i.saved_at)}
                               {def && <> · {getIndustry(def.industry).label}</>}
@@ -675,7 +680,13 @@ export function WebsiteBuilderClient({
           </SectionHeading>
           <h2 id="explore-heading" className="sr-only">Explore themes</h2>
           {/* A row you can flick through on a phone; a grid where there is room. */}
-          <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4 [&::-webkit-scrollbar]:hidden">
+          {/* `scroll-px-4` matters as much as `px-4` here. A snap container's
+              snapport starts at its PADDING BOX, so a `snap-start` card is
+              aligned to the screen edge and the row's own padding is scrolled
+              straight past — which is why these cards sat flush against both
+              edges while every other block on the page was inset. Scroll
+              padding moves the snap line in to meet the padding. */}
+          <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scroll-px-4 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 sm:scroll-px-0 lg:grid-cols-4 [&::-webkit-scrollbar]:hidden">
             {explore.map((t) => (
               <ExploreCard
                 key={t.id}

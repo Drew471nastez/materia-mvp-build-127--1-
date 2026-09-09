@@ -54,6 +54,28 @@ function safeAreaBottom(): number {
   probe.remove()
   return h
 }
+/**
+ * How much of a bottom-anchored fixed element the browser's own bar covers.
+ *
+ * MEASURED, NOT ASSUMED. A zero-height probe pinned to `bottom: 0` reports
+ * where the fixed containing block actually ends; `visualViewport.height`
+ * reports where the visible area ends. On a browser whose toolbar overlays
+ * the page the first is below the second, and the difference is the strip of
+ * sheet nobody can see — which is where the Publish button kept ending up.
+ * Where the two agree this is zero and nothing changes, which is why it is
+ * safe to apply everywhere.
+ */
+function browserChromeGap(): number {
+  if (typeof document === "undefined") return 0
+  const probe = document.createElement("div")
+  probe.style.cssText = "position:fixed;left:0;bottom:0;width:0;height:0;visibility:hidden;pointer-events:none"
+  document.body.appendChild(probe)
+  const containingBlockBottom = probe.getBoundingClientRect().top
+  probe.remove()
+  const visible = window.visualViewport?.height ?? window.innerHeight
+  return Math.max(0, Math.round(containingBlockBottom - visible))
+}
+
 const SNAP_DURATION_MS = 360
 const SNAP_EASING = "cubic-bezier(0.32, 0.72, 0, 1)"
 
@@ -117,19 +139,22 @@ export function MobileEditorSheet({
   const [mounted, setMounted] = React.useState(false)
   /** What is actually visible, which is not the window once a keyboard is up. */
   const [viewport, setViewport] = React.useState(0)
+  /** Pixels of a bottom-pinned element the browser's own bar sits over. */
+  const [chromeGap, setChromeGap] = React.useState(0)
   /**
-   * Where the visible area STARTS inside the page's own coordinates.
+   * ANCHORED BY `bottom: 0`, AND THIS IS DELIBERATE.
    *
-   * A `fixed` element is placed against the layout viewport, and on a phone
-   * the layout viewport runs behind the browser's own toolbars. So a sheet
-   * pinned to `bottom: 0` has its last inch underneath Safari's bar — which is
-   * exactly where the Publish button was. Anchoring by `top` instead, from the
-   * visible area's own offset and height, puts the sheet's bottom edge on the
-   * bottom edge somebody can actually see, whatever the browser is doing with
-   * its chrome. It is the same number the keyboard moves, so it handles that
-   * for free.
+   * An earlier attempt placed the sheet by `top`, computed as
+   * `visualViewport.offsetTop + visualViewport.height - height`, on the
+   * theory that a fixed element is laid out against a taller layout viewport
+   * running behind Safari's toolbar. On a real iPhone that lands the sheet
+   * LOWER, not higher: Safari already keeps a bottom-anchored fixed element
+   * above its toolbar, so the correction was a second one on top of the
+   * browser's, and the publish card went under the bar rather than above it.
+   *
+   * `bottom: 0` is what the browser already gets right. What was actually
+   * cutting the sheet off was the stop it opened to, below.
    */
-  const [viewportTop, setViewportTop] = React.useState(0)
 
   const stops = React.useMemo(() => [...detents].sort((a, b) => a - b), [detents])
   const tallest = stops[stops.length - 1] ?? 0.92
@@ -142,21 +167,24 @@ export function MobileEditorSheet({
     const handle = handleRef.current
     if (!el) return
     const measure = () => {
-      const safe = safeAreaBottom()
+      // The gap is part of the sheet's height as well as its padding: a sheet
+      // grown only by padding would push its own content back out of sight.
+      const safe = safeAreaBottom() + browserChromeGap()
       setContentHeight(Math.ceil(el.getBoundingClientRect().height + (handle?.getBoundingClientRect().height ?? 0) + safe))
     }
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [fit, mounted])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fit, mounted, chromeGap])
 
   React.useEffect(() => {
     setMounted(true)
     const vv = window.visualViewport
     const update = () => {
       setViewport(Math.round(vv?.height ?? window.innerHeight))
-      setViewportTop(Math.round(vv?.offsetTop ?? 0))
+      setChromeGap(browserChromeGap())
     }
     update()
     window.addEventListener("resize", update)
@@ -607,17 +635,10 @@ export function MobileEditorSheet({
         role="dialog"
         aria-modal={open}
         className={cn(
-          "fixed left-0 right-0 flex flex-col overflow-hidden rounded-t-[20px] bg-background shadow-[0_-12px_40px_-12px_rgba(17,24,39,0.22)]",
+          "fixed left-0 right-0 bottom-0 flex flex-col overflow-hidden rounded-t-[20px] bg-background shadow-[0_-12px_40px_-12px_rgba(17,24,39,0.22)]",
           className,
         )}
         style={{
-          /**
-           * Not `bottom: 0`. See `viewportTop`: the layout viewport runs
-           * behind the browser's toolbars, so `bottom: 0` is below the last
-           * row of pixels anybody can see. This lands the sheet's bottom edge
-           * on the visible bottom edge instead.
-           */
-          top: `${viewportTop + viewport - height}px`,
           /**
            * Inline, not a class. A utility class can be merged away by
            * `cn`, or tie with another class of the same specificity and lose
@@ -629,7 +650,8 @@ export function MobileEditorSheet({
           transform: `translateY(${open ? openY : closedY}px)`,
           transition: `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}`,
           willChange: "transform",
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          // The home indicator, plus whatever the browser's bar is covering.
+          paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${chromeGap}px)`,
           /**
            * `pan-y`, not `none`. `none` would hand every touch to us and kill
            * native scrolling inside the sheet — smooth, momentum-carrying,
