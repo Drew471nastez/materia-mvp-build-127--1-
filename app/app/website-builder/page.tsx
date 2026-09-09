@@ -1,987 +1,116 @@
-"use client"
+import type { Metadata } from "next"
+import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import type { ThemeSettingsValues, ThemeStatus } from "@/lib/website-builder/types"
+import { WebsiteBuilderClient, type WebsiteSummary } from "./website-builder-client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
-import { useRouter } from "next/navigation"
-import {
-  Globe, MoreHorizontal,
-  Check, Pencil, Trash2, Copy, RefreshCw,
-  EyeOff, Loader2, AlertTriangle, Layers,
-  Download, Upload, ArrowRight,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
-import type { ThemeInstall, SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
-import { useToast } from "@/hooks/use-toast"
-import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
-import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
-import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
-
-// ── Theme Library Catalog ────────────────────────────────────
-// 6 themes covering different niches for digital products
-const THEME_CATALOG = [
-  {
-    id: "storelib-default",
-    themeId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    name: "Storelib Default",
-    description: "Clean modern storefront for any digital product",
-    niche: "General",
-    colors: { primary: "#6366f1", bg: "#ffffff", hero: "#0f172a", heroText: "#ffffff", text: "#0f172a", surface: "#f8fafc" },
-    font: "Inter",
-    buttonStyle: "rounded" as const,
-  },
-  {
-    id: "creator-minimal",
-    themeId: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-    name: "Creator Minimal",
-    description: "Refined minimal theme for creators",
-    niche: "Creators",
-    colors: { primary: "#171717", bg: "#ffffff", hero: "#fafafa", heroText: "#0a0a0a", text: "#0a0a0a", surface: "#f5f5f5" },
-    font: "Plus Jakarta Sans",
-    buttonStyle: "square" as const,
-  },
-  {
-    id: "digital-wave",
-    themeId: "c3d4e5f6-a7b8-9012-cdef-123456789012",
-    name: "Digital Wave",
-    description: "Bold gradients for creators who stand out",
-    niche: "Digital Products",
-    colors: { primary: "#7c3aed", bg: "#0a0a0f", hero: "#0a0a0f", heroText: "#ffffff", text: "#e2e8f0", surface: "#1a1a2e" },
-    font: "Space Grotesk",
-    buttonStyle: "pill" as const,
-  },
-  {
-    id: "ebook-author",
-    themeId: "ebook-author-theme-001",
-    name: "Ebook Author",
-    description: "Perfect for authors selling books & ebooks",
-    niche: "Books & Ebooks",
-    colors: { primary: "#b45309", bg: "#fffbeb", hero: "#78350f", heroText: "#fef3c7", text: "#451a03", surface: "#fef9c3" },
-    font: "Playfair Display",
-    buttonStyle: "rounded" as const,
-  },
-  {
-    id: "course-creator",
-    themeId: "course-creator-theme-001",
-    name: "Course Creator",
-    description: "Built for online courses & educational content",
-    niche: "Courses & Education",
-    colors: { primary: "#0891b2", bg: "#f0fdfa", hero: "#134e4a", heroText: "#ccfbf1", text: "#0f172a", surface: "#e0f2fe" },
-    font: "DM Sans",
-    buttonStyle: "rounded" as const,
-  },
-  {
-    id: "designer-portfolio",
-    themeId: "designer-portfolio-theme-001",
-    name: "Designer Portfolio",
-    description: "Showcase design assets & templates beautifully",
-    niche: "Design & Templates",
-    colors: { primary: "#e11d48", bg: "#fafafa", hero: "#18181b", heroText: "#fafafa", text: "#18181b", surface: "#f4f4f5" },
-    font: "Sora",
-    buttonStyle: "pill" as const,
-  },
-]
-
-// ── Status badge ─────────────────────────────────────────────
-function StatusBadge({ status }: { status: string }) {
-  if (status === "published") {
-    return (
-      <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-200 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5">
-        <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-        Live
-      </Badge>
-    )
-  }
-  if (status === "draft") {
-    return (
-      <Badge className="bg-amber-500/15 text-amber-700 border-amber-200 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5">
-        Draft
-      </Badge>
-    )
-  }
-  return (
-    <Badge className="bg-neutral-100 text-neutral-500 border-neutral-200 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5">
-      Unpublished
-    </Badge>
-  )
+export const metadata: Metadata = {
+  title: "Website",
 }
 
-// ── Real section-based theme preview ─────────────────────────
-// Renders actual sections from the theme's saved state, scaled down
-function ThemePreview({
-  install,
-  aspectClass = "aspect-[16/10]",
-}: {
-  install: ThemeInstall
-  aspectClass?: string
-}) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [containerWidth, setContainerWidth] = useState(400)
+/**
+ * ===========================================================================
+ *  /app/website-builder — the website page
+ * ===========================================================================
+ * Rendered on the server with the data already in it, like /app/products.
+ *
+ * The page used to be a client component that mounted empty, showed a
+ * skeleton, fetched `/api/website-builder/themes` (every install WITH every
+ * page's sections), and then — for the thumbnails — mounted the live
+ * storefront three times over. Two round trips and three websites, to show
+ * a list of three names.
+ *
+ * Now the server reads the installs once (settings only, no pages: the cover
+ * is a picture, not a render), initialises a first-time creator in the same
+ * request, and hands the client component a small, flat list. There is no
+ * loading state inside the page; `loading.tsx` covers the server render and
+ * only appears if that takes longer than the skeleton's deferral.
+ */
 
-  useEffect(() => {
-    if (!containerRef.current) return
-    const ro = new ResizeObserver(([entry]) => {
-      if (entry) setContainerWidth(entry.contentRect.width)
-    })
-    ro.observe(containerRef.current)
-    return () => ro.disconnect()
-  }, [])
-
-  const s = install.settings?.settings ?? install.settings?.draft_settings ?? {}
-  const theme: ThemeSettingsValues = {
-    primary_color: (s.primary_color as string) ?? "#6366f1",
-    secondary_color: (s.secondary_color as string) ?? "#8b5cf6",
-    accent_color: (s.accent_color as string) ?? "#f59e0b",
-    background_color: (s.background_color as string) ?? "#ffffff",
-    surface_color: (s.surface_color as string) ?? "#f8fafc",
-    text_color: (s.text_color as string) ?? "#0f172a",
-    text_secondary_color: (s.text_secondary_color as string) ?? "#64748b",
-    border_color: (s.border_color as string) ?? "#e2e8f0",
-    button_style: (s.button_style as "rounded" | "square" | "pill") ?? "rounded",
-    border_radius: (s.border_radius as number) ?? 8,
-    font_heading: (s.font_heading as string) ?? "Inter",
-    font_body: (s.font_body as string) ?? "Inter",
-    brand_name: (s.brand_name as string) ?? install.name ?? "My Store",
-  }
-
-  // Get home page sections
-  const homePage = install.pages?.find((p: any) => p.page_key === "home")
-  const sections: SectionInstance[] = homePage?.sections ?? homePage?.draft_sections ?? []
-
-  const RENDER_WIDTH = 1200
-  const scale = containerWidth / RENDER_WIDTH
-
-  return (
-    <div
-      ref={containerRef}
-      className={cn("w-full overflow-hidden relative bg-white", aspectClass)}
-    >
-      {sections.length > 0 ? (
-        <div
-          className="origin-top-left"
-          style={{
-            width: RENDER_WIDTH,
-            zoom: scale,
-            pointerEvents: "none",
-            userSelect: "none",
-          }}
-        >
-          {sections.map((section) => (
-            <SectionRenderer
-              key={section.id}
-              section={section}
-              theme={theme}
-              isEditing={false}
-              isSelected={false}
-              insideEditor={true}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-neutral-50">
-          <div className="text-center">
-            <Layers className="h-8 w-8 text-neutral-300 mx-auto mb-2" />
-            <p className="text-xs text-neutral-400">No sections yet</p>
-          </div>
-        </div>
-      )}
-    </div>
-  )
+type InstallRow = {
+  id: string
+  name: string
+  status: ThemeStatus
+  theme_id: string
+  created_at: string
+  updated_at: string
+  published_at?: string | null
+  snapshot_url?: string | null
+  snapshot_updated_at?: string | null
+  theme: { name: string; version: string; slug: string } | { name: string; version: string; slug: string }[] | null
+  settings: { settings: ThemeSettingsValues | null; updated_at: string }[] | { settings: ThemeSettingsValues | null; updated_at: string } | null
 }
 
-// ── Theme catalog preview (static, no saved sections) ────────
-function CatalogThemePreview({ catalog }: { catalog: typeof THEME_CATALOG[0] }) {
-  const { colors, font, buttonStyle } = catalog
-  const btnRadius = buttonStyle === "pill" ? "9999px" : buttonStyle === "square" ? "4px" : "8px"
+const INSTALL_SELECT = `
+  *,
+  theme:themes(name, version, slug),
+  settings:store_theme_settings(settings, updated_at)
+`
 
-  return (
-    <div className="w-full aspect-[4/3] overflow-hidden flex flex-col" style={{ background: colors.bg }}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b shrink-0" style={{ borderColor: colors.surface }}>
-        <span className="text-[9px] font-bold truncate" style={{ color: colors.text, fontFamily: font }}>{catalog.name}</span>
-        <div className="flex gap-1.5">
-          <span className="text-[7px] opacity-40" style={{ color: colors.text }}>Shop</span>
-          <span className="text-[7px] opacity-40" style={{ color: colors.text }}>About</span>
-        </div>
-      </div>
-      {/* Hero */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-1.5 px-4 min-h-0" style={{ background: colors.hero }}>
-        <p className="text-[10px] font-bold text-center leading-tight" style={{ color: colors.heroText, fontFamily: font }}>
-          Build Something Amazing
-        </p>
-        <p className="text-[7px] text-center opacity-60" style={{ color: colors.heroText }}>
-          Premium digital products for creators
-        </p>
-        <div
-          className="text-[6px] font-semibold px-3 py-1 mt-0.5"
-          style={{ background: colors.primary, color: "#fff", borderRadius: btnRadius }}
-        >
-          Shop Now
-        </div>
-      </div>
-      {/* Feature cards */}
-      <div className="px-2 py-2 shrink-0" style={{ background: colors.bg }}>
-        <div className="flex gap-1.5">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="flex-1 rounded overflow-hidden" style={{ border: `1px solid ${colors.surface}` }}>
-              <div className="h-4 bg-gradient-to-br from-neutral-200 to-neutral-100" style={{ opacity: 0.6 }} />
-              <div className="p-1">
-                <div className="h-0.5 rounded w-3/4 mb-0.5" style={{ background: colors.text, opacity: 0.12 }} />
-                <div className="h-0.5 rounded w-1/2" style={{ background: colors.primary, opacity: 0.3 }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
+function one<T>(v: T | T[] | null | undefined): T | null {
+  if (!v) return null
+  return Array.isArray(v) ? (v[0] ?? null) : v
 }
 
-// ── Rename dialog ────────────────────────────────────────────
-function RenameDialog({
-  open, onClose, install, onSave,
-}: { open: boolean; onClose: () => void; install: ThemeInstall | null; onSave: (id: string, name: string) => Promise<void> }) {
-  const [name, setName] = useState("")
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => { setName(install?.name ?? "") }, [install])
-
-  const handleSave = async () => {
-    if (!install || !name.trim()) return
-    setLoading(true)
-    try {
-      await onSave(install.id, name.trim())
-    } catch (err) {
-      console.error("[website-builder] rename failed:", err)
-    } finally {
-      setLoading(false)
-      onClose()
-    }
+function newest(...isos: (string | null | undefined)[]): string {
+  let best = 0
+  for (const iso of isos) {
+    const t = iso ? Date.parse(iso) : NaN
+    if (Number.isFinite(t) && t > best) best = t
   }
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Rename theme</DialogTitle>
-          <DialogDescription>Choose a name for this theme installation.</DialogDescription>
-        </DialogHeader>
-        <Input
-          value={name}
-          onChange={e => setName(e.target.value)}
-          placeholder="Theme name"
-          onKeyDown={e => e.key === "Enter" && handleSave()}
-        />
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={loading || !name.trim()}>
-            {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Save
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
+  return new Date(best || Date.now()).toISOString()
 }
 
-// ── Delete confirm dialog ────────────────────────────────────
-function DeleteDialog({
-  open, onClose, install, onDelete,
-}: { open: boolean; onClose: () => void; install: ThemeInstall | null; onDelete: (id: string) => Promise<void> }) {
-  const [loading, setLoading] = useState(false)
-
-  const handleDelete = async () => {
-    if (!install) return
-    setLoading(true)
-    try {
-      await onDelete(install.id)
-    } catch (err) {
-      console.error("[website-builder] delete failed:", err)
-    } finally {
-      setLoading(false)
-      onClose()
-    }
+function toSummary(row: InstallRow): WebsiteSummary {
+  const settings = one(row.settings)
+  return {
+    id: row.id,
+    name: row.name,
+    status: row.status,
+    theme_id: row.theme_id,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    published_at: row.published_at ?? null,
+    snapshot_url: row.snapshot_url ?? null,
+    snapshot_updated_at: row.snapshot_updated_at ?? null,
+    saved_at: newest(row.updated_at, settings?.updated_at, row.snapshot_updated_at, row.created_at),
+    theme: one(row.theme),
+    settings: settings?.settings ?? null,
   }
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
-            Delete website?
-          </DialogTitle>
-          <DialogDescription>
-            This will permanently delete <strong>{install?.name}</strong> and all its customizations. This cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={loading}>
-            {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Delete
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
 }
 
-// ── Main page ─────────────────────────────────────────────────
-export default function WebsiteBuilderPage() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [installs, setInstalls] = useState<ThemeInstall[]>([])
-  const [loading, setLoading] = useState(true)
-  const [initializing, setInitializing] = useState(false)
-  const [renameInstall, setRenameInstall] = useState<ThemeInstall | null>(null)
-  const [deleteInstall, setDeleteInstall] = useState<ThemeInstall | null>(null)
-  const importInputRef = useRef<HTMLInputElement>(null)
-  const [importing, setImporting] = useState(false)
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
-  const [username, setUsername] = useState("")
-  const [screenshotTimestamp, setScreenshotTimestamp] = useState(() => Date.now())
+export default async function WebsiteBuilderPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect("/login")
 
-  const loadInstalls = useCallback(async () => {
-    const res = await fetch("/api/website-builder/themes")
-    if (!res.ok) return
-    const data = await res.json()
-    setInstalls(data.installs ?? [])
-    if (data.username) setUsername(data.username)
-  }, [])
+  const [{ data: creator }, { data: profile }] = await Promise.all([
+    supabase.from("creators").select("id, slug").eq("user_id", user.id).maybeSingle(),
+    supabase.from("profiles").select("username").eq("id", user.id).maybeSingle(),
+  ])
+  if (!creator) redirect("/app")
 
-  useEffect(() => {
-    async function init() {
-      setLoading(true)
-      try {
-        const res = await fetch("/api/website-builder/themes")
-        if (!res.ok) return
-        const data = await res.json()
-        if (data.username) setUsername(data.username)
-        if ((data.installs ?? []).length === 0) {
-          setInitializing(true)
-          try {
-            await fetch("/api/website-builder/initialize", { method: "POST" })
-          } catch (err) {
-            console.error("[website-builder] initialize failed:", err)
-          } finally {
-            setInitializing(false)
-          }
-          await loadInstalls()
-        } else {
-          setInstalls(data.installs)
-        }
-      } catch (err) {
-        console.error("[website-builder] init failed:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    init()
-  }, [loadInstalls])
+  const username = profile?.username || creator.slug || ""
 
-  const liveTheme = installs.find(i => i.status === "published")
-  const draftThemes = installs.filter(i => i.status !== "published")
+  const load = () =>
+    supabase
+      .from("store_theme_installs")
+      .select(INSTALL_SELECT)
+      .eq("creator_id", creator.id)
+      .order("sort_order", { ascending: true })
 
-  // Which catalog themes are already installed
-  const installedThemeIds = new Set(installs.map(i => i.theme_id))
+  let { data: rows } = await load()
 
-  const goToEditor = (installId: string) => {
-    startNavigationLoading()
-    // Canonical editor URL is the Shopify-style
-    //   /store/{creatorSlug}/themes/{installId}/editor?previewPath=/
-    // When we don't have a creator slug yet (rare race on first load), fall
-    // back to the legacy path — it's still wired up and will keep working.
-    if (username) {
-      router.push(`/store/${encodeURIComponent(username)}/themes/${installId}/editor?previewPath=%2F`)
-    } else {
-      router.push(`/website-builder/editor/${installId}?previewPath=%2F`)
-    }
+  if (!rows || rows.length === 0) {
+    // First visit: the same idempotent seed the old page called from the
+    // browser, done here so the creator never sees an empty page first.
+    const admin = createAdminClient()
+    await admin.rpc("initialize_creator_themes", { p_creator_id: creator.id })
+    ;({ data: rows } = await load())
   }
 
-  const handleAction = async (action: string, install: ThemeInstall) => {
-    if (action === "edit") { goToEditor(install.id); return }
-    if (action === "rename") { setRenameInstall(install); return }
-    if (action === "delete") { setDeleteInstall(install); return }
+  const installs = ((rows ?? []) as unknown as InstallRow[]).map(toSummary)
 
-    if (action === "view") {
-      const url = username ? getWebsiteShareUrl(username) : ""
-      if (url) window.open(url, "_blank")
-      return
-    }
-
-    if (action === "publish") {
-      setActionLoading(install.id + "_publish")
-      const res = await fetch(`/api/website-builder/themes/${install.id}/publish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "publish" }),
-      })
-      setActionLoading(null)
-      if (res.ok) {
-        toast({ title: `"${install.name}" is now live` })
-        setScreenshotTimestamp(Date.now())
-        await loadInstalls()
-      } else {
-        const d = await res.json()
-        toast({ title: d.error ?? "Failed to publish", variant: "destructive" })
-      }
-      return
-    }
-
-    if (action === "unpublish") {
-      setActionLoading(install.id + "_unpublish")
-      const res = await fetch(`/api/website-builder/themes/${install.id}/publish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "unpublish" }),
-      })
-      setActionLoading(null)
-      if (res.ok) {
-        toast({ title: `"${install.name}" unpublished` })
-        await loadInstalls()
-      } else {
-        const d = await res.json()
-        toast({ title: d.error ?? "Failed to unpublish", variant: "destructive" })
-      }
-      return
-    }
-
-    if (action === "export") {
-      // Trigger a direct browser download — the API streams a .storelib-export zip
-      try {
-        setActionLoading(install.id + "_export")
-        const res = await fetch(`/api/website-builder/themes/${install.id}/export`)
-        if (!res.ok) {
-          const d = await res.json().catch(() => ({}))
-          toast({ title: d.error ?? "Failed to export", variant: "destructive" })
-          return
-        }
-        const blob = await res.blob()
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = `${install.name.replace(/[^a-z0-9-_]+/gi, "-").toLowerCase()}.storelib-export.zip`
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        URL.revokeObjectURL(url)
-        toast({ title: `"${install.name}" exported` })
-      } finally {
-        setActionLoading(null)
-      }
-      return
-    }
-
-    if (action === "duplicate") {
-      setActionLoading(install.id + "_dup")
-      const res = await fetch(`/api/website-builder/themes/${install.id}/duplicate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      })
-      setActionLoading(null)
-      if (res.ok) {
-        toast({ title: `"${install.name}" duplicated` })
-        await loadInstalls()
-      } else {
-        const d = await res.json()
-        toast({ title: d.error ?? "Failed to duplicate", variant: "destructive" })
-      }
-      return
-    }
-  }
-
-  const handleAddTheme = async (catalogTheme: typeof THEME_CATALOG[0]) => {
-    if (installs.length >= 3) {
-      toast({ title: "Maximum 3 websites allowed. Remove one to add another.", variant: "destructive" })
-      return
-    }
-
-    setActionLoading(catalogTheme.id + "_add")
-    const res = await fetch("/api/website-builder/themes/add", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ theme_id: catalogTheme.themeId }),
-    })
-    setActionLoading(null)
-    if (res.ok) {
-      toast({ title: `"${catalogTheme.name}" added` })
-      await loadInstalls()
-    } else {
-      const d = await res.json().catch(() => ({}))
-      toast({ title: d.error ?? "Failed to add theme", variant: "destructive" })
-    }
-  }
-
-  const handleRename = async (id: string, name: string) => {
-    const res = await fetch(`/api/website-builder/themes/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    })
-    if (res.ok) {
-      toast({ title: "Website renamed" })
-      await loadInstalls()
-    } else {
-      const d = await res.json()
-      toast({ title: d.error ?? "Failed to rename", variant: "destructive" })
-    }
-  }
-
-  const handleDelete = async (id: string) => {
-    const res = await fetch(`/api/website-builder/themes/${id}`, { method: "DELETE" })
-    if (res.ok) {
-      toast({ title: "Website deleted" })
-      await loadInstalls()
-    } else {
-      const d = await res.json()
-      toast({ title: d.error ?? "Failed to delete", variant: "destructive" })
-    }
-  }
-
-  if (loading || initializing) {
-    return (
-      <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] skeleton-deferred">
-        <div className="max-w-[810px] mx-auto px-4 sm:px-5 py-6 sm:py-8">
-        {/* Page header skeleton */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
-          <div>
-            <div className="h-5 w-36 bg-neutral-200 rounded animate-pulse mb-2" />
-            <div className="h-3 w-64 max-w-full bg-neutral-100 rounded animate-pulse" />
-          </div>
-          <div className="h-8 w-full sm:w-[230px] bg-neutral-100 rounded-lg animate-pulse" />
-        </div>
-
-        {/* Current Website card skeleton — matches the real layout */}
-        <section className="mb-10">
-          <div className="h-3 w-24 bg-neutral-200 rounded animate-pulse mb-4" />
-          <div className="rounded-2xl border border-neutral-200/70 bg-white overflow-hidden">
-            <div className="aspect-[16/7] bg-neutral-100 animate-pulse" />
-            <div className="bg-white border-t border-neutral-200/60 px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-              <div className="space-y-2">
-                <div className="h-4 w-40 bg-neutral-200 rounded animate-pulse" />
-                <div className="h-3 w-28 bg-neutral-100 rounded animate-pulse" />
-                <div className="h-3 w-24 bg-neutral-100 rounded animate-pulse" />
-              </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="h-8 flex-1 sm:flex-none sm:w-36 bg-neutral-200 rounded-lg animate-pulse order-2 sm:order-1" />
-                <div className="h-8 w-8 bg-neutral-100 rounded-lg animate-pulse shrink-0 order-1 sm:order-2" />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* My Websites list skeleton */}
-        <section className="mb-12">
-          <div className="h-3 w-20 bg-neutral-200 rounded animate-pulse mb-4" />
-          <div className="rounded-2xl border border-neutral-200/70 bg-white overflow-hidden divide-y divide-neutral-100">
-            {[0, 1, 2].map(i => (
-              <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 py-3.5">
-                <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0 w-full">
-                  <div className="w-[92px] h-[60px] sm:w-[110px] sm:h-[72px] rounded-lg bg-neutral-100 animate-pulse shrink-0" style={{ animationDelay: `${i * 80}ms` }} />
-                  <div className="flex-1 space-y-2 min-w-0">
-                    <div className="h-4 w-40 max-w-full bg-neutral-200 rounded animate-pulse" />
-                    <div className="h-3 w-56 max-w-full bg-neutral-100 rounded animate-pulse" />
-                    <div className="h-3 w-16 bg-neutral-100 rounded animate-pulse" />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto sm:shrink-0 justify-end">
-                  <div className="h-8 w-8 bg-neutral-100 rounded-lg animate-pulse shrink-0" />
-                  <div className="h-8 flex-1 sm:flex-none sm:w-16 bg-neutral-100 rounded-lg animate-pulse" />
-                  <div className="h-8 flex-1 sm:flex-none sm:w-20 bg-neutral-200 rounded-lg animate-pulse" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Theme Library grid skeleton */}
-        <section className="mb-12">
-          <div className="h-3 w-24 bg-neutral-200 rounded animate-pulse mb-4" />
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {[0, 1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-                <div className="aspect-[4/3] bg-neutral-100 animate-pulse" style={{ animationDelay: `${i * 60}ms` }} />
-                <div className="p-3 space-y-2">
-                  <div className="h-3 w-24 bg-neutral-200 rounded animate-pulse" />
-                  <div className="h-2.5 w-16 bg-neutral-100 rounded animate-pulse" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-        </div>
-      </div>
-    )
-  }
-
-  const websiteUrl = username ? getWebsiteShareUrl(username) : ""
-  const websiteDisplay = username ? getWebsiteUrlDisplay(username) : ""
-
-  return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] app-page-enter">
-      <div className="max-w-[810px] mx-auto px-4 sm:px-5 py-6 sm:py-8">
-      {/* ── Page header with View Live + URL ── */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold text-neutral-900 mb-1">Website Builder</h1>
-          <p className="text-sm text-neutral-500">Manage and customize your store website</p>
-        </div>
-        <div className="flex items-center gap-2 sm:shrink-0 w-full sm:w-auto min-w-0">
-          {websiteUrl && (
-            <div className="group flex items-stretch gap-0 text-sm text-neutral-600 bg-white border border-neutral-200 rounded-full pl-3 pr-1 py-1 w-full sm:w-auto min-w-0 shadow-sm hover:border-neutral-300 transition-colors">
-              <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-2">
-                <Globe className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
-                <span className="truncate flex-1 sm:max-w-[180px] text-xs text-neutral-700">
-                  {websiteDisplay}
-                </span>
-              </div>
-              <div className="flex items-center gap-0.5 shrink-0">
-                <button
-                  type="button"
-                  aria-label="Copy link"
-                  title="Copy link"
-                  className="h-7 w-7 flex items-center justify-center rounded-full text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 active:scale-95 transition-all"
-                  onClick={() => { navigator.clipboard.writeText(websiteUrl); toast({ title: "Link copied" }) }}
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-                <a
-                  href={websiteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Open live site"
-                  title="Open live site"
-                  className="h-7 w-7 flex items-center justify-center rounded-full bg-purple-600 text-white hover:bg-purple-700 active:scale-95 transition-all shadow-sm"
-                >
-                  <ArrowRight className="h-3.5 w-3.5 -rotate-45" />
-                </a>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════
-          SECTION 1: Current Website (published/live theme)
-          ══════════════════════════════════════════════════════════ */}
-      <section className="mb-10">
-        <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4">
-          Current Website
-        </h2>
-        {liveTheme ? (
-          <div className="rounded-2xl border border-neutral-200/70 bg-white overflow-hidden">
-            {/* Full-bleed website preview — covers the container edge-to-edge */}
-            <div className="relative bg-neutral-50 overflow-hidden">
-              <ThemePreview install={liveTheme} aspectClass="aspect-[16/7]" />
-              {/* Soft fade at the bottom to blend into the info bar */}
-              <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white/70 to-transparent pointer-events-none" />
-            </div>
-
-            {/* Info bar */}
-            <div className="bg-white border-t border-neutral-200/60 px-4 sm:px-5 py-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                <div className="min-w-0">
-                  <h2 className="text-base font-semibold text-neutral-900 truncate">{liveTheme.name}</h2>
-                  <p className="text-xs text-neutral-500 mt-0.5">
-                    {liveTheme.theme?.author ?? "Storelib"} · v{liveTheme.theme?.version ?? "1.0.0"}
-                  </p>
-                  <p className="text-[11px] text-neutral-400 mt-1">
-                    Last saved {new Date(liveTheme.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {new Date(liveTheme.updated_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase()}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 sm:shrink-0 w-full sm:w-auto">
-                  <Button
-                    size="sm"
-                    onClick={() => goToEditor(liveTheme.id)}
-                    className="bg-neutral-900 hover:bg-neutral-800 text-white transition-colors duration-200 flex-1 sm:flex-none"
-                  >
-                    Customize Website
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="outline" className="h-8 w-8 p-0 shrink-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem onClick={() => handleAction("duplicate", liveTheme)}>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Duplicate
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleAction("rename", liveTheme)}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Rename
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleAction("export", liveTheme)}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Export theme
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => handleAction("unpublish", liveTheme)}
-                        className="text-amber-600"
-                      >
-                        <EyeOff className="h-4 w-4 mr-2" />
-                        Unpublish
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-2xl border-2 border-dashed border-neutral-200 p-12 text-center">
-            <Globe className="h-10 w-10 text-neutral-300 mx-auto mb-3" />
-            <p className="text-neutral-500 text-sm font-medium">No live website</p>
-            <p className="text-neutral-400 text-xs mt-1">Publish a website from your drafts below</p>
-          </div>
-        )}
-      </section>
-
-      {/* ══════════════════════════════════════════════════════════
-          SECTION 2: My Websites (drafts/unpublished)
-          ══════════════════════════════════════════════════════════ */}
-      {draftThemes.length > 0 && (
-        <section className="mb-12">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
-              My Websites
-            </h2>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => importInputRef.current?.click()}
-                className="gap-1.5 text-neutral-400 hover:text-neutral-700 h-7"
-                disabled={importing}
-              >
-                {importing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                Import theme
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={loadInstalls}
-                className="gap-1.5 text-neutral-400 hover:text-neutral-700 h-7"
-              >
-                <RefreshCw className="h-3 w-3" />
-              </Button>
-            </div>
-          </div>
-          <input
-            ref={importInputRef}
-            type="file"
-            accept=".zip,application/zip"
-            className="hidden"
-            onChange={async e => {
-              const f = e.target.files?.[0]
-              e.target.value = ""
-              if (!f) return
-              setImporting(true)
-              try {
-                const fd = new FormData()
-                fd.append("file", f)
-                const res = await fetch("/api/website-builder/themes/import", { method: "POST", body: fd })
-                if (res.ok) {
-                  const d = await res.json()
-                  toast({ title: `"${d.name}" imported` })
-                  await loadInstalls()
-                } else {
-                  const d = await res.json().catch(() => ({}))
-                  toast({ title: d.error ?? "Failed to import", variant: "destructive" })
-                }
-              } finally {
-                setImporting(false)
-              }
-            }}
-          />
-
-          <div className="rounded-2xl border border-neutral-200/70 bg-white overflow-hidden divide-y divide-neutral-100">
-            {draftThemes.map(install => (
-              <div key={install.id} className="relative group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 py-3.5 hover:bg-neutral-50/60 transition-colors">
-                {actionLoading?.startsWith(install.id) && (
-                  <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
-                    <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
-                  </div>
-                )}
-                <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1 w-full">
-                  {/* Thumbnail — div (not button) because ThemePreview contains
-                      its own buttons (search/cart); nested buttons fail hydration. */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => goToEditor(install.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault()
-                        goToEditor(install.id)
-                      }
-                    }}
-                    className="shrink-0 w-[92px] h-[60px] sm:w-[110px] sm:h-[72px] rounded-lg overflow-hidden border border-neutral-200/80 bg-neutral-50 hover:border-neutral-300 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
-                  >
-                    <ThemePreview install={install} aspectClass="aspect-[110/72]" />
-                  </div>
-                  {/* Metadata */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-semibold text-neutral-900 truncate">{install.name}</p>
-                      <StatusBadge status={install.status} />
-                    </div>
-                    <p className="text-xs text-neutral-500 mt-1">
-                      Last saved {new Date(install.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {new Date(install.updated_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase()}
-                    </p>
-                    <p className="text-[11px] text-neutral-400 mt-0.5">
-                      v{install.theme?.version ?? "1.0.0"}
-                    </p>
-                  </div>
-                </div>
-                {/* Actions */}
-                <div className="flex items-center gap-2 sm:shrink-0 w-full sm:w-auto justify-end">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="outline" className="h-8 w-8 p-0 shrink-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem onClick={() => handleAction("duplicate", install)}>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Duplicate
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleAction("rename", install)}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Rename
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleAction("export", install)}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Export theme
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => handleAction("delete", install)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 px-3 text-xs font-medium flex-1 sm:flex-none"
-                    onClick={() => handleAction("publish", install)}
-                  >
-                    Publish
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 px-3 text-xs font-medium flex-1 sm:flex-none"
-                    onClick={() => goToEditor(install.id)}
-                  >
-                    Edit theme
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ══════════════════════════════════════════════════════════
-          SECTION 3: Theme Library (6 themes, portrait cards)
-          ══════════════════════════════════════════════════════════ */}
-      <section className="mb-12">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
-            Theme Library
-          </h2>
-          <button
-            type="button"
-            onClick={() => router.push("/app/website-builder/themes")}
-            className="text-xs font-medium text-purple-600 hover:text-purple-700 inline-flex items-center gap-1 transition-colors"
-          >
-            View all
-            <ArrowRight className="h-3 w-3" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-          {THEME_CATALOG.map(catalog => {
-            const isAdded = installedThemeIds.has(catalog.themeId)
-            const isLoadingThis = actionLoading === catalog.id + "_add"
-            return (
-              <div key={catalog.id} className="rounded-xl border border-neutral-200 bg-white overflow-hidden transition-all hover:border-neutral-300 hover:shadow-md flex flex-col">
-                {/* Portrait preview */}
-                <div className="relative border-b border-neutral-100">
-                  <CatalogThemePreview catalog={catalog} />
-                </div>
-
-                {/* Info + persistent action button */}
-                <div className="p-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-neutral-900 truncate">{catalog.name}</p>
-                    <p className="text-[11px] text-neutral-400 mt-0.5 truncate">{catalog.niche}</p>
-                  </div>
-                  {isLoadingThis ? (
-                    <div className="h-8 w-[70px] flex items-center justify-center shrink-0">
-                      <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
-                    </div>
-                  ) : isAdded ? (
-                    <span
-                      aria-disabled="true"
-                      className="inline-flex items-center gap-1 h-8 px-3 text-[11px] font-semibold text-neutral-500 bg-neutral-100 rounded-lg cursor-not-allowed shrink-0"
-                    >
-                      <Check className="h-3 w-3" />
-                      Added
-                    </span>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => handleAddTheme(catalog)}
-                      className="h-8 px-3 text-[11px] font-semibold bg-neutral-900 hover:bg-neutral-800 text-white shrink-0"
-                    >
-                      Add
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-      </section>
-
-      {/* ── Dialogs ── */}
-      <RenameDialog
-        open={!!renameInstall}
-        onClose={() => setRenameInstall(null)}
-        install={renameInstall}
-        onSave={handleRename}
-      />
-      <DeleteDialog
-        open={!!deleteInstall}
-        onClose={() => setDeleteInstall(null)}
-        install={deleteInstall}
-        onDelete={handleDelete}
-      />
-      </div>
-    </div>
-  )
+  return <WebsiteBuilderClient installs={installs} username={username} />
 }

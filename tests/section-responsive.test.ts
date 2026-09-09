@@ -348,8 +348,9 @@ check(
 check(
   "the relative time reads the way somebody says it",
   (() => {
-    // Imported through a require so the test does not need the React tree.
-    const src = publish
+    // The function lives in its own module (the website page uses it too);
+    // the panel re-exports it, so both read the same clock.
+    const src = readFileSync(join(root, "lib/website-builder/relative-time.ts"), "utf8")
     return /if \(s < 45\) return "just now"/.test(src) && /minute\$\{m === 1 \? "" : "s"\} ago/.test(src)
   })(),
 )
