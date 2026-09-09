@@ -3505,7 +3505,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
       {/* Sticky Save Bar - Smooth fade animation */}
       <div
-        className={`fixed bottom-0 left-0 right-0 md:left-[220px] z-40 bg-white/95 backdrop-blur-sm border-t border-[#e5e7eb]/60 pb-[env(safe-area-inset-bottom)] transition-all duration-300 ease-out ${
+        className={`fixed bottom-0 left-0 right-0 md:left-[240px] z-40 bg-white/95 backdrop-blur-sm border-t border-[#e5e7eb]/60 pb-[env(safe-area-inset-bottom)] transition-all duration-300 ease-out ${
           hasUnsavedChanges && !showEmailChangeModal && !showLanguageModal && !showTimezoneModal && !showCountryModal && !showDeleteModal && !showAvatarUploadModal && !showAvatarCropModal
             ? "translate-y-0 opacity-100"
             : "translate-y-full opacity-0 pointer-events-none"

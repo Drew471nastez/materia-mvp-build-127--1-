@@ -4,6 +4,9 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
+  House,
+  ChartLine,
+  LinkIcon,
   LayoutDashboard,
   Package,
   Settings,
@@ -36,6 +39,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
 // Sheet removed — mobile sidebar now uses pure CSS transitions for reliable close animation
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { DesktopSidebarContent } from "@/components/app/sidebar-desktop-nav"
 
 // Imperative height/opacity animation that handles rapid toggles safely.
 //
@@ -288,17 +292,22 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     children?: NavItemChild[]
   }
 
+  /**
+   * ONE ICON PER DESTINATION, and the same one on both surfaces. The rail and
+   * the mobile drawer render this list, so a Dashboard that is a house here
+   * and a grid there would be two names for one place.
+   */
   const mainNavItems: NavItemData[] = [
-    { href: "/app", label: t("nav.dashboard"), icon: LayoutDashboard },
+    { href: "/app", label: t("nav.dashboard"), icon: House },
     {
       href: "/app/products",
       label: t("nav.products"),
       icon: Package,
       children: [{ href: "/app/coupons", label: "Coupons" }],
     },
-    { href: "/app/analytics", label: t("nav.analytics"), icon: BarChart3 },
+    { href: "/app/analytics", label: t("nav.analytics"), icon: ChartLine },
     { href: "/app/orders", label: t("nav.sales"), icon: ShoppingCart },
-    { href: "/app/onepage", label: t("nav.onepage"), icon: Link2, forceNavigation: true },
+    { href: "/app/onepage", label: t("nav.onepage"), icon: LinkIcon, forceNavigation: true },
     { href: "/store-builder", label: t("nav.storeBuilder"), icon: Store, forceNavigation: true },
     /*
       Storelib AI is NOT LISTED HERE ANY MORE.
@@ -865,58 +874,13 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     )
   }
 
-  const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
-    <div className="flex h-full flex-col bg-[#FAFAFA]">
-      <nav className="sidebar-nav flex-1 overflow-y-auto px-3 py-3">
-        <div className="space-y-0.5">
-          {mainNavItems.map((item) => (
-            <NavItem key={item.href} item={item} onClick={onItemClick} />
-          ))}
-        </div>
-
-        {/* Tools category */}
-        <div className="mt-5">
-          <p className="px-3 mb-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Tools</p>
-          <div className="space-y-0.5">
-            <SoonItem />
-          </div>
-        </div>
-
-        {storeUrl && !storePublished && (
-          <div className="mt-4 rounded-[10px] bg-amber-50/80 border border-amber-100/80 px-3 py-2.5">
-            <p className="text-[12px] text-amber-700">Store is unpublished. Go to Settings to publish.</p>
-          </div>
-        )}
-      </nav>
-
-      {/* pb accounts for iOS home indicator / Android gesture-nav bar in Capacitor.
-          env() = 0px in browsers — no layout change there. */}
-      <div className="px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))] space-y-2">
-        <Link
-          href="/app/settings/billing/upgrade"
-          onClick={onItemClick}
-          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-[background-color,border-color] duration-[240ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:from-violet-100/80 hover:to-purple-100/80 hover:border-violet-200/70"
-        >
-          <div>
-            <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
-            <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
-          </div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]">
-            <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
-          </div>
-        </Link>
-
-        <Link
-          href="/app/settings"
-          onClick={onItemClick}
-          className="flex items-center gap-3 rounded-[8px] px-3 py-1.5 text-[14px] font-medium text-neutral-600 hover:bg-neutral-100/70 hover:text-neutral-900 transition-[background-color,color] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] w-full"
-        >
-          <Settings className="h-5 w-5" strokeWidth={1.5} />
-          <span>{t("nav.settings")}</span>
-        </Link>
-      </div>
-    </div>
-  )
+  /*
+    The desktop sidebar's content used to be declared here, inside the
+    component — see the note at the top of sidebar-desktop-nav.tsx for why
+    that was the cause of the flashing rather than a matter of tidiness.
+    The mobile drawer below is deliberately untouched: it is a different
+    surface with a dark theme, and this change was scoped to the desktop rail.
+  */
 
   // Mobile sidebar content with white UI theme (positioned below dark header)
   const MobileSidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
@@ -1618,13 +1582,56 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           env(safe-area-inset-top) padding. In a browser env() = 0 so
           this is identical to the previous top-[58px] / calc(100svh-58px). */}
       <aside
-        className="fixed left-0 z-40 hidden w-[220px] flex-col border-r border-neutral-200/50 md:flex"
+        className="fixed left-0 z-40 hidden w-[240px] flex-col border-r border-neutral-200/60 bg-white md:flex"
         style={{
           top: 'calc(58px + env(safe-area-inset-top, 0px))',
           height: 'calc(100svh - 58px - env(safe-area-inset-top, 0px))',
         }}
       >
-        <SidebarContent />
+        {/*
+          THE DESKTOP NAV LIVES AT MODULE SCOPE — see sidebar-desktop-nav.tsx.
+
+          It used to be declared inside this component, which made it a new
+          component TYPE on every render, which made React unmount and rebuild
+          every node in the sidebar whenever anything here changed. That is
+          what the jumping and the flashing were.
+        */}
+        <DesktopSidebarContent
+          items={mainNavItems}
+          expandedGroups={expandedGroups}
+          onToggle={toggleGroup}
+          onNavigate={(href) => {
+            // Optimistic only — it ADDS a highlight the moment a row is
+            // clicked and never takes one away, so the active state never
+            // blinks off mid-navigation. Which page is active is still
+            // decided by the pathname, in isRouteActive.
+            setPendingHref(href)
+            startNavigationLoading()
+          }}
+          onForceNavigate={(href) => {
+            setPendingHref(href)
+            startNavigationLoading()
+            // These leave the /app router tree. In Capacitor a full reload
+            // would lose the session, which lives in Preferences rather than
+            // in a cookie.
+            if (isNativePlatform()) router.push(href)
+            else window.location.href = href
+          }}
+          onPrefetch={(href) => {
+            try { router.prefetch(href) } catch {}
+          }}
+          toolsLabel="Tools"
+          linkShortenerLabel="Link shortener"
+          communitiesLabel="Communities"
+          settingsLabel={t("nav.settings")}
+          upgradeTitle={t("nav.upgradeToPro")}
+          upgradeSubtitle={t("nav.unlockBenefits")}
+          storeUnpublishedNote={
+            storeUrl && !storePublished
+              ? "Store is unpublished. Go to Settings to publish."
+              : undefined
+          }
+        />
       </aside>
 
       {/* Floating Setup Progress Circle - hidden on mobile for settings and emails pages */}
