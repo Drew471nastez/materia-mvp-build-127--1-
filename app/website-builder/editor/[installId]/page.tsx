@@ -3458,6 +3458,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    *  on a phone, and a button that does nothing for that second is a button
    *  somebody presses again. */
   const [leaving, setLeaving] = useState(false)
+  /** `document` exists only after the first client render, and the leaving
+   *  screen is portalled into it. */
+  const [portalReady, setPortalReady] = useState(false)
+  useEffect(() => setPortalReady(true), [])
   const publishBtnRef = useRef<HTMLDivElement | null>(null)
   const [previewMode, setPreviewMode] = useState<PreviewMode>("preview")
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
@@ -5788,13 +5792,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       {/* Leaving. Rendered the moment Back is pressed: going back can take a
           second or more on a phone, and a second of nothing is a second in
           which the button gets pressed again. */}
-      {leaving && (
+      {/* Portalled, for the reason the sheets are: a z-index is only
+          comparable inside one stacking context, and this has to cover sheets
+          that render into the body. From in here it could not. */}
+      {leaving && portalReady && createPortal(
         <div className="wb-leaving" role="status" aria-live="polite" aria-label="Going back">
           <div className="flex flex-col items-center gap-3">
             <div className="wb-leaving-bar" />
             <span className="text-[13px] text-white/70">Going back</span>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* ── Top notification bar ── */}
@@ -6250,7 +6258,11 @@ function InsertSectionDivider({ onClick }: { onClick: () => void }) {
       className="group relative flex h-2.5 cursor-pointer select-none items-center justify-center"
       onClick={onClick}
     >
-      <div className="pointer-events-none absolute inset-x-2 h-px bg-foreground/50 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+      {/* Always drawn, faintly. A list of rows with nothing between them
+          reads as one block of text on a phone, where there is no cursor to
+          reveal a hover line — which is what made this list look unfinished.
+          It brightens under a pointer, where the strip is also a target. */}
+      <div className="pointer-events-none absolute inset-x-2 h-px bg-border transition-colors duration-150 group-hover:bg-foreground/50" />
       <div className="pointer-events-none relative z-10 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
         <Plus className="h-2.5 w-2.5 text-foreground" strokeWidth={2.5} />
       </div>

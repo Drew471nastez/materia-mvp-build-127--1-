@@ -97,6 +97,19 @@ export function MobileEditorSheet({
   const [mounted, setMounted] = React.useState(false)
   /** What is actually visible, which is not the window once a keyboard is up. */
   const [viewport, setViewport] = React.useState(0)
+  /**
+   * Where the visible area STARTS inside the page's own coordinates.
+   *
+   * A `fixed` element is placed against the layout viewport, and on a phone
+   * the layout viewport runs behind the browser's own toolbars. So a sheet
+   * pinned to `bottom: 0` has its last inch underneath Safari's bar — which is
+   * exactly where the Publish button was. Anchoring by `top` instead, from the
+   * visible area's own offset and height, puts the sheet's bottom edge on the
+   * bottom edge somebody can actually see, whatever the browser is doing with
+   * its chrome. It is the same number the keyboard moves, so it handles that
+   * for free.
+   */
+  const [viewportTop, setViewportTop] = React.useState(0)
 
   const stops = React.useMemo(() => [...detents].sort((a, b) => a - b), [detents])
   const tallest = stops[stops.length - 1] ?? 0.92
@@ -104,7 +117,10 @@ export function MobileEditorSheet({
   React.useEffect(() => {
     setMounted(true)
     const vv = window.visualViewport
-    const update = () => setViewport(Math.round(vv?.height ?? window.innerHeight))
+    const update = () => {
+      setViewport(Math.round(vv?.height ?? window.innerHeight))
+      setViewportTop(Math.round(vv?.offsetTop ?? 0))
+    }
     update()
     window.addEventListener("resize", update)
     vv?.addEventListener("resize", update)
@@ -536,10 +552,17 @@ export function MobileEditorSheet({
         role="dialog"
         aria-modal={open}
         className={cn(
-          "fixed left-0 right-0 bottom-0 flex flex-col overflow-hidden rounded-t-[20px] bg-background shadow-[0_-12px_40px_-12px_rgba(17,24,39,0.22)]",
+          "fixed left-0 right-0 flex flex-col overflow-hidden rounded-t-[20px] bg-background shadow-[0_-12px_40px_-12px_rgba(17,24,39,0.22)]",
           className,
         )}
         style={{
+          /**
+           * Not `bottom: 0`. See `viewportTop`: the layout viewport runs
+           * behind the browser's toolbars, so `bottom: 0` is below the last
+           * row of pixels anybody can see. This lands the sheet's bottom edge
+           * on the visible bottom edge instead.
+           */
+          top: `${viewportTop + viewport - height}px`,
           /**
            * Inline, not a class. A utility class can be merged away by
            * `cn`, or tie with another class of the same specificity and lose

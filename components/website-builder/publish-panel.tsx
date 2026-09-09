@@ -226,7 +226,10 @@ export function PublishPanel(props: PublishPanelProps) {
         layer="raised"
         peekHeight={0}
       >
-        <div className="px-5 pb-8 pt-2">
+        {/* Scrolls, so nothing in it can be out of reach at any stop or on
+            any phone. Shorter than the sheet, it is not a scroller at all and
+            the drag still belongs to the sheet. */}
+        <div className="wb-slim-scroll min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-2">
           <Body {...props} />
         </div>
       </MobileEditorSheet>

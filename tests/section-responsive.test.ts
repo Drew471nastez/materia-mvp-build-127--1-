@@ -460,8 +460,11 @@ check(
   // in which the button gets pressed again.
   /aria-label="Back"/.test(editor) &&
     /setLeaving\(true\)\s*\n\s*router\.push\("\/app\/website-builder"\)/.test(editor) &&
-    /\{leaving && \(\s*<div className="wb-leaving"/.test(editor) &&
-    /\.wb-leaving \{[\s\S]{0,300}position: fixed/.test(css),
+    // Portalled and above every sheet, or the sheets that render into the
+    // body paint over the screen that says you are leaving.
+    /\{leaving && portalReady && createPortal\(\s*<div className="wb-leaving"/.test(editor) &&
+    /\.wb-leaving \{[\s\S]{0,300}position: fixed/.test(css) &&
+    /\.wb-leaving \{[\s\S]{0,300}z-index: 300/.test(css),
 )
 
 check(
@@ -770,10 +773,12 @@ check(
 )
 
 check(
-  "leaving shimmers on the compositor, and not at all for people who asked for less motion",
-  /\.wb-leaving::before \{[\s\S]{0,500}will-change: transform/.test(css) &&
-    /@keyframes wb-leaving-shimmer \{\s*to \{ transform: translateX\(300%\) skewX\(-14deg\); \}/.test(css) &&
-    /prefers-reduced-motion: reduce\) \{\s*\.wb-leaving::before \{ animation: none; \}/.test(css),
+  "the leaving background does not shimmer; only the bar moves",
+  // A whole screen that shimmers reads as the page loading badly rather than
+  // as the page leaving.
+  !/\.wb-leaving::before/.test(css) &&
+    !/wb-leaving-shimmer/.test(css) &&
+    /\.wb-leaving-bar::after \{[\s\S]{0,300}animation: wb-leaving-sweep/.test(css),
 )
 
 
@@ -822,6 +827,37 @@ check(
 check(
   "file rows and tab closes are big enough for a finger",
   /narrow \? "py-2\.5" : "py-1"/.test(codePage) && /narrow \? "h-7 w-7 -mr-1\.5" : "h-4 w-4"/.test(codePage),
+)
+
+
+// ===========================================================================
+section("A sheet ends where the screen ends, not where the page does")
+// ===========================================================================
+
+check(
+  "sheets are anchored to the visible bottom, not to `bottom: 0`",
+  /**
+   * A fixed element is placed against the layout viewport, and on a phone
+   * that runs behind the browser's own toolbars — so a sheet pinned to the
+   * bottom had its last inch underneath Safari's bar, which is where the
+   * Publish button was. Anchoring by `top`, from the visible area's offset
+   * and height, lands its bottom edge on the bottom edge somebody can see.
+   */
+  !/fixed left-0 right-0 bottom-0 flex flex-col/.test(sheetSrc) &&
+    /top: `\$\{viewportTop \+ viewport - height\}px`/.test(sheetSrc) &&
+    /setViewportTop\(Math\.round\(vv\?\.offsetTop \?\? 0\)\)/.test(sheetSrc),
+)
+
+check(
+  "and the publish panel scrolls inside the sheet, so nothing in it is out of reach",
+  /min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-2/.test(publish),
+)
+
+check(
+  "the section list has a hairline between rows, drawn without waiting for a cursor",
+  // There is no hover on a phone, so a hover-only divider is no divider, and
+  // the list read as one block.
+  /absolute inset-x-2 h-px bg-border transition-colors duration-150 group-hover:bg-foreground\/50/.test(editor),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
