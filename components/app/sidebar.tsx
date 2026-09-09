@@ -37,7 +37,7 @@ import { createPortal } from "react-dom"
 // Sheet removed — mobile sidebar now uses pure CSS transitions for reliable close animation
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DesktopSidebarContent, NAV_ICONS } from "@/components/app/sidebar-desktop-nav"
-import type { Icon as PhosphorIcon } from "@phosphor-icons/react"
+import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
 
 // Imperative height/opacity animation that handles rapid toggles safely.
 //
@@ -286,19 +286,18 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     href: string
     label: string
     /**
-     * A PHOSPHOR ICON, not a Lucide one, and the type is what enforces it.
+     * A REMIX ICON PAIR, not a Lucide component, and the type enforces it.
      *
      * This list feeds `DesktopSidebarContent`, which renders each icon twice —
-     * once at `weight="regular"` and once at `weight="fill"` — and cross-fades
-     * between them to fill the row you are on. A Lucide component ignores
-     * `weight` entirely: it would render two identical outlines, and the
-     * active row would never fill.
+     * once from `.line` and once from `.fill` — and cross-fades between them
+     * to fill the row you are on. A single Lucide component has no fill
+     * variant to pair with: the active row would never fill.
      *
      * Which is exactly what shipped. The rail was handed Lucide icons while
      * the browser probe rendered `NAV_ICONS`, so the probe kept reporting a
      * fill that no user could see. Both sides read the same map now.
      */
-    icon: PhosphorIcon
+    icon: NavIconPair
     forceNavigation?: boolean
     children?: NavItemChild[]
   }
@@ -427,12 +426,20 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   // Light NavItem for desktop sidebar
   const NavItem = ({ item, onClick }: { item: NavItemData; onClick?: () => void }) => {
-    const Icon = item.icon
     const realActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
     // Optimistic active state: treat the link as active the moment the user
     // clicks it, so the highlight appears instantly — before the server
     // response, before the page re-renders. Cleared when pathname catches up.
     const isActive = realActive || pendingHref === item.href
+    /*
+      THE PAIR RESOLVES HERE, from the row's own active state.
+
+      `item.icon` is a { line, fill } pair now, not a component. Picking the
+      variant at this point means the mobile drawer fills the row you are on
+      exactly as the desktop rail does — the two surfaces render the same list
+      and should not disagree about what the current page looks like.
+    */
+    const Icon = isActive ? item.icon.fill : item.icon.line
     const isPending = !realActive && pendingHref === item.href
 
     const hasChildren = !!item.children && item.children.length > 0
@@ -479,7 +486,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           }}
           className={cn(baseClassName, "w-full")}
         >
-          <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+          <Icon className="h-[18px] w-[18px] shrink-0" />
           <span>{item.label}</span>
         </button>
       )
@@ -498,7 +505,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               onFocus={handlePrefetch}
               className={cn(baseClassName, "flex-1 min-w-0")}
             >
-              <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+              <Icon className="h-[18px] w-[18px] shrink-0" />
               <span className="truncate">{item.label}</span>
             </Link>
             <button
@@ -546,7 +553,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         onFocus={handlePrefetch}
         className={cn(baseClassName, "w-full")}
       >
-        <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+        <Icon className="h-[18px] w-[18px] shrink-0" />
         <span>{item.label}</span>
       </Link>
     )
@@ -554,9 +561,17 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   // Dark NavItem for mobile sidebar (matches dark header)
   const MobileNavItem = ({ item, onClick }: { item: (typeof mainNavItems)[0]; onClick?: () => void }) => {
-    const Icon = item.icon
     const realActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
     const isActive = realActive || pendingHref === item.href
+    /*
+      THE PAIR RESOLVES HERE, from the row's own active state.
+
+      `item.icon` is a { line, fill } pair now, not a component. Picking the
+      variant at this point means the mobile drawer fills the row you are on
+      exactly as the desktop rail does — the two surfaces render the same list
+      and should not disagree about what the current page looks like.
+    */
+    const Icon = isActive ? item.icon.fill : item.icon.line
     const isPending = !realActive && pendingHref === item.href
 
     const baseClassName = cn(
@@ -597,7 +612,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           }}
           className={baseClassName}
         >
-          <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+          <Icon className="h-[18px] w-[18px] shrink-0" />
           <span>{item.label}</span>
         </button>
       )
@@ -611,7 +626,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         onFocus={handlePrefetch}
         className={baseClassName}
       >
-        <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+        <Icon className="h-[18px] w-[18px] shrink-0" />
         <span>{item.label}</span>
       </Link>
     )

@@ -75,8 +75,19 @@ section("Nothing in the rail is declared during a render")
    * flag `^\s+` happily matched a declaration at column zero via the line
    * break before it — and the check reported the one component that was
    * already in the right place.
+   *
+   * And a DECLARATION, not any capitalised local. `const Line = icon.line`
+   * inside NavIcon is not a component being defined during a render; it is a
+   * component that already exists being read out of a prop, which is the only
+   * way to render one that was passed in. Requiring a function to follow the
+   * `=` separates the two — the defect is a new function object per render,
+   * and an alias to an existing one is not that.
    */
-  const nested = [...navSource.matchAll(/^[ \t]+(?:const|function)\s+([A-Z]\w*)\s*[=(]/gm)].map((m) => m[1])
+  const nested = [
+    ...navSource.matchAll(
+      /^[ \t]+(?:function\s+([A-Z]\w*)\s*\(|const\s+([A-Z]\w*)\s*=\s*(?:\(|async|function\b|memo\())/gm,
+    ),
+  ].map((m) => m[1] ?? m[2])
   check(
     "every component in the nav module is at module scope",
     nested.length === 0,
@@ -151,10 +162,10 @@ section("A row is the same size in every state")
  *
  *   rail 240   nav padding 7/7
  *   row        h 38  w 225  radius 12  padding 14/14  gap 8
- *   type       15px / 24px, tracked -0.01em, weight 450 resting, 550 active
+ *   type       15px / 24px, tracked -0.01em, weight 495 resting, 605 active
  *   resting    #666666 on transparent
  *   active     #202020 on #e8e8e8
- *   icon       20×20 box, two 20×20 glyphs stacked, cross-faded on opacity
+ *   icon       20×20 box, a Remix line and fill glyph stacked, cross-faded
  *   chevron    20×20, pinned 18px from the rail's edge, rotate(0) → rotate(180)
  *   submenu    grid-template-rows 0px/opacity 0 → 36px/opacity 1
  *
@@ -191,12 +202,12 @@ section("A row is the same size in every state")
     /**
      * `next/font` loads Inter with no weight list in app/layout.tsx, which is
      * what makes the whole 100–900 axis available. On a static font 450 snaps
-     * to 400 or 500 and the step to the active 550 is four times what it
-     * should be — 450→550 is one hundred units, 400→500 is the same distance
-     * only because both ends have moved to the wrong place.
+     * to 500 and 605 snaps to 600 — and "ten per cent heavier than 450 and
+     * 550" would land wherever the rounding happened to put it rather than
+     * where it was asked to.
      */
-    /const REST_WEIGHT = 450/.test(navSource) &&
-      /const ACTIVE_WEIGHT = 550/.test(navSource) &&
+    /const REST_WEIGHT = 495/.test(navSource) &&
+      /const ACTIVE_WEIGHT = 605/.test(navSource) &&
       !/weight: \[/.test(readFileSync(join(root, "app/layout.tsx"), "utf8").slice(0, 4000)),
   )
   check(
@@ -208,22 +219,31 @@ section("A row is the same size in every state")
     "every icon sits in a box that cannot change size",
     /className="relative flex h-5 w-5 min-w-5 shrink-0/.test(navSource) &&
       // Both layers are 20px. Nothing about the state changes a size.
-      navSource.match(/<Icon\s+size=\{20\}/g)?.length === 2 &&
+      /<Line\s+size=\{20\}/.test(navSource) &&
+      /<Fill\s+size=\{20\}/.test(navSource) &&
       !/size=\{active/.test(navSource),
   )
   check(
     "the fill arrives rather than appears",
     /**
-     * A Phosphor weight is a DIFFERENT PATH — `d` changes entirely between
-     * regular and fill — and no CSS can interpolate one path into another.
-     * Swapping the prop therefore snaps: outline on one frame, solid on the
-     * next, which is what "not smooth" meant.
+     * A line variant and a fill variant are DIFFERENT PATHS — `d` changes
+     * entirely — and no CSS can interpolate one path into another. Swapping
+     * the component therefore snaps: outline on one frame, solid on the next,
+     * which is what "not smooth" meant.
      *
-     * So both weights are rendered into the same 20×20 box and cross-faded on
+     * So both are rendered into the same 20×20 box and cross-faded on
      * opacity, the one property that CAN animate here.
      */
-    /weight="regular"\s+data-variant="outline"/.test(navSource) &&
-      /weight="fill"\s+data-variant="filled"/.test(navSource) &&
+    /*
+      ANCHORED TO THE ELEMENTS, not to the string.
+
+      `/data-variant="outline"/` alone passed with the JSX renamed, because
+      the same text appears in the <style> selector below and one match was
+      enough. A guard that a stylesheet can satisfy on the component's behalf
+      is not guarding the component.
+    */
+    /<Line\s+size=\{20\}\s+data-variant="outline"/.test(navSource) &&
+      /<Fill\s+size=\{20\}\s+data-variant="filled"/.test(navSource) &&
       /opacity: active \? 0 : 1, transition: FILL_TRANSITION/.test(navSource) &&
       /opacity: active \? 1 : 0, transition: FILL_TRANSITION/.test(navSource) &&
       /const FILL_TRANSITION = "opacity \d+ms/.test(navSource),
@@ -268,7 +288,7 @@ section("A row is the same size in every state")
       return (
         icons.length >= 8 &&
         icons.every((name) => name.startsWith("NAV_ICONS.")) &&
-        /icon: PhosphorIcon/.test(shellSource)
+        /icon: NavIconPair/.test(shellSource)
       )
     })(),
   )
@@ -276,23 +296,27 @@ section("A row is the same size in every state")
     "the icon of the row you are on is filled",
     /**
      * Lucide could not do this, which is why the sidebar is the one place in
-     * the app that uses Phosphor. Lucide's icons are strokes rather than
+     * the app that does not use it. Lucide's icons are strokes rather than
      * shapes — reading the path data, `store` has four open subpaths,
      * `package` three — and filling an open path paints the region it implies
-     * rather than the glyph.
+     * rather than the glyph. Remix ships a real `…Fill` beside every `…Line`.
      */
-    /@phosphor-icons\/react/.test(navSource) && /weight="fill"/.test(navSource),
+    /@remixicon\/react/.test(navSource) && /fill: Ri\w+Fill/.test(navSource),
   )
   check(
     "and a resting one is drawn about fifteen per cent heavier",
     /**
-     * Phosphor strokes nothing — every weight is a filled path describing the
-     * shape, `regular` included — so there is no stroke-width to raise, and
-     * its own weights jump straight from regular to bold. A 2.4 stroke of the
-     * icon's own colour over a 16-unit outline adds 1.2 to each side of every
-     * edge: that outline plus fifteen per cent.
+     * Remix strokes nothing — a `…Line` icon is a filled path that describes
+     * the SHAPE of a stroke — so there is no stroke-width on it to raise. A
+     * stroke of the icon's own colour laid over that fill thickens every edge
+     * instead: Remix draws 2 units in a 24-unit box, so 0.3 adds 0.15 a side,
+     * which is that outline plus fifteen per cent.
+     *
+     * The number is library-specific. Phosphor's box is 256 wide with a
+     * 16-unit stroke, where the same fifteen per cent was 2.4 — carried over
+     * unchanged it would turn every icon into a blot.
      */
-    /\[data-nav-icon\] svg\[data-variant="outline"\] path \{\s*stroke: currentColor;\s*stroke-width: 2\.4;/.test(navSource) &&
+    /\[data-nav-icon\] svg\[data-variant="outline"\] path \{\s*stroke: currentColor;\s*stroke-width: 0\.3;/.test(navSource) &&
       /data-nav-icon=\{active \? "filled" : "outline"\}/.test(navSource),
   )
   check(
