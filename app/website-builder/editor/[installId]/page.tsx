@@ -5393,7 +5393,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   // ── Main editor layout ─────────────────────────────────────
   return (
-    <div className="h-svh flex flex-col bg-muted/30 overflow-hidden">
+    <div
+      className={cn(
+        "h-svh flex flex-col bg-muted/30 overflow-hidden wb-editor-enter",
+        // Leaving fades the editor while the next page is fetched, so the
+        // hand-off is a dissolve rather than a hard cut when it lands.
+        leaving && "wb-editor-leaving",
+      )}
+    >
       {/* ── Top bar ── */}
       {/* Dark, like the reference: the bar is chrome, and chrome that is the
           same colour as the page it frames is chrome you keep mistaking for
@@ -5558,14 +5565,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 icon: <Redo2 className="h-4 w-4" />,
                 onClick: handleRedo,
               },
+              ...(websiteUrl
+                ? [{
+                    label: "View live site",
+                    icon: <ExternalLink className="h-4 w-4" />,
+                    href: websiteUrl,
+                    target: "_blank" as const,
+                    separatorBefore: true,
+                  }]
+                : []),
               {
                 label: "Back to Dashboard",
                 icon: <ArrowLeft className="h-4 w-4" />,
                 onClick: () => {
                   if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
+                  setLeaving(true)
                   router.push("/app")
                 },
-                separatorBefore: true,
+                separatorBefore: !websiteUrl,
               },
             ]}
           />
@@ -5650,13 +5667,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           {websiteUrl && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
+                <a
+                  href={websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white shrink-0"
-                  onClick={() => window.open(websiteUrl, "_blank")}
                   aria-label="Open the live page"
                 >
                   <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
-                </button>
+                </a>
               </TooltipTrigger>
               <TooltipContent side="bottom">Open the live page</TooltipContent>
             </Tooltip>
@@ -6000,6 +6019,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           />
           <div
             id="wb-preview-root"
+            /**
+             * THE SCROLL THAT STOPS.
+             * iOS hands a scroll gesture to the parent when the scroller is
+             * exactly at its top or bottom, and the parent here is
+             * `overflow: hidden` on purpose — so the gesture goes nowhere,
+             * and every touch after it until the finger reverses is eaten.
+             * `overscroll-behavior: contain` is the modern answer and is set
+             * below; this is the belt to its braces: nudge one pixel off
+             * either end at touchdown so there is never a hand-off to make.
+             */
+            onTouchStart={(e) => {
+              if (!isMobileView) return
+              const el = e.currentTarget
+              const max = el.scrollHeight - el.clientHeight
+              if (max <= 2) return
+              if (el.scrollTop <= 0) el.scrollTop = 1
+              else if (el.scrollTop >= max) el.scrollTop = max - 1
+            }}
             className={cn(
               "relative bg-white border border-neutral-200/70 transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
               // While the code shows, the site is not under it, it is gone:

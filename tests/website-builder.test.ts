@@ -36,7 +36,7 @@ import {
   isThemeId,
 } from "@/lib/website-builder/theme-registry"
 import { looksLikeImage, previousSnapshotPath, SNAPSHOT_BUCKET } from "@/lib/website-builder/snapshot"
-import { ThemeCover, coverSpecFromDefinition, coverSpecFromSettings } from "@/components/website-builder/theme-cover"
+import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition, coverSpecFromSettings } from "@/components/website-builder/theme-cover"
 import { editorHref } from "@/app/app/website-builder/website-builder-client"
 
 let passed = 0
@@ -197,6 +197,10 @@ section("The cover")
     if (html.length > 12000) bad.push(`${def.slug}: ${html.length} bytes is too heavy for a thumbnail`)
   }
   check("every registry theme renders to one self-contained SVG under 12 KB", bad.length === 0, bad.join("\n        "))
+  const coverSrc = read("components/website-builder/theme-cover.tsx")
+  check("no cover uses a transform — the app's .group rule strips them on touch devices", !/transform=/.test(coverSrc))
+  const phone = renderToStaticMarkup(createElement(ThemePhoneCover, { spec: coverSpecFromDefinition(THEME_REGISTRY[0]) }))
+  check("the phone cover is a second drawing of the same theme", phone.startsWith("<svg") && phone.includes('viewBox="0 0 390 780"') && phone.includes(THEME_REGISTRY[0].sample.brand))
 }
 {
   const spec = coverSpecFromSettings({ brand_name: "Acme", primary_color: "#ff0000", background_color: "#111111" }, null, "Fallback")
@@ -226,10 +230,14 @@ section("The page")
   check("the snapshot is a plain <img>, not an optimiser round-trip", /<img/.test(client) && !/from "next\/image"/.test(client))
   check("the live cover loads eagerly with high priority; library thumbnails lazily", /fetchPriority=\{eager \? "high"/.test(client) && /loading=\{eager \? "eager" : "lazy"\}/.test(client))
   check("there is no skeleton inside the component", !/animate-pulse|skeleton/.test(client))
+  check("the route's loading state waits half a second before it shows at all", /animationDelay: "500ms"/.test(loading) && !/animate-pulse/.test(loading))
   check("the route's loading state is deferred so a fast load never flashes it", /skeleton-deferred/.test(loading))
   check("mutations refresh the server's view rather than patching a client copy", /router\.refresh\(\)/.test(client) && /useTransition/.test(client))
   check("the page uses the shared action menu, dialogs and buttons", /ResponsiveActionMenu/.test(client) && /AlertDialog/.test(client) && /from "@\/components\/ui\/button"/.test(client))
-  check("publishing over a live website asks first and says what happens to the old one", /Publish “\{publishing\?\.name\}”\?/.test(client) && /goes offline but stays in your library/.test(client))
+  check("the primary action is Storelib dark, not a purple button", /Edit website/.test(client) && !/bg-\[#8b5cf6\]/.test(client))
+  check("the live link is a real anchor that opens a new tab", /<a href=\{href\} target="_blank" rel="noopener noreferrer"/.test(client) && /href: siteUrl, target: "_blank"/.test(client))
+  check("covers show the theme on a desktop and a phone", /ThemeCoverPair/.test(client) && /phone/.test(client))
+  check("publishing over a live website asks first and says what happens to the old one", /Publish “\{publishing\?\.name\}”\?/.test(client) && /It replaces “\{live\.name\}”/.test(client))
   check("every install action is still here: rename, duplicate, code, settings, export, publish, unpublish, delete, import, add", [
     "Rename", "Duplicate", "Edit code", "Project settings", "Export .zip", "Take offline", "Remove", "Upload .zip", "themes/add", "action: \"publish\"", "action: \"unpublish\"", "themes/import",
   ].every((s) => client.includes(s)))
@@ -237,7 +245,8 @@ section("The page")
   check("the marketplace route the old page linked to now exists", existsSync(join(process.cwd(), "app/app/website-builder/themes/page.tsx")))
   const market = stripComments(read("app/app/website-builder/themes/themes-client.tsx"))
   check("the marketplace filters by industry, searches, previews and adds", /THEME_INDUSTRIES\.map/.test(market) && /Search themes/.test(market) && /ThemeDetailDialog/.test(market) && /themes\/add/.test(market))
-  check("the marketplace draws covers too — no storefront is mounted there either", !/SectionRenderer|ThemePage/.test(market) && /ThemeCover/.test(market))
+  check("the marketplace draws covers too — no storefront is mounted there either", !/SectionRenderer|ThemePage/.test(market) && /ThemeCoverPair/.test(market) && /ThemePhoneCover/.test(market))
+  check("the marketplace has a real back button and no paragraph of explanation", /ChevronLeft/.test(market) && !/Every theme is free/.test(market))
 }
 
 check("the editor deep link carries the creator slug and the pane", editorHref("mara", "abc", "code") === "/store/mara/themes/abc/editor?previewPath=%2F&view=code")

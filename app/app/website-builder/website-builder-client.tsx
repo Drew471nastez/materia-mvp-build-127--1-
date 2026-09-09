@@ -6,9 +6,9 @@
  * ===========================================================================
  * Three things, in the order a store owner cares about them:
  *
- *   1. The live website — one card, one picture, one button: Customize.
+ *   1. The live website — one card, one picture, one button: Edit website.
  *   2. The library — the other themes you are keeping (up to three in all),
- *      each with Publish, Customize and the long tail in a menu.
+ *      each with Publish, Edit and the long tail in a menu.
  *   3. Explore — a few themes from the registry, and the door to all of them.
  *
  * What is deliberately NOT here:
@@ -20,6 +20,8 @@
  *     server did not produce.
  *   • A loading skeleton inside the component. The route's `loading.tsx`
  *     covers the server round-trip, deferred so a fast load never flashes.
+ *   • Explanatory copy. A card with a picture, a name and a status does not
+ *     need a sentence under it saying so.
  */
 
 import * as React from "react"
@@ -49,7 +51,6 @@ import { Input } from "@/components/ui/input"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -64,6 +65,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { useToast } from "@/hooks/use-toast"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
@@ -77,7 +79,11 @@ import {
   getThemeDefinition,
   type ThemeDefinition,
 } from "@/lib/website-builder/theme-registry"
-import { ThemeCover, coverSpecFromDefinition, coverSpecFromSettings } from "@/components/website-builder/theme-cover"
+import {
+  ThemeCoverPair,
+  coverSpecFromDefinition,
+  coverSpecFromSettings,
+} from "@/components/website-builder/theme-cover"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 
 export interface WebsiteSummary {
@@ -113,30 +119,26 @@ export function editorHref(username: string, installId: string, view: EditorView
   return `${base}?${params.toString()}`
 }
 
+/** "2 days ago" without the "ago", for a meta line that already reads as time. */
+function since(iso: string | null | undefined): string | null {
+  const t = relativeTime(iso)
+  if (!t) return null
+  return t === "just now" ? t : t.replace(/ minutes?/, "m").replace(/ hours?/, "h").replace(/ days?/, "d").replace(/ months?/, "mo").replace(" ago", " ago")
+}
+
 // ── Small pieces ───────────────────────────────────────────────────────────
 
-function StatusPill({ status }: { status: ThemeStatus }) {
-  if (status === "published") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/15">
-        <span className="relative flex h-1.5 w-1.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60 motion-reduce:hidden" />
-          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        </span>
-        Live
-      </span>
-    )
-  }
-  if (status === "unpublished") {
-    return (
-      <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[12px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/15">
-        Offline
-      </span>
-    )
-  }
+function StatusDot({ status, label = true }: { status: ThemeStatus; label?: boolean }) {
+  const tone =
+    status === "published"
+      ? { dot: "bg-emerald-500", text: "text-emerald-700", name: "Live" }
+      : status === "unpublished"
+        ? { dot: "bg-amber-500", text: "text-amber-700", name: "Offline" }
+        : { dot: "bg-[#9ca3af]", text: "text-[#6b7280]", name: "Draft" }
   return (
-    <span className="inline-flex items-center rounded-full bg-[#f3f4f6] px-2.5 py-1 text-[12px] font-semibold text-[#4b5563] ring-1 ring-inset ring-black/5">
-      Draft
+    <span className={cn("inline-flex items-center gap-1.5 text-[12px] font-semibold", tone.text)}>
+      <span className={cn("h-1.5 w-1.5 rounded-full", tone.dot)} />
+      {label && tone.name}
     </span>
   )
 }
@@ -150,10 +152,12 @@ function StatusPill({ status }: { status: ThemeStatus }) {
 function WebsiteCover({
   install,
   eager = false,
+  phone = false,
   className,
 }: {
   install: WebsiteSummary
   eager?: boolean
+  phone?: boolean
   className?: string
 }) {
   const def = getThemeDefinition(install.theme_id)
@@ -174,39 +178,11 @@ function WebsiteCover({
     )
   }
   return (
-    <ThemeCover
+    <ThemeCoverPair
       spec={coverSpecFromSettings(install.settings, def, install.name)}
-      className={cn("h-full w-full", className)}
+      phone={phone}
+      className={className}
     />
-  )
-}
-
-/** A thin browser chrome so a cover reads as "a website", not "a picture". */
-function BrowserFrame({
-  url,
-  children,
-  className,
-}: {
-  url?: string
-  children: React.ReactNode
-  className?: string
-}) {
-  return (
-    <div className={cn("overflow-hidden rounded-xl border border-[#e5e7eb] bg-white", className)}>
-      <div className="flex h-8 items-center gap-2 border-b border-[#eceef1] bg-[#f8f9fa] px-3">
-        <span className="flex gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#e5e7eb]" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#e5e7eb]" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#e5e7eb]" />
-        </span>
-        {url && (
-          <span className="ml-1 flex h-5 min-w-0 flex-1 items-center rounded-md bg-white px-2 text-[11px] text-[#6b7280] ring-1 ring-inset ring-black/5">
-            <span className="truncate">{url}</span>
-          </span>
-        )}
-      </div>
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#f3f4f6]">{children}</div>
-    </div>
   )
 }
 
@@ -222,17 +198,17 @@ function CopyUrlPill({ url, display }: { url: string; display: string }) {
     }
   }
   return (
-    <div className="inline-flex h-10 max-w-full items-stretch overflow-hidden rounded-xl border border-[#e5e7eb] bg-white text-[13px] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+    <div className="inline-flex h-9 max-w-full items-stretch overflow-hidden rounded-lg border border-[#e5e7eb] bg-white text-[13px] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
       <button
         type="button"
         onClick={copy}
         className="flex min-w-0 items-center gap-2 px-3 font-medium text-[#1a1a2e] transition-colors hover:bg-[#f8f9fa]"
-        title="Copy website address"
+        title="Copy address"
       >
         <span className="truncate">{display}</span>
-        <span className="relative h-4 w-4 shrink-0 text-[#6b7280]">
-          <Copy className={cn("absolute inset-0 h-4 w-4 transition-opacity duration-150", copied && "opacity-0")} />
-          <Check className={cn("absolute inset-0 h-4 w-4 text-emerald-600 transition-opacity duration-150", !copied && "opacity-0")} />
+        <span className="relative h-3.5 w-3.5 shrink-0 text-[#9ca3af]">
+          <Copy className={cn("absolute inset-0 h-3.5 w-3.5 transition-opacity duration-150", copied && "opacity-0")} />
+          <Check className={cn("absolute inset-0 h-3.5 w-3.5 text-emerald-600 transition-opacity duration-150", !copied && "opacity-0")} />
         </span>
       </button>
       <a
@@ -240,11 +216,45 @@ function CopyUrlPill({ url, display }: { url: string; display: string }) {
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center border-l border-[#e5e7eb] px-2.5 text-[#6b7280] transition-colors hover:bg-[#f8f9fa] hover:text-[#1a1a2e]"
-        title="Open website"
+        title="Open"
       >
-        <ArrowUpRight className="h-4 w-4" />
+        <ArrowUpRight className="h-3.5 w-3.5" />
       </a>
     </div>
+  )
+}
+
+function IconAction({
+  label,
+  href,
+  onClick,
+  children,
+  busy,
+}: {
+  label: string
+  href?: string
+  onClick?: () => void
+  children: React.ReactNode
+  busy?: boolean
+}) {
+  const cls =
+    "flex h-9 w-9 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-[background-color,color,transform] duration-150 hover:bg-[#f8f9fa] hover:text-[#1a1a2e] active:scale-95"
+  const inner = busy ? <Loader2 className="h-4 w-4 animate-spin" /> : children
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {href ? (
+          <a href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className={cls}>
+            {inner}
+          </a>
+        ) : (
+          <button type="button" onClick={onClick} aria-label={label} className={cls}>
+            {inner}
+          </button>
+        )}
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-[12px]">{label}</TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -258,9 +268,9 @@ function SectionHeading({
   children?: React.ReactNode
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2.5">
-        <h2 className="text-[17px] font-semibold tracking-tight text-[#1a1a2e]">{title}</h2>
+        <h2 className="text-[16px] font-semibold tracking-tight text-[#1a1a2e]">{title}</h2>
         {aside}
       </div>
       {children && <div className="flex items-center gap-2">{children}</div>}
@@ -336,32 +346,34 @@ export function WebsiteBuilderClient({
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 
+  const fullMessage = `Your library holds ${THEME_INSTALL_LIMIT}. Remove one first.`
+
   const publish = (i: WebsiteSummary) =>
-    run(`${i.id}:publish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "publish" })), `"${i.name}" is live`, "Could not publish")
+    run(`${i.id}:publish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "publish" })), `${i.name} is live`, "Could not publish")
 
   const unpublish = (i: WebsiteSummary) =>
-    run(`${i.id}:unpublish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "unpublish" })), `"${i.name}" is offline`, "Could not unpublish")
+    run(`${i.id}:unpublish`, () => fetch(`/api/website-builder/themes/${i.id}/publish`, json("POST", { action: "unpublish" })), `${i.name} is offline`, "Could not unpublish")
 
   const duplicate = (i: WebsiteSummary) => {
     if (slotsLeft === 0) {
-      toast({ title: `You can keep up to ${THEME_INSTALL_LIMIT} websites. Remove one first.`, variant: "destructive" })
+      toast({ title: fullMessage, variant: "destructive" })
       return
     }
-    return run(`${i.id}:duplicate`, () => fetch(`/api/website-builder/themes/${i.id}/duplicate`, json("POST", {})), `Copied "${i.name}"`, "Could not duplicate")
+    return run(`${i.id}:duplicate`, () => fetch(`/api/website-builder/themes/${i.id}/duplicate`, json("POST", {})), `Copied ${i.name}`, "Could not duplicate")
   }
 
   const rename = (i: WebsiteSummary, name: string) =>
     run(`${i.id}:rename`, () => fetch(`/api/website-builder/themes/${i.id}`, json("PATCH", { name })), "Renamed", "Could not rename")
 
   const remove = (i: WebsiteSummary) =>
-    run(`${i.id}:delete`, () => fetch(`/api/website-builder/themes/${i.id}`, { method: "DELETE" }), `Removed "${i.name}"`, "Could not remove")
+    run(`${i.id}:delete`, () => fetch(`/api/website-builder/themes/${i.id}`, { method: "DELETE" }), `Removed ${i.name}`, "Could not remove")
 
   const addTheme = (def: ThemeDefinition) => {
     if (slotsLeft === 0) {
-      toast({ title: `You can keep up to ${THEME_INSTALL_LIMIT} websites. Remove one first.`, variant: "destructive" })
+      toast({ title: fullMessage, variant: "destructive" })
       return
     }
-    return run(`${def.id}:add`, () => fetch("/api/website-builder/themes/add", json("POST", { theme_id: def.id })), `Added "${def.name}" to your library`, "Could not add theme")
+    return run(`${def.id}:add`, () => fetch("/api/website-builder/themes/add", json("POST", { theme_id: def.id })), `${def.name} added`, "Could not add theme")
   }
 
   const exportTheme = async (i: WebsiteSummary) => {
@@ -382,7 +394,7 @@ export function WebsiteBuilderClient({
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-      toast({ title: `Exported "${i.name}"` })
+      toast({ title: `Exported ${i.name}` })
     } finally {
       setBusy(null)
     }
@@ -390,23 +402,26 @@ export function WebsiteBuilderClient({
 
   const importZip = async (file: File) => {
     if (slotsLeft === 0) {
-      toast({ title: `You can keep up to ${THEME_INSTALL_LIMIT} websites. Remove one first.`, variant: "destructive" })
+      toast({ title: fullMessage, variant: "destructive" })
       return
     }
     const fd = new FormData()
     fd.append("file", file)
-    await run("import", () => fetch("/api/website-builder/themes/import", { method: "POST", body: fd }), `Imported "${file.name.replace(/\.zip$/i, "")}"`, "Could not import that file")
+    await run("import", () => fetch("/api/website-builder/themes/import", { method: "POST", body: fd }), `Imported ${file.name.replace(/\.zip$/i, "")}`, "Could not import that file")
     if (fileInput.current) fileInput.current.value = ""
   }
 
-  const menuFor = (i: WebsiteSummary): ActionMenuItem[] => {
-    const items: ActionMenuItem[] = [
-      { label: "Rename", icon: <Pencil className="h-4 w-4" />, onClick: () => setRenaming(i) },
+  const menuFor = (i: WebsiteSummary, opts: { publish?: boolean; preview?: boolean } = {}): ActionMenuItem[] => {
+    const items: ActionMenuItem[] = []
+    if (opts.publish) items.push({ label: "Publish", icon: <Rocket className="h-4 w-4" />, onClick: () => setPublishing(i) })
+    if (opts.preview && siteUrl) items.push({ label: "View live site", icon: <ExternalLink className="h-4 w-4" />, href: siteUrl, target: "_blank" })
+    items.push(
+      { label: "Rename", icon: <Pencil className="h-4 w-4" />, onClick: () => setRenaming(i), separatorBefore: items.length > 0 },
       { label: "Duplicate", icon: <Layers className="h-4 w-4" />, onClick: () => void duplicate(i) },
       { label: "Edit code", icon: <Code2 className="h-4 w-4" />, onClick: () => go(editorHref(username, i.id, "code")) },
       { label: "Project settings", icon: <Settings2 className="h-4 w-4" />, onClick: () => go(editorHref(username, i.id, "settings")) },
       { label: "Export .zip", icon: <Download className="h-4 w-4" />, onClick: () => void exportTheme(i) },
-    ]
+    )
     if (i.status === "published") {
       items.push({ label: "Take offline", icon: <EyeOff className="h-4 w-4" />, onClick: () => setUnpublishing(i), variant: "warning", separatorBefore: true })
     } else {
@@ -425,19 +440,16 @@ export function WebsiteBuilderClient({
 
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
-      <div className="app-page-enter mx-auto max-w-[1200px] space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="app-page-enter mx-auto max-w-[1200px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
         {/* ── Header ─────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Website</h1>
-            <p className="mt-1 text-[14px] text-[#6b7280]">Design, customize and publish your storefront.</p>
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[26px]">Website</h1>
           <div className="flex flex-wrap items-center gap-2">
             {siteUrl && <CopyUrlPill url={siteUrl} display={siteDisplay} />}
             <Button
               asChild
               variant="outline"
-              className="h-10 rounded-xl border-[#e5e7eb] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:bg-[#f8f9fa]"
+              className="h-9 rounded-lg border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:bg-[#f8f9fa]"
             >
               <Link href="/app/website-builder/themes" onClick={() => startNavigationLoading()}>
                 <Plus className="h-4 w-4" />
@@ -451,80 +463,81 @@ export function WebsiteBuilderClient({
         <section aria-labelledby="live-heading">
           <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {live ? (
-              <div className="grid grid-cols-1 gap-0 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
-                <div className="min-w-0 bg-[#f8f9fa] p-4 sm:p-5 lg:border-r lg:border-[#eceef1]">
-                  <BrowserFrame url={siteDisplay || undefined} className="shadow-[0_8px_24px_-12px_rgba(15,23,42,0.18)]">
-                    <WebsiteCover install={live} eager />
-                  </BrowserFrame>
-                </div>
-                <div className="flex min-w-0 flex-col p-5 sm:p-6">
-                  <div className="flex items-center gap-2">
-                    <StatusPill status="published" />
-                    <span className="text-[12px] text-[#9ca3af]">Your live website</span>
-                  </div>
-                  <h2 id="live-heading" className="mt-3 truncate text-[20px] font-semibold tracking-tight text-[#1a1a2e]">
+              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+                <button
+                  type="button"
+                  onClick={() => go(editorHref(username, live.id))}
+                  aria-label={`Edit ${live.name}`}
+                  className="group relative block min-w-0 overflow-hidden bg-[#eef0f3] text-left lg:border-r lg:border-[#eceef1]"
+                >
+                  <span className="block aspect-[16/10] w-full">
+                    <WebsiteCover install={live} eager phone />
+                  </span>
+                  <span className="pointer-events-none absolute inset-0 bg-[#1a1a2e]/0 transition-colors duration-200 group-hover:bg-[#1a1a2e]/[0.04]" />
+                </button>
+                <div className="flex min-w-0 flex-col justify-center p-5 sm:p-6">
+                  <StatusDot status="published" />
+                  <h2 id="live-heading" className="mt-2 truncate text-[20px] font-semibold tracking-tight text-[#1a1a2e]">
                     {live.name}
                   </h2>
-                  <dl className="mt-3 space-y-1.5 text-[13px]">
-                    <MetaRow label="Published" value={relativeTime(live.published_at) ?? "Live"} />
-                    <MetaRow label="Last saved" value={relativeTime(live.saved_at) ?? "—"} />
-                    {live.theme && <MetaRow label="Theme" value={`${live.theme.name} · v${live.theme.version}`} />}
-                  </dl>
-                  <div className="mt-6">
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => go(editorHref(username, live.id))}
-                        className="h-11 flex-1 rounded-xl bg-[#8b5cf6] text-[14px] font-semibold text-white hover:bg-[#7c3aed]"
-                      >
-                        Customize
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
+                  <p className="mt-1 text-[13px] text-[#6b7280]">
+                    {live.published_at ? `Published ${since(live.published_at)}` : "Published"}
+                    <span className="mx-1.5 text-[#d1d5db]">·</span>
+                    Edited {since(live.saved_at)}
+                  </p>
+                  {live.theme && (
+                    <p className="mt-0.5 text-[12.5px] text-[#9ca3af]">
+                      {live.theme.name} <span className="text-[#d1d5db]">v{live.theme.version}</span>
+                    </p>
+                  )}
+                  <div className="mt-5 flex flex-col gap-2.5">
+                    <Button
+                      onClick={() => go(editorHref(username, live.id))}
+                      className="h-10 rounded-lg bg-[#1a1a2e] text-[13.5px] font-semibold text-white hover:bg-[#2d2d44]"
+                    >
+                      Edit website
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                    <div className="flex items-center gap-2">
                       {siteUrl && (
-                        <Button
-                          asChild
-                          variant="outline"
-                          className="h-11 rounded-xl border-[#e5e7eb] px-4 text-[14px] font-medium text-[#1a1a2e] hover:bg-[#f8f9fa]"
-                        >
-                          <a href={siteUrl} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                            Preview
-                          </a>
-                        </Button>
+                        <IconAction label="View live site" href={siteUrl}>
+                          <ExternalLink className="h-4 w-4" />
+                        </IconAction>
                       )}
+                      <IconAction label="Edit code" onClick={() => go(editorHref(username, live.id, "code"))}>
+                        <Code2 className="h-4 w-4" />
+                      </IconAction>
+                      <IconAction label="Project settings" onClick={() => go(editorHref(username, live.id, "settings"))}>
+                        <Settings2 className="h-4 w-4" />
+                      </IconAction>
+                      <IconAction label="Export .zip" onClick={() => void exportTheme(live)} busy={busy === `${live.id}:export`}>
+                        <Download className="h-4 w-4" />
+                      </IconAction>
                       <ResponsiveActionMenu
                         title={live.name}
-                        items={menuFor(live)}
+                        items={menuFor(live, { preview: true })}
                         menuWidth="w-52"
                         trigger={
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            aria-label="More actions"
-                            className="h-11 w-11 rounded-xl border-[#e5e7eb] text-[#1a1a2e] hover:bg-[#f8f9fa]"
+                          <button
+                            type="button"
+                            aria-label="More"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-[background-color,color,transform] duration-150 hover:bg-[#f8f9fa] hover:text-[#1a1a2e] active:scale-95"
                           >
-                            {busy?.startsWith(live.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
-                          </Button>
+                            {busy?.startsWith(live.id) && busy !== `${live.id}:export` ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+                          </button>
                         }
                       />
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
-                      <QuietLink onClick={() => go(editorHref(username, live.id, "code"))} icon={<Code2 className="h-3.5 w-3.5" />}>Edit code</QuietLink>
-                      <QuietLink onClick={() => go(editorHref(username, live.id, "settings"))} icon={<Settings2 className="h-3.5 w-3.5" />}>Project settings</QuietLink>
-                      <QuietLink onClick={() => void exportTheme(live)} icon={<Download className="h-3.5 w-3.5" />}>Export</QuietLink>
                     </div>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f3f0ff] text-[#8b5cf6]">
-                  <Rocket className="h-5 w-5" />
+              <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f3f4f6] text-[#6b7280]">
+                  <Rocket className="h-4.5 w-4.5" />
                 </span>
-                <h2 id="live-heading" className="text-[17px] font-semibold text-[#1a1a2e]">Nothing is live yet</h2>
-                <p className="max-w-sm text-[13.5px] text-[#6b7280]">
-                  Publish a theme from your library and it appears at{" "}
-                  <span className="font-medium text-[#1a1a2e]">{siteDisplay || "your store address"}</span>.
-                </p>
+                <h2 id="live-heading" className="text-[15px] font-semibold text-[#1a1a2e]">Nothing is live</h2>
+                <p className="text-[13px] text-[#6b7280]">Publish a theme from your library.</p>
               </div>
             )}
           </div>
@@ -533,10 +546,10 @@ export function WebsiteBuilderClient({
         {/* ── Library ────────────────────────────────────────────── */}
         <section aria-labelledby="library-heading" className="space-y-3">
           <SectionHeading
-            title="Theme library"
+            title="Library"
             aside={
-              <span className="rounded-full bg-[#eef0f3] px-2 py-0.5 text-[11.5px] font-medium text-[#6b7280]" title={`Up to ${THEME_INSTALL_LIMIT} websites, including the live one`}>
-                {slotsUsed} of {THEME_INSTALL_LIMIT}
+              <span className="rounded-md bg-[#eef0f3] px-1.5 py-0.5 text-[11.5px] font-semibold tabular-nums text-[#6b7280]" title={`Up to ${THEME_INSTALL_LIMIT} websites, including the live one`}>
+                {slotsUsed}/{THEME_INSTALL_LIMIT}
               </span>
             }
           >
@@ -554,10 +567,10 @@ export function WebsiteBuilderClient({
               variant="ghost"
               onClick={() => fileInput.current?.click()}
               disabled={busy === "import" || slotsLeft === 0}
-              className="h-9 rounded-lg px-3 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#eef0f3]"
+              className="h-9 rounded-lg px-2.5 text-[13px] font-medium text-[#4b5563] hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
             >
               {busy === "import" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Upload .zip
+              <span className="hidden sm:inline">Upload .zip</span>
             </Button>
             <Button
               asChild
@@ -570,14 +583,12 @@ export function WebsiteBuilderClient({
               </Link>
             </Button>
           </SectionHeading>
+          <h2 id="library-heading" className="sr-only">Library</h2>
 
           <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {library.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
-                <p className="text-[14px] font-medium text-[#1a1a2e]">Nothing waiting in the wings</p>
-                <p className="max-w-sm text-[13px] text-[#6b7280]">
-                  Add a theme to try a new look without touching your live website. Publish it when it is ready.
-                </p>
+              <div className="px-6 py-9 text-center text-[13px] text-[#6b7280]">
+                No other themes yet.
               </div>
             ) : (
               <ul className="divide-y divide-[#eceef1]">
@@ -587,12 +598,12 @@ export function WebsiteBuilderClient({
                   return (
                     <li key={i.id} className="flex items-center gap-3 p-3 transition-colors hover:bg-[#fafbfc] sm:gap-4 sm:p-4">
                       {/* The whole left of the row opens the editor — on a phone it is
-                          the only Customize there is. */}
+                          the only Edit there is. */}
                       <button
                         type="button"
                         onClick={() => go(editorHref(username, i.id))}
-                        className="flex min-w-0 flex-1 items-center gap-4 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40"
-                        aria-label={`Customize ${i.name}`}
+                        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:gap-4"
+                        aria-label={`Edit ${i.name}`}
                       >
                         <span className="relative block w-24 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-36">
                           <span className="block aspect-[16/10]">
@@ -600,14 +611,14 @@ export function WebsiteBuilderClient({
                           </span>
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="truncate text-[14.5px] font-semibold text-[#1a1a2e]">{i.name}</span>
-                            <StatusPill status={i.status} />
-                          </span>
-                          <span className="mt-1 block truncate text-[12.5px] text-[#6b7280]">
-                            Saved {relativeTime(i.saved_at) ?? "—"}
-                            {i.theme && <> · {i.theme.name}</>}
-                            {def && <> · {getIndustry(def.industry).label}</>}
+                          <span className="block truncate text-[14.5px] font-semibold text-[#1a1a2e]">{i.name}</span>
+                          <span className="mt-1 flex items-center gap-2 text-[12.5px] text-[#6b7280]">
+                            <StatusDot status={i.status} />
+                            <span className="text-[#d1d5db]">·</span>
+                            <span className="truncate">
+                              Edited {since(i.saved_at)}
+                              {def && <> · {getIndustry(def.industry).label}</>}
+                            </span>
                           </span>
                         </span>
                       </button>
@@ -623,26 +634,22 @@ export function WebsiteBuilderClient({
                         </Button>
                         <Button
                           onClick={() => go(editorHref(username, i.id))}
-                          className="hidden h-9 rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-medium text-white hover:bg-[#2d2d44] sm:inline-flex"
+                          className="hidden h-9 rounded-lg bg-[#1a1a2e] px-3.5 text-[13px] font-medium text-white hover:bg-[#2d2d44] sm:inline-flex"
                         >
-                          Customize
+                          Edit
                         </Button>
                         <ResponsiveActionMenu
                           title={i.name}
-                          items={[
-                            { label: "Publish", icon: <Rocket className="h-4 w-4" />, onClick: () => setPublishing(i) },
-                            ...menuFor(i),
-                          ]}
+                          items={menuFor(i, { publish: true })}
                           menuWidth="w-52"
                           trigger={
-                            <Button
-                              variant="ghost"
-                              size="icon"
+                            <button
+                              type="button"
                               aria-label={`More actions for ${i.name}`}
-                              className="h-9 w-9 rounded-lg text-[#6b7280] hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
+                              className="flex h-9 w-9 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
                             >
                               {isBusy && busy !== `${i.id}:publish` ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
-                            </Button>
+                            </button>
                           }
                         />
                       </div>
@@ -660,14 +667,15 @@ export function WebsiteBuilderClient({
             <Link
               href="/app/website-builder/themes"
               onClick={() => startNavigationLoading()}
-              className="inline-flex items-center gap-1 text-[13px] font-medium text-[#8b5cf6] transition-colors hover:text-[#7c3aed]"
+              className="inline-flex items-center gap-1 text-[13px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e]"
             >
-              View all themes
+              See all
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </SectionHeading>
           <h2 id="explore-heading" className="sr-only">Explore themes</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* A row you can flick through on a phone; a grid where there is room. */}
+          <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4 [&::-webkit-scrollbar]:hidden">
             {explore.map((t) => (
               <ExploreCard
                 key={t.id}
@@ -675,14 +683,12 @@ export function WebsiteBuilderClient({
                 busy={busy === `${t.id}:add`}
                 disabled={slotsLeft === 0}
                 onAdd={() => void addTheme(t)}
-                onPreview={() => go(`/app/website-builder/themes?theme=${t.slug}`)}
+                onOpen={() => go(`/app/website-builder/themes?theme=${t.slug}`)}
               />
             ))}
           </div>
           {slotsLeft === 0 && (
-            <p className="text-[12.5px] text-[#9ca3af]">
-              Your library is full. Remove a theme to add another.
-            </p>
+            <p className="text-[12.5px] text-[#9ca3af]">Your library is full. Remove a theme to add another.</p>
           )}
         </section>
       </div>
@@ -704,14 +710,14 @@ export function WebsiteBuilderClient({
             <AlertDialogTitle>Publish “{publishing?.name}”?</AlertDialogTitle>
             <AlertDialogDescription>
               {live
-                ? <>It becomes your live website at <span className="font-medium text-foreground">{siteDisplay}</span>. “{live.name}” goes offline but stays in your library, with everything saved.</>
-                : <>It becomes your live website at <span className="font-medium text-foreground">{siteDisplay}</span>.</>}
+                ? <>It replaces “{live.name}” at <span className="font-medium text-foreground">{siteDisplay}</span>. Nothing is deleted.</>
+                : <>It goes live at <span className="font-medium text-foreground">{siteDisplay}</span>.</>}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-lg">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed]"
+              className="rounded-lg bg-[#1a1a2e] hover:bg-[#2d2d44]"
               onClick={() => {
                 const target = publishing
                 setPublishing(null)
@@ -728,14 +734,12 @@ export function WebsiteBuilderClient({
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Take “{unpublishing?.name}” offline?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Visitors to {siteDisplay || "your website"} will see a placeholder until you publish a theme again. Nothing is deleted.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Visitors see a placeholder until you publish again.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-lg">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-xl bg-amber-600 hover:bg-amber-700"
+              className="rounded-lg bg-amber-600 hover:bg-amber-700"
               onClick={() => {
                 const target = unpublishing
                 setUnpublishing(null)
@@ -752,14 +756,12 @@ export function WebsiteBuilderClient({
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Remove “{deleting?.name}”?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This deletes its pages, settings and code. Export it first if you might want it back.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Its pages, settings and code are deleted. Export first to keep a copy.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-lg">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-xl bg-red-600 hover:bg-red-700"
+              className="rounded-lg bg-red-600 hover:bg-red-700"
               onClick={() => {
                 const target = deleting
                 setDeleting(null)
@@ -776,33 +778,11 @@ export function WebsiteBuilderClient({
       <div
         aria-hidden
         className={cn(
-          "pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 origin-left bg-[#8b5cf6] transition-[transform,opacity] duration-300",
+          "pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 origin-left bg-[#1a1a2e] transition-[transform,opacity] duration-300",
           isRefreshing ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0",
         )}
       />
     </div>
-  )
-}
-
-function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline gap-3">
-      <dt className="w-[88px] shrink-0 text-[#9ca3af]">{label}</dt>
-      <dd className="truncate text-[#1a1a2e]">{value}</dd>
-    </div>
-  )
-}
-
-function QuietLink({ onClick, icon, children }: { onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-1.5 text-[#6b7280] transition-colors hover:text-[#1a1a2e]"
-    >
-      {icon}
-      {children}
-    </button>
   )
 }
 
@@ -811,50 +791,43 @@ function ExploreCard({
   busy,
   disabled,
   onAdd,
-  onPreview,
+  onOpen,
 }: {
   def: ThemeDefinition
   busy: boolean
   disabled: boolean
   onAdd: () => void
-  onPreview: () => void
+  onOpen: () => void
 }) {
   return (
-    <div className="group flex flex-col overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-16px_rgba(15,23,42,0.25)] motion-reduce:transform-none">
+    <div className="group w-[78%] shrink-0 snap-start overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-16px_rgba(15,23,42,0.25)] motion-reduce:transform-none sm:w-auto">
       <button
         type="button"
-        onClick={onPreview}
+        onClick={onOpen}
         className="relative block aspect-[16/10] w-full overflow-hidden bg-[#f3f4f6]"
         aria-label={`Preview ${def.name}`}
       >
-        <ThemeCover spec={coverSpecFromDefinition(def)} className="h-full w-full transition-transform duration-500 ease-out group-hover:scale-[1.02] motion-reduce:transform-none" />
+        <ThemeCoverPair spec={coverSpecFromDefinition(def)} />
       </button>
-      <div className="flex flex-1 flex-col p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{def.name}</p>
-            <p className="mt-0.5 text-[12px] text-[#6b7280]">{getIndustry(def.industry).label}</p>
-          </div>
-          <span className="shrink-0 rounded-full bg-[#f3f0ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]">Free</span>
-        </div>
-        <p className="mt-2 line-clamp-2 text-[12.5px] leading-[1.45] text-[#6b7280]">{def.tagline}</p>
-        <div className="mt-auto flex gap-2 pt-4">
-          <Button
-            onClick={onAdd}
-            disabled={busy || disabled}
-            className="h-9 flex-1 rounded-lg bg-[#1a1a2e] text-[13px] font-medium text-white hover:bg-[#2d2d44] disabled:opacity-60"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Add
-          </Button>
-          <Button
-            variant="outline"
-            onClick={onPreview}
-            className="h-9 rounded-lg border-[#e5e7eb] px-3 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f8f9fa]"
-          >
-            Preview
-          </Button>
-        </div>
+      <div className="flex items-center gap-3 p-3.5">
+        <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+          <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{def.name}</p>
+          <p className="mt-0.5 truncate text-[12px] text-[#6b7280]">{getIndustry(def.industry).label}</p>
+        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={onAdd}
+              disabled={busy || disabled}
+              aria-label={`Add ${def.name}`}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1a1a2e] text-white transition-[background-color,transform] duration-150 hover:bg-[#2d2d44] active:scale-95 disabled:opacity-40"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-[12px]">Add to library</TooltipContent>
+        </Tooltip>
       </div>
     </div>
   )
@@ -889,10 +862,9 @@ function RenameDialog({
   }
   return (
     <Dialog open={!!install} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="rounded-2xl sm:max-w-md">
+      <DialogContent className="rounded-2xl sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Rename website</DialogTitle>
-          <DialogDescription>Only you see this name. Your store address stays the same.</DialogDescription>
+          <DialogTitle>Rename</DialogTitle>
         </DialogHeader>
         <Input
           value={name}
@@ -905,11 +877,11 @@ function RenameDialog({
               void submit()
             }
           }}
-          className="h-11 rounded-xl"
+          className="h-10 rounded-lg"
         />
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} className="rounded-xl">Cancel</Button>
-          <Button onClick={() => void submit()} disabled={saving || !name.trim()} className="rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed]">
+          <Button variant="outline" onClick={onClose} className="rounded-lg">Cancel</Button>
+          <Button onClick={() => void submit()} disabled={saving || !name.trim()} className="rounded-lg bg-[#1a1a2e] hover:bg-[#2d2d44]">
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
             Save
           </Button>

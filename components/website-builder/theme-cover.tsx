@@ -21,6 +21,7 @@
  */
 
 import type { CSSProperties } from "react"
+import { cn } from "@/lib/utils"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import {
   contrastText,
@@ -139,7 +140,7 @@ function fontStack(name: string, fallback: string) {
 const SERIF = /playfair|cormorant|garamond|merriweather|lora|serif/i
 
 /** Split a headline into at most two lines that fit `maxChars`. */
-function wrap(text: string, maxChars: number): string[] {
+function wrap(text: string, maxChars: number, maxLines = 2): string[] {
   const words = text.split(/\s+/)
   const lines: string[] = []
   let cur = ""
@@ -150,10 +151,10 @@ function wrap(text: string, maxChars: number): string[] {
     } else {
       cur = (cur + " " + w).trim()
     }
-    if (lines.length === 2) break
+    if (lines.length === maxLines) break
   }
-  if (lines.length < 2 && cur) lines.push(cur)
-  return lines.slice(0, 2)
+  if (lines.length < maxLines && cur) lines.push(cur)
+  return lines.slice(0, maxLines)
 }
 
 export function ThemeCover({
@@ -331,5 +332,115 @@ export function ThemeCover({
         )
       })}
     </svg>
+  )
+}
+
+/**
+ * The same theme on a phone. 390×780, drawn from the same spec, so a card can
+ * show both — the way a theme store does — without a second data source.
+ */
+export function ThemePhoneCover({ spec, className, style }: { spec: ThemeCoverSpec; className?: string; style?: CSSProperties }) {
+  const PW = 390
+  const PH = 780
+  const heading = fontStack(spec.fontHeading, SERIF.test(spec.fontHeading) ? "Georgia, serif" : "Inter, system-ui, sans-serif")
+  const body = fontStack(spec.fontBody, "Inter, system-ui, sans-serif")
+  const darkPage = isDark(spec.bg)
+  const onHero = spec.heroText
+  const onHeroMuted = withAlpha(spec.heroText, 0.7)
+  const btnR = radius(spec.buttonStyle, 40)
+  const cardR = spec.buttonStyle === "square" ? 4 : spec.buttonStyle === "pill" ? 14 : 10
+  const navH = 56
+  const heroY = navH
+  const heroH = 330
+  const gridY = heroY + heroH
+  const lines = wrap(spec.headline, 17, 3)
+  const size = lines.some((l) => l.length > 14) ? 28 : 32
+  const headlineY = heroY + 96
+  const subY = headlineY + (lines.length - 1) * (size + 6) + 34
+  const ctaY = Math.min(subY + 24, heroY + heroH - 66)
+  const ctaW = Math.max(120, Math.min(220, spec.cta.length * 9 + 40))
+  const ctaText = contrastText(spec.primary)
+  const tiles = [withAlpha(spec.primary, darkPage ? 0.55 : 0.18), withAlpha(spec.text, darkPage ? 0.18 : 0.08)]
+
+  return (
+    <svg viewBox={`0 0 ${PW} ${PH}`} className={className} style={style} aria-hidden preserveAspectRatio="xMidYMin slice">
+      <rect width={PW} height={PH} fill={spec.bg} />
+      {/* nav */}
+      <line x1={0} y1={navH - 0.5} x2={PW} y2={navH - 0.5} stroke={spec.border} />
+      <g fill={spec.text}>
+        <rect x={20} y={22} width={18} height={2} rx={1} />
+        <rect x={20} y={28} width={18} height={2} rx={1} />
+        <rect x={20} y={34} width={18} height={2} rx={1} />
+      </g>
+      <text x={PW / 2} y={35} textAnchor="middle" fill={spec.text} fontFamily={heading} fontSize={17} fontWeight={700} letterSpacing={-0.3}>
+        {spec.brand}
+      </text>
+      <rect x={PW - 40} y={20} width={18} height={16} rx={3} fill="none" stroke={spec.text} strokeWidth={1.6} />
+      {/* hero */}
+      <rect x={0} y={heroY} width={PW} height={heroH} fill={spec.heroBg} />
+      <text x={PW / 2} y={heroY + 54} textAnchor="middle" fill={onHeroMuted} fontFamily={body} fontSize={11} letterSpacing={2} fontWeight={600}>
+        {spec.brand.toUpperCase()}
+      </text>
+      {lines.map((l, i) => (
+        <text key={i} x={PW / 2} y={headlineY + i * (size + 6)} textAnchor="middle" fill={onHero} fontFamily={heading} fontSize={size} fontWeight={700} letterSpacing={-0.6}>
+          {l}
+        </text>
+      ))}
+      <text x={PW / 2} y={subY} textAnchor="middle" fill={onHeroMuted} fontFamily={body} fontSize={13}>
+        {spec.sub.length > 44 ? spec.sub.slice(0, 42).trimEnd() + "…" : spec.sub}
+      </text>
+      <rect x={PW / 2 - ctaW / 2} y={ctaY} width={ctaW} height={40} rx={btnR} fill={spec.primary} />
+      <text x={PW / 2} y={ctaY + 25} textAnchor="middle" fill={ctaText} fontFamily={body} fontSize={14} fontWeight={600}>
+        {spec.cta}
+      </text>
+      {/* grid */}
+      <text x={20} y={gridY + 44} fill={spec.text} fontFamily={heading} fontSize={20} fontWeight={700} letterSpacing={-0.4}>
+        Featured
+      </text>
+      {tiles.map((tint, i) => {
+        const gap = 14
+        const cw = (PW - 40 - gap) / 2
+        const x = 20 + i * (cw + gap)
+        const y = gridY + 66
+        const ih = cw
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={cw} height={ih + 70} rx={cardR} fill={darkPage ? spec.surface : spec.bg} stroke={spec.border} />
+            <rect x={x + 1} y={y + 1} width={cw - 2} height={ih} rx={cardR - 1} fill={tint} />
+            <rect x={x + 14} y={y + ih + 20} width={cw * 0.6} height={10} rx={5} fill={withAlpha(spec.text, 0.75)} />
+            <rect x={x + 14} y={y + ih + 40} width={44} height={9} rx={4.5} fill={spec.primary} />
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+/**
+ * A desktop cover with the phone version tucked into its corner — one
+ * picture that says "this is a website" and "it works on a phone" at once.
+ */
+export function ThemeCoverPair({
+  spec,
+  className,
+  phone = true,
+  title,
+}: {
+  spec: ThemeCoverSpec
+  className?: string
+  phone?: boolean
+  title?: string
+}) {
+  return (
+    <div className={cn("relative h-full w-full overflow-hidden", className)}>
+      <ThemeCover spec={spec} className="h-full w-full" title={title} />
+      {phone && (
+        <div className="absolute -bottom-[7%] right-[4%] w-[19%] overflow-hidden rounded-[9%/4.5%] border-[2px] border-[#1a1a2e] bg-white shadow-[0_10px_24px_-8px_rgba(15,23,42,0.45)]">
+          <div className="aspect-[390/780]">
+            <ThemePhoneCover spec={spec} className="h-full w-full" />
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
