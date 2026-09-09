@@ -94,7 +94,13 @@ export function AnnouncementBannerSection({ section, isEditing, isSelected, onCl
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div
-        className="flex items-center gap-3 px-6 max-w-[1400px] mx-auto text-sm"
+        /**
+         * WRAPS ON A NARROW BAR. It was one non-wrapping row with a
+         * `shrink-0` call to action and a `shrink-0` close button, so a
+         * long announcement pushed 47px of the page sideways on a phone
+         * — measured, at 390px.
+         */
+        className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 px-6 max-w-[1400px] mx-auto text-sm @[520px]:flex-nowrap @[520px]:justify-start"
         style={{
           color: text,
           background: bg,
@@ -119,7 +125,7 @@ export function AnnouncementBannerSection({ section, isEditing, isSelected, onCl
         {!!s.cta_text && (
           <a
             href={str(s.cta_url, "#")}
-            className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded"
+            className="shrink-0 rounded px-3 py-1.5 text-xs font-semibold"
             style={
               str(s.cta_style, "filled") === "outline"
                 ? { border: `1px solid ${accent}`, color: accent }

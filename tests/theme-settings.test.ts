@@ -194,6 +194,22 @@ section("The stylesheet is scoped, or it would leak into the editor")
   )
   check("a section gap is only ever between sections", /\[data-section\]\+\[data-section\]/.test(css))
   check(
+    "one long word cannot push the page sideways",
+    /**
+     * MEASURED, in Chromium at 390px with the real compiled stylesheet — see
+     * scripts/check-responsive.mjs. With the shipped demo copy all fifty
+     * sections were clean. With ONE unbreakable string in a text field — a
+     * long product name, a pasted URL, an email address — THIRTY-FIVE of them
+     * pushed the page into horizontal scroll, by up to 866px.
+     *
+     * `anywhere`, not `break-word`: only `anywhere` shrinks an element's
+     * min-content width, and it is the min-content width that makes a flex or
+     * grid child refuse to get narrower than its longest word. `break-word`
+     * wraps the text and leaves the blowout exactly where it was.
+     */
+    /\[data-section\]\{overflow-wrap:anywhere/.test(css),
+  )
+  check(
     "the entrance animation respects a reduced-motion setting",
     /prefers-reduced-motion/.test(css),
   )

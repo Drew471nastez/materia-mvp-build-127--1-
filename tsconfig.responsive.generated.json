@@ -1,0 +1,1 @@
+{"compilerOptions":{"outDir":"/tmp/storelib-responsive-xLy2Za","rootDir":".","target":"es2022","module":"esnext","moduleResolution":"bundler","skipLibCheck":true,"strict":false,"jsx":"react-jsx","baseUrl":".","paths":{"@/*":["./*"]}},"files":["scripts/render-sections.ts"]}
