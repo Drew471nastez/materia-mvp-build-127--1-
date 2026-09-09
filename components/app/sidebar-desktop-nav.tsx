@@ -29,7 +29,7 @@
  * ---------------------------------------------------------------------------
  *  ICONS
  * ---------------------------------------------------------------------------
- * Remix Icon, 20px, the line and fill variants stacked in one box and
+ * Solar, 20px, the linear and bold variants stacked in one box and
  * cross-faded so the fill arrives rather than appears. Every icon sits in a
  * fixed 20×20 box, so nothing an icon does can move the label beside it.
  */
@@ -38,34 +38,39 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import {
-  RiArrowDownSLine,
-  RiBankCardFill,
-  RiBankCardLine,
-  RiBarChartBoxFill,
-  RiBarChartBoxLine,
-  RiBox3Fill,
-  RiBox3Line,
-  RiFileList3Fill,
-  RiFileList3Line,
-  RiFlashlightFill,
-  RiFlashlightLine,
-  RiGlobalFill,
-  RiGlobalLine,
-  RiGroupFill,
-  RiGroupLine,
-  RiHome5Fill,
-  RiHome5Line,
-  RiMailFill,
-  RiMailLine,
-  RiScissorsFill,
-  RiScissorsLine,
-  RiSettings3Fill,
-  RiSettings3Line,
-  RiStore2Fill,
-  RiStore2Line,
-  type RemixiconComponentType,
-} from "@remixicon/react"
+/*
+  IMPORTED ONE MODULE AT A TIME, per style.
+
+  `@solar-icons/react` re-exports every icon from its index at the
+  bold-duotone weight, so a bare `import { HomeIcon }` gets the wrong style
+  AND pulls the barrel. The subpath exports — /linear/x and /bold/x — are the
+  two glyphs this file actually renders, and nothing else ships.
+*/
+import { AltArrowDownIcon } from "@solar-icons/react/linear/alt-arrow-down"
+import { BoltIcon as BoltBold } from "@solar-icons/react/bold/bolt"
+
+import { BillListIcon as OrdersLinear } from "@solar-icons/react/linear/bill-list"
+import { BillListIcon as OrdersBold } from "@solar-icons/react/bold/bill-list"
+import { BoxIcon as ProductsLinear } from "@solar-icons/react/linear/box"
+import { BoxIcon as ProductsBold } from "@solar-icons/react/bold/box"
+import { CardIcon as PayoutsLinear } from "@solar-icons/react/linear/card"
+import { CardIcon as PayoutsBold } from "@solar-icons/react/bold/card"
+import { ChartSquareIcon as AnalyticsLinear } from "@solar-icons/react/linear/chart-square"
+import { ChartSquareIcon as AnalyticsBold } from "@solar-icons/react/bold/chart-square"
+import { GlobalIcon as OnePageLinear } from "@solar-icons/react/linear/global"
+import { GlobalIcon as OnePageBold } from "@solar-icons/react/bold/global"
+import { HomeIcon as DashboardLinear } from "@solar-icons/react/linear/home"
+import { HomeIcon as DashboardBold } from "@solar-icons/react/bold/home"
+import { LetterIcon as EmailsLinear } from "@solar-icons/react/linear/letter"
+import { LetterIcon as EmailsBold } from "@solar-icons/react/bold/letter"
+import { ScissorsIcon as ShortenerLinear } from "@solar-icons/react/linear/scissors"
+import { ScissorsIcon as ShortenerBold } from "@solar-icons/react/bold/scissors"
+import { SettingsIcon as SettingsLinear } from "@solar-icons/react/linear/settings"
+import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
+import { ShopIcon as StoreLinear } from "@solar-icons/react/linear/shop"
+import { ShopIcon as StoreBold } from "@solar-icons/react/bold/shop"
+import { UsersGroupRoundedIcon as PeopleLinear } from "@solar-icons/react/linear/users-group-rounded"
+import { UsersGroupRoundedIcon as PeopleBold } from "@solar-icons/react/bold/users-group-rounded"
 
 import { cn } from "@/lib/utils"
 
@@ -113,20 +118,28 @@ const ROW =
   "transition-[background-color,color] duration-[140ms] ease-out"
 
 /**
- * 495 and 605 — a real 10% heavier than the 450/550 they replace, and real is
- * the operative word.
+ * 470 and 575 — five per cent back off 495/605, and real values rather than
+ * rounded ones.
  *
  * `next/font` loads Inter as a VARIABLE font — the call in app/layout.tsx asks
  * for no specific weights, which is what makes the whole 100–900 axis
- * available, so 495 renders as 495. On a static font it would snap to 500,
- * 605 would snap to 600, and "ten per cent heavier" would land wherever the
- * rounding happened to put it.
+ * available, so 470 renders as 470. On a static font it would snap to 500,
+ * 575 would snap to 600, and a five per cent step would land wherever the
+ * rounding happened to put it — which is to say, nowhere near five per cent.
  */
 /** Long enough to read as a change, short enough not to lag the click. */
 const FILL_TRANSITION = "opacity 160ms cubic-bezier(0.2, 0, 0, 1)"
 
-const REST_WEIGHT = 495
-const ACTIVE_WEIGHT = 605
+/**
+ * 1.5 in a 24-unit box — Solar's own drawing weight, which is the weight the
+ * reference is drawn at. Lighter than what it replaces: Remix's line icons
+ * were a 2-unit solid with another 0.3 of stroke painted over them, so this
+ * is roughly a third of the ink gone.
+ */
+const ICON_STROKE = 1.5
+
+const REST_WEIGHT = 470
+const ACTIVE_WEIGHT = 575
 
 export type NavChild = { href: string; label: string }
 
@@ -146,18 +159,19 @@ export type NavItemData = {
  * components, and the pair is what the cross-fade needs: something to fade
  * from and something to fade to.
  */
-export type NavIconPair = { line: RemixiconComponentType; fill: RemixiconComponentType }
+type SolarIcon = typeof DashboardLinear
+export type NavIconPair = { line: SolarIcon; fill: SolarIcon }
 
 /** The icons the sidebar uses, exported so the shell can build its nav list. */
 export const NAV_ICONS = {
-  dashboard: { line: RiHome5Line, fill: RiHome5Fill },
-  products: { line: RiBox3Line, fill: RiBox3Fill },
-  analytics: { line: RiBarChartBoxLine, fill: RiBarChartBoxFill },
-  orders: { line: RiFileList3Line, fill: RiFileList3Fill },
-  onepage: { line: RiGlobalLine, fill: RiGlobalFill },
-  storeBuilder: { line: RiStore2Line, fill: RiStore2Fill },
-  emails: { line: RiMailLine, fill: RiMailFill },
-  payouts: { line: RiBankCardLine, fill: RiBankCardFill },
+  dashboard: { line: DashboardLinear, fill: DashboardBold },
+  products: { line: ProductsLinear, fill: ProductsBold },
+  analytics: { line: AnalyticsLinear, fill: AnalyticsBold },
+  orders: { line: OrdersLinear, fill: OrdersBold },
+  onepage: { line: OnePageLinear, fill: OnePageBold },
+  storeBuilder: { line: StoreLinear, fill: StoreBold },
+  emails: { line: EmailsLinear, fill: EmailsBold },
+  payouts: { line: PayoutsLinear, fill: PayoutsBold },
 } as const satisfies Record<string, NavIconPair>
 
 /**
@@ -166,7 +180,7 @@ export const NAV_ICONS = {
  * declared in one place and none of them can drift out of the family.
  */
 const NAV_ICONS_EXTRA = {
-  settings: { line: RiSettings3Line, fill: RiSettings3Fill },
+  settings: { line: SettingsLinear, fill: SettingsBold },
   /*
     SCISSORS, NOT A CHAIN LINK — and not by preference.
 
@@ -180,8 +194,8 @@ const NAV_ICONS_EXTRA = {
     Scissors has a real filled form, and for a link SHORTENER it is the
     better metaphor anyway.
   */
-  linkShortener: { line: RiScissorsLine, fill: RiScissorsFill },
-  communities: { line: RiGroupLine, fill: RiGroupFill },
+  linkShortener: { line: ShortenerLinear, fill: ShortenerBold },
+  communities: { line: PeopleLinear, fill: PeopleBold },
 } as const satisfies Record<string, NavIconPair>
 
 /**
@@ -191,20 +205,24 @@ const NAV_ICONS_EXTRA = {
  * different icon can never move the text or change the row's width.
  *
  * ---------------------------------------------------------------------------
- *  WHY REMIX ICON
+ *  WHY SOLAR
  * ---------------------------------------------------------------------------
- * The requirement that decides this is that the row you are on must be FILLED,
- * which rules out most libraries outright. Lucide's icons are strokes rather
- * than shapes — reading the path data, `store` has four open subpaths,
- * `package` three — and handing an open path to a fill paints the region it
- * implies rather than the glyph. There is no filled variant to switch to.
+ * Two requirements decide this, and together they rule out most libraries.
  *
- * Phosphor has one, and was used here first, but its regular weight is a hair
- * of a thing: 16 units of stroke in a 256-unit box, 6.25% of the frame. Remix
- * draws 2 units in a 24-unit box — 8.3%, a third heavier before anything is
- * added to it — on a rounded geometric grid, which is the bold-and-round
- * look this was asked for. Every icon ships as a `…Line` and a `…Fill`
- * component with genuinely different path data.
+ * The row you are on must be FILLED, which needs a real solid variant of the
+ * same glyph. Lucide has none — its icons are open strokes, and filling an
+ * open path paints the region it implies rather than the glyph. Hugeicons'
+ * free set has none either: 6,025 icons, every one of them stroke-rounded,
+ * checked before it was ruled out.
+ *
+ * And the shapes have to be ROUNDED — squircle corners, not the near-square
+ * ones Remix draws. Solar builds its corners from wide curves
+ * (`M2 12C2 7.28 2 4.93 3.46 3.46`), which is a superellipse, not a small
+ * fillet on a square.
+ *
+ * Its `linear` icons are also genuinely stroked — fill="none", stroke-width
+ * 1.5 — so icon weight is a number rather than the overlay trick the previous
+ * two libraries forced.
  *
  * It is used HERE ONLY — the rest of the app is Lucide and stays Lucide.
  */
@@ -239,6 +257,7 @@ function NavIcon({
       */}
       <Line
         size={20}
+        strokeWidth={ICON_STROKE}
         data-variant="outline"
         style={{ position: "absolute", opacity: active ? 0 : 1, transition: FILL_TRANSITION }}
       />
@@ -492,7 +511,7 @@ export function DesktopNavItem({
             className="absolute right-[10px] top-1/2 flex h-5 w-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-[6px]"
             style={{ color: active ? ACTIVE_TEXT : hovered ? HOVER_TEXT : LABEL_TEXT }}
           >
-            <RiArrowDownSLine
+            <AltArrowDownIcon
               size={16}
               style={{
                 transformOrigin: "center",
@@ -560,6 +579,14 @@ export function DesktopNavItem({
 function Collapsible({ open, children }: { open: boolean; children: React.ReactNode }) {
   return (
     <div
+      /*
+        A hook of its own, so nothing has to guess which element this is.
+        The browser probe used to find it with `[aria-hidden]` — which held
+        until an icon library arrived that puts aria-hidden on every svg it
+        renders, and then the probe measured a 20px icon and reported the
+        submenu as open.
+      */
+      data-nav-submenu={open ? "open" : "closed"}
       aria-hidden={!open}
       style={{
         display: "grid",
@@ -611,30 +638,19 @@ export function DesktopSidebarContent({
   return (
     <div className="flex h-full flex-col bg-white font-sans">
       {/*
-        A RESTING ICON, ~15% MORE PRONOUNCED.
+        NO STROKE OVERLAY ANY MORE, AND THAT IS THE POINT OF THE MOVE.
 
-        Remix does not stroke anything either — measured, by rendering one: a
-        `…Line` icon is a FILLED PATH that describes the shape of a stroke, not
-        a stroked one. There is no `stroke-width` on it to raise.
+        Phosphor and Remix both draw a "line" icon as a FILLED PATH shaped
+        like a stroke — there is no stroke-width on it to set, so making one
+        heavier or lighter meant painting a stroke of the icon's own colour
+        over the fill and tuning that. Two libraries, two magic numbers (2.4
+        in a 256-unit box, 0.3 in a 24-unit one), and a number that silently
+        means something else the moment the library changes.
 
-        A stroke of the icon's own colour laid over that fill thickens every
-        edge instead. Remix draws 2 units of stroke in a 24-unit box, so 0.3
-        adds 0.15 to each side of every edge: that outline plus fifteen per
-        cent, exactly.
-
-        The number changed with the library. Phosphor's box is 256 units wide
-        with a 16-unit stroke, where the same fifteen per cent was 2.4 — carry
-        that value over to a 24-unit box and every icon becomes a blot.
-
-        The outline layer only. The filled one is a solid shape, and a stroke
-        around it would just make it very slightly bigger.
+        A Solar `linear` icon is a REAL stroke: fill="none", stroke-width 1.5.
+        The weight is a number on the element, so ICON_STROKE below is the
+        whole mechanism and there is nothing to compensate for.
       */}
-      <style>{`
-        [data-nav-icon] svg[data-variant="outline"] path {
-          stroke: currentColor;
-          stroke-width: 0.3;
-        }
-      `}</style>
       {/* px-[7px] — the rows carry their own 14px inner padding, so the
           sidebar's own gutter is only the gap between a row's rounded edge
           and the border. */}
@@ -685,7 +701,7 @@ export function DesktopSidebarContent({
             <p className="text-[11px] text-neutral-600">{upgradeSubtitle}</p>
           </div>
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 transition-colors duration-[140ms] ease-out group-hover:bg-gray-200">
-            <RiFlashlightFill size={14} className="text-violet-500" />
+            <BoltBold size={14} className="text-violet-500" />
           </div>
         </Link>
 

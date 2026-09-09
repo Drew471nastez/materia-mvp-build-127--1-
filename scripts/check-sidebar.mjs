@@ -76,7 +76,7 @@ function run() {
     .filter((el) => String(el.className).includes("h-[38px]"))
   const nav = rail.querySelector("nav")
   const chev = rail.querySelector("[aria-expanded]")
-  const sub = rail.querySelector("[aria-hidden]")
+  const sub = rail.querySelector("[data-nav-submenu]")
   const out = {
     railWidth: Math.round(rail.getBoundingClientRect().width),
     navPadding: getComputedStyle(nav).paddingLeft + "/" + getComputedStyle(nav).paddingRight,
@@ -115,6 +115,7 @@ function run() {
           transition: cs.transitionProperty + " " + cs.transitionDuration,
           painted: painted.length,
           stroke: painted.find((n) => n.stroke !== "none")?.strokeWidth ?? "none",
+          fill: painted.find((n) => n.fill !== "none" && n.fill !== "rgba(0, 0, 0, 0)") ? "solid" : "none",
           /*
             EVERY path, joined — not the first one.
 
@@ -207,10 +208,10 @@ try {
 
     const active = rows.filter((r) => r.bg === "rgb(232, 232, 232)")
     expect(active.length === 1, "one row is active", active.length)
-    expect(active[0]?.color === "rgb(32, 32, 32)" && active[0]?.fw === "605", "and it is #202020 at weight 605", JSON.stringify(active[0]))
+    expect(active[0]?.color === "rgb(32, 32, 32)" && active[0]?.fw === "575", "and it is #202020 at weight 575", JSON.stringify(active[0]))
     const resting = rows.filter((r) => r.bg === "rgba(0, 0, 0, 0)" && r.color === "rgb(102, 102, 102)")
     expect(resting.length >= 6, "the rest are #666666 on nothing", resting.length)
-    expect(resting.every((r) => r.fw === "495"), "at weight 495, not a rounded 500", JSON.stringify([...new Set(resting.map((r) => r.fw))]))
+    expect(resting.every((r) => r.fw === "470"), "at weight 470, not a rounded 500", JSON.stringify([...new Set(resting.map((r) => r.fw))]))
 
     expect(m.icons.every((i) => i.box === "20x20"), "every icon box is 20×20", JSON.stringify(m.icons.map((i) => i.box)))
     expect(
@@ -257,20 +258,27 @@ try {
     )
     expect(
       /*
-        0.3 in a 24-unit viewBox, rendered at 20px, computes to 0.25px. The
-        number moved with the library: Remix draws 2 units of stroke in a
-        24-unit box where Phosphor drew 16 in 256, so the 2.4 that meant
-        "+15%" there would be a blot here. Computed style reports SVG
-        stroke-width in user units, hence "0.3px" rather than a real 0.25px.
+        A REAL STROKE NOW, not a painted-on one.
+
+        Both previous libraries drew a "line" icon as a filled path shaped
+        like a stroke, so weight had to be faked by painting a stroke of the
+        icon's own colour over the fill — 2.4 units for Phosphor, 0.3 for
+        Remix, a magic number per library. Solar's linear icons are stroked
+        for real, so this now reads the drawing weight itself.
       */
-      m.icons.every((i) => i.outline.stroke === "0.3px"),
-      "the outline layer carries the ~15% thickening stroke",
+      m.icons.every((i) => i.outline.stroke === "1.5px"),
+      "the resting layer is stroked at 1.5, the weight it is drawn at",
       JSON.stringify(m.icons.map((i) => i.outline.stroke)),
     )
     expect(
-      m.icons.every((i) => i.filled.stroke === "none" || i.filled.stroke === "0px"),
-      "which the filled one does not need",
-      JSON.stringify(m.icons.map((i) => i.filled.stroke)),
+      m.icons.every((i) => i.outline.fill === "none"),
+      "and is a stroke rather than a fill shaped like one",
+      JSON.stringify(m.icons.map((i) => i.outline.fill)),
+    )
+    expect(
+      m.icons.every((i) => i.filled.fill !== "none"),
+      "while the active layer is a genuine solid",
+      JSON.stringify(m.icons.map((i) => i.filled.fill)),
     )
 
     expect(m.chevron.w === 20 && m.chevron.fromRight === 18, "the chevron is a fixed box pinned right", JSON.stringify(m.chevron))

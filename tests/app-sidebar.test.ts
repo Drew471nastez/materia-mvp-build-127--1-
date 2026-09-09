@@ -162,10 +162,10 @@ section("A row is the same size in every state")
  *
  *   rail 240   nav padding 7/7
  *   row        h 38  w 225  radius 12  padding 14/14  gap 8
- *   type       15px / 24px, tracked -0.01em, weight 495 resting, 605 active
+ *   type       15px / 24px, tracked -0.01em, weight 470 resting, 575 active
  *   resting    #666666 on transparent
  *   active     #202020 on #e8e8e8
- *   icon       20×20 box, a Remix line and fill glyph stacked, cross-faded
+ *   icon       20×20 box, a Solar linear and bold glyph stacked, cross-faded
  *   chevron    20×20, pinned 18px from the rail's edge, rotate(0) → rotate(180)
  *   submenu    grid-template-rows 0px/opacity 0 → 36px/opacity 1
  *
@@ -202,12 +202,12 @@ section("A row is the same size in every state")
     /**
      * `next/font` loads Inter with no weight list in app/layout.tsx, which is
      * what makes the whole 100–900 axis available. On a static font 450 snaps
-     * to 500 and 605 snaps to 600 — and "ten per cent heavier than 450 and
-     * 550" would land wherever the rounding happened to put it rather than
-     * where it was asked to.
+     * to 500 and 575 snaps to 600 — and a five per cent step would land
+     * wherever the rounding happened to put it, which is to say nowhere near
+     * five per cent.
      */
-    /const REST_WEIGHT = 495/.test(navSource) &&
-      /const ACTIVE_WEIGHT = 605/.test(navSource) &&
+    /const REST_WEIGHT = 470/.test(navSource) &&
+      /const ACTIVE_WEIGHT = 575/.test(navSource) &&
       !/weight: \[/.test(readFileSync(join(root, "app/layout.tsx"), "utf8").slice(0, 4000)),
   )
   check(
@@ -242,7 +242,7 @@ section("A row is the same size in every state")
       enough. A guard that a stylesheet can satisfy on the component's behalf
       is not guarding the component.
     */
-    /<Line\s+size=\{20\}\s+data-variant="outline"/.test(navSource) &&
+    /<Line\s+size=\{20\}\s+strokeWidth=\{ICON_STROKE\}\s+data-variant="outline"/.test(navSource) &&
       /<Fill\s+size=\{20\}\s+data-variant="filled"/.test(navSource) &&
       /opacity: active \? 0 : 1, transition: FILL_TRANSITION/.test(navSource) &&
       /opacity: active \? 1 : 0, transition: FILL_TRANSITION/.test(navSource) &&
@@ -299,25 +299,42 @@ section("A row is the same size in every state")
      * the app that does not use it. Lucide's icons are strokes rather than
      * shapes — reading the path data, `store` has four open subpaths,
      * `package` three — and filling an open path paints the region it implies
-     * rather than the glyph. Remix ships a real `…Fill` beside every `…Line`.
+     * rather than the glyph. Hugeicons' free set has none either — 6,025
+     * icons, every one stroke-rounded, checked before it was ruled out.
+     * Solar ships a `bold` beside every `linear`.
      */
-    /@remixicon\/react/.test(navSource) && /fill: Ri\w+Fill/.test(navSource),
+    /@solar-icons\/react\/linear\//.test(navSource) &&
+      /@solar-icons\/react\/bold\//.test(navSource) &&
+      /fill: \w+Bold/.test(navSource),
   )
   check(
-    "and a resting one is drawn about fifteen per cent heavier",
+    "icon weight is a number on the element, not a stroke painted over a fill",
     /**
-     * Remix strokes nothing — a `…Line` icon is a filled path that describes
-     * the SHAPE of a stroke — so there is no stroke-width on it to raise. A
-     * stroke of the icon's own colour laid over that fill thickens every edge
-     * instead: Remix draws 2 units in a 24-unit box, so 0.3 adds 0.15 a side,
-     * which is that outline plus fifteen per cent.
+     * Phosphor and Remix both draw a "line" icon as a FILLED PATH shaped like
+     * a stroke. There is no stroke-width on one to set, so weight had to be
+     * faked by painting a stroke of the icon's own colour over the fill and
+     * tuning it — 2.4 units in Phosphor's 256-unit box, 0.3 in Remix's
+     * 24-unit one. A magic number per library, silently meaning something
+     * else the moment the library changes.
      *
-     * The number is library-specific. Phosphor's box is 256 wide with a
-     * 16-unit stroke, where the same fifteen per cent was 2.4 — carried over
-     * unchanged it would turn every icon into a blot.
+     * A Solar `linear` icon is stroked for real: fill="none", stroke-width
+     * 1.5. One constant, no compensation, and nothing left in the stylesheet.
      */
-    /\[data-nav-icon\] svg\[data-variant="outline"\] path \{\s*stroke: currentColor;\s*stroke-width: 0\.3;/.test(navSource) &&
-      /data-nav-icon=\{active \? "filled" : "outline"\}/.test(navSource),
+    /const ICON_STROKE = 1\.5/.test(navSource) &&
+      /strokeWidth=\{ICON_STROKE\}/.test(navSource) &&
+      !/stroke-width: [\d.]+;/.test(navSource) &&
+      !/stroke: currentColor/.test(navSource),
+  )
+  check(
+    "the submenu is found by a hook of its own",
+    /**
+     * The browser probe used to locate it with `[aria-hidden]`, which held
+     * until an icon library arrived that puts aria-hidden on every svg it
+     * renders — and then the probe measured a 20px icon and cheerfully
+     * reported the submenu as open.
+     */
+    /data-nav-submenu=\{open \? "open" : "closed"\}/.test(navSource) &&
+      /\[data-nav-submenu\]/.test(readFileSync(join(root, "scripts/check-sidebar.mjs"), "utf8")),
   )
   check(
     "the chevron is outside the link, in a fixed box, pinned to the right",
