@@ -29,10 +29,9 @@
  * ---------------------------------------------------------------------------
  *  ICONS
  * ---------------------------------------------------------------------------
- * Lucide, 18px, 1.75 stroke — 2 when active, which is Lucide's equivalent of
- * a filled variant and the only way to weight an outline icon without
- * changing its size. Every icon sits in a fixed 20×20 box, so nothing an icon
- * does can move the label beside it.
+ * Phosphor, 20px, resting and filled weights stacked in one box and
+ * cross-faded so the fill arrives rather than appears. Every icon sits in a
+ * fixed 20×20 box, so nothing an icon does can move the label beside it.
  */
 
 import Link from "next/link"
@@ -41,20 +40,20 @@ import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import {
   CaretDown,
-  ChartLineUp,
-  Cube,
-  EnvelopeSimple,
-  Gear,
-  Link as LinkIcon,
-  LinkSimple,
+  ChartBar,
+  Envelope,
+  GearSix,
+  Globe,
+  HouseSimple,
   Lightning,
-  ShoppingCart,
+  LinkSimple,
+  Package,
+  Receipt,
   Storefront,
   UsersThree,
   Wallet,
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react"
-import { House } from "@phosphor-icons/react"
 
 import { cn } from "@/lib/utils"
 
@@ -80,9 +79,25 @@ const LABEL_TEXT = "#a5a5a5"
  * font weight. Nothing here can make a row move or resize, which is the
  * whole point.
  */
+/*
+  NO `group` HERE, DELIBERATELY.
+
+  Nothing in this file uses `group-hover:` — the three-colour hover is driven
+  from React state, because Tailwind cannot express it. `group` was therefore
+  decoration, and expensive decoration: globals.css carries a touch-device
+  rule aimed at storefront product cards,
+
+      @media (hover: none) { .group * { transition-property: none !important } }
+
+  which matched every row here and stripped the transitions off everything
+  inside them. Measured in Chromium, which reports `hover: none`: the icon
+  cross-fade computed `transition-property: none` and the chevron could not
+  rotate. On a touch tablet wide enough to show this rail — an iPad at 1024px —
+  the sidebar had no animation at all.
+*/
 const ROW =
-  "group relative flex h-[38px] w-full items-center gap-2 rounded-[12px] px-[14px] " +
-  "font-sans text-[16px] leading-[24px] tracking-[-0.01em] " +
+  "relative flex h-[38px] w-full items-center gap-2 rounded-[12px] px-[14px] " +
+  "font-sans text-[15px] leading-[24px] tracking-[-0.01em] " +
   "transition-[background-color,color] duration-[140ms] ease-out"
 
 /**
@@ -93,8 +108,11 @@ const ROW =
  * available. On a static font 450 would snap to 400 or 500 and the difference
  * between a resting row and an active one would be twice what it should be.
  */
+/** Long enough to read as a change, short enough not to lag the click. */
+const FILL_TRANSITION = "opacity 160ms cubic-bezier(0.2, 0, 0, 1)"
+
 const REST_WEIGHT = 450
-const ACTIVE_WEIGHT = 600
+const ACTIVE_WEIGHT = 550
 
 export type NavChild = { href: string; label: string }
 
@@ -108,14 +126,19 @@ export type NavItemData = {
 }
 
 /** The icons the sidebar uses, exported so the shell can build its nav list. */
+/**
+ * Simple and geometric rather than descriptive — a house, a parcel, bars, a
+ * receipt. At 20px an icon has about a dozen strokes to work with, and the
+ * ones that survive that are the ones with a single obvious silhouette.
+ */
 export const NAV_ICONS = {
-  dashboard: House,
-  products: Cube,
-  analytics: ChartLineUp,
-  orders: ShoppingCart,
-  onepage: LinkIcon,
+  dashboard: HouseSimple,
+  products: Package,
+  analytics: ChartBar,
+  orders: Receipt,
+  onepage: Globe,
   storeBuilder: Storefront,
-  emails: EnvelopeSimple,
+  emails: Envelope,
   payouts: Wallet,
 } as const
 
@@ -151,14 +174,33 @@ function NavIcon({
   return (
     <span
       data-nav-icon={active ? "filled" : "outline"}
-      className="flex h-5 w-5 min-w-5 shrink-0 items-center justify-center"
+      className="relative flex h-5 w-5 min-w-5 shrink-0 items-center justify-center"
       style={{ color }}
     >
       {/*
-        `size` never changes between states — only the weight does. An icon
-        that grows on the row you are on is an icon that moves the label.
+        BOTH WEIGHTS, STACKED, CROSS-FADED.
+        
+        A Phosphor weight is a different path — `d` changes entirely — and
+        there is no way to transition from one path to another in CSS. Swapping
+        the prop therefore snaps: outline one frame, solid the next.
+
+        Rendering both in the same 20×20 box and fading between them gives the
+        fill somewhere to come from. They are the same glyph at the same size
+        in the same place, so the eye reads one icon thickening rather than two
+        icons trading places.
       */}
-      <Icon size={20} weight={active ? "fill" : "regular"} />
+      <Icon
+        size={20}
+        weight="regular"
+        data-variant="outline"
+        style={{ position: "absolute", opacity: active ? 0 : 1, transition: FILL_TRANSITION }}
+      />
+      <Icon
+        size={20}
+        weight="fill"
+        data-variant="filled"
+        style={{ position: "absolute", opacity: active ? 1 : 0, transition: FILL_TRANSITION }}
+      />
     </span>
   )
 }
@@ -302,7 +344,7 @@ function SubNavItem({
         onClick?.()
       }}
       {...handlers}
-      className={cn(ROW, "h-[34px] text-[14px]")}
+      className={cn(ROW, "h-[34px] text-[13px]")}
       style={rowStyle(active, hovered)}
     >
       <span className="whitespace-nowrap">{child.label}</span>
@@ -536,11 +578,11 @@ export function DesktopSidebarContent({
         box; a 2.4 stroke adds 1.2 to each side of every edge, which is that
         outline plus fifteen per cent exactly.
 
-        Outline icons only. The active one is a solid shape, and a stroke
+        The outline layer only. The filled one is a solid shape, and a stroke
         around it would just make it very slightly bigger.
       */}
       <style>{`
-        [data-nav-icon="outline"] svg path {
+        [data-nav-icon] svg[data-variant="outline"] path {
           stroke: currentColor;
           stroke-width: 2.4;
         }
@@ -606,7 +648,7 @@ export function DesktopSidebarContent({
           style={rowStyle(settingsActive, settingsHovered)}
         >
           <NavIcon
-            icon={Gear}
+            icon={GearSix}
             active={settingsActive}
             color={settingsActive ? ACTIVE_TEXT : settingsHovered ? HOVER_TEXT : REST_TEXT}
           />

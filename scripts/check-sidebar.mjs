@@ -81,33 +81,58 @@ function run() {
     railWidth: Math.round(rail.getBoundingClientRect().width),
     navPadding: getComputedStyle(nav).paddingLeft + "/" + getComputedStyle(nav).paddingRight,
     rows: rows.map((el) => ({ label: el.textContent.trim().slice(0, 18), ...box(el) })),
-    icons: [...rail.querySelectorAll("span.h-5.w-5")].map((el) => {
-      const svg = el.querySelector("svg")
-      const b = el.getBoundingClientRect(), s = svg ? svg.getBoundingClientRect() : { width: 0, height: 0 }
+    icons: [...rail.querySelectorAll("span[data-nav-icon]")].map((el) => {
+      const b = el.getBoundingClientRect()
       /*
-        Phosphor draws a filled icon as paths that fill and do not stroke, and
-        an outline one as paths that stroke and do not fill.
+        TWO SVGS PER BOX NOW — the outline weight and the fill weight, stacked
+        and cross-faded, because a Phosphor weight is a different path and no
+        CSS can transition one path into another.
 
-        EVERY Phosphor svg opens with a transparent 256×256 rect — a spacer,
-        with neither fill nor stroke. Reading the FIRST shape therefore said
-        "filled" for all eleven icons, and the stroke assertion beside it then
-        passed over an empty set. So: look at every shape, ignore the ones
-        that paint nothing, and ask what is left.
+        So every reading below is per LAYER. Asking the box for "its" svg, as
+        this probe used to, now silently reads whichever one comes first in
+        the DOM and reports the resting glyph for a row that is filled.
       */
-      const shapes = svg ? [...svg.querySelectorAll("path, circle, rect, line, polyline, polygon")] : []
-      const painted = shapes
-        .map((el) => getComputedStyle(el))
-        .filter((c) => c.stroke !== "none" || (c.fill !== "none" && c.fill !== "rgba(0, 0, 0, 0)"))
-      return { box: Math.round(b.width) + "x" + Math.round(b.height),
-               glyph: Math.round(s.width) + "x" + Math.round(s.height),
-               painted: painted.length,
-               outline: el.getAttribute("data-nav-icon") === "outline",
-               stroke: painted.find((c) => c.stroke !== "none")?.strokeWidth ?? "none" }
+      const layer = (variant) => {
+        const svg = el.querySelector('svg[data-variant="' + variant + '"]')
+        if (!svg) return null
+        const cs = getComputedStyle(svg)
+        const s = svg.getBoundingClientRect()
+        /*
+          EVERY Phosphor svg opens with a transparent 256×256 rect — a spacer,
+          with neither fill nor stroke. Reading the FIRST shape therefore said
+          "filled" for all eleven icons, and the stroke assertion beside it
+          then passed over an empty set. So: look at every shape, ignore the
+          ones that paint nothing, and ask what is left.
+        */
+        const painted = [...svg.querySelectorAll("path, circle, rect, line, polyline, polygon")]
+          .map((n) => getComputedStyle(n))
+          .filter((n) => n.stroke !== "none" || (n.fill !== "none" && n.fill !== "rgba(0, 0, 0, 0)"))
+        return {
+          glyph: Math.round(s.width) + "x" + Math.round(s.height),
+          // Where the glyph sits inside its box, so a cross-fade cannot shift it.
+          offset: Math.round(s.left - b.left) + "," + Math.round(s.top - b.top),
+          opacity: cs.opacity,
+          transition: cs.transitionProperty + " " + cs.transitionDuration,
+          painted: painted.length,
+          stroke: painted.find((n) => n.stroke !== "none")?.strokeWidth ?? "none",
+          /*
+            EVERY path, joined — not the first one.
+
+            Phosphor's fill weight often keeps the outermost path and replaces
+            only the inner ones: Package, Globe, Envelope and Wallet all open
+            with identical path data. Reading path #1 said the two weights were
+            the same glyph for four of the eight icons.
+          */
+          d: [...svg.querySelectorAll("path[d]")].map((n) => n.getAttribute("d")).join("|"),
+        }
+      }
+      return {
+        box: Math.round(b.width) + "x" + Math.round(b.height),
+        active: el.getAttribute("data-nav-icon") === "filled",
+        outline: layer("outline"),
+        filled: layer("filled"),
+      }
     }),
-    dashboardIconPath: (() => {
-      const first = rail.querySelector("[data-nav-icon] svg path")
-      return first ? first.getAttribute("d").slice(0, 60) : null
-    })(),
     chevron: chev && { w: Math.round(chev.getBoundingClientRect().width),
                        fromRight: Math.round(rail.getBoundingClientRect().right - chev.getBoundingClientRect().right),
                        transform: getComputedStyle(chev.querySelector("svg")).transform },
@@ -151,7 +176,6 @@ try {
     if (!ok) broken++
   }
 
-  const pathData = {}
   for (const name of ["closed", "open", "elsewhere"]) {
     const file = join(out, `sidebar-${name}.html`)
     writeFileSync(file, readFileSync(file, "utf8").replace("</pre>", "</pre>" + PROBE))
@@ -175,40 +199,71 @@ try {
     expect(new Set(rows.map((r) => r.w)).size === 1, "and exactly as wide as every other", JSON.stringify([...new Set(rows.map((r) => r.w))]))
     expect(rows.every((r) => r.radius === "12px"), "with a 12px radius", rows.find((r) => r.radius !== "12px")?.radius)
     expect(rows.every((r) => r.gap === "8px"), "an 8px gap", rows.find((r) => r.gap !== "8px")?.gap)
-    expect(rows.every((r) => r.fs === "16px" || r.fs === "14px"), "and 16px type", rows.find((r) => r.fs !== "16px" && r.fs !== "14px")?.fs)
+    expect(rows.every((r) => r.fs === "15px" || r.fs === "13px"), "and 15px type (13px for a sub-item)", rows.find((r) => r.fs !== "15px" && r.fs !== "13px")?.fs)
     expect(rows.every((r) => r.lh === "24px"), "on a 24px line", rows.find((r) => r.lh !== "24px")?.lh)
-    expect(rows.every((r) => r.ls === "-0.16px"), "tracked in a hair", rows.find((r) => r.ls !== "-0.16px")?.ls)
+    const tracked = (r) => Math.abs(parseFloat(r.ls) / parseFloat(r.fs) + 0.01) < 0.0005
+    expect(rows.every(tracked), "tracked -0.01em, whatever the size", JSON.stringify(rows.find((r) => !tracked(r)))) 
     expect(rows.every((r) => /Inter/.test(r.family)), "in Inter", rows[0]?.family)
 
     const active = rows.filter((r) => r.bg === "rgb(232, 232, 232)")
     expect(active.length === 1, "one row is active", active.length)
-    expect(active[0]?.color === "rgb(32, 32, 32)" && active[0]?.fw === "600", "and it is #202020 at weight 600", JSON.stringify(active[0]))
+    expect(active[0]?.color === "rgb(32, 32, 32)" && active[0]?.fw === "550", "and it is #202020 at weight 550", JSON.stringify(active[0]))
     const resting = rows.filter((r) => r.bg === "rgba(0, 0, 0, 0)" && r.color === "rgb(102, 102, 102)")
     expect(resting.length >= 6, "the rest are #666666 on nothing", resting.length)
     expect(resting.every((r) => r.fw === "450"), "at weight 450, not a rounded 400 or 500", JSON.stringify([...new Set(resting.map((r) => r.fw))]))
 
     expect(m.icons.every((i) => i.box === "20x20"), "every icon box is 20×20", JSON.stringify(m.icons.map((i) => i.box)))
-    expect(m.icons.every((i) => i.glyph === "20x20"), "every glyph is 20×20 in every state", JSON.stringify(m.icons.map((i) => i.glyph)))
     expect(
-      m.icons.every((i) => i.painted > 0),
-      "every icon paints something",
-      JSON.stringify(m.icons.map((i) => i.painted)),
+      m.icons.every((i) => i.outline && i.filled),
+      "every icon carries both weights at once",
+      JSON.stringify(m.icons.map((i) => [!!i.outline, !!i.filled])),
     )
-    pathData[name] = m.dashboardIconPath
+    const layers = m.icons.flatMap((i) => [i.outline, i.filled])
+    expect(layers.every((l) => l.glyph === "20x20"), "both are 20×20", JSON.stringify(layers.map((l) => l.glyph)))
     expect(
-      m.icons.filter((i) => i.outline).length === m.icons.length - 1,
-      "exactly one icon is marked filled and the rest outline",
-      JSON.stringify(m.icons.map((i) => (i.outline ? "outline" : "filled"))),
+      m.icons.every((i) => i.outline.offset === i.filled.offset),
+      "and sit in exactly the same place, so the fade cannot shift the glyph",
+      JSON.stringify(m.icons.map((i) => [i.outline.offset, i.filled.offset])),
+    )
+    expect(layers.every((l) => l.painted > 0), "every layer paints something", JSON.stringify(layers.map((l) => l.painted)))
+    expect(
+      m.icons.every((i) => i.outline.d !== i.filled.d),
+      "the two weights are genuinely different glyphs",
+      JSON.stringify(m.icons.find((i) => i.outline.d === i.filled.d)?.outline.d.slice(0, 80)),
+    )
+    /*
+      THE SMOOTHNESS, WHICH IS THE WHOLE POINT.
+
+      Not "does it end up filled" — a hard swap ends up filled too. What has to
+      be true is that the change is an OPACITY animation with a real duration
+      on both layers, because that is the only part a snap does not have.
+    */
+    expect(
+      layers.every((l) => /opacity/.test(l.transition) && !/ 0s$/.test(l.transition)),
+      "and cross-fade rather than snap",
+      JSON.stringify([...new Set(layers.map((l) => l.transition))]),
     )
     expect(
-      m.icons.filter((i) => i.outline).every((i) => i.stroke === "2.4px"),
-      "and every outline one carries the ~15% thickening stroke",
-      JSON.stringify(m.icons.map((i) => i.stroke)),
+      m.icons.every((i) =>
+        i.active ? i.filled.opacity === "1" && i.outline.opacity === "0"
+                 : i.filled.opacity === "0" && i.outline.opacity === "1"),
+      "with the layer that matches the route the visible one",
+      JSON.stringify(m.icons.map((i) => [i.active, i.outline.opacity, i.filled.opacity])),
     )
     expect(
-      m.icons.filter((i) => !i.outline).every((i) => i.stroke === "none" || i.stroke === "0px"),
+      m.icons.filter((i) => i.active).length === 1,
+      "exactly one icon is filled and the rest outline",
+      JSON.stringify(m.icons.map((i) => (i.active ? "filled" : "outline"))),
+    )
+    expect(
+      m.icons.every((i) => i.outline.stroke === "2.4px"),
+      "the outline layer carries the ~15% thickening stroke",
+      JSON.stringify(m.icons.map((i) => i.outline.stroke)),
+    )
+    expect(
+      m.icons.every((i) => i.filled.stroke === "none" || i.filled.stroke === "0px"),
       "which the filled one does not need",
-      JSON.stringify(m.icons.filter((i) => !i.outline).map((i) => i.stroke)),
+      JSON.stringify(m.icons.map((i) => i.filled.stroke)),
     )
 
     expect(m.chevron.w === 20 && m.chevron.fromRight === 18, "the chevron is a fixed box pinned right", JSON.stringify(m.chevron))
@@ -221,23 +276,6 @@ try {
     )
   }
 
-  /**
-   * THE ONE THING THE ATTRIBUTES CANNOT TELL US.
-   *
-   * `data-nav-icon="filled"` is something this code sets, so checking it only
-   * proves the code agrees with itself. What matters is whether Phosphor
-   * actually hands back a different SHAPE — so the same icon is rendered on
-   * the route it belongs to and on another one, and its path data has to
-   * differ. It is a house and a solid house, and they are not the same
-   * outline.
-   */
-  console.log("\nthe filled variant is a different glyph, not the same one restyled")
-  const changed = pathData.closed && pathData.elsewhere && pathData.closed !== pathData.elsewhere
-  console.log(`  ${changed ? "ok  " : "FAIL"}  the dashboard icon differs between active and resting`)
-  if (!changed) {
-    broken++
-    console.log(`        ${pathData.closed}\n        ${pathData.elsewhere}`)
-  }
 
   console.log(`\n${broken === 0 ? "the rail holds its shape" : `${broken} failed`}`)
   process.exit(broken === 0 ? 0 : 1)
