@@ -565,25 +565,24 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // uses Glozin's fadeInSticky curve (see `hideTransition` below).
   const [stickyVisible, setStickyVisible] = useState(true)
   /**
-   * AT THE TOP OF THE PAGE THE HEADER IS NOT PINNED, AND MUST NOT ANIMATE.
+   * WHILE IT IS NOT PINNED THE HEADER MUST NOT ANIMATE, OR MOVE AT ALL.
    *
    * The reveal slides the header in from `translateY(-100%)`. That is right
    * while it is PINNED — it comes down from off-screen. It is wrong at the top
    * of the page, because up there the header's own position is BELOW the
-   * announcement bar, so -100% starts it above its own box, i.e. on top of the
-   * bar, and the 350ms transition walks it back down ACROSS the bar. That is
-   * the reported "it overlaps the announcement bar", and it only ever happens
-   * on the way home.
-   *
-   * So the transition is switched off while we are at the top. The header is
-   * simply where it lives, with no transform to travel from.
+   * announcement bar, so -100% starts it above its own box — on top of the bar
+   * — and leaves the box it came from empty underneath. Both reported symptoms
+   * are that one state. The `pinned` test in the scroll handler is what stops
+   * it being entered; this switches the TRANSITION off as well, so arriving
+   * back at the top is the header simply being where it lives rather than
+   * travelling there across the bar.
    */
-  const [atTop, setAtTop] = useState(true)
+  const [unpinned, setUnpinned] = useState(true)
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     if (!headerStickyEnabled || !headerStickyOnScrollUp) {
       setStickyVisible(true)
-      setAtTop(true)
+      setUnpinned(true)
       return
     }
     const getScrollTarget = (): Window | HTMLElement => {
@@ -610,11 +609,56 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     }
     const target = getScrollTarget()
     const getY = () => (target === window ? window.scrollY : (target as HTMLElement).scrollTop)
+
+    /**
+     * ─────────────────────────────────────────────────────────────────────
+     *  THE HEADER MAY ONLY HIDE WHILE IT IS PINNED
+     * ─────────────────────────────────────────────────────────────────────
+     *
+     * `translateY(-100%)` reads as "off the top of the screen" ONLY when the
+     * header is pinned at the top. When it is still sitting in its own place —
+     * under the announcement bar — the same transform moves it up OVER the
+     * bar, and because `position: sticky` keeps the element's space in the
+     * page, the space it came from is left EMPTY. One state, both reported
+     * symptoms at once: a band of background under the header, and the header
+     * across the announcement bar.
+     *
+     * This used to be gated on `y < 80` — a magic number standing in for "the
+     * header is roughly pinned by now". It is the header's own position that
+     * decides that, and it is knowable: anything above the header (an
+     * announcement bar, and its height is a setting) pushes that number down.
+     * A bar taller than 80px put the whole range between 80 and the header's
+     * real origin into "allowed to hide while unpinned", which is precisely
+     * the broken state.
+     *
+     * `offsetTop` rather than `getBoundingClientRect().top`: the rect is moved
+     * by the very transform we are deciding whether to apply, so reading it
+     * here would feed the header's own animation back into the condition.
+     * `offsetTop` is the static position and is unaffected by both the sticky
+     * offset and the transform.
+     */
+    const originOf = () => {
+      const el = headerRef.current
+      if (!el) return 0
+      let top = el.offsetTop
+      let parent = el.offsetParent as HTMLElement | null
+      // Walk up to the scroll container, so a header nested inside wrappers
+      // still reports its distance from the thing that actually scrolls.
+      while (parent && parent !== target && parent !== document.body) {
+        top += parent.offsetTop
+        parent = parent.offsetParent as HTMLElement | null
+      }
+      return top
+    }
+
     let lastY = getY()
     const onScroll = () => {
       const y = getY()
-      setAtTop(y < 80)
-      if (y < 80) {
+      // One pixel of slack, so the frame the header pins on is already
+      // counted as pinned rather than flickering on the boundary.
+      const pinned = y >= Math.max(0, originOf()) - 1
+      setUnpinned(!pinned)
+      if (!pinned) {
         setStickyVisible(true)
       } else if (y > lastY + 4) {
         setStickyVisible(false) // scrolling down
@@ -1449,7 +1493,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   /** No transition while we are at the top — see the note on `atTop`. Coming
    *  home, the header is already where it belongs and has nothing to travel
    *  from; animating there is what walked it across the announcement bar. */
-  const hideTransition = atTop ? "none" : "transform 350ms cubic-bezier(0.22, 0.61, 0.36, 1)"
+  const hideTransition = unpinned ? "none" : "transform 350ms cubic-bezier(0.22, 0.61, 0.36, 1)"
 
   const mobileDrawer = (
     <HeaderMobileNavDrawer

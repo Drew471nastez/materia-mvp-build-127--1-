@@ -358,7 +358,7 @@ section("The header, the announcement bar, and the space between them")
       !/"sticky top-0 z-\[60\] will-change-transform/.test(source),
   )
   check(
-    "coming back to the top it does not animate across the announcement bar",
+    "it can only hide while it is actually pinned",
     /**
      * The reveal slides the header in from `translateY(-100%)`. That is right
      * while it is PINNED. At the top of the page it is wrong: up there the
@@ -367,9 +367,16 @@ section("The header, the announcement bar, and the space between them")
      * across the bar. That is the reported overlap, and it only happens on the
      * way home.
      */
-    /const \[atTop, setAtTop\] = useState\(true\)/.test(source) &&
-      /setAtTop\(y < 80\)/.test(source) &&
-      /const hideTransition = atTop \? "none"/.test(source),
+    /const \[unpinned, setUnpinned\] = useState\(true\)/.test(source) &&
+      /const hideTransition = unpinned \? "none"/.test(source) &&
+      // The gate is the header's OWN position, not a magic number. `y < 80`
+      // let it hide while still unpinned whenever the announcement bar was
+      // taller than 80px — which is the broken state itself.
+      /const pinned = y >= Math\.max\(0, originOf\(\)\) - 1/.test(source) &&
+      !/y < 80/.test(source) &&
+      // Read from offsetTop, because the rect is displaced by the very
+      // transform this decides whether to apply.
+      /let top = el\.offsetTop/.test(source),
   )
   check(
     "the editor and the published page take the same branch",
