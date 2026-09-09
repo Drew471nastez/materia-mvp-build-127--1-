@@ -26,7 +26,7 @@ const WIDTH: Record<string, string> = {
   narrow: "max-w-xl",
   medium: "max-w-2xl",
   wide: "max-w-4xl",
-  full: "max-w-[1230px]",
+  full: "max-w-(--theme-page-width)",
 }
 
 export function RichTextSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {

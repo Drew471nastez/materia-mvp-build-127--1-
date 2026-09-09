@@ -59,7 +59,7 @@ export function PromotionBannerSection({ section, theme, isEditing, isSelected, 
             <div className="absolute inset-0 bg-gradient-to-br from-neutral-700 to-neutral-900" />
           )}
           {overlay > 0 && <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${overlay})` }} />}
-          <div className={cn("relative z-10 flex w-full h-full px-8 py-16 max-w-[1230px] mx-auto", posClass[position])} style={{ minHeight }}>
+          <div className={cn("relative z-10 flex w-full h-full px-(--theme-padding-x) py-16 max-w-(--theme-page-width) mx-auto", posClass[position])} style={{ minHeight }}>
             <div className="flex flex-col gap-4 max-w-xl">
               {!!s.subheading && (
                 <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: c.image_overlay_text }}>{str(s.subheading)}</span>

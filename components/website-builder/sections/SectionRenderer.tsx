@@ -69,9 +69,20 @@ export function renderSection(props: SectionProps) {
       </div>
     )
   }
+  /**
+   * The header takes `wrapperId` itself — the id has to land on its own
+   * SectionWrapper root or `position: sticky` gets a containing block exactly
+   * the header's height and never sticks.
+   */
   if (NO_CONTAINER.has(props.section.type)) return <Component {...props} />
+  /**
+   * The id goes on the CONTAINER, not passed down: forty-nine of the fifty
+   * renderers never destructured `wrapperId`, so an id handed to them
+   * vanished. Putting it here means every section on a published page has a
+   * stable anchor — `/#section-<id>` — which none of them had before.
+   */
   return (
-    <div className="@container">
+    <div className="@container" id={props.wrapperId}>
       <Component {...props} />
     </div>
   )

@@ -17,6 +17,7 @@
 
 import { Facebook, Instagram, Twitter, Youtube } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ThemeSocials } from "../../theme/ThemeSocials"
 import {
   bool,
   maxWidth,
@@ -135,7 +136,7 @@ export function FooterSection({
                 {str(s.tagline)}
               </p>
             )}
-            {showSocial && (
+            {showSocial && socials.length > 0 && (
               <div className="mt-4 flex items-center gap-3">
                 {socials.map(({ url, Icon, label }) => (
                   <a
@@ -149,6 +150,21 @@ export function FooterSection({
                   </a>
                 ))}
               </div>
+            )}
+            {/*
+              THE STORE'S OWN LINKS, when this footer has not been given any of
+              its own. They live in the theme's Social group — ten platforms
+              and a "Show icons in footer" toggle, all of it read by nothing —
+              and asking somebody to type their Instagram URL a second time
+              into the footer is not a theme, it is a form.
+            */}
+            {showSocial && socials.length === 0 && (
+              <ThemeSocials
+                theme={theme}
+                where="footer"
+                className="mt-4 flex items-center gap-3"
+                size={18}
+              />
             )}
           </div>
 

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
+import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 export const dynamic = "force-dynamic"
@@ -155,47 +155,22 @@ export default async function WebsiteBuilderProductPage({ params }: PageProps) {
       : s
   )
 
+  /**
+   * The product page borrows the HOME page's header and footer when it has
+   * none of its own, so a store's chrome is its chrome on every page. Composed
+   * here, where that rule lives, and handed to the same page component the
+   * storefront uses — which is what stops this route drifting from the others
+   * the way all four had.
+   */
+  const header = homeHeader ?? sections.find((s) => s.type === "header")
+  const footer = homeFooter ?? sections.find((s) => s.type === "footer")
+  const page = [
+    ...(header ? [header] : []),
+    ...sections.filter((s) => s.type !== "header" && s.type !== "footer"),
+    ...(footer ? [footer] : []),
+  ]
+
   return (
-    <div
-      className="min-h-screen flex flex-col"
-      style={{
-        backgroundColor: String(themeSettings.background_color ?? "#ffffff"),
-        fontFamily: String(themeSettings.font_body ?? "Inter"),
-      }}
-    >
-      {themeSettings.announcement_bar_enabled && themeSettings.announcement_bar_text && (
-        <div
-          className="w-full py-2 text-center text-sm font-medium"
-          style={{
-            background: String(themeSettings.announcement_bar_bg ?? "#6366f1"),
-            color: String(themeSettings.announcement_bar_color ?? "#ffffff"),
-          }}
-        >
-          {String(themeSettings.announcement_bar_text)}
-        </div>
-      )}
-
-      {(homeHeader ?? sections.find(s => s.type === "header")) && (
-        <SectionRenderer
-          key={(homeHeader ?? sections.find(s => s.type === "header"))!.id}
-          section={(homeHeader ?? sections.find(s => s.type === "header"))!}
-          theme={themeSettings}
-        />
-      )}
-
-      <div className="flex-1">
-        {sections.filter(s => s.type !== "header" && s.type !== "footer").map(section => (
-          <SectionRenderer key={section.id} section={section} theme={themeSettings} />
-        ))}
-      </div>
-
-      {(homeFooter ?? sections.find(s => s.type === "footer")) && (
-        <SectionRenderer
-          key={(homeFooter ?? sections.find(s => s.type === "footer"))!.id}
-          section={(homeFooter ?? sections.find(s => s.type === "footer"))!}
-          theme={themeSettings}
-        />
-      )}
-    </div>
+    <ThemePage theme={themeSettings} sections={page} className="min-h-screen" />
   )
 }

@@ -97,7 +97,7 @@ export function MapEmbedSection({ section, isEditing, isSelected, onClick }: Sec
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="max-w-[1230px] mx-auto px-6" style={{ color, paddingTop: padTop, paddingBottom: padBottom }}>
+      <div className="max-w-(--theme-page-width) mx-auto px-(--theme-padding-x)" style={{ color, paddingTop: padTop, paddingBottom: padBottom }}>
         {layout === "full" ? (
           mapBlock
         ) : layout === "info_above" ? (

@@ -63,7 +63,7 @@ export function VideoEmbedSection({ section, isEditing, isSelected, onClick }: S
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="max-w-[1230px] mx-auto px-6" style={{ color, paddingTop: padTop, paddingBottom: padBottom }}>
+      <div className="max-w-(--theme-page-width) mx-auto px-(--theme-padding-x)" style={{ color, paddingTop: padTop, paddingBottom: padBottom }}>
         {(!!s.heading || !!s.subheading) && (
           <div className="text-center mb-8">
             {!!s.heading && <h2 className="text-3xl font-bold mb-2">{str(s.heading)}</h2>}

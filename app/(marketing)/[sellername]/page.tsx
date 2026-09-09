@@ -2,7 +2,8 @@ import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
-import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
+import { ThemePage } from "@/components/website-builder/theme/ThemePage"
+import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 export const dynamic = "force-dynamic"
@@ -106,6 +107,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: { absolute: rawTitle },
     description,
     icons: favicon ? { icon: favicon, shortcut: favicon, apple: favicon } : undefined,
+    // The share image, the card type and — the one that matters — whether the
+    // page may be indexed at all. All three were in the panel and read by
+    // nothing, so "noindex" was a setting somebody trusted and did not have.
+    ...themeMetadata(settings, { title: rawTitle, description }),
   }
 }
 
@@ -235,48 +240,10 @@ export default async function SellerWebsitePage({ params }: PageProps) {
   // Fix: let sections flow naturally. No fake vertical filler. If the
   // user has a short page, the page is short — no gap is fabricated.
   return (
-    <div
-      style={{
-        backgroundColor: String(themeSettings.background_color ?? "#ffffff"),
-        fontFamily: String(themeSettings.font_body ?? "Inter"),
-      }}
-    >
-      {/* Announcement bar */}
-      {themeSettings.announcement_bar_enabled && themeSettings.announcement_bar_text && (
-        <div
-          className="w-full py-2 text-center text-sm font-medium"
-          style={{
-            background: String(themeSettings.announcement_bar_bg ?? "#6366f1"),
-            color: String(themeSettings.announcement_bar_color ?? "#ffffff"),
-          }}
-        >
-          {String(themeSettings.announcement_bar_text)}
-        </div>
-      )}
-
-      {/* Header sections */}
-      {sections.filter(s => s.type === "header").map((section) => (
-        <SectionRenderer key={section.id} section={section} theme={themeSettings} />
-      ))}
-
-      {/* Body sections — natural flow, no flex filler that creates a visible gap */}
-      {sections.filter(s => s.type !== "header" && s.type !== "footer").map((section) => (
-        <SectionRenderer key={section.id} section={section} theme={themeSettings} />
-      ))}
-
-      {sections.length === 0 && (
-        <div className="min-h-[50vh] flex items-center justify-center">
-          <div className="text-center text-gray-400">
-            <p className="text-lg font-medium">This website is being set up</p>
-            <p className="text-sm mt-1">Check back soon!</p>
-          </div>
-        </div>
-      )}
-
-      {/* Footer sections */}
-      {sections.filter(s => s.type === "footer").map((section) => (
-        <SectionRenderer key={section.id} section={section} theme={themeSettings} />
-      ))}
-    </div>
+    <ThemePage
+      theme={themeSettings}
+      sections={sections}
+      emptyDetail="Check back soon!"
+    />
   )
 }

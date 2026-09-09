@@ -56,6 +56,7 @@ import { PAGE_META, DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES } from "@/lib/website-builder/section-schemas"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
+import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibMark } from "@/components/storelib-mark"
 import { toast } from "sonner"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
@@ -4194,18 +4195,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [products, customPages])
 
   // ── Memoized section buckets ─────────────────────────────────
-  // Splits `sections` into header / body / footer once per `sections`
-  // change instead of doing three `filter()` passes on every render.
-  const headerSections = useMemo(
-    () => sections.filter(s => s.type === "header"),
-    [sections],
-  )
-  const bodySections = useMemo(
-    () => sections.filter(s => s.type !== "header" && s.type !== "footer"),
-    [sections],
-  )
-  const footerSections = useMemo(
-    () => sections.filter(s => s.type === "footer"),
+  /**
+   * How many sections are neither chrome — for the empty-page prompt below.
+   *
+   * The editor used to split `sections` into header/body/footer here and lay
+   * the three out itself, which meant it decided where a header went. It does
+   * not any more: ThemePage owns that, and owns it for the published page
+   * too, so the two cannot disagree about a header dragged into the middle.
+   */
+  const bodyCount = useMemo(
+    () => sections.filter((s) => s.type !== "header" && s.type !== "footer").length,
     [sections],
   )
 
@@ -5928,102 +5927,89 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             )}
 
             {!loading && !canvasLoading && (
-              <>
-                {/* Announcement bar */}
-                {settingsDraft.announcement_bar_enabled && settingsDraft.announcement_bar_text && (
-                  <div
-                    className="w-full py-2 text-center text-sm font-medium"
-                    style={{
-                      background: String(settingsDraft.announcement_bar_bg ?? "#6366f1"),
-                      color: String(settingsDraft.announcement_bar_color ?? "#ffffff"),
-                    }}
-                  >
-                    {String(settingsDraft.announcement_bar_text)}
+              /**
+               * THE SAME PAGE THE STOREFRONT RENDERS.
+               *
+               * The canvas used to assemble a page of its own: its own
+               * announcement bar, its own header-first-footer-last rule, its
+               * own wrapper — and it applied neither the theme's background
+               * colour nor its body font, both of which the published page
+               * did. So a creator designed against a white page in Inter and
+               * published something else.
+               *
+               * ThemePage owns chrome, ordering and the theme's own CSS. What
+               * stays here is the only thing that is genuinely the editor's:
+               * how a section is rendered, with selection, hovering and the
+               * device mode on it.
+               */
+              <ThemePage
+                theme={activeThemeSettings}
+                sections={sections}
+                renderSection={(section, role) => {
+                  const shared = {
+                    section,
+                    theme: activeThemeSettings,
+                    // TRUE whether or not the Inspector is on — it tells a
+                    // section "you are inside the canvas card, use the
+                    // editor-scoped sticky mode". `isEditing` flips with the
+                    // toggle; this does not, which is what kept the header
+                    // from going `position: fixed` over the editor chrome.
+                    insideEditor: true,
+                    isEditing: inspectorEnabled,
+                    isSelected: inspectorEnabled && selectedSectionId === section.id,
+                    onClick: inspectorEnabled
+                      ? () => {
+                          setSelectedPanel({ type: "section", sectionId: section.id })
+                          scrollToSection(section.id)
+                        }
+                      : undefined,
+                    deviceMode: device,
+                    onEditorNavigate: handleEditorNavigate,
+                  }
+
+                  // The header takes `wrapperId` rather than sitting in a
+                  // wrapping div: the id has to land on the SectionWrapper's
+                  // own root, or `position: sticky` gets a containing block
+                  // exactly the header's height and never sticks.
+                  if (role === "header") {
+                    return (
+                      <SectionRenderer
+                        key={section.id}
+                        wrapperId={`wb-section-${section.id}`}
+                        {...shared}
+                        // Match the canvas's `rounded-t-xl` (desktop, 12px) or
+                        // `rounded-2xl` (device card, 16px) so the selection
+                        // ring curves into the corner instead of being clipped.
+                        canvasRoundedTopPx={device === "desktop" ? 12 : 16}
+                      />
+                    )
+                  }
+
+                  return (
+                    <div key={section.id} id={`wb-section-${section.id}`}>
+                      <SectionRenderer
+                        {...shared}
+                        canvasRoundedBottomPx={
+                          role === "footer" && device !== "desktop" ? 16 : undefined
+                        }
+                      />
+                    </div>
+                  )
+                }}
+              >
+                {bodyCount === 0 && sections.length > 0 && (
+                  <div className="py-24 flex items-center justify-center text-center">
+                    <div>
+                      <p className="text-xl font-bold tracking-tight text-neutral-300 uppercase mb-1">Empty Page</p>
+                      <p className="text-sm text-neutral-400 mb-4">Create your beautiful page by adding sections</p>
+                      <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted transition-colors" onClick={() => setAddSectionOpen(true)}>
+                        <Plus className="h-4 w-4" />
+                        Add a section
+                      </button>
+                    </div>
                   </div>
                 )}
-
-                {/* Header — NO intermediate wrapping <div>. Passing
-                    `wrapperId` means the id lands on the SectionWrapper's
-                    root div, so `position: sticky` has the full flex-col
-                    above as its containing block instead of a tight
-                    wrapper that's exactly the header's own height.
-
-                    Inspector toggle: `isEditing` and the click handler are
-                    both gated by `inspectorEnabled`. When the inspector is
-                    OFF the canvas is a pure preview — no outlines, no
-                    selection-on-click. `onEditorNavigate` stays on so links
-                    still route inside the editor instead of leaving. */}
-                {headerSections.map(section => (
-                  <SectionRenderer
-                    key={section.id}
-                    wrapperId={`wb-section-${section.id}`}
-                    section={section}
-                    theme={activeThemeSettings}
-                    // `insideEditor` stays TRUE whether or not the user
-                    // has the Inspector toggled on — it tells sections
-                    // "you're rendering inside the canvas card, use the
-                    // editor-scoped sticky mode". `isEditing` flips with
-                    // the inspector toggle, but `insideEditor` does NOT,
-                    // which is what kept the header from flipping into
-                    // `position: fixed` and overlaying the editor chrome
-                    // when inspector was turned off.
-                    insideEditor
-                    isEditing={inspectorEnabled}
-                    isSelected={inspectorEnabled && selectedSectionId === section.id}
-                    onClick={inspectorEnabled ? () => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) } : undefined}
-                    deviceMode={device}
-                    onEditorNavigate={handleEditorNavigate}
-                    // Match the canvas's `rounded-t-xl` (desktop, 12px) or
-                    // `rounded-2xl` (a device card, 16px) so the selection
-                    // ring curves into the canvas corners instead of getting
-                    // clipped as a square.
-                    canvasRoundedTopPx={device === "desktop" ? 12 : 16}
-                  />
-                ))}
-
-                {/* Body sections — flex-1 so footer sticks to bottom without trailing whitespace */}
-                <div className="flex-1">
-                  {bodySections.map(section => (
-                    <div key={section.id} id={`wb-section-${section.id}`}>
-                      <SectionRenderer section={section} theme={activeThemeSettings} insideEditor isEditing={inspectorEnabled} isSelected={inspectorEnabled && selectedSectionId === section.id} onClick={inspectorEnabled ? () => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) } : undefined} deviceMode={device} onEditorNavigate={handleEditorNavigate} />
-                    </div>
-                  ))}
-
-                  {/* Empty page — between header and footer */}
-                  {bodySections.length === 0 && (
-                    <div className="py-24 flex items-center justify-center text-center">
-                      <div>
-                        <p className="text-xl font-bold tracking-tight text-neutral-300 uppercase mb-1">Empty Page</p>
-                        <p className="text-sm text-neutral-400 mb-4">Create your beautiful page by adding sections</p>
-                        <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted transition-colors" onClick={() => setAddSectionOpen(true)}>
-                          <Plus className="h-4 w-4" />
-                          Add a section
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer — also gated by the Inspector toggle. */}
-                {footerSections.map(section => (
-                  <div key={section.id} id={`wb-section-${section.id}`}>
-                    <SectionRenderer
-                      section={section}
-                      theme={activeThemeSettings}
-                      insideEditor
-                      isEditing={inspectorEnabled}
-                      isSelected={inspectorEnabled && selectedSectionId === section.id}
-                      onClick={inspectorEnabled ? () => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) } : undefined}
-                      deviceMode={device}
-                      onEditorNavigate={handleEditorNavigate}
-                      // Only a device card has a rounded bottom
-                      // (`rounded-2xl`); desktop uses `rounded-t-xl`, so its
-                      // bottom is flat against the canvas.
-                      canvasRoundedBottomPx={device === "desktop" ? undefined : 16}
-                    />
-                  </div>
-                ))}
-              </>
+              </ThemePage>
             )}
             </div>
           </div>

@@ -122,7 +122,7 @@ export function SlideshowSection({ section, theme, isEditing, isSelected, onClic
                 />
                 <div
                   className={cn(
-                    "absolute inset-0 mx-auto flex max-w-[1230px] flex-col justify-center gap-4 px-8",
+                    "absolute inset-0 mx-auto flex max-w-(--theme-page-width) flex-col justify-center gap-4 px-(--theme-padding-x)",
                     position === "left"
                       ? "items-start text-left"
                       : position === "right"

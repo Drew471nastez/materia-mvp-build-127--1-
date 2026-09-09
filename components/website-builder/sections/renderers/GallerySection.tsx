@@ -149,7 +149,7 @@ export function GallerySection({ section, theme, isEditing, isSelected, onClick 
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 max-w-[1230px] mx-auto" style={sectionPadding(s, 60)}>
+      <div className="px-(--theme-padding-x) max-w-(--theme-page-width) mx-auto" style={sectionPadding(s, 60)}>
         {!!s.heading && (
           <h2
             className="text-3xl font-bold mb-8 text-center"

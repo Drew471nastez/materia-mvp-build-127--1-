@@ -121,7 +121,7 @@ export function CtaSection({ section, theme, isEditing, isSelected, onClick }: S
 
       <div
         className={cn(
-          "relative z-10 mx-auto flex max-w-[1230px] gap-6 px-8",
+          "relative z-10 mx-auto flex max-w-(--theme-page-width) gap-6 px-(--theme-padding-x)",
           split ? "flex-col @[820px]:flex-row @[820px]:items-center @[820px]:justify-between" : "flex-col",
           !split && layout === "centered" && "text-center items-center",
           layout === "left" && "text-left items-start",

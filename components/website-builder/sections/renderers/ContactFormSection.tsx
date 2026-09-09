@@ -104,7 +104,7 @@ export function ContactFormSection({ section, isEditing, isSelected, onClick }: 
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="max-w-[1230px] mx-auto px-6" style={{ color, paddingTop: padTop, paddingBottom: padBottom }}>
+      <div className="max-w-(--theme-page-width) mx-auto px-(--theme-padding-x)" style={{ color, paddingTop: padTop, paddingBottom: padBottom }}>
         {layout === "split" ? (
           <div className="grid @[768px]:grid-cols-2 gap-8 items-start">
             <div>

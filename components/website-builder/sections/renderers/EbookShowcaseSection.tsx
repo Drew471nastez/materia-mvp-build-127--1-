@@ -137,7 +137,7 @@ export function EbookShowcaseSection({ section, isEditing, isSelected, onClick }
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="max-w-[1230px] mx-auto px-6" style={{ color, paddingTop: padTop, paddingBottom: padBottom }}>
+      <div className="max-w-(--theme-page-width) mx-auto px-(--theme-padding-x)" style={{ color, paddingTop: padTop, paddingBottom: padBottom }}>
         {layout === "center" ? (
           <div className="max-w-2xl mx-auto text-center space-y-8">
             {cover}

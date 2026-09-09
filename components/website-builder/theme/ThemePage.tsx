@@ -1,0 +1,354 @@
+"use client"
+
+/**
+ * ===========================================================================
+ *  ONE PAGE, FOUR SURFACES
+ * ===========================================================================
+ * A Storelib page was being assembled from scratch in four places: the
+ * editor's canvas, the storefront at /w/[username], the seller page at
+ * /[sellername], and the product page. Each had its own announcement bar, its
+ * own header-first-footer-last rule, its own wrapper. Two of the four did not
+ * even go through PageSections.
+ *
+ * They had already drifted. The three public routes applied the theme's
+ * background colour and body font; THE EDITOR DID NOT — so the preview a
+ * creator designs against was on a white page in Inter whatever they had
+ * chosen. And every setting added to one copy had to be remembered in three
+ * others, which is why the announcement bar's link, its scrolling option and
+ * its dismiss button were in the panel and on none of the four.
+ *
+ * This is the page. Chrome, ordering, the theme's own CSS: one place, and the
+ * editor cannot drift from what it publishes because it renders the same
+ * component.
+ *
+ * WHAT STAYS AT THE CALL SITE: which sections. The storefront falls back to
+ * draft sections so an owner who has never published still sees their work; a
+ * public Site must not. That difference is deliberate and belongs to the route
+ * that knows about it.
+ */
+
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react"
+
+import { THEME_ROOT_ATTRIBUTE, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
+import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import SectionRenderer from "../sections/SectionRenderer"
+
+export type SectionRole = "header" | "body" | "footer"
+
+function str(value: unknown, fallback = ""): string {
+  return typeof value === "string" && value !== "" ? value : fallback
+}
+
+// ── The announcement bar ────────────────────────────────────────────────────
+
+/**
+ * Four of its eight controls did nothing on every surface: the link, the link
+ * text, "scrolling", and "dismissible". The bar is a client component because
+ * two of those need state — dismissal has to be remembered, or a visitor
+ * closes the same bar on every page they open.
+ */
+function AnnouncementBar({ theme }: { theme: ThemeSettingsValues }) {
+  const t = theme as Record<string, unknown>
+  const text = str(t.announcement_bar_text)
+  const dismissible = t.announcement_bar_dismissible === true
+  const [dismissed, setDismissed] = useState(false)
+
+  useEffect(() => {
+    if (!dismissible) return
+    try {
+      // Keyed by the text: a NEW announcement is a new announcement, and
+      // should not stay hidden because somebody dismissed the last one.
+      if (window.localStorage.getItem(`storelib:announcement:${text}`) === "1") setDismissed(true)
+    } catch {
+      // Storage blocked. The bar shows, which is the safe way to be wrong.
+    }
+  }, [dismissible, text])
+
+  if (!t.announcement_bar_enabled || !text || dismissed) return null
+
+  const linkText = str(t.announcement_bar_link_text)
+  const linkUrl = str(t.announcement_bar_link_url, "#")
+  const scrolling = t.announcement_bar_scrolling === true
+
+  const body = (
+    <>
+      <span>{text}</span>
+      {!!linkText && (
+        <a href={linkUrl} className="ml-2 underline underline-offset-2 font-semibold">
+          {linkText}
+        </a>
+      )}
+    </>
+  )
+
+  return (
+    <div
+      className="relative w-full overflow-hidden py-2 text-center text-sm font-medium"
+      style={{
+        background: str(t.announcement_bar_bg, "#6366f1"),
+        color: str(t.announcement_bar_color, "#ffffff"),
+      }}
+    >
+      {scrolling ? (
+        <>
+          <style>{`@keyframes storelibAnnouncementScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
+          {/*
+            The content is rendered TWICE and moved by exactly half the width,
+            so the loop lands on an identical frame instead of snapping back.
+          */}
+          <div
+            className="flex w-max gap-16 whitespace-nowrap motion-reduce:animate-none"
+            style={{ animation: "storelibAnnouncementScroll 24s linear infinite" }}
+          >
+            <span className="flex items-center">{body}</span>
+            <span className="flex items-center" aria-hidden="true">
+              {body}
+            </span>
+          </div>
+        </>
+      ) : (
+        <div className="px-10">{body}</div>
+      )}
+      {dismissible && (
+        <button
+          type="button"
+          aria-label="Dismiss"
+          className="absolute right-3 top-1/2 -translate-y-1/2 opacity-70 transition-opacity hover:opacity-100"
+          onClick={() => {
+            setDismissed(true)
+            try {
+              window.localStorage.setItem(`storelib:announcement:${text}`, "1")
+            } catch {
+              // The close still works for this page view.
+            }
+          }}
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── The free shipping bar ───────────────────────────────────────────────────
+
+/**
+ * "Show free shipping progress bar" and the threshold behind it were two more
+ * controls read by nothing. A creator setting a $75 threshold got no bar and
+ * no mention of it anywhere on their site.
+ *
+ * It listens on the same cart channel the header does, so it can say how much
+ * further somebody has to go rather than only stating the rule.
+ */
+function FreeShippingBar({ theme }: { theme: ThemeSettingsValues }) {
+  const t = theme as Record<string, unknown>
+  const threshold = typeof t.free_shipping_threshold === "number" ? t.free_shipping_threshold : 0
+  const [subtotal, setSubtotal] = useState(0)
+
+  useEffect(() => {
+    const onUpdate = (e: Event) => {
+      const detail = (e as CustomEvent<number | { subtotalCents?: number }>).detail
+      if (detail && typeof detail === "object" && typeof detail.subtotalCents === "number") {
+        setSubtotal(detail.subtotalCents / 100)
+      }
+    }
+    window.addEventListener("storelib:cart-count", onUpdate as EventListener)
+    return () => window.removeEventListener("storelib:cart-count", onUpdate as EventListener)
+  }, [])
+
+  if (t.free_shipping_bar !== true || threshold <= 0) return null
+
+  const remaining = Math.max(0, threshold - subtotal)
+  const progress = Math.max(0, Math.min(1, threshold > 0 ? subtotal / threshold : 0))
+
+  return (
+    <div
+      className="w-full px-4 py-2 text-center text-[13px]"
+      style={{ background: "var(--theme-surface)", color: "var(--theme-text-secondary)" }}
+    >
+      <span>
+        {remaining > 0
+          ? `Spend $${remaining.toFixed(2)} more for free shipping`
+          : "You have earned free shipping"}
+      </span>
+      <span
+        aria-hidden="true"
+        className="mx-auto mt-1.5 block h-1 max-w-xs overflow-hidden rounded-full"
+        style={{ background: "var(--theme-border)" }}
+      >
+        <span
+          className="block h-full rounded-full transition-[width] duration-500"
+          style={{ width: `${progress * 100}%`, background: "var(--theme-primary)" }}
+        />
+      </span>
+    </div>
+  )
+}
+
+// ── The cookie banner ───────────────────────────────────────────────────────
+
+/**
+ * Six controls, a whole settings group, and not one line of code anywhere in
+ * the repository read any of them. A creator who turned on "Show cookie
+ * consent banner" to satisfy a legal obligation got nothing at all.
+ */
+function CookieBanner({ theme }: { theme: ThemeSettingsValues }) {
+  const t = theme as Record<string, unknown>
+  const [answered, setAnswered] = useState(true)
+
+  useEffect(() => {
+    try {
+      setAnswered(window.localStorage.getItem("storelib:cookies") !== null)
+    } catch {
+      // Nowhere to record an answer, so nowhere to remember one: showing a
+      // banner that cannot be dismissed permanently is worse than not showing.
+      setAnswered(true)
+    }
+  }, [])
+
+  if (!t.cookie_banner_enabled || answered) return null
+
+  const answer = (value: "accepted" | "declined") => {
+    setAnswered(true)
+    try {
+      window.localStorage.setItem("storelib:cookies", value)
+    } catch {
+      // Dismissed for this page view.
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-x-3 bottom-3 z-50 flex flex-col gap-3 rounded-xl p-4 shadow-lg @[640px]:flex-row @[640px]:items-center sm:inset-x-6 sm:bottom-6"
+      style={{
+        background: str(t.cookie_bg, "#0f172a"),
+        color: str(t.cookie_text_color, "#ffffff"),
+      }}
+      role="dialog"
+      aria-label="Cookie consent"
+    >
+      <p className="flex-1 text-[13px] leading-relaxed">
+        {str(t.cookie_banner_text, "We use cookies to improve your experience on this site.")}
+      </p>
+      <div className="flex shrink-0 gap-2">
+        <button
+          type="button"
+          className="rounded-lg border px-4 py-2 text-[13px] font-medium"
+          style={{ borderColor: "currentColor" }}
+          onClick={() => answer("declined")}
+        >
+          {str(t.cookie_decline_text, "Decline")}
+        </button>
+        <button
+          type="button"
+          className="rounded-lg px-4 py-2 text-[13px] font-semibold"
+          style={{ background: str(t.primary_color, "#6366f1"), color: "#ffffff" }}
+          onClick={() => answer("accepted")}
+        >
+          {str(t.cookie_accept_text, "Accept all")}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── The page ────────────────────────────────────────────────────────────────
+
+export function ThemePage({
+  theme,
+  sections,
+  renderSection,
+  emptyTitle = "This website is being set up",
+  emptyDetail = "Check back soon.",
+  className,
+  style,
+  children,
+}: {
+  theme: ThemeSettingsValues
+  sections: SectionInstance[]
+  /**
+   * How to render one section. The published routes leave this out and get the
+   * plain renderer; the editor passes its own so it can add selection,
+   * hovering and the device mode — WITHOUT taking over ordering or chrome,
+   * which is where the four copies drifted apart.
+   */
+  renderSection?: (section: SectionInstance, role: SectionRole) => ReactNode
+  emptyTitle?: string
+  emptyDetail?: string
+  className?: string
+  style?: CSSProperties
+  /** Anything the surface puts inside the page — the editor's skeletons. */
+  children?: ReactNode
+}) {
+  /**
+   * HEADER FIRST, FOOTER LAST, whatever order they were saved in. A header is
+   * chrome, not content: an editor that lets you drag it into the middle of
+   * the page should not produce a page with a navigation bar halfway down it.
+   */
+  const headers = sections.filter((s) => s.type === "header")
+  const footers = sections.filter((s) => s.type === "footer")
+  const body = sections.filter((s) => s.type !== "header" && s.type !== "footer")
+
+  const render =
+    renderSection ??
+    ((section: SectionInstance) => (
+      /**
+       * A STABLE ID PER SECTION, so `/#section-<id>` reaches it. The published
+       * page had none at all — only the editor put ids on its sections — so a
+       * menu item pointing at a section on the same page had nothing to scroll
+       * to.
+       */
+      <SectionRenderer
+        key={section.id}
+        wrapperId={`section-${section.id}`}
+        section={section}
+        theme={theme}
+      />
+    ))
+
+  return (
+    <div
+      {...{ [THEME_ROOT_ATTRIBUTE]: "" }}
+      className={className}
+      style={{ ...(themeVars(theme) as CSSProperties), ...style }}
+    >
+      {/*
+        The theme's own rules, scoped to this root. Inline rather than in a
+        stylesheet because they are per-install: two creators' pages can be
+        open in the same document — the editor canvas is one — and a global
+        rule would leak from one to the other.
+      */}
+      <style dangerouslySetInnerHTML={{ __html: themeStylesheet(theme) }} />
+
+      <AnnouncementBar theme={theme} />
+      <FreeShippingBar theme={theme} />
+
+      {children}
+
+      {headers.map((section) => render(section, "header"))}
+
+      {/*
+        No `flex-1` filler between the body and the footer. It was tried and it
+        produces a visible gap on a short page — the footer pushed to the
+        bottom of the viewport with nothing between it and the last section.
+        Natural flow leaves a short page short, which is correct.
+      */}
+      {body.map((section) => render(section, "body"))}
+
+      {sections.length === 0 && (
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <div className="text-center text-gray-400">
+            <p className="text-lg font-medium">{emptyTitle}</p>
+            <p className="mt-1 text-sm">{emptyDetail}</p>
+          </div>
+        </div>
+      )}
+
+      {footers.map((section) => render(section, "footer"))}
+
+      <CookieBanner theme={theme} />
+    </div>
+  )
+}
+
+export default ThemePage

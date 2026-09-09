@@ -6,6 +6,19 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* ── Theme defaults ────────────────────────────────────────────────────
+     A section can be rendered outside a themed page — a dashboard preview
+     card, a screenshot job — and `max-w-(--theme-page-width)` with no value
+     resolves to `max-width: none`, which is a section suddenly full-bleed.
+     These are the floor; ThemePage overrides them per install. */
+  --theme-page-width: 1230px;
+  --theme-padding-x: 2rem;
+  --theme-spacing-scale: 1;
+  --theme-radius: 8px;
+  --theme-image-radius: 8px;
+  --theme-card-shadow: 0 1px 3px rgba(15, 23, 42, 0.10);
+  --theme-button-radius: 8px;
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.1 0 0);
   --card: oklch(1 0 0);

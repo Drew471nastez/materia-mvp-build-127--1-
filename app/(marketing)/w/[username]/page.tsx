@@ -2,7 +2,8 @@ import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
-import { PageSections } from "@/components/website-builder/sections/PageSections"
+import { ThemePage } from "@/components/website-builder/theme/ThemePage"
+import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 export const dynamic = "force-dynamic"
@@ -67,6 +68,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: { absolute: rawTitle },
     description,
     icons: favicon ? { icon: favicon, shortcut: favicon, apple: favicon } : undefined,
+    // The share image, the card type and — the one that matters — whether the
+    // page may be indexed at all. All three were in the panel and read by
+    // nothing, so "noindex" was a setting somebody trusted and did not have.
+    ...themeMetadata(settings, { title: rawTitle, description }),
   }
 }
 
@@ -132,36 +137,10 @@ export default async function WebsitePublicPage({ params }: PageProps) {
 
   // No min-h-screen / flex-1 filler — see [sellername]/page.tsx for rationale.
   return (
-    <div
-      style={{
-        backgroundColor: String(themeSettings.background_color ?? "#ffffff"),
-        fontFamily: String(themeSettings.font_body ?? "Inter"),
-      }}
-    >
-      {/* Announcement bar */}
-      {themeSettings.announcement_bar_enabled && themeSettings.announcement_bar_text && (
-        <div
-          className="w-full py-2 text-center text-sm font-medium"
-          style={{
-            background: String(themeSettings.announcement_bar_bg ?? "#6366f1"),
-            color: String(themeSettings.announcement_bar_color ?? "#ffffff"),
-          }}
-        >
-          {String(themeSettings.announcement_bar_text)}
-        </div>
-      )}
-
-      {/*
-        Ordering and the empty state live in PageSections, which is the one
-        place that decides a header renders first and a footer last whatever
-        order they were saved in.
-
-        WHICH sections stays here, because this route and a published Site
-        differ on purpose: the storefront falls back to `draft_sections` so an
-        owner who has never published still sees their work, and a public Site
-        must not, because that would serve every visitor unpublished edits.
-      */}
-      <PageSections sections={sections} theme={themeSettings} emptyDetail="Check back soon!" />
-    </div>
+    <ThemePage
+      theme={themeSettings}
+      sections={sections}
+      emptyDetail="Check back soon!"
+    />
   )
 }

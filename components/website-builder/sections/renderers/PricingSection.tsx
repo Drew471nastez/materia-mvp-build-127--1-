@@ -50,7 +50,7 @@ export function PricingSection({ section, theme, isEditing, isSelected, onClick 
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 max-w-[1230px] mx-auto" style={sectionPadding(s, 64)}>
+      <div className="px-(--theme-padding-x) max-w-(--theme-page-width) mx-auto" style={sectionPadding(s, 64)}>
         <div className="text-center mb-8">
           {!!s.heading && (
             <h2
