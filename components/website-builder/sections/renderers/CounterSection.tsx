@@ -40,7 +40,7 @@ export function CounterSection({ section, theme, isEditing, isSelected, onClick 
   return (
     <SectionWrapper bgColor={c.bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div
-        className="px-8 max-w-[1230px] mx-auto"
+        className="px-(--theme-padding-x) max-w-(--theme-page-width) mx-auto"
         style={{ paddingTop: Number(s.padding_top ?? 80), paddingBottom: Number(s.padding_bottom ?? 80) }}
       >
         {(!!s.heading || !!s.description) && (

@@ -70,8 +70,8 @@ export function PressMentionsSection({ section, isEditing, isSelected, onClick }
   const cols = str(s.columns, "4")
   const grayscale = bool(s.grayscale, true)
   const hoverColor = bool(s.hover_color, true)
-  const maxWidthMap: Record<string, string> = { narrow: "max-w-xl", medium: "max-w-3xl", wide: "max-w-[1230px]", full: "max-w-none" }
-  const mw = maxWidthMap[str(s.max_width, "wide")] ?? "max-w-[1230px]"
+  const maxWidthMap: Record<string, string> = { narrow: "max-w-xl", medium: "max-w-3xl", wide: "max-w-(--theme-page-width)", full: "max-w-none" }
+  const mw = maxWidthMap[str(s.max_width, "wide")] ?? "max-w-(--theme-page-width)"
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 60
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 60
 

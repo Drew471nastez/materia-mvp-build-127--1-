@@ -99,7 +99,7 @@ export function CountdownTimerSection({ section, theme, isEditing, isSelected, o
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div
-        className="px-8 max-w-[1230px] mx-auto"
+        className="px-(--theme-padding-x) max-w-(--theme-page-width) mx-auto"
         style={{ paddingTop: Number(s.padding_top ?? 60), paddingBottom: Number(s.padding_bottom ?? 60) }}
       >
         <div className={cn("flex flex-col gap-6", alignClass[alignment])}>

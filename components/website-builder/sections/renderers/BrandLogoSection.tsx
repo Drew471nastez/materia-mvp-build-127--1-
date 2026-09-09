@@ -35,7 +35,7 @@ export function BrandLogoSection({ section, theme, isEditing, isSelected, onClic
   return (
     <SectionWrapper bgColor={c.bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div
-        className="px-8 max-w-[1230px] mx-auto"
+        className="px-(--theme-padding-x) max-w-(--theme-page-width) mx-auto"
         style={{ paddingTop: Number(s.padding_top ?? 40), paddingBottom: Number(s.padding_bottom ?? 40) }}
       >
         {(!!s.heading || !!s.description) && (

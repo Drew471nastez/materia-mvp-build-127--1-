@@ -189,8 +189,8 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
     label: "Layout",
     icon: "layout",
     fields: [
-      { id: "page_width", label: "Max page width", type: "range", min: 900, max: 1800, step: 20, default: 1280, unit: "px" },
-      { id: "content_padding_x", label: "Side padding", type: "range", min: 8, max: 80, step: 4, default: 24, unit: "px" },
+      { id: "page_width", label: "Max page width", type: "range", min: 900, max: 1800, step: 20, default: 1240, unit: "px" },
+      { id: "content_padding_x", label: "Side padding", type: "range", min: 8, max: 80, step: 4, default: 32, unit: "px" },
       { id: "section_gap", label: "Section gap", type: "range", min: 0, max: 80, step: 4, default: 0, unit: "px" },
       { id: "spacing_scale", label: "Spacing scale", type: "range", min: 0.5, max: 2.0, step: 0.1, default: 1.0 },
       { id: "border_radius", label: "Card border radius", type: "range", min: 0, max: 24, step: 1, default: 8, unit: "px" },

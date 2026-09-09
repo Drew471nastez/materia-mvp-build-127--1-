@@ -17,7 +17,7 @@ export function ImageSection({ section, theme, isEditing, isSelected, onClick }:
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 max-w-[1230px] mx-auto" style={{ paddingTop: `${s.padding_top ?? 40}px`, paddingBottom: `${s.padding_bottom ?? 40}px` }}>
+      <div className="px-(--theme-padding-x) max-w-(--theme-page-width) mx-auto" style={{ paddingTop: `${s.padding_top ?? 40}px`, paddingBottom: `${s.padding_bottom ?? 40}px` }}>
         {imgUrl ? (
           <img src={imgUrl} alt={caption} className={cn("w-full h-auto rounded-lg object-cover", aspectMap[aspectRatio])} loading="lazy" decoding="async" />
         ) : (

@@ -71,7 +71,7 @@ export function TestimonialsSection({ section, theme, isEditing, isSelected, onC
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 max-w-[1230px] mx-auto" style={sectionPadding(s, 64)}>
+      <div className="px-(--theme-padding-x) max-w-(--theme-page-width) mx-auto" style={sectionPadding(s, 64)}>
         {!!s.heading && (
           <h2
             className="text-3xl font-bold text-center mb-3"

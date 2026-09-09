@@ -37,8 +37,8 @@ export function SocialProofBarSection({ section, isEditing, isSelected, onClick 
   const showDividers = bool(s.show_dividers, true)
   const align = str(s.alignment, "center")
   const justify = align === "left" ? "justify-start" : align === "right" ? "justify-end" : "justify-center"
-  const maxWidthMap: Record<string, string> = { narrow: "max-w-xl", medium: "max-w-3xl", wide: "max-w-[1230px]", full: "max-w-none" }
-  const mw = maxWidthMap[str(s.max_width, "wide")] ?? "max-w-[1230px]"
+  const maxWidthMap: Record<string, string> = { narrow: "max-w-xl", medium: "max-w-3xl", wide: "max-w-(--theme-page-width)", full: "max-w-none" }
+  const mw = maxWidthMap[str(s.max_width, "wide")] ?? "max-w-(--theme-page-width)"
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 24
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 24
   const rating = typeof s.rating_value === "number" ? s.rating_value : 4.9

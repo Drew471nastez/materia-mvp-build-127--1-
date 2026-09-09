@@ -19,7 +19,7 @@ export function CustomHtmlSection({ section, isEditing, isSelected, onClick }: S
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div
-        className="max-w-[1230px] mx-auto px-8"
+        className="max-w-(--theme-page-width) mx-auto px-(--theme-padding-x)"
         style={{ color, paddingTop: padTop, paddingBottom: padBottom }}
       >
         {html ? (

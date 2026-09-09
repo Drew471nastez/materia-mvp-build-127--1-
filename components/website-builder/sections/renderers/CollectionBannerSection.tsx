@@ -60,8 +60,8 @@ export function CollectionBannerSection({ section, isEditing, isSelected, onClic
     <div
       className={
         str(s.filter_style, "pills") === "sidebar"
-          ? "max-w-[1230px] mx-auto px-6 py-6 flex items-start gap-6 text-sm"
-          : "max-w-[1230px] mx-auto px-6 py-6 flex flex-wrap items-center gap-3 text-sm"
+          ? "max-w-(--theme-page-width) mx-auto px-(--theme-padding-x) py-6 flex items-start gap-6 text-sm"
+          : "max-w-(--theme-page-width) mx-auto px-(--theme-padding-x) py-6 flex flex-wrap items-center gap-3 text-sm"
       }
     >
       {bool(s.show_filters, true) && (
@@ -119,7 +119,7 @@ export function CollectionBannerSection({ section, isEditing, isSelected, onClic
             {filters}
           </>
         ) : layout === "no-banner" ? (
-          <div className="max-w-[1230px] mx-auto px-6 py-12">
+          <div className="max-w-(--theme-page-width) mx-auto px-(--theme-padding-x) py-12">
             <h1 className="text-3xl font-bold mb-2">{str(s.collection_name)}</h1>
             {!!s.description && <p className="opacity-70">{str(s.description)}</p>}
             {filters}

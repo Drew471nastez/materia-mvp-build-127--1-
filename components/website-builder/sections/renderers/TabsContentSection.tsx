@@ -25,8 +25,8 @@ export function TabsContentSection({ section, isEditing, isSelected, onClick }: 
   const animation = str(s.animation, "fade")
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 60
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 60
-  const maxWidthMap: Record<string, string> = { narrow: "max-w-xl", medium: "max-w-3xl", wide: "max-w-[1230px]", full: "max-w-none" }
-  const mw = maxWidthMap[str(s.max_width, "wide")] ?? "max-w-[1230px]"
+  const maxWidthMap: Record<string, string> = { narrow: "max-w-xl", medium: "max-w-3xl", wide: "max-w-(--theme-page-width)", full: "max-w-none" }
+  const mw = maxWidthMap[str(s.max_width, "wide")] ?? "max-w-(--theme-page-width)"
 
   const tabButtonStyle = (i: number): React.CSSProperties => {
     const isActive = i === active

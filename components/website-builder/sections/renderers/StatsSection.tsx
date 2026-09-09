@@ -151,7 +151,7 @@ export function StatsSection({ section, theme, isEditing, isSelected, onClick }:
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="max-w-[1230px] mx-auto px-5 @[768px]:px-8" style={sectionPadding(s, 40, 56)}>
+      <div className="max-w-(--theme-page-width) mx-auto px-(--theme-padding-x) @[768px]:px-8" style={sectionPadding(s, 40, 56)}>
         {!!s.heading && (
           <div className="text-center mb-6 @[768px]:mb-8">
             <h2

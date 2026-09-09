@@ -25,6 +25,8 @@ import { join } from "node:path"
 import { SECTION_COMPONENTS } from "@/components/website-builder/sections/registry"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import { ThemePage } from "@/components/website-builder/theme/ThemePage"
+import { THEME_ROOT_ATTRIBUTE } from "@/lib/website-builder/theme-css"
 import {
   maxWidth,
   num,
@@ -213,6 +215,77 @@ section("The fixes are on the page, not just in the source")
 }
 
 // ===========================================================================
+section("A page is a page, whichever surface renders it")
+// ===========================================================================
+
+/**
+ * The editor canvas, the storefront, the seller page and the product page each
+ * assembled a page from scratch — four announcement bars, four
+ * header-first-footer-last rules. They had already drifted, and every setting
+ * added to one had to be remembered in three others.
+ *
+ * ThemePage is the one page. These drive it rather than grepping for it.
+ */
+{
+  const shipped = (type: string) =>
+    asShipped(type, JSON.parse(readFileSync(join(SECTIONS, `${type}.json`), "utf8")))
+
+  /** Saved in the WRONG order, which an editor with drag-and-drop allows. */
+  const outOfOrder = [shipped("footer"), shipped("hero"), shipped("header")]
+
+  const html = renderToStaticMarkup(
+    createElement(ThemePage, {
+      theme: { ...theme, announcement_bar_enabled: true, announcement_bar_text: "Free shipping" },
+      sections: outOfOrder,
+    }),
+  )
+
+  /**
+   * `indexOf` returns -1 for something that is not there, and -1 is less than
+   * every real index — so an ordering assertion written on raw `indexOf`
+   * passes when the thing has DISAPPEARED. A break test caught exactly that:
+   * deleting the header render left "the header comes first" green.
+   */
+  const at = (needle: string) => {
+    const i = html.indexOf(needle)
+    if (i < 0) return Number.POSITIVE_INFINITY
+    return i
+  }
+  check(
+    "the header comes first and the footer last, whatever order they were saved in",
+    /**
+     * A header is chrome, not content: an editor that lets you drag it into
+     * the middle of the page should not produce a page with a navigation bar
+     * halfway down it.
+     */
+    Number.isFinite(at("section-header-1")) &&
+      Number.isFinite(at("section-footer-1")) &&
+      at("section-header-1") < at("section-hero-1") &&
+      at("section-hero-1") < at("section-footer-1"),
+    JSON.stringify({ header: at("section-header-1"), hero: at("section-hero-1"), footer: at("section-footer-1") }),
+  )
+  check("the announcement bar is above all of it", at("Free shipping") < at("section-header-1"))
+  check(
+    "the theme's own variables are on the page root",
+    html.includes("--theme-page-width") && html.includes("--theme-spacing-scale"),
+  )
+  check(
+    "and its stylesheet is scoped to that root",
+    html.includes(`[${THEME_ROOT_ATTRIBUTE}]`) && html.includes("data-section"),
+  )
+
+  const bare = renderToStaticMarkup(createElement(ThemePage, { theme, sections: [] }))
+  check(
+    "an empty page says so rather than rendering nothing",
+    /being set up/.test(bare),
+  )
+  check(
+    "and a theme with no announcement text does not render an empty bar",
+    !/announcement/i.test(bare),
+  )
+}
+
+// ===========================================================================
 section("A deadline is a deadline in the zone the creator picked")
 // ===========================================================================
 
@@ -284,16 +357,23 @@ section("Numbers that arrive as strings")
   check("and so does a value that is not a number at all", num("wide", 60) === 60 && num(null, 60) === 60)
   check(
     "padding is the section's own default until somebody moves the slider",
-    JSON.stringify(sectionPadding({}, 64, 32)) ===
-      JSON.stringify({ paddingTop: "64px", paddingBottom: "32px" }),
+    // …times the theme's spacing scale, which is what makes that control real.
+    sectionPadding({}, 64, 32).paddingTop === "calc(64px * var(--theme-spacing-scale, 1))" &&
+      sectionPadding({}, 64, 32).paddingBottom === "calc(32px * var(--theme-spacing-scale, 1))",
+    JSON.stringify(sectionPadding({}, 64, 32)),
   )
   check(
     "and a negative one is clamped rather than rendered",
-    sectionPadding({ padding_top: -40 }, 64).paddingTop === "0px",
+    sectionPadding({ padding_top: -40 }, 64).paddingTop === "calc(0px * var(--theme-spacing-scale, 1))",
   )
   check(
     "a content width is one of the four the schemas offer",
-    maxWidth("narrow") === "720px" && maxWidth("full") === "100%" && maxWidth("nonsense") === "1230px",
+    maxWidth("narrow") === "720px" &&
+      maxWidth("full") === "100%" &&
+      // "Wide" is whatever the theme calls wide.
+      maxWidth("wide") === "var(--theme-page-width, 1230px)" &&
+      maxWidth("nonsense") === "var(--theme-page-width, 1230px)",
+    maxWidth("wide"),
   )
 }
 

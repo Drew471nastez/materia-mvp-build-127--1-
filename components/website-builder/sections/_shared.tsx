@@ -132,9 +132,15 @@ export function sectionPadding(
   topDefault: number,
   bottomDefault = topDefault,
 ): CSSProperties {
+  /**
+   * `calc(… * var(--theme-spacing-scale))` rather than a plain px, so the
+   * theme's Spacing scale control means something. It was one of six controls
+   * in the Layout group that nothing read: a creator could move it from 0.5 to
+   * 2.0 and no page changed by a pixel.
+   */
   return {
-    paddingTop: `${Math.max(0, num(settings.padding_top, topDefault))}px`,
-    paddingBottom: `${Math.max(0, num(settings.padding_bottom, bottomDefault))}px`,
+    paddingTop: `calc(${Math.max(0, num(settings.padding_top, topDefault))}px * var(--theme-spacing-scale, 1))`,
+    paddingBottom: `calc(${Math.max(0, num(settings.padding_bottom, bottomDefault))}px * var(--theme-spacing-scale, 1))`,
   }
 }
 
@@ -236,11 +242,21 @@ export function useCountdown(
   }
 }
 
+/**
+ * The theme's own rounding and shadow, for sections that show a card or an
+ * image. `border_radius`, `image_border_radius` and `card_shadow` were three
+ * more Layout controls that nothing read.
+ */
+export const THEME_RADIUS = "var(--theme-radius, 8px)"
+export const THEME_IMAGE_RADIUS = "var(--theme-image-radius, 8px)"
+export const THEME_CARD_SHADOW = "var(--theme-card-shadow, 0 1px 3px rgba(15,23,42,0.10))"
+
 /** The four content widths the schemas offer, in the px the canvas uses. */
 export const MAX_WIDTHS: Record<string, string> = {
   narrow: "720px",
   medium: "960px",
-  wide: "1230px",
+  // "Wide" is whatever the THEME calls wide — its Max page width control.
+  wide: "var(--theme-page-width, 1230px)",
   full: "100%",
 }
 
@@ -342,6 +358,15 @@ export function SectionWrapper({
     <div
       id={id}
       ref={forwardRef as any}
+      /**
+       * The hook the theme's own stylesheet hangs off — section gaps, the
+       * entrance animation, the button rules. It goes HERE rather than on the
+       * dispatcher's container wrapper because the header is deliberately
+       * outside that wrapper (it positions things `fixed`, and containment
+       * would make an ancestor the containing block), and a theme setting that
+       * skipped the header would be the same drift this is fixing.
+       */
+      data-section=""
       className={cn(
         "relative w-full",
         // `isolate` (isolation: isolate) creates a new stacking context per

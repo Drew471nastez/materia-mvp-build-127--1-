@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { useState, useEffect, useRef, useLayoutEffect, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
+import { ThemeSocials } from "../../theme/ThemeSocials"
 import { cn } from "@/lib/utils"
 import type { ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
 import {
@@ -623,7 +624,19 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const forceMobile = deviceMode === "mobile"
   const hasDeviceMode = !!deviceMode
 
-  const mobileLogoSrc = s.use_mobile_logo && s.mobile_logo_url ? str(s.mobile_logo_url) : str(s.logo_url)
+  /**
+   * THE STORE'S LOGO, WHEREVER IT WAS UPLOADED.
+   *
+   * The theme's Branding group has a logo image and a logo width, and the
+   * header read neither — it only looked at its own `logo_url`. A creator who
+   * uploaded their logo under Branding, which is where you would look for it,
+   * got the store name in text and no explanation.
+   */
+  const branding = theme as Record<string, unknown>
+  const headerLogo = str(s.logo_url) || str(branding.logo_url)
+  const logoMaxWidth = Number(branding.logo_width) || undefined
+
+  const mobileLogoSrc = s.use_mobile_logo && s.mobile_logo_url ? str(s.mobile_logo_url) : headerLogo
   const mobileLogoH = s.use_mobile_logo && s.mobile_logo_url ? (Number(s.mobile_logo_height) || 32) : (Number(s.logo_height) || 64)
   const desktopLogoH = Number(s.logo_height) || 64
 
@@ -645,7 +658,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     : undefined
 
   const renderLogo = () => {
-    if (!s.logo_url) {
+    if (!headerLogo) {
       return (
         <span
           className="text-[17px] font-bold whitespace-nowrap"
@@ -662,11 +675,12 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     if (hasDeviceMode) {
       return (
         <img
-          src={forceMobile ? mobileLogoSrc : str(s.logo_url)}
+          src={forceMobile ? mobileLogoSrc : headerLogo}
           alt={str(s.logo_text, theme.brand_name ?? "Logo")}
           className="object-contain"
           style={{
             height: `${forceMobile ? mobileLogoH : desktopLogoH}px`,
+            maxWidth: logoMaxWidth ? `${logoMaxWidth}px` : undefined,
             transform: forceMobile ? mobileLogoTransform : desktopLogoTransform,
           }}
           loading="eager"
@@ -678,10 +692,10 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     return (
       <>
         <img
-          src={str(s.logo_url)}
+          src={headerLogo}
           alt={str(s.logo_text, theme.brand_name ?? "Logo")}
           className="object-contain hidden md:block"
-          style={{ height: `${desktopLogoH}px`, transform: desktopLogoTransform }}
+          style={{ height: `${desktopLogoH}px`, maxWidth: logoMaxWidth ? `${logoMaxWidth}px` : undefined, transform: desktopLogoTransform }}
           loading="eager"
           decoding="async"
           fetchPriority="high"
@@ -690,7 +704,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           src={mobileLogoSrc}
           alt={str(s.logo_text, theme.brand_name ?? "Logo")}
           className="object-contain md:hidden"
-          style={{ height: `${mobileLogoH}px`, transform: mobileLogoTransform }}
+          style={{ height: `${mobileLogoH}px`, maxWidth: logoMaxWidth ? `${logoMaxWidth}px` : undefined, transform: mobileLogoTransform }}
           loading="eager"
           decoding="async"
           fetchPriority="high"
@@ -874,18 +888,36 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // 'storelib:cart-count', { detail: N }))`. Defaults to 0 so the badge
   // stays hidden until a real count arrives.
   const [cartCount, setCartCount] = useState(0)
+  /** The same channel, which already carried an object — now with a total. */
+  const [cartSubtotal, setCartSubtotal] = useState<string>("")
   useEffect(() => {
     if (typeof window === "undefined") return
     const initial = (window as unknown as { __storelibCartCount?: number }).__storelibCartCount
     if (typeof initial === "number") setCartCount(initial)
     const onUpdate = (e: Event) => {
-      const detail = (e as CustomEvent<number | { count: number }>).detail
+      const detail = (e as CustomEvent<number | { count: number; subtotal?: string }>).detail
       if (typeof detail === "number") setCartCount(detail)
-      else if (detail && typeof detail.count === "number") setCartCount(detail.count)
+      else if (detail && typeof detail.count === "number") {
+        setCartCount(detail.count)
+        if (typeof detail.subtotal === "string") setCartSubtotal(detail.subtotal)
+      }
     }
     window.addEventListener("storelib:cart-count", onUpdate as EventListener)
     return () => window.removeEventListener("storelib:cart-count", onUpdate as EventListener)
   }, [])
+
+  /**
+   * THE CART GROUP, which was three controls over nothing.
+   *
+   * `cart_type` decides whether the icon opens the drawer or goes to a cart
+   * page; `cart_show_count` gates the badge; `cart_show_subtotal` puts the
+   * running total beside the icon. All three are the THEME's, not this
+   * section's — a store has one cart, and asking for its behaviour to be set
+   * per header is how two pages end up disagreeing about it.
+   */
+  const cartType = str(theme.cart_type, "drawer")
+  const showCartCount = theme.cart_show_count !== false
+  const showCartSubtotal = theme.cart_show_subtotal === true
 
   // On mobile shells ONLY search + cart + hamburger appear in the header.
   // Account & wishlist are moved into the sidebar drawer — they no longer
@@ -926,11 +958,25 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         <button
           type="button"
           aria-label="Open cart"
-          className="relative h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
-          onClick={e => { e.preventDefault(); setCartOpen(true) }}
+          className="relative flex h-9 items-center justify-center gap-1.5 rounded-full px-2 hover:bg-black/5 transition-colors"
+          onClick={e => {
+            e.preventDefault()
+            // "Page" sends people to the cart; "drawer" and "dropdown" open in
+            // place. The control offered all three and always opened the
+            // drawer.
+            if (cartType === "page") {
+              if (isEditing) onEditorNavigate?.("/cart")
+              else window.location.href = "/cart"
+              return
+            }
+            setCartOpen(true)
+          }}
         >
           <ShoppingBag className="h-[18px] w-[18px]" strokeWidth={1.8} />
-          {cartCount > 0 && (
+          {showCartSubtotal && !!cartSubtotal && (
+            <span className="text-[13px] font-medium tabular-nums">{cartSubtotal}</span>
+          )}
+          {showCartCount && cartCount > 0 && (
             <span
               aria-hidden
               className="absolute -top-0.5 -right-0.5 h-[17px] min-w-[17px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none flex items-center justify-center shadow-sm ring-2 ring-[var(--hdr-ring,transparent)]"
@@ -940,6 +986,13 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
             </span>
           )}
         </button>
+      )}
+      {/*
+        The store's social links, when the theme says they belong up here.
+        "Show icons in header" was a toggle with no wire behind it.
+      */}
+      {!forMobile && (
+        <ThemeSocials theme={theme} where="header" className="flex items-center gap-2 pl-1" size={16} />
       )}
       {/* Call-to-action button.
           Visibility is gated by the `show_cta_button` toggle (default ON).

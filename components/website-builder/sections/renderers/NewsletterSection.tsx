@@ -84,7 +84,7 @@ export function NewsletterSection({ section, isEditing, isSelected, onClick }: S
             <div className="absolute inset-0" style={{ background: bg, opacity: overlayOp / 100 }} />
           </>
         )}
-        <div className="max-w-[1230px] mx-auto px-6 relative">
+        <div className="max-w-(--theme-page-width) mx-auto px-(--theme-padding-x) relative">
           {layout === "split" ? (
             <div className="grid @[768px]:grid-cols-2 gap-8 items-center">
               {bgImage ? (
