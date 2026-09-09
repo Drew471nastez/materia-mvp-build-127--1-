@@ -104,6 +104,9 @@ function CodeLine({ line, lineNumber }: { line: string; lineNumber: number }) {
 export default function CodeEditorPage({ params }: { params: Promise<{ installId: string }> }) {
   const { installId } = use(params)
   const router = useRouter()
+  // `?embedded=1` is the theme editor framing this page over its canvas.
+  const embedded =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("embedded") === "1"
 
   const [install, setInstall] = useState<ThemeInstall | null>(null)
   const [fileTree, setFileTree] = useState<ThemeFileNode[]>([])
@@ -343,6 +346,9 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   return (
     <div className="h-svh flex flex-col bg-[#1a1a2e] text-neutral-200 overflow-hidden">
       {/* ── Top bar ── */}
+      {/* Inside the editor's own frame the bar above is the editor's, and a
+          second one saying the same things is a second header. */}
+      {!embedded && (
       <header className="h-11 bg-[#12121e] border-b border-white/10 flex items-center px-4 gap-3 shrink-0">
         <button
           className="flex items-center gap-1.5 text-[13px] text-neutral-500 hover:text-neutral-200 mr-1"
@@ -392,6 +398,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
           </div>
         )}
       </header>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* ── File explorer ── */}

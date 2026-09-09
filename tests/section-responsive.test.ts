@@ -246,12 +246,6 @@ check(
     /@\[768px\]:grid-cols-4/.test(sources.get("StatsSection.tsx") ?? ""),
 )
 
-console.log(`\n${passed} passed, ${failed} failed\n`)
-if (failed > 0) {
-  console.log("Failing:", failures.join(", "))
-  process.exit(1)
-}
-
 // ===========================================================================
 section("The page you are editing is named, and it is in the middle")
 // ===========================================================================
@@ -276,10 +270,10 @@ check(
       editor.indexOf("RIGHT: where the site is"),
     )
     const fmt = centre.indexOf("Switch to phone preview")
-    const reload = centre.indexOf("Reload preview")
     const sw = centre.indexOf("<PageSwitcher")
     const open = centre.indexOf("Open the live page")
-    return fmt > 0 && reload > fmt && sw > reload && open > sw
+    // Reload is INSIDE the pill now, asserted on the switcher below.
+    return fmt > 0 && sw > fmt && open > sw && !/Reload preview/.test(centre)
   })(),
 )
 
@@ -305,3 +299,89 @@ check(
   "and it grows from its trigger rather than fading in place",
   /origin-top animate-in fade-in-0 zoom-in-95/.test(switcher),
 )
+
+check(
+  "reload lives inside the pill, on the page it reloads",
+  // A control that acts on a thing belongs on that thing. It is a sibling of
+  // the trigger, not nested in it: a button inside a button is invalid.
+  /aria-label="Reload preview"/.test(switcher) && !/<button[^>]*>\s*<button/.test(switcher),
+)
+
+check(
+  "the pill pre-fills the search with the current path, selected",
+  // The way an address bar behaves: one keystroke replaces it.
+  /searchRef\.current\?\.select\(\)/.test(switcher),
+)
+
+// ===========================================================================
+section("Publish is a place, not a button")
+// ===========================================================================
+
+const publish = readFileSync(join(root, "components/website-builder/publish-panel.tsx"), "utf8")
+
+check(
+  "the button opens a panel that says when it last went out and what is pending",
+  /Changes since published/.test(publish) && /Publish changes/.test(publish) && /Not published yet/.test(publish),
+)
+
+check(
+  "on a phone it is the editor's own bottom sheet, with its drag physics",
+  // A second implementation of detents, velocity and the keyboard is a second
+  // set of bugs.
+  /<MobileEditorSheet/.test(publish) && /detents=\{\[/.test(publish),
+)
+
+check(
+  "and the editor wires it to the real publish action",
+  /<PublishPanel/.test(editor) && /onPublish=\{\(\) => \{ void handleSave\(\) \}\}/.test(editor),
+)
+
+check(
+  "publishing stamps the time, and the route survives the column being absent",
+  (() => {
+    const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/publish/route.ts"), "utf8")
+    return /published_at: new Date\(\)\.toISOString\(\)/.test(route) && /\/published_at\/\.test\(error\.message\)/.test(route)
+  })(),
+)
+
+check(
+  "the relative time reads the way somebody says it",
+  (() => {
+    // Imported through a require so the test does not need the React tree.
+    const src = publish
+    return /if \(s < 45\) return "just now"/.test(src) && /minute\$\{m === 1 \? "" : "s"\} ago/.test(src)
+  })(),
+)
+
+// ===========================================================================
+section("The code is where the preview is")
+// ===========================================================================
+
+check(
+  "the code editor is reached from a switch over the canvas, not a button on the bar",
+  /<PreviewModeSwitch/.test(editor) && /<CodePane installId=\{installId\}/.test(editor) && !/aria-label="Edit code"/.test(editor),
+)
+
+check(
+  "and it loads in place, once, and fades in",
+  (() => {
+    const pm = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
+    return /\?embedded=1/.test(pm) && /if \(!everShown\) return null/.test(pm) && /transition-opacity/.test(pm)
+  })(),
+)
+
+check(
+  "the framed code page drops its own header",
+  /\{!embedded && \(/.test(readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")),
+)
+
+check(
+  "the bar is dark, like the reference",
+  /<header className="relative h-12 bg-\[#171717\] text-white/.test(editor),
+)
+
+console.log(`\n${passed} passed, ${failed} failed\n`)
+if (failed > 0) {
+  console.log("Failing:", failures.join(", "))
+  process.exit(1)
+}

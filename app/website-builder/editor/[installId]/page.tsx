@@ -46,6 +46,8 @@ import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { PageSwitcher } from "@/components/website-builder/page-switcher"
+import { PublishPanel } from "@/components/website-builder/publish-panel"
+import { PreviewModeSwitch, CodePane, type PreviewMode } from "@/components/website-builder/preview-mode-switch"
 import { createClient } from "@/lib/supabase/client"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -3453,6 +3455,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [publishOpen, setPublishOpen] = useState(false)
+  const publishBtnRef = useRef<HTMLDivElement | null>(null)
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("preview")
   const [isDirty, setIsDirty] = useState(false)
 
   /**
@@ -4607,7 +4612,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       // Update local install status so subsequent saves also publish
       if (install) {
-        setInstall({ ...install, status: "published" })
+        setInstall({ ...install, status: "published", published_at: new Date().toISOString() })
       }
 
       setIsDirty(false)
@@ -5315,7 +5320,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   return (
     <div className="h-svh flex flex-col bg-muted/30 overflow-hidden">
       {/* ── Top bar ── */}
-      <header className="relative h-12 bg-background border-b border-border flex items-center px-3 md:px-4 gap-2 shrink-0 z-50">
+      {/* Dark, like the reference: the bar is chrome, and chrome that is the
+          same colour as the page it frames is chrome you keep mistaking for
+          the page. Everything on it is white-on-dark from here down. */}
+      <header className="relative h-12 bg-[#171717] text-white border-b border-white/10 flex items-center px-3 md:px-4 gap-2 shrink-0 z-50">
         {/* LEFT: Exit + sidebar mode toggles (desktop only) */}
         <div className="flex items-center gap-1.5 min-w-0">
           {/* Exit button — X on mobile (Shopify-style editor close), back arrow on desktop */}
@@ -5483,7 +5491,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground shrink-0"
+                className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white shrink-0"
                 onClick={() => setDevice(device === "desktop" ? "mobile" : "desktop")}
                 aria-label={device === "desktop" ? "Switch to phone preview" : "Switch to desktop preview"}
                 aria-pressed={device === "mobile"}
@@ -5500,31 +5508,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipContent>
           </Tooltip>
 
-          {/* Reload the canvas. Cheap, and the thing people reach for when a
-              change has not appeared — better a button than a browser refresh
-              that costs the whole editor. */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground shrink-0"
-                onClick={() => { void handlePageChange(currentPage) }}
-                aria-label="Reload preview"
-              >
-                <RefreshCw className={cn("h-4 w-4", sectionsLoading && "animate-spin")} strokeWidth={1.75} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Reload preview</TooltipContent>
-          </Tooltip>
-
           <PageSwitcher
             pages={[
-              ...(Object.keys(PAGE_META) as PageKey[]).map((k) => ({ key: k, name: PAGE_META[k].label })),
-              ...customPages.map((p) => ({ key: p.key as string, name: p.name, custom: true })),
+              ...(Object.keys(PAGE_META) as PageKey[]).map((k) => ({
+                key: k,
+                name: PAGE_META[k].label,
+                path: k === "home" ? "/" : `/${k}`,
+              })),
+              ...customPages.map((p) => ({ key: p.key as string, name: p.name, path: `/${p.key}`, custom: true })),
             ]}
             current={currentPage}
             onSelect={(key) => { void handlePageChange(key as PageKey) }}
             onCreate={() => setAddPageOpen(true)}
             onDelete={(key) => setCustomPages((prev) => prev.filter((p) => p.key !== key))}
+            onReload={() => { void handlePageChange(currentPage) }}
+            reloading={sectionsLoading}
             disabled={sectionsLoading}
           />
 
@@ -5533,7 +5531,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground shrink-0"
+                  className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white shrink-0"
                   onClick={() => window.open(websiteUrl, "_blank")}
                   aria-label="Open the live page"
                 >
@@ -5653,33 +5651,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <TooltipContent side="bottom">Preview</TooltipContent>
           </Tooltip>
 
-          {/*
-            EDIT CODE — the way into the file browser.
-
-            It already existed at /website-builder/code/[installId], with a
-            tree, tabs, dirty markers and a save route, and NOTHING IN THE
-            PRODUCT LINKED TO IT. The only way in was to know the URL. Shopify
-            puts the same door next to the preview, which is where somebody
-            looks for it.
-
-            Unsaved theme work is left alone: this is a different surface, so
-            it opens in its own tab rather than navigating away from a draft.
-          */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-                onClick={() =>
-                  window.open(`/website-builder/code/${installId}`, "_blank", "noopener,noreferrer")
-                }
-                aria-label="Edit code"
-              >
-                <Code2 className="h-4 w-4" strokeWidth={1.75} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Edit code</TooltipContent>
-          </Tooltip>
-
           {/* Undo / Redo — hidden on mobile (both actions live in the
               three-dots sheet on mobile so the topbar has room for Save). */}
           
@@ -5696,30 +5667,37 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             const pending = live ? unpublished : isDirty
             const busyNow = saving || publishing
             return (
-              <Button
-                size="sm"
-                className={cn(
-                  "h-8 cursor-pointer min-w-[86px] rounded-lg transition-all duration-200 text-white",
-                  busyNow
-                    ? "bg-neutral-900 hover:bg-neutral-900"
-                    : pending
-                      ? "bg-neutral-900 hover:bg-black"
-                      : "bg-neutral-900/40 hover:bg-neutral-900/40 cursor-default",
-                )}
-                onClick={handleSave}
-                disabled={busyNow || !pending}
-              >
-                {busyNow ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
-                    <span>{live ? "Publishing" : "Saving"}</span>
-                  </>
-                ) : pending ? (
-                  <span>{live ? "Publish" : "Save"}</span>
-                ) : (
-                  <span>{live ? "Published" : "Saved"}</span>
-                )}
-              </Button>
+              <div ref={publishBtnRef} className="relative">
+                <Button
+                  size="sm"
+                  className={cn(
+                    "h-8 cursor-pointer min-w-[92px] rounded-full transition-all duration-200 text-white gap-2",
+                    live ? "bg-[#2f5cff] hover:bg-[#2851e6]" : "bg-neutral-100 text-neutral-900 hover:bg-white",
+                  )}
+                  onClick={() => (live ? setPublishOpen((v) => !v) : handleSave())}
+                  disabled={busyNow || (!live && !pending)}
+                >
+                  {busyNow ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : live ? (
+                    <span className={cn("h-2 w-2 rounded-full", pending ? "bg-white" : "bg-white/50")} />
+                  ) : null}
+                  <span>{busyNow ? (live ? "Publishing" : "Saving") : live ? "Publish" : pending ? "Save" : "Saved"}</span>
+                </Button>
+                <PublishPanel
+                  open={publishOpen}
+                  onOpenChange={setPublishOpen}
+                  anchorRef={publishBtnRef}
+                  mobile={isMobileView}
+                  live={live}
+                  pending={pending}
+                  publishedAt={install?.published_at ?? null}
+                  websiteUrl={websiteUrl}
+                  websiteUrlDisplay={websiteUrlDisplay}
+                  busy={busyNow}
+                  onPublish={() => { void handleSave() }}
+                />
+              </div>
             )
           })()}
         </div>
@@ -5887,7 +5865,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         */}
         <main
           className={cn(
-            "flex-1 min-w-0 bg-neutral-50 overflow-hidden flex justify-center",
+            // `relative` so the code pane and the mode switch can sit over
+            // the canvas without leaving the flex layout.
+            "relative flex-1 min-w-0 bg-neutral-50 overflow-hidden flex justify-center",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -5898,6 +5878,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               : device === "desktop" ? "items-start pt-2 px-2" : "items-center py-6 px-6",
           )}
         >
+          {/*
+            PREVIEW, OR THE CODE BEHIND IT — over the top of the canvas, where
+            the thing it switches is. Sections is a jump to the sidebar.
+          */}
+          {!isMobileView && (
+            <div className="pointer-events-none absolute left-0 right-0 top-2 z-30 flex justify-center">
+              <div className="pointer-events-auto rounded-full bg-[#171717] shadow-lg">
+                <PreviewModeSwitch
+                  mode={previewMode}
+                  onChange={setPreviewMode}
+                  onSections={() => {
+                    setPreviewMode("preview")
+                    setSidebarMode("sections")
+                    setPageBrowserOpen(false)
+                    setSelectedPanel({ type: "pages" })
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          {!isMobileView && <CodePane installId={installId} visible={previewMode === "code"} />}
           <div
             id="wb-preview-root"
             className={cn(

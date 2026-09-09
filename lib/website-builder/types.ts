@@ -32,6 +32,9 @@ export interface ThemeInstall {
   sort_order: number
   created_at: string
   updated_at: string
+  /** When it last went live. Null until RUN_THEME_PUBLISHED_AT.sql has run
+   *  and the theme has been published since. */
+  published_at?: string | null
   // Joined
   theme?: Theme
   settings?: ThemeSettings

@@ -1286,8 +1286,11 @@ section("Autosave writes the draft, never the live site")
       return (
         at > 0 &&
         /const pending = live \? unpublished : isDirty/.test(body) &&
-        /live \? "Publish" : "Save"/.test(body) &&
-        /live \? "Published" : "Saved"/.test(body)
+        // Live: the button reads Publish and OPENS THE PANEL, whatever is
+        // pending, because the panel is where the answer to "what is pending"
+        // lives. Draft: Save while dirty, Saved once written, no panel.
+        /live \? "Publish" : pending \? "Save" : "Saved"/.test(body) &&
+        /live \? setPublishOpen\(\(v\) => !v\) : handleSave\(\)/.test(body)
       )
     })(),
   )

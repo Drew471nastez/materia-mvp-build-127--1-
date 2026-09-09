@@ -862,6 +862,34 @@ export async function proxy(request: NextRequest) {
     )
   }
 
+  /**
+   * THE CODE EDITOR MAY BE FRAMED, BY US, WHEN IT ASKS TO BE.
+   *
+   * vercel.json sends `X-Frame-Options: DENY` on every path, which is the
+   * right default and is why nothing in this app can be put in an iframe by
+   * anybody. The theme editor now shows /website-builder/code over its own
+   * canvas, in a frame, and that page would be a blank rectangle under DENY.
+   *
+   * CSP `frame-ancestors` takes precedence over X-Frame-Options where both
+   * are present — the site cover route relies on exactly this and is proven
+   * in production. So the code page gets `frame-ancestors 'self'`, and ONLY
+   * when it carries `?embedded=1`: opened at its own address it stays
+   * unframeable, and nobody else's page can frame it either way.
+   *
+   * Appended to an existing CSP rather than replacing it, because the
+   * Capacitor block above may already have set one for this response.
+   */
+  {
+    const url = request.nextUrl
+    if (url.pathname.startsWith("/website-builder/code/") && url.searchParams.get("embedded") === "1") {
+      const existing = supabaseResponse.headers.get("Content-Security-Policy")
+      supabaseResponse.headers.set(
+        "Content-Security-Policy",
+        existing ? `${existing}; frame-ancestors 'self'` : "frame-ancestors 'self'",
+      )
+    }
+  }
+
   // Last thing before the response leaves: retire any `.storelib.com` session
   // cookie this browser is still carrying, re-issued host-only so nobody is
   // signed out by the change.

@@ -10,6 +10,7 @@ import {
   Info,
   Mail,
   Plus,
+  RefreshCw,
   Search,
   ShoppingBag,
   Trash2,
@@ -23,28 +24,22 @@ import { cn } from "@/lib/utils"
  *  WHICH PAGE AM I EDITING
  * ===========================================================================
  *
- * The page you are on is the single most important fact in an editor, and it
- * used to be a button on a rail with a panel behind it — two clicks and a
- * change of context to answer "where am I". It belongs in the middle of the
- * bar, named, with everything else arranged around it: the thing you look at
- * to know where you are should be the thing in the middle.
+ * One dark pill in the middle of the bar: reload on the left, the page's path
+ * in the middle, a chevron on the right. The reload lives INSIDE the pill
+ * rather than beside it because it acts on the page the pill names, and a
+ * control that acts on a thing belongs on that thing.
  *
- * ---------------------------------------------------------------------------
- * WHY IT IS A LIST WITH GROUPS RATHER THAN A FLAT MENU
- * ---------------------------------------------------------------------------
- * Four built-in pages is a flat menu. Four built-in pages plus however many
- * the seller has made is not: the built-ins never change and the custom ones
- * are the ones being worked on, and mixing them means the list reorders itself
- * as somebody works. So they are two groups with a rule between them, and the
- * custom group is the one that grows.
- *
- * Search filters both. It is shown from four items up, which is the point at
- * which reading a list stops being faster than typing.
+ * The panel underneath is grouped the way a store is grouped, not the way the
+ * database is: the pages everybody has, then the ones this seller made, then
+ * the product page. Groups with more than one member fold, so a seller with
+ * thirty pages is not scrolling past them to reach the product page.
  */
 
 export interface SwitcherPage {
   key: string
   name: string
+  /** Where it lives, shown as the pill's label. */
+  path: string
   /** Built-ins cannot be deleted; custom pages can. */
   custom?: boolean
 }
@@ -62,6 +57,8 @@ export function PageSwitcher({
   onSelect,
   onCreate,
   onDelete,
+  onReload,
+  reloading,
   disabled,
 }: {
   pages: SwitcherPage[]
@@ -69,18 +66,16 @@ export function PageSwitcher({
   onSelect: (key: string) => void
   onCreate: () => void
   onDelete?: (key: string) => void
+  onReload: () => void
+  reloading?: boolean
   disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
+  const [yoursOpen, setYoursOpen] = useState(true)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const searchRef = useRef<HTMLInputElement | null>(null)
 
-  /**
-   * Closing on an outside press and on Escape, both. A popover that only
-   * closes by pressing its own trigger again is one somebody ends up clicking
-   * through the page to dismiss.
-   */
   useEffect(() => {
     if (!open) return
     const onDown = (e: PointerEvent) => {
@@ -97,25 +92,34 @@ export function PageSwitcher({
     }
   }, [open])
 
-  // The field is where the hands already are when a list is long enough to
-  // need one; focusing it is what makes the search worth having.
+  // The field is pre-filled with the current path and selected, the way an
+  // address bar behaves: one keystroke replaces it, Escape keeps it.
   useEffect(() => {
-    if (open && pages.length > 4) {
-      const id = window.setTimeout(() => searchRef.current?.focus(), 60)
+    if (open) {
+      setQuery(pages.find((p) => p.key === current)?.path ?? "")
+      const id = window.setTimeout(() => {
+        searchRef.current?.focus()
+        searchRef.current?.select()
+      }, 40)
       return () => window.clearTimeout(id)
     }
-    if (!open) setQuery("")
-  }, [open, pages.length])
+  }, [open, current, pages])
 
-  const currentName = pages.find((p) => p.key === current)?.name ?? "Page"
+  const currentPage = pages.find((p) => p.key === current)
 
-  const [builtIn, custom] = useMemo(() => {
+  const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const match = (p: SwitcherPage) => !q || p.name.toLowerCase().includes(q) || p.key.toLowerCase().includes(q)
-    return [pages.filter((p) => !p.custom && match(p)), pages.filter((p) => p.custom && match(p))]
-  }, [pages, query])
+    const cur = currentPage?.path.toLowerCase()
+    // The pre-filled current path is not a filter, it is a prompt.
+    const active = q && q !== cur
+    return pages.filter((p) => !active || p.name.toLowerCase().includes(q) || p.path.toLowerCase().includes(q))
+  }, [pages, query, currentPage])
 
-  const row = (p: SwitcherPage) => {
+  const builtIn = filtered.filter((p) => !p.custom && p.key !== "product")
+  const yours = filtered.filter((p) => p.custom)
+  const product = filtered.find((p) => p.key === "product")
+
+  const row = (p: SwitcherPage, indent = false) => {
     const Icon = ICONS[p.key] ?? FileText
     const active = p.key === current
     return (
@@ -127,18 +131,18 @@ export function PageSwitcher({
             setOpen(false)
           }}
           className={cn(
-            "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13.5px] transition-colors",
-            active ? "bg-muted font-medium text-foreground" : "text-foreground/80 hover:bg-muted/70",
+            "flex w-full items-center gap-2.5 rounded-lg py-2 pr-2.5 text-left text-[14px] transition-colors",
+            indent ? "pl-9" : "pl-2.5",
+            active ? "bg-white/[0.08] text-white" : "text-white/85 hover:bg-white/[0.06] hover:text-white",
           )}
         >
-          <Icon className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} />
-          <span className="min-w-0 flex-1 truncate">{p.name}</span>
-          {active && <Check className="h-4 w-4 shrink-0 text-foreground" strokeWidth={2} />}
+          {active ? (
+            <Check className="h-4 w-4 shrink-0" strokeWidth={2.25} />
+          ) : (
+            <Icon className="h-4 w-4 shrink-0 opacity-60" strokeWidth={1.75} />
+          )}
+          <span className="min-w-0 flex-1 truncate">{p.path}</span>
         </button>
-        {/* Delete sits on the row rather than behind a menu: a custom page is
-            a thing somebody made by accident as often as on purpose. Built-ins
-            have no delete at all, because "cannot" is better said by absence
-            than by a disabled control. */}
         {p.custom && onDelete && !active && (
           <button
             type="button"
@@ -146,7 +150,7 @@ export function PageSwitcher({
               e.stopPropagation()
               onDelete(p.key)
             }}
-            className="absolute right-1.5 top-1/2 hidden -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 group-hover/row:block"
+            className="absolute right-1.5 top-1/2 hidden -translate-y-1/2 rounded-md p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white group-hover/row:block"
             aria-label={`Delete ${p.name}`}
           >
             <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -158,89 +162,115 @@ export function PageSwitcher({
 
   return (
     <div ref={rootRef} className="relative min-w-0">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
+      {/* The pill. Reload is a button inside a button-shaped container, so it
+          is a sibling of the trigger rather than nested in it: a button inside
+          a button is invalid markup and reads as one target to a screen
+          reader. */}
+      <div
         className={cn(
-          "flex h-8 min-w-0 max-w-[240px] items-center gap-1.5 rounded-lg border border-border px-3 text-[13px] font-medium transition-colors",
-          "text-foreground hover:bg-muted disabled:opacity-50",
-          open && "bg-muted",
+          "flex h-9 min-w-[220px] max-w-[380px] items-center rounded-full border border-white/10 bg-white/[0.07] pl-1.5 pr-3 transition-colors",
+          open && "bg-white/[0.11]",
+          disabled && "opacity-50",
         )}
       >
-        <span className="min-w-0 truncate">{currentName}</span>
-        <ChevronDown
-          className={cn("h-3.5 w-3.5 shrink-0 opacity-60 transition-transform duration-200", open && "rotate-180")}
-          strokeWidth={2}
-        />
-      </button>
+        <button
+          type="button"
+          onClick={onReload}
+          disabled={disabled}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          aria-label="Reload preview"
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", reloading && "animate-spin")} strokeWidth={2} />
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          className="flex h-full min-w-0 flex-1 items-center gap-2 pl-1 text-[14px] font-medium text-white"
+        >
+          <span className="min-w-0 flex-1 truncate text-center">{currentPage?.name ?? "Page"}</span>
+          <ChevronDown
+            className={cn("h-4 w-4 shrink-0 text-white/60 transition-transform duration-200", open && "rotate-180")}
+            strokeWidth={2}
+          />
+        </button>
+      </div>
 
       {open && (
         <div
           role="menu"
-          /**
-           * Grown from the trigger rather than faded in place: the panel comes
-           * from the control that opened it, which is what makes it read as
-           * that control's contents rather than as a dialog that happened to
-           * appear. 140ms, because a menu that takes longer than a glance is a
-           * menu you wait for.
-           */
           className={cn(
-            "absolute left-1/2 top-full z-50 mt-1.5 w-[280px] -translate-x-1/2 overflow-hidden rounded-xl border border-border bg-popover shadow-lg",
-            "origin-top animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-140",
+            "absolute left-1/2 top-full z-50 mt-2 w-[300px] -translate-x-1/2 overflow-hidden rounded-2xl border border-white/10 bg-[#1f1f1f] text-white shadow-[0_20px_60px_-12px_rgba(0,0,0,0.6)]",
+            "origin-top animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-150",
           )}
         >
-          {pages.length > 4 && (
-            <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
-              <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2} />
-              <input
-                ref={searchRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search pages"
-                className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
-              />
-              {query && (
+          <div className="flex items-center gap-2.5 border-b border-white/10 px-4 py-3">
+            <Search className="h-4 w-4 shrink-0 text-white/50" strokeWidth={2} />
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search pages"
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none selection:bg-white/25 placeholder:text-white/40"
+            />
+            <button
+              type="button"
+              onClick={() => (query ? setQuery("") : setOpen(false))}
+              className="rounded p-0.5 text-white/50 transition-colors hover:text-white"
+              aria-label={query ? "Clear search" : "Close"}
+            >
+              <X className="h-4 w-4" strokeWidth={2} />
+            </button>
+          </div>
+
+          <div className="wb-slim-scroll max-h-[360px] overflow-y-auto p-2">
+            {builtIn.map((p) => row(p))}
+
+            {/* The seller's own pages fold, because this is the group that
+                grows. It opens by default: a folded group of things you made
+                is a group you have to unfold every time. */}
+            {yours.length > 0 && (
+              <>
+                <div className="mx-1 my-1.5 border-t border-white/10" />
                 <button
                   type="button"
-                  onClick={() => setQuery("")}
-                  className="rounded p-0.5 text-muted-foreground hover:text-foreground"
-                  aria-label="Clear search"
+                  onClick={() => setYoursOpen((v) => !v)}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-white/85 transition-colors hover:bg-white/[0.06] hover:text-white"
                 >
-                  <X className="h-3.5 w-3.5" strokeWidth={2} />
+                  <FileText className="h-4 w-4 shrink-0 opacity-60" strokeWidth={1.75} />
+                  <span className="flex-1">Pages</span>
+                  <span className="text-[12px] text-white/40">{yours.length}</span>
+                  <ChevronRight
+                    className={cn("h-4 w-4 text-white/50 transition-transform duration-200", yoursOpen && "rotate-90")}
+                    strokeWidth={2}
+                  />
                 </button>
-              )}
-            </div>
-          )}
-
-          <div className="wb-slim-scroll max-h-[320px] overflow-y-auto p-1.5">
-            {builtIn.map(row)}
-
-            {custom.length > 0 && (
-              <>
-                <div className="mx-1 my-1.5 border-t border-border" />
-                <p className="px-2.5 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Your pages
-                </p>
-                {custom.map(row)}
+                {yoursOpen && yours.map((p) => row(p, true))}
               </>
             )}
 
-            {builtIn.length === 0 && custom.length === 0 && (
-              <p className="px-2.5 py-6 text-center text-[13px] text-muted-foreground">No page matches that.</p>
+            {product && (
+              <>
+                <div className="mx-1 my-1.5 border-t border-white/10" />
+                {row(product)}
+              </>
+            )}
+
+            {filtered.length === 0 && (
+              <p className="px-2.5 py-6 text-center text-[14px] text-white/50">No page matches that.</p>
             )}
           </div>
 
-          <div className="border-t border-border p-1.5">
+          <div className="border-t border-white/10 p-2">
             <button
               type="button"
               onClick={() => {
                 setOpen(false)
                 onCreate()
               }}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13.5px] font-medium text-foreground transition-colors hover:bg-muted"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] font-medium text-white transition-colors hover:bg-white/[0.08]"
             >
               <Plus className="h-4 w-4 shrink-0" strokeWidth={2} />
               Create page
@@ -251,6 +281,3 @@ export function PageSwitcher({
     </div>
   )
 }
-
-/** Exported for the guard, and so the chevron has one definition. */
-export { ChevronRight }

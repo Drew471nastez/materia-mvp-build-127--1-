@@ -203,12 +203,20 @@ section("It is reachable, and it works on a file longer than the window")
     "utf8",
   )
   check(
-    "there is a door to it from the theme editor",
-    /\/website-builder\/code\/\$\{installId\}/.test(editor) && /aria-label="Edit code"/.test(editor),
+    "there is a door to it from the theme editor, over the canvas",
+    /**
+     * It was a button on the bar that opened a new tab. The code IS the
+     * preview seen the other way round, so the door is a switch over the
+     * canvas, beside the thing it switches.
+     */
+    /<PreviewModeSwitch/.test(editor) && /<CodePane installId=\{installId\}/.test(editor),
   )
   check(
-    "and it opens in its own tab, so unsaved theme work is not navigated away from",
-    /window\.open\(`\/website-builder\/code\/\$\{installId\}`, "_blank"/.test(editor),
+    "and it loads in place, so unsaved theme work is not navigated away from",
+    (() => {
+      const pane = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
+      return /src=\{`\/website-builder\/code\/\$\{installId\}\?embedded=1`\}/.test(pane)
+    })(),
   )
 }
 

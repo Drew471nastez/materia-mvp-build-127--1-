@@ -48,10 +48,17 @@ export async function POST(req: Request, { params }: Params) {
       .eq("status", "published")
       .neq("id", installId)
 
-    const { error } = await admin
+    // The moment, as well as the fact. "Changes since published 4 minutes
+    // ago" needs to know when, and status alone cannot say. The column is
+    // added by RUN_THEME_PUBLISHED_AT.sql; until it has been run the write
+    // falls back to status only, so publishing never fails on a timestamp.
+    let { error } = await admin
       .from("store_theme_installs")
-      .update({ status: "published" })
+      .update({ status: "published", published_at: new Date().toISOString() })
       .eq("id", installId)
+    if (error && /published_at/.test(error.message)) {
+      ;({ error } = await admin.from("store_theme_installs").update({ status: "published" }).eq("id", installId))
+    }
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

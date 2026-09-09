@@ -498,7 +498,7 @@ export function MobileEditorSheet({
       >
         <div
           ref={handleRef}
-          className="flex shrink-0 cursor-grab select-none justify-center bg-background pb-1.5 pt-2.5 active:cursor-grabbing"
+          className="flex shrink-0 cursor-grab select-none justify-center bg-inherit pb-1.5 pt-2.5 active:cursor-grabbing"
           onMouseDown={(e) => {
             e.preventDefault()
             // A mouse is unambiguous — there is no scroll gesture to confuse

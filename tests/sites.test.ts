@@ -5040,9 +5040,35 @@ check(
     // this app is YouTube, Spotify, Calendly or a PDF — somebody else's
     // headers, and none of our business.
     const ours = iframeSources().filter((f) => f.src.startsWith("/"))
-    return ours.length === 1 && ours[0].src.startsWith("/api/sites/") && ours[0].src.endsWith("/cover")
+    /**
+     * Two now, and the second is allowed for the same reason the first is:
+     * it carries `frame-ancestors 'self'` on its own response. The theme
+     * editor frames /website-builder/code over its canvas, and proxy.ts adds
+     * the directive ONLY when the page is asked for with `?embedded=1` — see
+     * the guard right after this one, which is what stops the pane going
+     * blank if somebody tidies that block away.
+     */
+    const cover = ours.filter((f) => f.src.startsWith("/api/sites/") && f.src.endsWith("/cover"))
+    const code = ours.filter((f) => /^\/website-builder\/code\/\$\{installId\}\?embedded=1$/.test(f.src))
+    return ours.length === 2 && cover.length === 1 && code.length === 1
   })(),
   JSON.stringify(iframeSources().filter((f) => f.src.startsWith("/"))),
+)
+
+check(
+  "and the framed code page is granted frame-ancestors, only when embedded",
+  (() => {
+    const proxy = readFileSync(join(process.cwd(), "proxy.ts"), "utf8")
+    const at = proxy.indexOf('url.pathname.startsWith("/website-builder/code/")')
+    const block = at > 0 ? proxy.slice(at, at + 500) : ""
+    return (
+      at > 0 &&
+      /searchParams\.get\("embedded"\) === "1"/.test(block) &&
+      /frame-ancestors 'self'/.test(block) &&
+      // Appended, not replaced: the Capacitor CSP may already be on it.
+      /existing \? `\$\{existing\}; frame-ancestors 'self'`/.test(block)
+    )
+  })(),
 )
 
 check(
