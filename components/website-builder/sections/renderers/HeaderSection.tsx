@@ -564,10 +564,26 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // trackpad scroll doesn't flicker the state. The reveal/hide transition
   // uses Glozin's fadeInSticky curve (see `hideTransition` below).
   const [stickyVisible, setStickyVisible] = useState(true)
+  /**
+   * AT THE TOP OF THE PAGE THE HEADER IS NOT PINNED, AND MUST NOT ANIMATE.
+   *
+   * The reveal slides the header in from `translateY(-100%)`. That is right
+   * while it is PINNED — it comes down from off-screen. It is wrong at the top
+   * of the page, because up there the header's own position is BELOW the
+   * announcement bar, so -100% starts it above its own box, i.e. on top of the
+   * bar, and the 350ms transition walks it back down ACROSS the bar. That is
+   * the reported "it overlaps the announcement bar", and it only ever happens
+   * on the way home.
+   *
+   * So the transition is switched off while we are at the top. The header is
+   * simply where it lives, with no transform to travel from.
+   */
+  const [atTop, setAtTop] = useState(true)
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     if (!headerStickyEnabled || !headerStickyOnScrollUp) {
       setStickyVisible(true)
+      setAtTop(true)
       return
     }
     const getScrollTarget = (): Window | HTMLElement => {
@@ -597,6 +613,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     let lastY = getY()
     const onScroll = () => {
       const y = getY()
+      setAtTop(y < 80)
       if (y < 80) {
         setStickyVisible(true)
       } else if (y > lastY + 4) {
@@ -1401,8 +1418,38 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // The 0.22/0.61/0.36/1 curve is a "quint-like" ease-out that feels crisp
   // and confident at the start and settles softly at the end — exactly the
   // "smooth, clean, accurate" reveal the user asked for.
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   *  NOTHING MOVES UNLESS THE REVEAL IS TURNED ON
+   * ─────────────────────────────────────────────────────────────────────────
+   *
+   * `header_sticky_on_scroll_up` defaults to FALSE, so on almost every site
+   * this header never moves — and yet it was still shipping
+   * `transform: translateY(0)`, a `transition` and `will-change: transform`
+   * on every render. An identity transform is not free: with `will-change` it
+   * promotes the header to its own compositor layer, permanently, for an
+   * animation that never runs.
+   *
+   * That is what leaves the band. The LAYOUT is correct — measured in
+   * Chromium, in all four configurations, the next section's top and the
+   * header's bottom are the same pixel — so what is visible under the header
+   * is not a gap in the page, it is a stale tile from a promoted layer that
+   * the compositor did not repaint. A permanently promoted `position: sticky`
+   * element inside an `overflow-x: clip` ancestor is exactly where that shows
+   * up, and it explains the two things a layout bug cannot: why it appears
+   * only after scrolling, and why it comes and goes.
+   *
+   * So the promotion is now tied to the thing that needs it. Reveal off: no
+   * transform, no transition, no `will-change` — an ordinary sticky header,
+   * with nothing for the compositor to keep alive. Reveal on: the machinery
+   * is there, because then it genuinely animates on every scroll.
+   */
+  const revealEnabled = headerStickyEnabled && headerStickyOnScrollUp
   const hideTransform = stickyHidden ? "translateY(-100%)" : "translateY(0)"
-  const hideTransition = "transform 350ms cubic-bezier(0.22, 0.61, 0.36, 1)"
+  /** No transition while we are at the top — see the note on `atTop`. Coming
+   *  home, the header is already where it belongs and has nothing to travel
+   *  from; animating there is what walked it across the announcement bar. */
+  const hideTransition = atTop ? "none" : "transform 350ms cubic-bezier(0.22, 0.61, 0.36, 1)"
 
   const mobileDrawer = (
     <HeaderMobileNavDrawer
@@ -1485,7 +1532,9 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         disableWrapperTransition
         canvasRoundedTopPx={canvasRoundedTopPx}
         className={cn(
-          "sticky top-0 z-[60] will-change-transform isolate",
+          "sticky top-0 z-[60] isolate",
+          // Only when it actually animates — see the note above `hideTransform`.
+          revealEnabled && "will-change-transform",
           // Suppress the hover ring on the sticky header — it looks broken
           // when it appears over the sliding transform. The SELECTED ring
           // (blue) must remain so the user can see which section is
@@ -1497,8 +1546,9 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           // bleed-through from the content behind it).
           backgroundColor: bg,
           opacity: 1,
-          transform: hideTransform,
-          transition: hideTransition,
+          // Absent entirely when the reveal is off, so the header is a plain
+          // sticky box with no compositor layer of its own.
+          ...(revealEnabled ? { transform: hideTransform, transition: hideTransition } : null),
           pointerEvents: stickyHidden ? "none" : undefined,
           ...overlayMargin,
         }}

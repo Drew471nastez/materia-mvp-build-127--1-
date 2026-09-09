@@ -55,7 +55,8 @@ writeFileSync(
  * first version of this reported "pending" three times.
  */
 const PROBE = `<script>
-function run() {
+const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+async function run() {
   const root = document.querySelector("[data-storelib-theme]")
   const bar = [...root.children].find(c => c.textContent.trim().startsWith("Walk-ins"))
   const header = document.getElementById("section-header")
@@ -64,6 +65,7 @@ function run() {
   r.barHeight = Math.round(b.height)
   r.headerStartsBelowBar = Math.abs(h.top - b.bottom) < 2
   r.transform = getComputedStyle(header).transform
+  r.willChange = getComputedStyle(header).willChange
   const next = header.nextElementSibling
   r.overlapsNext = Math.round(next.getBoundingClientRect().top) < Math.round(h.bottom) - 2
   r.noEmptyBandBelow = Math.abs(next.getBoundingClientRect().top - h.bottom) < 2
@@ -73,6 +75,40 @@ function run() {
   window.scrollTo(0, 0)
   const h3 = header.getBoundingClientRect(), b3 = bar.getBoundingClientRect()
   r.headerBackBelowBar = Math.abs(h3.top - b3.bottom) < 2
+
+  /**
+   * THE CYCLE THE OTHER THREE CASES NEVER PERFORM.
+   *
+   * Scroll down far enough to hide, back up to reveal, then all the way home
+   * — because "it leaves a white band once you have scrolled" is a complaint
+   * about the state the header is left in AFTERWARDS, not about first paint.
+   * Every measurement above is taken before anything has moved, which is
+   * exactly why they all passed while the page was visibly wrong.
+   */
+  const headerH = Math.round(h.height)
+  window.scrollTo(0, 200); await sleep(60)
+  window.scrollTo(0, 900); await sleep(500)          // down → should hide
+  const hAfterHide = header.getBoundingClientRect()
+  r.hidTransform = getComputedStyle(header).transform
+  r.wentAway = Math.round(hAfterHide.bottom) <= 2
+  // Nothing may be left behind where it was: the section under the header has
+  // to occupy that space, not a band of page background.
+  const nAfterHide = next.getBoundingClientRect()
+  r.nothingLeftBehind = Math.round(nAfterHide.top) <= 2
+
+  window.scrollTo(0, 400); await sleep(500)          // up → should reveal
+  r.revealedAt = Math.round(header.getBoundingClientRect().top)
+
+  window.scrollTo(0, 0); await sleep(500)            // home
+  const h4 = header.getBoundingClientRect(), b4 = bar.getBoundingClientRect()
+  r.endsBelowBar = Math.abs(h4.top - b4.bottom) < 2
+  r.endsOverBar = Math.round(h4.top) < Math.round(b4.bottom) - 2
+  r.endTransform = getComputedStyle(header).transform
+  r.endBandBelow = Math.round(next.getBoundingClientRect().top - h4.bottom)
+  r.endNoBand = Math.abs(r.endBandBelow) < 2
+  r.endHeaderH = Math.round(h4.height)
+  r.heightStable = Math.abs(r.endHeaderH - headerH) < 2
+
   document.getElementById("out").textContent = JSON.stringify(r)
 }
 if (document.readyState === "complete") run(); else addEventListener("load", run)
@@ -84,7 +120,16 @@ const EXPECTED = {
     [
       [r.sticky, "the header is sticky, not fixed"],
       [r.headerStartsBelowBar, "it starts below the announcement bar"],
-      [r.transform === "none" || r.transform === "matrix(1, 0, 0, 1, 0, 0)", "no entrance animation displaces it"],
+      /**
+       * `none`, not identity. An identity transform is not nothing: with
+       * `will-change` beside it, it promotes the header to its own compositor
+       * layer permanently, for an animation this mode never runs — and a
+       * promoted sticky layer inside an `overflow-x: clip` ancestor is where
+       * stale tiles show up as a band under the header. The old spelling of
+       * this check accepted `matrix(1, 0, 0, 1, 0, 0)` and so could not see it.
+       */
+      [r.transform === "none", "it carries no transform at all when it never moves"],
+      [r.willChange !== "transform", "and asks for no compositor layer it will not use"],
       [r.noEmptyBandBelow, "there is no empty band under it"],
       [r.pinnedAt === 0, "it pins to the top when scrolled"],
       [r.barScrolledAway, "and the bar scrolls away"],
@@ -100,6 +145,30 @@ const EXPECTED = {
     [r.headerStartsBelowBar, "it starts below the announcement bar"],
     [r.noEmptyBandBelow, "there is no empty band under it"],
     [r.pinnedAt < 0, "a non-sticky header scrolls away with the page"],
+  ],
+  /**
+   * The reveal-on-scroll-up mode, and the state it leaves behind.
+   *
+   * Everything before the cycle is the same contract as plain sticky. What is
+   * new is everything after it: the header has to go fully away, leave nothing
+   * behind where it was, come back at the top of the viewport, and finally
+   * land under the bar with the next section flush against it. A band under
+   * the header and a header sitting over the bar are the two reported
+   * symptoms, and they are the last two lines here.
+   */
+  "sticky-scroll-up": (r) => [
+    [r.sticky, "the header is sticky, not fixed"],
+    [r.headerStartsBelowBar, "it starts below the announcement bar"],
+    [r.noEmptyBandBelow, "there is no empty band under it at rest"],
+    [r.pinnedAt === 0, "it pins to the top when scrolled"],
+    [r.endsBelowBar, "after a full scroll cycle it sits under the bar"],
+    [!r.endsOverBar, "not over it"],
+    [r.endNoBand, "and there is no empty band under it afterwards"],
+    [r.heightStable, "its height is unchanged by the whole cycle"],
+    // The reveal is the ONE mode that animates, so this is the one mode
+    // allowed to carry the machinery for it.
+    [r.transform !== "none", "this mode does carry a transform, because it animates"],
+    [r.willChange === "transform", "and asks for the layer it will actually use"],
   ],
 }
 
@@ -167,7 +236,7 @@ try {
     }
     if (!EXPECTED[name](measured).every(([ok]) => ok)) console.log(`        ${JSON.stringify(measured)}`)
   }
-  console.log(`\n${broken === 0 ? "the header behaves in all three" : `${broken} failed`}`)
+  console.log(`\n${broken === 0 ? "the header behaves in all four" : `${broken} failed`}`)
   process.exit(broken === 0 ? 0 : 1)
 } finally {
   rmSync(tsconfigPath, { force: true })

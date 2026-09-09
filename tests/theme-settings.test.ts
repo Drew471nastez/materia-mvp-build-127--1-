@@ -330,6 +330,48 @@ section("The header, the announcement bar, and the space between them")
     !/In-flow spacer/.test(header) && !/height: measuredH \|\| undefined/.test(source),
   )
   check(
+    "it is not promoted to a compositor layer for an animation it never runs",
+    /**
+     * `header_sticky_on_scroll_up` defaults to FALSE, so on almost every site
+     * the header never moves — and it was still shipping `transform:
+     * translateY(0)`, a transition and `will-change: transform` on every
+     * render.
+     *
+     * An identity transform is not nothing. With `will-change` beside it, it
+     * promotes the header to its own compositor layer permanently. The layout
+     * stays correct — measured in Chromium in all four configurations, the
+     * next section's top and the header's bottom land on the same pixel — but
+     * a permanently promoted `position: sticky` element inside an
+     * `overflow-x: clip` ancestor is exactly where a stale tile shows through
+     * as a band under the header. It explains the two things a layout bug
+     * cannot: why it appeared only after scrolling, and why it came and went.
+     *
+     * Guarded at the SOURCE as well as in scripts/check-sticky-header.mjs,
+     * because that probe needs a production build and does not run on push —
+     * so this is the copy that actually bites when somebody edits this file.
+     */
+    /const revealEnabled = headerStickyEnabled && headerStickyOnScrollUp/.test(source) &&
+      // The promotion and the transform are both conditional on it.
+      /revealEnabled && "will-change-transform"/.test(source) &&
+      /\.\.\.\(revealEnabled \? \{ transform: hideTransform, transition: hideTransition \} : null\)/.test(source) &&
+      // And the class list no longer carries the promotion unconditionally.
+      !/"sticky top-0 z-\[60\] will-change-transform/.test(source),
+  )
+  check(
+    "coming back to the top it does not animate across the announcement bar",
+    /**
+     * The reveal slides the header in from `translateY(-100%)`. That is right
+     * while it is PINNED. At the top of the page it is wrong: up there the
+     * header's own box sits BELOW the announcement bar, so -100% starts it
+     * above itself — on top of the bar — and the transition walks it back down
+     * across the bar. That is the reported overlap, and it only happens on the
+     * way home.
+     */
+    /const \[atTop, setAtTop\] = useState\(true\)/.test(source) &&
+      /setAtTop\(y < 80\)/.test(source) &&
+      /const hideTransition = atTop \? "none"/.test(source),
+  )
+  check(
     "the editor and the published page take the same branch",
     /**
      * They took different ones — `useStickyFixed` versus `useStickyInFlow` —

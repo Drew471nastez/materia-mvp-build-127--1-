@@ -37,13 +37,23 @@ function shipped(type: string, extra: Record<string, unknown> = {}): SectionInst
 }
 
 /**
- * Three configurations, because the header behaves differently in each and
- * only one of them was ever looked at.
+ * Four configurations, because the header behaves differently in each and
+ * until now only three of them were ever looked at.
+ *
+ * `sticky-scroll-up` is the fourth, and it is the one that carries the risk:
+ * it is the only mode where the header's `transform` ever changes, so it is
+ * the only mode where the header is hidden, revealed, and has to land back
+ * under the announcement bar afterwards. The other three never move it, which
+ * is why a suite that passed on all three said nothing about this.
  */
 const CASES: [string, Record<string, unknown>][] = [
   ["sticky", { header_sticky_enabled: true, header_transparent: false }],
   ["sticky-transparent", { header_sticky_enabled: true, header_transparent: true }],
   ["static", { header_sticky_enabled: false, header_transparent: false }],
+  [
+    "sticky-scroll-up",
+    { header_sticky_enabled: true, header_transparent: false, header_sticky_on_scroll_up: true },
+  ],
 ]
 
 for (const [name, overrides] of CASES) {
