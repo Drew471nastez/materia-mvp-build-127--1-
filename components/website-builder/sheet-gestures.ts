@@ -134,11 +134,34 @@ export const VELOCITY_THRESHOLD = 0.4
 export const FLICK_MIN_DISTANCE = 8
 
 /**
- * Nearest stop, then one further if it was a flick.
+ * How far a release carries, per unit of speed.
  *
- * Nearest alone makes a fast short flick feel ignored — the finger has barely
- * moved, so the nearest stop is the one it started at. Carrying it one further
- * in the direction of the flick is what makes a sheet feel like it has weight.
+ * This is a deceleration constant, the same idea UIScrollView uses: a finger
+ * that lets go at 2 px/ms is going somewhere, and where it is going is a
+ * function of how fast it was moving.
+ *
+ * 320, arrived at by working the real cases rather than picking a round
+ * number. At 160 a hard thumb flick — around 2.6 px/ms — carried 416px, which
+ * from the peek on an 800px screen still stopped at half: exactly the "throw
+ * it and it does not go" the projection exists to fix. A scroll view's own
+ * constant is nearer 500, but that is tuned for coasting through a long list;
+ * a sheet with three stops wants to arrive, not to drift.
+ */
+export const PROJECTION_MS = 320
+
+/**
+ * WHERE THE SHEET WOULD COME TO REST, and the nearest stop to that.
+ *
+ * The first version was "nearest stop, then one further if it was a flick",
+ * which is the standard cheap answer and feels like one. Two stops is all it
+ * can express: a hard flick from the peek and a gentle one both move exactly
+ * one detent, so throwing the sheet at the top of the screen stops it halfway
+ * and you have to throw it again.
+ *
+ * Projecting the release instead — carry on from where the finger left at the
+ * speed it left, decelerating — means the distance travelled is proportional
+ * to the effort, which is what "it feels right" is made of. A hard flick from
+ * the peek reaches full; a nudge settles back.
  */
 export function snapTarget(input: {
   offsets: number[]
@@ -148,19 +171,62 @@ export function snapTarget(input: {
 }): number {
   const { offsets, current, velocity, totalDelta } = input
 
+  /**
+   * A slow release does not project at all. Without this a resting finger's
+   * jitter — a pixel over four milliseconds reads as 0.25 px/ms — would carry
+   * the sheet 40px and off its stop.
+   */
+  const carries = Math.abs(velocity) > VELOCITY_THRESHOLD && Math.abs(totalDelta) > FLICK_MIN_DISTANCE
+  const projected = carries ? current + velocity * PROJECTION_MS : current
+
   let index = 0
   let best = Number.POSITIVE_INFINITY
   for (let i = 0; i < offsets.length; i++) {
-    const distance = Math.abs(offsets[i] - current)
+    const distance = Math.abs(offsets[i] - projected)
     if (distance < best) {
       best = distance
       index = i
     }
   }
 
-  if (Math.abs(velocity) > VELOCITY_THRESHOLD && Math.abs(totalDelta) > FLICK_MIN_DISTANCE) {
-    index = velocity < 0 ? Math.max(0, index - 1) : Math.min(offsets.length - 1, index + 1)
+  /**
+   * A flick always moves at least one stop, even when the projection lands
+   * back on the one it started at — a deliberate flick that changes nothing
+   * reads as the sheet ignoring you.
+   */
+  if (carries) {
+    let nearestToStart = 0
+    let bestStart = Number.POSITIVE_INFINITY
+    for (let i = 0; i < offsets.length; i++) {
+      const distance = Math.abs(offsets[i] - current)
+      if (distance < bestStart) {
+        bestStart = distance
+        nearestToStart = i
+      }
+    }
+    if (index === nearestToStart) {
+      index = velocity < 0 ? Math.max(0, index - 1) : Math.min(offsets.length - 1, index + 1)
+    }
   }
 
   return index
+}
+
+/**
+ * HOW LONG THE SNAP TAKES, from how far it has to go and how fast it was
+ * already going.
+ *
+ * A fixed 360ms is the other half of why the old sheet felt heavy: closing
+ * from the peek — 70 pixels — took exactly as long as opening from shut, and a
+ * fast flick decelerated into a slow crawl the moment the finger lifted.
+ *
+ * Clamped at both ends: below ~120ms a move reads as a jump with no
+ * connection to the gesture, and above ~460ms it reads as lag.
+ */
+export const MIN_SNAP_MS = 130
+export const MAX_SNAP_MS = 460
+
+export function snapDuration(distance: number, velocity: number): number {
+  const speed = Math.max(Math.abs(velocity), 0.35)
+  return Math.round(Math.max(MIN_SNAP_MS, Math.min(MAX_SNAP_MS, Math.abs(distance) / speed)))
 }

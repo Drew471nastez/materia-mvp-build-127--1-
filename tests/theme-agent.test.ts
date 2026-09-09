@@ -39,6 +39,7 @@ import {
   dragIntent,
   offsetsFor,
   releaseVelocity,
+  snapDuration,
   snapTarget,
 } from "@/components/website-builder/sheet-gestures"
 import type { AgentProvider, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
@@ -1417,6 +1418,59 @@ section("The mobile sheet snaps where it should")
   )
   check("released between stops it takes the nearest", snap(offsets, 200, 0, 0) === 1)
 
+  /**
+   * HOW HARD YOU THREW IT DECIDES HOW FAR IT GOES.
+   *
+   * "Nearest stop, then one further if it was a flick" is the standard cheap
+   * answer and feels like one: two stops is all it can express, so a hard
+   * flick from the peek and a gentle one both move exactly one detent. Throw
+   * the sheet at the top of the screen and it stops halfway, and you throw it
+   * again.
+   *
+   * The release is projected instead — carry on from where the finger left, at
+   * the speed it left, decelerating — so the distance is proportional to the
+   * effort.
+   */
+  check(
+    "a hard flick from the peek carries all the way to full",
+    snap(offsets, 640, -2.6, 60) === 0,
+    String(snap(offsets, 640, -2.6, 60)),
+  )
+  check(
+    "and a gentle one from the same place only reaches half",
+    snap(offsets, 640, -0.9, 30) === 1,
+    String(snap(offsets, 640, -0.9, 30)),
+  )
+  check(
+    "a deliberate flick never leaves the sheet where it was",
+    // Projecting alone can land back on the stop it started at, and a flick
+    // that changes nothing reads as the sheet ignoring you.
+    snap(offsets, 336, -0.5, 12) === 0 && snap(offsets, 336, 0.5, 12) === 2,
+  )
+  check(
+    "a resting finger's jitter does not carry it anywhere",
+    // A pixel over four milliseconds reads as 0.25 px/ms. Without a floor on
+    // what counts as a flick, that alone would move the sheet 40px off its stop.
+    snap(offsets, 336, 0.25, 3) === 1,
+  )
+
+  check(
+    "the snap is timed by how far it goes, not by a constant",
+    /**
+     * A fixed 360ms made closing from the peek — seventy pixels — take exactly
+     * as long as opening from shut, and turned a fast flick into a slow crawl
+     * the moment the finger lifted.
+     */
+    snapDuration(70, 0.4) < snapDuration(664, 0.4) &&
+      snapDuration(400, 2.5) < snapDuration(400, 0.4),
+    JSON.stringify([snapDuration(70, 0.4), snapDuration(664, 0.4), snapDuration(400, 2.5)]),
+  )
+  check(
+    "and never so fast it reads as a jump, nor so slow it reads as lag",
+    snapDuration(2, 5) >= 130 && snapDuration(2000, 0.01) <= 460,
+    JSON.stringify([snapDuration(2, 5), snapDuration(2000, 0.01)]),
+  )
+
   const single = offsetsFor({ viewport: 800, detents: [0.5], peekHeight: 72 })
   check(
     "one detent still behaves like the old two-position sheet",
@@ -1635,6 +1689,24 @@ section("What a touch on the sheet is FOR")
     // `mounted` gates the render; an effect with [] would attach to null and
     // never try again.
     /\}, \[mounted\]\)/.test(sheet),
+  )
+  check(
+    "one transform write per frame, not one per touch event",
+    /**
+     * `touchmove` fires more than once between paints on a 120Hz panel, and
+     * every extra write to `style.transform` in the same frame is a style
+     * recalculation the compositor then throws away.
+     */
+    /requestAnimationFrame\(\(\) => \{/.test(sheet) && /pendingY\.current = y/.test(sheet),
+  )
+  check(
+    "but the snap writes straight through",
+    /**
+     * A queued frame carrying the last DRAG position would fire after the
+     * transition was turned on and animate the sheet back to the finger.
+     */
+    /cancelAnimationFrame\(rafId\.current\)/.test(sheet) &&
+      /applyTransformNow\(targetY\)/.test(sheet),
   )
   check(
     "the maths is imported by the component, not copied into it",
