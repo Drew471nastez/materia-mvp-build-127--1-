@@ -337,19 +337,19 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
   if (loadingInstall) {
     return (
-      <div className="h-svh flex items-center justify-center bg-[#1a1a2e]">
+      <div className="h-svh flex items-center justify-center bg-[#0e0e0e]">
         <Loader2 className="h-6 w-6 animate-spin text-neutral-500" />
       </div>
     )
   }
 
   return (
-    <div className="h-svh flex flex-col bg-[#1a1a2e] text-neutral-200 overflow-hidden">
+    <div className="h-svh flex flex-col bg-[#0e0e0e] text-neutral-200 overflow-hidden">
       {/* ── Top bar ── */}
       {/* Inside the editor's own frame the bar above is the editor's, and a
           second one saying the same things is a second header. */}
       {!embedded && (
-      <header className="h-11 bg-[#12121e] border-b border-white/10 flex items-center px-4 gap-3 shrink-0">
+      <header className="h-11 bg-[#141414] border-b border-white/10 flex items-center px-4 gap-3 shrink-0">
         <button
           className="flex items-center gap-1.5 text-[13px] text-neutral-500 hover:text-neutral-200 mr-1"
           onClick={() => router.push("/app/website-builder")}
@@ -402,7 +402,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
       <div className="flex flex-1 overflow-hidden">
         {/* ── File explorer ── */}
-        <aside className="w-56 bg-[#13131f] border-r border-white/10 flex flex-col overflow-hidden shrink-0">
+        <aside className="w-56 bg-[#141414] border-r border-white/10 flex flex-col overflow-hidden shrink-0">
           <div className="px-3 py-2.5 border-b border-white/10 space-y-2">
             <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Explorer</p>
             {/* Sixty-one files. Scrolling for one is not a way to find it. */}
@@ -463,7 +463,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Tabs */}
           {openTabs.length > 0 && (
-            <div className="flex items-end bg-[#12121e] border-b border-white/10 overflow-x-auto shrink-0">
+            <div className="flex items-end bg-[#141414] border-b border-white/10 overflow-x-auto shrink-0">
               {openTabs.map(tab => {
                 const isActive = selectedFile?.path === tab.path
                 const isTabDirty = dirtyPaths.has(tab.path)
@@ -472,7 +472,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                     key={tab.path}
                     className={cn(
                       "flex items-center gap-2 px-3 py-2 text-[12px] border-r border-white/10 whitespace-nowrap hover:bg-white/5 transition-colors relative",
-                      isActive ? "bg-[#1a1a2e] text-white border-t-2 border-t-indigo-500" : "text-neutral-500",
+                      isActive ? "bg-[#0e0e0e] text-white border-t-2 border-t-indigo-500" : "text-neutral-500",
                     )}
                     onClick={() => openFile(tab)}
                   >
@@ -493,7 +493,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
           {/* File path breadcrumb */}
           {selectedFile && (
-            <div className="px-4 py-1.5 bg-[#1a1a2e] border-b border-white/5 flex items-center gap-1 text-[11px] text-neutral-500">
+            <div className="px-4 py-1.5 bg-[#0e0e0e] border-b border-white/5 flex items-center gap-1 text-[11px] text-neutral-500">
               {selectedFile.path.split("/").map((part, i, arr) => (
                 <span key={i} className="flex items-center gap-1">
                   {i > 0 && <ChevronRight className="h-3 w-3 opacity-50" />}
@@ -556,7 +556,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
           )}
 
           {/* Status bar */}
-          <div className="h-6 bg-[#12121e] border-t border-white/10 px-4 flex items-center gap-4 shrink-0">
+          <div className="h-6 bg-[#141414] border-t border-white/10 px-4 flex items-center gap-4 shrink-0">
             <span className="text-[10px] text-neutral-600">
               {selectedFile?.language ?? "—"}
             </span>

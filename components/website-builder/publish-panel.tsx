@@ -145,14 +145,31 @@ function Body({
         No security issues found
       </div>
 
-      <div className="flex justify-end pt-1">
+      <div className="flex items-center justify-between gap-3 pt-1">
+        {/* Preview: the draft as a visitor would see it, with the builder's
+            bar over it. It was a button on the bar next to Publish, which
+            made two buttons for one decision. Here it is the question
+            before the answer. */}
+        {websiteUrl ? (
+          <a
+            href={`${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}builder_preview=1&show_preview_bar=1`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-10 items-center gap-2 rounded-xl border border-white/15 px-4 text-[15px] font-medium text-white/85 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
+            Preview
+          </a>
+        ) : (
+          <span />
+        )}
         <button
           type="button"
           onClick={onPublish}
           disabled={busy || (live && !pending)}
           className={cn(
             "flex h-10 items-center gap-2 rounded-xl px-5 text-[15px] font-semibold text-white transition-all",
-            "bg-[#2f5cff] hover:bg-[#2851e6] disabled:cursor-default disabled:opacity-40",
+            "bg-[#8B56FA] hover:bg-[#7b46ec] disabled:cursor-default disabled:opacity-40",
           )}
         >
           {busy && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -166,6 +183,18 @@ function Body({
 export function PublishPanel(props: PublishPanelProps) {
   const { open, onOpenChange, anchorRef, mobile } = props
   const panelRef = useRef<HTMLDivElement | null>(null)
+
+  // Kept in the tree for one beat after closing so it can leave the way it
+  // came. A panel that grows in and then vanishes is half an animation.
+  const [present, setPresent] = useState(open)
+  useEffect(() => {
+    if (open) {
+      setPresent(true)
+      return
+    }
+    const id = window.setTimeout(() => setPresent(false), 160)
+    return () => window.clearTimeout(id)
+  }, [open])
 
   useEffect(() => {
     if (!open || mobile) return
@@ -195,15 +224,19 @@ export function PublishPanel(props: PublishPanelProps) {
     )
   }
 
-  if (!open) return null
+  if (!present) return null
   return (
     <div
       ref={panelRef}
       role="dialog"
       aria-label="Publish"
+      data-state={open ? "open" : "closed"}
       className={cn(
         "absolute right-0 top-[calc(100%+10px)] z-50 w-[420px] rounded-2xl border border-white/10 bg-[#1f1f1f] p-6 shadow-[0_24px_80px_-16px_rgba(0,0,0,0.7)]",
-        "origin-top-right animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-150",
+        "origin-top-right duration-150",
+        open
+          ? "animate-in fade-in-0 zoom-in-95 slide-in-from-top-1"
+          : "pointer-events-none animate-out fade-out-0 zoom-out-95 slide-out-to-top-1 fill-mode-forwards",
       )}
     >
       <Body {...props} />

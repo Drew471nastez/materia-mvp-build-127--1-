@@ -5394,6 +5394,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </button>
             </div>
           )}
+          {/* Preview, the code, or the project. In the bar beside the sidebar
+              icons, because it is the same kind of thing they are: what the
+              canvas shows. A phone has no room for it and reaches Code and
+              Project settings from the menu. */}
+          {!isMobileView && (
+            <div className="ml-2 shrink-0">
+              <PreviewModeSwitch
+                mode={previewMode}
+                onChange={(m) => {
+                  setPreviewMode(m)
+                  if (m === "settings") setProjectSettingsOpen(true)
+                }}
+              />
+            </div>
+          )}
 <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-sm font-medium text-white truncate hidden md:block max-w-[180px]">{install?.name}</span>
           {/*
@@ -5604,9 +5619,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipContent>
           </Tooltip>
 
-          {/* Undo, the AI, redo: the three things reached for most while
-              editing, together, with the same depth. Undo and redo bracket
-              the AI because an AI edit is the one most often undone. */}
+          {/* Undo and redo are a pair and sit as one: the left button and
+              the right button. The AI stands beside them, not between them,
+              because an undo you have to look past a logo to find is slower
+              than one that is where your hand went. */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -5620,6 +5636,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </TooltipTrigger>
               <TooltipContent side="bottom">Undo</TooltipContent>
             </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[transform,color] duration-150 disabled:active:scale-100 shrink-0"
+                  onClick={handleRedo}
+                  disabled={redoStack.length === 0}
+                  aria-label="Redo"
+                >
+                  <Redo2 className="h-4 w-4" strokeWidth={1.75} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Redo</TooltipContent>
+            </Tooltip>
+
           {/* Ask AI */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -5650,41 +5680,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipTrigger>
             <TooltipContent side="bottom">{aiOpen ? "Hide Storelib AI" : "Ask Storelib"}</TooltipContent>
           </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[transform,color] duration-150 disabled:active:scale-100 shrink-0"
-                  onClick={handleRedo}
-                  disabled={redoStack.length === 0}
-                  aria-label="Redo"
-                >
-                  <Redo2 className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Redo</TooltipContent>
-            </Tooltip>
-
-          {/* Preview */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border border-white/15 text-white/70 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-                onClick={() => {
-                  if (!websiteUrl) return
-                  const urlWithPreview = `${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}builder_preview=1&show_preview_bar=1`
-                  window.open(urlWithPreview, "_blank", "noopener,noreferrer")
-                }}
-                aria-label="Preview"
-              >
-                <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Preview</TooltipContent>
-          </Tooltip>
-
-          {/* Undo / Redo — hidden on mobile (both actions live in the
-              three-dots sheet on mobile so the topbar has room for Save). */}
-          
           {/* The button says what is actually true.
               On a LIVE theme it is Publish: the draft is saved automatically,
               so "Save" would be a button for something that has already
@@ -5703,7 +5698,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   size="sm"
                   className={cn(
                     "h-8 cursor-pointer min-w-[92px] rounded-full transition-all duration-200 text-white gap-2",
-                    live ? "bg-[#2f5cff] hover:bg-[#2851e6]" : "bg-white/10 text-white hover:bg-white/15",
+                    live ? "bg-[#8B56FA] hover:bg-[#7b46ec]" : "bg-white/10 text-white hover:bg-white/15",
                   )}
                   onClick={() => {
                     if (!live) { void handleSave(); return }
@@ -5938,35 +5933,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             // that card rather than the browser window.
             isMobileView
               ? "items-start p-0"
-              : device === "desktop" ? "items-start pt-2 px-2" : "items-center py-6 px-6",
+              : device === "desktop" ? "items-start p-2" : "items-center py-6 px-6",
           )}
         >
-          {/*
-            PREVIEW, OR THE CODE BEHIND IT — over the top of the canvas, where
-            the thing it switches is. Sections is a jump to the sidebar.
-          */}
-          {!isMobileView && (
-            <div className="pointer-events-none absolute left-0 right-0 top-2 z-30 flex justify-center">
-              <div className="pointer-events-auto rounded-full bg-[#171717] shadow-lg">
-                <PreviewModeSwitch
-                  mode={previewMode}
-                  onChange={(m) => {
-                    setPreviewMode(m)
-                    if (m === "settings") setProjectSettingsOpen(true)
-                  }}
-                />
-              </div>
-            </div>
-          )}
           <CodePane installId={installId} visible={previewMode === "code"} />
           <div
             id="wb-preview-root"
             className={cn(
               "relative bg-white border border-neutral-200/70 transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
+              // While the code shows, the site is not under it, it is gone:
+              // a theme's sticky header stacks at z-60 and would otherwise
+              // draw over the editor's corner. Invisible keeps its scroll.
+              previewMode === "code" && "invisible pointer-events-none",
               isMobileView
                 ? "w-full border-0 rounded-none"
                 : device === "desktop"
-                  ? "rounded-t-xl w-full"
+                  ? "rounded-xl w-full"
                   : "rounded-2xl",
             )}
             style={
@@ -5988,7 +5970,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 : device === "desktop"
                   ? {
                       // Desktop — card fills the canvas area and scrolls internally.
-                      height: "calc(100svh - 48px - 8px)",
+                      height: "calc(100svh - 48px - 16px)",
                     }
                   : {
                       /**

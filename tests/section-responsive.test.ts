@@ -393,10 +393,10 @@ check(
 )
 
 check(
-  "a phone has no centre pill; the desktop pill is Preview / Code / Project Settings, Preview by default",
+  "a phone has no pill; the desktop pill is Preview / Code / Project Settings, Preview by default",
   // A 3-segment pill in a 390px bar is what the user called not a good idea
   // on a phone. Code and Settings are reached from the menu there.
-  /\{!isMobileView && \(\s*<div[^>]*>\s*<div[^>]*>\s*<PreviewModeSwitch/.test(editor) &&
+  /\{!isMobileView && \(\s*<div className="ml-2 shrink-0">\s*<PreviewModeSwitch/.test(editor) &&
     !/isMobileView && \(\s*<PreviewModeSwitch/.test(editor) &&
     /useState<PreviewMode>\("preview"\)/.test(editor),
 )
@@ -510,6 +510,8 @@ section("A dark bar stays dark, and settings is a page")
 
 const settingsPage = readFileSync(join(root, "components/website-builder/project-settings.tsx"), "utf8")
 const modeSwitch = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
+const publishPanel = readFileSync(join(root, "components/website-builder/publish-panel.tsx"), "utf8")
+const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
 const headerSrc = editor.slice(editor.indexOf("<header className"), editor.indexOf("</header>"))
 
 check(
@@ -520,14 +522,39 @@ check(
 )
 
 check(
-  "undo, the AI, redo — together on the right, with depth",
+  "undo and redo are a pair on the right, the AI beside them and not between them, all with depth",
   (() => {
     const u = headerSrc.indexOf('aria-label="Undo"')
-    const ai = headerSrc.indexOf('aria-label="Ask Storelib"')
     const r = headerSrc.indexOf('aria-label="Redo"')
+    const ai = headerSrc.indexOf('aria-label="Ask Storelib"')
+    const pub = headerSrc.indexOf("const live = install?.status")
     const left = headerSrc.indexOf("Desktop: sidebar mode toggles")
-    return u > 0 && ai > u && r > ai && u > left && /wb-depth h-8 w-8[^"]*"\s*\n\s*onClick=\{handleUndo\}/.test(headerSrc)
+    return (
+      u > left &&
+      r > u &&
+      ai > r &&
+      pub > ai &&
+      /wb-depth h-8 w-8[^"]*"\s*\n\s*onClick=\{handleUndo\}/.test(headerSrc) &&
+      /wb-depth h-8 w-8[^"]*"\s*\n\s*onClick=\{handleRedo\}/.test(headerSrc)
+    )
   })(),
+)
+
+check(
+  "the Preview button is off the bar and inside the publish panel",
+  // Two buttons for one decision. The panel is where "what am I about to
+  // publish" is answered, so looking at it belongs there.
+  !/aria-label="Preview"/.test(headerSrc) &&
+    !/builder_preview=1/.test(editor) &&
+    /builder_preview=1&show_preview_bar=1/.test(publishPanel) &&
+    />\s*<ExternalLink[^>]*\/>\s*Preview\s*<\/a>/.test(publishPanel),
+)
+
+check(
+  "and the panel leaves the way it came",
+  /const \[present, setPresent\] = useState\(open\)/.test(publishPanel) &&
+    /animate-out fade-out-0 zoom-out-95 slide-out-to-top-1 fill-mode-forwards/.test(publishPanel) &&
+    /if \(!present\) return null/.test(publishPanel),
 )
 
 check(
@@ -563,7 +590,55 @@ check(
 
 check(
   "the code pane is a rounded card inset from the canvas, arriving by scale and fade",
-  /absolute inset-2 z-20 overflow-hidden rounded-2xl/.test(modeSwitch) && /scale-\[0\.98\]/.test(modeSwitch),
+  /absolute inset-2 z-\[80\] overflow-hidden rounded-xl/.test(modeSwitch) && /scale-\[0\.98\]/.test(modeSwitch),
+)
+
+check(
+  "and it sits above anything a theme can stack, with the preview gone underneath, not merely covered",
+  // A sticky theme header is z-60 and was drawing over the editor's corner.
+  // Stacking higher is half of it; making the site invisible is the rest.
+  /previewMode === "code" && "invisible pointer-events-none"/.test(editor) &&
+    !/PREVIEW, OR THE CODE BEHIND IT/.test(editor) &&
+    !/pointer-events-none absolute left-0 right-0 top-2 z-30/.test(editor),
+)
+
+check(
+  "the preview card is a rounded card in an even inset, like the code card",
+  /device === "desktop" \? "items-start p-2"/.test(editor) &&
+    /\? "rounded-xl w-full"/.test(editor) &&
+    /calc\(100svh - 48px - 16px\)/.test(editor),
+)
+
+check(
+  "only the segment you are on says its name, and the name grows in rather than appearing",
+  /gridTemplateColumns: named \? "1fr" : "0fr"/.test(modeSwitch) &&
+    /const named = active && !compact/.test(modeSwitch) &&
+    /transition: `grid-template-columns \$\{MS\}ms \$\{EASE\}/.test(modeSwitch),
+)
+
+check(
+  "the pill is in the bar beside the sidebar icons, not floating over the canvas",
+  (() => {
+    const pill = headerSrc.indexOf("<PreviewModeSwitch")
+    const gear = headerSrc.indexOf('title="General Settings"')
+    const name = headerSrc.indexOf("{install?.name}")
+    return pill > gear && pill < name
+  })(),
+)
+
+check(
+  "the accent is Storelib purple: Publish, the inspector glow, the bubble. No blue beside the mark.",
+  /bg-\[#8B56FA\]/.test(headerSrc) &&
+    /bg-\[#8B56FA\]/.test(publishPanel) &&
+    /bg-\[#8B56FA\]\/25 ring-1 ring-inset ring-\[#8B56FA\]\/60/.test(modeSwitch) &&
+    /\.wb-inspector-on \{[\s\S]{0,300}rgba\(139, 86, 250/.test(css) &&
+    !/2f5cff/i.test(editor + publishPanel + modeSwitch) &&
+    !/47, 92, 255/.test(css),
+)
+
+check(
+  "the code editor is black, not navy",
+  !/#1a1a2e|#12121e|#13131f/i.test(codePage),
 )
 
 check(
