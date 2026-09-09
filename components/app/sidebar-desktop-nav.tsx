@@ -46,38 +46,6 @@ import { createPortal } from "react-dom"
   AND pulls the barrel. The subpath exports — /linear/x and /bold/x — are the
   two glyphs this file actually renders, and nothing else ships.
 */
-/*
-  ONE ICON FROM ELSEWHERE, AND WHY IT NEEDED TO BE.
-
-  Home is Tabler's `IconHome` / `IconHomeFilled` — a peaked roof, straight
-  walls and an arched door notch. Solar has ten houses and every one of them
-  is a rounded pentagon with a slot in the middle; none of them is this
-  shape, which is the one that was asked for.
-
-  It was Phosphor's `House` first, which is the same silhouette but with
-  sharp corners — a pointed roof peak, square door corners. Told directly
-  that the icon needed more rounding, raising Phosphor's stroke weight does
-  nothing: `regular` is a FILLED PATH shaped like a stroke, not a stroked
-  path, so there is no join or cap to round off. The shape itself would have
-  to change, which meant a different icon rather than a different setting.
-
-  Tabler draws the same silhouette with `stroke-linecap="round"` and
-  `stroke-linejoin="round"` baked into every icon — the roof peak is a
-  curve, not a point, and the door is an arch, not a rectangle. That is the
-  "more border radius" that was asked for.
-
-  It also removes a whole category of arithmetic the Phosphor version
-  needed. Phosphor's regular is a filled path with no stroke-width to set,
-  so matching Solar's weight meant painting a stroke of the icon's own
-  colour over the fill and solving for an equivalent number (16/256 vs
-  1.5/24, both 6.25% of the frame) — and NAV_ICONS carried a `drawn` field
-  just to say Home was the one exception. Tabler's IconHome is a REAL
-  stroke on the same 24-unit box Solar uses, at the same ICON_STROKE, so it
-  takes the exemption's place instead of needing one: one constant, applied
-  uniformly, nothing to except.
-*/
-import { IconHome, IconHomeFilled } from "@tabler/icons-react"
-
 import { AltArrowDownIcon } from "@solar-icons/react/linear/alt-arrow-down"
 import { BoltIcon as BoltBold } from "@solar-icons/react/bold/bolt"
 
@@ -186,8 +154,8 @@ export type NavItemData = {
  * Not one component with a weight prop — every icon here ships as two
  * components, and the pair is what the cross-fade needs: something to fade
  * from and something to fade to. `ComponentType` rather than a plain function
- * signature because Tabler's icons are `forwardRef` components and Solar's
- * are not; both render from JSX the same way.
+ * signature because Solar's icon components render from JSX the same way a
+ * hand-written one below does, and the type has to fit both.
  */
 type NavIconComponent = React.ComponentType<{
   size?: number
@@ -199,9 +167,72 @@ type NavIconComponent = React.ComponentType<{
 
 export type NavIconPair = { line: NavIconComponent; fill: NavIconComponent }
 
+/**
+ * ===========================================================================
+ *  HOME, DRAWN BY HAND
+ * ===========================================================================
+ * It was Phosphor's `House` first — sharp roof peak, square door corners —
+ * then Tabler's `IconHome`, which rounds the same silhouette with
+ * `stroke-linecap`/`stroke-linejoin: round`. Handed a screenshot and told to
+ * match it exactly, Tabler's version was still visibly off: its rounding is
+ * a byproduct of a 2px stroke join, not a drawn curve, so it is far subtler
+ * than the reference's chunky, continuous roundness, and no npm library
+ * turned up that shape — Solar's ten house variants, Remix, Phosphor,
+ * Hugeicons, Iconsax, Fluent (five sizes checked) and Material Symbols
+ * Rounded were all tried and rendered; none matched.
+ *
+ * So this one is fitted directly to the reference image rather than to a
+ * library. The reference PNG was thresholded to a black/white mask, and a
+ * parametric generator — apex, two roof shoulders, two base corners and a
+ * door arch, each corner rounded by cutting back a radius along its two
+ * edges and connecting with an SVG arc — searched its own parameter space
+ * (house width, roof-to-wall ratio, door width, each corner's radius)
+ * against that mask, scoring every candidate by rendering it, cropping to
+ * its own bounding box, and counting mismatched pixels against the same
+ * crop of the reference. The search converged on a 98%-match outline; the
+ * two bugs it caught along the way — an inverted arc sweep flag that turned
+ * corner rounding into a concave pinch, and Chromium's headless scrollbar
+ * leaking a stray dark pixel into the mask and inflating every bounding box
+ * — are exactly the kind of thing eyeballing a curve never catches.
+ *
+ * ONE PATH, TWO PAINT MODES. The fill version's outline already traces
+ * around the door as a notch cut to the base edge, so stroking that same
+ * `d` — fill="none", a real stroke-width — draws the identical outline
+ * with the door as an open arch instead of solid ground. No separate
+ * "line" geometry to keep in sync with the fill.
+ */
+const HOME_PATH_D =
+  "M14.2979 3.9848 L21.9485 7.2636 A0.6 0.6 0 0 1 22.5 8.1 L22.5 19 A2 2 0 0 1 20.5 21 " +
+  "L15.15 21 L15.15 16.5 A3.15 3.15 0 0 0 8.85 16.5 L8.85 21 L3.5 21 A2 2 0 0 1 1.5 19 " +
+  "L1.5 8.1 A0.6 0.6 0 0 1 2.0515 7.2636 L9.7021 3.9848 A2.5 2.5 0 0 1 14.2979 3.9848 Z"
+
+type HomeIconProps = {
+  size?: number
+  strokeWidth?: number
+  style?: React.CSSProperties
+  className?: string
+  "data-variant"?: string
+}
+
+function HomeLineIcon({ size = 24, strokeWidth = 1.5, style, className, ...rest }: HomeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style} className={className} {...rest}>
+      <path d={HOME_PATH_D} stroke="currentColor" strokeWidth={strokeWidth} strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function HomeFillIcon({ size = 24, style, className, ...rest }: HomeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={style} className={className} {...rest}>
+      <path d={HOME_PATH_D} />
+    </svg>
+  )
+}
+
 /** The icons the sidebar uses, exported so the shell can build its nav list. */
 export const NAV_ICONS = {
-  dashboard: { line: IconHome, fill: IconHomeFilled },
+  dashboard: { line: HomeLineIcon, fill: HomeFillIcon },
   products: { line: ProductsLinear, fill: ProductsBold },
   analytics: { line: AnalyticsLinear, fill: AnalyticsBold },
   orders: { line: OrdersLinear, fill: OrdersBold },
@@ -260,11 +291,10 @@ const NAV_ICONS_EXTRA = {
  * 1.5 — so icon weight is a number rather than the overlay trick the previous
  * two libraries forced.
  *
- * Home is the one icon from elsewhere (Tabler, for the roof-and-door shape
- * Solar does not have — see the note by its import) but it is drawn by the
- * same mechanism: a real stroke, on the same 24-unit box, at the same
- * ICON_STROKE. Nothing about NavIcon below has to know it came from
- * somewhere else.
+ * Home is the one icon drawn by hand rather than pulled from a library —
+ * see the note above NAV_ICONS — but it is stroked by the same mechanism:
+ * a real stroke, on the same 24-unit box, at the same ICON_STROKE. Nothing
+ * about NavIcon below has to know it did not come from Solar.
  *
  * All of this is used HERE ONLY — the rest of the app is Lucide and stays
  * Lucide.

@@ -308,21 +308,31 @@ section("A row is the same size in every state")
       /fill: \w+Bold/.test(navSource),
   )
   check(
-    "the one icon from another family is a real stroke on the same box",
+    "Home is drawn by hand, fitted to the reference image rather than to a library",
     /**
-     * Home is Tabler's IconHome — Solar has ten houses and every one is a
-     * rounded pentagon with a slot, none of them the peaked roof and arched
-     * door that was asked for. Tabler draws the same silhouette with
-     * stroke-linecap/linejoin round baked in, which is what makes its roof
-     * peak a curve instead of a point.
+     * Solar has ten houses and every one is a rounded pentagon with a slot;
+     * none is the peaked roof and arched door in the reference. Tabler's
+     * IconHome was the shape but not the roundness — its rounding comes from
+     * a stroke join, not a drawn curve, and read visibly thinner than what
+     * was asked for. No library checked (Solar, Remix, Phosphor, Hugeicons,
+     * Iconsax, Fluent, Material Symbols Rounded) matched, so this one is
+     * fitted directly to the reference PNG: a parametric generator searched
+     * proportions and corner radii, scored by rendering each candidate and
+     * counting mismatched pixels against a thresholded mask of the
+     * reference, converging on a 98%-match outline.
      *
-     * Nothing about it needs a carve-out: it is a genuine 24-unit stroke like
-     * every Solar `linear` icon, so it takes ICON_STROKE the same way they
-     * do, with no per-icon branch anywhere in NavIcon.
+     * One path draws both states — the fill version's outline already
+     * traces the door as a notch, so stroking it draws an open arch and
+     * filling it draws the same outline solid. Nothing about it needs a
+     * carve-out: it is a genuine 24-unit stroke like every Solar `linear`
+     * icon, so it takes ICON_STROKE the same way they do, with no per-icon
+     * branch anywhere in NavIcon.
      */
-    /@tabler\/icons-react/.test(navSource) &&
-      /IconHome\b/.test(navSource) &&
-      /IconHomeFilled/.test(navSource) &&
+    /const HOME_PATH_D =/.test(navSource) &&
+      /function HomeLineIcon/.test(navSource) &&
+      /function HomeFillIcon/.test(navSource) &&
+      /dashboard: \{ line: HomeLineIcon, fill: HomeFillIcon \}/.test(navSource) &&
+      !/@tabler\/icons-react/.test(navSource) &&
       !/\bweight="regular"/.test(navSource) &&
       !/drawn\??:/.test(navSource),
   )

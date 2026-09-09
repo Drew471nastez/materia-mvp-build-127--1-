@@ -228,9 +228,27 @@ try {
     )
     expect(layers.every((l) => l.painted > 0), "every layer paints something", JSON.stringify(layers.map((l) => l.painted)))
     expect(
-      m.icons.every((i) => i.outline.d !== i.filled.d),
-      "the two weights are genuinely different glyphs",
-      JSON.stringify(m.icons.find((i) => i.outline.d === i.filled.d)?.outline.d.slice(0, 80)),
+      /*
+        DIFFERENT PATHS, OR — Home's case — the SAME path painted two ways.
+
+        Every Solar-derived icon has a genuinely different `d` between its
+        line and bold weights, which this checked directly. Home is drawn by
+        hand rather than pulled from a library (see the note above
+        NAV_ICONS): its outline already traces the door as a notch cut to
+        the base, so stroking that one path draws the identical outline with
+        an open arch, and filling it draws the same outline solid — one `d`,
+        two paint modes, and still two visually different states. What has
+        to be true either way is that outline and filled are not IDENTICAL
+        renderings: either the geometry differs, or the paint does (a real
+        stroke with no fill vs. a real fill with no stroke).
+      */
+      m.icons.every(
+        (i) =>
+          i.outline.d !== i.filled.d ||
+          (i.outline.stroke !== "none" && i.outline.fill === "none" && i.filled.fill !== "none" && i.filled.stroke === "none"),
+      ),
+      "the two weights are genuinely different, in shape or in paint",
+      JSON.stringify(m.icons.find((i) => i.outline.d === i.filled.d)),
     )
     /*
       THE SMOOTHNESS, WHICH IS THE WHOLE POINT.
