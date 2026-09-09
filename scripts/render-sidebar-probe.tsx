@@ -44,13 +44,19 @@ const common = {
   upgradeSubtitle: "Unlock more benefits",
 }
 
-/** The products group closed, and the same group open. */
-const CASES: [string, Set<string>][] = [
-  ["closed", new Set()],
-  ["open", new Set(["/app/products"])],
+/**
+ * The products group closed, the same group open, and the rail on a DIFFERENT
+ * route — the third is how the filled active icon is checked: the same icon,
+ * rendered active and rendered resting, has to be a different shape.
+ */
+const CASES: [string, Set<string>, string][] = [
+  ["closed", new Set(), "/app"],
+  ["open", new Set(["/app/products"]), "/app"],
+  ["elsewhere", new Set(), "/app/orders"],
 ]
 
-for (const [name, expandedGroups] of CASES) {
+for (const [name, expandedGroups, pathname] of CASES) {
+  ;(globalThis as Record<string, unknown>).__PATHNAME__ = pathname
   const html = renderToStaticMarkup(
     createElement(DesktopSidebarContent, { ...common, expandedGroups }),
   )

@@ -183,6 +183,21 @@ section("A row is the same size in every state")
     })(),
   )
   check(
+    "the labels are Inter at 16 on 24, tracked in",
+    /font-sans text-\[16px\] leading-\[24px\] tracking-\[-0\.01em\]/.test(navSource),
+  )
+  check(
+    "at a weight of 450, which needs a variable font to mean anything",
+    /**
+     * `next/font` loads Inter with no weight list in app/layout.tsx, which is
+     * what makes the whole 100–900 axis available. On a static font 450 snaps
+     * to 400 or 500 and the step to the active 600 is twice what it should be.
+     */
+    /const REST_WEIGHT = 450/.test(navSource) &&
+      /const ACTIVE_WEIGHT = 600/.test(navSource) &&
+      !/weight: \[/.test(readFileSync(join(root, "app/layout.tsx"), "utf8").slice(0, 4000)),
+  )
+  check(
     "the transition names the two properties that change, and nothing else",
     /transition-\[background-color,color\] duration-\[140ms\] ease-out/.test(navSource) &&
       !/hover:scale|active:scale|hover:translate|hover:shadow/.test(navSource),
@@ -190,7 +205,31 @@ section("A row is the same size in every state")
   check(
     "every icon sits in a box that cannot change size",
     /className="flex h-5 w-5 min-w-5 shrink-0/.test(navSource) &&
-      /className="h-\[18px\] w-\[18px\]" strokeWidth=\{active \? 2 : 1\.75\}/.test(navSource),
+      // Size is fixed; only the WEIGHT changes between states.
+      /<Icon size=\{20\} weight=\{active \? "fill" : "regular"\} \/>/.test(navSource),
+  )
+  check(
+    "the icon of the row you are on is filled",
+    /**
+     * Lucide could not do this, which is why the sidebar is the one place in
+     * the app that uses Phosphor. Lucide's icons are strokes rather than
+     * shapes — reading the path data, `store` has four open subpaths,
+     * `package` three — and filling an open path paints the region it implies
+     * rather than the glyph.
+     */
+    /@phosphor-icons\/react/.test(navSource) && /weight=\{active \? "fill" : "regular"\}/.test(navSource),
+  )
+  check(
+    "and a resting one is drawn about fifteen per cent heavier",
+    /**
+     * Phosphor strokes nothing — every weight is a filled path describing the
+     * shape, `regular` included — so there is no stroke-width to raise, and
+     * its own weights jump straight from regular to bold. A 2.4 stroke of the
+     * icon's own colour over a 16-unit outline adds 1.2 to each side of every
+     * edge: that outline plus fifteen per cent.
+     */
+    /\[data-nav-icon="outline"\] svg path \{\s*stroke: currentColor;\s*stroke-width: 2\.4;/.test(navSource) &&
+      /data-nav-icon=\{active \? "filled" : "outline"\}/.test(navSource),
   )
   check(
     "the chevron is outside the link, in a fixed box, pinned to the right",
