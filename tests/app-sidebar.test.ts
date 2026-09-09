@@ -58,6 +58,9 @@ function stripComments(src: string): string {
 const NAV = join(root, "components/app/sidebar-desktop-nav.tsx")
 const SHELL = join(root, "components/app/sidebar.tsx")
 const navSource = readFileSync(NAV, "utf8")
+
+/** Solar's linear weight as a fraction of its 24-unit box: 1.5 / 24. */
+const ICON_STROKE_FRACTION = 1.5 / 24
 const shellSource = readFileSync(SHELL, "utf8")
 
 // ===========================================================================
@@ -242,7 +245,7 @@ section("A row is the same size in every state")
       enough. A guard that a stylesheet can satisfy on the component's behalf
       is not guarding the component.
     */
-    /<Line\s+size=\{20\}\s+strokeWidth=\{ICON_STROKE\}\s+data-variant="outline"/.test(navSource) &&
+    /<Line\s+size=\{20\}\s+\{\.\.\.\(stroked[^)]*\)\}\s+data-variant="outline"/.test(navSource) &&
       /<Fill\s+size=\{20\}\s+data-variant="filled"/.test(navSource) &&
       /opacity: active \? 0 : 1, transition: FILL_TRANSITION/.test(navSource) &&
       /opacity: active \? 1 : 0, transition: FILL_TRANSITION/.test(navSource) &&
@@ -308,6 +311,25 @@ section("A row is the same size in every state")
       /fill: \w+Bold/.test(navSource),
   )
   check(
+    "the one icon from another family is drawn at the same optical weight",
+    /**
+     * Home is Phosphor's House — Solar has ten houses and every one is a
+     * rounded pentagon with a slot, none of them the peaked roof and door
+     * notch that was asked for.
+     *
+     * Mixing families is usually how a rail starts looking wrong, and optical
+     * weight is what decides whether it does. Phosphor's regular outline is
+     * 16 units in a 256-unit box; Solar's linear stroke is 1.5 in a 24-unit
+     * box. Both are 6.25% of the frame — the same weight to the digit, which
+     * is why these two can sit together and why a third family could not be
+     * added without redoing this sum.
+     */
+    16 / 256 === ICON_STROKE_FRACTION &&
+      /weight="regular"/.test(navSource) &&
+      /weight="fill"/.test(navSource) &&
+      /drawn: "fill"/.test(navSource),
+  )
+  check(
     "icon weight is a number on the element, not a stroke painted over a fill",
     /**
      * Phosphor and Remix both draw a "line" icon as a FILLED PATH shaped like
@@ -321,7 +343,7 @@ section("A row is the same size in every state")
      * 1.5. One constant, no compensation, and nothing left in the stylesheet.
      */
     /const ICON_STROKE = 1\.5/.test(navSource) &&
-      /strokeWidth=\{ICON_STROKE\}/.test(navSource) &&
+      /stroked \? \{ strokeWidth: ICON_STROKE \} : \{\}/.test(navSource) &&
       !/stroke-width: [\d.]+;/.test(navSource) &&
       !/stroke: currentColor/.test(navSource),
   )
@@ -411,9 +433,11 @@ section("Communities is not a link, and says why")
       /requestAnimationFrame\(\(\) => setShown\(true\)\)/.test(navSource),
   )
   check(
-    "both unavailable tools use the same row",
-    (navSource.match(/<ComingSoonItem/g) ?? []).length === 2 &&
-      /label=\{communitiesLabel\}/.test(navSource),
+    "the one unavailable tool is Communities, and Link shortener is gone",
+    (navSource.match(/<ComingSoonItem/g) ?? []).length === 1 &&
+      /label=\{communitiesLabel\}/.test(navSource) &&
+      !/linkShortener/i.test(navSource) &&
+      !/linkShortener/i.test(shellSource),
   )
 }
 
