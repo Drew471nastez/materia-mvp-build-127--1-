@@ -251,3 +251,57 @@ if (failed > 0) {
   console.log("Failing:", failures.join(", "))
   process.exit(1)
 }
+
+// ===========================================================================
+section("The page you are editing is named, and it is in the middle")
+// ===========================================================================
+
+const switcher = readFileSync(join(root, "components/website-builder/page-switcher.tsx"), "utf8")
+
+check(
+  "the page switcher sits in the centre of the bar",
+  /**
+   * It was a button on a rail with a panel behind it: two clicks and a change
+   * of context to answer "which page am I on". The page being edited is the
+   * most important fact in an editor, so it is in the middle, named.
+   */
+  /<div className="flex flex-1 items-center justify-center gap-1\.5 min-w-0">[\s\S]{0,3200}<PageSwitcher/.test(editor),
+)
+
+check(
+  "with the format control to its left and the live link to its right",
+  (() => {
+    const centre = editor.slice(
+      editor.indexOf("CENTRE: WHICH PAGE, AND HOW YOU ARE LOOKING AT IT"),
+      editor.indexOf("RIGHT: where the site is"),
+    )
+    const fmt = centre.indexOf("Switch to phone preview")
+    const reload = centre.indexOf("Reload preview")
+    const sw = centre.indexOf("<PageSwitcher")
+    const open = centre.indexOf("Open the live page")
+    return fmt > 0 && reload > fmt && sw > reload && open > sw
+  })(),
+)
+
+check(
+  "and the live link is not also duplicated on the right",
+  // Two buttons doing one thing on one bar is one of them being in the wrong
+  // place. The domain pill stays, because it says WHICH site.
+  (editor.match(/aria-label="View live website"/g) ?? []).length === 1,
+)
+
+check(
+  "custom pages can be deleted and built-ins cannot",
+  // "Cannot" is better said by absence than by a disabled control.
+  /p\.custom && onDelete && !active/.test(switcher),
+)
+
+check(
+  "the panel closes on an outside press and on Escape",
+  /pointerdown/.test(switcher) && /e\.key === "Escape"/.test(switcher),
+)
+
+check(
+  "and it grows from its trigger rather than fading in place",
+  /origin-top animate-in fade-in-0 zoom-in-95/.test(switcher),
+)

@@ -45,6 +45,7 @@ import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sh
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { PageSwitcher } from "@/components/website-builder/page-switcher"
 import { createClient } from "@/lib/supabase/client"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -5468,51 +5469,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         {/* CENTER: theme name + Live badge + 3-dots menu + unsaved indicator */}
         
 
-        {/* CENTRE: history and breakpoints — the two things that are
-            about LOOKING at the page rather than about the project. */}
-        <div className="flex flex-1 items-center justify-center gap-2 min-w-0">
-<div className="hidden sm:flex items-center border border-border rounded-lg overflow-hidden shrink-0">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  onClick={handleUndo}
-                  disabled={undoStack.length === 0}
-                  aria-label="Undo"
-                >
-                  <Undo2 className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Undo (⌘Z)</TooltipContent>
-            </Tooltip>
-            <div className="w-px h-5 bg-border" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  onClick={handleRedo}
-                  disabled={redoStack.length === 0}
-                  aria-label="Redo"
-                >
-                  <Redo2 className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Redo (⌘⇧Z)</TooltipContent>
-            </Tooltip>
-          </div>
-          {/*
-            ONE CONTROL, TWO STATES.
+        {/*
+          CENTRE: WHICH PAGE, AND HOW YOU ARE LOOKING AT IT.
 
-            It was a segmented group of three, which is the shape you use when
-            the options are peers you pick between. There are two here and they
-            are opposites, so it is a toggle: the icon shows WHERE YOU ARE and
-            the tooltip says what pressing it does. Nothing is hidden behind a
-            second click and there is no third option to reason about.
-          */}
+          The page you are editing is the most important fact on this bar, so
+          it is in the middle and it is named rather than implied. Everything
+          immediately around it is about LOOKING at that page — the format you
+          are viewing it in on the left, reloading it and opening it for real
+          on the right — and everything about the PROJECT stays on the edges.
+        */}
+        <div className="flex flex-1 items-center justify-center gap-1.5 min-w-0">
+          {/* Format, to the left of the page it applies to. */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground shrink-0"
+                className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground shrink-0"
                 onClick={() => setDevice(device === "desktop" ? "mobile" : "desktop")}
                 aria-label={device === "desktop" ? "Switch to phone preview" : "Switch to desktop preview"}
                 aria-pressed={device === "mobile"}
@@ -5528,6 +5499,50 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               {device === "desktop" ? "Switch to phone" : `Switch to desktop (phone is ${DEVICE_WIDTH.mobile}px)`}
             </TooltipContent>
           </Tooltip>
+
+          {/* Reload the canvas. Cheap, and the thing people reach for when a
+              change has not appeared — better a button than a browser refresh
+              that costs the whole editor. */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground shrink-0"
+                onClick={() => { void handlePageChange(currentPage) }}
+                aria-label="Reload preview"
+              >
+                <RefreshCw className={cn("h-4 w-4", sectionsLoading && "animate-spin")} strokeWidth={1.75} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Reload preview</TooltipContent>
+          </Tooltip>
+
+          <PageSwitcher
+            pages={[
+              ...(Object.keys(PAGE_META) as PageKey[]).map((k) => ({ key: k, name: PAGE_META[k].label })),
+              ...customPages.map((p) => ({ key: p.key as string, name: p.name, custom: true })),
+            ]}
+            current={currentPage}
+            onSelect={(key) => { void handlePageChange(key as PageKey) }}
+            onCreate={() => setAddPageOpen(true)}
+            onDelete={(key) => setCustomPages((prev) => prev.filter((p) => p.key !== key))}
+            disabled={sectionsLoading}
+          />
+
+          {/* Open the real thing, to the right of the page it opens. */}
+          {websiteUrl && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground shrink-0"
+                  onClick={() => window.open(websiteUrl, "_blank")}
+                  aria-label="Open the live page"
+                >
+                  <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Open the live page</TooltipContent>
+            </Tooltip>
+          )}
         </div>
 
         {/* RIGHT: where the site is, and what to do with it. */}
@@ -5552,20 +5567,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <TooltipContent side="bottom">View live website</TooltipContent>
             </Tooltip>
           )}
-          {websiteUrl && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="h-8 w-8 hidden sm:flex lg:hidden items-center justify-center rounded-lg border border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-                  onClick={() => window.open(websiteUrl, "_blank")}
-                  aria-label="View live website"
-                >
-                  <Globe className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">View live website</TooltipContent>
-            </Tooltip>
-          )}
+          {/* The icon-only twin of the pill above is gone: the centre of the
+              bar now carries "open the live page" beside the page it opens,
+              and two buttons doing one thing on one bar is one of them being
+              in the wrong place. The pill stays, because it says WHICH site,
+              which is information rather than a second copy of an action. */}
 
           {/* Device Switcher — pill toggle */}
           
