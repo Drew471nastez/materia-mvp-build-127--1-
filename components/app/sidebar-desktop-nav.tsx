@@ -47,21 +47,36 @@ import { createPortal } from "react-dom"
   two glyphs this file actually renders, and nothing else ships.
 */
 /*
-  ONE ICON FROM ELSEWHERE, AND THE ARITHMETIC THAT MAKES IT FIT.
+  ONE ICON FROM ELSEWHERE, AND WHY IT NEEDED TO BE.
 
-  Home is Phosphor's `House` — a peaked roof, straight walls and a door
-  notch cut into the base. Solar has ten houses and every one of them is a
-  rounded pentagon with a slot in the middle; none of them is this shape,
-  which is the one that was asked for.
+  Home is Tabler's `IconHome` / `IconHomeFilled` — a peaked roof, straight
+  walls and an arched door notch. Solar has ten houses and every one of them
+  is a rounded pentagon with a slot in the middle; none of them is this
+  shape, which is the one that was asked for.
 
-  Mixing families is usually how a rail starts looking wrong, and the thing
-  that decides whether it does is optical weight. Phosphor's regular outline
-  is 16 units in a 256-unit box; Solar's linear stroke is 1.5 in a 24-unit
-  box. 16/256 and 1.5/24 are both 6.25% of the frame — the same weight, to
-  the digit. The two sit beside each other because the numbers say they can,
-  not because they looked close enough.
+  It was Phosphor's `House` first, which is the same silhouette but with
+  sharp corners — a pointed roof peak, square door corners. Told directly
+  that the icon needed more rounding, raising Phosphor's stroke weight does
+  nothing: `regular` is a FILLED PATH shaped like a stroke, not a stroked
+  path, so there is no join or cap to round off. The shape itself would have
+  to change, which meant a different icon rather than a different setting.
+
+  Tabler draws the same silhouette with `stroke-linecap="round"` and
+  `stroke-linejoin="round"` baked into every icon — the roof peak is a
+  curve, not a point, and the door is an arch, not a rectangle. That is the
+  "more border radius" that was asked for.
+
+  It also removes a whole category of arithmetic the Phosphor version
+  needed. Phosphor's regular is a filled path with no stroke-width to set,
+  so matching Solar's weight meant painting a stroke of the icon's own
+  colour over the fill and solving for an equivalent number (16/256 vs
+  1.5/24, both 6.25% of the frame) — and NAV_ICONS carried a `drawn` field
+  just to say Home was the one exception. Tabler's IconHome is a REAL
+  stroke on the same 24-unit box Solar uses, at the same ICON_STROKE, so it
+  takes the exemption's place instead of needing one: one constant, applied
+  uniformly, nothing to except.
 */
-import { House } from "@phosphor-icons/react"
+import { IconHome, IconHomeFilled } from "@tabler/icons-react"
 
 import { AltArrowDownIcon } from "@solar-icons/react/linear/alt-arrow-down"
 import { BoltIcon as BoltBold } from "@solar-icons/react/bold/bolt"
@@ -168,51 +183,25 @@ export type NavItemData = {
 /**
  * A LINE VARIANT AND A FILL VARIANT OF THE SAME GLYPH.
  *
- * Not one component with a weight prop — Remix ships each icon as two
+ * Not one component with a weight prop — every icon here ships as two
  * components, and the pair is what the cross-fade needs: something to fade
- * from and something to fade to.
+ * from and something to fade to. `ComponentType` rather than a plain function
+ * signature because Tabler's icons are `forwardRef` components and Solar's
+ * are not; both render from JSX the same way.
  */
-/**
- * Everything the rail renders an icon as: a size, an optional stroke, and
- * whatever the cross-fade needs to put on it.
- */
-type NavIconComponent = (props: {
+type NavIconComponent = React.ComponentType<{
   size?: number
   strokeWidth?: number
   style?: React.CSSProperties
   className?: string
   "data-variant"?: string
-}) => React.ReactElement | null
+}>
 
-/**
- * `drawn` is not decoration — it decides whether a stroke width is passed at
- * all, and it is on the element for the browser check to read.
- *
- * A Solar linear icon is a real stroke, so its weight is a number. A Phosphor
- * regular icon is a FILLED PATH shaped like a stroke; handing it a
- * strokeWidth does nothing, and asserting one of it would be asserting a
- * property it cannot have.
- */
-export type NavIconPair = {
-  line: NavIconComponent
-  fill: NavIconComponent
-  drawn?: "stroke" | "fill"
-}
-
-/*
-  AT MODULE SCOPE, like everything else in this file.
-
-  Phosphor is one component with a `weight` prop where Solar is two
-  components, so the pair has to be built. Built inside a render it would be
-  a new component type every time, which is the defect this whole file exists
-  to have removed.
-*/
-const DashboardLinear: NavIconComponent = (props) => <House {...props} weight="regular" />
-const DashboardBold: NavIconComponent = (props) => <House {...props} weight="fill" />
+export type NavIconPair = { line: NavIconComponent; fill: NavIconComponent }
 
 /** The icons the sidebar uses, exported so the shell can build its nav list. */
 export const NAV_ICONS = {
-  dashboard: { line: DashboardLinear, fill: DashboardBold, drawn: "fill" },
+  dashboard: { line: IconHome, fill: IconHomeFilled },
   products: { line: ProductsLinear, fill: ProductsBold },
   analytics: { line: AnalyticsLinear, fill: AnalyticsBold },
   orders: { line: OrdersLinear, fill: OrdersBold },
@@ -271,8 +260,11 @@ const NAV_ICONS_EXTRA = {
  * 1.5 — so icon weight is a number rather than the overlay trick the previous
  * two libraries forced.
  *
- * Home is the one exception, and the note by its import has the arithmetic
- * that lets it sit here.
+ * Home is the one icon from elsewhere (Tabler, for the roof-and-door shape
+ * Solar does not have — see the note by its import) but it is drawn by the
+ * same mechanism: a real stroke, on the same 24-unit box, at the same
+ * ICON_STROKE. Nothing about NavIcon below has to know it came from
+ * somewhere else.
  *
  * All of this is used HERE ONLY — the rest of the app is Lucide and stays
  * Lucide.
@@ -288,16 +280,9 @@ function NavIcon({
 }) {
   const Line = icon.line
   const Fill = icon.fill
-  /*
-    A stroke width is only meaningful on something that is stroked. Passing
-    one to a filled-outline glyph does nothing at all, and asserting one of it
-    later would be asserting a property it cannot have.
-  */
-  const stroked = (icon.drawn ?? "stroke") === "stroke"
   return (
     <span
       data-nav-icon={active ? "filled" : "outline"}
-      data-icon-drawn={stroked ? "stroke" : "fill"}
       className="relative flex h-5 w-5 min-w-5 shrink-0 items-center justify-center"
       style={{ color }}
     >
@@ -315,7 +300,7 @@ function NavIcon({
       */}
       <Line
         size={20}
-        {...(stroked ? { strokeWidth: ICON_STROKE } : {})}
+        strokeWidth={ICON_STROKE}
         data-variant="outline"
         style={{ position: "absolute", opacity: active ? 0 : 1, transition: FILL_TRANSITION }}
       />

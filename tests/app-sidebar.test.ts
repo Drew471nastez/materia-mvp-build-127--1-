@@ -58,9 +58,6 @@ function stripComments(src: string): string {
 const NAV = join(root, "components/app/sidebar-desktop-nav.tsx")
 const SHELL = join(root, "components/app/sidebar.tsx")
 const navSource = readFileSync(NAV, "utf8")
-
-/** Solar's linear weight as a fraction of its 24-unit box: 1.5 / 24. */
-const ICON_STROKE_FRACTION = 1.5 / 24
 const shellSource = readFileSync(SHELL, "utf8")
 
 // ===========================================================================
@@ -245,7 +242,7 @@ section("A row is the same size in every state")
       enough. A guard that a stylesheet can satisfy on the component's behalf
       is not guarding the component.
     */
-    /<Line\s+size=\{20\}\s+\{\.\.\.\(stroked[^)]*\)\}\s+data-variant="outline"/.test(navSource) &&
+    /<Line\s+size=\{20\}\s+strokeWidth=\{ICON_STROKE\}\s+data-variant="outline"/.test(navSource) &&
       /<Fill\s+size=\{20\}\s+data-variant="filled"/.test(navSource) &&
       /opacity: active \? 0 : 1, transition: FILL_TRANSITION/.test(navSource) &&
       /opacity: active \? 1 : 0, transition: FILL_TRANSITION/.test(navSource) &&
@@ -311,39 +308,40 @@ section("A row is the same size in every state")
       /fill: \w+Bold/.test(navSource),
   )
   check(
-    "the one icon from another family is drawn at the same optical weight",
+    "the one icon from another family is a real stroke on the same box",
     /**
-     * Home is Phosphor's House — Solar has ten houses and every one is a
-     * rounded pentagon with a slot, none of them the peaked roof and door
-     * notch that was asked for.
+     * Home is Tabler's IconHome — Solar has ten houses and every one is a
+     * rounded pentagon with a slot, none of them the peaked roof and arched
+     * door that was asked for. Tabler draws the same silhouette with
+     * stroke-linecap/linejoin round baked in, which is what makes its roof
+     * peak a curve instead of a point.
      *
-     * Mixing families is usually how a rail starts looking wrong, and optical
-     * weight is what decides whether it does. Phosphor's regular outline is
-     * 16 units in a 256-unit box; Solar's linear stroke is 1.5 in a 24-unit
-     * box. Both are 6.25% of the frame — the same weight to the digit, which
-     * is why these two can sit together and why a third family could not be
-     * added without redoing this sum.
+     * Nothing about it needs a carve-out: it is a genuine 24-unit stroke like
+     * every Solar `linear` icon, so it takes ICON_STROKE the same way they
+     * do, with no per-icon branch anywhere in NavIcon.
      */
-    16 / 256 === ICON_STROKE_FRACTION &&
-      /weight="regular"/.test(navSource) &&
-      /weight="fill"/.test(navSource) &&
-      /drawn: "fill"/.test(navSource),
+    /@tabler\/icons-react/.test(navSource) &&
+      /IconHome\b/.test(navSource) &&
+      /IconHomeFilled/.test(navSource) &&
+      !/\bweight="regular"/.test(navSource) &&
+      !/drawn\??:/.test(navSource),
   )
   check(
-    "icon weight is a number on the element, not a stroke painted over a fill",
+    "icon weight is one number, applied uniformly, not a stroke painted over a fill",
     /**
-     * Phosphor and Remix both draw a "line" icon as a FILLED PATH shaped like
-     * a stroke. There is no stroke-width on one to set, so weight had to be
+     * Phosphor and Remix both drew a "line" icon as a FILLED PATH shaped like
+     * a stroke. There was no stroke-width on one to set, so weight had to be
      * faked by painting a stroke of the icon's own colour over the fill and
      * tuning it — 2.4 units in Phosphor's 256-unit box, 0.3 in Remix's
-     * 24-unit one. A magic number per library, silently meaning something
-     * else the moment the library changes.
+     * 24-unit one — and Home needed a `drawn` field just to except itself
+     * from the rule.
      *
-     * A Solar `linear` icon is stroked for real: fill="none", stroke-width
-     * 1.5. One constant, no compensation, and nothing left in the stylesheet.
+     * Solar's `linear` icons and Tabler's IconHome are both stroked for
+     * real: fill="none", stroke-width 1.5. One constant, applied to every
+     * icon with no branch and nothing left in the stylesheet.
      */
     /const ICON_STROKE = 1\.5/.test(navSource) &&
-      /stroked \? \{ strokeWidth: ICON_STROKE \} : \{\}/.test(navSource) &&
+      /strokeWidth=\{ICON_STROKE\}/.test(navSource) &&
       !/stroke-width: [\d.]+;/.test(navSource) &&
       !/stroke: currentColor/.test(navSource),
   )
