@@ -169,42 +169,43 @@ export type NavIconPair = { line: NavIconComponent; fill: NavIconComponent }
 
 /**
  * ===========================================================================
- *  HOME, DRAWN BY HAND
+ *  HOME, PLAIN
  * ===========================================================================
- * It was Phosphor's `House` first — sharp roof peak, square door corners —
- * then Tabler's `IconHome`, which rounds the same silhouette with
- * `stroke-linecap`/`stroke-linejoin: round`. Handed a screenshot and told to
- * match it exactly, Tabler's version was still visibly off: its rounding is
- * a byproduct of a 2px stroke join, not a drawn curve, so it is far subtler
- * than the reference's chunky, continuous roundness, and no npm library
- * turned up that shape — Solar's ten house variants, Remix, Phosphor,
- * Hugeicons, Iconsax, Fluent (five sizes checked) and Material Symbols
- * Rounded were all tried and rendered; none matched.
+ * Fitted to a reference image once already — a chunky, hand-drawn silhouette
+ * with a wide arched door, converged on by measuring pixel mismatch against
+ * a screenshot. Shown that result and asked for something simpler and more
+ * basic, the honest answer wasn't a smaller radius on the same shape; it was
+ * the wrong SHAPE. A bespoke silhouette reads as designed no matter how its
+ * corners are tuned. "Simple, basic" is a request for the generic one.
  *
- * So this one is fitted directly to the reference image rather than to a
- * library. The reference PNG was thresholded to a black/white mask, and a
- * parametric generator — apex, two roof shoulders, two base corners and a
- * door arch, each corner rounded by cutting back a radius along its two
- * edges and connecting with an SVG arc — searched its own parameter space
- * (house width, roof-to-wall ratio, door width, each corner's radius)
- * against that mask, scoring every candidate by rendering it, cropping to
- * its own bounding box, and counting mismatched pixels against the same
- * crop of the reference. The search converged on a 98%-match outline; the
- * two bugs it caught along the way — an inverted arc sweep flag that turned
- * corner rounding into a concave pinch, and Chromium's headless scrollbar
- * leaking a stray dark pixel into the mask and inflating every bounding box
- * — are exactly the kind of thing eyeballing a curve never catches.
+ * So this is Lucide's own `House` glyph — the exact geometry `lucide-react`
+ * ships, and the one every other icon in this app that isn't the rail
+ * already uses. A peaked roof, plain walls, a small door notch near the
+ * base. Nothing measured, nothing fitted; copied verbatim from the library.
  *
- * ONE PATH, TWO PAINT MODES. The fill version's outline already traces
- * around the door as a notch cut to the base edge, so stroking that same
- * `d` — fill="none", a real stroke-width — draws the identical outline
- * with the door as an open arch instead of solid ground. No separate
- * "line" geometry to keep in sync with the fill.
+ * TWO PATHS, NOT ONE — which is why this needed more than a paint-mode
+ * swap. Lucide draws the house as an outer roof-and-walls contour AND a
+ * separate open-bottomed door rectangle, stroked independently: the door's
+ * three sides read as a slot because its fourth side was never drawn, which
+ * is fine for a stroke and wrong for a fill (an unclosed subpath fills by
+ * implicitly closing straight across the gap, which is exactly the edge a
+ * real door needs). The outline layer renders both paths stroked, matching
+ * Lucide exactly. The filled layer closes the door subpath explicitly and
+ * renders BOTH as one path with `fill-rule="evenodd"`.
+ *
+ * Both pieces of that are load-bearing, checked with `isPointInFill` rather
+ * than trusted by eye: TWO SEPARATE `<path>` ELEMENTS, each filled on its
+ * own, was the first attempt, and it drew a solid black window instead of a
+ * hole — fill-rule only relates contours that share one `<path>`'s `d`.
+ * EVENODD ITSELF holds regardless of which direction each subpath happens
+ * to wind: the default nonzero rule also cuts a hole here, but only because
+ * this door and this roof wind opposite ways by coincidence — flip either
+ * arc's sweep flag later and nonzero would double-fill the door solid
+ * instead of open it. Evenodd doesn't depend on that coincidence holding.
  */
-const HOME_PATH_D =
-  "M14.2979 3.9848 L21.9485 7.2636 A0.6 0.6 0 0 1 22.5 8.1 L22.5 19 A2 2 0 0 1 20.5 21 " +
-  "L15.15 21 L15.15 16.5 A3.15 3.15 0 0 0 8.85 16.5 L8.85 21 L3.5 21 A2 2 0 0 1 1.5 19 " +
-  "L1.5 8.1 A0.6 0.6 0 0 1 2.0515 7.2636 L9.7021 3.9848 A2.5 2.5 0 0 1 14.2979 3.9848 Z"
+const HOME_ROOF_D =
+  "M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+const HOME_DOOR_D = "M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"
 
 type HomeIconProps = {
   size?: number
@@ -217,15 +218,16 @@ type HomeIconProps = {
 function HomeLineIcon({ size = 24, strokeWidth = 1.5, style, className, ...rest }: HomeIconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style} className={className} {...rest}>
-      <path d={HOME_PATH_D} stroke="currentColor" strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <path d={HOME_ROOF_D} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={HOME_DOOR_D} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
 
 function HomeFillIcon({ size = 24, style, className, ...rest }: HomeIconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={style} className={className} {...rest}>
-      <path d={HOME_PATH_D} />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" fillRule="evenodd" style={style} className={className} {...rest}>
+      <path d={`${HOME_ROOF_D} ${HOME_DOOR_D}z`} />
     </svg>
   )
 }
@@ -291,10 +293,10 @@ const NAV_ICONS_EXTRA = {
  * 1.5 — so icon weight is a number rather than the overlay trick the previous
  * two libraries forced.
  *
- * Home is the one icon drawn by hand rather than pulled from a library —
- * see the note above NAV_ICONS — but it is stroked by the same mechanism:
- * a real stroke, on the same 24-unit box, at the same ICON_STROKE. Nothing
- * about NavIcon below has to know it did not come from Solar.
+ * Home is Lucide's `House` rather than Solar's — see the note above
+ * NAV_ICONS — but it is stroked by the same mechanism: a real stroke, on
+ * the same 24-unit box, at the same ICON_STROKE. Nothing about NavIcon
+ * below has to know it did not come from Solar.
  *
  * All of this is used HERE ONLY — the rest of the app is Lucide and stays
  * Lucide.
