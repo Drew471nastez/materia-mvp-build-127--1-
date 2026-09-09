@@ -23,7 +23,7 @@
  * Registered by scripts/run-push-tests.mjs, which passes the compile output
  * directory in PUSH_TEST_OUT.
  */
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 
@@ -31,6 +31,47 @@ const OUT = process.env.PUSH_TEST_OUT
 
 /** `server-only` is a bundler marker; outside one it is nothing. */
 const EMPTY_MODULE = "data:text/javascript,export{}"
+
+/**
+ * NEXT'S OWN SUBPATHS, which only a bundler can resolve.
+ *
+ * `next/link` and `next/navigation` are not files you can import from Node —
+ * they resolve through export conditions the framework's compiler sets. A
+ * suite that renders a component does not need Next; it needs those two
+ * modules to exist and behave, which is all these do.
+ *
+ * `next/link` becomes the anchor it renders. `usePathname` reads a global the
+ * suite sets, so a test can render the same component "on" different routes
+ * without a router.
+ *
+ * Written to disk rather than handed back as a `data:` URL: a data module
+ * cannot resolve a bare specifier, and the Link stub has to import React.
+ * They land in the compile output, which already has node_modules linked.
+ */
+const NEXT_STUB_SOURCE = {
+  "next/link": `import { createElement } from "react"
+export default function Link({ href, children, ...rest }) {
+  return createElement("a", { href, ...rest }, children)
+}
+`,
+  "next/navigation": `export const usePathname = () => globalThis.__PUSH_TEST_PATHNAME__ ?? "/"
+export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, back() {} })
+export const useSearchParams = () => new URLSearchParams()
+export const redirect = () => {}
+export const notFound = () => {}
+`,
+}
+
+function nextStub(specifier) {
+  if (!OUT) return null
+  const dir = join(OUT, "__next-stubs__")
+  const file = join(dir, `${specifier.split("/")[1]}.mjs`)
+  if (!existsSync(file)) {
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(file, NEXT_STUB_SOURCE[specifier])
+  }
+  return pathToFileURL(file).href
+}
 
 const EXTENSIONS = [".js", ".mjs", ".cjs"]
 
@@ -70,6 +111,10 @@ export async function load(url, context, nextLoad) {
 
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === "server-only") return { url: EMPTY_MODULE, shortCircuit: true }
+  if (specifier in NEXT_STUB_SOURCE) {
+    const stub = nextStub(specifier)
+    if (stub) return { url: stub, shortCircuit: true }
+  }
 
   /**
    * A `?query` suffix is the standard way to ask Node for a FRESH instance of
