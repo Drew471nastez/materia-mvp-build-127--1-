@@ -151,10 +151,10 @@ section("A row is the same size in every state")
  *
  *   rail 240   nav padding 7/7
  *   row        h 38  w 225  radius 12  padding 14/14  gap 8
- *   type       15px / 20px, weight 400 resting, 500 active
- *   resting    #646464 on transparent
+ *   type       15px / 24px, tracked -0.01em, weight 450 resting, 550 active
+ *   resting    #666666 on transparent
  *   active     #202020 on #e8e8e8
- *   icon       20×20 box, 18×18 glyph, stroke 1.75 resting, 2 active
+ *   icon       20×20 box, two 20×20 glyphs stacked, cross-faded on opacity
  *   chevron    20×20, pinned 18px from the rail's edge, rotate(0) → rotate(180)
  *   submenu    grid-template-rows 0px/opacity 0 → 36px/opacity 1
  *
@@ -167,7 +167,7 @@ section("A row is the same size in every state")
     "height, padding, radius and gap are written once, for all states",
     // One shared `ROW` constant rather than a class string per state, which
     // is how a hover style ends up with different padding to a rest style.
-    /const ROW =\s*\n?\s*"group relative flex h-\[38px\]/.test(navSource) &&
+    /const ROW =\s*\n?\s*"relative flex h-\[38px\]/.test(navSource) &&
       /rounded-\[12px\] px-\[14px\]/.test(navSource),
   )
   check(
@@ -183,18 +183,20 @@ section("A row is the same size in every state")
     })(),
   )
   check(
-    "the labels are Inter at 16 on 24, tracked in",
-    /font-sans text-\[16px\] leading-\[24px\] tracking-\[-0\.01em\]/.test(navSource),
+    "the labels are Inter at 15 on 24, tracked in",
+    /font-sans text-\[15px\] leading-\[24px\] tracking-\[-0\.01em\]/.test(navSource),
   )
   check(
     "at a weight of 450, which needs a variable font to mean anything",
     /**
      * `next/font` loads Inter with no weight list in app/layout.tsx, which is
      * what makes the whole 100–900 axis available. On a static font 450 snaps
-     * to 400 or 500 and the step to the active 600 is twice what it should be.
+     * to 400 or 500 and the step to the active 550 is four times what it
+     * should be — 450→550 is one hundred units, 400→500 is the same distance
+     * only because both ends have moved to the wrong place.
      */
     /const REST_WEIGHT = 450/.test(navSource) &&
-      /const ACTIVE_WEIGHT = 600/.test(navSource) &&
+      /const ACTIVE_WEIGHT = 550/.test(navSource) &&
       !/weight: \[/.test(readFileSync(join(root, "app/layout.tsx"), "utf8").slice(0, 4000)),
   )
   check(
@@ -204,9 +206,71 @@ section("A row is the same size in every state")
   )
   check(
     "every icon sits in a box that cannot change size",
-    /className="flex h-5 w-5 min-w-5 shrink-0/.test(navSource) &&
-      // Size is fixed; only the WEIGHT changes between states.
-      /<Icon size=\{20\} weight=\{active \? "fill" : "regular"\} \/>/.test(navSource),
+    /className="relative flex h-5 w-5 min-w-5 shrink-0/.test(navSource) &&
+      // Both layers are 20px. Nothing about the state changes a size.
+      navSource.match(/<Icon\s+size=\{20\}/g)?.length === 2 &&
+      !/size=\{active/.test(navSource),
+  )
+  check(
+    "the fill arrives rather than appears",
+    /**
+     * A Phosphor weight is a DIFFERENT PATH — `d` changes entirely between
+     * regular and fill — and no CSS can interpolate one path into another.
+     * Swapping the prop therefore snaps: outline on one frame, solid on the
+     * next, which is what "not smooth" meant.
+     *
+     * So both weights are rendered into the same 20×20 box and cross-faded on
+     * opacity, the one property that CAN animate here.
+     */
+    /weight="regular"\s+data-variant="outline"/.test(navSource) &&
+      /weight="fill"\s+data-variant="filled"/.test(navSource) &&
+      /opacity: active \? 0 : 1, transition: FILL_TRANSITION/.test(navSource) &&
+      /opacity: active \? 1 : 0, transition: FILL_TRANSITION/.test(navSource) &&
+      /const FILL_TRANSITION = "opacity \d+ms/.test(navSource),
+  )
+  check(
+    "and the row is not a `group`, so a touch device cannot cancel that fade",
+    /**
+     * globals.css carries a rule aimed at storefront product cards:
+     *
+     *   @media (hover: none) { .group * { transition-property: none !important } }
+     *
+     * Every row here used to carry `group` — for nothing, since the hover
+     * colours come from React state, not `group-hover:`. Measured in Chromium
+     * (which reports `hover: none`) the icons computed
+     * transition-property: none and the chevron could not rotate. On a touch
+     * tablet wide enough to show this rail the sidebar had no animation at all.
+     */
+    !/^\s*"group /m.test(navSource.slice(navSource.indexOf("const ROW ="), navSource.indexOf("const REST_WEIGHT"))),
+  )
+  check(
+    "and the rail ships the icons the probe measures",
+    /**
+     * THE GAP THIS CLOSES, WHICH WAS REAL AND SHIPPED.
+     *
+     * `DesktopSidebarContent` renders whatever `items[].icon` it is handed. It
+     * was handed LUCIDE icons by sidebar.tsx, while scripts/render-sidebar-probe
+     * rendered the Phosphor `NAV_ICONS` — so every browser measurement of "the
+     * active icon is filled" was taken against a component the app never
+     * built. A Lucide icon ignores `weight` entirely; on the live rail both
+     * layers rendered the same outline and nothing ever filled.
+     *
+     * Every icon in the shipped list now comes from the one exported map, and
+     * `NavItemData.icon` is typed `PhosphorIcon` so a Lucide one cannot be
+     * put back without the compiler saying so.
+     */
+    (() => {
+      const list = shellSource.slice(
+        shellSource.indexOf("const mainNavItems"),
+        shellSource.indexOf("// Expandable groups"),
+      )
+      const icons = [...list.matchAll(/icon: ([\w.]+)/g)].map((m) => m[1])
+      return (
+        icons.length >= 8 &&
+        icons.every((name) => name.startsWith("NAV_ICONS.")) &&
+        /icon: PhosphorIcon/.test(shellSource)
+      )
+    })(),
   )
   check(
     "the icon of the row you are on is filled",
@@ -217,7 +281,7 @@ section("A row is the same size in every state")
      * `package` three — and filling an open path paints the region it implies
      * rather than the glyph.
      */
-    /@phosphor-icons\/react/.test(navSource) && /weight=\{active \? "fill" : "regular"\}/.test(navSource),
+    /@phosphor-icons\/react/.test(navSource) && /weight="fill"/.test(navSource),
   )
   check(
     "and a resting one is drawn about fifteen per cent heavier",
@@ -228,7 +292,7 @@ section("A row is the same size in every state")
      * icon's own colour over a 16-unit outline adds 1.2 to each side of every
      * edge: that outline plus fifteen per cent.
      */
-    /\[data-nav-icon="outline"\] svg path \{\s*stroke: currentColor;\s*stroke-width: 2\.4;/.test(navSource) &&
+    /\[data-nav-icon\] svg\[data-variant="outline"\] path \{\s*stroke: currentColor;\s*stroke-width: 2\.4;/.test(navSource) &&
       /data-nav-icon=\{active \? "filled" : "outline"\}/.test(navSource),
   )
   check(

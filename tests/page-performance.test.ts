@@ -298,11 +298,17 @@ check(
     // the screen actually named -- was missed, because each carried its own copy
     // of the same guarded vibrate call.
     const dash = code("components/app/dashboard-client.tsx")
-    const analytics = code("app/app/analytics/analytics-client.tsx")
+    /*
+      The analytics chart moved to its own module — components/app/analytics-chart —
+      so the page no longer contains the scrub that asks for the tap. This
+      pointed at the page and went red for a chart that had not changed
+      behaviour at all, only address.
+    */
+    const analytics = code("components/app/analytics-chart.tsx")
     return (dash.match(/hapticTap\(/g)?.length ?? 0) >= 2 &&
            (analytics.match(/hapticTap\(/g)?.length ?? 0) >= 2
   })(),
-  "        dashboard-client.tsx + analytics-client.tsx",
+  "        dashboard-client.tsx + analytics-chart.tsx",
 )
 
 check(

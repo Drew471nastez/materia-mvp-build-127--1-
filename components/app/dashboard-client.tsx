@@ -63,6 +63,7 @@ import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl } from "@/
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal, hapticTap } from "@/lib/native-bridge"
 import { useToast } from "@/hooks/use-toast"
+import { GlidingActiveDot, GlidingCursor } from "@/components/app/chart-glide"
 
 interface SetupStep {
   id: string
@@ -244,15 +245,22 @@ function ChartWithLongPressTooltip({
   const tooltipLeftPercent = activeIndex != null && displayChartData.length > 1
     ? (activeIndex / (displayChartData.length - 1)) * 100 : 50
 
-  // Dynamic clamping based on actual tooltip width
-  const getClampedLeft = () => {
-    const tooltipEl = tooltipRef.current
+  /*
+    CLAMPED IN PIXELS, because the tooltip is positioned with a transform.
+
+    `left: <n>%` is a layout property: every value a dragging finger produced
+    made the browser lay the element out again and repaint it, on the main
+    thread, at touch frequency, while that same thread was handing recharts a
+    new active index. The clamp maths is unchanged; only its unit is.
+  */
+  const getClampedLeftPx = () => {
     const containerEl = containerRef.current
-    if (!tooltipEl || !containerEl) return Math.max(12, Math.min(88, tooltipLeftPercent))
-    const tooltipWidth = tooltipEl.offsetWidth
-    const containerWidth = containerEl.offsetWidth
-    const halfTooltipPct = (tooltipWidth / 2 / containerWidth) * 100
-    return Math.max(halfTooltipPct + 2, Math.min(100 - halfTooltipPct - 2, tooltipLeftPercent))
+    const containerWidth = containerEl?.offsetWidth ?? 0
+    const tooltipWidth = tooltipRef.current?.offsetWidth ?? 0
+    const half = tooltipWidth / 2
+    const wanted = (tooltipLeftPercent / 100) * containerWidth
+    if (!containerWidth) return wanted
+    return Math.max(half + 4, Math.min(containerWidth - half - 4, wanted))
   }
 
   // Show a dot on the last data point
@@ -301,8 +309,17 @@ function ChartWithLongPressTooltip({
               {/* Desktop-only Recharts tooltip */}
               {!isTouchDevice && (
                 <Tooltip
-                  cursor={{ stroke: "#c4b5fd", strokeWidth: 1, strokeDasharray: "4 2" }}
-                  isAnimationActive={false}
+                  /*
+                    The crosshair and the tooltip box GLIDE to the next point
+                    rather than teleporting to it — components/app/chart-glide
+                    has the why. `isAnimationActive={false}` is what made the
+                    box jump: with it off, recharts leaves no transition on
+                    the wrapper's transform.
+                  */
+                  cursor={<GlidingCursor />}
+                  isAnimationActive
+                  animationDuration={120}
+                  animationEasing="ease-out"
                   content={({ active, payload, label }) => {
                     if (!active || !payload?.length) return null
                     const point = payload[0]?.payload as ChartDataPoint
@@ -335,7 +352,7 @@ function ChartWithLongPressTooltip({
                 stroke="#8b5cf6"
                 strokeWidth={2}
                 fill="url(#kpiGrad)"
-                dot={(props: any) => {
+                dot={((props: any) => {
                   const isActive = tooltipActive && props.index === activeIndex
                   const isLast = props.index === lastDotIndex && !tooltipActive
                   if (isActive) {
@@ -356,11 +373,24 @@ function ChartWithLongPressTooltip({
                   if (isLast) {
                     return <circle key={`dot-${props.index}`} cx={props.cx} cy={props.cy} r={4} fill="#8b5cf6" stroke="#fff" strokeWidth={2} />
                   }
-                  return <circle key={`dot-${props.index}`} r={0} cx={0} cy={0} fill="none" stroke="none" />
-                }}
-                activeDot={!isTouchDevice ? { r: 5, fill: "#8b5cf6", stroke: "#fff", strokeWidth: 2 } : false}
+                  /*
+                    NOTHING, rather than an invisible circle. This returned a
+                    `<circle r={0}>` for every point that is not drawn — one
+                    per day, all reconciled on every render. Measured on the
+                    analytics chart, which carried the same line: 241 svg
+                    nodes became 125.
+
+                    The cast is because recharts types a function `dot` as
+                    returning a ReactElement. React renders null as nothing
+                    and recharts passes it straight through, which is the
+                    point; the only null-ish thing its types allow is an empty
+                    <g />, which is the same node count under another name.
+                  */
+                  return null
+                }) as unknown as React.ComponentProps<typeof Area>["dot"]}
+                activeDot={!isTouchDevice ? <GlidingActiveDot fill="#8b5cf6" /> : false}
                 isAnimationActive={shouldAnimate}
-                animationDuration={900}
+                animationDuration={600}
                 animationEasing="ease-out"
                 animationBegin={0}
               />
@@ -376,8 +406,11 @@ function ChartWithLongPressTooltip({
           style={{
             position: "absolute",
             top: 8,
-            left: `${getClampedLeft()}%`,
-            transform: "translateX(-50%)",
+            /*
+              A TRANSFORM, not `left: %` — see getClampedLeftPx above.
+            */
+            left: 0,
+            transform: `translate3d(${getClampedLeftPx()}px, 0, 0) translateX(-50%)`,
             background: "#1a1a2e",
             borderRadius: "8px",
             fontSize: "12px",
@@ -387,7 +420,7 @@ function ChartWithLongPressTooltip({
             zIndex: 10,
             whiteSpace: "nowrap",
             boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            willChange: "transform, left",
+            willChange: "transform",
           }}
         >
           <p style={{ fontSize: "11px", color: "#9ca3af", margin: 0, marginBottom: "2px" }}>{activePoint.label}</p>

@@ -4,9 +4,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
-  House,
-  ChartLine,
-  LinkIcon,
   LayoutDashboard,
   Package,
   Settings,
@@ -39,7 +36,8 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
 // Sheet removed — mobile sidebar now uses pure CSS transitions for reliable close animation
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { DesktopSidebarContent } from "@/components/app/sidebar-desktop-nav"
+import { DesktopSidebarContent, NAV_ICONS } from "@/components/app/sidebar-desktop-nav"
+import type { Icon as PhosphorIcon } from "@phosphor-icons/react"
 
 // Imperative height/opacity animation that handles rapid toggles safely.
 //
@@ -287,7 +285,20 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   type NavItemData = {
     href: string
     label: string
-    icon: typeof LayoutDashboard
+    /**
+     * A PHOSPHOR ICON, not a Lucide one, and the type is what enforces it.
+     *
+     * This list feeds `DesktopSidebarContent`, which renders each icon twice —
+     * once at `weight="regular"` and once at `weight="fill"` — and cross-fades
+     * between them to fill the row you are on. A Lucide component ignores
+     * `weight` entirely: it would render two identical outlines, and the
+     * active row would never fill.
+     *
+     * Which is exactly what shipped. The rail was handed Lucide icons while
+     * the browser probe rendered `NAV_ICONS`, so the probe kept reporting a
+     * fill that no user could see. Both sides read the same map now.
+     */
+    icon: PhosphorIcon
     forceNavigation?: boolean
     children?: NavItemChild[]
   }
@@ -298,17 +309,17 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
    * and a grid there would be two names for one place.
    */
   const mainNavItems: NavItemData[] = [
-    { href: "/app", label: t("nav.dashboard"), icon: House },
+    { href: "/app", label: t("nav.dashboard"), icon: NAV_ICONS.dashboard },
     {
       href: "/app/products",
       label: t("nav.products"),
-      icon: Package,
+      icon: NAV_ICONS.products,
       children: [{ href: "/app/coupons", label: "Coupons" }],
     },
-    { href: "/app/analytics", label: t("nav.analytics"), icon: ChartLine },
-    { href: "/app/orders", label: t("nav.sales"), icon: ShoppingCart },
-    { href: "/app/onepage", label: t("nav.onepage"), icon: LinkIcon, forceNavigation: true },
-    { href: "/store-builder", label: t("nav.storeBuilder"), icon: Store, forceNavigation: true },
+    { href: "/app/analytics", label: t("nav.analytics"), icon: NAV_ICONS.analytics },
+    { href: "/app/orders", label: t("nav.sales"), icon: NAV_ICONS.orders },
+    { href: "/app/onepage", label: t("nav.onepage"), icon: NAV_ICONS.onepage, forceNavigation: true },
+    { href: "/store-builder", label: t("nav.storeBuilder"), icon: NAV_ICONS.storeBuilder, forceNavigation: true },
     /*
       Storelib AI is NOT LISTED HERE ANY MORE.
 
@@ -323,8 +334,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       them, and that is not what "take it out of the menu" means. Putting the
       line back is what turns it on again.
     */
-    { href: "/app/emails", label: t("nav.emails"), icon: Mail },
-    { href: "/app/payouts", label: t("nav.payouts"), icon: Wallet },
+    { href: "/app/emails", label: t("nav.emails"), icon: NAV_ICONS.emails },
+    { href: "/app/payouts", label: t("nav.payouts"), icon: NAV_ICONS.payouts },
   ]
 
   // Expandable groups (parent nav items with children).
