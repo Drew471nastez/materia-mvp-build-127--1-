@@ -650,13 +650,38 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
 
     const onScroll = () => {
       const y = getY()
-      // One pixel of slack so the frame it pins on already counts as pinned.
-      const pinned = y >= originOf() - 1
-      if (!pinned) hidden = false
+
+      /**
+       * A HEADER'S HEIGHT OF CLEARANCE BEFORE IT MAY MOVE AT ALL.
+       *
+       * The previous gate was `y >= origin - 1`: one pixel of slack, which is
+       * none. Un-pinning is done by the BROWSER, natively, as the scroll
+       * happens; the transform is applied by US, from a scroll event. Right at
+       * the origin those two disagree for a frame or more — the browser has let
+       * the header drop back to its place while the transform still holds it
+       * up — and the header is drawn off its own box with the gap underneath
+       * showing the page background. Filmed at 60fps it is a white band under
+       * the header that grows toward the announcement bar's height and then
+       * snaps shut.
+       *
+       * The fix is clearance, not precision. Below `origin + height` the header
+       * is FORCED to `translateY(0)` with no transition, so by the time the
+       * browser is anywhere near un-pinning it, there has been no transform on
+       * the element for a whole header's worth of scrolling. Above it, the
+       * header is unambiguously pinned and free to animate.
+       *
+       * Read fresh each time: both the announcement bar's height and the
+       * header's own are settings, and a header that measured itself once at
+       * mount is a header that is wrong after the first edit.
+       */
+      const settled = originOf() + el.offsetHeight
+      const mayMove = y >= settled
+
+      if (!mayMove) hidden = false
       else if (y > lastY + 4) hidden = true
       else if (y < lastY - 4) hidden = false
       lastY = y
-      apply(hidden && pinned, pinned)
+      apply(hidden && mayMove, mayMove)
     }
 
     target.addEventListener("scroll", onScroll as EventListener, { passive: true })

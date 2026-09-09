@@ -372,10 +372,18 @@ section("The header, the announcement bar, and the space between them")
      * guarantee that an unpinned header is never translated — the first still
      * leaves a frame where a stale flag paints the broken state.
      */
-    /apply\(hidden && pinned, pinned\)/.test(source) &&
-      // The gate is the header's OWN position, not a magic number. `y < 80`
-      // let it hide while still unpinned whenever the bar was taller than 80px.
-      /const pinned = y >= originOf\(\) - 1/.test(source) &&
+    /apply\(hidden && mayMove, mayMove\)/.test(source) &&
+      /**
+       * And a HEADER'S HEIGHT of clearance, not one pixel. Un-pinning is the
+       * browser's job and happens with the scroll; the transform is ours and
+       * arrives on a scroll event. At the origin the two disagree for a frame,
+       * the header is drawn off its own box, and the gap under it shows the
+       * page background — filmed, it is a white band that grows toward the
+       * announcement bar's height and snaps shut.
+       */
+      /const settled = originOf\(\) \+ el\.offsetHeight/.test(source) &&
+      /const mayMove = y >= settled/.test(source) &&
+      !/y >= originOf\(\) - 1/.test(source) &&
       !/y < 80/.test(source) &&
       // Read from offsetTop, because the rect is displaced by the very
       // transform this decides whether to apply.
