@@ -275,6 +275,32 @@ section("A page is a page, whichever surface renders it")
   )
 
   const bare = renderToStaticMarkup(createElement(ThemePage, { theme, sections: [] }))
+  /**
+   * THE SELECTOR AND THE ATTRIBUTE HAVE TO AGREE.
+   *
+   * A break test caught this: deleting `data-chrome` from the wrapper left the
+   * suite green, because it only checked that the CSS excluded `[data-chrome]`
+   * and that the source mentioned `isChrome`. Neither notices that the
+   * attribute is no longer emitted — and then the entrance animation is back
+   * on the sticky header, displacing it by 16px, which is the bug this all
+   * came from.
+   */
+  const headerTag = html.slice(html.indexOf('id="section-header-1"') - 400, html.indexOf('id="section-header-1"') + 200)
+  check(
+    "the header says it is chrome, in the markup",
+    /data-chrome/.test(headerTag),
+    headerTag.slice(0, 200),
+  )
+  const footerAt = html.indexOf('id="section-footer-1"')
+  check(
+    "and so does the footer",
+    /data-chrome/.test(html.slice(footerAt - 400, footerAt + 200)),
+  )
+  check(
+    "while an ordinary section does not",
+    !/data-chrome/.test(html.slice(html.indexOf('id="section-hero-1"'), html.indexOf('id="section-hero-1"') + 400)),
+  )
+
   check(
     "an empty page says so rather than rendering nothing",
     /being set up/.test(bare),

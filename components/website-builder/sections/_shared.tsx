@@ -328,6 +328,7 @@ export function SectionWrapper({
   disableWrapperTransition,
   canvasRoundedTopPx,
   canvasRoundedBottomPx,
+  isChrome,
 }: {
   id?: string
   children: React.ReactNode
@@ -343,6 +344,13 @@ export function SectionWrapper({
   disableWrapperTransition?: boolean
   canvasRoundedTopPx?: number
   canvasRoundedBottomPx?: number
+  /**
+   * The header and the footer. They are chrome, not content, and the theme's
+   * entrance animation must not touch them: a header appears with the page,
+   * and — since the header uses `transform` to slide itself away on scroll —
+   * an animation on the same property fights the thing that makes it sticky.
+   */
+  isChrome?: boolean
 }) {
   // Precompute the selection-ring border-radius so its corners curve into
   // the canvas's rounded corners instead of being clipped as a square.
@@ -367,6 +375,7 @@ export function SectionWrapper({
        * skipped the header would be the same drift this is fixing.
        */
       data-section=""
+      data-chrome={isChrome ? "" : undefined}
       className={cn(
         "relative w-full",
         // `isolate` (isolation: isolate) creates a new stacking context per
