@@ -46,6 +46,23 @@ import { createPortal } from "react-dom"
   AND pulls the barrel. The subpath exports — /linear/x and /bold/x — are the
   two glyphs this file actually renders, and nothing else ships.
 */
+/*
+  ONE ICON FROM ELSEWHERE, AND THE ARITHMETIC THAT MAKES IT FIT.
+
+  Home is Phosphor's `House` — a peaked roof, straight walls and a door
+  notch cut into the base. Solar has ten houses and every one of them is a
+  rounded pentagon with a slot in the middle; none of them is this shape,
+  which is the one that was asked for.
+
+  Mixing families is usually how a rail starts looking wrong, and the thing
+  that decides whether it does is optical weight. Phosphor's regular outline
+  is 16 units in a 256-unit box; Solar's linear stroke is 1.5 in a 24-unit
+  box. 16/256 and 1.5/24 are both 6.25% of the frame — the same weight, to
+  the digit. The two sit beside each other because the numbers say they can,
+  not because they looked close enough.
+*/
+import { House } from "@phosphor-icons/react"
+
 import { AltArrowDownIcon } from "@solar-icons/react/linear/alt-arrow-down"
 import { BoltIcon as BoltBold } from "@solar-icons/react/bold/bolt"
 
@@ -59,12 +76,8 @@ import { ChartSquareIcon as AnalyticsLinear } from "@solar-icons/react/linear/ch
 import { ChartSquareIcon as AnalyticsBold } from "@solar-icons/react/bold/chart-square"
 import { GlobalIcon as OnePageLinear } from "@solar-icons/react/linear/global"
 import { GlobalIcon as OnePageBold } from "@solar-icons/react/bold/global"
-import { HomeIcon as DashboardLinear } from "@solar-icons/react/linear/home"
-import { HomeIcon as DashboardBold } from "@solar-icons/react/bold/home"
 import { LetterIcon as EmailsLinear } from "@solar-icons/react/linear/letter"
 import { LetterIcon as EmailsBold } from "@solar-icons/react/bold/letter"
-import { ScissorsIcon as ShortenerLinear } from "@solar-icons/react/linear/scissors"
-import { ScissorsIcon as ShortenerBold } from "@solar-icons/react/bold/scissors"
 import { SettingsIcon as SettingsLinear } from "@solar-icons/react/linear/settings"
 import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
 import { ShopIcon as StoreLinear } from "@solar-icons/react/linear/shop"
@@ -159,12 +172,47 @@ export type NavItemData = {
  * components, and the pair is what the cross-fade needs: something to fade
  * from and something to fade to.
  */
-type SolarIcon = typeof DashboardLinear
-export type NavIconPair = { line: SolarIcon; fill: SolarIcon }
+/**
+ * Everything the rail renders an icon as: a size, an optional stroke, and
+ * whatever the cross-fade needs to put on it.
+ */
+type NavIconComponent = (props: {
+  size?: number
+  strokeWidth?: number
+  style?: React.CSSProperties
+  className?: string
+  "data-variant"?: string
+}) => React.ReactElement | null
+
+/**
+ * `drawn` is not decoration — it decides whether a stroke width is passed at
+ * all, and it is on the element for the browser check to read.
+ *
+ * A Solar linear icon is a real stroke, so its weight is a number. A Phosphor
+ * regular icon is a FILLED PATH shaped like a stroke; handing it a
+ * strokeWidth does nothing, and asserting one of it would be asserting a
+ * property it cannot have.
+ */
+export type NavIconPair = {
+  line: NavIconComponent
+  fill: NavIconComponent
+  drawn?: "stroke" | "fill"
+}
+
+/*
+  AT MODULE SCOPE, like everything else in this file.
+
+  Phosphor is one component with a `weight` prop where Solar is two
+  components, so the pair has to be built. Built inside a render it would be
+  a new component type every time, which is the defect this whole file exists
+  to have removed.
+*/
+const DashboardLinear: NavIconComponent = (props) => <House {...props} weight="regular" />
+const DashboardBold: NavIconComponent = (props) => <House {...props} weight="fill" />
 
 /** The icons the sidebar uses, exported so the shell can build its nav list. */
 export const NAV_ICONS = {
-  dashboard: { line: DashboardLinear, fill: DashboardBold },
+  dashboard: { line: DashboardLinear, fill: DashboardBold, drawn: "fill" },
   products: { line: ProductsLinear, fill: ProductsBold },
   analytics: { line: AnalyticsLinear, fill: AnalyticsBold },
   orders: { line: OrdersLinear, fill: OrdersBold },
@@ -194,7 +242,6 @@ const NAV_ICONS_EXTRA = {
     Scissors has a real filled form, and for a link SHORTENER it is the
     better metaphor anyway.
   */
-  linkShortener: { line: ShortenerLinear, fill: ShortenerBold },
   communities: { line: PeopleLinear, fill: PeopleBold },
 } as const satisfies Record<string, NavIconPair>
 
@@ -224,7 +271,11 @@ const NAV_ICONS_EXTRA = {
  * 1.5 — so icon weight is a number rather than the overlay trick the previous
  * two libraries forced.
  *
- * It is used HERE ONLY — the rest of the app is Lucide and stays Lucide.
+ * Home is the one exception, and the note by its import has the arithmetic
+ * that lets it sit here.
+ *
+ * All of this is used HERE ONLY — the rest of the app is Lucide and stays
+ * Lucide.
  */
 function NavIcon({
   icon,
@@ -237,9 +288,16 @@ function NavIcon({
 }) {
   const Line = icon.line
   const Fill = icon.fill
+  /*
+    A stroke width is only meaningful on something that is stroked. Passing
+    one to a filled-outline glyph does nothing at all, and asserting one of it
+    later would be asserting a property it cannot have.
+  */
+  const stroked = (icon.drawn ?? "stroke") === "stroke"
   return (
     <span
       data-nav-icon={active ? "filled" : "outline"}
+      data-icon-drawn={stroked ? "stroke" : "fill"}
       className="relative flex h-5 w-5 min-w-5 shrink-0 items-center justify-center"
       style={{ color }}
     >
@@ -257,7 +315,7 @@ function NavIcon({
       */}
       <Line
         size={20}
-        strokeWidth={ICON_STROKE}
+        {...(stroked ? { strokeWidth: ICON_STROKE } : {})}
         data-variant="outline"
         style={{ position: "absolute", opacity: active ? 0 : 1, transition: FILL_TRANSITION }}
       />
@@ -610,7 +668,6 @@ export function DesktopSidebarContent({
   onForceNavigate,
   onPrefetch,
   toolsLabel,
-  linkShortenerLabel,
   communitiesLabel,
   settingsLabel,
   upgradeTitle,
@@ -624,7 +681,6 @@ export function DesktopSidebarContent({
   onForceNavigate: (href: string) => void
   onPrefetch?: (href: string) => void
   toolsLabel: string
-  linkShortenerLabel: string
   communitiesLabel: string
   settingsLabel: string
   upgradeTitle: string
@@ -677,7 +733,6 @@ export function DesktopSidebarContent({
             {toolsLabel}
           </p>
           <div className="space-y-[2px]">
-            <ComingSoonItem icon={NAV_ICONS_EXTRA.linkShortener} label={linkShortenerLabel} />
             <ComingSoonItem icon={NAV_ICONS_EXTRA.communities} label={communitiesLabel} />
           </div>
         </div>

@@ -1647,7 +1647,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             try { router.prefetch(href) } catch {}
           }}
           toolsLabel="Tools"
-          linkShortenerLabel="Link shortener"
           communitiesLabel="Communities"
           settingsLabel={t("nav.settings")}
           upgradeTitle={t("nav.upgradeToPro")}
