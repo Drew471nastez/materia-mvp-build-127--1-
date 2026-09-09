@@ -601,7 +601,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       el.style.transition = ""
       el.style.pointerEvents = ""
     }
-    if (!headerStickyEnabled || !headerStickyOnScrollUp) {
+    if (!headerStickyOnScrollUp) {
       clear()
       return
     }
@@ -1389,7 +1389,22 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
    * lives. And the editor and the published page now run the same branch,
    * which is what stops the two disagreeing a third time.
    */
-  const useSticky = headerStickyEnabled
+  /**
+   * EITHER TOGGLE MAKES IT STICK, BECAUSE REVEAL-ON-SCROLL-UP IS A KIND OF
+   * STICKY.
+   *
+   * These were master-and-sub: "Sticky header on scroll up" did nothing unless
+   * "Enable sticky header" was also on. But the two describe DIFFERENT
+   * behaviours, not a feature and its option — one is "always pinned", the
+   * other is "pinned, but out of the way until you scroll up" — and the second
+   * one reads, on its own control with its own description, as a complete
+   * choice. Turning it on and getting a header that does not move at all is the
+   * setting lying.
+   *
+   * A header that reveals on scroll up has to be sticky to reveal ANYWHERE, so
+   * the position follows from either toggle.
+   */
+  const useSticky = headerStickyEnabled || headerStickyOnScrollUp
 
   const headerRef = useRef<HTMLDivElement | null>(null)
   const [measuredH, setMeasuredH] = useState(0)
@@ -1521,7 +1536,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
    * with nothing for the compositor to keep alive. Reveal on: the machinery
    * is there, because then it genuinely animates on every scroll.
    */
-  const revealEnabled = headerStickyEnabled && headerStickyOnScrollUp
+  const revealEnabled = headerStickyOnScrollUp
 
   const mobileDrawer = (
     <HeaderMobileNavDrawer

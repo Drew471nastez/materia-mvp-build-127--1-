@@ -330,6 +330,22 @@ section("The header, the announcement bar, and the space between them")
     !/In-flow spacer/.test(header) && !/height: measuredH \|\| undefined/.test(source),
   )
   check(
+    "reveal-on-scroll-up works on its own, without the always-pinned toggle",
+    /**
+     * They were master-and-sub: with "Enable sticky header" off, turning on
+     * "Sticky header on scroll up" produced a header that did not move at all
+     * — the control lying about what it does. They describe two different
+     * behaviours ("always pinned" versus "pinned, but out of the way until you
+     * scroll up"), each complete on its own, so either one makes the header
+     * sticky and the reveal follows from its own toggle alone.
+     */
+    /const useSticky = headerStickyEnabled \|\| headerStickyOnScrollUp/.test(source) &&
+      /const revealEnabled = headerStickyOnScrollUp/.test(source) &&
+      /if \(!headerStickyOnScrollUp\) \{/.test(source) &&
+      !/headerStickyEnabled && headerStickyOnScrollUp/.test(source),
+  )
+
+  check(
     "it is not promoted to a compositor layer for an animation it never runs",
     /**
      * `header_sticky_on_scroll_up` defaults to FALSE, so on almost every site
@@ -350,7 +366,7 @@ section("The header, the announcement bar, and the space between them")
      * because that probe needs a production build and does not run on push —
      * so this is the copy that actually bites when somebody edits this file.
      */
-    /const revealEnabled = headerStickyEnabled && headerStickyOnScrollUp/.test(source) &&
+    /const revealEnabled = headerStickyOnScrollUp/.test(source) &&
       // The promotion is conditional on it.
       /revealEnabled && "will-change-transform"/.test(source) &&
       // And the class list no longer carries the promotion unconditionally.
@@ -400,7 +416,8 @@ section("The header, the announcement bar, and the space between them")
      * They took different ones — `useStickyFixed` versus `useStickyInFlow` —
      * which is exactly why the bug was invisible in the editor.
      */
-    !/useStickyFixed|useStickyInFlow/.test(source) && /const useSticky = headerStickyEnabled/.test(source),
+    !/useStickyFixed|useStickyInFlow/.test(source) &&
+      /const useSticky = headerStickyEnabled \|\| headerStickyOnScrollUp/.test(source),
   )
   check(
     "a transparent header overlays without waiting for JavaScript",

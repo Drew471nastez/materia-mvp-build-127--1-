@@ -146,6 +146,15 @@ const EXPECTED = {
     [r.noEmptyBandBelow, "there is no empty band under it"],
     [r.pinnedAt < 0, "a non-sticky header scrolls away with the page"],
   ],
+  /** Reveal on, always-pinned OFF — the reported configuration. It must still
+   *  stick, because a header that reveals on scroll up has to be sticky to
+   *  reveal anywhere. */
+  "scroll-up-only": (r) => [
+    [r.sticky, "the header is sticky from the scroll-up toggle alone"],
+    [r.headerStartsBelowBar, "it starts below the announcement bar"],
+    [r.noEmptyBandBelow, "there is no empty band under it"],
+    [r.pinnedAt === 0, "and it pins to the top when scrolled"],
+  ],
   /**
    * The reveal-on-scroll-up mode, and the state it leaves behind.
    *
@@ -237,7 +246,7 @@ try {
     }
     if (!EXPECTED[name](measured).every(([ok]) => ok)) console.log(`        ${JSON.stringify(measured)}`)
   }
-  console.log(`\n${broken === 0 ? "the header behaves in all four" : `${broken} failed`}`)
+  console.log(`\n${broken === 0 ? "the header behaves in all five" : `${broken} failed`}`)
   process.exit(broken === 0 ? 0 : 1)
 } finally {
   rmSync(tsconfigPath, { force: true })

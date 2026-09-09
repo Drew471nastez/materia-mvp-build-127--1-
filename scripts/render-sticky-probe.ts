@@ -54,6 +54,15 @@ const CASES: [string, Record<string, unknown>][] = [
     "sticky-scroll-up",
     { header_sticky_enabled: true, header_transparent: false, header_sticky_on_scroll_up: true },
   ],
+  /**
+   * The configuration this was actually reported in: reveal on, always-pinned
+   * OFF. It used to render a completely static header, because the two toggles
+   * were master-and-sub. It has to stick.
+   */
+  [
+    "scroll-up-only",
+    { header_sticky_enabled: false, header_transparent: false, header_sticky_on_scroll_up: true },
+  ],
 ]
 
 for (const [name, overrides] of CASES) {
