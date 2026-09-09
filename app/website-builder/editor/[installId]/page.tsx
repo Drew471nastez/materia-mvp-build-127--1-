@@ -49,6 +49,7 @@ import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES } from "@/lib/web
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
+import { scheduleSnapshot, cancelScheduledSnapshot } from "@/lib/website-builder/snapshot-capture"
 import { StorelibMark } from "@/components/storelib-mark"
 import { toast } from "sonner"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
@@ -3460,6 +3461,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [leaving, setLeaving] = useState(false)
   const publishBtnRef = useRef<HTMLDivElement | null>(null)
   const [previewMode, setPreviewMode] = useState<PreviewMode>("preview")
+  useEffect(() => {
+    // `?view=code` / `?view=settings` — the website page's "Edit code" and
+    // "Project settings" open the editor straight onto that pane. Preview
+    // stays the default; the pane is switched once, on arrival.
+    const v = new URLSearchParams(window.location.search).get("view")
+    if (v === "code" || v === "settings") setPreviewMode(v)
+  }, [])
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
 
@@ -3601,6 +3609,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [username, setUsername] = useState("")
   const [hasPublished, setHasPublished] = useState(false)
   const canvasRef = useRef<HTMLDivElement>(null)
+  useEffect(() => () => cancelScheduledSnapshot(), [])
 
   // ── New: Sidebar mode, page browser, product/collection pages ──
   const [sidebarMode, setSidebarMode] = useState<"sections" | "settings">("sections")
@@ -4536,6 +4545,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return { ...sec, settings: rest }
     })
 
+  /**
+   * The website page's cover is a picture of the home page from the last
+   * save. Ask for one after a save has succeeded — debounced, idle-time,
+   * and only when the canvas is showing the home page at desktop width.
+   * See lib/website-builder/snapshot-capture.ts for why each of those.
+   */
+  const snapshotAfterSave = () => {
+    const node = canvasRef.current
+    if (!node) return
+    if (currentPage !== "home" || device !== "desktop" || previewMode !== "preview" || isMobileView) return
+    if (loading || canvasLoading) return
+    scheduleSnapshot({ installId, node })
+  }
+
   const saveDraft = async (options: { quiet?: boolean } = {}) => {
     try {
       const settingsRes = await fetch(`/api/website-builder/themes/${installId}/settings`, {
@@ -4566,6 +4589,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       await syncHeaderFooterToAllPages("draft")
 
       setIsDirty(false)
+      snapshotAfterSave()
       /**
        * Autosave says nothing. A toast every couple of seconds is noise that
        * trains somebody to ignore the one that matters — the bar already shows
@@ -4631,6 +4655,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setIsDirty(false)
       setUnpublished(false)
       setHasPublished(true)
+      snapshotAfterSave()
       showNotification("Changes saved and published")
     } catch {
       showNotification("Failed to publish", "error")
@@ -6029,8 +6054,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             }
           >
             {/* Inner wrapper — used to be the scroll container; now just
-                a flex-col so the footer sits at the bottom. */}
-            <div className="flex flex-col w-full flex-1">
+                a flex-col so the footer sits at the bottom. It is also what
+                the snapshot is taken of: the page and nothing else. */}
+            <div ref={canvasRef} className="flex flex-col w-full flex-1">
             {/* Loading skeleton for canvas — page switch */}
             {(loading || canvasLoading) && (
               <div>
