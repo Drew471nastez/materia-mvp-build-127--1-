@@ -979,7 +979,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // Account & wishlist are moved into the sidebar drawer — they no longer
   // clutter the mobile header bar.
   const renderIcons = (forMobile: boolean = false) => (
-    <div className="flex items-center gap-2 shrink-0" style={{ color: textColor }}>
+    <div className="flex min-w-0 items-center gap-2 shrink-0" style={{ color: textColor }}>
       {showSearch && (
         <button
           type="button"
@@ -1059,7 +1059,21 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         <a
           href={str(s.cta_url, "#")}
           className={cn(
-            "ml-1 font-semibold px-3 py-1.5 text-[13px] shrink-0",
+            /**
+             * IT MAY SHRINK, AND IT MAY NOT PUSH THE PAGE.
+             *
+             * `shrink-0` on a nowrap label means the button's width is
+             * whatever its text needs, for ever. Measured at 834px with a
+             * forty-character call to action — a real one, somebody's actual
+             * button copy — the header ran 104px past the edge of the page and
+             * took the whole document into horizontal scroll with it.
+             *
+             * The theme's `overflow-wrap: anywhere` cannot help here: a flex
+             * item that is not allowed to shrink never gets down to its
+             * min-content width in the first place. So it shrinks, it has a
+             * ceiling, and anything past that is an ellipsis.
+             */
+            "ml-1 min-w-0 max-w-[160px] truncate font-semibold px-3 py-1.5 text-[13px]",
             hasDeviceMode ? (forceMobile ? "hidden" : "") : "hidden md:inline-block",
           )}
           /**
