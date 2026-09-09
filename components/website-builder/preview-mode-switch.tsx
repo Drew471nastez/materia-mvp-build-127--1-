@@ -191,8 +191,8 @@ export function CodePane({
         fullScreen
           ? "fixed inset-0 z-[120] flex flex-col"
           : "absolute inset-2 z-[80] rounded-xl border border-white/10 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.8)]",
-        "transition-[opacity,transform] duration-200 ease-out",
-        visible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-[0.98]",
+        "transition-[opacity,transform] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
+        visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0",
       )}
       aria-hidden={!visible}
     >

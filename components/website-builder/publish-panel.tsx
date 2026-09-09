@@ -1,5 +1,6 @@
 "use client"
 
+import { relativeTime } from "@/lib/website-builder/relative-time"
 import { useEffect, useRef, useState } from "react"
 import { Check, Copy, ExternalLink, Globe, Loader2, ShieldCheck } from "lucide-react"
 
@@ -44,21 +45,7 @@ export interface PublishPanelProps {
  * "4 minutes ago", and nothing cleverer. A relative time is read once, in
  * passing, and "yesterday at 14:32" is more than anybody asked.
  */
-export function relativeTime(iso: string | null, now = Date.now()): string | null {
-  if (!iso) return null
-  const t = Date.parse(iso)
-  if (!Number.isFinite(t)) return null
-  const s = Math.max(0, Math.round((now - t) / 1000))
-  if (s < 45) return "just now"
-  const m = Math.round(s / 60)
-  if (m < 60) return `${m} minute${m === 1 ? "" : "s"} ago`
-  const h = Math.round(m / 60)
-  if (h < 24) return `${h} hour${h === 1 ? "" : "s"} ago`
-  const d = Math.round(h / 24)
-  if (d < 30) return `${d} day${d === 1 ? "" : "s"} ago`
-  const mo = Math.round(d / 30)
-  return `${mo} month${mo === 1 ? "" : "s"} ago`
-}
+export { relativeTime }
 
 function Body({
   live,
@@ -225,11 +212,17 @@ export function PublishPanel(props: PublishPanelProps) {
         // entirely when closed rather than leaving a peek of its own.
         layer="raised"
         peekHeight={0}
+        // As tall as the card, not 62% of whatever screen this is: the
+        // difference was a band of empty dark under the buttons.
+        fit
       >
-        {/* Scrolls, so nothing in it can be out of reach at any stop or on
-            any phone. Shorter than the sheet, it is not a scroller at all and
-            the drag still belongs to the sheet. */}
-        <div className="wb-slim-scroll min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-2">
+        {/* Scrolls only when it has to, so nothing in it is ever out of
+            reach. NOT `flex-1`: a basis of zero inside the content-sized
+            wrapper of a `fit` sheet measures as nothing, and the sheet would
+            size itself to an empty card. Left at the default `0 1 auto`, its
+            base size is its content — which is the number `fit` wants — and
+            `min-h-0` still lets it shrink and scroll under the cap. */}
+        <div className="wb-slim-scroll min-h-0 overflow-y-auto px-5 pb-[calc(1rem+env(safe-area-inset-bottom,_0px))] pt-1">
           <Body {...props} />
         </div>
       </MobileEditorSheet>

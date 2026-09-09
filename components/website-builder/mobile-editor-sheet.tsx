@@ -43,6 +43,17 @@ import {
 } from "./sheet-gestures"
 
 const PEEK_HEIGHT = 72
+
+/** The home-indicator inset, as a number, for sizing a content-fit sheet. */
+function safeAreaBottom(): number {
+  if (typeof document === "undefined") return 0
+  const probe = document.createElement("div")
+  probe.style.cssText = "position:fixed;bottom:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none"
+  document.body.appendChild(probe)
+  const h = probe.getBoundingClientRect().height
+  probe.remove()
+  return h
+}
 const SNAP_DURATION_MS = 360
 const SNAP_EASING = "cubic-bezier(0.32, 0.72, 0, 1)"
 
@@ -78,6 +89,14 @@ type Props = {
    * won, which put the menu and Publish UNDER the peek they were opened from.
    */
   layer?: "base" | "raised"
+  /**
+   * Size the sheet to what is in it, up to the tallest detent, instead of to
+   * a fraction of the screen. A menu of six rows does not need half a
+   * screen; the publish card does not need 62% of one. The sheet measures
+   * its content and is exactly that tall, so nothing is clipped at the
+   * bottom and nothing is empty under it.
+   */
+  fit?: boolean
 }
 
 export function MobileEditorSheet({
@@ -89,6 +108,7 @@ export function MobileEditorSheet({
   detents = DEFAULT_DETENTS,
   openFull = false,
   layer = "base",
+  fit = false,
 }: Props) {
   const sheetRef = React.useRef<HTMLDivElement>(null)
   /** The grab bar. A touch that starts here is a drag and needs no arbitration. */
@@ -113,6 +133,23 @@ export function MobileEditorSheet({
 
   const stops = React.useMemo(() => [...detents].sort((a, b) => a - b), [detents])
   const tallest = stops[stops.length - 1] ?? 0.92
+  /** What the content wants, when `fit` is on. Handle included, measured live. */
+  const contentRef = React.useRef<HTMLDivElement>(null)
+  const [contentHeight, setContentHeight] = React.useState(0)
+  React.useEffect(() => {
+    if (!fit || !mounted) return
+    const el = contentRef.current
+    const handle = handleRef.current
+    if (!el) return
+    const measure = () => {
+      const safe = safeAreaBottom()
+      setContentHeight(Math.ceil(el.getBoundingClientRect().height + (handle?.getBoundingClientRect().height ?? 0) + safe))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [fit, mounted])
 
   React.useEffect(() => {
     setMounted(true)
@@ -137,8 +174,8 @@ export function MobileEditorSheet({
     }
   }, [])
 
-  const height = offsetsFor({ viewport, detents: stops, peekHeight }).height
-  void tallest
+  const natural = offsetsFor({ viewport, detents: stops, peekHeight }).height
+  const height = fit && contentHeight > 0 ? Math.min(contentHeight, Math.round(viewport * tallest)) : natural
 
   /**
    * translateY for each stop, tallest first — and SORTED, which is the whole
@@ -153,8 +190,12 @@ export function MobileEditorSheet({
    * same thing.
    */
   const offsets = React.useMemo(
-    () => offsetsFor({ viewport, detents: stops, peekHeight }).offsets,
-    [stops, viewport, peekHeight],
+    () =>
+      fit && contentHeight > 0
+        ? // One stop — the content's own height — and the closed position.
+          [0, Math.max(height - peekHeight, 0)]
+        : offsetsFor({ viewport, detents: stops, peekHeight }).offsets,
+    [stops, viewport, peekHeight, fit, contentHeight, height],
   )
 
   const closedY = offsets[offsets.length - 1]
@@ -291,6 +332,20 @@ export function MobileEditorSheet({
     }, afterMs + 20)
   }
   React.useEffect(() => () => window.clearTimeout(hideTimer.current), [])
+
+  /**
+   * The starting visibility, set ONCE. It used to be an inline style on the
+   * element — `visibility: hidden` whenever `open` was false — which meant
+   * React wrote "hidden" in the same commit that asked the sheet to slide
+   * down: every raised sheet (the menu, Publish, the AI) vanished on the spot
+   * instead of closing. settleVisibility hides it after the snap has landed.
+   */
+  React.useEffect(() => {
+    const sheet = sheetRef.current
+    if (!sheet) return
+    sheet.style.visibility = peekHeight === 0 && !openRef.current ? "hidden" : "visible"
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted])
 
   // Sync whenever `open` changes from outside — a tab, a menu, the overlay.
   React.useEffect(() => {
@@ -571,7 +626,6 @@ export function MobileEditorSheet({
            */
           zIndex: layer === "raised" ? 80 : 50,
           height: `${height}px`,
-          visibility: peekHeight === 0 && !open ? "hidden" : "visible",
           transform: `translateY(${open ? openY : closedY}px)`,
           transition: `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}`,
           willChange: "transform",
@@ -597,7 +651,17 @@ export function MobileEditorSheet({
         >
           <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
         </div>
-        {children}
+        {/* Not flex-1: a flex item that sizes to its content is what makes
+            the measurement the content's own height and not the space the
+            sheet happened to give it. min-h-0 lets it shrink under the cap,
+            and the scrollable region inside takes the rest. */}
+        {fit ? (
+          <div ref={contentRef} className="flex min-h-0 flex-col">
+            {children}
+          </div>
+        ) : (
+          children
+        )}
       </div>
     </>,
     document.body,
