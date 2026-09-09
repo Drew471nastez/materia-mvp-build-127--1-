@@ -37,23 +37,24 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useCallback, useEffect, useRef, useState, type ComponentType } from "react"
+import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import {
-  ChartLine,
-  ChevronDown,
-  House,
-  Link2,
-  LinkIcon,
-  Mail,
-  Package,
-  Settings,
+  CaretDown,
+  ChartLineUp,
+  Cube,
+  EnvelopeSimple,
+  Gear,
+  Link as LinkIcon,
+  LinkSimple,
+  Lightning,
   ShoppingCart,
-  Store,
-  UsersRound,
+  Storefront,
+  UsersThree,
   Wallet,
-  Zap,
-} from "lucide-react"
+  type Icon as PhosphorIcon,
+} from "@phosphor-icons/react"
+import { House } from "@phosphor-icons/react"
 
 import { cn } from "@/lib/utils"
 
@@ -63,7 +64,7 @@ import { cn } from "@/lib/utils"
 // same five values decide every state of every row, and a sidebar where one
 // row's grey is two shades off the others is exactly the "not quite right"
 // that no single line of code explains.
-const REST_TEXT = "#646464"
+const REST_TEXT = "#666666"
 const HOVER_BG = "#f3f3f3"
 const HOVER_TEXT = "#333333"
 const ACTIVE_BG = "#e8e8e8"
@@ -81,14 +82,26 @@ const LABEL_TEXT = "#a5a5a5"
  */
 const ROW =
   "group relative flex h-[38px] w-full items-center gap-2 rounded-[12px] px-[14px] " +
-  "text-[15px] leading-[20px] transition-[background-color,color] duration-[140ms] ease-out"
+  "font-sans text-[16px] leading-[24px] tracking-[-0.01em] " +
+  "transition-[background-color,color] duration-[140ms] ease-out"
+
+/**
+ * 450, which is a real weight rather than a rounded one.
+ *
+ * `next/font` loads Inter as a VARIABLE font — the call in app/layout.tsx asks
+ * for no specific weights, which is what makes the whole 100–900 axis
+ * available. On a static font 450 would snap to 400 or 500 and the difference
+ * between a resting row and an active one would be twice what it should be.
+ */
+const REST_WEIGHT = 450
+const ACTIVE_WEIGHT = 600
 
 export type NavChild = { href: string; label: string }
 
 export type NavItemData = {
   href: string
   label: string
-  icon: ComponentType<{ className?: string; strokeWidth?: number }>
+  icon: PhosphorIcon
   /** Leaves the /app router tree, so it cannot be a client-side push. */
   forceNavigation?: boolean
   children?: NavChild[]
@@ -97,36 +110,55 @@ export type NavItemData = {
 /** The icons the sidebar uses, exported so the shell can build its nav list. */
 export const NAV_ICONS = {
   dashboard: House,
-  products: Package,
-  analytics: ChartLine,
+  products: Cube,
+  analytics: ChartLineUp,
   orders: ShoppingCart,
   onepage: LinkIcon,
-  storeBuilder: Store,
-  emails: Mail,
+  storeBuilder: Storefront,
+  emails: EnvelopeSimple,
   payouts: Wallet,
 } as const
 
 /**
- * A 20×20 box with an 18px icon in it.
+ * A 20×20 box with a 20px icon in it.
  *
- * Fixed on both axes and `shrink-0`, so a longer label, a bolder weight or a
+ * Fixed on both axes and `shrink-0`, so a longer label, a heavier weight or a
  * different icon can never move the text or change the row's width.
+ *
+ * ---------------------------------------------------------------------------
+ *  WHY PHOSPHOR AND NOT LUCIDE
+ * ---------------------------------------------------------------------------
+ * The reference fills the icon of the row you are on — a solid house, a solid
+ * chart square. Lucide cannot do that. Its icons are strokes rather than
+ * shapes: reading the path data, `store` has four open subpaths, `package`
+ * three, `chart-line` two. Handing those to a fill paints the region an open
+ * path implies, which is not the glyph. There is no filled variant to switch
+ * to, and no combination of stroke width gets you a filled one.
+ *
+ * Phosphor ships six real weights of every icon, `fill` among them, which is
+ * exactly what the reference is showing and what the brief asked for first.
+ * It is used HERE ONLY — the rest of the app is Lucide and stays Lucide.
  */
 function NavIcon({
   icon: Icon,
   active,
   color,
 }: {
-  icon: ComponentType<{ className?: string; strokeWidth?: number }>
+  icon: PhosphorIcon
   active: boolean
   color: string
 }) {
   return (
     <span
+      data-nav-icon={active ? "filled" : "outline"}
       className="flex h-5 w-5 min-w-5 shrink-0 items-center justify-center"
       style={{ color }}
     >
-      <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2 : 1.75} />
+      {/*
+        `size` never changes between states — only the weight does. An icon
+        that grows on the row you are on is an icon that moves the label.
+      */}
+      <Icon size={20} weight={active ? "fill" : "regular"} />
     </span>
   )
 }
@@ -199,7 +231,7 @@ export function ComingSoonItem({
   icon,
   label,
 }: {
-  icon: ComponentType<{ className?: string; strokeWidth?: number }>
+  icon: PhosphorIcon
   label: string
 }) {
   const ref = useRef<HTMLSpanElement>(null)
@@ -226,7 +258,7 @@ function rowStyle(active: boolean, hovered: boolean) {
   return {
     backgroundColor: active ? ACTIVE_BG : hovered ? HOVER_BG : "transparent",
     color: active ? ACTIVE_TEXT : hovered ? HOVER_TEXT : REST_TEXT,
-    fontWeight: active ? 500 : 400,
+    fontWeight: active ? ACTIVE_WEIGHT : REST_WEIGHT,
   }
 }
 
@@ -372,9 +404,9 @@ export function DesktopNavItem({
             className="absolute right-[10px] top-1/2 flex h-5 w-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-[6px]"
             style={{ color: active ? ACTIVE_TEXT : hovered ? HOVER_TEXT : LABEL_TEXT }}
           >
-            <ChevronDown
-              className="h-4 w-4"
-              strokeWidth={1.75}
+            <CaretDown
+              size={16}
+              weight="bold"
               style={{
                 transformOrigin: "center",
                 transform: `rotate(${expanded ? 180 : 0}deg)`,
@@ -490,7 +522,29 @@ export function DesktopSidebarContent({
   const { hovered: settingsHovered, handlers: settingsHandlers } = useHover()
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex h-full flex-col bg-white font-sans">
+      {/*
+        A RESTING ICON, ~15% MORE PRONOUNCED.
+
+        Phosphor does not stroke anything — measured, by rendering one: every
+        weight is a FILLED PATH describing the shape, `regular` included. So
+        there is no `stroke-width` to raise, and the weights it does offer
+        jump from regular to bold, which is far more than fifteen per cent.
+
+        A stroke of the icon's own colour laid over the fill thickens every
+        edge instead. Phosphor's regular outline is 16 units wide in a 256-unit
+        box; a 2.4 stroke adds 1.2 to each side of every edge, which is that
+        outline plus fifteen per cent exactly.
+
+        Outline icons only. The active one is a solid shape, and a stroke
+        around it would just make it very slightly bigger.
+      */}
+      <style>{`
+        [data-nav-icon="outline"] svg path {
+          stroke: currentColor;
+          stroke-width: 2.4;
+        }
+      `}</style>
       {/* px-[7px] — the rows carry their own 14px inner padding, so the
           sidebar's own gutter is only the gap between a row's rounded edge
           and the border. */}
@@ -517,8 +571,8 @@ export function DesktopSidebarContent({
             {toolsLabel}
           </p>
           <div className="space-y-[2px]">
-            <ComingSoonItem icon={Link2} label={linkShortenerLabel} />
-            <ComingSoonItem icon={UsersRound} label={communitiesLabel} />
+            <ComingSoonItem icon={LinkSimple} label={linkShortenerLabel} />
+            <ComingSoonItem icon={UsersThree} label={communitiesLabel} />
           </div>
         </div>
 
@@ -541,7 +595,7 @@ export function DesktopSidebarContent({
             <p className="text-[11px] text-neutral-600">{upgradeSubtitle}</p>
           </div>
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 transition-colors duration-[140ms] ease-out group-hover:bg-gray-200">
-            <Zap className="h-3.5 w-3.5 fill-violet-500 text-violet-500" strokeWidth={2} />
+            <Lightning size={14} weight="fill" className="text-violet-500" />
           </div>
         </Link>
 
@@ -552,7 +606,7 @@ export function DesktopSidebarContent({
           style={rowStyle(settingsActive, settingsHovered)}
         >
           <NavIcon
-            icon={Settings}
+            icon={Gear}
             active={settingsActive}
             color={settingsActive ? ACTIVE_TEXT : settingsHovered ? HOVER_TEXT : REST_TEXT}
           />
