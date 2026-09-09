@@ -308,30 +308,35 @@ section("A row is the same size in every state")
       /fill: \w+Bold/.test(navSource),
   )
   check(
-    "Home is drawn by hand, fitted to the reference image rather than to a library",
+    "Home is Lucide's plain House glyph, not a bespoke shape",
     /**
-     * Solar has ten houses and every one is a rounded pentagon with a slot;
-     * none is the peaked roof and arched door in the reference. Tabler's
-     * IconHome was the shape but not the roundness — its rounding comes from
-     * a stroke join, not a drawn curve, and read visibly thinner than what
-     * was asked for. No library checked (Solar, Remix, Phosphor, Hugeicons,
-     * Iconsax, Fluent, Material Symbols Rounded) matched, so this one is
-     * fitted directly to the reference PNG: a parametric generator searched
-     * proportions and corner radii, scored by rendering each candidate and
-     * counting mismatched pixels against a thresholded mask of the
-     * reference, converging on a 98%-match outline.
+     * Fitted to a reference image once already — a bespoke silhouette,
+     * converged on by measuring pixel mismatch against a screenshot. Told
+     * that result was still wrong and to make it simple and basic, the fix
+     * was not a smaller radius on the same shape; a hand-drawn silhouette
+     * reads as designed no matter how its corners are tuned. Home is the
+     * exact geometry `lucide-react`'s `House` ships now, the same icon every
+     * other surface in this app already uses.
      *
-     * One path draws both states — the fill version's outline already
-     * traces the door as a notch, so stroking it draws an open arch and
-     * filling it draws the same outline solid. Nothing about it needs a
-     * carve-out: it is a genuine 24-unit stroke like every Solar `linear`
-     * icon, so it takes ICON_STROKE the same way they do, with no per-icon
-     * branch anywhere in NavIcon.
+     * Two paths, not one — Lucide draws the roof-and-walls as a closed
+     * contour and the door as a separate, deliberately UNCLOSED rectangle
+     * (three sides only, which is what makes it read as a slot when
+     * stroked). The outline layer strokes both, matching Lucide exactly.
+     * The filled layer closes the door subpath and renders both paths as
+     * ONE path with fill-rule="evenodd" — checked in Chromium with
+     * isPointInFill (scripts/check-sidebar.mjs), because "some shape has a
+     * real fill" reads identically whether the door is a hole or painted
+     * solid over. Two separate `<path>` elements, each filled on its own,
+     * was the first attempt and drew a solid black window instead of a
+     * hole: fill-rule only relates contours sharing one path's `d`.
      */
-    /const HOME_PATH_D =/.test(navSource) &&
+    /const HOME_ROOF_D =/.test(navSource) &&
+      /const HOME_DOOR_D = "M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/.test(navSource) &&
       /function HomeLineIcon/.test(navSource) &&
       /function HomeFillIcon/.test(navSource) &&
       /dashboard: \{ line: HomeLineIcon, fill: HomeFillIcon \}/.test(navSource) &&
+      /fillRule="evenodd"/.test(navSource) &&
+      /\$\{HOME_ROOF_D\} \$\{HOME_DOOR_D\}z/.test(navSource) &&
       !/@tabler\/icons-react/.test(navSource) &&
       !/\bweight="regular"/.test(navSource) &&
       !/drawn\??:/.test(navSource),

@@ -127,11 +127,41 @@ function run() {
           d: [...svg.querySelectorAll("path[d]")].map((n) => n.getAttribute("d")).join("|"),
         }
       }
+      /*
+        THE ONE THING NONE OF THE ABOVE CAN TELL US: whether Home's door is
+        actually a HOLE.
+
+        "fill: solid" only means some shape somewhere in the layer has a real
+        fill — a house with the door painted OVER (fill-rule left at its
+        nonzero default) reports exactly the same "solid" as a house with the
+        door genuinely cut out. The two look different and this field is the
+        only thing here that can tell them apart: isPointInFill asks the path
+        itself, in its own coordinate space, whether a given point is inside
+        the painted region — which is precisely what fill-rule governs.
+      */
+      const homeDoorHole = (() => {
+        const svg = el.querySelector('svg[data-variant="filled"]')
+        const path = svg?.querySelector("path")
+        if (!path || !path.isPointInFill) return null
+        const pt = (x, y) => {
+          const p = svg.createSVGPoint()
+          p.x = x
+          p.y = y
+          return p
+        }
+        return {
+          doorIsHollow: !path.isPointInFill(pt(12, 17)), // inside the door
+          wallIsSolid: path.isPointInFill(pt(4.5, 17)), // inside the left wall
+          roofIsSolid: path.isPointInFill(pt(12, 6)), // inside the roof
+        }
+      })()
+
       return {
         box: Math.round(b.width) + "x" + Math.round(b.height),
         active: el.getAttribute("data-nav-icon") === "filled",
         outline: layer("outline"),
         filled: layer("filled"),
+        homeDoorHole,
       }
     }),
     chevron: chev && { w: Math.round(chev.getBoundingClientRect().width),
@@ -301,6 +331,22 @@ try {
       m.icons.every((i) => i.filled.fill !== "none"),
       "while the active layer is a genuine solid",
       JSON.stringify(m.icons.map((i) => i.filled.fill)),
+    )
+
+    /*
+      HOME'S DOOR IS A HOLE, NOT A PAINTED-OVER RECTANGLE.
+
+      Dashboard is always the first row, so m.icons[0] is Home. Every other
+      check above would pass identically whether fill-rule="evenodd" was
+      there or not — "some shape has a real fill" is true either way. Only
+      isPointInFill can tell a hole from a solid house with the door filled
+      in over it, which is exactly what dropping evenodd silently produces.
+    */
+    const home = m.icons[0]?.homeDoorHole
+    expect(
+      !!home?.doorIsHollow && !!home?.wallIsSolid && !!home?.roofIsSolid,
+      "Home's door is a hole cut into the solid roof, not painted over",
+      JSON.stringify(home),
     )
 
     expect(m.chevron.w === 20 && m.chevron.fromRight === 18, "the chevron is a fixed box pinned right", JSON.stringify(m.chevron))
