@@ -35,6 +35,7 @@ import {
   dragIntent,
   offsetsFor,
   releaseVelocity,
+  snapDuration,
   snapTarget,
   type DragIntent,
   type Sample,
@@ -177,7 +178,21 @@ export function MobileEditorSheet({
     return null
   }
 
-  const applyTransform = (y: number) => {
+  /**
+   * ONE WRITE PER FRAME.
+   *
+   * `touchmove` can fire more than once between paints — on a 120Hz panel it
+   * usually does — and every write to `style.transform` in the same frame is
+   * work the compositor throws away. Worse, reading nothing and writing twice
+   * still costs a style recalculation each time.
+   *
+   * Coalescing into a rAF means the browser gets exactly one transform per
+   * frame, which is the shape a compositor-driven drag is supposed to have.
+   */
+  const pendingY = React.useRef<number | null>(null)
+  const rafId = React.useRef(0)
+
+  const writeTransform = (y: number) => {
     const sheet = sheetRef.current
     const overlay = overlayRef.current
     const cY = offsetsRef.current[offsetsRef.current.length - 1]
@@ -188,11 +203,39 @@ export function MobileEditorSheet({
     }
   }
 
-  const setTransition = (on: boolean) => {
+  const applyTransform = (y: number) => {
+    pendingY.current = y
+    if (rafId.current) return
+    rafId.current = requestAnimationFrame(() => {
+      rafId.current = 0
+      if (pendingY.current !== null) writeTransform(pendingY.current)
+      pendingY.current = null
+    })
+  }
+
+  /**
+   * The snap has to land exactly, so it writes straight through: a queued rAF
+   * carrying the last DRAG position would fire after the transition had been
+   * turned on and animate the sheet back to where the finger was.
+   */
+  const applyTransformNow = (y: number) => {
+    if (rafId.current) {
+      cancelAnimationFrame(rafId.current)
+      rafId.current = 0
+    }
+    pendingY.current = null
+    writeTransform(y)
+  }
+
+  React.useEffect(() => () => {
+    if (rafId.current) cancelAnimationFrame(rafId.current)
+  }, [])
+
+  const setTransition = (on: boolean, ms: number = SNAP_DURATION_MS) => {
     const sheet = sheetRef.current
     const overlay = overlayRef.current
-    const value = on ? `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}` : "none"
-    const overlayValue = on ? `opacity ${SNAP_DURATION_MS}ms ${SNAP_EASING}` : "none"
+    const value = on ? `transform ${ms}ms ${SNAP_EASING}` : "none"
+    const overlayValue = on ? `opacity ${ms}ms ${SNAP_EASING}` : "none"
     if (sheet) sheet.style.transition = value
     if (overlay) overlay.style.transition = overlayValue
   }
@@ -203,7 +246,7 @@ export function MobileEditorSheet({
     setTransition(true)
     const target = open ? openY : closedY
     drag.current.currentY = target
-    applyTransform(target)
+    applyTransformNow(target)
     const overlay = overlayRef.current
     if (overlay) overlay.style.pointerEvents = open ? "auto" : "none"
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -320,9 +363,15 @@ export function MobileEditorSheet({
      */
     const index = snapTarget({ offsets: list, current, velocity, totalDelta })
     const targetY = list[index]
-    setTransition(true)
+    /**
+     * Timed by how far it has to go and how fast it was already going. A fixed
+     * duration made closing from the peek — seventy pixels — take exactly as
+     * long as opening from shut, and turned a fast flick into a slow crawl the
+     * moment the finger lifted.
+     */
+    setTransition(true, snapDuration(targetY - current, velocity))
     drag.current.currentY = targetY
-    applyTransform(targetY)
+    applyTransformNow(targetY)
 
     const nowOpen = index < list.length - 1
     const overlay = overlayRef.current
