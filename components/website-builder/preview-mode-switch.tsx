@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Code2, Globe, Layers, Loader2 } from "lucide-react"
+import { Code2, Globe, Layers, Loader2, Settings } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -27,11 +27,18 @@ export function PreviewModeSwitch({
   mode,
   onChange,
   onSections,
+  compact = false,
+  thirdLabel = "Sections",
 }: {
   mode: PreviewMode
   onChange: (m: PreviewMode) => void
-  /** Sections is a jump to the sidebar rather than a mode, so it is a callback. */
+  /** The third segment is a jump rather than a mode, so it is a callback. */
   onSections: () => void
+  /** Icons only, for a phone bar: the active label is the one thing worth
+   *  the room, and even that goes when there is none. */
+  compact?: boolean
+  /** On a phone the third segment opens Settings; on a desktop, Sections. */
+  thirdLabel?: string
 }) {
   const seg = (m: PreviewMode, label: string, Icon: typeof Globe, onClick?: () => void) => {
     const active = mode === m
@@ -43,14 +50,15 @@ export function PreviewModeSwitch({
         aria-pressed={active}
         aria-label={label}
         className={cn(
-          "flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-all duration-200",
+          "flex h-8 items-center gap-1.5 rounded-full text-[13px] font-medium transition-all duration-200",
+          compact ? "w-9 justify-center px-0" : "px-3",
           active
             ? "bg-[#2f5cff]/20 text-[#7da2ff] ring-1 ring-inset ring-[#2f5cff]/60"
             : "text-white/60 hover:bg-white/[0.06] hover:text-white",
         )}
       >
         <Icon className="h-4 w-4" strokeWidth={1.75} />
-        {active && <span>{label}</span>}
+        {active && !compact && <span>{label}</span>}
       </button>
     )
   }
@@ -61,7 +69,7 @@ export function PreviewModeSwitch({
       <span className="mx-0.5 h-4 w-px bg-white/10" />
       {seg("code", "Code", Code2)}
       <span className="mx-0.5 h-4 w-px bg-white/10" />
-      {seg("sections", "Sections", Layers, onSections)}
+      {seg("sections", thirdLabel, thirdLabel === "Settings" ? Settings : Layers, onSections)}
     </div>
   )
 }

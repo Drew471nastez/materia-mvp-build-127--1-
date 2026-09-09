@@ -380,6 +380,63 @@ check(
   /<header className="relative h-12 bg-\[#171717\] text-white/.test(editor),
 )
 
+
+// ===========================================================================
+section("On a phone the bar is a phone's bar")
+// ===========================================================================
+
+check(
+  "the page pill is a desktop control; on a phone the Pages tab is the switcher",
+  // A 220px pill in a 390px bar is what crushed the AI button into the
+  // chevron. The bottom sheet already has a Pages tab that lists every page.
+  /\{!isMobileView && \(\s*<PageSwitcher/.test(editor),
+)
+
+check(
+  "a phone's centre is Preview / Code / Settings, icons only, Preview by default",
+  /\{isMobileView && \(\s*<PreviewModeSwitch\s+compact\s+thirdLabel="Settings"/.test(editor) &&
+    /useState<PreviewMode>\("preview"\)/.test(editor),
+)
+
+check(
+  "the code pane is not gated to desktop",
+  /^\s*<CodePane installId=\{installId\} visible=\{previewMode === "code"\} \/>/m.test(editor) &&
+    !/!isMobileView && <CodePane/.test(editor),
+)
+
+check(
+  "two sheets never own the bottom of the screen at once",
+  /**
+   * Publish opened over the persistent Sections / Pages / Settings peek, and
+   * both were on screen together. The peek steps out entirely while Publish
+   * or the code pane is up, and opening Publish closes the AI and the sidebar
+   * first.
+   */
+  /!publishOpen && previewMode !== "code" && \(\s*<MobileEditorSheet/.test(editor) &&
+    /if \(isMobileView\) \{ setMobileSidebarOpen\(false\); setAiOpen\(false\) \}/.test(editor),
+)
+
+check(
+  "the desktop pill can open the product page as a real product",
+  // A template with placeholder data is not what a buyer sees.
+  /onSelectProduct=\{\(title\) =>/.test(editor) &&
+    /handleSelectProductPage\(p\.id, p\.title\)/.test(editor) &&
+    /products\.map\(\(pr\) =>/.test(switcher),
+)
+
+check(
+  "the load bar has no height in the flow, so nothing shows through under the bar",
+  /**
+   * It was a 1.5px transparent strip between the dark bar and the canvas,
+   * and the page root behind it is light: on a phone, with a dark theme
+   * edge to edge, that was a white line under the bar. It overlays the bar's
+   * bottom edge now.
+   */
+  /className="absolute inset-x-0 bottom-0 z-10 h-\[1\.5px\]/.test(editor) &&
+    // Rendered INSIDE the header, as its last child.
+    /<WbLoadProgressBar active=\{sectionsLoading\} \/>\s*<\/header>/.test(editor),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

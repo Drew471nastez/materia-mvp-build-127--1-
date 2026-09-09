@@ -51,6 +51,11 @@ const ICONS: Record<string, typeof Home> = {
   contact: Mail,
 }
 
+export interface SwitcherProduct {
+  id: string
+  title: string
+}
+
 export function PageSwitcher({
   pages,
   current,
@@ -60,6 +65,9 @@ export function PageSwitcher({
   onReload,
   reloading,
   disabled,
+  products = [],
+  currentProduct = null,
+  onSelectProduct,
 }: {
   pages: SwitcherPage[]
   current: string
@@ -69,10 +77,17 @@ export function PageSwitcher({
   onReload: () => void
   reloading?: boolean
   disabled?: boolean
+  /** The store's products, so the product page can be previewed AS one of
+   *  them rather than as a template with placeholder data. */
+  products?: SwitcherProduct[]
+  /** The product currently standing in for the product page, by title. */
+  currentProduct?: string | null
+  onSelectProduct?: (title: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [yoursOpen, setYoursOpen] = useState(true)
+  const [productsOpen, setProductsOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const searchRef = useRef<HTMLInputElement | null>(null)
 
@@ -190,7 +205,9 @@ export function PageSwitcher({
           aria-expanded={open}
           className="flex h-full min-w-0 flex-1 items-center gap-2 pl-1 text-[14px] font-medium text-white"
         >
-          <span className="min-w-0 flex-1 truncate text-center">{currentPage?.name ?? "Page"}</span>
+          <span className="min-w-0 flex-1 truncate text-center">
+            {current === "product" && currentProduct ? currentProduct : (currentPage?.name ?? "Page")}
+          </span>
           <ChevronDown
             className={cn("h-4 w-4 shrink-0 text-white/60 transition-transform duration-200", open && "rotate-180")}
             strokeWidth={2}
@@ -254,7 +271,57 @@ export function PageSwitcher({
             {product && (
               <>
                 <div className="mx-1 my-1.5 border-t border-white/10" />
-                {row(product)}
+                {/* The product page is a template until a product stands in
+                    for it. The fold lists the store's products; picking one
+                    opens the product page showing THAT product, which is the
+                    only way to see what a buyer will see. */}
+                {products.length > 0 && onSelectProduct ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setProductsOpen((v) => !v)}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] transition-colors",
+                        current === "product" ? "bg-white/[0.08] text-white" : "text-white/85 hover:bg-white/[0.06] hover:text-white",
+                      )}
+                    >
+                      {current === "product" ? (
+                        <Check className="h-4 w-4 shrink-0" strokeWidth={2.25} />
+                      ) : (
+                        <ShoppingBag className="h-4 w-4 shrink-0 opacity-60" strokeWidth={1.75} />
+                      )}
+                      <span className="flex-1">Products</span>
+                      <span className="text-[12px] text-white/40">{products.length}</span>
+                      <ChevronRight
+                        className={cn("h-4 w-4 text-white/50 transition-transform duration-200", productsOpen && "rotate-90")}
+                        strokeWidth={2}
+                      />
+                    </button>
+                    {productsOpen &&
+                      products.map((pr) => {
+                        const active = current === "product" && currentProduct === pr.title
+                        return (
+                          <button
+                            key={pr.id}
+                            type="button"
+                            onClick={() => {
+                              onSelectProduct(pr.title)
+                              setOpen(false)
+                            }}
+                            className={cn(
+                              "flex w-full items-center gap-2.5 rounded-lg py-2 pl-9 pr-2.5 text-left text-[14px] transition-colors",
+                              active ? "bg-white/[0.08] text-white" : "text-white/85 hover:bg-white/[0.06] hover:text-white",
+                            )}
+                          >
+                            {active && <Check className="h-4 w-4 shrink-0" strokeWidth={2.25} />}
+                            <span className="min-w-0 flex-1 truncate">{pr.title}</span>
+                          </button>
+                        )
+                      })}
+                  </>
+                ) : (
+                  row(product)
+                )}
               </>
             )}
 

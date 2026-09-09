@@ -123,7 +123,16 @@ function WbLoadProgressBar({ active }: { active: boolean }) {
   return (
     <div
       aria-hidden
-      className="relative h-[1.5px] w-full overflow-hidden bg-transparent pointer-events-none"
+      /**
+       * OVER the bottom edge of the bar, not under it.
+       *
+       * In flow, this was a 1.5px strip between the dark bar and the canvas,
+       * transparent when idle, showing whatever is behind it: the page root,
+       * which is light. On a desktop the light canvas hid it. On a phone the
+       * theme is edge-to-edge and dark, and the strip read as a white line
+       * under the bar. Absolute, it takes no room, and idle it is nothing.
+       */
+      className="absolute inset-x-0 bottom-0 z-10 h-[1.5px] overflow-hidden bg-transparent pointer-events-none"
       style={{
         // Subtler overall opacity so the bar reads as a hint of progress,
         // not a UI chrome element fighting for attention.
@@ -5508,6 +5517,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipContent>
           </Tooltip>
 
+          {!isMobileView && (
           <PageSwitcher
             pages={[
               ...(Object.keys(PAGE_META) as PageKey[]).map((k) => ({
@@ -5524,8 +5534,35 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             onReload={() => { void handlePageChange(currentPage) }}
             reloading={sectionsLoading}
             disabled={sectionsLoading}
+            products={products.map((p) => ({ id: p.id, title: p.title }))}
+            currentProduct={selectedProductPage}
+            onSelectProduct={(title) => {
+              const p = products.find((x) => x.title === title)
+              if (p) handleSelectProductPage(p.id, p.title)
+            }}
           />
+          )}
 
+          {isMobileView && (
+            <PreviewModeSwitch
+              compact
+              thirdLabel="Settings"
+              mode={previewMode}
+              onChange={(m) => {
+                setPreviewMode(m)
+                // A sheet under a code pane is a sheet you cannot reach.
+                if (m === "code") { setMobileSidebarOpen(false); setAiOpen(false) }
+              }}
+              onSections={() => {
+                setPreviewMode("preview")
+                setSidebarMode("settings")
+                setPageBrowserOpen(false)
+                setSelectedPanel({ type: "theme_settings" })
+                setAiOpen(false)
+                setMobileSidebarOpen(true)
+              }}
+            />
+          )}
           {/* Open the real thing, to the right of the page it opens. */}
           {websiteUrl && (
             <Tooltip>
@@ -5674,7 +5711,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     "h-8 cursor-pointer min-w-[92px] rounded-full transition-all duration-200 text-white gap-2",
                     live ? "bg-[#2f5cff] hover:bg-[#2851e6]" : "bg-neutral-100 text-neutral-900 hover:bg-white",
                   )}
-                  onClick={() => (live ? setPublishOpen((v) => !v) : handleSave())}
+                  onClick={() => {
+                    if (!live) { void handleSave(); return }
+                    setPublishOpen((v) => !v)
+                    if (isMobileView) { setMobileSidebarOpen(false); setAiOpen(false) }
+                  }}
                   disabled={busyNow || (!live && !pending)}
                 >
                   {busyNow ? (
@@ -5701,14 +5742,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             )
           })()}
         </div>
-      </header>
 
-      {/* ── Thin page-load progress bar ──
-          Single A→B sweep (NProgress-style), never looping. While the load
-          is in flight the bar creeps smoothly toward ~90% on an ease-out
-          curve; when the load finishes it snaps to 100% and fades out.
-          No repeating / "double" animation. */}
-      <WbLoadProgressBar active={sectionsLoading} />
+        {/* ── Thin page-load progress bar ──
+            Single A→B sweep (NProgress-style), never looping. Creeps toward
+            ~90% while the load is in flight, snaps to 100% and fades out.
+            Lives on the bar's bottom edge so it has no height of its own. */}
+        <WbLoadProgressBar active={sectionsLoading} />
+      </header>
 
       {/* ── Top notification bar ── */}
       <div
@@ -5750,6 +5790,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              with a small peek at the bottom when "closed", expands to ~50% of
              the viewport when opened. Drag the pill handle to move between
              states — finger tracks in real time. */
+          !publishOpen && previewMode !== "code" && (
           <MobileEditorSheet
             open={mobileSidebarOpen}
             onOpenChange={(next) => {
@@ -5808,6 +5849,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               {renderSidebarContent()}
             </div>
           </MobileEditorSheet>
+          )
         )}
 
         {/* ── AI panel ──
@@ -5898,7 +5940,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </div>
             </div>
           )}
-          {!isMobileView && <CodePane installId={installId} visible={previewMode === "code"} />}
+          <CodePane installId={installId} visible={previewMode === "code"} />
           <div
             id="wb-preview-root"
             className={cn(
