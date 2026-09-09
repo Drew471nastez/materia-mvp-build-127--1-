@@ -67,6 +67,16 @@ type Props = {
    * only ever has one answer.
    */
   openFull?: boolean
+  /**
+   * Which sheets stack above which.
+   *
+   * The Sections / Pages / Settings sheet is always there, so it is "base".
+   * Anything that opens OVER the builder for a moment, the menu, Publish, the
+   * AI, is "raised" and sits above it whatever order it landed in the DOM.
+   * Without this, all sheets shared one z-index and the last one in the tree
+   * won, which put the menu and Publish UNDER the peek they were opened from.
+   */
+  layer?: "base" | "raised"
 }
 
 export function MobileEditorSheet({
@@ -77,6 +87,7 @@ export function MobileEditorSheet({
   peekHeight = PEEK_HEIGHT,
   detents = DEFAULT_DETENTS,
   openFull = false,
+  layer = "base",
 }: Props) {
   const sheetRef = React.useRef<HTMLDivElement>(null)
   /** The grab bar. A touch that starts here is a drag and needs no arbitration. */
@@ -240,12 +251,37 @@ export function MobileEditorSheet({
     if (overlay) overlay.style.transition = overlayValue
   }
 
+  /**
+   * A sheet with no peek is entirely off screen when closed, and a thing that
+   * is off screen should not be painted, nor cast its shadow up onto the
+   * bottom edge. Hidden once the close has landed, shown the instant it is
+   * asked to open again, so the open animation is never skipped.
+   */
+  const hideTimer = React.useRef(0)
+  const settleVisibility = (isOpen: boolean, afterMs: number = SNAP_DURATION_MS) => {
+    if (peekHeight > 0) return
+    const sheet = sheetRef.current
+    if (!sheet) return
+    window.clearTimeout(hideTimer.current)
+    if (isOpen) {
+      sheet.style.visibility = "visible"
+      return
+    }
+    hideTimer.current = window.setTimeout(() => {
+      if (!openRef.current && !drag.current.active && sheetRef.current) {
+        sheetRef.current.style.visibility = "hidden"
+      }
+    }, afterMs + 20)
+  }
+  React.useEffect(() => () => window.clearTimeout(hideTimer.current), [])
+
   // Sync whenever `open` changes from outside — a tab, a menu, the overlay.
   React.useEffect(() => {
     if (drag.current.active) return
     setTransition(true)
     const target = open ? openY : closedY
     drag.current.currentY = target
+    settleVisibility(open)
     applyTransformNow(target)
     const overlay = overlayRef.current
     if (overlay) overlay.style.pointerEvents = open ? "auto" : "none"
@@ -275,6 +311,7 @@ export function MobileEditorSheet({
      */
     drag.current.baseY = drag.current.currentY
     setTransition(false)
+    settleVisibility(true)
     const overlay = overlayRef.current
     if (overlay) overlay.style.pointerEvents = "none"
   }
@@ -369,11 +406,13 @@ export function MobileEditorSheet({
      * long as opening from shut, and turned a fast flick into a slow crawl the
      * moment the finger lifted.
      */
-    setTransition(true, snapDuration(targetY - current, velocity))
+    const ms = snapDuration(targetY - current, velocity)
+    setTransition(true, ms)
     drag.current.currentY = targetY
     applyTransformNow(targetY)
 
     const nowOpen = index < list.length - 1
+    settleVisibility(nowOpen, ms)
     const overlay = overlayRef.current
     if (overlay) overlay.style.pointerEvents = nowOpen ? "auto" : "none"
     if (nowOpen !== openRef.current) onOpenChangeRef.current(nowOpen)
@@ -466,11 +505,14 @@ export function MobileEditorSheet({
         ref={overlayRef}
         aria-hidden="true"
         onClick={() => onOpenChange(false)}
-        className="fixed inset-0 z-40 bg-black/30"
+        className={cn("fixed inset-0 bg-black/30", layer === "raised" ? "z-[70]" : "z-40")}
         style={{
           opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
           transition: `opacity ${SNAP_DURATION_MS}ms ${SNAP_EASING}`,
+          // Its own layer, so fading it is a compositor job and not a repaint
+          // of everything under it on every frame.
+          willChange: "opacity",
         }}
       />
       <div
@@ -478,11 +520,13 @@ export function MobileEditorSheet({
         role="dialog"
         aria-modal={open}
         className={cn(
-          "fixed left-0 right-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-[20px] bg-background shadow-[0_-12px_40px_-12px_rgba(17,24,39,0.22)]",
+          "fixed left-0 right-0 bottom-0 flex flex-col overflow-hidden rounded-t-[20px] bg-background shadow-[0_-12px_40px_-12px_rgba(17,24,39,0.22)]",
+          layer === "raised" ? "z-[80]" : "z-50",
           className,
         )}
         style={{
           height: `${height}px`,
+          visibility: peekHeight === 0 && !open ? "hidden" : "visible",
           transform: `translateY(${open ? openY : closedY}px)`,
           transition: `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}`,
           willChange: "transform",

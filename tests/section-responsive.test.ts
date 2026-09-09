@@ -408,14 +408,16 @@ check(
 )
 
 check(
-  "two sheets never own the bottom of the screen at once",
+  "the peek stays put under Publish; only the code pane sends it away",
   /**
-   * Publish opened over the persistent Sections / Pages / Settings peek, and
-   * both were on screen together. The peek steps out entirely while Publish
-   * or the code pane is up, and opening Publish closes the AI and the sidebar
-   * first.
+   * Publish used to UNMOUNT the persistent Sections / Pages / Settings peek
+   * and remount it on close, which is a peek that pops back into existence
+   * on top of the sheet still sliding away. Now it stays, dimmed under the
+   * raised sheet's overlay, and opening Publish still closes the AI and the
+   * sidebar first.
    */
-  /!publishOpen && previewMode !== "code" && \(\s*<MobileEditorSheet/.test(editor) &&
+  !/!publishOpen && previewMode/.test(editor) &&
+    /previewMode !== "code" && \(\s*<MobileEditorSheet/.test(editor) &&
     /if \(isMobileView\) \{ setMobileSidebarOpen\(false\); setAiOpen\(false\) \}/.test(editor),
 )
 
@@ -460,8 +462,18 @@ check(
 
 check(
   "undo and redo are on the bar at every size, not only in the three-dots menu",
-  /onClick=\{handleUndo\}/.test(editor.slice(editor.indexOf("<header"), editor.indexOf("</header>"))) &&
-    /onClick=\{handleRedo\}/.test(editor.slice(editor.indexOf("<header"), editor.indexOf("</header>"))),
+  // One pair, defined once, placed twice: the phone's centre and the
+  // desktop's right. Two definitions would drift.
+  (() => {
+    const pair = editor.slice(editor.indexOf("const undoRedo = ("), editor.indexOf("// ── Main editor layout"))
+    const header = editor.slice(editor.indexOf("<header"), editor.indexOf("</header>"))
+    return (
+      /onClick=\{handleUndo\}/.test(pair) &&
+      /onClick=\{handleRedo\}/.test(pair) &&
+      /\{isMobileView && \(\s*<div className="flex items-center gap-1\.5">\s*\{undoRedo\}/.test(header) &&
+      /\{!isMobileView && undoRedo\}/.test(header)
+    )
+  })(),
 )
 
 check(
@@ -471,11 +483,17 @@ check(
 )
 
 check(
-  "the inspector toggle is on the bar at every size",
+  "the inspector is on the desktop bar with depth; a phone reaches it from the menu",
+  // On a phone it read as the AI button, beside the mark that actually was.
   (() => {
     const at = editor.indexOf('aria-label={inspectorEnabled ? "Disable section inspector"')
-    const cls = editor.slice(at - 900, at)
-    return at > 0 && /"wb-depth h-8 w-8 flex items-center justify-center rounded-lg/.test(cls) && !/hidden sm:flex/.test(cls)
+    const cls = editor.slice(at - 1200, at)
+    return (
+      at > 0 &&
+      /\{!isMobileView && \(\s*<Tooltip>/.test(cls) &&
+      /"wb-depth wb-inspector h-8 w-8 flex items-center justify-center rounded-lg/.test(cls) &&
+      /label: inspectorEnabled \? "Turn inspector off" : "Turn inspector on"/.test(editor)
+    )
   })(),
 )
 
@@ -522,20 +540,23 @@ check(
 )
 
 check(
-  "undo and redo are a pair on the right, the AI beside them and not between them, all with depth",
+  "undo and redo are a pair on the desktop's right, the AI beside them and not between them, all with depth",
   (() => {
-    const u = headerSrc.indexOf('aria-label="Undo"')
-    const r = headerSrc.indexOf('aria-label="Redo"')
+    const pair = editor.slice(editor.indexOf("const undoRedo = ("), editor.indexOf("// ── Main editor layout"))
+    const u = pair.indexOf('aria-label="Undo"')
+    const r = pair.indexOf('aria-label="Redo"')
+    const placed = headerSrc.indexOf("{!isMobileView && undoRedo}")
     const ai = headerSrc.indexOf('aria-label="Ask Storelib"')
     const pub = headerSrc.indexOf("const live = install?.status")
     const left = headerSrc.indexOf("Desktop: sidebar mode toggles")
     return (
-      u > left &&
+      u > 0 &&
       r > u &&
-      ai > r &&
+      placed > left &&
+      ai > placed &&
       pub > ai &&
-      /wb-depth h-8 w-8[^"]*"\s*\n\s*onClick=\{handleUndo\}/.test(headerSrc) &&
-      /wb-depth h-8 w-8[^"]*"\s*\n\s*onClick=\{handleRedo\}/.test(headerSrc)
+      /wb-depth h-8 w-8[^"]*"\s*\n\s*onClick=\{handleUndo\}/.test(pair) &&
+      /wb-depth h-8 w-8[^"]*"\s*\n\s*onClick=\{handleRedo\}/.test(pair)
     )
   })(),
 )
@@ -559,7 +580,7 @@ check(
 
 check(
   "the inspector has depth by default and glows through its icon when on, not a white button",
-  /wb-depth h-8 w-8[^"]*"[\s\S]{0,60}inspectorEnabled && "wb-inspector-on"/.test(headerSrc) &&
+  /wb-depth wb-inspector h-8 w-8[^"]*"[\s\S]{0,60}inspectorEnabled && "wb-inspector-on"/.test(headerSrc) &&
     !/bg-white border-white text-neutral-900/.test(headerSrc) &&
     /\.wb-inspector-on svg \{\s*fill: currentColor/.test(css),
 )
@@ -656,6 +677,77 @@ check(
   // The reference has Analytics, Knowledge, Skills, Backups. A nav entry that
   // opens an empty panel is a promise the product cannot keep.
   !/Analytics|Knowledge|Skills|Backups/.test(settingsPage.slice(settingsPage.indexOf("const NAV"))),
+)
+
+
+// ===========================================================================
+section("A phone's bar, and sheets that know which is on top")
+// ===========================================================================
+
+const sheetSrc = readFileSync(join(root, "components/website-builder/mobile-editor-sheet.tsx"), "utf8")
+
+check(
+  "sheets that open for a moment sit above the one that is always there",
+  /**
+   * Every sheet shared one z-index, so the last one in the tree won, and the
+   * menu and Publish, which are earlier in the tree than the persistent
+   * peek, opened UNDER it. A raised layer wins whatever the order.
+   */
+  /layer === "raised" \? "z-\[80\]" : "z-50"/.test(sheetSrc) &&
+    /layer === "raised" \? "z-\[70\]" : "z-40"/.test(sheetSrc) &&
+    /layer="raised" peekHeight=\{0\}/.test(menu) &&
+    /layer="raised"\s*\n\s*peekHeight=\{0\}/.test(publish) &&
+    /<MobileEditorSheet open=\{aiOpen\}[\s\S]{0,120}layer="raised" peekHeight=\{0\}/.test(editor),
+)
+
+check(
+  "a sheet with no peek is hidden once it has gone and shown before it comes back",
+  // Off screen should mean not painted and not casting a shadow up onto the
+  // bottom edge; and the open animation must never be skipped.
+  /const settleVisibility = \(isOpen: boolean/.test(sheetSrc) &&
+    /visibility: peekHeight === 0 && !open \? "hidden" : "visible"/.test(sheetSrc) &&
+    /settleVisibility\(nowOpen, ms\)/.test(sheetSrc) &&
+    /willChange: "opacity"/.test(sheetSrc),
+)
+
+check(
+  "the phone's AI sheet stays mounted, so closing it is a slide and not a vanish",
+  /const \[aiMounted, setAiMounted\] = useState\(false\)/.test(editor) &&
+    /\{isMobileView && aiMounted && \(/.test(editor) &&
+    // Anchored on the brace: `!isMobileView && aiOpen` is the desktop column.
+    !/\{isMobileView && aiOpen && \(/.test(editor),
+)
+
+check(
+  "on a phone the bar reads Back, menu, undo and redo in the middle, one sparkle, Publish",
+  (() => {
+    const header = editor.slice(editor.indexOf("<header"), editor.indexOf("</header>"))
+    const centre = header.indexOf("{undoRedo}")
+    const ai = header.indexOf('aria-label="Ask Storelib"')
+    const pub = header.indexOf("const live = install?.status")
+    return (
+      centre > 0 &&
+      ai > centre &&
+      pub > ai &&
+      /isMobileView \? \(\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*<Sparkles/.test(header) &&
+      /<StorelibMark className=/.test(header)
+    )
+  })(),
+)
+
+check(
+  "the inspector fills and glows over a quarter second, from values that can be interpolated",
+  // `fill: none` and `filter: none` cannot be animated from; transparent and
+  // a zero-radius shadow can.
+  /\.wb-inspector svg \{\s*fill: transparent;\s*filter: drop-shadow\(0 0 0 rgba\(139, 86, 250, 0\)\);\s*transition:\s*fill 260ms/.test(css) &&
+    /\.wb-inspector \{\s*transition:\s*transform 180ms[\s\S]{0,200}box-shadow 260ms/.test(css),
+)
+
+check(
+  "leaving shimmers on the compositor, and not at all for people who asked for less motion",
+  /\.wb-leaving::before \{[\s\S]{0,500}will-change: transform/.test(css) &&
+    /@keyframes wb-leaving-shimmer \{\s*to \{ transform: translateX\(300%\) skewX\(-14deg\); \}/.test(css) &&
+    /prefers-reduced-motion: reduce\) \{\s*\.wb-leaving::before \{ animation: none; \}/.test(css),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

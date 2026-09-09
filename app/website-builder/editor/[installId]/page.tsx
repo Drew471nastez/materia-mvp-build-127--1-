@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon,
+  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, Sparkles,
 } from "lucide-react"
 import {
   DndContext,
@@ -3505,6 +3505,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [pendingInsertIndex, setPendingInsertIndex] = useState<number | null>(null)
   /** The AI panel, docked beside the sidebar. Closed until asked for. */
   const [aiOpen, setAiOpen] = useState(false)
+  /**
+   * Mounted on first open and kept: the phone's AI sheet used to unmount the
+   * instant it closed, which is a sheet that vanishes rather than one that
+   * goes down. Kept mounted, it animates out like every other sheet and the
+   * conversation survives being closed.
+   */
+  const [aiMounted, setAiMounted] = useState(false)
+  useEffect(() => {
+    if (aiOpen) setAiMounted(true)
+  }, [aiOpen])
 
   /**
    * ONE OPERATION FROM THE AI, APPLIED TO THE STATE THE PANELS ALREADY EDIT.
@@ -5319,6 +5329,43 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const websiteUrl = username ? getWebsiteShareUrl(username) : ""
   const websiteUrlDisplay = username ? getWebsiteUrlDisplay(username) : ""
 
+  /**
+   * Undo and redo, as one pair. On a desktop they sit on the right beside the
+   * AI; on a phone they are the middle of the bar, because the middle is the
+   * only place on a 390px bar where two buttons can be found without looking.
+   * One definition, two homes, so they cannot drift apart.
+   */
+  const undoRedo = (
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[transform,color] duration-150 disabled:active:scale-100 shrink-0"
+            onClick={handleUndo}
+            disabled={undoStack.length === 0}
+            aria-label="Undo"
+          >
+            <Undo2 className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Undo</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[transform,color] duration-150 disabled:active:scale-100 shrink-0"
+            onClick={handleRedo}
+            disabled={redoStack.length === 0}
+            aria-label="Redo"
+          >
+            <Redo2 className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Redo</TooltipContent>
+      </Tooltip>
+    </>
+  )
+
   // ── Main editor layout ─────────────────────────────────────
   return (
     <div className="h-svh flex flex-col bg-muted/30 overflow-hidden">
@@ -5475,6 +5522,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   setAiOpen(false)
                 },
               },
+              ...(isMobileView
+                ? [
+                    {
+                      // Off the phone's bar, where it looked like the AI.
+                      label: inspectorEnabled ? "Turn inspector off" : "Turn inspector on",
+                      icon: <MousePointerClick className="h-4 w-4" />,
+                      onClick: () => setInspectorEnabled((v) => !v),
+                    },
+                  ]
+                : []),
               {
                 label: "Undo",
                 icon: <Undo2 className="h-4 w-4" />,
@@ -5521,6 +5578,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           on the right — and everything about the PROJECT stays on the edges.
         */}
         <div className="flex flex-1 items-center justify-center gap-1.5 min-w-0">
+          {/* A phone's centre: undo and redo, and nothing else. */}
+          {isMobileView && (
+            <div className="flex items-center gap-1.5">
+              {undoRedo}
+            </div>
+          )}
           {/* Format, to the left of the page it applies to. */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -5599,12 +5662,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               blue selection rectangle and opens its settings panel.
               When OFF: canvas behaves like a pure preview — no outlines,
               no section-click interception. */}
+          {/* Desktop only. On a phone it read as the AI button, sitting next
+              to the mark that actually was, and two buttons that look like
+              the special one is one too many. The phone reaches it from the
+              menu. */}
+          {!isMobileView && (
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 type="button"
                 className={cn(
-                  "wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white transition-[transform,color,box-shadow] duration-200 shrink-0 active:scale-90",
+                  "wb-depth wb-inspector h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white shrink-0 active:scale-90",
                   inspectorEnabled && "wb-inspector-on",
                 )}
                 onClick={() => setInspectorEnabled(v => !v)}
@@ -5618,37 +5686,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               {inspectorEnabled ? "Inspector: on, click to disable" : "Inspector: off, click to enable"}
             </TooltipContent>
           </Tooltip>
+          )}
 
           {/* Undo and redo are a pair and sit as one: the left button and
               the right button. The AI stands beside them, not between them,
               because an undo you have to look past a logo to find is slower
               than one that is where your hand went. */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[transform,color] duration-150 disabled:active:scale-100 shrink-0"
-                  onClick={handleUndo}
-                  disabled={undoStack.length === 0}
-                  aria-label="Undo"
-                >
-                  <Undo2 className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Undo</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[transform,color] duration-150 disabled:active:scale-100 shrink-0"
-                  onClick={handleRedo}
-                  disabled={redoStack.length === 0}
-                  aria-label="Redo"
-                >
-                  <Redo2 className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Redo</TooltipContent>
-            </Tooltip>
+          {!isMobileView && undoRedo}
 
           {/* Ask AI */}
           <Tooltip>
@@ -5675,7 +5719,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 aria-label="Ask Storelib"
                 aria-pressed={aiOpen}
               >
-                <StorelibMark className={cn("h-[18px] w-[18px] rounded-[5px] transition-opacity", aiOpen ? "opacity-100" : "opacity-80")} />
+                {isMobileView ? (
+                  // The phone's one special button is a sparkle, which is
+                  // what "the AI" looks like on every phone; the mark stays
+                  // on the desktop, where there is room to know it.
+                  <Sparkles className={cn("h-4 w-4 transition-opacity", aiOpen ? "opacity-100" : "opacity-80")} strokeWidth={1.75} />
+                ) : (
+                  <StorelibMark className={cn("h-[18px] w-[18px] rounded-[5px] transition-opacity", aiOpen ? "opacity-100" : "opacity-80")} />
+                )}
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">{aiOpen ? "Hide Storelib AI" : "Ask Storelib"}</TooltipContent>
@@ -5806,7 +5857,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              with a small peek at the bottom when "closed", expands to ~50% of
              the viewport when opened. Drag the pill handle to move between
              states — finger tracks in real time. */
-          !publishOpen && previewMode !== "code" && (
+          previewMode !== "code" && (
           <MobileEditorSheet
             open={mobileSidebarOpen}
             onOpenChange={(next) => {
@@ -5881,8 +5932,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             control had no way to. It opens straight to the tallest stop,
             because a conversation is the case that needs the room and starting
             at half only ever has one answer. */}
-        {isMobileView && aiOpen && (
-          <MobileEditorSheet open onOpenChange={(next) => setAiOpen(next)} openFull>
+        {isMobileView && aiMounted && (
+          <MobileEditorSheet open={aiOpen} onOpenChange={(next) => setAiOpen(next)} openFull layer="raised" peekHeight={0}>
             <ThemeChat
               installId={installId}
               page={currentPage}

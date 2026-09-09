@@ -1736,7 +1736,9 @@ section("What a touch on the sheet is FOR")
      * with the mobile one deleted — a test that could not tell the two apart
      * was checking that the desktop panel existed.
      */
-    /\{isMobileView && aiOpen && \(/.test(editor) &&
+    // Mounted on first open and kept, so closing it is a slide and not a
+    // vanish; `open` follows aiOpen.
+    /\{isMobileView && aiMounted && \(\s*<MobileEditorSheet open=\{aiOpen\}/.test(editor) &&
       // and the button is no longer hidden below the `sm` breakpoint
       !/"h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border transition-colors/.test(
         editor,
@@ -2279,8 +2281,10 @@ section("The panel says the true thing, and does not make you wait to type")
   const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   check(
     "and so does the button that opens it",
+    // The mark on a desktop, where there is room to know it; a sparkle on a
+    // phone, where the mark beside the inspector read as two of the same.
     /<StorelibMark className=\{cn\("h-\[18px\] w-\[18px\]/.test(editor) &&
-      !/Sparkles/.test(editor),
+      /isMobileView \? \([\s\S]{0,400}<Sparkles className=/.test(editor),
   )
   /**
    * Measured in Chromium: 32x32 button, an 18x18 mark, painted rgb(139, 86,

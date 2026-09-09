@@ -216,7 +216,16 @@ export function PublishPanel(props: PublishPanelProps) {
 
   if (mobile) {
     return (
-      <MobileEditorSheet open={open} onOpenChange={onOpenChange} className="bg-[#1f1f1f]" detents={[0.62, 0.92]}>
+      <MobileEditorSheet
+        open={open}
+        onOpenChange={onOpenChange}
+        className="bg-[#1f1f1f]"
+        detents={[0.62, 0.92]}
+        // Above the persistent Sections / Pages / Settings sheet, and gone
+        // entirely when closed rather than leaving a peek of its own.
+        layer="raised"
+        peekHeight={0}
+      >
         <div className="px-5 pb-8 pt-2">
           <Body {...props} />
         </div>

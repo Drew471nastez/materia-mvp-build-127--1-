@@ -71,7 +71,7 @@ export function ResponsiveActionMenu({
     return (
       <>
         {triggerWithHandler}
-        <MobileEditorSheet open={sheetOpen} onOpenChange={setSheetOpen} detents={[0.5]}>
+        <MobileEditorSheet open={sheetOpen} onOpenChange={setSheetOpen} detents={[0.5]} layer="raised" peekHeight={0}>
           {title ? (
             <div className="px-5 pt-1 pb-2 shrink-0">
               <p className="text-[13px] font-semibold text-neutral-500 uppercase tracking-wider">{title}</p>

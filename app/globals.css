@@ -680,6 +680,23 @@ html.capacitor body {
 
   /* The inspector, on. The ICON fills and glows; the button stays what it
      was. Filling the whole button white on a dark bar is a flashlight. */
+  /* The icon fills and lights up over a quarter of a second rather than
+     snapping. `fill` starts transparent (not `none`, which cannot be
+     interpolated) and the glow starts at zero radius for the same reason. */
+  .wb-inspector svg {
+    fill: transparent;
+    filter: drop-shadow(0 0 0 rgba(139, 86, 250, 0));
+    transition:
+      fill 260ms cubic-bezier(0.32, 0.72, 0, 1),
+      filter 260ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .wb-inspector {
+    transition:
+      transform 180ms cubic-bezier(0.32, 0.72, 0, 1),
+      color 260ms cubic-bezier(0.32, 0.72, 0, 1),
+      box-shadow 260ms cubic-bezier(0.32, 0.72, 0, 1),
+      background-color 200ms ease;
+  }
   .wb-inspector-on svg {
     fill: currentColor;
     filter: drop-shadow(0 0 6px rgba(139, 86, 250, 0.9));
@@ -718,12 +735,34 @@ html.capacitor body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(23, 23, 23, 0.72);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    animation: wb-leaving-in 160ms ease-out both;
+    overflow: hidden;
+    background: rgba(23, 23, 23, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: wb-leaving-in 200ms cubic-bezier(0.32, 0.72, 0, 1) both;
   }
   @keyframes wb-leaving-in { from { opacity: 0 } to { opacity: 1 } }
+  /* A soft band of light crossing the screen, the way a loading card
+     shimmers. It is a transform on its own element, so it costs the
+     compositor and nothing else; the blur underneath is computed once. */
+  .wb-leaving::before {
+    content: "";
+    position: absolute;
+    top: -20%;
+    bottom: -20%;
+    left: 0;
+    width: 55%;
+    background: linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0) 100%);
+    transform: translateX(-120%) skewX(-14deg);
+    will-change: transform;
+    animation: wb-leaving-shimmer 1500ms cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+  @keyframes wb-leaving-shimmer {
+    to { transform: translateX(300%) skewX(-14deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-leaving::before { animation: none; }
+  }
   .wb-leaving-bar {
     width: 140px;
     height: 3px;
