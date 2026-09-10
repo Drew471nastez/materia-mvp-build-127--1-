@@ -125,6 +125,19 @@ function CodeLine({ line, lineNumber }: { line: string; lineNumber: number }) {
 }
 
 // ── Main page ─────────────────────────────────────────────────
+/**
+ * The code editor's bar is near-black, so its buttons are written for that
+ * surface rather than borrowed from the light theme. `variant="ghost"` was
+ * the bug: its hover is `bg-accent` / `text-accent-foreground`, both LIGHT
+ * tokens, so hovering Copy or Download turned the control into a white pill
+ * with a white glyph on it — the icon vanished into its own background.
+ */
+const CODE_BAR_ICON_BUTTON =
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 " +
+  "transition-[background-color,color,transform] duration-150 " +
+  "hover:bg-white/10 hover:text-white active:scale-95 " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+
 export default function CodeEditorPage({ params }: { params: Promise<{ installId: string }> }) {
   const { installId } = use(params)
   const router = useRouter()
@@ -616,36 +629,43 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   <span className="ml-2 shrink-0 text-[10px] text-blue-400">● Modified</span>
                 )}
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
+              {/*
+                A PLAIN BUTTON, NOT `variant="ghost"`.
+                Ghost's hover is `hover:bg-accent hover:text-accent-foreground`,
+                and `accent` is a LIGHT theme token — on this near-black bar it
+                turned the button into a white pill, and the foreground token
+                fought the `hover:text-white` beside it, so the icon
+                disappeared into its own background. These are dark-surface
+                controls and they say so themselves, the way the editor's own
+                top bar does.
+              */}
+              <button
+                type="button"
                 onClick={() => void copyFile()}
                 aria-label="Copy file content"
                 title="Copy file content"
-                className="h-8 w-8 shrink-0 px-0 text-neutral-400 hover:text-white"
+                className={CODE_BAR_ICON_BUTTON}
               >
                 {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
+              </button>
+              <button
+                type="button"
                 onClick={downloadFile}
                 aria-label="Download this file"
                 title="Download this file"
-                className="h-8 w-8 shrink-0 px-0 text-neutral-400 hover:text-white"
+                className={CODE_BAR_ICON_BUTTON}
               >
                 <Download className="h-3.5 w-3.5" />
-              </Button>
+              </button>
               {customizedPaths.has(selectedFile.path) && (
-                <Button
-                  size="sm"
-                  variant="ghost"
+                <button
+                  type="button"
                   onClick={revertFile}
-                  className="h-8 shrink-0 gap-1.5 px-2.5 text-[12px] text-neutral-400 hover:text-white"
+                  className={cn(CODE_BAR_ICON_BUTTON, "w-auto gap-1.5 px-2.5 text-[12px]")}
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Revert</span>
-                </Button>
+                </button>
               )}
               <Button
                 size="sm"

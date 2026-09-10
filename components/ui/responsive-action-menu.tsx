@@ -90,7 +90,7 @@ export function ResponsiveActionMenu({
           ) : null}
 
           {/* Actions — scroll only if there really are more rows than screen. */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-0.5 pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))]">
+          <div data-sheet-scroll className="min-h-0 flex-1 overflow-y-auto px-3 pt-0.5 pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))]">
             {items.map((item, i) => (
               <React.Fragment key={i}>
                 {item.separatorBefore && i !== 0 && (
