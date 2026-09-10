@@ -774,6 +774,7 @@ export const deDict: Record<string, string> = {
   "nav.sign_up": "Registrieren",
   "nav.start_selling": "Verkaufen starten",
   "nav.storeBuilder": "Shop-Editor",
+  "nav.websiteBuilder": "Website",
   "nav.unlockBenefits": "Mehr Vorteile freischalten",
   "nav.upgradeToPro": "Auf Pro upgraden",
   "nav.wishlist": "Merkliste",

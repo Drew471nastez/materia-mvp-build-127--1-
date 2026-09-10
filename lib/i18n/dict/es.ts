@@ -774,6 +774,7 @@ export const esDict: Record<string, string> = {
   "nav.sign_up": "Registrarse",
   "nav.start_selling": "Empezar a vender",
   "nav.storeBuilder": "Editor de tienda",
+  "nav.websiteBuilder": "Sitio web",
   "nav.unlockBenefits": "Desbloquea más ventajas",
   "nav.upgradeToPro": "Mejorar a Pro",
   "nav.wishlist": "Favoritos",
