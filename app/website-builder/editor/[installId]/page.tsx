@@ -33,7 +33,9 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
-import { BuilderLoader, useDelayedFlag } from "@/components/website-builder/builder-loader"
+import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-builder/builder-loader"
+import { CanvasScrollbar } from "@/components/website-builder/canvas-scrollbar"
+import { usePhoneChromeTone } from "@/components/website-builder/native-chrome"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -5338,32 +5340,42 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             )}
           </div>
 
-          {/* Sticky section actions footer */}
-          <div className="shrink-0 border-t border-border bg-background p-3 flex gap-2">
+          {/* The section's actions, pinned under its settings.
+              Three real buttons: 40px tall, the app's grey surface, a label
+              in 600 next to a 16px icon, and a press that darkens rather
+              than shrinks. They were 12px text in hairline outlines with a
+              lone red bin, which is what a form builder's defaults look
+              like. Delete says its name; its colour is the only warning it
+              needs, since Undo takes it back. */}
+          <div className="shrink-0 border-t border-[#e5e7eb] bg-white p-3 flex gap-2">
             <button
+              type="button"
               className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-2 text-xs border rounded-lg transition-all duration-150 active:scale-[0.97]",
+                "flex-1 h-10 flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-colors duration-150",
                 section.hidden
-                  ? "bg-neutral-100 text-foreground border-neutral-200"
-                  : "text-muted-foreground hover:text-foreground border-border hover:border-foreground/30 hover:bg-neutral-50"
+                  ? "bg-[#1a1a2e] text-white active:bg-[#2a2a44]"
+                  : "bg-[#f3f4f6] text-[#1a1a2e] hover:bg-[#e9eaee] active:bg-[#e3e4e9]",
               )}
               onClick={() => toggleSectionHidden(section.id)}
             >
-              {section.hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              {section.hidden ? <Eye className="h-4 w-4" strokeWidth={2} /> : <EyeOff className="h-4 w-4" strokeWidth={2} />}
               {section.hidden ? "Show" : "Hide"}
             </button>
             <button
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-foreground/30 hover:bg-neutral-50 rounded-lg transition-all duration-150 active:scale-[0.97]"
+              type="button"
+              className="flex-1 h-10 flex items-center justify-center gap-2 rounded-xl bg-[#f3f4f6] text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#e9eaee] active:bg-[#e3e4e9]"
               onClick={() => duplicateSection(section.id)}
             >
-              <Copy className="h-3.5 w-3.5" />
+              <Copy className="h-4 w-4" strokeWidth={2} />
               Duplicate
             </button>
             <button
-              className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs text-red-400 hover:text-red-600 border border-border hover:border-red-200 hover:bg-red-50/40 rounded-lg transition-all duration-150 active:scale-[0.94]"
+              type="button"
+              className="flex-1 h-10 flex items-center justify-center gap-2 rounded-xl bg-[#f3f4f6] text-[13px] font-semibold text-[#dc2626] transition-colors duration-150 hover:bg-[#fee2e2] active:bg-[#fecaca]"
               onClick={() => removeSection(section.id)}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4" strokeWidth={2} />
+              Delete
             </button>
           </div>
         </div>
@@ -5524,6 +5536,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   /** See `useDelayedFlag`: a fast load should show nothing at all. */
   const showCanvasLoader = useDelayedFlag(loading || canvasLoading)
+  /**
+   * The loader's surface stays for a beat after the page has arrived, so it
+   * can fade over the page rather than vanish from in front of it.
+   */
+  const canvasBusy = loading || canvasLoading
+  const canvasLoaderLingers = useLinger(canvasBusy, 280)
+  /** Light chrome on a phone, wherever the clock can still be read. */
+  const chromeTone = usePhoneChromeTone(isMobileView)
 
   // ── Main editor layout ─────────────────────────────────────
   return (
@@ -5536,24 +5556,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         // nothing to the document. FullScreenLock below zeroes that padding
         // so nothing else can put the scroll back.
         "wb-editor fixed inset-0 flex flex-col bg-muted/30 overflow-hidden wb-editor-enter",
+        chromeTone === "light" && "wb-chrome-light",
         // Leaving fades the editor while the next page is fetched, so the
         // hand-off is a dissolve rather than a hard cut when it lands.
         leaving && "wb-editor-leaving",
       )}
     >
-      <FullScreenLock />
+      <FullScreenLock tone={chromeTone} />
       {/* ── Top bar ── */}
       {/* Dark, like the reference: the bar is chrome, and chrome that is the
           same colour as the page it frames is chrome you keep mistaking for
           the page. Everything on it is white-on-dark from here down. */}
-      <header className="wb-editor-topbar relative bg-[#171717] text-white border-b border-white/10 flex items-center px-3 md:px-4 gap-2 shrink-0 z-50">
+      <header className="wb-editor-topbar relative bg-[var(--wb-chrome-bg)] text-[var(--wb-chrome-fg)] border-b border-[var(--wb-chrome-line)] flex items-center px-3 md:px-4 gap-2 shrink-0 z-50">
         {/* LEFT: Exit + sidebar mode toggles (desktop only) */}
         <div className="flex items-center gap-1.5 min-w-0">
           {/* Exit button — X on mobile (Shopify-style editor close), back arrow on desktop */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white active:scale-90 active:bg-white/15 transition-[background-color,transform,color] duration-150 shrink-0"
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] active:scale-90 active:bg-[var(--wb-chrome-active)] transition-[background-color,transform,color] duration-150 shrink-0"
                 onClick={() => {
                   if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
                   setLeaving(true)
@@ -5575,13 +5596,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               Moved up from the old vertical rail so the sidebar gets the full
               horizontal space for its panel content. */}
           {!isMobileView && (
-            <div className="flex items-center gap-0.5 ml-1.5 pl-1.5 border-l border-white/15">
+            <div className="flex items-center gap-0.5 ml-1.5 pl-1.5 border-l border-[var(--wb-chrome-line)]">
               <button
                 className={cn(
                   "h-8 w-8 flex items-center justify-center rounded-lg transition-colors",
                   sidebarMode === "sections" && !pageBrowserOpen
-                    ? "bg-white/15 text-white"
-                    : "text-white/70 hover:bg-white/10 hover:text-white",
+                    ? "bg-[var(--wb-chrome-active)] text-[var(--wb-chrome-fg)]"
+                    : "text-[var(--wb-chrome-fg-3)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)]",
                 )}
                 onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }) }}
                 title="Sections"
@@ -5592,8 +5613,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 className={cn(
                   "h-8 w-8 flex items-center justify-center rounded-lg transition-colors",
                   pageBrowserOpen
-                    ? "bg-white/15 text-white"
-                    : "text-white/70 hover:bg-white/10 hover:text-white",
+                    ? "bg-[var(--wb-chrome-active)] text-[var(--wb-chrome-fg)]"
+                    : "text-[var(--wb-chrome-fg-3)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)]",
                 )}
                 onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
                 title="Pages"
@@ -5604,8 +5625,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 className={cn(
                   "h-8 w-8 flex items-center justify-center rounded-lg transition-colors",
                   sidebarMode === "settings" && !pageBrowserOpen
-                    ? "bg-white/15 text-white"
-                    : "text-white/70 hover:bg-white/10 hover:text-white",
+                    ? "bg-[var(--wb-chrome-active)] text-[var(--wb-chrome-fg)]"
+                    : "text-[var(--wb-chrome-fg-3)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)]",
                 )}
                 onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }}
                 title="General Settings"
@@ -5615,7 +5636,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
           )}
 <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-sm font-medium text-white truncate hidden md:block max-w-[180px]">{install?.name}</span>
+          <span className="text-sm font-medium text-[var(--wb-chrome-fg)] truncate hidden md:block max-w-[180px]">{install?.name}</span>
           {/*
             THE DOT IS THE WHOLE BADGE.
 
@@ -5643,7 +5664,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             align="center"
             menuWidth="w-52"
             trigger={
-              <button className="h-8 w-8 flex items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors shrink-0" title="Theme options">
+              <button className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-3)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] transition-colors shrink-0" title="Theme options">
                 <MoreHorizontal className="h-4 w-4" />
               </button>
             }
@@ -5759,7 +5780,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white shrink-0"
+                className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-[var(--wb-chrome-fg-3)] transition-colors hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] shrink-0"
                 onClick={() => setDevice(device === "desktop" ? "mobile" : "desktop")}
                 aria-label={device === "desktop" ? "Switch to phone preview" : "Switch to desktop preview"}
                 aria-pressed={device === "mobile"}
@@ -5810,7 +5831,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   href={websiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white shrink-0"
+                  className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-[var(--wb-chrome-fg-3)] transition-colors hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] shrink-0"
                   aria-label="Open the live page"
                 >
                   <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
@@ -5849,7 +5870,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <button
                 type="button"
                 className={cn(
-                  "wb-depth wb-inspector h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white shrink-0 active:scale-90",
+                  "wb-depth wb-inspector h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:text-[var(--wb-chrome-fg)] shrink-0 active:scale-90",
                   inspectorEnabled && "wb-inspector-on",
                 )}
                 onClick={() => setInspectorEnabled(v => !v)}
@@ -5911,8 +5932,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <Button
                   size="sm"
                   className={cn(
-                    "h-8 cursor-pointer min-w-[92px] rounded-full transition-all duration-200 text-white gap-2",
-                    live ? "bg-[#8B56FA] hover:bg-[#7b46ec]" : "bg-white/10 text-white hover:bg-white/15",
+                    "h-8 cursor-pointer min-w-[92px] rounded-full transition-all duration-200 gap-2",
+                    // White on purple whatever the chrome's tone; the chrome's
+                    // own text only on the chrome's own surface.
+                    live ? "bg-[#8B56FA] text-white hover:bg-[#7b46ec]" : "bg-[var(--wb-chrome-hover)] text-[var(--wb-chrome-fg)] hover:bg-[var(--wb-chrome-active)]",
                   )}
                   onClick={() => {
                     if (!live) { void handleSave(); return }
@@ -6015,14 +6038,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         </div>
       </div>
 
-      {/* ── Body ── */}
-      <div className="relative flex flex-1 min-h-0 overflow-hidden">
+      {/* ── Body ──
+          On a desktop this row is the MAT: the bar's own dark, eight pixels
+          around every panel, and the panels are cards on it, rounded on all
+          four corners. The sidebar, the AI, the preview and the code are all
+          the same shape, which is what makes them read as one product. A
+          phone has no mat, since the card is the screen. */}
+      <div className={cn("relative flex flex-1 min-h-0 overflow-hidden", !isMobileView && "bg-[#171717] p-2 gap-2")}>
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
-          <div className="relative flex-shrink-0 border-r border-border bg-background flex h-full overflow-visible">
+          <div className="relative flex-shrink-0 flex h-full overflow-visible">
+            {/* Rounded and clipped HERE, on the box with the width, so the
+                list's own scrollbar is cut by the corner rather than drawn
+                through it. The outer box stays `overflow-visible` for the
+                grab edge that hangs past it. */}
             <div
               ref={sidebarRef}
-              className="flex-1 flex flex-col min-h-0 overflow-hidden"
+              className="flex-1 flex flex-col min-h-0 overflow-hidden rounded-xl bg-white"
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
               <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
@@ -6142,7 +6174,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         )}
 
         {!isMobileView && aiOpen && (
-          <div className="relative flex-shrink-0 border-r border-border" style={{ width: 340 }}>
+          <div className="relative flex-shrink-0 overflow-hidden rounded-xl bg-white" style={{ width: 340 }}>
             <ThemeChat
               installId={installId}
               page={currentPage}
@@ -6273,7 +6305,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full rounded-none"
                 : device === "desktop"
-                  ? "rounded-tl-xl w-full"
+                  ? "rounded-xl w-full"
                   : "rounded-2xl",
             )}
             style={
@@ -6345,6 +6377,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               // hook of grey that kept showing up there. The rounding itself
               // is the wrapper's; this box is square and simply fills it.
               "relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full",
+              // On a desktop the native bar is hidden and CanvasScrollbar,
+              // below, draws one over the card. A phone keeps its own.
+              !isMobileView && "wb-canvas-hidebar",
             )}
             style={
               isMobileView
@@ -6365,22 +6400,30 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 a flex-col so the footer sits at the bottom. It is also what
                 the snapshot is taken of: the page and nothing else. */}
             <div ref={canvasRef} className="flex flex-col w-full flex-1">
-            {/* Loading skeleton for canvas — page switch */}
-            {(loading || canvasLoading) && (
-              /**
-               * ONE SURFACE, AND THE LOADER IN THE MIDDLE OF IT.
-               *
-               * This was three stacked blocks in three tints, which drew a
-               * hard edge across the canvas wherever one ended — the cut
-               * between the white and the grey. A page that is loading is one
-               * empty page, so it is one colour, and the only thing on it is
-               * centred in the whole of it rather than in the top half.
-               *
-               * It waits a third of a second before appearing: below that a
-               * person reads the pause as the interface being quick, and a
-               * loader in that window makes a fast load feel slow.
-               */
-              <div className="flex min-h-full flex-1 items-center justify-center bg-white">
+            {/**
+              * ONE SURFACE, AND THE LOADER IN THE MIDDLE OF IT.
+              *
+              * This was three stacked blocks in three tints, which drew a
+              * hard edge across the canvas wherever one ended — the cut
+              * between the white and the grey. A page that is loading is one
+              * empty page, so it is one colour, and the only thing on it is
+              * centred in the whole of it rather than in the top half.
+              *
+              * It waits a third of a second before appearing: below that a
+              * person reads the pause as the interface being quick, and a
+              * loader in that window makes a fast load feel slow.
+              *
+              * And it LEAVES rather than vanishes. Laid over the card, it
+              * stays for a beat after the page has arrived and fades out
+              * across it while the page rises in underneath — the swap used
+              * to happen in one frame, which is the cut that read as cheap.
+              */}
+            {(canvasBusy || canvasLoaderLingers) && (
+              <div
+                className="wb-canvas-loader absolute inset-0 z-10 flex items-center justify-center bg-white"
+                data-leaving={!canvasBusy}
+                aria-hidden={!canvasBusy}
+              >
                 {showCanvasLoader && (
                   <BuilderLoader
                     className="wb-loading-line"
@@ -6395,8 +6438,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </div>
             )}
 
-            {!loading && !canvasLoading && (
-              /**
+            {!canvasBusy && (
+              /* Keyed by the page, so each page arrives with the rise-in and
+                 a re-render of the same page does not. */
+              <div key={currentPage} className="wb-canvas-in flex w-full flex-1 flex-col">
+              {/**
                * THE SAME PAGE THE STOREFRONT RENDERS.
                *
                * The canvas used to assemble a page of its own: its own
@@ -6410,7 +6456,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                * stays here is the only thing that is genuinely the editor's:
                * how a section is rendered, with selection, hovering and the
                * device mode on it.
-               */
+               */}
               <ThemePage
                 theme={activeThemeSettings}
                 sections={sections}
@@ -6489,9 +6535,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   </div>
                 )}
               </ThemePage>
+              </div>
             )}
             </div>
           </div>
+          {!isMobileView && <CanvasScrollbar targetId="wb-preview-root" />}
           {/* end of the rounded clipping wrapper */}
           </div>
           {/* The selected section's own toolbar, over the canvas. Only with

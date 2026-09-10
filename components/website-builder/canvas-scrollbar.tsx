@@ -1,0 +1,143 @@
+"use client"
+
+import { useEffect, useRef, useState } from "react"
+
+/**
+ * ===========================================================================
+ *  A SCROLLBAR DRAWN OVER THE CARD, NOT LAID OUT IN IT
+ * ===========================================================================
+ * The preview card is `rounded-2xl` and its native scrollbar was not. A
+ * classic bar takes a column of the card's width, paints it in the card's
+ * own white beside whatever colour the site is, and runs it square through
+ * both right-hand corners; an overlay bar keeps the column but still cuts
+ * the corners. Styling it swaps one for the other. Hiding it is the only
+ * thing that removes the column.
+ *
+ * So the native bar is hidden (`.wb-canvas-hidebar`) and this draws one: a
+ * thumb positioned over the scroller's right edge, six pixels in from it and
+ * eight short of either end, so it never touches an arc. Nothing about the
+ * layout inside the card changes, and the site underneath shows through the
+ * track because there is no track.
+ *
+ * It behaves like the platform's: appears on scroll and on hover, fades a
+ * second after either stops, and can be grabbed and dragged. Sized from the
+ * scroller's own numbers on every scroll and resize, one read per frame.
+ */
+
+const INSET_END = 8
+const INSET_SIDE = 6
+const MIN_THUMB = 28
+const HIDE_AFTER_MS = 900
+
+export function CanvasScrollbar({ targetId }: { targetId: string }) {
+  const [state, setState] = useState<{ top: number; height: number; track: number } | null>(null)
+  const [shown, setShown] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const hideTimer = useRef(0)
+  const frame = useRef(0)
+  const scroller = useRef<HTMLElement | null>(null)
+  const grab = useRef<{ startY: number; startTop: number } | null>(null)
+
+  useEffect(() => {
+    const el = document.getElementById(targetId)
+    if (!el) return
+    scroller.current = el
+
+    const measure = () => {
+      frame.current = 0
+      const { scrollHeight, clientHeight, scrollTop } = el
+      const track = clientHeight - INSET_END * 2
+      if (scrollHeight <= clientHeight + 1 || track <= MIN_THUMB) {
+        setState(null)
+        return
+      }
+      const height = Math.max(MIN_THUMB, Math.round((clientHeight / scrollHeight) * track))
+      const range = scrollHeight - clientHeight
+      const top = INSET_END + Math.round((scrollTop / range) * (track - height))
+      setState({ top, height, track })
+    }
+    const schedule = () => {
+      if (!frame.current) frame.current = requestAnimationFrame(measure)
+    }
+    const reveal = () => {
+      setShown(true)
+      window.clearTimeout(hideTimer.current)
+      hideTimer.current = window.setTimeout(() => setShown(false), HIDE_AFTER_MS)
+    }
+    const onScroll = () => {
+      schedule()
+      reveal()
+    }
+    measure()
+    el.addEventListener("scroll", onScroll, { passive: true })
+    el.addEventListener("pointerenter", reveal)
+    el.addEventListener("pointermove", reveal)
+    const ro = new ResizeObserver(schedule)
+    ro.observe(el)
+    // The page inside grows and shrinks as sections are added; the scroller
+    // itself does not resize when that happens, its content does.
+    const content = el.firstElementChild
+    if (content) ro.observe(content)
+    return () => {
+      el.removeEventListener("scroll", onScroll)
+      el.removeEventListener("pointerenter", reveal)
+      el.removeEventListener("pointermove", reveal)
+      ro.disconnect()
+      if (frame.current) cancelAnimationFrame(frame.current)
+      window.clearTimeout(hideTimer.current)
+    }
+  }, [targetId])
+
+  // A grab on the thumb scrolls the card by the thumb's own ratio.
+  useEffect(() => {
+    if (!dragging) return
+    const onMove = (e: PointerEvent) => {
+      const el = scroller.current
+      const g = grab.current
+      if (!el || !g || !state) return
+      const range = el.scrollHeight - el.clientHeight
+      const travel = state.track - state.height
+      if (travel <= 0) return
+      const nextTop = g.startTop + (e.clientY - g.startY)
+      el.scrollTop = ((nextTop - INSET_END) / travel) * range
+    }
+    const onUp = () => {
+      grab.current = null
+      setDragging(false)
+    }
+    window.addEventListener("pointermove", onMove)
+    window.addEventListener("pointerup", onUp)
+    window.addEventListener("pointercancel", onUp)
+    return () => {
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerup", onUp)
+      window.removeEventListener("pointercancel", onUp)
+    }
+  }, [dragging, state])
+
+  if (!state) return null
+
+  return (
+    <div
+      role="presentation"
+      aria-hidden
+      data-canvas-scrollbar=""
+      onPointerDown={(e) => {
+        e.preventDefault()
+        grab.current = { startY: e.clientY, startTop: state.top }
+        setDragging(true)
+      }}
+      className="absolute z-20 rounded-full bg-[rgba(100,116,139,0.45)] transition-[opacity,background-color] duration-200 ease-out hover:bg-[rgba(71,85,105,0.65)]"
+      style={{
+        top: state.top,
+        height: state.height,
+        right: INSET_SIDE,
+        width: dragging ? 8 : 6,
+        opacity: shown || dragging ? 1 : 0,
+        cursor: "default",
+        touchAction: "none",
+        willChange: "opacity",
+      }}
+    />
+  )
+}
