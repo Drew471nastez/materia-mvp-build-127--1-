@@ -677,9 +677,19 @@ check(
     /"overflow-hidden bg-white"/.test(modeSwitch) &&
     !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
     /fixed inset-0 z-\[120\] flex flex-col/.test(modeSwitch) &&
-    // It rises and settles on the curve a thrown thing lands on. Longer than
-    // the old 220ms, because a fast small move reads as a flicker.
-    /transition-\[opacity,transform\] duration-300 ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\]/.test(modeSwitch) &&
+    /**
+     * It rises and settles on the curve a thrown thing lands on. Longer than
+     * the old 220ms, because a fast small move reads as a flicker.
+     *
+     * `translate` and `scale`, not `transform`: this said `transform` for
+     * several rounds and the rise never ran. Tailwind v4 compiles
+     * `translate-y-3` and `scale-[0.995]` to the standalone properties of
+     * those names, so the transition named one the element never sets, and
+     * what shipped was a cut with a fade over it. Measured with
+     * `Element.getAnimations()`: naming `transform` starts one transition,
+     * naming these starts three. See scripts/check-section-toolbar.mjs.
+     */
+    /transition-\[opacity,translate,scale\] duration-300 ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\]/.test(modeSwitch) &&
     /pointer-events-none translate-y-3 scale-\[0\.995\] opacity-0/.test(modeSwitch),
 )
 
@@ -1826,11 +1836,11 @@ check(
 
 check(
   "Hide, Duplicate and Delete on the phone are three real buttons, not outlines with a red bin",
-  // 40px, the app's grey surface, a 600 label beside a 16px icon, a press that
-  // darkens. Delete says its name; its colour is the only warning it needs.
+  // 40px, the app's grey surface, a 600 label beside a 16px icon, a press
+  // that darkens. Delete says its name rather than being a lone bin.
   /"flex-1 h-10 flex items-center justify-center gap-2 rounded-xl text-\[13px\] font-semibold transition-colors duration-150",/.test(editor) &&
     /bg-\[#f3f4f6\] text-\[#1a1a2e\] hover:bg-\[#e9eaee\] active:bg-\[#e3e4e9\]/.test(editor) &&
-    /text-\[#dc2626\] transition-colors duration-150 hover:bg-\[#fee2e2\] active:bg-\[#fecaca\]"\s*\n\s*onClick=\{\(\) => removeSection\(section\.id\)\}\s*\n\s*>\s*\n\s*<Trash2 className="h-4 w-4" strokeWidth=\{2\} \/>\s*\n\s*Delete/.test(editor) &&
+    // Delete's own colour is checked by the rule that owns it, below.
     !/py-2 text-xs text-red-400 hover:text-red-600 border border-border/.test(editor),
 )
 
@@ -1847,6 +1857,75 @@ check(
     /if \(frame\) cancelAnimationFrame\(frame\)\s*\n\s*window\.removeEventListener\("resize", update\)/.test(sheetSrc) &&
     /contain: "paint",/.test(sheetSrc) &&
     !/contain: "layout/.test(sheetSrc),
+)
+
+check(
+  "the section toolbar arrives and leaves rather than blinking, and all three properties travel",
+  /**
+   * It returned `null` the moment it had nowhere to point, so the one piece
+   * of chrome that follows the pointer around appeared in one frame and
+   * vanished in one. An element removed from the tree cannot animate its
+   * departure, so it stays mounted for the length of the fade and is
+   * unmounted after.
+   *
+   * `translate` and `scale` are named, NOT `transform`, for the reason given
+   * on the code pane above. Measured by scripts/check-section-toolbar.mjs,
+   * which counts the transitions the browser actually starts.
+   */
+  /const \[mounted, setMounted\] = useState\(false\)/.test(editor) &&
+    /const \[visible, setVisible\] = useState\(false\)/.test(editor) &&
+    /const id = window\.setTimeout\(\(\) => setMounted\(false\), TOOLBAR_FADE_MS\)/.test(editor) &&
+    // faded in on the frame AFTER it is in the tree, or there is nothing to
+    // interpolate from and the fade is a cut with extra steps
+    /const id = requestAnimationFrame\(\(\) => setVisible\(true\)\)/.test(editor) &&
+    // and it draws at its last known place while it leaves
+    /const draw = box \?\? lastBox\.current/.test(editor) &&
+    /if \(!mounted \|\| !draw\) return null/.test(editor) &&
+    !/if \(!sectionId \|\| !box\) return null/.test(editor) &&
+    /"transition-\[opacity,translate,scale\] duration-200 ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\] motion-reduce:transition-none"/.test(
+      editor,
+    ) &&
+    // deaf while it leaves: a toolbar nobody can see is not one anybody
+    // should be able to press
+    /"pointer-events-none -translate-y-1 scale-\[0\.97\] opacity-0"/.test(editor),
+)
+
+check(
+  "no transition in the builder names `transform` while animating translate or scale",
+  /**
+   * The trap that produced the two fixes above, kept shut. Tailwind v4
+   * compiles `translate-*` and `scale-*` to the standalone `translate:` and
+   * `scale:` properties; a transition naming `transform` therefore animates
+   * nothing and the movement snaps, silently, with the fade still running so
+   * it half looks right.
+   *
+   * Scoped to the builder's own surfaces, which is what has been measured.
+   * The same pattern exists elsewhere in the app and is not this rule's to
+   * claim without measuring it.
+   */
+  [editor, modeSwitch].every((src) => {
+    for (const m of src.matchAll(/transition-\[[^\]]*transform[^\]]*\]/g)) {
+      const around = src.slice(Math.max(0, m.index - 400), m.index + 400)
+      if (/\btranslate-[xy]?-?\[?[\d.]/.test(around) || /\bscale-\[?[\d.]/.test(around)) return false
+    }
+    return true
+  }),
+)
+
+check(
+  "Delete is a button like the other two, not a red one",
+  /**
+   * It was red for one round and read as a warning label stuck on the end of
+   * a row of controls. The sidebar's own menu had already settled this in as
+   * many words: a red row shouts at somebody who has not decided anything
+   * yet, and Undo takes a deletion back in one keystroke. The bin is what
+   * tells them apart.
+   */
+  /bg-\[#f3f4f6\] text-\[13px\] font-semibold text-\[#1a1a2e\] transition-colors duration-150 hover:bg-\[#e9eaee\] active:bg-\[#e3e4e9\]"\s*\n\s*onClick=\{\(\) => removeSection\(section\.id\)\}/.test(
+    editor,
+  ) &&
+    !/text-\[#dc2626\]/.test(editor) &&
+    !/hover:bg-\[#fee2e2\]/.test(editor),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

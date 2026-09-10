@@ -235,7 +235,13 @@ export function CodePane({
          * because the distance is small, and a fast small move is what makes
          * a transition look like a flicker.
          */
-        "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        /**
+         * `translate` and `scale`, NOT `transform`: Tailwind v4 compiles
+         * those utilities to the standalone properties of the same names,
+         * so this named a property the element never sets and the rise was
+         * a cut with a fade over it.
+         */
+        "transition-[opacity,translate,scale] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
         visible ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none translate-y-3 scale-[0.995] opacity-0",
       )}
       aria-hidden={!visible}
@@ -251,7 +257,7 @@ export function CodePane({
             type="button"
             onClick={onClose}
             aria-label="Back to the editor"
-            className="flex h-9 items-center gap-1.5 rounded-lg px-2 text-[15px] font-medium text-neutral-700 transition-[background-color,transform] duration-150 hover:bg-neutral-200 hover:text-neutral-900 active:scale-95"
+            className="flex h-9 items-center gap-1.5 rounded-lg px-2 text-[15px] font-medium text-neutral-700 transition-[background-color,scale] duration-150 hover:bg-neutral-200 hover:text-neutral-900 active:scale-95"
           >
             <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
             Editor
