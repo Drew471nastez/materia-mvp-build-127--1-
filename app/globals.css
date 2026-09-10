@@ -2288,6 +2288,26 @@ html.wb-fullscreen body {
   padding-right: 0;
 }
 
+/* ── The strip behind the clock is the bar's colour, not the page's ──────
+   `html.capacitor` paints the root canvas #000 so the safe area is never a
+   flash of white. Everywhere else in the app that is right. Here it is a
+   BLACK LINE across the top of a #171717 bar — two darks that do not match,
+   which reads exactly as the "it is not full screen" it was reported as.
+
+   Two cases and this covers both. If the webview runs edge to edge, the bar
+   already paints the inset and this only agrees with it. If it does not —
+   Capacitor's iOS shell can leave the web layer below the status bar, and
+   then no CSS on any element can reach that strip — the canvas behind it is
+   the only thing that can, and this is it. */
+html.wb-fullscreen,
+html.wb-fullscreen body {
+  background-color: #171717;
+}
+html:has(.wb-editor),
+html:has(.wb-editor) body {
+  background-color: #171717;
+}
+
 /* The same lock, keyed on the editor existing rather than on a class an
    effect adds — so it holds from the FIRST PAINT, and holds even if
    hydration is slow or never happens.

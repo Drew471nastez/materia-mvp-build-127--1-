@@ -1435,6 +1435,48 @@ check(
     ),
 )
 
+check(
+  "a sheet sized to its content measures what the content wants, not what it was allowed",
+  /**
+   * The measurement read the wrapper's own box, and the wrapper is a flex item
+   * with `min-h-0` around a scroller that is free to shrink — so the number fed
+   * back into itself. Reproduced in Chromium with the real flex shape: starting
+   * from a small height the old measurement returns that small height and stays
+   * there for ever (120 → 120 → 120 …) however much content is inside, which is
+   * a Publish card whose own buttons are below the fold. Adding back what each
+   * scroller is clipping makes it converge upward instead: 120 → 542, the
+   * content's real need, in one step.
+   */
+  /\[data-sheet-scroll\]/.test(sheetSrc) &&
+    /clipped \+= Math\.max\(0, node\.scrollHeight - node\.clientHeight\)/.test(sheetSrc) &&
+    /data-sheet-scroll/.test(publishPanel) &&
+    /data-sheet-scroll/.test(menu),
+)
+
+check(
+  "the strip behind the clock is the bar's colour, not the page's",
+  // html.capacitor paints the root canvas #000 so the safe area never flashes
+  // white. Over a #171717 bar that is a black line across the top, which is
+  // the "it is not full screen" that was reported. Both locks set it, so it
+  // holds whether or not the webview runs edge to edge.
+  /html\.wb-fullscreen,\s*\nhtml\.wb-fullscreen body \{\s*\n\s*background-color: #171717;/.test(editorCss) &&
+    /html:has\(\.wb-editor\),\s*\nhtml:has\(\.wb-editor\) body \{\s*\n\s*background-color: #171717;/.test(editorCss),
+)
+
+check(
+  "the code bar's buttons are written for a dark surface",
+  // `variant="ghost"` hovers to `bg-accent` / `text-accent-foreground`, both
+  // LIGHT tokens: on a near-black bar Copy and Download became white pills
+  // with white glyphs, invisible at the moment of use.
+  (() => {
+    // Comments in this file explain the ghost variant; only the code counts.
+    const code = codePageSrc
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+    return /hover:bg-white\/10 hover:text-white/.test(code) && !/variant="ghost"/.test(code)
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
