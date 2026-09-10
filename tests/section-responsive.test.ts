@@ -702,9 +702,13 @@ check(
 )
 
 check(
-  "the canvas around the preview is chrome-dark, so the inset reads as a frame",
-  // Near-white, the eight pixels around the card read as leftover empty page.
-  /"relative flex-1 min-w-0 bg-\[#171717\] overflow-hidden flex justify-center"/.test(editor),
+  "the canvas around the preview is chrome-dark on a desktop and the sheet's own surface on a phone",
+  // Near-white, the eight pixels around an inset card read as leftover empty
+  // page — hence the dark. But a phone has no inset, so the only dark left
+  // was the strip reserved for the sheet's peek, where it read as a black
+  // band above Sections / Pages / Settings.
+  /"relative flex-1 min-w-0 overflow-hidden flex justify-center"/.test(editor) &&
+    /isMobileView \? "bg-background" : "bg-\[#171717\]"/.test(editor),
 )
 
 check(
@@ -1060,7 +1064,10 @@ check(
   "the editor's geometry comes from env(), in one place",
   /\.wb-editor \{[\s\S]*?--wb-safe-top: env\(safe-area-inset-top, 0px\)/.test(editorCss) &&
     /--wb-chrome-top: calc\(var\(--wb-topbar\) \+ var\(--wb-safe-top\)\)/.test(editorCss) &&
-    /--wb-sheet-peek: calc\(72px \+ var\(--wb-safe-bottom\)\)/.test(editorCss),
+    // The peek is NOT among them. It is published on <html> in pixels by the
+    // sheet that leaves it; declaring it on `.wb-editor` too would shadow the
+    // real one for the whole subtree, which is the bug it exists to prevent.
+    !/--wb-sheet-peek:/.test(editorCss),
 )
 
 check(
@@ -1088,7 +1095,7 @@ check(
     // The inset now lives in the two custom properties the bar's height and
     // the sheet's reservation read, rather than in a `calc` per card.
     /--wb-chrome-top: calc\(var\(--wb-topbar\) \+ var\(--wb-safe-top\)\)/.test(editorCss) &&
-    /paddingBottom: "var\(--wb-sheet-peek\)"/.test(editor),
+    /paddingBottom: "var\(--wb-sheet-peek, 72px\)"/.test(editor),
 )
 
 check(
@@ -1390,9 +1397,42 @@ check(
   // reliably the same number, and every pixel of difference was a gap of
   // black. The sheet's peek is reserved as padding on `main`, so the card is
   // simply what is left and the two cannot disagree.
-  /paddingBottom: "var\(--wb-sheet-peek\)"/.test(editor) &&
+  /paddingBottom: "var\(--wb-sheet-peek, 72px\)"/.test(editor) &&
     !/calc\(100svh - var\(--wb-chrome-top\)/.test(editor) &&
     !/calc\(100svh - 48px/.test(editor),
+)
+
+check(
+  "the canvas reserves the number the sheet actually leaves showing",
+  // Two computations of one number — 72 plus the inset, once in CSS and once
+  // in JS — did not agree on a real phone, and every pixel of difference was
+  // a strip of canvas the sheet did not cover. There is one number now, in
+  // pixels, measured on the device, published by the sheet that leaves it.
+  /root\.style\.setProperty\("--wb-sheet-peek", `\$\{peek\}px`\)/.test(sheetSrc) &&
+    /if \(peek <= 0\) return/.test(sheetSrc) &&
+    /root\.style\.removeProperty\("--wb-sheet-peek"\)/.test(sheetSrc),
+)
+
+check(
+  "the lock holds from the first paint, and its own parse failure cannot take the other down",
+  // `:has()` matches the moment the editor's root exists; the class waits for
+  // an effect. Kept in SEPARATE rules because a selector list is not
+  // forgiving: one selector an older iOS cannot parse throws away the whole
+  // rule, and sharing a list would mean losing the class lock too.
+  /html:has\(\.wb-editor\),\s*\nhtml:has\(\.wb-editor\) body \{/.test(editorCss) &&
+    /html\.wb-fullscreen,\s*\nhtml\.wb-fullscreen body \{/.test(editorCss) &&
+    !/html:has\(\.wb-editor\),\s*\nhtml:has\(\.wb-editor\) body,\s*\nhtml\.wb-fullscreen/.test(editorCss),
+)
+
+check(
+  "the global bounce guard leaves the sheet's own drag alone",
+  // It cancels touchmove at a scroller's boundary, on the document, and it
+  // opts out of anything carrying this. Without it the guard and the sheet
+  // fight over the same finger and the guard wins.
+  /data-mobile-bottom-sheet=""/.test(sheetSrc) &&
+    /data-mobile-bottom-sheet/.test(
+      readFileSync(join(root, "components/platform/capacitor-bounce-guard.tsx"), "utf8"),
+    ),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

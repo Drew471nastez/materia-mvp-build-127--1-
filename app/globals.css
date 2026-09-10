@@ -2231,11 +2231,12 @@ picture {
   --wb-topbar: 48px;
   /* What the bar actually occupies: itself plus the strip above it. */
   --wb-chrome-top: calc(var(--wb-topbar) + var(--wb-safe-top));
-  /* The always-visible peek of the sections sheet, clear of the home bar.
-     MobileEditorSheet measures the same inset in JS and adds it to its own
-     peek, so the number the canvas subtracts and the number the sheet
-     leaves showing are the same number. */
-  --wb-sheet-peek: calc(72px + var(--wb-safe-bottom));
+  /* NOTE: `--wb-sheet-peek` is deliberately NOT declared here.
+     It is published on <html> by MobileEditorSheet, in pixels, as the peek
+     that sheet is actually translated to on this device — see the comment
+     there. Declaring a fallback on this element would SHADOW the real one
+     for the whole subtree, which is the bug it exists to prevent; the
+     fallback lives in the one `var()` that reads it instead. */
 }
 
 /* The bar itself. Padded down out of the inset rather than moved, so its
@@ -2271,7 +2272,11 @@ html.wb-fullscreen body {
   min-height: 0;
   overflow: hidden;
   /* No rubber-band either: there is nothing to scroll, and on iOS the bounce
-     would still lift the whole surface off the top of the screen. */
+     would still lift the whole surface off the top of the screen. NOTE that
+     WKWebView ignores this — its scroll is a native UIScrollView — which is
+     what CapacitorBounceGuard is for. It cancels a touchmove that would go
+     past a boundary, and when the page fits it cancels every vertical one,
+     which is the state these rules put the editor in. */
   overscroll-behavior: none;
 }
 html.wb-fullscreen body {
@@ -2281,4 +2286,23 @@ html.wb-fullscreen body {
      that pins itself to the viewport would be pushed off-centre by them. */
   padding-left: 0;
   padding-right: 0;
+}
+
+/* The same lock, keyed on the editor existing rather than on a class an
+   effect adds — so it holds from the FIRST PAINT, and holds even if
+   hydration is slow or never happens.
+   
+   ITS OWN RULE, NOT A SELECTOR ADDED TO THE LIST ABOVE. A selector list is
+   not forgiving: one selector the browser cannot parse throws away the whole
+   rule. Sharing a list would mean an iOS without `:has()` losing the
+   class-based lock as well, which is the opposite of a fallback. */
+html:has(.wb-editor),
+html:has(.wb-editor) body {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+html:has(.wb-editor) body {
+  padding: 0;
 }

@@ -261,6 +261,34 @@ export function MobileEditorSheet({
     [stops, viewport, peek, fit, contentHeight, height],
   )
 
+  /**
+   * ===================================================================
+   *  THE CANVAS RESERVES THE NUMBER THE SHEET ACTUALLY LEAVES SHOWING
+   * ===================================================================
+   * The editor's canvas has to keep the peek clear, and it used to do that
+   * by computing the same sum in CSS: 72px plus env(safe-area-inset-bottom).
+   * Two computations of one number, in two languages, from two different
+   * readings of the inset — and on a real phone they did not agree. Every
+   * pixel they differed by was a strip of canvas the sheet did not cover,
+   * showing the dark behind it: the black band above Sections / Pages /
+   * Settings.
+   *
+   * There is only one number now, and it is this one — the peek this sheet
+   * is actually translated to, in pixels, measured on the device it is
+   * running on. The canvas reads it and cannot disagree with it.
+   *
+   * Only a sheet WITH a peek publishes. The menu, Publish and the AI are
+   * `peekHeight={0}`: they cover the canvas when open and reserve nothing.
+   */
+  React.useEffect(() => {
+    if (peek <= 0) return
+    const root = document.documentElement
+    root.style.setProperty("--wb-sheet-peek", `${peek}px`)
+    return () => {
+      root.style.removeProperty("--wb-sheet-peek")
+    }
+  }, [peek])
+
   const closedY = offsets[offsets.length - 1]
   const openY = openFull ? offsets[0] : (offsets[Math.max(0, offsets.length - 2)] ?? 0)
 
@@ -669,6 +697,13 @@ export function MobileEditorSheet({
         ref={sheetRef}
         role="dialog"
         aria-modal={open}
+        /**
+         * CapacitorBounceGuard cancels touchmove at a scroller's boundary to
+         * stop WKWebView rubber-banding, and it opts out of anything carrying
+         * this. Without it the guard and this sheet's own drag fight over the
+         * same finger — the guard wins, because it listens on the document.
+         */
+        data-mobile-bottom-sheet=""
         className={cn(
           "fixed left-0 right-0 bottom-0 flex flex-col overflow-hidden rounded-t-[20px] bg-background shadow-[0_-12px_40px_-12px_rgba(17,24,39,0.22)]",
           className,
