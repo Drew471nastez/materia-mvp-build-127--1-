@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom,
+  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, Move,
 } from "lucide-react"
 import {
   DndContext,
@@ -13,6 +13,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  TouchSensor,
   type DragEndEvent,
 } from "@dnd-kit/core"
 import {
@@ -31,6 +32,7 @@ import {
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { hapticTap } from "@/lib/native-bridge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -3757,10 +3759,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [redoStack, sections, settingsDraft])
 
   // dnd-kit sensors
+  /**
+   * THREE WAYS TO PICK A SECTION UP.
+   *
+   * A mouse starts dragging after three pixels rather than five — five is far
+   * enough that a short deliberate drag reads as a click that did nothing. A
+   * finger needs a different rule entirely: any distance threshold competes
+   * with scrolling the list, so touch waits 160ms in place instead, which is
+   * a press rather than a swipe and leaves scrolling alone. The keyboard
+   * reorders with the arrow keys.
+   */
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 160, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
+
+  /**
+   * The taps a reorder is worth. Picking up is the moment that needs
+   * confirming — on a phone the finger is over the row it has just lifted, so
+   * the tap is the only signal that the press was taken as a press. Dropping
+   * gets a lighter one. Silent on a platform with no haptics.
+   */
+  const handleDragStart = useCallback(() => hapticTap("medium"), [])
 
   // Scroll to a section in the canvas
   const scrollToSection = useCallback((sectionId: string) => {
@@ -3772,6 +3793,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   // Drag end — reorder body sections (keep header/footer pinned)
   const handleDragEnd = useCallback((event: DragEndEvent) => {
+    hapticTap("light")
     const { active, over } = event
     if (!over || active.id === over.id) return
     setSections(prev => {
@@ -5065,7 +5087,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               )}
 
               {/* Body sections — no connector line */}
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
                 <SortableContext items={bodySection.map(s => s.id)} strategy={verticalListSortingStrategy}>
                   {(() => {
                     const bodyStart = header ? 1 : 0
@@ -5472,34 +5499,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         <TooltipContent side="bottom">Redo</TooltipContent>
       </Tooltip>
     </>
-  )
-
-  /**
-   * WHILE THE BUILDER LOADS.
-   * A skeleton in the shape of what is coming, not a spinner. A ring that
-   * turns says "something is happening somewhere"; a faint page and a faint
-   * list say "this is where your site and its sections are about to be",
-   * and they stop being faint in place rather than being replaced.
-   */
-  const sidebarSkeleton = (
-    <div className="flex h-full flex-col" aria-busy="true" aria-label="Loading">
-      <div className="border-b border-border px-4 py-3">
-        <div className="h-3.5 w-24 rounded bg-muted animate-pulse" />
-        <div className="mt-2 h-2.5 w-36 rounded bg-muted/70 animate-pulse" />
-      </div>
-      <div className="space-y-2 p-3">
-        <div className="h-10 rounded-lg border border-border/70 bg-muted/40 animate-pulse" />
-        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-          <div key={i} className="flex items-center gap-3 px-2.5 py-3">
-            <div className="h-3 w-3 rounded-sm bg-muted animate-pulse" style={{ animationDelay: `${i * 60}ms` }} />
-            <div
-              className="h-3 rounded bg-muted animate-pulse"
-              style={{ width: `${[52, 36, 64, 48, 58, 40, 44][i]}%`, animationDelay: `${i * 60}ms` }}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
   )
 
   // ── Main editor layout ─────────────────────────────────────
@@ -6003,7 +6002,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
               <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
-                {loading ? sidebarSkeleton : renderSidebarContent()}
+                {renderSidebarContent()}
               </div>
             </div>
             {/* The grab edge. Wider than it looks, so it can be found; drawn
@@ -6083,7 +6082,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
-              {loading ? sidebarSkeleton : renderSidebarContent()}
+              {renderSidebarContent()}
             </div>
           </MobileEditorSheet>
           )
@@ -6164,14 +6163,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             // that card rather than the browser window.
             isMobileView
               ? "items-start p-0"
-              // No inset on a desktop. The card is the whole canvas, rounded
-              // where it meets the bar above so it still reads as a card and
-              // not as the page; the eight pixels of dark around it read as
-              // empty space however dark they were.
-              // A six pixel mat on every side, so the card has four rounded
-              // corners and a little dark around each — the reference's
-              // frame. The scrollbar floats inside the card; see below.
-              : device === "desktop" ? "items-stretch p-1.5" : "items-center py-6 px-6",
+              /**
+               * NO MAT ON A DESKTOP. Every version of a gap around the card —
+               * eight pixels, six, dark, light — read as leftover empty page
+               * rather than as a frame. The card meets the sidebar and the bar
+               * directly and is rounded on the side where it does, which is
+               * what makes the three of them read as one piece of chrome with
+               * a page inside it.
+               */
+              : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
           )}
           // The sheet is pinned to the viewport, so the canvas has to keep
           // its peek clear itself. Reserved as padding rather than arithmetic
@@ -6215,7 +6215,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                * painted across a menu belonging to the editor. Isolating the
                * card means nothing inside it can ever climb out of it.
                */
-              "relative isolate bg-white border border-neutral-200/70 transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
+              // No border. A hairline around a card that is flush with the
+              // chrome is a seam, and at the rounded corner it is the little
+              // hook of grey that kept showing up there.
+              "relative isolate bg-white transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
               // Leaving for the code fades rather than cuts: `invisible`
               // removed the site between one frame and the next, which is the
               // flash you see as the code arrives. Opacity keeps the scroll
@@ -6224,7 +6227,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full border-0 rounded-none"
                 : device === "desktop"
-                  ? "rounded-xl w-full"
+                  ? "rounded-l-xl w-full"
                   : "rounded-2xl",
             )}
             style={
@@ -6283,33 +6286,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <div ref={canvasRef} className="flex flex-col w-full flex-1">
             {/* Loading skeleton for canvas — page switch */}
             {(loading || canvasLoading) && (
-              /* The shape of a page, faintly: a bar, a hero, some lines.
-                 No spinner — see `sidebarSkeleton`. */
-              <div aria-busy="true" aria-label="Loading page" className="px-0">
-                <div className="flex h-16 items-center justify-between px-8">
-                  <div className="h-4 w-28 rounded bg-neutral-200/80 animate-pulse" />
-                  <div className="flex gap-6">
-                    {[0, 1, 2].map((i) => (
-                      <div key={i} className="h-3 w-14 rounded bg-neutral-200/70 animate-pulse" style={{ animationDelay: `${i * 70}ms` }} />
-                    ))}
+              <div>
+                <div className="h-14 bg-neutral-100/60 animate-pulse" />
+                <div className="h-[50vh] flex items-center justify-center bg-neutral-50/40">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="h-7 w-7 border-2 border-neutral-300/60 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-xs text-neutral-400">Loading page...</p>
                   </div>
                 </div>
-                <div className="mx-8 mt-6 grid grid-cols-2 gap-10">
-                  <div className="space-y-4 py-10">
-                    <div className="h-3 w-24 rounded bg-neutral-200/70 animate-pulse" />
-                    <div className="h-9 w-4/5 rounded bg-neutral-200/80 animate-pulse" style={{ animationDelay: "90ms" }} />
-                    <div className="h-9 w-3/5 rounded bg-neutral-200/80 animate-pulse" style={{ animationDelay: "140ms" }} />
-                    <div className="h-3 w-full rounded bg-neutral-200/60 animate-pulse" style={{ animationDelay: "200ms" }} />
-                    <div className="h-3 w-5/6 rounded bg-neutral-200/60 animate-pulse" style={{ animationDelay: "240ms" }} />
-                    <div className="mt-2 h-10 w-36 rounded-lg bg-neutral-200/80 animate-pulse" style={{ animationDelay: "300ms" }} />
-                  </div>
-                  <div className="h-72 rounded-xl bg-neutral-200/60 animate-pulse" style={{ animationDelay: "160ms" }} />
-                </div>
-                <div className="mx-8 mt-12 grid grid-cols-3 gap-6">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="h-40 rounded-xl bg-neutral-200/50 animate-pulse" style={{ animationDelay: `${360 + i * 80}ms` }} />
-                  ))}
-                </div>
+                <div className="h-20 bg-neutral-100/40 animate-pulse" style={{ animationDelay: "200ms" }} />
               </div>
             )}
 
@@ -6588,6 +6573,9 @@ function SidebarSectionRow({
       <div
         className={cn(
           "group flex items-center gap-2 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors",
+          // A row that can be reordered says so under a pointer; the header
+          // and the footer cannot be, and keep the arrow.
+          !isStructure && "hover:cursor-grab",
           isSelected ? "bg-foreground text-background" : "hover:bg-muted text-foreground",
           section.hidden && "opacity-50",
         )}
@@ -6599,12 +6587,33 @@ function SidebarSectionRow({
         }}
       >
         {!isStructure && (
+          /**
+           * A MOVE ARROW, NOT A GRIP.
+           *
+           * Two dots in a column are a convention somebody has to already
+           * know; the four-headed arrow is the cursor every desktop shows
+           * over something draggable, so drawing it says what the cursor is
+           * about to say. The target is a whole 28px square rather than the
+           * 14px glyph, because a handle you have to aim at is a handle
+           * people give up on.
+           */
           <span
             {...(dragHandleProps ?? {})}
-            className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
+            aria-label={`Drag ${section.name} to reorder`}
+            className={cn(
+              "-ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md touch-none",
+              "cursor-grab active:cursor-grabbing transition-colors",
+              isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10",
+            )}
             onClick={e => e.stopPropagation()}
           >
-            <GripVertical className={cn("h-3.5 w-3.5 opacity-40", isSelected && "opacity-70")} strokeWidth={1.75} />
+            <Move
+              className={cn(
+                "h-4 w-4 transition-opacity",
+                isSelected ? "opacity-70 group-hover:opacity-100" : "opacity-35 group-hover:opacity-80",
+              )}
+              strokeWidth={1.75}
+            />
           </span>
         )}
         {/* The header and the footer are chrome, and chrome gets a badge:

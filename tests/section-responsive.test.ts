@@ -635,7 +635,7 @@ check(
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-1\.5 z-\[80\] flex flex-col rounded-xl border border-white\/10/.test(modeSwitch) &&
+    /absolute inset-0 z-\[80\] flex flex-col rounded-l-xl/.test(modeSwitch) &&
     /fixed inset-0 z-\[120\] flex flex-col/.test(modeSwitch) &&
     // It lifts in and settles out — a small translate, not a shrink, so the
     // code never looks like it is zooming at you.
@@ -696,7 +696,7 @@ check(
   // included, opts an element out of the platform's overlay bar and into a
   // classic one that reserves a column. So: none at all, on either.
   !/wb-thin-scroll|wb-slim-scroll[^"]*relative isolate/.test(editor) &&
-    /"relative isolate bg-white border border-neutral-200\/70/.test(editor) &&
+    /"relative isolate bg-white transition-all/.test(editor) &&
     !/wb-thin-scroll|wb-slim-scroll/.test(codePage) &&
     !/\.wb-thin-scroll/.test(css),
 )
@@ -720,16 +720,18 @@ check(
 )
 
 check(
-  "the preview card sits in a six pixel frame with four rounded corners, the bar floating inside it",
+  "the preview card meets the chrome directly and is rounded where it does",
   // Eight pixels of dark around the card read as empty space however dark
   // they were. The card fills, and keeps its top corners so it still reads
   // as a card sitting under the bar rather than as the page.
-  // A six pixel mat on every side: four rounded corners and a little dark
-  // around each, the reference's frame, with the bar floating inside.
-  /device === "desktop" \? "items-stretch p-1\.5"/.test(editor) &&
-    /\? "rounded-xl w-full"/.test(editor) &&
-    // 100% of `main`: the frame is padding on `main`, so 100% is the framed room.
-    /height: "100%"/.test(editor),
+  // No mat at all. Every version of a gap around the card read as leftover
+  // empty page rather than as a frame, so the card meets the sidebar and the
+  // bar directly and is rounded on the side where it does.
+  /device === "desktop" \? "items-stretch p-0"/.test(editor) &&
+    /\? "rounded-l-xl w-full"/.test(editor) &&
+    /height: "100%"/.test(editor) &&
+    // and no hairline: flush against chrome, a border is a seam
+    !/bg-white border border-neutral-200\/70/.test(editor),
 )
 
 check(
@@ -1308,11 +1310,31 @@ check(
 )
 
 check(
-  "while the builder loads, the sidebar and the canvas show the shape of what is coming, and no spinner",
-  /const sidebarSkeleton = \(/.test(editor) &&
-    (editor.match(/\{loading \? sidebarSkeleton : renderSidebarContent\(\)\}/g) ?? []).length === 2 &&
-    /aria-label="Loading page"/.test(editor) &&
-    !/rounded-full animate-spin" \/>\s*<p className="text-xs text-neutral-400">Loading page/.test(editor),
+  "a section can be dragged with a mouse, a finger or the keyboard, and the taps say when",
+  /**
+   * Five pixels is far enough that a short deliberate drag reads as a click
+   * that did nothing. A finger cannot use a distance rule at all — it
+   * competes with scrolling the list — so touch waits in place instead.
+   */
+  /useSensor\(PointerSensor, \{ activationConstraint: \{ distance: 3 \} \}\)/.test(editor) &&
+    /useSensor\(TouchSensor, \{ activationConstraint: \{ delay: 160, tolerance: 8 \} \}\)/.test(editor) &&
+    /const handleDragStart = useCallback\(\(\) => hapticTap\("medium"\), \[\]\)/.test(editor) &&
+    /onDragStart=\{handleDragStart\}/.test(editor) &&
+    /hapticTap\("light"\)/.test(editor) &&
+    // through the one helper that reaches the iOS Taptic Engine
+    /import \{ hapticTap \} from "@\/lib\/native-bridge"/.test(editor) &&
+    !/navigator\.vibrate/.test(editor),
+)
+
+check(
+  "the drag handle is a move arrow in a target a finger can hit, and the row says it can be moved",
+  // Two dots in a column are a convention somebody has to already know; the
+  // four-headed arrow is the cursor every desktop shows over a draggable.
+  /<Move\s*\n\s*className=/.test(editor) &&
+    !/<GripVertical className=\{cn\("h-3\.5 w-3\.5 opacity-40"/.test(editor) &&
+    /aria-label=\{`Drag \$\{section\.name\} to reorder`\}/.test(editor) &&
+    /flex h-7 w-7 shrink-0 items-center justify-center rounded-md touch-none/.test(editor) &&
+    /!isStructure && "hover:cursor-grab"/.test(editor),
 )
 
 // ===========================================================================
