@@ -6122,9 +6122,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
           So the panels are flush: the sidebar meets the left edge, the
           preview meets the sidebar, and the only surround left anywhere is
-          the sliver inside the preview's one rounded corner, which is the
-          top bar's own dark carrying on around the turn. */}
-      <div className="relative flex flex-1 min-h-0 overflow-hidden">
+          the two wedges inside the workspace's outer top corners.
+
+          THE WORKSPACE IS ONE ROUNDED SHAPE UNDER THE BAR.
+
+          The rounding used to sit at the sidebar/canvas junction, which put
+          an arc in the middle of the row and left both ends of it square
+          against the screen. That is backwards: the seam between two panels
+          is an internal divider and wants to be a straight hairline, and the
+          corners that meet the chrome are the ones that should turn. So the
+          sidebar rounds at the top left, the canvas rounds at the top right,
+          and the row reads as a single sheet tucked under the bar.
+
+          This row paints the bar's own colour, because that is what those
+          two wedges show: sixteen pixels each, at the two places the bar and
+          the workspace meet, and nothing else of it is ever visible. */}
+      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-[var(--wb-chrome-bg)]">
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
           <div className="relative flex-shrink-0 flex h-full overflow-visible">
@@ -6136,7 +6149,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 uses, rather than eight pixels of black. */}
             <div
               ref={sidebarRef}
-              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-[#e5e7eb]"
+              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-[#e5e7eb] rounded-tl-2xl"
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
               <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
@@ -6303,7 +6316,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * white preview an edge to be seen against and its corners
              * something to be rounded away from.
              */
-            isMobileView ? "bg-background" : "bg-[#eceef1]",
+            isMobileView ? "bg-background" : "bg-[#eceef1] rounded-tr-2xl",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6312,15 +6325,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             isMobileView
               ? "items-start p-0"
               /**
-               * NO MAT, AND ONE ROUNDED CORNER.
+               * NO MAT, AND ONE ROUNDED CORNER: THE OUTER ONE.
                *
-               * The card is flush on every side. The only radius is the top
-               * left, where the sidebar and the bar meet it, and what shows
-               * through that arc is the light surround. It is 16px rather
-               * than 12: a 12px arc between a white sidebar and a white page
-               * was there and could not be seen, which is the whole of "it is
-               * not rounded". A device preview is a card in the middle of the
-               * canvas instead, so that one is rounded all the way round.
+               * The card is flush on every side. Its one radius used to be
+               * the top LEFT, at the sidebar's edge, which is an internal
+               * seam: an arc in the middle of the row, with both ends of the
+               * row still square against the screen. The turn belongs where
+               * the workspace meets the chrome, so it is the top right now,
+               * and the sidebar takes the matching top left. A device preview
+               * is a card in the middle of the canvas instead, so that one is
+               * rounded all the way round.
                */
               : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
           )}
@@ -6370,7 +6384,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full rounded-none"
                 : device === "desktop"
-                  ? "rounded-tl-2xl w-full"
+                  ? "rounded-tr-2xl w-full"
                   // A phone or a tablet is a card floating on the canvas, so
                   // it needs the edge and the lift a card has. On the dark
                   // surround the contrast did that job; on a light one it has
