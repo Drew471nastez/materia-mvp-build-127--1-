@@ -672,7 +672,7 @@ check(
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-0 z-\[80\] flex flex-col rounded-tl-xl/.test(modeSwitch) &&
+    /absolute inset-0 z-\[80\] flex flex-col rounded-tl-2xl/.test(modeSwitch) &&
     // A black panel inside a white builder is a second product bolted on.
     /"overflow-hidden bg-white"/.test(modeSwitch) &&
     !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
@@ -763,12 +763,14 @@ check(
 )
 
 check(
-  "the surround is the bar's dark on a desktop and the sheet's own surface on a phone",
-  // Matting is a desktop idea: it is what the eight pixels around an inset
-  // card are for. A phone has no inset, so its only surround is the strip
-  // reserved for the sheet's peek, where dark read as a black band.
+  "the surround is light on a desktop and the sheet's own surface on a phone",
+  // The canvas is the page being worked on, not chrome. A near-black field
+  // around it makes the builder read as two products with a hole between
+  // them, and in a phone preview the hole is most of the screen. A phone has
+  // no surround at all beyond the strip reserved for the sheet's peek, which
+  // takes the sheet's own colour so a one-pixel disagreement is a seam.
   /"relative flex-1 min-w-0 overflow-hidden flex justify-center"/.test(editor) &&
-    /isMobileView \? "bg-background" : "bg-\[#171717\]"/.test(editor),
+    /isMobileView \? "bg-background" : "bg-\[#eceef1\]"/.test(editor),
 )
 
 check(
@@ -802,12 +804,20 @@ check(
   /<div className="relative flex flex-1 min-h-0 overflow-hidden">/.test(editor) &&
     !/bg-\[#171717\] p-2 gap-2/.test(editor) &&
     // one corner on the preview, where the sidebar and the bar meet it
-    /\? "rounded-tl-xl w-full"/.test(editor) &&
+    /\? "rounded-tl-2xl w-full"/.test(editor) &&
     // the sidebar and the AI: flush, clipped, a hairline instead of a gutter
     /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]"/.test(editor) &&
     /className="relative flex-shrink-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]" style=\{\{ width: 340 \}\}/.test(editor) &&
-    // the dark behind that one arc is the bar's own, carried round the turn
-    /isMobileView \? "bg-background" : "bg-\[#171717\]"/.test(editor) &&
+    // and what shows through that one arc is a LIGHT surround: the bar is
+    // chrome and is meant to be dark, the canvas is the page being worked on,
+    // and a near-black field around it makes the builder read as two products
+    // with a hole between them. On a phone preview the hole is most of the
+    // screen, which is what was reported with the screenshot beside it.
+    /isMobileView \? "bg-background" : "bg-\[#eceef1\]"/.test(editor) &&
+    !/: "bg-\[#171717\]"/.test(editor) &&
+    // a device preview is a card floating on that surround, so it is drawn
+    // with the edge and the lift the dark used to give it for free
+    /"rounded-2xl ring-1 ring-black\/\[0\.06\] shadow-\[0_18px_50px_-20px_rgba\(15,23,42,0\.28\)\]"/.test(editor) &&
     /height: "100%"/.test(editor),
 )
 
@@ -1789,7 +1799,7 @@ check(
    * and the unwrapped one is a control that must still fail.
    */
   // The wrapper carries the shape and the clip...
-  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,400}?\? "rounded-tl-xl w-full"\s*\n\s*: "rounded-2xl",/.test(editor) &&
+  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,600}?\? "rounded-tl-2xl w-full"/.test(editor) &&
     // ...and the scroller inside it is square and fills it, so nothing it
     // paints can reach a corner.
     /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"/.test(

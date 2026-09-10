@@ -6285,42 +6285,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           className={cn(
             // `relative` so the code pane and the mode switch can sit over
             // the canvas without leaving the flex layout.
-            /**
-             * Dark, like the bar above it. It was near-white, so the inset
-             * around the card read as leftover empty page rather than as a
-             * frame — the "empty space outside the preview". Against the dark
-             * the same eight pixels read as matting, and the card's rounded
-             * corners are visible because there is something for them to be
-             * rounded against.
-             */
             "relative flex-1 min-w-0 overflow-hidden flex justify-center",
             /**
-             * LIGHT ON A DESKTOP, THE SHEET'S SURFACE ON A PHONE.
+             * LIGHT. THE BUILDER IS A LIGHT PRODUCT.
              *
-             * It was dark to make an inset card read as matted. Once the
-             * inset went, the dark had nothing left to do but show through
-             * the card's rounded corner as a black wedge against a white
-             * sidebar — so the desktop surround is near-white, and the
-             * builder is one light product rather than a light one with a
-             * black hole in the middle.
+             * This has been dark twice, and both times for the same reason:
+             * a card needs something behind it for its rounded corner to be
+             * a corner, and dark is the easy way to get that. It is also the
+             * wrong way here. The bar is chrome and is meant to be dark; the
+             * canvas is the page you are working on, and a near-black field
+             * around it makes the builder read as two products, one of them
+             * with a hole in the middle. On a phone preview the hole is most
+             * of the screen.
              *
-             * A phone has no inset at all: the only surround is the strip
-             * reserved for the sheet's peek, where dark read as a black band
-             * above Sections / Pages / Settings. It takes the sheet's own
-             * surface, so even if the reservation and the sheet differ by a
-             * pixel the seam is invisible rather than black.
+             * So the surround is a light grey, one step down from white
+             * rather than the app's own page colour, which is what gives the
+             * white preview an edge to be seen against and its corners
+             * something to be rounded away from.
              */
-            /**
-             * The bar's own dark on a desktop: it is matting, and matting is
-             * what a rounded card sits on.
-             *
-             * A phone has no mat — the card is the screen — so the only
-             * surround left there is the strip reserved for the sheet's peek,
-             * where dark read as a black band above Sections / Pages /
-             * Settings. It takes the sheet's own surface, so a one-pixel
-             * disagreement is a seam rather than a band.
-             */
-            isMobileView ? "bg-background" : "bg-[#171717]",
+            isMobileView ? "bg-background" : "bg-[#eceef1]",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6332,12 +6315,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                * NO MAT, AND ONE ROUNDED CORNER.
                *
                * The card is flush on every side. The only radius is the top
-               * left, where the sidebar and the bar meet it, and the sliver
-               * of canvas that shows through that arc is the bar's own dark —
-               * so the corner reads as the chrome curving into the page
-               * rather than as a gap around it. That is the reference: no
-               * surround, one corner, the dark behind it belonging to the
-               * chrome it continues.
+               * left, where the sidebar and the bar meet it, and what shows
+               * through that arc is the light surround. It is 16px rather
+               * than 12: a 12px arc between a white sidebar and a white page
+               * was there and could not be seen, which is the whole of "it is
+               * not rounded". A device preview is a card in the middle of the
+               * canvas instead, so that one is rounded all the way round.
                */
               : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
           )}
@@ -6387,8 +6370,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full rounded-none"
                 : device === "desktop"
-                  ? "rounded-tl-xl w-full"
-                  : "rounded-2xl",
+                  ? "rounded-tl-2xl w-full"
+                  // A phone or a tablet is a card floating on the canvas, so
+                  // it needs the edge and the lift a card has. On the dark
+                  // surround the contrast did that job; on a light one it has
+                  // to be drawn.
+                  : "rounded-2xl ring-1 ring-black/[0.06] shadow-[0_18px_50px_-20px_rgba(15,23,42,0.28)]",
             )}
             style={
               isMobileView

@@ -228,7 +228,7 @@ export function CodePane({
             // The same shape as the preview it covers, which is flush on
             // every side with one arc at the top left where the sidebar and
             // the bar meet it.
-            "absolute inset-0 z-[80] flex flex-col rounded-tl-xl",
+            "absolute inset-0 z-[80] flex flex-col rounded-tl-2xl",
         /**
          * It rises AND settles: a short lift with a touch of scale, on the
          * curve a thrown thing lands on, which reads as the canvas turning
