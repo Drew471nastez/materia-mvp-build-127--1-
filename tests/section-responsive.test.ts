@@ -728,7 +728,8 @@ check(
   // around each, the reference's frame, with the bar floating inside.
   /device === "desktop" \? "items-stretch p-1\.5"/.test(editor) &&
     /\? "rounded-xl w-full"/.test(editor) &&
-    /height: "calc\(100svh - var\(--wb-chrome-top\) - 12px\)"/.test(editor),
+    // 100% of `main`: the frame is padding on `main`, so 100% is the framed room.
+    /height: "100%"/.test(editor),
 )
 
 check(
@@ -1071,19 +1072,21 @@ check(
 
 check(
   "the root declares the geometry the bar and the canvas both read",
-  /"wb-editor h-svh flex flex-col/.test(editor),
+  /"wb-editor fixed inset-0 flex flex-col/.test(editor),
 )
 
 check(
-  "nothing subtracts a bare 48px from the viewport any more",
-  // This is the actual bug, written down: a canvas sized against the bar's
-  // nominal height is a canvas that overlaps the bar by the inset.
+  "nothing sizes itself against the bar's nominal height any more",
+  // This is the first bug, written down: a canvas sized against 48px is a
+  // canvas that overlaps the bar by the inset. The heights are now taken
+  // from the box the editor was given, and the inset lives in the two
+  // custom properties the bar and the sheet's reservation read.
   !/calc\(100svh - 48px/.test(editor) &&
     !/calc\(100vh - 96px\)/.test(editor) &&
-    /calc\(100svh - var\(--wb-chrome-top\) - var\(--wb-sheet-peek\)\)/.test(editor) &&
-    // The desktop card is now the whole canvas, so it subtracts the chrome
-    // and nothing else.
-    /height: "calc\(100svh - var\(--wb-chrome-top\) - 12px\)"/.test(editor),
+    // The inset now lives in the two custom properties the bar's height and
+    // the sheet's reservation read, rather than in a `calc` per card.
+    /--wb-chrome-top: calc\(var\(--wb-topbar\) \+ var\(--wb-safe-top\)\)/.test(editorCss) &&
+    /paddingBottom: "var\(--wb-sheet-peek\)"/.test(editor),
 )
 
 check(
@@ -1286,8 +1289,7 @@ check(
 )
 
 
-// ===========================================================================
-section("Links stay in the builder, and loading looks like what is coming")
+// ====================================================================section("Links stay in the builder, and loading looks like what is coming")
 // ===========================================================================
 
 const headerRenderer = readFileSync(join(root, "components/website-builder/sections/renderers/HeaderSection.tsx"), "utf8")
@@ -1311,6 +1313,64 @@ check(
     (editor.match(/\{loading \? sidebarSkeleton : renderSidebarContent\(\)\}/g) ?? []).length === 2 &&
     /aria-label="Loading page"/.test(editor) &&
     !/rounded-full animate-spin" \/>\s*<p className="text-xs text-neutral-400">Loading page/.test(editor),
+)
+
+// ===========================================================================
+//  AND THE DOCUMENT BEHIND IT DOES NOT SCROLL
+// ===========================================================================
+// Padding the bar for the status bar was half the fix. The other half is that
+// the editor was CONTENT in the body's flow, and globals.css gives every body
+// `min-height: 100svh` plus `padding-bottom: env(safe-area-inset-bottom)`.
+// Border-box makes those the same screen for an empty page — but the editor's
+// own root was 100svh of content, so content plus padding was one screen plus
+// the home indicator. Measured in Chromium at 390x844 with a 34px inset:
+// document 791, viewport 757, scrollable by exactly 34.
+//
+// Those 34px were every remaining symptom at once. Drag anywhere and the
+// whole editor slid up by them, putting the top bar back under the clock;
+// what showed underneath was the html canvas, black on Capacitor — the band
+// above the sections sheet, which is pinned to the viewport and so stayed
+// put. With the fix the same measurement reads 0, and the canvas meets the
+// sheet with a gap of exactly 0 both with the inset and without it.
+const lockSrc = readFileSync(join(root, "components/website-builder/full-screen-lock.tsx"), "utf8")
+const wbLayout = readFileSync(join(root, "app/website-builder/layout.tsx"), "utf8")
+
+check(
+  "the editor is pinned to the viewport rather than laid out in the body's flow",
+  // `h-svh` is content and the body's padding sits under it. `fixed` is
+  // measured against the viewport and adds no height to the document.
+  /"wb-editor fixed inset-0 flex flex-col/.test(editor) &&
+    !/"wb-editor h-svh/.test(editor) &&
+    /<div className="fixed inset-0 overflow-hidden bg-background">/.test(wbLayout) &&
+    !/h-svh overflow-hidden bg-background/.test(wbLayout),
+)
+
+check(
+  "and the body cannot put the scroll back while it is mounted",
+  /html\.wb-fullscreen,\s*\nhtml\.wb-fullscreen body \{[\s\S]*?overflow: hidden;/.test(editorCss) &&
+    /html\.wb-fullscreen body \{[\s\S]*?padding-bottom: 0;/.test(editorCss) &&
+    /root\.classList\.add\("wb-fullscreen"\)/.test(lockSrc) &&
+    /root\.classList\.remove\("wb-fullscreen"\)/.test(lockSrc),
+)
+
+check(
+  "the lock is scoped to the two full-screen surfaces and undone on the way out",
+  // Every other page wants that padding — it is what holds a footer above
+  // the home indicator — so this cannot be a global rule.
+  /<FullScreenLock \/>/.test(editor) &&
+    /<FullScreenLock \/>/.test(codePageSrc) &&
+    /return \(\) => \{\s*\n\s*root\.classList\.remove\("wb-fullscreen"\)/.test(lockSrc),
+)
+
+check(
+  "the canvas is the room it was given, not a sum of viewport units",
+  // `100svh` and the box a native webview actually hands the editor are not
+  // reliably the same number, and every pixel of difference was a gap of
+  // black. The sheet's peek is reserved as padding on `main`, so the card is
+  // simply what is left and the two cannot disagree.
+  /paddingBottom: "var\(--wb-sheet-peek\)"/.test(editor) &&
+    !/calc\(100svh - var\(--wb-chrome-top\)/.test(editor) &&
+    !/calc\(100svh - 48px/.test(editor),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

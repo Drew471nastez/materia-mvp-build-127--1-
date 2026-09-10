@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
+import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Save, Loader2, File, Folder, FolderOpen,
@@ -435,14 +436,15 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
   if (loadingInstall) {
     return (
-      <div className="h-svh flex items-center justify-center bg-[#0e0e0e]">
+      <div className="h-full flex items-center justify-center bg-[#0e0e0e]">
         <Loader2 className="h-6 w-6 animate-spin text-neutral-500" />
       </div>
     )
   }
 
   return (
-    <div className="h-svh flex flex-col bg-[#0e0e0e] text-neutral-200 overflow-hidden">
+    <div className="h-full flex flex-col bg-[#0e0e0e] text-neutral-200 overflow-hidden">
+      <FullScreenLock />
       {/* ── Top bar ── */}
       {/* Inside the editor's own frame the bar above is the editor's, and a
           second one saying the same things is a second header. */}

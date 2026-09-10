@@ -57,6 +57,7 @@ import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-sche
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { scheduleSnapshot, cancelScheduledSnapshot } from "@/lib/website-builder/snapshot-capture"
+import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
 import { StorelibMark } from "@/components/storelib-mark"
 import { toast } from "sonner"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
@@ -5505,12 +5506,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   return (
     <div
       className={cn(
-        "wb-editor h-svh flex flex-col bg-muted/30 overflow-hidden wb-editor-enter",
+        // `fixed inset-0`, not `h-svh`. A 100svh element is CONTENT, and the
+        // body adds its safe-area padding underneath it — one screen plus
+        // 34px, a document that scrolls, a top bar that slides back under
+        // the status bar. Fixed is measured against the viewport and adds
+        // nothing to the document. FullScreenLock below zeroes that padding
+        // so nothing else can put the scroll back.
+        "wb-editor fixed inset-0 flex flex-col bg-muted/30 overflow-hidden wb-editor-enter",
         // Leaving fades the editor while the next page is fetched, so the
         // hand-off is a dissolve rather than a hard cut when it lands.
         leaving && "wb-editor-leaving",
       )}
     >
+      <FullScreenLock />
       {/* ── Top bar ── */}
       {/* Dark, like the reference: the bar is chrome, and chrome that is the
           same colour as the page it frames is chrome you keep mistaking for
@@ -6165,6 +6173,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               // frame. The scrollbar floats inside the card; see below.
               : device === "desktop" ? "items-stretch p-1.5" : "items-center py-6 px-6",
           )}
+          // The sheet is pinned to the viewport, so the canvas has to keep
+          // its peek clear itself. Reserved as padding rather than arithmetic
+          // in the card's height: the card is then simply "the room left",
+          // and there is no viewport unit for the two to disagree about.
+          style={isMobileView ? { paddingBottom: "var(--wb-sheet-peek)" } : undefined}
         >
           <CodePane
             installId={installId}
@@ -6217,12 +6230,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             style={
               isMobileView
                 ? {
-                    // Real phone — preview fills the space between the top
-                    // bar and the always-visible sheet peek. Both come from
-                    // the editor's own custom properties, so the status-bar
-                    // inset is counted here as well as up there.
+                    // Real phone — the preview is exactly the room between
+                    // the bar above and the sheet below, both of which have
+                    // already taken their share. No `100svh` here: on a
+                    // native webview that unit and the box the editor was
+                    // actually given are not always the same number, and the
+                    // difference is a gap of black.
                     width: "100%",
-                    height: "calc(100svh - var(--wb-chrome-top) - var(--wb-sheet-peek))",
+                    height: "100%",
                     // The card is the scroller. Say so to the browser: a
                     // vertical drag here is a scroll and nothing else, and a
                     // scroll that reaches the end stays in the card rather
@@ -6235,8 +6250,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 : device === "desktop"
                   ? {
                       // Desktop — the card IS the canvas, edge to edge, and
-                      // scrolls internally.
-                      height: "calc(100svh - var(--wb-chrome-top) - 12px)",
+                      // scrolls internally. 100% of `main`, which is already
+                      // flex-1 of a viewport-height column, so it is the same
+                      // number as subtracting the bar from the viewport
+                      // without depending on 100svh to agree with the box the
+                      // webview actually handed us.
+                      height: "100%",
                     }
                   : {
                       /**
@@ -6253,7 +6272,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                        */
                       width: `${DEVICE_WIDTH[device]}px`,
                       maxWidth: "100%",
-                      height: "min(900px, calc(100svh - var(--wb-chrome-top) - 48px))",
+                      height: "min(900px, 100%)",
                       flex: "0 1 auto",
                     }
             }
