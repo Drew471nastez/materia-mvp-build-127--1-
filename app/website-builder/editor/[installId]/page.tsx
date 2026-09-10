@@ -522,7 +522,7 @@ function FieldEditor({
               type="button"
               onClick={() => onChange(opt.value)}
               className={cn(
-                "flex-1 py-1.5 px-3 text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,transform] duration-200 ease-out active:scale-[0.97] active:duration-75",
+                "flex-1 py-1.5 px-3 text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,scale] duration-200 ease-out active:scale-[0.97] active:duration-75",
                 isSelected
                   ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
                   : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40"
@@ -2182,7 +2182,7 @@ function WbRadioSegment({
             type="button"
             onClick={() => onChange(opt.value)}
             className={cn(
-              "flex-1 py-1.5 px-3 text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,transform] duration-200 ease-out active:scale-[0.97] active:duration-75",
+              "flex-1 py-1.5 px-3 text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,scale] duration-200 ease-out active:scale-[0.97] active:duration-75",
               selected === opt.value
                 ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
                 : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40"
@@ -5371,8 +5371,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               in 600 next to a 16px icon, and a press that darkens rather
               than shrinks. They were 12px text in hairline outlines with a
               lone red bin, which is what a form builder's defaults look
-              like. Delete says its name; its colour is the only warning it
-              needs, since Undo takes it back. */}
+              like.
+
+              Delete says its name and is the same button as the other two.
+              It was red for one round and read as a warning label stuck on
+              the end of a row of controls. The sidebar's own menu settled
+              this already, in as many words: a red row shouts at somebody
+              who has not decided anything yet, and Undo takes a deletion
+              back in one keystroke. The bin is what tells them apart. */}
           <div className="shrink-0 border-t border-[#e5e7eb] bg-white p-3 flex gap-2">
             <button
               type="button"
@@ -5397,7 +5403,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </button>
             <button
               type="button"
-              className="flex-1 h-10 flex items-center justify-center gap-2 rounded-xl bg-[#f3f4f6] text-[13px] font-semibold text-[#dc2626] transition-colors duration-150 hover:bg-[#fee2e2] active:bg-[#fecaca]"
+              className="flex-1 h-10 flex items-center justify-center gap-2 rounded-xl bg-[#f3f4f6] text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#e9eaee] active:bg-[#e3e4e9]"
               onClick={() => removeSection(section.id)}
             >
               <Trash2 className="h-4 w-4" strokeWidth={2} />
@@ -5534,7 +5540,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[transform,color] duration-150 disabled:active:scale-100 shrink-0"
+            className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[scale,color] duration-150 disabled:active:scale-100 shrink-0"
             onClick={handleUndo}
             disabled={undoStack.length === 0}
             aria-label="Undo"
@@ -5547,7 +5553,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[transform,color] duration-150 disabled:active:scale-100 shrink-0"
+            className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[scale,color] duration-150 disabled:active:scale-100 shrink-0"
             onClick={handleRedo}
             disabled={redoStack.length === 0}
             aria-label="Redo"
@@ -5623,7 +5629,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] active:scale-90 active:bg-[var(--wb-chrome-active)] transition-[background-color,transform,color] duration-150 shrink-0"
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] active:scale-90 active:bg-[var(--wb-chrome-active)] transition-[background-color,scale,color] duration-150 shrink-0"
                 onClick={() => requestExit("/app/website-builder")}
                 aria-label="Back"
               >
@@ -5933,7 +5939,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 className={cn(
                   // Shown on every size. It was `hidden sm:flex`, which hid the
                   // AI from the device most likely to want it.
-                  "wb-ai-button h-8 w-8 flex items-center justify-center rounded-lg transition-[transform,box-shadow] duration-150 cursor-pointer active:scale-90",
+                  "wb-ai-button h-8 w-8 flex items-center justify-center rounded-lg transition-[scale,box-shadow] duration-150 cursor-pointer active:scale-90",
                   /*
                     The mark keeps its own colour in both states. Inverting the
                     button to solid black used to be fine for a line-art
@@ -6784,6 +6790,9 @@ function SortableSectionRow(props: Parameters<typeof SidebarSectionRow>[0]) {
  * scrolls out of reach, and hidden entirely when the section has scrolled
  * past.
  */
+/** How long the section toolbar takes to arrive, and to leave. */
+const TOOLBAR_FADE_MS = 200
+
 function SectionToolbar({
   sectionId,
   hidden,
@@ -6809,6 +6818,46 @@ function SectionToolbar({
   onRemove: () => void
 }) {
   const [box, setBox] = useState<{ top: number; right: number } | null>(null)
+  /**
+   * =====================================================================
+   *  IT ARRIVES AND LEAVES, RATHER THAN BLINKING
+   * =====================================================================
+   * This returned `null` the moment it had nowhere to point, so selecting a
+   * section put the toolbar on screen in one frame and scrolling it out of
+   * view took it away in one — a hard cut both ways, on the one piece of
+   * chrome that follows the pointer around.
+   *
+   * An element removed from the tree cannot animate its departure, so it
+   * stays mounted for the length of the fade and is unmounted after. Three
+   * pieces of state, because they answer three different questions: where to
+   * draw it, whether it is in the tree, and whether it is faded in.
+   */
+  const lastBox = useRef<{ top: number; right: number } | null>(null)
+  if (box) lastBox.current = box
+  const present = box !== null
+  const [mounted, setMounted] = useState(false)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (present) {
+      setMounted(true)
+      return
+    }
+    setVisible(false)
+    const id = window.setTimeout(() => setMounted(false), TOOLBAR_FADE_MS)
+    return () => window.clearTimeout(id)
+  }, [present])
+
+  /**
+   * Faded in on the frame AFTER it is in the tree. Setting the final state
+   * in the same commit that mounts it gives the browser one computed style
+   * and nothing to interpolate from, which is the cut this exists to remove.
+   */
+  useEffect(() => {
+    if (!mounted || !present) return
+    const id = requestAnimationFrame(() => setVisible(true))
+    return () => cancelAnimationFrame(id)
+  }, [mounted, present])
 
   useEffect(() => {
     if (!sectionId) {
@@ -6854,7 +6903,12 @@ function SectionToolbar({
     }
   }, [sectionId])
 
-  if (!sectionId || !box) return null
+  /**
+   * The last place it was, so a toolbar on its way out has somewhere to
+   * fade FROM. While it is visible this is simply where it is now.
+   */
+  const draw = box ?? lastBox.current
+  if (!mounted || !draw) return null
 
   const Item = ({
     label,
@@ -6878,7 +6932,7 @@ function SectionToolbar({
             onClick()
           }}
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-lg transition-[background-color,color,transform] duration-150",
+            "flex h-8 w-8 items-center justify-center rounded-lg transition-[background-color,color,scale] duration-150",
             "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 active:scale-90",
             "disabled:pointer-events-none disabled:opacity-30",
           )}
@@ -6894,8 +6948,31 @@ function SectionToolbar({
     <div
       // Above the sections (9998) and the badge (9999), below the editor's
       // own chrome. It belongs to the editor, not to the page.
-      className="wb-section-toolbar pointer-events-auto absolute z-[60] flex items-center gap-0.5 rounded-xl border border-neutral-200/80 bg-white/95 p-1 shadow-[0_8px_28px_-10px_rgba(15,23,42,0.35)] backdrop-blur"
-      style={{ top: box.top, right: box.right }}
+      className={cn(
+        "wb-section-toolbar absolute z-[60] flex items-center gap-0.5 rounded-xl border border-neutral-200/80 bg-white/95 p-1 shadow-[0_8px_28px_-10px_rgba(15,23,42,0.35)] backdrop-blur",
+        /**
+         * Opacity and transform only, and NOT `top`. It tracks its section
+         * on every scrolled frame, so a transition on the position would
+         * make it swim along behind the page it is pointing at. What
+         * animates is its arrival: a few pixels down and a hair small, on
+         * the curve a thrown thing settles on.
+         */
+        /**
+         * `translate` and `scale`, NOT `transform`. Tailwind v4 compiles
+         * `-translate-y-1` and `scale-[0.97]` to the standalone `translate:`
+         * and `scale:` properties, so a transition naming `transform`
+         * transitions nothing at all and the movement snaps while the fade
+         * runs. Measured: with `transform` named, changing the class starts
+         * one transition; with these named, three.
+         */
+        "transition-[opacity,translate,scale] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+        visible
+          ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+          : // Deaf while it leaves: a toolbar nobody can see is not a
+            // toolbar anybody should be able to press.
+            "pointer-events-none -translate-y-1 scale-[0.97] opacity-0",
+      )}
+      style={{ top: draw.top, right: draw.right }}
       onClick={(e) => e.stopPropagation()}
     >
       {!isChrome && (
