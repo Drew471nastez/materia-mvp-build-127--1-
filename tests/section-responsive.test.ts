@@ -1669,7 +1669,11 @@ check(
   /\.wb-squares span \{[\s\S]{0,300}animation: wb-squares-fade 675ms ease-in-out infinite alternate/.test(css) &&
     /animation-delay: 600ms/.test(css) &&
     /<BuilderLoader/.test(editor) &&
-    /lines=\{\["Leaving the builder", "Saving where you were", "Almost there"\]\}/.test(editor) &&
+    // "Going back" rather than "Leaving the builder": it names where you are
+    // headed instead of what you are quitting, and it is what the overlay's
+    // own aria-label already said. The rule that owns this copy is "going
+    // back says so, in words you can read on the glass", below.
+    /lines=\{\["Going back", "Saving where you were", "Almost there"\]\}/.test(editor) &&
     /"Loading the editor", "Fetching your sections", "Just a moment"/.test(editor),
 )
 
@@ -2033,6 +2037,31 @@ check(
     // and red only under the pointer, never as a resting state
     !/text-\[#dc2626\] transition-colors/.test(editor) &&
     !/bg-\[#fee2e2\] text-/.test(editor),
+)
+
+check(
+  "going back says so, in words you can read on the glass",
+  /**
+   * The overlay shown while the editor is being left is dark glass: a near
+   * black veil at brightness 0.55 over a blur of the builder. The loader on
+   * it was given `tone="light"` — which names the surface it is drawn ON,
+   * not the colour of the ink — so it painted neutral grey onto near black.
+   * There was text the whole time and nobody could read it.
+   *
+   * Measured by scripts/check-leaving-overlay.mjs, which locates the words
+   * from the browser's own layout and scores them against the glass they sit
+   * on: 155 points of luma now, against 15 before.
+   */
+  /<BuilderLoader\s*\n\s*className="wb-leaving-content"\s*\n\s*tone="dark"/.test(editor) &&
+    // and it says where you are going, first
+    /lines=\{\["Going back", "Saving where you were", "Almost there"\]\}/.test(editor) &&
+    // white and lit, scoped to this surface, two classes so it wins inside
+    // the utilities layer where Tailwind's own colour also lives
+    /\.wb-leaving \.wb-squares \{\s*color: #ffffff;\s*filter: drop-shadow\(/.test(editorCss) &&
+    /\.wb-leaving \.wb-loading-line \{\s*color: #ffffff;/.test(editorCss) &&
+    // the words settle in after the glass rather than arriving flat with it
+    /\.wb-leaving-content \{\s*animation: wb-leaving-content 380ms[^}]*60ms both;/.test(editorCss) &&
+    /@keyframes wb-leaving-content \{\s*from \{ opacity: 0; translate: 0 6px \}/.test(editorCss),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

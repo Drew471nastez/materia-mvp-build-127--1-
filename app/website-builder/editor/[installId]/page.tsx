@@ -6075,9 +6075,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       {leaving && portalReady && createPortal(
         <div className="wb-leaving" role="status" aria-live="polite" aria-label="Going back">
+          {/* `dark` is the surface this is ON, not the colour of the words:
+              the glass is a near-black blur, so the loader draws in white.
+              It said `light` and rendered dark grey on it, which is why
+              going back looked like a blur with nothing written on it. */}
           <BuilderLoader
-            tone="light"
-            lines={["Leaving the builder", "Saving where you were", "Almost there"]}
+            className="wb-leaving-content"
+            tone="dark"
+            lines={["Going back", "Saving where you were", "Almost there"]}
           />
         </div>,
         document.body,
