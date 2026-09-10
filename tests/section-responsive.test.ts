@@ -706,12 +706,17 @@ check(
   // The preview card holds a page of the creator's own colours, so a
   // reserved white column beside a dark site is a white stripe. The code
   // editor is a light panel throughout, so the slim bar sits in it unseen.
-  /"relative isolate bg-white transition-all/.test(editor) &&
-    !/wb-thin-scroll|wb-slim-scroll/.test(
+  // Still true, and the rounded corner did not cost it: the corner is fixed
+  // by clipping the bar from outside, not by styling it. See "the preview
+  // canvas keeps its rounded corners on the scrollbar side" below.
+  /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden/.test(editor) &&
+    !/wb-thin-scroll|wb-slim-scroll|wb-canvas-scroll|scrollbar-width|scrollbar-color|webkit-scrollbar/.test(
       editor.slice(editor.indexOf('id="wb-preview-root"'), editor.indexOf('id="wb-preview-root"') + 1400),
     ) &&
     (codePage.match(/wb-slim-scroll/g) ?? []).length === 3 &&
-    !/\.wb-thin-scroll/.test(css),
+    !/\.wb-thin-scroll/.test(css) &&
+    // And no stylesheet reintroduces one on the canvas by class either.
+    !/wb-canvas-scroll/.test(css),
 )
 
 check(
@@ -1670,6 +1675,52 @@ check(
     /code: codeDirty/.test(editor),
 )
 
+check(
+  "the preview canvas keeps its rounded corners on the scrollbar side",
+  /**
+   * A scrollbar is laid out and painted inside the scroll container's own
+   * box, and it is NOT held inside that box's border-radius. So while the
+   * preview card was itself the scroller, the bar painted a square column
+   * straight through both right-hand arcs: measured in Chromium, all 44 of
+   * the pixels the radius should have cut away were painted, at the top
+   * corner and at the bottom one.
+   *
+   * The fix is not to style the bar — see the rule above, that is what
+   * reserves a white column. It is to clip it: the radius lives on a wrapper
+   * that does not scroll, `overflow: hidden` cuts everything outside the arc,
+   * and the scroller is a square box filling it. Same measurement after: 0 of
+   * 44 at the top, 1 at the bottom, that one the arc's own antialiasing.
+   *
+   * `node scripts/check-canvas-corner.mjs` renders both shapes side by side,
+   * and the unwrapped one is a control that must still fail.
+   */
+  // The wrapper carries the shape and the clip...
+  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,400}?\? "rounded-tl-xl w-full"\s*\n\s*: "rounded-2xl",/.test(editor) &&
+    // ...and the scroller inside it is square and fills it, so nothing it
+    // paints can reach a corner.
+    /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"/.test(
+      editor,
+    ) &&
+    // The id stays on the scroller: the sticky header portals into it and
+    // listens to it for scroll.
+    /id="wb-preview-root"/.test(editor),
+)
+
+check(
+  "and the card is sized once, on the wrapper, not again on the scroller inside it",
+  /**
+   * Computing the same size twice, once out here and once in there, is where
+   * the editor's black bands came from. The wrapper is the card: it holds the
+   * device width, the 900px cap and the desktop full height. The scroller is
+   * `w-full h-full` of it and states no size of its own.
+   */
+  /width: `\$\{DEVICE_WIDTH\[device\]\}px`,\s*\n\s*maxWidth: "100%",\s*\n\s*height: "min\(900px, 100%\)",\s*\n\s*flex: "0 1 auto",/.test(
+    editor,
+  ) &&
+    // The scroller keeps only what is about touch, not about size.
+    /touchAction: "pan-y",\s*\n\s*overscrollBehavior: "contain",\s*\n\s*WebkitOverflowScrolling: "touch",\s*\n\s*\}\s*\n\s*: undefined/.test(
+      editor,
+    ),)
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

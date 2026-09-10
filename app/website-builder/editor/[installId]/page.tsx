@@ -6295,6 +6295,65 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             fullScreen={isMobileView}
             onClose={() => setPreviewMode("preview")}
           />
+          {/* ── The card's rounded corners survive its scrollbar ──
+              A scrollbar is laid out and painted inside the scroll
+              container's own box, and it is NOT held inside that box's
+              border-radius. So while the card was itself the scroller, the
+              bar painted a square 12px column straight through both
+              right-hand arcs: measured in Chromium, every one of the 44
+              pixels that the radius should have cut away was painted, at the
+              top corner and the bottom one. The corner read square on the
+              right and round on the left, which is what was reported.
+
+              Styling the bar is not the way out of that. It was tried, and
+              `::-webkit-scrollbar` rules are what convert a platform overlay
+              scrollbar into a classic one, which then reserves a column of
+              layout — the white strip down the right of the builder. This
+              wrapper leaves the scrollbar alone entirely and clips it
+              instead: the radius lives out here, on a box that does not
+              scroll, and `overflow: hidden` cuts everything the arc excludes,
+              the scrollbar included. Same measurement afterwards: 0 of 44 at
+              the top, 1 at the bottom, that one being the arc's antialiasing.
+
+              It carries the card's size and shape; the scroller inside it is
+              simply 100% of it. See scripts/check-canvas-corner.mjs. */}
+          <div
+            className={cn(
+              "relative overflow-hidden transition-all duration-300",
+              // Fading the whole card, not just the scroller, so the corner
+              // clip goes with it.
+              previewMode === "code" && "opacity-0 pointer-events-none",
+              isMobileView
+                ? "w-full rounded-none"
+                : device === "desktop"
+                  ? "rounded-tl-xl w-full"
+                  : "rounded-2xl",
+            )}
+            style={
+              isMobileView
+                ? { width: "100%", height: "100%" }
+                : device === "desktop"
+                  ? { height: "100%" }
+                  : {
+                      /**
+                       * A device-shaped card at the device's real width. The
+                       * sections inside measure THIS, so the width is the
+                       * whole preview — not a frame drawn around a desktop
+                       * layout.
+                       *
+                       * `maxWidth: 100%` so a narrow canvas — sidebar open,
+                       * AI panel open, laptop screen — shrinks the tablet
+                       * card instead of letting it overflow and clip. The
+                       * layout it shows is then honest about the width it
+                       * actually got.
+                       */
+                      width: `${DEVICE_WIDTH[device]}px`,
+                      maxWidth: "100%",
+                      height: "min(900px, 100%)",
+                      flex: "0 1 auto",
+                    }
+            }
+          >
           <div
             id="wb-preview-root"
             /**
@@ -6328,29 +6387,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               // No border. A hairline around a card that is flush with the
               // chrome is a seam, and at the rounded corner it is the little
               // hook of grey that kept showing up there.
-              "relative isolate bg-white transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
               // Leaving for the code fades rather than cuts: `invisible`
               // removed the site between one frame and the next, which is the
               // flash you see as the code arrives. Opacity keeps the scroll
-              // position and hands over on the same curve.
-              previewMode === "code" && "opacity-0 pointer-events-none",
-              isMobileView
-                ? "w-full border-0 rounded-none"
-                : device === "desktop"
-                  ? "rounded-tl-xl w-full"
-                  : "rounded-2xl",
+              // position and hands over on the same curve — it is on the
+              // wrapper now, so the card fades as one piece.
+              //
+              // No border. A hairline around a card that is flush with the
+              // chrome is a seam, and at the rounded corner it is the little
+              // hook of grey that kept showing up there. The rounding itself
+              // is the wrapper's; this box is square and simply fills it.
+              "relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full",
             )}
             style={
               isMobileView
                 ? {
-                    // Real phone — the preview is exactly the room between
-                    // the bar above and the sheet below, both of which have
-                    // already taken their share. No `100svh` here: on a
-                    // native webview that unit and the box the editor was
-                    // actually given are not always the same number, and the
-                    // difference is a gap of black.
-                    width: "100%",
-                    height: "100%",
                     // The card is the scroller. Say so to the browser: a
                     // vertical drag here is a scroll and nothing else, and a
                     // scroll that reaches the end stays in the card rather
@@ -6360,34 +6411,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     overscrollBehavior: "contain",
                     WebkitOverflowScrolling: "touch",
                   }
-                : device === "desktop"
-                  ? {
-                      // Desktop — the card IS the canvas, edge to edge, and
-                      // scrolls internally. 100% of `main`, which is already
-                      // flex-1 of a viewport-height column, so it is the same
-                      // number as subtracting the bar from the viewport
-                      // without depending on 100svh to agree with the box the
-                      // webview actually handed us.
-                      height: "100%",
-                    }
-                  : {
-                      /**
-                       * A device-shaped card at the device's real width. The
-                       * sections inside measure THIS, so the width is the
-                       * whole preview — not a frame drawn around a desktop
-                       * layout.
-                       *
-                       * `maxWidth: 100%` so a narrow canvas — sidebar open,
-                       * AI panel open, laptop screen — shrinks the tablet
-                       * card instead of letting it overflow and clip. The
-                       * layout it shows is then honest about the width it
-                       * actually got.
-                       */
-                      width: `${DEVICE_WIDTH[device]}px`,
-                      maxWidth: "100%",
-                      height: "min(900px, 100%)",
-                      flex: "0 1 auto",
-                    }
+                : undefined
             }
           >
             {/* Inner wrapper — used to be the scroll container; now just
@@ -6520,6 +6544,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </ThemePage>
             )}
             </div>
+          </div>
+          {/* end of the rounded clipping wrapper */}
           </div>
           {/* The selected section's own toolbar, over the canvas. Only with
               the inspector on: with it off the canvas is a plain preview and
