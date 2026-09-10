@@ -5399,7 +5399,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   return (
     <div
       className={cn(
-        "h-svh flex flex-col bg-muted/30 overflow-hidden wb-editor-enter",
+        "wb-editor h-svh flex flex-col bg-muted/30 overflow-hidden wb-editor-enter",
         // Leaving fades the editor while the next page is fetched, so the
         // hand-off is a dissolve rather than a hard cut when it lands.
         leaving && "wb-editor-leaving",
@@ -5409,7 +5409,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       {/* Dark, like the reference: the bar is chrome, and chrome that is the
           same colour as the page it frames is chrome you keep mistaking for
           the page. Everything on it is white-on-dark from here down. */}
-      <header className="relative h-12 bg-[#171717] text-white border-b border-white/10 flex items-center px-3 md:px-4 gap-2 shrink-0 z-50">
+      <header className="wb-editor-topbar relative bg-[#171717] text-white border-b border-white/10 flex items-center px-3 md:px-4 gap-2 shrink-0 z-50">
         {/* LEFT: Exit + sidebar mode toggles (desktop only) */}
         <div className="flex items-center gap-1.5 min-w-0">
           {/* Exit button — X on mobile (Shopify-style editor close), back arrow on desktop */}
@@ -5853,6 +5853,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           "fixed top-0 left-0 right-0 z-[100] flex justify-center pointer-events-none transition-all duration-300 ease-out",
           notification ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"
         )}
+        // Same inset as the bar it appears under. Without it the toast is
+        // one more thing rendered behind the status bar on a phone.
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <div
           className={cn(
@@ -6076,10 +6079,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             style={
               isMobileView
                 ? {
-                    // Real phone — preview fills the space between the top bar
-                    // (48px) and the always-visible bottom-sheet peek (72px).
+                    // Real phone — preview fills the space between the top
+                    // bar and the always-visible sheet peek. Both come from
+                    // the editor's own custom properties, so the status-bar
+                    // inset is counted here as well as up there.
                     width: "100%",
-                    height: "calc(100svh - 48px - 72px)",
+                    height: "calc(100svh - var(--wb-chrome-top) - var(--wb-sheet-peek))",
                     // The card is the scroller. Say so to the browser: a
                     // vertical drag here is a scroll and nothing else, and a
                     // scroll that reaches the end stays in the card rather
@@ -6092,7 +6097,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 : device === "desktop"
                   ? {
                       // Desktop — card fills the canvas area and scrolls internally.
-                      height: "calc(100svh - 48px - 16px)",
+                      height: "calc(100svh - var(--wb-chrome-top) - 16px)",
                     }
                   : {
                       /**
@@ -6109,7 +6114,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                        */
                       width: `${DEVICE_WIDTH[device]}px`,
                       maxWidth: "100%",
-                      height: "min(900px, calc(100vh - 96px))",
+                      height: "min(900px, calc(100svh - var(--wb-chrome-top) - 48px))",
                       flex: "0 1 auto",
                     }
             }

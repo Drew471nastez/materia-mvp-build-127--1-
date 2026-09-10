@@ -142,6 +142,17 @@ export function MobileEditorSheet({
   /** Pixels of a bottom-pinned element the browser's own bar sits over. */
   const [chromeGap, setChromeGap] = React.useState(0)
   /**
+   * The home indicator, added to the peek rather than subtracted from it.
+   *
+   * The peek is how much of the sheet stays on screen when it is closed, and
+   * the sheet pads its own content clear of the home bar — so a bare 72px
+   * peek on a phone with a 34pt indicator left 38px of tab row showing, half
+   * a control. Grown by the inset, what stays visible is 72px of sheet in
+   * both places. The editor's canvas subtracts `--wb-sheet-peek`, which is
+   * this same sum in CSS, so the two agree on where the canvas ends.
+   */
+  const [peekInset, setPeekInset] = React.useState(0)
+  /**
    * ANCHORED BY `bottom: 0`, AND THIS IS DELIBERATE.
    *
    * An earlier attempt placed the sheet by `top`, computed as
@@ -184,6 +195,15 @@ export function MobileEditorSheet({
     const vv = window.visualViewport
     const update = () => {
       setViewport(Math.round(vv?.height ?? window.innerHeight))
+      /**
+       * The toolbar gap is measured here and the home indicator is NOT, and
+       * the difference matters: `visualViewport.scroll` fires on every frame
+       * of a scroll on iOS, and each probe appends an element and reads its
+       * box, which forces a layout. A collapsing toolbar genuinely changes
+       * mid-scroll so it has to be re-read; a home indicator only changes on
+       * rotation, so paying for it per frame buys nothing. It gets its own
+       * listeners below.
+       */
       setChromeGap(browserChromeGap())
     }
     update()
@@ -202,7 +222,22 @@ export function MobileEditorSheet({
     }
   }, [])
 
-  const natural = offsetsFor({ viewport, detents: stops, peekHeight }).height
+  // The home indicator, on the only two events that can change it.
+  React.useEffect(() => {
+    const measure = () => setPeekInset(safeAreaBottom())
+    measure()
+    window.addEventListener("resize", measure)
+    window.addEventListener("orientationchange", measure)
+    return () => {
+      window.removeEventListener("resize", measure)
+      window.removeEventListener("orientationchange", measure)
+    }
+  }, [])
+
+  // A sheet with no peek has nothing to grow: `peekHeight={0}` still means
+  // gone, not "gone except for the home indicator".
+  const peek = peekHeight > 0 ? peekHeight + peekInset : 0
+  const natural = offsetsFor({ viewport, detents: stops, peekHeight: peek }).height
   const height = fit && contentHeight > 0 ? Math.min(contentHeight, Math.round(viewport * tallest)) : natural
 
   /**
@@ -221,9 +256,9 @@ export function MobileEditorSheet({
     () =>
       fit && contentHeight > 0
         ? // One stop — the content's own height — and the closed position.
-          [0, Math.max(height - peekHeight, 0)]
-        : offsetsFor({ viewport, detents: stops, peekHeight }).offsets,
-    [stops, viewport, peekHeight, fit, contentHeight, height],
+          [0, Math.max(height - peek, 0)]
+        : offsetsFor({ viewport, detents: stops, peekHeight: peek }).offsets,
+    [stops, viewport, peek, fit, contentHeight, height],
   )
 
   const closedY = offsets[offsets.length - 1]

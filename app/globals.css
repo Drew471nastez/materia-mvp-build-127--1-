@@ -2214,3 +2214,43 @@ picture {
   .wb-editor-enter { animation: none; }
   .wb-editor-leaving { transition: none; }
 }
+
+/* ── The website-builder editor's geometry ───────────────────────────────
+   The editor is the one screen in the app that is entirely its own chrome:
+   no app header, no sidebar, a bar of its own at the top and a sheet of its
+   own at the bottom. In a browser that bar sits at y=0 and everything is
+   fine.
+
+   Inside Capacitor it is not fine. The webview is viewport-fit:cover, so
+   y=0 is UNDER the status bar and the Dynamic Island — and a 48px bar
+   beneath a 59pt inset is a bar nobody can see. That is exactly what
+   shipped: the editor's whole top row, Back and Publish included, was
+   behind the clock, and the first 11pt of the preview under it as well.
+
+   Every height in the editor derives from the three values below, so the
+   inset is added in ONE place and the canvas can never drift out of step
+   with the bar above it. In a browser every env() is 0 and not a pixel
+   moves. On Android the insets are 0 until the app goes edge-to-edge, and
+   real the moment it does — no branch either way. */
+.wb-editor {
+  --wb-safe-top: env(safe-area-inset-top, 0px);
+  --wb-safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* The bar's own height, before any inset. */
+  --wb-topbar: 48px;
+  /* What the bar actually occupies: itself plus the strip above it. */
+  --wb-chrome-top: calc(var(--wb-topbar) + var(--wb-safe-top));
+  /* The always-visible peek of the sections sheet, clear of the home bar.
+     MobileEditorSheet measures the same inset in JS and adds it to its own
+     peek, so the number the canvas subtracts and the number the sheet
+     leaves showing are the same number. */
+  --wb-sheet-peek: calc(72px + var(--wb-safe-bottom));
+}
+
+/* The bar itself. Padded down out of the inset rather than moved, so its
+   background still paints the strip behind the status bar — a bar that
+   started below the inset would leave the page's own colour up there,
+   which on a dark editor reads as a white notch. */
+.wb-editor-topbar {
+  height: var(--wb-chrome-top);
+  padding-top: var(--wb-safe-top);
+}
