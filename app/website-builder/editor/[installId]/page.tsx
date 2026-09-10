@@ -6215,17 +6215,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             isMobileView
               ? "items-start p-0"
               /**
-               * A MAT, AND A CARD ROUNDED ON IT.
+               * NO MAT, AND ONE ROUNDED CORNER.
                *
-               * A rounded corner is only a corner if something different is
-               * behind it. Flush against white chrome the radius had nothing
-               * to arc over and read as a dent; on a near-white surround it
-               * read as a stray line. The answer was never which shade to
-               * put behind the arc — it was that the card needs room to be a
-               * card. Eight pixels of the bar's own dark on every side, and
-               * the corner is a corner.
+               * The card is flush on every side. The only radius is the top
+               * left, where the sidebar and the bar meet it, and the sliver
+               * of canvas that shows through that arc is the bar's own dark —
+               * so the corner reads as the chrome curving into the page
+               * rather than as a gap around it. That is the reference: no
+               * surround, one corner, the dark behind it belonging to the
+               * chrome it continues.
                */
-              : device === "desktop" ? "items-stretch p-2" : "items-center py-6 px-6",
+              : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
           )}
           /**
            * The sheet is pinned to the viewport, so the canvas keeps its peek
@@ -6284,7 +6284,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full border-0 rounded-none"
                 : device === "desktop"
-                  ? "rounded-xl w-full"
+                  ? "rounded-tl-xl w-full"
                   : "rounded-2xl",
             )}
             style={

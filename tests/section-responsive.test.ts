@@ -635,7 +635,7 @@ check(
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-2 z-\[80\] flex flex-col rounded-xl/.test(modeSwitch) &&
+    /absolute inset-0 z-\[80\] flex flex-col rounded-tl-xl/.test(modeSwitch) &&
     // A black panel inside a white builder is a second product bolted on.
     /"overflow-hidden bg-white"/.test(modeSwitch) &&
     !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
@@ -732,19 +732,18 @@ check(
 )
 
 check(
-  "the preview card is a rounded card on a dark mat, which is the only way a corner is a corner",
+  "the preview card is flush with one rounded corner, the chrome's own dark showing through the arc",
   /**
-   * A rounded corner is only a corner if something different is behind it.
-   * Flush against white chrome the radius had nothing to arc over and read as
-   * a dent; on a near-white surround it read as a stray line. The answer was
-   * never which shade to put behind the arc — the card needs room to be a
-   * card.
+   * No surround. The only radius is the top left, where the sidebar and the
+   * bar meet it, and the sliver of canvas behind that arc is the bar's own
+   * dark — so the corner reads as chrome curving into the page rather than
+   * as a gap around it.
    */
-  /device === "desktop" \? "items-stretch p-2"/.test(editor) &&
-    /\? "rounded-xl w-full"/.test(editor) &&
+  /device === "desktop" \? "items-stretch p-0"/.test(editor) &&
+    /\? "rounded-tl-xl w-full"/.test(editor) &&
     /isMobileView \? "bg-background" : "bg-\[#171717\]"/.test(editor) &&
     /height: "100%"/.test(editor) &&
-    // and no hairline: the mat is the edge, a border would be a second one
+    // and no hairline: a border beside chrome is a seam
     !/bg-white border border-neutral-200\/70/.test(editor),
 )
 
@@ -1563,9 +1562,20 @@ check(
 )
 
 check(
-  "leaving the builder morphs into a blur rather than landing on one",
-  /@keyframes wb-leaving-in \{[\s\S]{0,400}backdrop-filter: blur\(0px\)[\s\S]{0,400}backdrop-filter: blur\(14px\)/.test(css) &&
-    /prefers-reduced-motion: reduce\) \{\s*\.wb-leaving \{/.test(css),
+  "leaving the builder actually blurs, because the blur is declared rather than animated",
+  /**
+   * It was in the keyframe alone, interpolating from blur(0) to blur(14px) —
+   * and `backdrop-filter` is not reliably animatable: a browser that declines
+   * renders no filter for the whole animation, and with the property declared
+   * nowhere else there was nothing to fall back to. That is why leaving had
+   * no blur at all. Declared on the element it always applies, and fading the
+   * element in brings the blur and the dimming together.
+   */
+  /\n\s*backdrop-filter: blur\(18px\) saturate\(1\.05\) brightness\(0\.82\);/.test(css) &&
+    /-webkit-backdrop-filter: blur\(18px\) saturate\(1\.05\) brightness\(0\.82\);/.test(css) &&
+    /@keyframes wb-leaving-in \{\s*from \{ opacity: 0 \}\s*to \{ opacity: 1 \}\s*\}/.test(css) &&
+    !/backdrop-filter: blur\(0px\)/.test(css) &&
+    /prefers-reduced-motion: reduce\) \{\s*\.wb-leaving \{ animation: none \}/.test(css),
 )
 
 check(
@@ -1606,6 +1616,24 @@ check(
   /\.wb-code,\s*\n\s*\.wb-code \* \{\s*transition:\s*background-color 200ms ease/.test(css) &&
     /\.wb-code textarea,[\s\S]{0,80}transition: none/.test(css) &&
     /prefers-reduced-motion: reduce\) \{\s*\.wb-code,/.test(css),
+)
+
+
+check(
+  "every icon on the code bar says what it is, in the app's own tooltip",
+  /**
+   * A native `title` waits a second and a half, arrives as an OS box in the
+   * OS's own font, and cannot be styled or timed. On a row of unlabelled
+   * icons that is the difference between a control you can identify and one
+   * you have to click to find out.
+   */
+  /function BarTip\(\{ label, children \}/.test(codePageSrc) &&
+    /<Tooltip delayDuration=\{300\}>/.test(codePageSrc) &&
+    (codePageSrc.match(/<BarTip label=/g) ?? []).length >= 5 &&
+    // and the disabled Save still explains itself: Radix cannot hear a
+    // pointer over a disabled button, so the trigger wraps a span that can
+    /<TooltipTrigger asChild>\s*<span className="inline-flex">/.test(codePageSrc) &&
+    !/title="Copy file content"|title="Download this file"/.test(codePageSrc),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

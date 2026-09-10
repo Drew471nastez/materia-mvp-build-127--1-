@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
 import { BuilderLoader } from "@/components/website-builder/builder-loader"
@@ -8,6 +9,7 @@ import {
   ArrowLeft, Save, Loader2, File, Folder, FolderOpen, ChevronRight, X, AlertCircle, Check, RotateCcw, Code2, RefreshCw, Search, Copy, Download, Sun, Moon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { ThemeInstall, ThemeFileNode } from "@/lib/website-builder/types"
 import { buildThemeFileTree, flattenTree } from "@/lib/website-builder/theme-file-tree"
@@ -133,6 +135,26 @@ function CodeLine({ line, lineNumber }: { line: string; lineNumber: number }) {
  * light surface now, but the lesson stands: one string, stated for the
  * surface it is on, beats a variant that assumes a different one.
  */
+/**
+ * One tooltip, stated once. Opens after 300ms rather than the browser's
+ * second and a half, and a disabled control still gets one — Radix will not
+ * hear a pointer over a disabled button, so the trigger wraps a span that
+ * can. Without that, "Saved" is the one control on the bar that explains
+ * nothing, and it is the one people ask about.
+ */
+function BarTip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Tooltip delayDuration={300}>
+      <TooltipTrigger asChild>
+        <span className="inline-flex">{children}</span>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={6}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 const CODE_BAR_ICON_BUTTON =
   "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--code-muted)] " +
   "transition-[background-color,color,transform] duration-150 " +
@@ -674,57 +696,69 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                 it stands: state the colours for the surface you are on rather
                 than borrow a variant that assumes a different one.
               */}
-              <button
-                type="button"
-                onClick={toggleCodeTheme}
-                aria-label={codeTheme === "dark" ? "Switch to the light editor" : "Switch to the dark editor"}
-                title={codeTheme === "dark" ? "Light editor" : "Dark editor"}
-                className={CODE_BAR_ICON_BUTTON}
-              >
-                {codeTheme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-              </button>
-              <button
-                type="button"
-                onClick={() => void copyFile()}
-                aria-label="Copy file content"
-                title="Copy file content"
-                className={CODE_BAR_ICON_BUTTON}
-              >
-                {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-              </button>
-              <button
-                type="button"
-                onClick={downloadFile}
-                aria-label="Download this file"
-                title="Download this file"
-                className={CODE_BAR_ICON_BUTTON}
-              >
-                <Download className="h-3.5 w-3.5" />
-              </button>
-              {customizedPaths.has(selectedFile.path) && (
+              {/* The app's own tooltip, not the browser's `title`. A native
+                  tooltip waits a second and a half, arrives as an OS box in
+                  the OS's own font, and cannot be styled or timed — on a row
+                  of unlabelled icons that is the difference between a control
+                  you can identify and one you have to click to find out. */}
+              <BarTip label={codeTheme === "dark" ? "Light editor" : "Dark editor"}>
                 <button
                   type="button"
-                  onClick={revertFile}
-                  className={cn(CODE_BAR_ICON_BUTTON, "w-auto gap-1.5 px-2.5 text-[12px]")}
+                  onClick={toggleCodeTheme}
+                  aria-label={codeTheme === "dark" ? "Switch to the light editor" : "Switch to the dark editor"}
+                  className={CODE_BAR_ICON_BUTTON}
                 >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Revert</span>
+                  {codeTheme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
                 </button>
+              </BarTip>
+              <BarTip label={copied ? "Copied" : "Copy file content"}>
+                <button
+                  type="button"
+                  onClick={() => void copyFile()}
+                  aria-label="Copy file content"
+                  className={CODE_BAR_ICON_BUTTON}
+                >
+                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </BarTip>
+              <BarTip label="Download this file">
+                <button
+                  type="button"
+                  onClick={downloadFile}
+                  aria-label="Download this file"
+                  className={CODE_BAR_ICON_BUTTON}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                </button>
+              </BarTip>
+              {customizedPaths.has(selectedFile.path) && (
+                <BarTip label="Put this file back to the theme's original">
+                  <button
+                    type="button"
+                    onClick={revertFile}
+                    className={cn(CODE_BAR_ICON_BUTTON, "w-auto gap-1.5 px-2.5 text-[12px]")}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Revert</span>
+                  </button>
+                </BarTip>
               )}
-              <Button
-                size="sm"
-                onClick={saveFile}
-                disabled={saving || !isDirty}
-                className={cn(
-                  "h-8 shrink-0 gap-1.5 px-3 text-[12px]",
-                  isDirty
-                    ? "bg-[#8B56FA] hover:bg-[#7b46ec] text-white"
-                    : "bg-[var(--code-hover)] text-[var(--code-muted)] cursor-default",
-                )}
-              >
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                {isDirty ? "Save" : "Saved"}
-              </Button>
+              <BarTip label={isDirty ? "Save this file" : "No changes to save"}>
+                <Button
+                  size="sm"
+                  onClick={saveFile}
+                  disabled={saving || !isDirty}
+                  className={cn(
+                    "h-8 shrink-0 gap-1.5 px-3 text-[12px]",
+                    isDirty
+                      ? "bg-[#8B56FA] hover:bg-[#7b46ec] text-white"
+                      : "bg-[var(--code-hover)] text-[var(--code-muted)] cursor-default",
+                  )}
+                >
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  {isDirty ? "Save" : "Saved"}
+                </Button>
+              </BarTip>
             </div>
           )}
 
