@@ -2,11 +2,10 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
+import { BuilderLoader } from "@/components/website-builder/builder-loader"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Save, Loader2, File, Folder, FolderOpen,
-  ChevronRight, X, AlertCircle, Check, RotateCcw, Code2,
-  RefreshCw, Search, Copy, Download,
+  ArrowLeft, Save, Loader2, File, Folder, FolderOpen, ChevronRight, X, AlertCircle, Check, RotateCcw, Code2, RefreshCw, Search, Copy, Download, Sun, Moon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -44,7 +43,7 @@ function FileTreeNode({
       <div>
         <button
           className={cn(
-            "w-full flex items-center gap-1 px-2 hover:bg-neutral-100 text-left transition-colors rounded",
+            "w-full flex items-center gap-1 px-2 hover:bg-[var(--code-hover)] text-left transition-colors rounded",
             narrow ? "py-2.5" : "py-1",
           )}
           style={{ paddingLeft: `${8 + depth * 12}px` }}
@@ -55,8 +54,8 @@ function FileTreeNode({
           ) : (
             <Folder className={cn("text-amber-500 shrink-0", narrow ? "h-4 w-4" : "h-3.5 w-3.5")} />
           )}
-          <span className={cn("text-neutral-700", narrow ? "text-[14px]" : "text-[12px]")}>{node.name}</span>
-          <ChevronRight className={cn("h-3 w-3 text-neutral-500 ml-auto transition-transform", isOpen && "rotate-90")} />
+          <span className={cn("text-[var(--code-text)]", narrow ? "text-[14px]" : "text-[12px]")}>{node.name}</span>
+          <ChevronRight className={cn("h-3 w-3 text-[var(--code-muted)] ml-auto transition-transform", isOpen && "rotate-90")} />
         </button>
         {isOpen && node.children?.map(child => (
           <FileTreeNode
@@ -78,15 +77,15 @@ function FileTreeNode({
   return (
     <button
       className={cn(
-        "w-full flex items-center gap-1.5 hover:bg-neutral-100 text-left transition-colors rounded",
+        "w-full flex items-center gap-1.5 hover:bg-[var(--code-hover)] text-left transition-colors rounded",
         narrow ? "py-2.5" : "py-1",
-        isSelected && "bg-neutral-200",
+        isSelected && "bg-[var(--code-active)]",
       )}
       style={{ paddingLeft: `${8 + depth * 12}px` }}
       onClick={() => onSelectFile(node)}
     >
-      <File className={cn("shrink-0", narrow ? "h-4 w-4" : "h-3.5 w-3.5", node.isCustomized ? "text-blue-600" : "text-neutral-500")} />
-      <span className={cn("flex-1 truncate", narrow ? "text-[14px]" : "text-[12px]", isSelected ? "text-neutral-900" : "text-neutral-700")}>
+      <File className={cn("shrink-0", narrow ? "h-4 w-4" : "h-3.5 w-3.5", node.isCustomized ? "text-blue-600" : "text-[var(--code-muted)]")} />
+      <span className={cn("flex-1 truncate", narrow ? "text-[14px]" : "text-[12px]", isSelected ? "text-[var(--code-text)]" : "text-[var(--code-text)]")}>
         {node.name}
       </span>
       {isDirty && <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0 mr-1" />}
@@ -113,11 +112,11 @@ const CODE_TEXT = "text-[16px] leading-6 md:text-[12px] md:leading-5"
 // ── Syntax: very simple line coloring for JSON ────────────────
 function CodeLine({ line, lineNumber }: { line: string; lineNumber: number }) {
   return (
-    <div className="flex hover:bg-neutral-50 group">
-      <span className={cn("w-10 shrink-0 text-right pr-4 text-neutral-400 select-none group-hover:text-neutral-600", CODE_TEXT)}>
+    <div className="flex hover:bg-[var(--code-hover)] group">
+      <span className={cn("w-10 shrink-0 text-right pr-4 text-[var(--code-faint)] select-none group-hover:text-[var(--code-muted)]", CODE_TEXT)}>
         {lineNumber}
       </span>
-      <span className={cn("flex-1 font-mono whitespace-pre text-neutral-800", CODE_TEXT)}>
+      <span className={cn("flex-1 font-mono whitespace-pre text-[var(--code-text)]", CODE_TEXT)}>
         {line}
       </span>
     </div>
@@ -135,10 +134,10 @@ function CodeLine({ line, lineNumber }: { line: string; lineNumber: number }) {
  * surface it is on, beats a variant that assumes a different one.
  */
 const CODE_BAR_ICON_BUTTON =
-  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-500 " +
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--code-muted)] " +
   "transition-[background-color,color,transform] duration-150 " +
-  "hover:bg-neutral-100 hover:text-neutral-900 active:scale-95 " +
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
+  "hover:bg-[var(--code-hover)] hover:text-[var(--code-text)] active:scale-95 " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--code-focus)]"
 
 export default function CodeEditorPage({ params }: { params: Promise<{ installId: string }> }) {
   const { installId } = use(params)
@@ -155,19 +154,48 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
    * gutter in that white. Nothing here scrolls at the document level; the
    * panels scroll themselves.
    */
+  /**
+   * Light or dark, the reader's choice, remembered. Code is the one screen
+   * where the preference is about eye strain over an hour rather than about
+   * matching the app, so it is the editor's own setting and not the app's.
+   */
+  const [codeTheme, setCodeTheme] = useState<"light" | "dark">("light")
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("wb:code-theme")
+      if (saved === "dark" || saved === "light") setCodeTheme(saved)
+    } catch {
+      /* storage blocked: light is the default */
+    }
+  }, [])
+  const toggleCodeTheme = () => {
+    setCodeTheme((t) => {
+      const next = t === "dark" ? "light" : "dark"
+      try {
+        window.localStorage.setItem("wb:code-theme", next)
+      } catch {
+        /* storage blocked: it still applies for this session */
+      }
+      return next
+    })
+  }
+
   useEffect(() => {
     if (!embedded) return
     const html = document.documentElement
     const body = document.body
     const prev = [html.style.overflow, html.style.background, body.style.overflow, body.style.background]
+    // The document behind the editor takes the editor's own background, or
+    // the frame shows a white margin around a dark panel.
+    const surface = codeTheme === "dark" ? "#0e0e0e" : "#ffffff"
     html.style.overflow = "hidden"
-    html.style.background = "#ffffff"
+    html.style.background = surface
     body.style.overflow = "hidden"
-    body.style.background = "#ffffff"
+    body.style.background = surface
     return () => {
       ;[html.style.overflow, html.style.background, body.style.overflow, body.style.background] = prev
     }
-  }, [embedded])
+  }, [embedded, codeTheme])
 
   const [install, setInstall] = useState<ThemeInstall | null>(null)
   const [fileTree, setFileTree] = useState<ThemeFileNode[]>([])
@@ -451,21 +479,27 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
   if (loadingInstall) {
     return (
-      <div className="h-full flex items-center justify-center bg-white">
-        <Loader2 className="h-6 w-6 animate-spin text-neutral-500" />
+      <div
+        className="wb-code h-full flex items-center justify-center bg-[var(--code-bg)]"
+        data-code-theme={codeTheme}
+      >
+        <BuilderLoader tone={codeTheme === "dark" ? "dark" : "light"} lines={["Opening the code", "Reading your theme files"]} />
       </div>
     )
   }
 
   return (
-    <div className="h-full flex flex-col bg-white text-neutral-800 overflow-hidden">
+    <div
+      className="wb-code h-full flex flex-col bg-[var(--code-bg)] text-[var(--code-text)] overflow-hidden"
+      data-code-theme={codeTheme}
+    >
       <FullScreenLock />
       {/* ── Top bar ── */}
       {/* Inside the editor's own frame the bar above is the editor's, and a
           second one saying the same things is a second header. */}
       {!embedded && (
       <header
-        className="h-11 bg-neutral-50 border-b border-neutral-200 flex items-center px-4 gap-3 shrink-0 box-content"
+        className="h-11 bg-[var(--code-panel)] border-b border-[var(--code-border)] flex items-center px-4 gap-3 shrink-0 box-content"
         // Opened on its own rather than inside the editor's frame, this is the
         // topmost bar on the screen — so on a phone it is the one that lands
         // under the status bar. `box-content` so the padding adds to the 44px
@@ -473,17 +507,17 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <button
-          className="flex items-center gap-1.5 text-[13px] text-neutral-500 hover:text-neutral-800 mr-1"
+          className="flex items-center gap-1.5 text-[13px] text-[var(--code-muted)] hover:text-[var(--code-text)] mr-1"
           onClick={() => router.push("/app/website-builder")}
         >
           <ArrowLeft className="h-4 w-4" />
           <span className="hidden sm:inline text-[12px]">Website Builder</span>
         </button>
 
-        <div className="h-4 w-px bg-neutral-200" />
+        <div className="h-4 w-px bg-[var(--code-active)]" />
 
-        <Code2 className="h-4 w-4 text-neutral-500" />
-        <span className="text-[13px] text-neutral-700 font-medium">{install?.name}</span>
+        <Code2 className="h-4 w-4 text-[var(--code-muted)]" />
+        <span className="text-[13px] text-[var(--code-text)] font-medium">{install?.name}</span>
         {install?.status === "published" && (
           <span className="text-[10px] font-bold text-emerald-600 bg-emerald-400/10 px-1.5 py-0.5 rounded uppercase tracking-wide">Live</span>
         )}
@@ -496,39 +530,39 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
         {/* ── File explorer ── */}
         <aside
           className={cn(
-            "bg-neutral-50 flex flex-col overflow-hidden",
+            "bg-[var(--code-panel)] flex flex-col overflow-hidden",
             narrow
               ? showFiles
                 ? "w-full flex-1 min-w-0"
                 : "hidden"
-              : "w-56 shrink-0 border-r border-neutral-200",
+              : "w-56 shrink-0 border-r border-[var(--code-border)]",
           )}
         >
-          <div className="px-3 py-2.5 border-b border-neutral-200 space-y-2">
-            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Explorer</p>
+          <div className="px-3 py-2.5 border-b border-[var(--code-border)] space-y-2">
+            <p className="text-[10px] font-bold text-[var(--code-muted)] uppercase tracking-widest">Explorer</p>
             {/* Sixty-one files. Scrolling for one is not a way to find it. */}
             <div className="relative">
-              <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-neutral-400" />
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--code-faint)]" />
               <input
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="Find a file…"
                 spellCheck={false}
-                className="w-full rounded-md border border-neutral-200 bg-white py-1 pl-7 pr-6 text-[11.5px] text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-neutral-400"
+                className="w-full rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] py-1 pl-7 pr-6 text-[11.5px] text-[var(--code-text)] outline-none placeholder:text-[var(--code-faint)] focus:border-[var(--code-focus)]"
               />
               {filter && (
                 <button
                   type="button"
                   onClick={() => setFilter("")}
                   aria-label="Clear the filter"
-                  className="absolute right-1 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
+                  className="absolute right-1 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded text-[var(--code-muted)] hover:bg-[var(--code-active)] hover:text-[var(--code-text)]"
                 >
                   <X className="h-2.5 w-2.5" />
                 </button>
               )}
             </div>
             {filter.trim() && (
-              <p className="text-[10px] text-neutral-400">
+              <p className="text-[10px] text-[var(--code-faint)]">
                 {flattenTree(visibleTree).length} of {flattenTree(fileTree).length} files
               </p>
             )}
@@ -549,14 +583,14 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
           </div>
 
           {/* Legend */}
-          <div className="px-3 py-2 border-t border-neutral-200 space-y-1">
+          <div className="px-3 py-2 border-t border-[var(--code-border)] space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-600 shrink-0" />
-              <span className="text-[10px] text-neutral-500">Customized</span>
+              <span className="text-[10px] text-[var(--code-muted)]">Customized</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-              <span className="text-[10px] text-neutral-500">Unsaved changes</span>
+              <span className="text-[10px] text-[var(--code-muted)]">Unsaved changes</span>
             </div>
           </div>
         </aside>
@@ -565,7 +599,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
         <div className={cn("flex-1 flex flex-col overflow-hidden min-w-0", narrow && showFiles && "hidden")}>
           {/* Tabs */}
           {openTabs.length > 0 && (
-            <div className="wb-slim-scroll flex items-end bg-neutral-50 border-b border-neutral-200 overflow-x-auto shrink-0">
+            <div className="wb-slim-scroll flex items-end bg-[var(--code-panel)] border-b border-[var(--code-border)] overflow-x-auto shrink-0">
               {openTabs.map(tab => {
                 const isActive = selectedFile?.path === tab.path
                 const isTabDirty = dirtyPaths.has(tab.path)
@@ -573,9 +607,9 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   <button
                     key={tab.path}
                     className={cn(
-                      "flex items-center gap-2 px-3 border-r border-neutral-200 whitespace-nowrap hover:bg-neutral-100 transition-colors relative",
+                      "flex items-center gap-2 px-3 border-r border-[var(--code-border)] whitespace-nowrap hover:bg-[var(--code-hover)] transition-colors relative",
                       narrow ? "py-2.5 text-[13px]" : "py-2 text-[12px]",
-                      isActive ? "bg-white text-neutral-900 border-t-2 border-t-[#8B56FA]" : "text-neutral-500",
+                      isActive ? "bg-[var(--code-bg)] text-[var(--code-text)] border-t-2 border-t-[#8B56FA]" : "text-[var(--code-muted)]",
                     )}
                     onClick={() => openFile(tab)}
                   >
@@ -586,7 +620,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                       role="button"
                       aria-label={`Close ${tab.name}`}
                       className={cn(
-                        "rounded hover:bg-neutral-200 flex items-center justify-center ml-1 shrink-0",
+                        "rounded hover:bg-[var(--code-active)] flex items-center justify-center ml-1 shrink-0",
                         narrow ? "h-7 w-7 -mr-1.5" : "h-4 w-4",
                       )}
                       onClick={e => { e.stopPropagation(); closeTab(tab.path) }}
@@ -605,25 +639,25 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               the theme editor frames this page — which left them unreachable
               exactly where they are needed, since a phone has no Cmd-S. */}
           {selectedFile && (
-            <div className="flex items-center gap-2 border-b border-neutral-100 bg-white px-2 py-1.5 md:px-4">
+            <div className="flex items-center gap-2 border-b border-[var(--code-border)] bg-[var(--code-bg)] px-2 py-1.5 md:px-4">
               {narrow && (
                 <button
                   type="button"
                   onClick={() => setShowFiles(true)}
-                  className="flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-[13px] text-neutral-700 transition-colors hover:bg-neutral-200 hover:text-neutral-900 active:scale-95"
+                  className="flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-[13px] text-[var(--code-text)] transition-colors hover:bg-[var(--code-active)] hover:text-[var(--code-text)] active:scale-95"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Files
                 </button>
               )}
-              <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden text-[11px] text-neutral-500">
+              <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden text-[11px] text-[var(--code-muted)]">
                 {narrow ? (
-                  <span className="truncate text-[12px] text-neutral-700">{selectedFile.name}</span>
+                  <span className="truncate text-[12px] text-[var(--code-text)]">{selectedFile.name}</span>
                 ) : (
                   selectedFile.path.split("/").map((part, i, arr) => (
                     <span key={i} className="flex items-center gap-1">
                       {i > 0 && <ChevronRight className="h-3 w-3 opacity-50" />}
-                      <span className={i === arr.length - 1 ? "text-neutral-700" : ""}>{part}</span>
+                      <span className={i === arr.length - 1 ? "text-[var(--code-text)]" : ""}>{part}</span>
                     </span>
                   ))
                 )}
@@ -640,6 +674,15 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                 it stands: state the colours for the surface you are on rather
                 than borrow a variant that assumes a different one.
               */}
+              <button
+                type="button"
+                onClick={toggleCodeTheme}
+                aria-label={codeTheme === "dark" ? "Switch to the light editor" : "Switch to the dark editor"}
+                title={codeTheme === "dark" ? "Light editor" : "Dark editor"}
+                className={CODE_BAR_ICON_BUTTON}
+              >
+                {codeTheme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              </button>
               <button
                 type="button"
                 onClick={() => void copyFile()}
@@ -676,7 +719,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   "h-8 shrink-0 gap-1.5 px-3 text-[12px]",
                   isDirty
                     ? "bg-[#8B56FA] hover:bg-[#7b46ec] text-white"
-                    : "bg-neutral-100 text-neutral-500 cursor-default",
+                    : "bg-[var(--code-hover)] text-[var(--code-muted)] cursor-default",
                 )}
               >
                 {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
@@ -687,7 +730,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
           {/* Code area */}
           {!selectedFile ? (
-            <div className="flex-1 flex items-center justify-center text-neutral-400">
+            <div className="flex-1 flex items-center justify-center text-[var(--code-faint)]">
               <div className="text-center">
                 <Code2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
                 <p className="text-[14px]">Select a file to start editing</p>
@@ -696,7 +739,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
             </div>
           ) : loadingFile ? (
             <div className="flex-1 flex items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-neutral-500" />
+              <Loader2 className="h-5 w-5 animate-spin text-[var(--code-muted)]" />
             </div>
           ) : (
             <div className="flex-1 overflow-hidden relative">
@@ -704,7 +747,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               <textarea
                 ref={textareaRef}
                 className={cn(
-                  "wb-slim-scroll absolute inset-0 w-full h-full bg-transparent text-transparent caret-neutral-900 font-mono resize-none focus:outline-none px-[2.75rem] py-2 z-10",
+                  "wb-slim-scroll absolute inset-0 w-full h-full bg-transparent text-transparent caret-[var(--code-text)] font-mono resize-none focus:outline-none px-[2.75rem] py-2 z-10",
                   CODE_TEXT,
                 )}
                 value={fileContent}
@@ -738,12 +781,12 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
           )}
 
           {/* Status bar */}
-          <div className="h-6 bg-neutral-50 border-t border-neutral-200 px-4 flex items-center gap-4 shrink-0">
-            <span className="text-[10px] text-neutral-400">
+          <div className="h-6 bg-[var(--code-panel)] border-t border-[var(--code-border)] px-4 flex items-center gap-4 shrink-0">
+            <span className="text-[10px] text-[var(--code-faint)]">
               {selectedFile?.language ?? "—"}
             </span>
             {selectedFile && (
-              <span className="text-[10px] text-neutral-400">
+              <span className="text-[10px] text-[var(--code-faint)]">
                 {lines.length} lines
               </span>
             )}

@@ -711,14 +711,16 @@ check(
 )
 
 check(
-  "the canvas surround is light on a desktop and the sheet's own surface on a phone",
-  // Dark made an inset card read as matted; once the inset went it showed
-  // through the rounded corner as a black wedge against a white sidebar. And
-  // a phone has no inset, so its only dark was the strip reserved for the
-  // sheet's peek, where it read as a black band above the tabs.
+  "the canvas surround is the sidebar's own surface, so the card's corner arcs over nothing",
+  /**
+   * Dark made an inset card read as matted; once the inset went it showed
+   * through the rounded corner as a black wedge against a white sidebar, and
+   * a grey did the same in miniature — the thin line in the corner. Whatever
+   * is behind that arc has to be what is beside it.
+   */
   /"relative flex-1 min-w-0 overflow-hidden flex justify-center"/.test(editor) &&
-    /isMobileView \? "bg-background" : "bg-neutral-100"/.test(editor) &&
-    !/bg-\[#171717\] overflow-hidden flex justify-center/.test(editor),
+    /\n\s*"bg-background",/.test(editor) &&
+    !/bg-\[#171717\] overflow-hidden|bg-neutral-100 overflow-hidden/.test(editor),
 )
 
 check(
@@ -1291,12 +1293,16 @@ section("The code editor: its document is dark and still, and a file can leave")
 // ===========================================================================
 
 check(
-  "framed, the code page's own document does not scroll, and the whole editor is a light surface",
+  "framed, the code page's own document does not scroll, and its surface is a theme the reader picks",
+  // And its surface is named once rather than written out twenty times, or a
+  // second theme means twenty conditionals and the nineteenth is forgotten.
   /html\.style\.overflow = "hidden"/.test(codePage) &&
-    /body\.style\.background = "#ffffff"/.test(codePage) &&
-    /\}, \[embedded\]\)/.test(codePage) &&
-    // no black panels left anywhere in it
-    !/bg-\[#0e0e0e\]|bg-\[#141414\]|border-white\/|text-neutral-200/.test(codePage),
+    /const surface = codeTheme === "dark" \? "#0e0e0e" : "#ffffff"/.test(codePage) &&
+    /\}, \[embedded, codeTheme\]\)/.test(codePage) &&
+    /data-code-theme=\{codeTheme\}/.test(codePage) &&
+    /\.wb-code \{[\s\S]{0,400}--code-bg: #ffffff/.test(css) &&
+    /\.wb-code\[data-code-theme="dark"\] \{[\s\S]{0,400}--code-bg: #0e0e0e/.test(css) &&
+    !/bg-\[#0e0e0e\]|bg-\[#141414\]|border-white\//.test(codePage),
 )
 
 check(
@@ -1344,17 +1350,16 @@ check(
 )
 
 check(
-  "the drag handle is a move arrow that appears on hover, and only the handle offers to be grabbed",
-  // Two dots in a column are a convention somebody has to already know; the
-  // four-headed arrow is the cursor every desktop shows over a draggable.
-  // But a column of them down a resting list is eight pieces of furniture
-  // for one occasional job, and a grab cursor over the whole row promises a
-  // drag the row does not accept.
-  /<Move\s*\n\s*className=/.test(editor) &&
-    /opacity-0 transition-opacity duration-150 group-hover:opacity-70/.test(editor) &&
+  "the grip and the menu are drawn at rest, in targets a finger can hit, and only the grip offers a grab",
+  // A control that only exists under the pointer is a control you have to
+  // discover; a list that looks reorderable at rest is one you know is. But
+  // a grab cursor over the whole row still promises a drag the row does not
+  // accept, so that stays on the handle.
+  /<GripVertical\s*\n\s*className=\{cn\("h-4 w-4 transition-opacity"/.test(editor) &&
     /aria-label=\{`Drag \$\{section\.name\} to reorder`\}/.test(editor) &&
     /flex h-7 w-7 shrink-0 items-center justify-center rounded-md touch-none/.test(editor) &&
     /cursor-grab active:cursor-grabbing/.test(editor) &&
+    /isSelected \|\| contextMenuOpen \? "opacity-100" : "opacity-40 group-hover:opacity-100"/.test(editor) &&
     !/!isStructure && "hover:cursor-grab"/.test(editor),
 )
 
@@ -1522,12 +1527,58 @@ check(
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
     return (
-      /hover:bg-neutral-100 hover:text-neutral-900/.test(code) &&
+      /hover:bg-\[var\(--code-hover\)\] hover:text-\[var\(--code-text\)\]/.test(code) &&
       !/variant="ghost"/.test(code) &&
-      // and the whole editor is that light surface
+      // and every surface in it is asked for by name, so both themes get it
       !/bg-\[#0e0e0e\]|bg-\[#141414\]|border-white\//.test(code)
     )
   })(),
+)
+
+
+// ===========================================================================
+section("Waiting: nine squares, words that change, and a code pane already warm")
+// ===========================================================================
+
+const loaderSrc = readFileSync(join(root, "components/website-builder/builder-loader.tsx"), "utf8")
+
+check(
+  "the builder waits behind nine staggered squares and a line of text, not a bar with nothing under it",
+  // A bar says something is happening and nothing about what, and on a slow
+  // connection that silence is what makes a wait feel broken.
+  /\.wb-squares span \{[\s\S]{0,300}animation: wb-squares-fade 675ms ease-in-out infinite alternate/.test(css) &&
+    /animation-delay: 600ms/.test(css) &&
+    /<BuilderLoader/.test(editor) &&
+    /lines=\{\["Leaving the builder", "Saving where you were", "Almost there"\]\}/.test(editor) &&
+    /"Loading the editor", "Fetching your sections", "Just a moment"/.test(editor),
+)
+
+check(
+  "the lines advance and then stop, rather than looping",
+  // A message that comes back round says the work started over.
+  /setIndex\(\(i\) => \(i >= lines\.length - 1 \? i : i \+ 1\)\)/.test(loaderSrc) &&
+    // keyed by the text, so the fade runs on every change and not just once
+    /key=\{line\}/.test(loaderSrc),
+)
+
+check(
+  "leaving the builder morphs into a blur rather than landing on one",
+  /@keyframes wb-leaving-in \{[\s\S]{0,400}backdrop-filter: blur\(0px\)[\s\S]{0,400}backdrop-filter: blur\(14px\)/.test(css) &&
+    /prefers-reduced-motion: reduce\) \{\s*\.wb-leaving \{/.test(css),
+)
+
+check(
+  "the code pane is warmed while the browser is idle, and never on a phone",
+  /**
+   * Fetching a whole page in a frame at the moment somebody presses Code is a
+   * second of empty card every time. Mounting it WITH the editor would make
+   * it compete for bandwidth with the thing being looked at, so it waits for
+   * idle — and not at all on a phone, where the code is its own screen and a
+   * frame nobody asked for is a page load on a mobile connection.
+   */
+  /if \(everShown \|\| fullScreen\) return/.test(modeSwitch) &&
+    /requestIdleCallback/.test(modeSwitch) &&
+    /window\.setTimeout\(warm, 1500\)/.test(modeSwitch),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

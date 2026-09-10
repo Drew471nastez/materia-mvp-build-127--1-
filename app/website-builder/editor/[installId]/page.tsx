@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, Move, ArrowUp, ArrowDown,
+  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, ArrowUp, ArrowDown,
 } from "lucide-react"
 import {
   DndContext,
@@ -33,6 +33,7 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
+import { BuilderLoader } from "@/components/website-builder/builder-loader"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -5976,10 +5977,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           that render into the body. From in here it could not. */}
       {leaving && portalReady && createPortal(
         <div className="wb-leaving" role="status" aria-live="polite" aria-label="Going back">
-          <div className="flex flex-col items-center gap-3">
-            <div className="wb-leaving-bar" />
-            <span className="text-[13px] text-white/70">Going back</span>
-          </div>
+          <BuilderLoader
+            tone="light"
+            lines={["Leaving the builder", "Saving where you were", "Almost there"]}
+          />
         </div>,
         document.body,
       )}
@@ -6192,7 +6193,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * surface, so even if the reservation and the sheet differ by a
              * pixel the seam is invisible rather than black.
              */
-            isMobileView ? "bg-background" : "bg-neutral-100",
+            // The sidebar's own surface on both. Anything else — dark, or a
+            // shade of grey — is what the card's rounded corner arcs over,
+            // and that arc against a white sidebar is the line in the corner.
+            // Matching it means the corner rounds into the chrome instead of
+            // cutting a notch out of it.
+            "bg-background",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6326,10 +6332,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <div>
                 <div className="h-14 bg-neutral-100/60 animate-pulse" />
                 <div className="h-[50vh] flex items-center justify-center bg-neutral-50/40">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="h-7 w-7 border-2 border-neutral-300/60 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-xs text-neutral-400">Loading page...</p>
-                  </div>
+                  <BuilderLoader
+                    tone="light"
+                    lines={
+                      loading
+                        ? ["Loading the editor", "Fetching your sections", "Just a moment"]
+                        : ["Loading the page", "Just a moment"]
+                    }
+                  />
                 </div>
                 <div className="h-20 bg-neutral-100/40 animate-pulse" style={{ animationDelay: "200ms" }} />
               </div>
@@ -6804,14 +6814,12 @@ function SidebarSectionRow({
       >
         {!isStructure && (
           /**
-           * A MOVE ARROW, NOT A GRIP.
-           *
-           * Two dots in a column are a convention somebody has to already
-           * know; the four-headed arrow is the cursor every desktop shows
-           * over something draggable, so drawing it says what the cursor is
-           * about to say. The target is a whole 28px square rather than the
-           * 14px glyph, because a handle you have to aim at is a handle
-           * people give up on.
+           * The grip, always drawn. A handle that only appears under the
+           * pointer is a handle nobody knows is there until they happen to
+           * pass over it, and the whole point of a grip is that the list
+           * looks reorderable at rest. The target is a 28px square rather
+           * than the 14px glyph, because a handle you have to aim at is a
+           * handle people give up on, and the grab cursor lives on it alone.
            */
           <span
             {...(dragHandleProps ?? {})}
@@ -6823,14 +6831,8 @@ function SidebarSectionRow({
             )}
             onClick={e => e.stopPropagation()}
           >
-            {/* Drawn only once the row is under the pointer. A column of
-                move arrows down a resting list is eight pieces of furniture
-                for one occasional job. */}
-            <Move
-              className={cn(
-                "h-4 w-4 opacity-0 transition-opacity duration-150 group-hover:opacity-70 group-focus-within:opacity-70",
-                isSelected && "group-hover:opacity-100",
-              )}
+            <GripVertical
+              className={cn("h-4 w-4 transition-opacity", isSelected ? "opacity-70" : "opacity-40 group-hover:opacity-70")}
               strokeWidth={1.75}
             />
           </span>
@@ -6874,8 +6876,9 @@ function SidebarSectionRow({
                 aria-label={`Options for ${section.name}`}
                 className={cn(
                   "h-6 w-6 shrink-0 rounded-md flex items-center justify-center transition-[opacity,background-color] duration-150",
-                  "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-                  (isSelected || contextMenuOpen) && "opacity-100",
+                  // Drawn at rest, like the grip. A row whose controls only
+                  // exist under the pointer is a row you have to discover.
+                  isSelected || contextMenuOpen ? "opacity-100" : "opacity-40 group-hover:opacity-100",
                   isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10",
                 )}
                 onClick={e => e.stopPropagation()}

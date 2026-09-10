@@ -170,6 +170,33 @@ export function CodePane({
   const [loaded, setLoaded] = useState(false)
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
+
+  /**
+   * WARMED, NOT LOADED ON DEMAND.
+   *
+   * The code editor is a whole page in a frame: fetching it at the moment
+   * somebody presses Code means a second of empty card every time. So it is
+   * mounted ahead of being asked for — but NOT with the editor, which would
+   * make it compete for bandwidth and main thread with the thing somebody is
+   * actually looking at. It waits for the browser to be idle, and falls back
+   * to a second and a half where `requestIdleCallback` does not exist.
+   *
+   * Off on a phone: a frame nobody has asked for is a page load on a mobile
+   * connection, and the code opens as its own screen there anyway.
+   */
+  useEffect(() => {
+    if (everShown || fullScreen) return
+    const warm = () => setEverShown(true)
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number })
+      .requestIdleCallback
+    if (ric) {
+      const id = ric(warm, { timeout: 4000 })
+      return () => (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback?.(id)
+    }
+    const id = window.setTimeout(warm, 1500)
+    return () => window.clearTimeout(id)
+  }, [everShown, fullScreen])
+
   useEffect(() => {
     if (visible) setEverShown(true)
   }, [visible])
