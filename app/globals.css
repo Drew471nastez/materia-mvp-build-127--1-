@@ -2377,6 +2377,120 @@ picture {
   .wb-editor-leaving { transition: none; }
 }
 
+/* ── Light chrome, for the phone ──
+   The same bar in the app's light surface: near-black text on white, the
+   hairline the rest of /app uses. The purple actions keep their own colours,
+   since they never read these. */
+.wb-editor.wb-chrome-light {
+  --wb-chrome-bg: #ffffff;
+  --wb-chrome-fg: #1a1a2e;
+  --wb-chrome-fg-2: rgba(26, 26, 46, 0.82);
+  --wb-chrome-fg-3: rgba(26, 26, 46, 0.62);
+  --wb-chrome-hover: rgba(26, 26, 46, 0.06);
+  --wb-chrome-active: rgba(26, 26, 46, 0.1);
+  --wb-chrome-line: #e5e7eb;
+}
+/* The bar's tiles in the light: the same depth recipe on a light surface,
+   a shadow under rather than a highlight on top. Unlayered, like the dark
+   rules they replace, and later in the file, so they win at equal weight. */
+.wb-editor.wb-chrome-light .wb-depth,
+.wb-editor.wb-chrome-light .wb-ai-button {
+  background: #f3f4f6;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 1px 2px rgba(26, 26, 46, 0.08),
+    0 4px 10px -6px rgba(26, 26, 46, 0.18);
+}
+.wb-editor.wb-chrome-light .wb-depth:hover:not(:disabled) { background: #e9eaee; }
+.wb-editor.wb-chrome-light .wb-depth:active:not(:disabled) {
+  background: #e3e4e9;
+  box-shadow: 0 1px 2px rgba(26, 26, 46, 0.12) inset;
+}
+.wb-editor.wb-chrome-light .wb-ai-button-open {
+  background: #ece9fb;
+  box-shadow:
+    0 0 0 1px rgba(139, 86, 250, 0.45),
+    0 1px 2px rgba(26, 26, 46, 0.08);
+}
+.wb-editor.wb-chrome-light .wb-inspector-on {
+  color: #6d3ff0;
+  box-shadow:
+    0 0 0 1px rgba(139, 86, 250, 0.55),
+    0 0 14px -2px rgba(139, 86, 250, 0.45),
+    0 1px 2px rgba(26, 26, 46, 0.08);
+}
+
+/* ── The chrome is not a document ──
+   Nothing in the bar, the sidebar or the sheets is text anyone copies, and on
+   a phone a long press on a label selecting it is the surest sign of a web
+   page pretending to be an app. Selection stays on for anything typed into
+   and for the code itself, which is precisely what people copy. The site in
+   the canvas is edited in place, so it is chrome here too. */
+.wb-editor,
+.wb-code {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.wb-editor input,
+.wb-editor textarea,
+.wb-editor select,
+.wb-editor [contenteditable="true"],
+.wb-editor [contenteditable=""],
+.wb-editor [contenteditable="plaintext-only"],
+.wb-code textarea,
+.wb-code input,
+.wb-code pre,
+.wb-code code {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ── The canvas draws its own scrollbar ──
+   The native bar is laid out in the scroller's own box: a classic one takes
+   a column of the card's width and paints it in the card's colour, which
+   beside a dark site was a white strip; and either kind is drawn straight
+   through the card's rounded corners. So on a desktop the native bar is
+   hidden altogether and CanvasScrollbar draws a thumb OVER the card, inset
+   from its edge and short of both arcs. No column is reserved, nothing
+   reaches a corner.
+
+   Both declarations, on purpose. From Chrome 121 `scrollbar-width` is what
+   applies and the pseudo-element is ignored; on older WebKit it is the other
+   way round. Here they agree, so the order between them does not matter. */
+.wb-canvas-hidebar {
+  scrollbar-width: none;
+}
+.wb-canvas-hidebar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* ── Arriving on the canvas ──
+   The loader and the page used to swap in one frame: a white surface with
+   nine squares on it, then a site. The loader now fades out over the page
+   and the page rises in under it, so a load ends the way a page arrives
+   rather than the way a light comes on. */
+@keyframes wb-canvas-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.wb-canvas-in {
+  animation: wb-canvas-in 360ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.wb-canvas-loader {
+  transition: opacity 260ms ease-out;
+}
+.wb-canvas-loader[data-leaving="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-canvas-in { animation: none; }
+  .wb-canvas-loader { transition: none; }
+}
+
 /* ── The website-builder editor's geometry ───────────────────────────────
    The editor is the one screen in the app that is entirely its own chrome:
    no app header, no sidebar, a bar of its own at the top and a sheet of its
@@ -2395,6 +2509,18 @@ picture {
    moves. On Android the insets are 0 until the app goes edge-to-edge, and
    real the moment it does — no branch either way. */
 .wb-editor {
+  /* ── The chrome's colours, in one place ──
+     The bar, its buttons and its dividers read these rather than naming a
+     white-on-dark utility each. On a desktop the chrome is dark, like the
+     reference. On a phone it can be light (`.wb-chrome-light` below) and
+     nothing in the bar's markup changes. */
+  --wb-chrome-bg: #171717;
+  --wb-chrome-fg: #ffffff;
+  --wb-chrome-fg-2: rgba(255, 255, 255, 0.8);
+  --wb-chrome-fg-3: rgba(255, 255, 255, 0.7);
+  --wb-chrome-hover: rgba(255, 255, 255, 0.1);
+  --wb-chrome-active: rgba(255, 255, 255, 0.15);
+  --wb-chrome-line: rgba(255, 255, 255, 0.1);
   --wb-safe-top: env(safe-area-inset-top, 0px);
   --wb-safe-bottom: env(safe-area-inset-bottom, 0px);
   /* The bar's own height, before any inset. */

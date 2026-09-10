@@ -40,10 +40,24 @@ import { useEffect } from "react"
  * Restored on unmount, because every other page in the app wants that
  * padding: it is what keeps a footer above the home indicator.
  */
-export function FullScreenLock() {
+export function FullScreenLock({ tone = "dark" }: { tone?: "dark" | "light" }) {
   useEffect(() => {
     const root = document.documentElement
     root.classList.add("wb-fullscreen")
+    /**
+     * THE STRIP ABOVE THE BAR IS THE BAR'S COLOUR.
+     *
+     * In the native shell the page's box can start below the status bar,
+     * and what shows in the strip above it is the html element's own
+     * background — set to pure black for every native page by
+     * `html.capacitor`. The editor's bar is not pure black, so the two met
+     * in a visible line under the clock: "cut at the top". A stylesheet rule
+     * of the same weight is decided by order, and inline beats them all, so
+     * the colour is written on the element for as long as the editor is
+     * mounted and handed back after.
+     */
+    const prevBg = root.style.backgroundColor
+    root.style.backgroundColor = tone === "light" ? "#ffffff" : "#171717"
     /**
      * Whatever the document was scrolled to when we arrived. A route that
      * scrolled before pushing the editor would otherwise keep that offset
@@ -53,9 +67,10 @@ export function FullScreenLock() {
     if (scrollY !== 0) window.scrollTo(0, 0)
     return () => {
       root.classList.remove("wb-fullscreen")
+      root.style.backgroundColor = prevBg
       if (scrollY !== 0) window.scrollTo(0, scrollY)
     }
-  }, [])
+  }, [tone])
 
   return null
 }

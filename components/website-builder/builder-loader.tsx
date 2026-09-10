@@ -27,6 +27,27 @@ export function useDelayedFlag(active: boolean, delay = 350): boolean {
 }
 
 /**
+ * True while `active` is, and for `ms` after it stops being.
+ *
+ * The other half of useDelayedFlag: that one keeps a loader from appearing
+ * too soon, this keeps it from disappearing too fast. A surface that is
+ * unmounted the instant its work ends cannot fade; one that stays for a beat
+ * can, and what it fades over is the thing that has arrived.
+ */
+export function useLinger(active: boolean, ms = 280): boolean {
+  const [lingering, setLingering] = useState(active)
+  useEffect(() => {
+    if (active) {
+      setLingering(true)
+      return
+    }
+    const id = window.setTimeout(() => setLingering(false), ms)
+    return () => window.clearTimeout(id)
+  }, [active, ms])
+  return lingering
+}
+
+/**
  * ===========================================================================
  *  WHAT THE BUILDER SHOWS WHILE IT IS BUSY
  * ===========================================================================
