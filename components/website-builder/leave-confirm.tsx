@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { AlertTriangle, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -65,10 +66,25 @@ export function LeaveConfirm({
     return () => document.removeEventListener("keydown", onKey)
   }, [open, onCancel])
 
-  if (!open) return null
+  /** `document` exists only after the first client render. */
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  if (!open || !mounted) return null
   const lines = leaveLines(reason)
 
-  return (
+  /**
+   * INTO THE BODY, NOT INTO THE BUILDER.
+   *
+   * Two reasons, and both of them have bitten this editor before. A z-index
+   * is only compared inside one stacking context, and the sheets render into
+   * the body — from inside the editor's tree this could not be put above
+   * them whatever number it carried. And `backdrop-filter` samples the
+   * nearest backdrop root, which any ancestor with an opacity, a filter or a
+   * transform creates: from in there the glass was one bad ancestor away
+   * from having nothing to frost at any moment.
+   */
+  return createPortal(
     <div
       className="wb-leave-scrim fixed inset-0 z-[320] flex items-center justify-center p-4"
       onClick={onCancel}
@@ -119,6 +135,7 @@ export function LeaveConfirm({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -5366,42 +5366,57 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             )}
           </div>
 
-          {/* The section's actions, pinned under its settings.
-              Three real buttons: 40px tall, the app's grey surface, a label
-              in 600 next to a 16px icon, and a press that darkens rather
-              than shrinks. They were 12px text in hairline outlines with a
-              lone red bin, which is what a form builder's defaults look
-              like. Delete says its name; its colour is the only warning it
-              needs, since Undo takes it back. */}
-          <div className="shrink-0 border-t border-[#e5e7eb] bg-white p-3 flex gap-2">
+          {/* ── The section's actions, pinned under its settings ──
+              THE ROW IS MEASURED, NOT GUESSED.
+
+              This was three equal columns, each with a 16px icon, an 8px gap
+              and its label. Measured in Chromium at 13px/600, "Duplicate" is
+              69.8px wide, so that button needed 93.8px of content. At the
+              sidebar's default 288px a third of the row is 82.6px, and at its
+              240px minimum it is 66.7px. Measured in the browser, Duplicate
+              ran 23.1px past its button at the default width and 39.1px past
+              it at the minimum, and Delete 1.3px and 17.3px. That is the icon
+              sitting on the word, and it is what was reported.
+
+              Two things follow from those numbers. The icons go: with them,
+              the three labels need 275px at a width that offers 216, and no
+              amount of tightening closes that. And the columns stop being
+              equal: `flex: 1 1 auto` starts each button at its own label's
+              width and shares only the space left over, so "Hide" (33.5px)
+              stops reserving as much room as "Duplicate" and every button
+              fits at every width the sidebar can be dragged to. Total at the
+              240px minimum: 203px of 216. See scripts/check-section-actions.mjs.
+
+              Delete is grey at rest and red under the pointer. A row that is
+              red before anyone has reached for it shouts at a person who has
+              not decided anything yet; the warning belongs at the moment the
+              hand is on it. */}
+          <div className="shrink-0 border-t border-[#e5e7eb] bg-white px-3 pt-3 pb-3.5 flex gap-2">
             <button
               type="button"
               className={cn(
-                "flex-1 h-10 flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-colors duration-150",
+                "flex-auto min-w-0 h-10 px-1.5 flex items-center justify-center rounded-xl text-[13px] font-semibold transition-colors duration-150",
                 section.hidden
                   ? "bg-[#1a1a2e] text-white active:bg-[#2a2a44]"
                   : "bg-[#f3f4f6] text-[#1a1a2e] hover:bg-[#e9eaee] active:bg-[#e3e4e9]",
               )}
               onClick={() => toggleSectionHidden(section.id)}
             >
-              {section.hidden ? <Eye className="h-4 w-4" strokeWidth={2} /> : <EyeOff className="h-4 w-4" strokeWidth={2} />}
-              {section.hidden ? "Show" : "Hide"}
+              <span className="truncate">{section.hidden ? "Show" : "Hide"}</span>
             </button>
             <button
               type="button"
-              className="flex-1 h-10 flex items-center justify-center gap-2 rounded-xl bg-[#f3f4f6] text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#e9eaee] active:bg-[#e3e4e9]"
+              className="flex-auto min-w-0 h-10 px-1.5 flex items-center justify-center rounded-xl bg-[#f3f4f6] text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#e9eaee] active:bg-[#e3e4e9]"
               onClick={() => duplicateSection(section.id)}
             >
-              <Copy className="h-4 w-4" strokeWidth={2} />
-              Duplicate
+              <span className="truncate">Duplicate</span>
             </button>
             <button
               type="button"
-              className="flex-1 h-10 flex items-center justify-center gap-2 rounded-xl bg-[#f3f4f6] text-[13px] font-semibold text-[#dc2626] transition-colors duration-150 hover:bg-[#fee2e2] active:bg-[#fecaca]"
+              className="flex-auto min-w-0 h-10 px-1.5 flex items-center justify-center rounded-xl bg-[#f3f4f6] text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#fee2e2] hover:text-[#dc2626] active:bg-[#fecaca] active:text-[#b91c1c]"
               onClick={() => removeSection(section.id)}
             >
-              <Trash2 className="h-4 w-4" strokeWidth={2} />
-              Delete
+              <span className="truncate">Delete</span>
             </button>
           </div>
         </div>
@@ -6092,22 +6107,32 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       </div>
 
       {/* ── Body ──
-          On a desktop this row is the MAT: the bar's own dark, eight pixels
-          around every panel, and the panels are cards on it, rounded on all
-          four corners. The sidebar, the AI, the preview and the code are all
-          the same shape, which is what makes them read as one product. A
-          phone has no mat, since the card is the screen. */}
-      <div className={cn("relative flex flex-1 min-h-0 overflow-hidden", !isMobileView && "bg-[#171717] p-2 gap-2")}>
+          NO MAT, AND NOTHING BLACK BEHIND THE PANELS.
+
+          This was eight pixels of the bar's dark on every side of every
+          panel, which put a black gutter down the left of the sidebar, a
+          black band under the preview and a black seam between the two. Dark
+          matting only works where it is wide enough to read as a frame; at
+          eight pixels it reads as a gap that failed to close, and that is
+          what was reported.
+
+          So the panels are flush: the sidebar meets the left edge, the
+          preview meets the sidebar, and the only surround left anywhere is
+          the sliver inside the preview's one rounded corner, which is the
+          top bar's own dark carrying on around the turn. */}
+      <div className="relative flex flex-1 min-h-0 overflow-hidden">
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
           <div className="relative flex-shrink-0 flex h-full overflow-visible">
-            {/* Rounded and clipped HERE, on the box with the width, so the
-                list's own scrollbar is cut by the corner rather than drawn
-                through it. The outer box stays `overflow-visible` for the
-                grab edge that hangs past it. */}
+            {/* Clipped HERE, on the box with the width, so the list's own
+                scrollbar stays inside it. The outer box stays
+                `overflow-visible` for the grab edge that hangs past it.
+                A hairline, not a gutter: what separates the sidebar from the
+                canvas is one pixel of the same grey every divider in the app
+                uses, rather than eight pixels of black. */}
             <div
               ref={sidebarRef}
-              className="flex-1 flex flex-col min-h-0 overflow-hidden rounded-xl bg-white"
+              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-[#e5e7eb]"
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
               <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
@@ -6227,7 +6252,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         )}
 
         {!isMobileView && aiOpen && (
-          <div className="relative flex-shrink-0 overflow-hidden rounded-xl bg-white" style={{ width: 340 }}>
+          <div className="relative flex-shrink-0 overflow-hidden bg-white border-r border-[#e5e7eb]" style={{ width: 340 }}>
             <ThemeChat
               installId={installId}
               page={currentPage}
@@ -6358,7 +6383,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full rounded-none"
                 : device === "desktop"
-                  ? "rounded-xl w-full"
+                  ? "rounded-tl-xl w-full"
                   : "rounded-2xl",
             )}
             style={
@@ -6990,15 +7015,18 @@ function SidebarSectionRow({
             />
           </span>
         )}
-        {/* The header and the footer are chrome, and chrome gets a badge:
-            a dark tile with the piece drawn on it, the way the reference
-            marks them out from the sections that are merely content. */}
+        {/* The header and the footer are chrome, and chrome gets a badge so
+            they are not mistaken for sections. A near-black tile did that job
+            far too loudly: two black squares in a white list are the first
+            thing the eye lands on, above the page you are editing. The same
+            grey the list uses for everything quiet marks them just as well,
+            and the row still carries the outline that sets it apart. */}
         {isStructure && structureRole && (
           <span
             aria-hidden
             className={cn(
               "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
-              isSelected ? "bg-white/15 text-white" : "bg-neutral-800 text-white",
+              isSelected ? "bg-white/15 text-white" : "bg-[#f3f4f6] text-[#6b7280]",
             )}
           >
             {structureRole === "header" ? (

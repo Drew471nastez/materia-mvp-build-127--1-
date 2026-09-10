@@ -861,10 +861,17 @@ html.capacitor body {
      so the two read as one moment: the builder goes behind frosted glass,
      and the question is the only thing in focus on it. */
   .wb-leave-scrim {
-    background: rgba(18, 18, 20, 0.4);
-    backdrop-filter: blur(14px) saturate(1.05) brightness(0.85);
-    -webkit-backdrop-filter: blur(14px) saturate(1.05) brightness(0.85);
+    background: rgba(10, 10, 12, 0.26);
+    /* Written twice on purpose. The minifier collapses a pair of prefixed
+       and unprefixed declarations down to the prefix alone for these
+       targets, which leaves Firefox — which has never supported the
+       `-webkit-` alias — with no blur at all. Inside `@supports`, naming the
+       standard property is the condition, so it survives. */
+    -webkit-backdrop-filter: blur(14px) saturate(1.5) brightness(0.6);
     animation: wb-leaving-in 200ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .wb-leave-scrim { backdrop-filter: blur(14px) saturate(1.5) brightness(0.6); }
   }
   .wb-leave-card {
     animation: wb-leave-card 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
@@ -911,12 +918,19 @@ html.capacitor body {
      * pool of light instead of floating on a flat sheet of grey.
      */
     background:
-      radial-gradient(60% 50% at 50% 45%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 70%),
-      rgba(16, 16, 18, 0.34);
-    backdrop-filter: blur(20px) saturate(1.08) brightness(0.78);
-    -webkit-backdrop-filter: blur(20px) saturate(1.08) brightness(0.78);
+      radial-gradient(58% 46% at 50% 44%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 72%),
+      rgba(10, 10, 12, 0.28);
+    /* Saturation up, brightness down: colour survives the darkening, which
+       is what separates glass over a page from a sheet of grey laid on top
+       of it. 14px rather than 20px for the same reason — at 20 the sidebar,
+       the canvas and the bar all melt into one field and there is nothing
+       left behind the glass to recognise. */
+    -webkit-backdrop-filter: blur(14px) saturate(1.5) brightness(0.55);
     will-change: opacity;
     animation: wb-leaving-in 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .wb-leaving { backdrop-filter: blur(14px) saturate(1.5) brightness(0.55); }
   }
   @keyframes wb-leaving-in {
     from { opacity: 0 }
@@ -2367,14 +2381,31 @@ picture {
 .wb-editor-enter {
   animation: wb-editor-enter 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
+/**
+ * LEAVING DOES NOT FADE THE BUILDER OUT. IT PUTS GLASS OVER IT.
+ *
+ * This was `opacity: 0.35`, and that is why leaving never looked like glass
+ * however the overlay above it was tuned. The overlay's `backdrop-filter`
+ * samples whatever is painted beneath it, and what was painted beneath it was
+ * the builder at just over a third of its opacity, washed out into the page
+ * behind. Blurring that produces a pale grey sheet: the two effects were
+ * cancelling each other, one removing the very contrast the other needed.
+ *
+ * The builder stays fully painted and simply steps back a little, the way a
+ * card does on iOS when something is presented over it. Everything the eye
+ * reads as glass then comes from the layer above: the blur has the real
+ * builder to blur, and the corners of the screen open onto the dark the page
+ * itself sits on.
+ */
 .wb-editor-leaving {
-  opacity: 0.35;
-  transition: opacity 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  transform: scale(0.985);
+  transform-origin: 50% 42%;
+  transition: transform 340ms cubic-bezier(0.32, 0.72, 0, 1);
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .wb-editor-enter { animation: none; }
-  .wb-editor-leaving { transition: none; }
+  .wb-editor-leaving { transition: none; transform: none; }
 }
 
 /* ── Light chrome, for the phone ──

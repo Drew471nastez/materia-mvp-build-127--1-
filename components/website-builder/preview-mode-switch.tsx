@@ -225,9 +225,10 @@ export function CodePane({
             // `flex-1`, and in a block container that resolves to nothing, so
             // the iframe fell back to its 150px HTML default and left the card
             // mostly empty on a desktop.
-            // Every corner: it is a card on the mat like the preview it
-            // covers, and the same shape as it.
-            "absolute inset-0 z-[80] flex flex-col rounded-xl",
+            // The same shape as the preview it covers, which is flush on
+            // every side with one arc at the top left where the sidebar and
+            // the bar meet it.
+            "absolute inset-0 z-[80] flex flex-col rounded-tl-xl",
         /**
          * It rises AND settles: a short lift with a touch of scale, on the
          * curve a thrown thing lands on, which reads as the canvas turning

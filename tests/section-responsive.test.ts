@@ -672,7 +672,7 @@ check(
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-0 z-\[80\] flex flex-col rounded-xl/.test(modeSwitch) &&
+    /absolute inset-0 z-\[80\] flex flex-col rounded-tl-xl/.test(modeSwitch) &&
     // A black panel inside a white builder is a second product bolted on.
     /"overflow-hidden bg-white"/.test(modeSwitch) &&
     !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
@@ -774,28 +774,44 @@ check(
 )
 
 check(
-  "on a desktop every panel is a rounded card on the bar's own dark, with a mat around it",
+  "on a desktop the panels are flush, and nothing behind them is black",
   /**
-   * This went back and forth: flush, then a mat, then flush with one corner.
-   * The owner then asked for it outright, with the reference beside it: the
-   * preview rounded on the right side too, the code editor the same, the
-   * sidebar rounded top and bottom with the gap around it. So the body row
-   * is the mat, eight pixels of the bar's dark on every side, and the
-   * sidebar, the AI, the preview and the code are all the same shape on it.
-   * A phone has no mat, since the card is the screen.
+   * This went back and forth more than once: flush, then a mat, then flush.
+   * The mat was eight pixels of the bar's dark on every side of every panel,
+   * and eight pixels is not enough to read as a frame — it reads as a gap
+   * that failed to close, which is a black gutter down the left of the
+   * sidebar and a black band under the preview. That is what was reported,
+   * with the corner zoomed in on.
+   *
+   * So the row has no padding and no gap, the sidebar and the AI are
+   * separated from the canvas by the same hairline every other divider in
+   * the app uses, and the only dark left anywhere below the bar is the
+   * sliver inside the preview's one rounded corner.
    */
-  /!isMobileView && "bg-\[#171717\] p-2 gap-2"/.test(editor) &&
-    /device === "desktop" \? "items-stretch p-0"/.test(editor) &&
-    /\? "rounded-xl w-full"/.test(editor) &&
-    // the sidebar: rounded and clipped on the box with the width, so its
-    // own scrollbar is cut by the corner rather than drawn through it
-    /className="flex-1 flex flex-col min-h-0 overflow-hidden rounded-xl bg-white"/.test(editor) &&
-    /className="relative flex-shrink-0 overflow-hidden rounded-xl bg-white" style=\{\{ width: 340 \}\}/.test(editor) &&
+  // no mat: no padding, no gap, no dark on the row itself
+  /<div className="relative flex flex-1 min-h-0 overflow-hidden">/.test(editor) &&
+    !/bg-\[#171717\] p-2 gap-2/.test(editor) &&
+    // one corner on the preview, where the sidebar and the bar meet it
+    /\? "rounded-tl-xl w-full"/.test(editor) &&
+    // the sidebar and the AI: flush, clipped, a hairline instead of a gutter
+    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]"/.test(editor) &&
+    /className="relative flex-shrink-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]" style=\{\{ width: 340 \}\}/.test(editor) &&
+    // the dark behind that one arc is the bar's own, carried round the turn
     /isMobileView \? "bg-background" : "bg-\[#171717\]"/.test(editor) &&
-    /height: "100%"/.test(editor) &&
-    // and no hairline: a border beside chrome is a seam
-    !/bg-white border border-neutral-200\/70/.test(editor) &&
-    !/border-r border-border bg-background flex h-full/.test(editor),
+    /height: "100%"/.test(editor),
+)
+
+check(
+  "nothing in the sidebar's list is a near-black tile",
+  /**
+   * The header and the footer are chrome and get a badge so they are not
+   * mistaken for sections. That badge was `bg-neutral-800`: two black squares
+   * in a white list, and the first thing the eye lands on in the whole panel,
+   * above the page being edited. The quiet grey the list already uses marks
+   * them just as well, and the row keeps the outline that sets it apart.
+   */
+  /isSelected \? "bg-white\/15 text-white" : "bg-\[#f3f4f6\] text-\[#6b7280\]"/.test(editor) &&
+    !/bg-neutral-800 text-white/.test(editor),
 )
 
 check(
@@ -1625,17 +1641,21 @@ check(
 check(
   "leaving the builder actually blurs, because the blur is declared rather than animated",
   /**
-   * It was in the keyframe alone, interpolating from blur(0) to blur(14px) —
+   * It was in the keyframe alone, interpolating from blur(0) to blur(14px),
    * and `backdrop-filter` is not reliably animatable: a browser that declines
    * renders no filter for the whole animation, and with the property declared
-   * nowhere else there was nothing to fall back to. That is why leaving had
-   * no blur at all. Declared on the element it always applies, and fading the
-   * element in brings the blur and the dimming together.
+   * nowhere else there was nothing to fall back to. Declared on the element
+   * it always applies, and fading the element in brings the blur and the
+   * dimming together.
+   *
+   * 14px, not 20: at 20 the sidebar, the canvas and the bar melt into one
+   * field and there is nothing behind the glass left to recognise. Saturation
+   * up and brightness down does the darkening while the colour survives,
+   * which is the difference between glass over a page and grey laid on it.
    */
-  /\n\s*backdrop-filter: blur\(20px\) saturate\(1\.08\) brightness\(0\.78\);/.test(css) &&
-    /-webkit-backdrop-filter: blur\(20px\) saturate\(1\.08\) brightness\(0\.78\);/.test(css) &&
+  /-webkit-backdrop-filter: blur\(14px\) saturate\(1\.5\) brightness\(0\.55\);/.test(css) &&
     // and a pool of light under the loader, painted into the same layer
-    /radial-gradient\(60% 50% at 50% 45%, rgba\(255, 255, 255, 0\.1\)/.test(css) &&
+    /radial-gradient\(58% 46% at 50% 44%, rgba\(255, 255, 255, 0\.12\)/.test(css) &&
     /@keyframes wb-leaving-in \{\s*from \{ opacity: 0 \}\s*to \{ opacity: 1 \}\s*\}/.test(css) &&
     !/backdrop-filter: blur\(0px\)/.test(css) &&
     /prefers-reduced-motion: reduce\) \{\s*\.wb-leaving \{ animation: none \}/.test(css),
@@ -1759,7 +1779,7 @@ check(
    * and the unwrapped one is a control that must still fail.
    */
   // The wrapper carries the shape and the clip...
-  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,400}?\? "rounded-xl w-full"\s*\n\s*: "rounded-2xl",/.test(editor) &&
+  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,400}?\? "rounded-tl-xl w-full"\s*\n\s*: "rounded-2xl",/.test(editor) &&
     // ...and the scroller inside it is square and fills it, so nothing it
     // paints can reach a corner.
     /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"/.test(
@@ -1825,13 +1845,60 @@ check(
 )
 
 check(
-  "Hide, Duplicate and Delete on the phone are three real buttons, not outlines with a red bin",
-  // 40px, the app's grey surface, a 600 label beside a 16px icon, a press that
-  // darkens. Delete says its name; its colour is the only warning it needs.
-  /"flex-1 h-10 flex items-center justify-center gap-2 rounded-xl text-\[13px\] font-semibold transition-colors duration-150",/.test(editor) &&
-    /bg-\[#f3f4f6\] text-\[#1a1a2e\] hover:bg-\[#e9eaee\] active:bg-\[#e3e4e9\]/.test(editor) &&
-    /text-\[#dc2626\] transition-colors duration-150 hover:bg-\[#fee2e2\] active:bg-\[#fecaca\]"\s*\n\s*onClick=\{\(\) => removeSection\(section\.id\)\}\s*\n\s*>\s*\n\s*<Trash2 className="h-4 w-4" strokeWidth=\{2\} \/>\s*\n\s*Delete/.test(editor) &&
+  "Hide, Duplicate and Delete fit the sidebar they live in",
+  /**
+   * Measured, not guessed. In three equal columns with a 16px icon and an 8px
+   * gap, "Duplicate" wanted 23px more than its button had at the sidebar's
+   * default 288px and 39px more at its 240px minimum, so the icon was drawn
+   * on the word. Two things follow: the icons go, because three labels plus
+   * three icons need 275px of a row that offers 216; and the columns stop
+   * being equal, so each button starts at its own label's width and only the
+   * spare space is shared. `node scripts/check-section-actions.mjs` renders
+   * both and measures every button at both widths.
+   */
+  /"flex-auto min-w-0 h-10 px-1\.5 flex items-center justify-center rounded-xl text-\[13px\] font-semibold transition-colors duration-150",/.test(editor) &&
+    /flex-auto min-w-0 h-10 px-1\.5 flex items-center justify-center rounded-xl bg-\[#f3f4f6\][^"]*"\s*\n\s*onClick=\{\(\) => duplicateSection\(section\.id\)\}/.test(editor) &&
+    // Delete is grey at rest and red under the pointer: a red row shouts at
+    // somebody who has not decided anything yet.
+    /hover:bg-\[#fee2e2\] hover:text-\[#dc2626\] active:bg-\[#fecaca\] active:text-\[#b91c1c\]"\s*\n\s*onClick=\{\(\) => removeSection\(section\.id\)\}/.test(editor) &&
+    // and no icon beside either word, which is what collided
+    !/<Copy className="h-4 w-4" strokeWidth=\{2\} \/>\s*\n\s*Duplicate/.test(editor) &&
     !/py-2 text-xs text-red-400 hover:text-red-600 border border-border/.test(editor),
+)
+
+check(
+  "leaving the builder does not fade the builder the glass is meant to frost",
+  /**
+   * The leaving screen carried a real backdrop-filter and still did not look
+   * like glass, because `.wb-editor-leaving` set `opacity: 0.35` on the whole
+   * builder at the same moment. A backdrop filter samples what is painted
+   * beneath it; blurring a page washed out to a third of itself gives a flat
+   * pale sheet. Measured over a builder-shaped page, the spread of luminance
+   * behind the glass was 8.9 faded against 24.7 solid, which is the
+   * difference between a grey sheet and something you can read through.
+   *
+   * `node scripts/check-leaving-glass.mjs`
+   */
+  /\.wb-editor-leaving \{\s*\n\s*transform: scale\(0\.985\);/.test(editorCss) &&
+    !/\.wb-editor-leaving \{\s*\n\s*opacity:/.test(editorCss) &&
+    // The minifier collapses a prefixed/unprefixed pair down to the prefix
+    // alone for these targets, which leaves Firefox with no blur at all.
+    // Named as the condition of an @supports, the standard property survives.
+    /@supports \(backdrop-filter: blur\(1px\)\) \{\s*\n\s*\.wb-leaving \{ backdrop-filter: blur\(14px\) saturate\(1\.5\) brightness\(0\.55\); \}/.test(editorCss) &&
+    /@supports \(backdrop-filter: blur\(1px\)\) \{\s*\n\s*\.wb-leave-scrim \{ backdrop-filter: blur\(14px\) saturate\(1\.5\) brightness\(0\.6\); \}/.test(editorCss),
+)
+
+check(
+  "the confirmation goes into the body, like everything else that has to cover the sheets",
+  /**
+   * A z-index is only compared inside one stacking context and the sheets
+   * render into the body, so from inside the editor's tree this could not be
+   * put above them whatever number it carried. The same move also keeps its
+   * glass safe: `backdrop-filter` samples the nearest backdrop root, and any
+   * ancestor with an opacity, a filter or a transform creates one.
+   */
+  /import \{ createPortal \} from "react-dom"/.test(readFileSync(join(root, "components/website-builder/leave-confirm.tsx"), "utf8")) &&
+    /return createPortal\(\s*\n\s*<div/.test(readFileSync(join(root, "components/website-builder/leave-confirm.tsx"), "utf8")),
 )
 
 check(
