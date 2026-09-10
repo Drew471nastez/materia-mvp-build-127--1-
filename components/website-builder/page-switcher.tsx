@@ -183,7 +183,9 @@ export function PageSwitcher({
           reader. */}
       <div
         className={cn(
-          "flex h-9 min-w-[220px] max-w-[380px] items-center rounded-full border border-white/10 bg-white/[0.07] pl-1.5 pr-3 transition-colors",
+          // Slim, like the mode pill beside it. At h-9 it was the tallest
+          // thing on a 48px bar and read as a field rather than a label.
+          "flex h-7 min-w-[220px] max-w-[380px] items-center rounded-full border border-white/10 bg-white/[0.07] pl-1 pr-2.5 transition-colors",
           open && "bg-white/[0.11]",
           disabled && "opacity-50",
         )}
@@ -192,7 +194,7 @@ export function PageSwitcher({
           type="button"
           onClick={onReload}
           disabled={disabled}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           aria-label="Reload preview"
         >
           <RefreshCw className={cn("h-3.5 w-3.5", reloading && "animate-spin")} strokeWidth={2} />
@@ -203,7 +205,7 @@ export function PageSwitcher({
           onClick={() => setOpen((v) => !v)}
           aria-haspopup="menu"
           aria-expanded={open}
-          className="flex h-full min-w-0 flex-1 items-center gap-2 pl-1 text-[14px] font-medium text-white"
+          className="flex h-full min-w-0 flex-1 items-center gap-2 pl-1 text-[12.5px] font-medium text-white"
         >
           <span className="min-w-0 flex-1 truncate text-center">
             {current === "product" && currentProduct ? currentProduct : (currentPage?.name ?? "Page")}

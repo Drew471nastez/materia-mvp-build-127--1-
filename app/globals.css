@@ -606,6 +606,17 @@ html.capacitor body {
     background-color: rgba(100, 116, 139, 0.55);
   }
 
+  /* On a dark surface the slate thumb disappears into the background, so the
+     scrollbar reads as absent rather than as subtle. Anything painting itself
+     dark asks for the light one instead. */
+  .wb-slim-scroll-dark:hover {
+    scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+  }
+
+  .wb-slim-scroll-dark:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.28);
+  }
+
   /* The Storelib AI button in the editor bar.
      No border: a hairline around a brand mark reads as a frame around a
      picture. Depth instead, so it is a thing you press, and a slow, faint

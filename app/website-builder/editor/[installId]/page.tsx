@@ -5477,21 +5477,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </button>
             </div>
           )}
-          {/* Preview, the code, or the project. In the bar beside the sidebar
-              icons, because it is the same kind of thing they are: what the
-              canvas shows. A phone has no room for it and reaches Code and
-              Project settings from the menu. */}
-          {!isMobileView && (
-            <div className="ml-2 shrink-0">
-              <PreviewModeSwitch
-                mode={previewMode}
-                onChange={(m) => {
-                  setPreviewMode(m)
-                  if (m === "settings") setProjectSettingsOpen(true)
-                }}
-              />
-            </div>
-          )}
 <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-sm font-medium text-white truncate hidden md:block max-w-[180px]">{install?.name}</span>
           {/*
@@ -5602,6 +5587,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               text beside the project's name only pushed the name and its
               menu away from the switcher they belong next to. */}
         </div>
+          {/* Preview, the code, or the project. It follows the project's own
+              name and menu rather than preceding them: the row reads left to
+              right as which project, what to do with it, then how you are
+              looking at it. A phone has no room for it and reaches Code and
+              Project settings from the menu. */}
+          {!isMobileView && (
+            <div className="ml-1.5 shrink-0">
+              <PreviewModeSwitch
+                mode={previewMode}
+                onChange={(m) => {
+                  setPreviewMode(m)
+                  if (m === "settings") setProjectSettingsOpen(true)
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {/* CENTER: theme name + Live badge + 3-dots menu + unsaved indicator */}
@@ -6043,11 +6044,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               else if (el.scrollTop >= max) el.scrollTop = max - 1
             }}
             className={cn(
-              "relative bg-white border border-neutral-200/70 transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
-              // While the code shows, the site is not under it, it is gone:
-              // a theme's sticky header stacks at z-60 and would otherwise
-              // draw over the editor's corner. Invisible keeps its scroll.
-              previewMode === "code" && "invisible pointer-events-none",
+              /**
+               * `isolate` is the whole reason the page switcher's panel stopped
+               * being drawn over by the site's own header. A theme header is
+               * `sticky z-[60]`, the editor's bar is `z-50`, and while this
+               * card created no stacking context of its own those two numbers
+               * were compared in the same place — so a site's header won, and
+               * painted across a menu belonging to the editor. Isolating the
+               * card means nothing inside it can ever climb out of it.
+               */
+              "wb-slim-scroll relative isolate bg-white border border-neutral-200/70 transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
+              // Leaving for the code fades rather than cuts: `invisible`
+              // removed the site between one frame and the next, which is the
+              // flash you see as the code arrives. Opacity keeps the scroll
+              // position and hands over on the same curve.
+              previewMode === "code" && "opacity-0 pointer-events-none",
               isMobileView
                 ? "w-full border-0 rounded-none"
                 : device === "desktop"
@@ -6132,7 +6143,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <ThemePage
                 theme={activeThemeSettings}
                 sections={sections}
-                renderSection={(section, role) => {
+                /**
+                 * `atTop` says whether this header has any chrome above it.
+                 * ThemePage answers that because ThemePage draws the chrome;
+                 * reading the theme's own flags from here is how the
+                 * announcement bar came to exist in four places at once.
+                 */
+                renderSection={(section, role, atTop) => {
                   const shared = {
                     section,
                     theme: activeThemeSettings,
@@ -6164,10 +6181,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         key={section.id}
                         wrapperId={`wb-section-${section.id}`}
                         {...shared}
-                        // Match the canvas's `rounded-t-xl` (desktop, 12px) or
-                        // `rounded-2xl` (device card, 16px) so the selection
-                        // ring curves into the corner instead of being clipped.
-                        canvasRoundedTopPx={device === "desktop" ? 12 : 16}
+                        /**
+                         * Only when the header IS the top of the card. With an
+                         * announcement bar above it the header is a square band
+                         * in the middle of the page, and rounding its selection
+                         * ring there curves the corners of nothing — which is
+                         * the ring that looked arbitrary.
+                         */
+                        canvasRoundedTopPx={atTop ? (device === "desktop" ? 12 : 16) : undefined}
                       />
                     )
                   }

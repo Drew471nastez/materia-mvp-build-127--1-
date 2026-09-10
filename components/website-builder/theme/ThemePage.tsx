@@ -39,6 +39,28 @@ function str(value: unknown, fallback = ""): string {
   return typeof value === "string" && value !== "" ? value : fallback
 }
 
+/**
+ * Does the header sit against the very top of the page, or is there chrome
+ * above it?
+ *
+ * The editor asks so it knows whether to round the corners of a selected
+ * header's outline: the canvas card is rounded, and a ring that curves where
+ * the page does not is a curve around nothing. It lives HERE because the
+ * chrome does. Working it out from theme flags at the call site is exactly
+ * how the announcement bar came to be implemented four times over.
+ *
+ * It cannot see a bar the visitor has dismissed, which is client state inside
+ * the bar itself. That errs towards a square ring on a page whose bar has
+ * been closed, and a square ring is the harmless way to be wrong.
+ */
+export function headerTouchesTop(theme: ThemeSettingsValues): boolean {
+  const t = theme as Record<string, unknown>
+  const announcement = t.announcement_bar_enabled === true && str(t.announcement_bar_text).length > 0
+  const freeShipping =
+    t.free_shipping_bar === true && typeof t.free_shipping_threshold === "number" && t.free_shipping_threshold > 0
+  return !announcement && !freeShipping
+}
+
 // ── The announcement bar ────────────────────────────────────────────────────
 
 /**
@@ -272,7 +294,12 @@ export function ThemePage({
    * hovering and the device mode — WITHOUT taking over ordering or chrome,
    * which is where the four copies drifted apart.
    */
-  renderSection?: (section: SectionInstance, role: SectionRole) => ReactNode
+  /**
+   * `atTop` is true only for a header with no chrome drawn above it. The
+   * editor uses it for the selected section's outline; every other caller
+   * ignores it.
+   */
+  renderSection?: (section: SectionInstance, role: SectionRole, atTop: boolean) => ReactNode
   emptyTitle?: string
   emptyDetail?: string
   className?: string
@@ -325,7 +352,7 @@ export function ThemePage({
 
       {children}
 
-      {headers.map((section) => render(section, "header"))}
+      {headers.map((section) => render(section, "header", headerTouchesTop(theme)))}
 
       {/*
         No `flex-1` filler between the body and the footer. It was tried and it
@@ -333,7 +360,7 @@ export function ThemePage({
         bottom of the viewport with nothing between it and the last section.
         Natural flow leaves a short page short, which is correct.
       */}
-      {body.map((section) => render(section, "body"))}
+      {body.map((section) => render(section, "body", false))}
 
       {sections.length === 0 && (
         <div className="flex min-h-[50vh] items-center justify-center">
@@ -344,7 +371,7 @@ export function ThemePage({
         </div>
       )}
 
-      {footers.map((section) => render(section, "footer"))}
+      {footers.map((section) => render(section, "footer", false))}
 
       <CookieBanner theme={theme} />
     </div>

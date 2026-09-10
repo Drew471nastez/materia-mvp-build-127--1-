@@ -319,6 +319,7 @@ section("Publish is a place, not a button")
 
 const publish = readFileSync(join(root, "components/website-builder/publish-panel.tsx"), "utf8")
 const modeSwitch = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
+const themePage = readFileSync(join(root, "components/website-builder/theme/ThemePage.tsx"), "utf8")
 
 check(
   "the button opens a panel that says when it last went out and what is pending",
@@ -398,7 +399,16 @@ check(
   "a phone has no pill; the desktop pill is Preview / Code / Project Settings, Preview by default",
   // A 3-segment pill in a 390px bar is what the user called not a good idea
   // on a phone. Code and Settings are reached from the menu there.
-  /\{!isMobileView && \(\s*<div className="ml-2 shrink-0">\s*<PreviewModeSwitch/.test(editor) &&
+  // It follows the project's name and menu, so the row reads left to right as
+  // which project, what to do with it, then how you are looking at it.
+  (() => {
+    const header = editor.slice(editor.indexOf("<header"), editor.indexOf("</header>"))
+    const name = header.indexOf("{install?.name}")
+    const menu = header.indexOf("<ResponsiveActionMenu")
+    const pill = header.indexOf("<PreviewModeSwitch")
+    return name > 0 && menu > name && pill > menu
+  })() &&
+    /\{!isMobileView && \(\s*<div className="ml-1\.5 shrink-0">\s*<PreviewModeSwitch/.test(editor) &&
     !/isMobileView && \(\s*<PreviewModeSwitch/.test(editor) &&
     /useState<PreviewMode>\("preview"\)/.test(editor),
 )
@@ -638,12 +648,51 @@ check(
 )
 
 check(
-  "and it sits above anything a theme can stack, with the preview gone underneath, not merely covered",
-  // A sticky theme header is z-60 and was drawing over the editor's corner.
-  // Stacking higher is half of it; making the site invisible is the rest.
-  /previewMode === "code" && "invisible pointer-events-none"/.test(editor) &&
+  "the canvas is its own stacking context, so a theme's header cannot climb over the editor",
+  /**
+   * A theme header is `sticky z-[60]` and the editor's bar is `z-50`. While
+   * the canvas card created no stacking context those two numbers were
+   * compared in the same place, so a site's header won and painted across the
+   * editor's own menus — which is what covered the page switcher's panel.
+   */
+  /"wb-slim-scroll relative isolate bg-white/.test(editor) &&
     !/PREVIEW, OR THE CODE BEHIND IT/.test(editor) &&
     !/pointer-events-none absolute left-0 right-0 top-2 z-30/.test(editor),
+)
+
+check(
+  "handing over to the code fades rather than cuts",
+  // `invisible` removed the site between one frame and the next, which is the
+  // flash. Opacity hands over on a curve and keeps the scroll position.
+  /previewMode === "code" && "opacity-0 pointer-events-none"/.test(editor) &&
+    !/previewMode === "code" && "invisible/.test(editor),
+)
+
+check(
+  "the selection ring only curves where the card actually curves",
+  // With an announcement bar above it the header is a square band in the
+  // middle of the page, and a rounded ring there curves the corners of
+  // nothing.
+  // And the question is answered by whoever draws the chrome, not by the
+  // editor reading theme flags — that is how the bar came to exist four times.
+  /export function headerTouchesTop\(theme: ThemeSettingsValues\): boolean/.test(themePage) &&
+    /render\(section, "header", headerTouchesTop\(theme\)\)/.test(themePage) &&
+    /renderSection=\{\(section, role, atTop\) =>/.test(editor) &&
+    /canvasRoundedTopPx=\{atTop \? \(device === "desktop" \? 12 : 16\) : undefined\}/.test(editor),
+)
+
+check(
+  "the preview and the code editor scroll on the slim bar, not the browser's default",
+  // A default scrollbar is a permanent white gutter down the right of the
+  // page, which is what it looked like.
+  /wb-slim-scroll relative isolate/.test(editor) &&
+    (codePage.match(/wb-slim-scroll wb-slim-scroll-dark/g) ?? []).length === 3 &&
+    /\.wb-slim-scroll-dark:hover::-webkit-scrollbar-thumb \{\s*background-color: rgba\(255, 255, 255, 0\.28\)/.test(css),
+)
+
+check(
+  "the page pill is as slim as the mode pill beside it",
+  /flex h-7 min-w-\[220px\] max-w-\[380px\] items-center rounded-full/.test(switcher),
 )
 
 check(
@@ -666,7 +715,9 @@ check(
     const pill = headerSrc.indexOf("<PreviewModeSwitch")
     const gear = headerSrc.indexOf('title="General Settings"')
     const name = headerSrc.indexOf("{install?.name}")
-    return pill > gear && pill < name
+    // Beside the sidebar icons still, but after the project's own name and
+    // menu: which project, what to do with it, then how you are looking at it.
+    return pill > gear && pill > name
   })(),
 )
 
