@@ -574,6 +574,26 @@ html.capacitor body {
      still wearing the chrome default while the pickers beside it were slim.
      Thumb only, no track, rounded to its own width, and it stays out of the
      way until the pointer is over the panel it belongs to. */
+  /**
+   * THE SCROLLBAR THAT TAKES NO ROOM.
+   *
+   * `::-webkit-scrollbar` rules are what turn a platform's OVERLAY scrollbar
+   * into a classic one, and a classic one reserves a column of layout for
+   * itself. On the preview card that column was painted in the card's own
+   * white while the site inside it was dark, which is the white strip down
+   * the right of the whole builder — caused by styling the scrollbar, not by
+   * failing to.
+   *
+   * So this variant sets only the standard properties. macOS keeps its
+   * overlay bar, which floats over the content and reserves nothing; Firefox
+   * and Windows get a thin one instead of a chunky one. Nowhere gets a gutter
+   * it did not already have.
+   */
+  .wb-thin-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+  }
+
   .wb-slim-scroll {
     scrollbar-width: thin;
     /* Firefox has no hover selector for the thumb, so it gets the resting
@@ -604,17 +624,6 @@ html.capacitor body {
 
   .wb-slim-scroll:hover::-webkit-scrollbar-thumb {
     background-color: rgba(100, 116, 139, 0.55);
-  }
-
-  /* On a dark surface the slate thumb disappears into the background, so the
-     scrollbar reads as absent rather than as subtle. Anything painting itself
-     dark asks for the light one instead. */
-  .wb-slim-scroll-dark:hover {
-    scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
-  }
-
-  .wb-slim-scroll-dark:hover::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.28);
   }
 
   /* The Storelib AI button in the editor bar.

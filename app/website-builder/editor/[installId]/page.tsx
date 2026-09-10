@@ -6006,7 +6006,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           className={cn(
             // `relative` so the code pane and the mode switch can sit over
             // the canvas without leaving the flex layout.
-            "relative flex-1 min-w-0 bg-neutral-50 overflow-hidden flex justify-center",
+            /**
+             * Dark, like the bar above it. It was near-white, so the inset
+             * around the card read as leftover empty page rather than as a
+             * frame — the "empty space outside the preview". Against the dark
+             * the same eight pixels read as matting, and the card's rounded
+             * corners are visible because there is something for them to be
+             * rounded against.
+             */
+            "relative flex-1 min-w-0 bg-[#171717] overflow-hidden flex justify-center",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6053,7 +6061,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                * painted across a menu belonging to the editor. Isolating the
                * card means nothing inside it can ever climb out of it.
                */
-              "wb-slim-scroll relative isolate bg-white border border-neutral-200/70 transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
+              "wb-thin-scroll relative isolate bg-white border border-neutral-200/70 transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
               // Leaving for the code fades rather than cuts: `invisible`
               // removed the site between one frame and the next, which is the
               // flash you see as the code arrives. Opacity keeps the scroll

@@ -168,9 +168,20 @@ export function ResponsiveActionMenu({
             ) : (
             <DropdownMenuItem
               onClick={item.onClick}
+              /**
+               * Three ways of saying "the pointer is on this row", because
+               * only one of them was firing and the menu read as a list of
+               * labels rather than a list of buttons. Radix marks the row it
+               * has highlighted, focuses it on pointer move, and the plain
+               * hover covers the case where neither has happened yet.
+               */
               className={cn(
-                item.variant === "destructive" && "text-red-600",
-                item.variant === "warning" && "text-amber-600",
+                "cursor-pointer transition-colors",
+                "hover:bg-neutral-100 focus:bg-neutral-100 data-[highlighted]:bg-neutral-100",
+                item.variant === "destructive" &&
+                  "text-red-600 hover:bg-red-50 focus:bg-red-50 data-[highlighted]:bg-red-50",
+                item.variant === "warning" &&
+                  "text-amber-600 hover:bg-amber-50 focus:bg-amber-50 data-[highlighted]:bg-amber-50",
               )}
             >
               {item.icon && <span className="mr-2 inline-flex">{item.icon}</span>}

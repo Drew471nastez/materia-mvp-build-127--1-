@@ -655,7 +655,7 @@ check(
    * compared in the same place, so a site's header won and painted across the
    * editor's own menus — which is what covered the page switcher's panel.
    */
-  /"wb-slim-scroll relative isolate bg-white/.test(editor) &&
+  /"wb-thin-scroll relative isolate bg-white/.test(editor) &&
     !/PREVIEW, OR THE CODE BEHIND IT/.test(editor) &&
     !/pointer-events-none absolute left-0 right-0 top-2 z-30/.test(editor),
 )
@@ -682,12 +682,32 @@ check(
 )
 
 check(
-  "the preview and the code editor scroll on the slim bar, not the browser's default",
-  // A default scrollbar is a permanent white gutter down the right of the
-  // page, which is what it looked like.
-  /wb-slim-scroll relative isolate/.test(editor) &&
-    (codePage.match(/wb-slim-scroll wb-slim-scroll-dark/g) ?? []).length === 3 &&
-    /\.wb-slim-scroll-dark:hover::-webkit-scrollbar-thumb \{\s*background-color: rgba\(255, 255, 255, 0\.28\)/.test(css),
+  "the preview and the code editor reserve no column for a scrollbar",
+  /**
+   * `::-webkit-scrollbar` rules are what turn a platform's OVERLAY scrollbar
+   * into a classic one, and a classic one reserves a column of layout. On the
+   * preview card that column was painted in the card's own white while the
+   * site inside it was dark: the white strip down the right of the builder,
+   * caused by styling the scrollbar rather than by failing to.
+   */
+  /wb-thin-scroll relative isolate/.test(editor) &&
+    (codePage.match(/wb-thin-scroll/g) ?? []).length === 3 &&
+    /\.wb-thin-scroll \{\s*scrollbar-width: thin;\s*scrollbar-color: rgba\(148, 163, 184, 0\.45\) transparent;\s*\}/.test(css) &&
+    // and nothing gives it webkit rules, which is what reserved the column
+    !/wb-thin-scroll::-webkit-scrollbar/.test(css),
+)
+
+check(
+  "the canvas around the preview is chrome-dark, so the inset reads as a frame",
+  // Near-white, the eight pixels around the card read as leftover empty page.
+  /"relative flex-1 min-w-0 bg-\[#171717\] overflow-hidden flex justify-center"/.test(editor),
+)
+
+check(
+  "every row of the actions menu answers the pointer",
+  // Only one of Radix's three highlight mechanisms was firing, so the menu
+  // read as a list of labels rather than a list of buttons.
+  /hover:bg-neutral-100 focus:bg-neutral-100 data-\[highlighted\]:bg-neutral-100/.test(menu),
 )
 
 check(
