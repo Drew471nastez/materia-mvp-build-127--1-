@@ -13,6 +13,7 @@ export const dashboardDict: Record<"ro" | "en", Record<string, string>> = {
     "nav.sales": "Comenzi",
     "nav.settings": "Setări",
     "nav.storeBuilder": "Constructor magazin",
+    "nav.websiteBuilder": "Website",
     "nav.unlockBenefits": "Deblochează mai multe beneficii",
     "nav.upgradeToPro": "Treci la Pro",
     // Settings entries surfaced in the sidebar
@@ -163,6 +164,7 @@ export const dashboardDict: Record<"ro" | "en", Record<string, string>> = {
     "nav.sales": "Orders",
     "nav.settings": "Settings",
     "nav.storeBuilder": "Store Builder",
+    "nav.websiteBuilder": "Website",
     "nav.unlockBenefits": "Unlock more benefits",
     "nav.upgradeToPro": "Upgrade to Pro",
     // Settings entries surfaced in the sidebar

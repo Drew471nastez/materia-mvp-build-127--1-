@@ -26,6 +26,7 @@ import {
   X,
   Sparkles,
   Store,
+  MonitorSmartphone,
   Search,
   Globe,
 } from "lucide-react"
@@ -319,6 +320,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/orders", label: t("nav.sales"), icon: NAV_ICONS.orders },
     { href: "/app/onepage", label: t("nav.onepage"), icon: NAV_ICONS.onepage, forceNavigation: true },
     { href: "/store-builder", label: t("nav.storeBuilder"), icon: NAV_ICONS.storeBuilder, forceNavigation: true },
+    { href: "/app/website-builder", label: t("nav.websiteBuilder"), icon: NAV_ICONS.websiteBuilder, forceNavigation: true },
     /*
       Storelib AI is NOT LISTED HERE ANY MORE.
 
@@ -769,6 +771,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Orders", href: "/app/orders", icon: ShoppingCart, category: "Pages" },
     { label: "OnePage", href: "/app/onepage", icon: Link2, category: "Pages" },
     { label: "Store Builder", href: "/store-builder", icon: Store, category: "Pages" },
+    { label: "Website Builder", href: "/app/website-builder", icon: MonitorSmartphone, category: "Pages" },
     { label: "Emails", href: "/app/emails", icon: Mail, category: "Pages" },
     { label: "Payouts", href: "/app/payouts", icon: Wallet, category: "Pages" },
     { label: "Settings", href: "/app/settings", icon: Settings, category: "Settings" },
