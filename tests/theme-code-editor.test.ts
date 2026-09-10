@@ -261,8 +261,18 @@ section("It is reachable, and it works on a file longer than the window")
     /event\.metaKey \|\| event\.ctrlKey/.test(code) && /event\.preventDefault\(\)/.test(code),
   )
   check(
-    "and leaving with unsaved work is not silent",
-    /beforeunload/.test(code) && /if \(!isDirty && dirtyPaths\.size === 0\) return/.test(code),
+    "and leaving with unsaved work is not silent — but the browser's dialog is not used inside the builder",
+    /**
+     * A browser fires `beforeunload` for every frame when the top document
+     * navigates, so this handler put Chrome's own "Leave site?" box in front
+     * of somebody who had pressed Back in the builder — a dialog written by
+     * the browser, unable to say what is unsaved, over a screen that was
+     * already asking properly. Standalone it is still the only thing that can
+     * stop a tab closing; embedded, the page reports and the parent asks.
+     */
+    /beforeunload/.test(code) &&
+      /if \(embedded \|\| !codeDirty\) return/.test(code) &&
+      /postMessage\(\{ type: "storelib:code-dirty", dirty: codeDirty \}, window\.location\.origin\)/.test(code),
   )
 }
 

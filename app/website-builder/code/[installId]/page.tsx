@@ -413,15 +413,40 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
    * threw the edit away silently. The browser's own confirmation is the only
    * one that can block a navigation it initiated.
    */
+  const codeDirty = isDirty || dirtyPaths.size > 0
+
   useEffect(() => {
-    if (!isDirty && dirtyPaths.size === 0) return
+    /**
+     * NOT WHILE THE BUILDER IS FRAMING THIS PAGE.
+     *
+     * A browser fires `beforeunload` for every frame when the top document
+     * navigates, so this handler was putting Chrome's own "Leave site?" box
+     * in front of somebody who had pressed Back in the builder. That dialog
+     * is written by the browser, cannot say what is unsaved, and appears
+     * over a screen that was already asking the question properly.
+     *
+     * Embedded, the parent owns leaving; the message below tells it whether
+     * there is anything here to lose so it can say so in its own words.
+     * Standalone this is still the only thing that can stop a tab closing.
+     */
+    if (embedded || !codeDirty) return
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault()
       event.returnValue = ""
     }
     window.addEventListener("beforeunload", warn)
     return () => window.removeEventListener("beforeunload", warn)
-  }, [isDirty, dirtyPaths])
+  }, [embedded, codeDirty])
+
+  /** Tell the builder framing this page whether a file here is unsaved. */
+  useEffect(() => {
+    if (!embedded || typeof window === "undefined") return
+    try {
+      window.parent?.postMessage({ type: "storelib:code-dirty", dirty: codeDirty }, window.location.origin)
+    } catch {
+      /* a parent on another origin cannot be told, and does not need to be */
+    }
+  }, [embedded, codeDirty])
 
   const revertFile = async () => {
     if (!selectedFile) return

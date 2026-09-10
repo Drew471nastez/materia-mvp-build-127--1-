@@ -472,7 +472,11 @@ check(
   // Going back can take a second on a phone; a second of nothing is a second
   // in which the button gets pressed again.
   /aria-label="Back"/.test(editor) &&
-    /setLeaving\(true\)\s*\n\s*router\.push\("\/app\/website-builder"\)/.test(editor) &&
+    // One door out, used by both exits: it asks only when there is something
+    // to lose, and otherwise goes, which is what pressing Back meant.
+    /onClick=\{\(\) => requestExit\("\/app\/website-builder"\)\}/.test(editor) &&
+    /const requestExit = useCallback\(/.test(editor) &&
+    /setLeaving\(true\)\s*\n\s*router\.push\(href\)/.test(editor) &&
     // Portalled and above every sheet, or the sheets that render into the
     // body paint over the screen that says you are leaving.
     /\{leaving && portalReady && createPortal\(\s*<div className="wb-leaving"/.test(editor) &&
@@ -1541,6 +1545,7 @@ section("Waiting: nine squares, words that change, and a code pane already warm"
 // ===========================================================================
 
 const loaderSrc = readFileSync(join(root, "components/website-builder/builder-loader.tsx"), "utf8")
+const leaveConfirm = readFileSync(join(root, "components/website-builder/leave-confirm.tsx"), "utf8")
 
 check(
   "the builder waits behind nine staggered squares and a line of text, not a bar with nothing under it",
@@ -1571,8 +1576,10 @@ check(
    * no blur at all. Declared on the element it always applies, and fading the
    * element in brings the blur and the dimming together.
    */
-  /\n\s*backdrop-filter: blur\(18px\) saturate\(1\.05\) brightness\(0\.82\);/.test(css) &&
-    /-webkit-backdrop-filter: blur\(18px\) saturate\(1\.05\) brightness\(0\.82\);/.test(css) &&
+  /\n\s*backdrop-filter: blur\(20px\) saturate\(1\.08\) brightness\(0\.78\);/.test(css) &&
+    /-webkit-backdrop-filter: blur\(20px\) saturate\(1\.08\) brightness\(0\.78\);/.test(css) &&
+    // and a pool of light under the loader, painted into the same layer
+    /radial-gradient\(60% 50% at 50% 45%, rgba\(255, 255, 255, 0\.1\)/.test(css) &&
     /@keyframes wb-leaving-in \{\s*from \{ opacity: 0 \}\s*to \{ opacity: 1 \}\s*\}/.test(css) &&
     !/backdrop-filter: blur\(0px\)/.test(css) &&
     /prefers-reduced-motion: reduce\) \{\s*\.wb-leaving \{ animation: none \}/.test(css),
@@ -1634,6 +1641,33 @@ check(
     // pointer over a disabled button, so the trigger wraps a span that can
     /<TooltipTrigger asChild>\s*<span className="inline-flex">/.test(codePageSrc) &&
     !/title="Copy file content"|title="Download this file"/.test(codePageSrc),
+)
+
+
+check(
+  "the builder asks about unsaved work in its own words, and only when there is some",
+  /**
+   * `window.confirm` was doing this, and the browser's dialog is the one part
+   * of a product nobody can design: the OS's font, "storelib.com says", and no
+   * way to name what is unsaved. And a confirmation that appears every time is
+   * one people learn to dismiss without reading, which is when it stops
+   * protecting anything.
+   */
+  !/window\.confirm\("You have unsaved changes/.test(editor) &&
+    /<LeaveConfirm/.test(editor) &&
+    /export function hasSomethingToLose/.test(leaveConfirm) &&
+    /if \(reason\.busy\) lines\.push/.test(leaveConfirm) &&
+    /if \(reason\.code\) lines\.push/.test(leaveConfirm) &&
+    /if \(reason\.draft\) lines\.push/.test(leaveConfirm),
+)
+
+check(
+  "and it hears the code editor's unsaved state from its own origin only",
+  // The frame is our own page, and nothing else may tell the builder what
+  // its unsaved state is.
+  /if \(e\.origin !== window\.location\.origin\) return/.test(editor) &&
+    /data\?\.type === "storelib:code-dirty"/.test(editor) &&
+    /code: codeDirty/.test(editor),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

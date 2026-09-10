@@ -34,6 +34,7 @@ import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sh
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
 import { BuilderLoader, useDelayedFlag } from "@/components/website-builder/builder-loader"
+import { LeaveConfirm, hasSomethingToLose, type LeaveReason } from "@/components/website-builder/leave-confirm"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -3470,6 +3471,31 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    *  on a phone, and a button that does nothing for that second is a button
    *  somebody presses again. */
   const [leaving, setLeaving] = useState(false)
+
+  /**
+   * =========================================================================
+   *  LEAVING, WHEN THERE IS SOMETHING TO LOSE
+   * =========================================================================
+   * `window.confirm` used to ask this, and the browser's dialog is the one
+   * part of a product nobody can design: the OS's font, "storelib.com says",
+   * and no way to name what is unsaved. It is asked properly now, and only
+   * when there is an actual answer — a draft still saving, a code file with
+   * edits, or a save in flight.
+   */
+  const [pendingExit, setPendingExit] = useState<string | null>(null)
+  /** Reported by the code editor in its frame; see its postMessage. */
+  const [codeDirty, setCodeDirty] = useState(false)
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      // Same-origin only: the frame is our own page and nothing else may
+      // tell the builder what its unsaved state is.
+      if (e.origin !== window.location.origin) return
+      const data = e.data as { type?: string; dirty?: boolean } | null
+      if (data?.type === "storelib:code-dirty") setCodeDirty(Boolean(data.dirty))
+    }
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [])
   /** `document` exists only after the first client render, and the leaving
    *  screen is portalled into it. */
   const [portalReady, setPortalReady] = useState(false)
@@ -5525,6 +5551,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** See `useDelayedFlag`: a fast load should show nothing at all. */
   const showCanvasLoader = useDelayedFlag(loading || canvasLoading)
 
+  /** What leaving would cost right now, if anything. */
+  const leaveReason: LeaveReason = {
+    draft: isDirty,
+    code: codeDirty,
+    busy: saving || publishing,
+  }
+
+  /**
+   * One door out, used by both exits. Asks only when there is something to
+   * lose; otherwise it goes, which is what somebody pressing Back meant.
+   */
+  const requestExit = useCallback(
+    (href: string) => {
+      if (hasSomethingToLose({ draft: isDirty, code: codeDirty, busy: saving || publishing })) {
+        setPendingExit(href)
+        return
+      }
+      setLeaving(true)
+      router.push(href)
+    },
+    [isDirty, codeDirty, saving, publishing, router],
+  )
+
   // ── Main editor layout ─────────────────────────────────────
   return (
     <div
@@ -5554,11 +5603,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <TooltipTrigger asChild>
               <button
                 className="h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white active:scale-90 active:bg-white/15 transition-[background-color,transform,color] duration-150 shrink-0"
-                onClick={() => {
-                  if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
-                  setLeaving(true)
-                  router.push("/app/website-builder")
-                }}
+                onClick={() => requestExit("/app/website-builder")}
                 aria-label="Back"
               >
                 {isMobileView ? (
@@ -5703,11 +5748,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               {
                 label: "Back to Dashboard",
                 icon: <ArrowLeft className="h-4 w-4" />,
-                onClick: () => {
-                  if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
-                  setLeaving(true)
-                  router.push("/app")
-                },
+                onClick: () => requestExit("/app"),
                 separatorBefore: !websiteUrl,
               },
             ]}
@@ -5978,6 +6019,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       {/* Portalled, for the reason the sheets are: a z-index is only
           comparable inside one stacking context, and this has to cover sheets
           that render into the body. From in here it could not. */}
+      <LeaveConfirm
+        open={pendingExit !== null}
+        reason={leaveReason}
+        onCancel={() => setPendingExit(null)}
+        onLeave={() => {
+          const href = pendingExit
+          setPendingExit(null)
+          setLeaving(true)
+          if (href) router.push(href)
+        }}
+      />
+
       {leaving && portalReady && createPortal(
         <div className="wb-leaving" role="status" aria-live="polite" aria-label="Going back">
           <BuilderLoader
