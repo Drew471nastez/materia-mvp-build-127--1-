@@ -635,7 +635,7 @@ check(
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-0 z-\[80\] flex flex-col rounded-l-xl/.test(modeSwitch) &&
+    /absolute inset-0 z-\[80\] flex flex-col",/.test(modeSwitch) &&
     // A black panel inside a white builder is a second product bolted on.
     /"overflow-hidden bg-white"/.test(modeSwitch) &&
     !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
@@ -736,15 +736,16 @@ check(
 )
 
 check(
-  "the preview card meets the chrome directly and is rounded where it does",
-  // Eight pixels of dark around the card read as empty space however dark
-  // they were. The card fills, and keeps its top corners so it still reads
-  // as a card sitting under the bar rather than as the page.
-  // No mat at all. Every version of a gap around the card read as leftover
-  // empty page rather than as a frame, so the card meets the sidebar and the
-  // bar directly and is rounded on the side where it does.
+  "the preview card meets the chrome exactly: no mat, no border, no corner",
+  /**
+   * Every radius here arced over whatever was behind it and left that as a
+   * notch beside the sidebar's own divider — dark read as a wedge, grey as a
+   * line, white as a dent in the border. A corner that meets chrome exactly
+   * has nothing to show through.
+   */
   /device === "desktop" \? "items-stretch p-0"/.test(editor) &&
-    /\? "rounded-l-xl w-full"/.test(editor) &&
+    /\n\s*\? "w-full"/.test(editor) &&
+    !/rounded-l-xl w-full|rounded-xl w-full/.test(editor) &&
     /height: "100%"/.test(editor) &&
     // and no hairline: flush against chrome, a border is a seam
     !/bg-white border border-neutral-200\/70/.test(editor),
@@ -1350,16 +1351,19 @@ check(
 )
 
 check(
-  "the grip and the menu are drawn at rest, in targets a finger can hit, and only the grip offers a grab",
-  // A control that only exists under the pointer is a control you have to
-  // discover; a list that looks reorderable at rest is one you know is. But
-  // a grab cursor over the whole row still promises a drag the row does not
-  // accept, so that stays on the handle.
+  "the grip is drawn at rest and the menu button only under the pointer",
+  /**
+   * The grip earns its place at rest: it is what says the list can be
+   * reordered. A column of menu buttons says nothing anybody needs to know
+   * before they want one, and six of them are six more marks on the page.
+   * The grab cursor stays on the handle, since over the whole row it
+   * promises a drag the row does not accept.
+   */
   /<GripVertical\s*\n\s*className=\{cn\("h-4 w-4 transition-opacity"/.test(editor) &&
     /aria-label=\{`Drag \$\{section\.name\} to reorder`\}/.test(editor) &&
     /flex h-7 w-7 shrink-0 items-center justify-center rounded-md touch-none/.test(editor) &&
     /cursor-grab active:cursor-grabbing/.test(editor) &&
-    /isSelected \|\| contextMenuOpen \? "opacity-100" : "opacity-40 group-hover:opacity-100"/.test(editor) &&
+    /isSelected \|\| contextMenuOpen \? "opacity-100" : "opacity-0 group-hover:opacity-100/.test(editor) &&
     !/!isStructure && "hover:cursor-grab"/.test(editor),
 )
 
@@ -1579,6 +1583,32 @@ check(
   /if \(everShown \|\| fullScreen\) return/.test(modeSwitch) &&
     /requestIdleCallback/.test(modeSwitch) &&
     /window\.setTimeout\(warm, 1500\)/.test(modeSwitch),
+)
+
+
+check(
+  "a loading canvas is one surface with the loader in the middle of it, and only after a wait worth showing",
+  /**
+   * It was three stacked blocks in three tints, which drew a hard edge across
+   * the canvas wherever one ended — the cut between the white and the grey.
+   * A page that is loading is one empty page.
+   */
+  /<div className="flex min-h-full flex-1 items-center justify-center bg-white">/.test(editor) &&
+    !/h-\[50vh\] flex items-center justify-center bg-neutral-50\/40/.test(editor) &&
+    /const showCanvasLoader = useDelayedFlag\(loading \|\| canvasLoading\)/.test(editor) &&
+    /export function useDelayedFlag\(active: boolean, delay = 350\)/.test(loaderSrc) &&
+    // and it clears the instant the work does, so nothing lingers
+    /if \(!active\) \{\s*setShown\(false\)/.test(loaderSrc),
+)
+
+check(
+  "switching the code editor's theme is a cross-fade, not a cut",
+  // Every surface reads its colour from a variable, and a custom property
+  // only animates where it is registered — so the properties that READ them
+  // are what travel, and the whole editor turns over together.
+  /\.wb-code,\s*\n\s*\.wb-code \* \{\s*transition:\s*background-color 200ms ease/.test(css) &&
+    /\.wb-code textarea,[\s\S]{0,80}transition: none/.test(css) &&
+    /prefers-reduced-motion: reduce\) \{\s*\.wb-code,/.test(css),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

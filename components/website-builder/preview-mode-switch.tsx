@@ -225,7 +225,7 @@ export function CodePane({
             // `flex-1`, and in a block container that resolves to nothing, so
             // the iframe fell back to its 150px HTML default and left the card
             // mostly empty on a desktop.
-            "absolute inset-0 z-[80] flex flex-col rounded-l-xl",
+            "absolute inset-0 z-[80] flex flex-col",
         /**
          * It rises AND settles: a short lift with a touch of scale, on the
          * curve a thrown thing lands on, which reads as the canvas turning

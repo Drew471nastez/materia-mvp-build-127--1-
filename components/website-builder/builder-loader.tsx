@@ -5,6 +5,28 @@ import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 
 /**
+ * True only once `active` has been true for `delay` milliseconds.
+ *
+ * A loader that appears the instant something starts turns every fast load
+ * into a flash of machinery. Below about a third of a second a person reads
+ * a wait as the interface being quick; a spinner in that window makes it
+ * feel slower than showing nothing at all. It goes false the moment `active`
+ * does, so nothing lingers after the work finishes.
+ */
+export function useDelayedFlag(active: boolean, delay = 350): boolean {
+  const [shown, setShown] = useState(false)
+  useEffect(() => {
+    if (!active) {
+      setShown(false)
+      return
+    }
+    const id = window.setTimeout(() => setShown(true), delay)
+    return () => window.clearTimeout(id)
+  }, [active, delay])
+  return shown
+}
+
+/**
  * ===========================================================================
  *  WHAT THE BUILDER SHOWS WHILE IT IS BUSY
  * ===========================================================================

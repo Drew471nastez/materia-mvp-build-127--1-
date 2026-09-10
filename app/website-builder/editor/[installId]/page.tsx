@@ -33,7 +33,7 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
-import { BuilderLoader } from "@/components/website-builder/builder-loader"
+import { BuilderLoader, useDelayedFlag } from "@/components/website-builder/builder-loader"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -5522,6 +5522,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     </>
   )
 
+  /** See `useDelayedFlag`: a fast load should show nothing at all. */
+  const showCanvasLoader = useDelayedFlag(loading || canvasLoading)
+
   // ── Main editor layout ─────────────────────────────────────
   return (
     <div
@@ -6270,7 +6273,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full border-0 rounded-none"
                 : device === "desktop"
-                  ? "rounded-l-xl w-full"
+                  // Square, and flush. Every radius here arced over whatever
+                  // was behind it and left that as a notch beside the
+                  // sidebar's own divider: dark read as a wedge, grey as a
+                  // line, and white as a dent in the border. A corner that
+                  // meets chrome exactly has nothing to show through.
+                  ? "w-full"
                   : "rounded-2xl",
             )}
             style={
@@ -6329,10 +6337,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <div ref={canvasRef} className="flex flex-col w-full flex-1">
             {/* Loading skeleton for canvas — page switch */}
             {(loading || canvasLoading) && (
-              <div>
-                <div className="h-14 bg-neutral-100/60 animate-pulse" />
-                <div className="h-[50vh] flex items-center justify-center bg-neutral-50/40">
+              /**
+               * ONE SURFACE, AND THE LOADER IN THE MIDDLE OF IT.
+               *
+               * This was three stacked blocks in three tints, which drew a
+               * hard edge across the canvas wherever one ended — the cut
+               * between the white and the grey. A page that is loading is one
+               * empty page, so it is one colour, and the only thing on it is
+               * centred in the whole of it rather than in the top half.
+               *
+               * It waits a third of a second before appearing: below that a
+               * person reads the pause as the interface being quick, and a
+               * loader in that window makes a fast load feel slow.
+               */
+              <div className="flex min-h-full flex-1 items-center justify-center bg-white">
+                {showCanvasLoader && (
                   <BuilderLoader
+                    className="wb-loading-line"
                     tone="light"
                     lines={
                       loading
@@ -6340,8 +6361,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         : ["Loading the page", "Just a moment"]
                     }
                   />
-                </div>
-                <div className="h-20 bg-neutral-100/40 animate-pulse" style={{ animationDelay: "200ms" }} />
+                )}
               </div>
             )}
 
@@ -6876,9 +6896,10 @@ function SidebarSectionRow({
                 aria-label={`Options for ${section.name}`}
                 className={cn(
                   "h-6 w-6 shrink-0 rounded-md flex items-center justify-center transition-[opacity,background-color] duration-150",
-                  // Drawn at rest, like the grip. A row whose controls only
-                  // exist under the pointer is a row you have to discover.
-                  isSelected || contextMenuOpen ? "opacity-100" : "opacity-40 group-hover:opacity-100",
+                  // Under the pointer only. The grip is drawn at rest because
+                  // it says the list can be reordered; a column of menu
+                  // buttons says nothing and is six more marks on the page.
+                  isSelected || contextMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
                   isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10",
                 )}
                 onClick={e => e.stopPropagation()}

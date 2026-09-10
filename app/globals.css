@@ -746,6 +746,37 @@ html.capacitor body {
    * twenty hard-coded shades a second theme means twenty conditionals, and
    * the nineteenth is the one somebody forgets.
    */
+  /**
+   * The switch is a CROSS-FADE, not a cut. Every surface in the editor takes
+   * its colour from these variables, so animating the variables would be
+   * ideal — but a custom property only animates where it is registered with
+   * `@property`, and registering nine is a lot of ceremony for one toggle.
+   * Transitioning the properties that READ them gets the same result: every
+   * panel, border and glyph travels to its new colour together over a fifth
+   * of a second, which is the whole editor turning over rather than blinking.
+   */
+  .wb-code,
+  .wb-code * {
+    transition:
+      background-color 200ms ease,
+      border-color 200ms ease,
+      color 200ms ease;
+  }
+  /* Except anything already carrying its own transition, which this would
+     otherwise overwrite, and the code layers, where a per-character fade on
+     a two-hundred-line file is real work for no benefit. */
+  .wb-code [data-no-theme-fade],
+  .wb-code textarea,
+  .wb-code pre {
+    transition: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-code,
+    .wb-code * {
+      transition: none;
+    }
+  }
+
   .wb-code {
     --code-bg: #ffffff;
     --code-panel: #fafafa;
