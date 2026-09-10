@@ -61,6 +61,8 @@ import { GlobalIcon as OnePageLinear } from "@solar-icons/react/linear/global"
 import { GlobalIcon as OnePageBold } from "@solar-icons/react/bold/global"
 import { LetterIcon as EmailsLinear } from "@solar-icons/react/linear/letter"
 import { LetterIcon as EmailsBold } from "@solar-icons/react/bold/letter"
+import { MonitorSmartphoneIcon as WebsiteBuilderLinear } from "@solar-icons/react/linear/monitor-smartphone"
+import { MonitorSmartphoneIcon as WebsiteBuilderBold } from "@solar-icons/react/bold/monitor-smartphone"
 import { SettingsIcon as SettingsLinear } from "@solar-icons/react/linear/settings"
 import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
 import { ShopIcon as StoreLinear } from "@solar-icons/react/linear/shop"
@@ -240,6 +242,7 @@ export const NAV_ICONS = {
   orders: { line: OrdersLinear, fill: OrdersBold },
   onepage: { line: OnePageLinear, fill: OnePageBold },
   storeBuilder: { line: StoreLinear, fill: StoreBold },
+  websiteBuilder: { line: WebsiteBuilderLinear, fill: WebsiteBuilderBold },
   emails: { line: EmailsLinear, fill: EmailsBold },
   payouts: { line: PayoutsLinear, fill: PayoutsBold },
 } as const satisfies Record<string, NavIconPair>
