@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, Move,
+  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom, Move, ArrowUp, ArrowDown,
 } from "lucide-react"
 import {
   DndContext,
@@ -3813,6 +3813,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setIsDirty(true)
   }, [])
 
+  /**
+   * Move a body section one place. The header and the footer are chrome and
+   * do not take part; a step past either end is a no-op rather than an error,
+   * because the buttons that call this are disabled at the ends and a guard
+   * that throws would be a guard for a case that cannot happen.
+   */
+  const moveSectionBy = useCallback((sectionId: string, step: -1 | 1) => {
+    hapticTap("light")
+    setSections((prev) => {
+      const header = prev.find((x) => x.type === "header")
+      const footer = prev.find((x) => x.type === "footer")
+      const body = prev.filter((x) => x.type !== "header" && x.type !== "footer")
+      const from = body.findIndex((x) => x.id === sectionId)
+      const to = from + step
+      if (from === -1 || to < 0 || to >= body.length) return prev
+      return [...(header ? [header] : []), ...arrayMove(body, from, to), ...(footer ? [footer] : [])]
+    })
+    setIsDirty(true)
+  }, [])
+
   // Returns sections array — callers can inject product data before setting state
   // Home is the source of truth for header/footer across the entire site.
   // Every non-home page in the editor (and on the live site) renders using
@@ -6155,7 +6175,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * corners are visible because there is something for them to be
              * rounded against.
              */
-            "relative flex-1 min-w-0 bg-[#171717] overflow-hidden flex justify-center",
+            /**
+             * Light. The surround was dark to make the card's inset read as
+             * matting, and once the inset went the darkness had nothing left
+             * to do but show through the rounded corner as a black wedge
+             * against a white sidebar. A near-white surround has no wedge to
+             * show, and the builder is one light product rather than a light
+             * one with a black hole in the middle.
+             */
+            "relative flex-1 min-w-0 bg-neutral-100 overflow-hidden flex justify-center",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6164,12 +6192,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             isMobileView
               ? "items-start p-0"
               /**
-               * NO MAT ON A DESKTOP. Every version of a gap around the card —
-               * eight pixels, six, dark, light — read as leftover empty page
-               * rather than as a frame. The card meets the sidebar and the bar
-               * directly and is rounded on the side where it does, which is
-               * what makes the three of them read as one piece of chrome with
-               * a page inside it.
+               * NO MAT ON A DESKTOP. The card meets the sidebar and the bar
+               * directly and is rounded on the side where it does, so the
+               * three read as one piece with a page inside.
                */
               : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
           )}
@@ -6395,6 +6420,30 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             )}
             </div>
           </div>
+          {/* The selected section's own toolbar, over the canvas. Only with
+              the inspector on: with it off the canvas is a plain preview and
+              nothing in it is selectable. */}
+          {inspectorEnabled && !isMobileView && previewMode === "preview" && (() => {
+            const body = sections.filter((x) => x.type !== "header" && x.type !== "footer")
+            const idx = body.findIndex((x) => x.id === selectedSectionId)
+            const current = sections.find((x) => x.id === selectedSectionId)
+            if (!current) return null
+            const chrome = current.type === "header" || current.type === "footer"
+            return (
+              <SectionToolbar
+                sectionId={selectedSectionId}
+                hidden={!!current.hidden}
+                isChrome={chrome}
+                canMoveUp={idx > 0}
+                canMoveDown={idx > -1 && idx < body.length - 1}
+                onMoveUp={() => selectedSectionId && moveSectionBy(selectedSectionId, -1)}
+                onMoveDown={() => selectedSectionId && moveSectionBy(selectedSectionId, 1)}
+                onDuplicate={() => selectedSectionId && duplicateSection(selectedSectionId)}
+                onToggleHide={() => selectedSectionId && toggleSectionHidden(selectedSectionId)}
+                onRemove={() => selectedSectionId && removeSection(selectedSectionId)}
+              />
+            )
+          })()}
         </main>
       </div>
 
@@ -6542,6 +6591,164 @@ function SortableSectionRow(props: Parameters<typeof SidebarSectionRow>[0]) {
   )
 }
 
+/**
+ * ===========================================================================
+ *  THE SELECTED SECTION'S OWN TOOLBAR
+ * ===========================================================================
+ *
+ * Selecting a section in the canvas told you it was selected and then made
+ * you go back to the sidebar to do anything about it. This is the handful of
+ * things you actually want at that moment, next to the thing itself: move it
+ * up, move it down, duplicate it, hide it, delete it.
+ *
+ * POSITIONED BY MEASUREMENT, NOT BY NESTING. Putting it inside the section
+ * would mean threading five callbacks through every one of forty renderers,
+ * and it would inherit the theme's own font, colour and stacking. So it
+ * lives in the canvas and reads the section's rectangle: top-right of the
+ * section, pushed down when the section starts above the fold so it never
+ * scrolls out of reach, and hidden entirely when the section has scrolled
+ * past.
+ */
+function SectionToolbar({
+  sectionId,
+  hidden,
+  canMoveUp,
+  canMoveDown,
+  isChrome,
+  onMoveUp,
+  onMoveDown,
+  onDuplicate,
+  onToggleHide,
+  onRemove,
+}: {
+  sectionId: string | null
+  hidden: boolean
+  canMoveUp: boolean
+  canMoveDown: boolean
+  /** The header and the footer cannot be reordered or removed. */
+  isChrome: boolean
+  onMoveUp: () => void
+  onMoveDown: () => void
+  onDuplicate: () => void
+  onToggleHide: () => void
+  onRemove: () => void
+}) {
+  const [box, setBox] = useState<{ top: number; right: number } | null>(null)
+
+  useEffect(() => {
+    if (!sectionId) {
+      setBox(null)
+      return
+    }
+    const scroller = document.getElementById("wb-preview-root")
+    if (!scroller) return
+
+    let frame = 0
+    const measure = () => {
+      frame = 0
+      const el = document.getElementById(`wb-section-${sectionId}`)
+      if (!el) {
+        setBox(null)
+        return
+      }
+      const s = scroller.getBoundingClientRect()
+      const r = el.getBoundingClientRect()
+      // Gone past, above or below: nothing to point at.
+      if (r.bottom < s.top + 8 || r.top > s.bottom - 8) {
+        setBox(null)
+        return
+      }
+      const top = Math.max(r.top + 10, s.top + 10)
+      setBox({ top: top - s.top, right: s.right - r.right + 10 })
+    }
+    // Coalesced into a frame: a scroll fires far more often than the screen
+    // is painted, and a measurement per event is a measurement thrown away.
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(measure)
+    }
+    measure()
+    scroller.addEventListener("scroll", onScroll, { passive: true })
+    window.addEventListener("resize", onScroll)
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onScroll) : null
+    ro?.observe(scroller)
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      scroller.removeEventListener("scroll", onScroll)
+      window.removeEventListener("resize", onScroll)
+      ro?.disconnect()
+    }
+  }, [sectionId])
+
+  if (!sectionId || !box) return null
+
+  const Item = ({
+    label,
+    onClick,
+    disabled,
+    children,
+  }: {
+    label: string
+    onClick: () => void
+    disabled?: boolean
+    children: React.ReactNode
+  }) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          disabled={disabled}
+          onClick={(e) => {
+            e.stopPropagation()
+            onClick()
+          }}
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg transition-[background-color,color,transform] duration-150",
+            "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 active:scale-90",
+            "disabled:pointer-events-none disabled:opacity-30",
+          )}
+        >
+          {children}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  )
+
+  return (
+    <div
+      // Above the sections (9998) and the badge (9999), below the editor's
+      // own chrome. It belongs to the editor, not to the page.
+      className="wb-section-toolbar pointer-events-auto absolute z-[60] flex items-center gap-0.5 rounded-xl border border-neutral-200/80 bg-white/95 p-1 shadow-[0_8px_28px_-10px_rgba(15,23,42,0.35)] backdrop-blur"
+      style={{ top: box.top, right: box.right }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {!isChrome && (
+        <>
+          <Item label="Move up" onClick={onMoveUp} disabled={!canMoveUp}>
+            <ArrowUp className="h-4 w-4" strokeWidth={1.75} />
+          </Item>
+          <Item label="Move down" onClick={onMoveDown} disabled={!canMoveDown}>
+            <ArrowDown className="h-4 w-4" strokeWidth={1.75} />
+          </Item>
+          <span aria-hidden className="mx-0.5 h-5 w-px bg-neutral-200" />
+          <Item label="Duplicate" onClick={onDuplicate}>
+            <Copy className="h-4 w-4" strokeWidth={1.75} />
+          </Item>
+        </>
+      )}
+      <Item label={hidden ? "Show" : "Hide"} onClick={onToggleHide}>
+        {hidden ? <Eye className="h-4 w-4" strokeWidth={1.75} /> : <EyeOff className="h-4 w-4" strokeWidth={1.75} />}
+      </Item>
+      {!isChrome && (
+        <Item label="Delete" onClick={onRemove}>
+          <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+        </Item>
+      )}
+    </div>
+  )
+}
+
 // ── Sidebar section row ──────────────────────────────────────
 function SidebarSectionRow({
   section,
@@ -6573,9 +6780,6 @@ function SidebarSectionRow({
       <div
         className={cn(
           "group flex items-center gap-2 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors",
-          // A row that can be reordered says so under a pointer; the header
-          // and the footer cannot be, and keep the arrow.
-          !isStructure && "hover:cursor-grab",
           isSelected ? "bg-foreground text-background" : "hover:bg-muted text-foreground",
           section.hidden && "opacity-50",
         )}
@@ -6607,10 +6811,13 @@ function SidebarSectionRow({
             )}
             onClick={e => e.stopPropagation()}
           >
+            {/* Drawn only once the row is under the pointer. A column of
+                move arrows down a resting list is eight pieces of furniture
+                for one occasional job. */}
             <Move
               className={cn(
-                "h-4 w-4 transition-opacity",
-                isSelected ? "opacity-70 group-hover:opacity-100" : "opacity-35 group-hover:opacity-80",
+                "h-4 w-4 opacity-0 transition-opacity duration-150 group-hover:opacity-70 group-focus-within:opacity-70",
+                isSelected && "group-hover:opacity-100",
               )}
               strokeWidth={1.75}
             />

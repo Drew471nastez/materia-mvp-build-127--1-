@@ -631,15 +631,19 @@ check(
 )
 
 check(
-  "the code pane is the whole canvas on a desktop, rounded where it meets the bar; the whole screen on a phone",
+  "the code pane is the whole canvas on a desktop, the whole screen on a phone, and light like the rest of the app",
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
     /absolute inset-0 z-\[80\] flex flex-col rounded-l-xl/.test(modeSwitch) &&
+    // A black panel inside a white builder is a second product bolted on.
+    /"overflow-hidden bg-white"/.test(modeSwitch) &&
+    !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
     /fixed inset-0 z-\[120\] flex flex-col/.test(modeSwitch) &&
-    // It lifts in and settles out — a small translate, not a shrink, so the
-    // code never looks like it is zooming at you.
-    /translate-y-2 opacity-0/.test(modeSwitch),
+    // It rises and settles on the curve a thrown thing lands on. Longer than
+    // the old 220ms, because a fast small move reads as a flicker.
+    /transition-\[opacity,transform\] duration-300 ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\]/.test(modeSwitch) &&
+    /pointer-events-none translate-y-3 scale-\[0\.995\] opacity-0/.test(modeSwitch),
 )
 
 check(
@@ -684,7 +688,7 @@ check(
 )
 
 check(
-  "the preview and the code editor reserve no column for a scrollbar",
+  "the preview reserves no column for a scrollbar; on a light code editor a slim one is invisible",
   /**
    * `::-webkit-scrollbar` rules are what turn a platform's OVERLAY scrollbar
    * into a classic one, and a classic one reserves a column of layout. On the
@@ -695,16 +699,24 @@ check(
   // Every scrollbar property, `scrollbar-width` and `scrollbar-color`
   // included, opts an element out of the platform's overlay bar and into a
   // classic one that reserves a column. So: none at all, on either.
-  !/wb-thin-scroll|wb-slim-scroll[^"]*relative isolate/.test(editor) &&
-    /"relative isolate bg-white transition-all/.test(editor) &&
-    !/wb-thin-scroll|wb-slim-scroll/.test(codePage) &&
+  // The preview card holds a page of the creator's own colours, so a
+  // reserved white column beside a dark site is a white stripe. The code
+  // editor is a light panel throughout, so the slim bar sits in it unseen.
+  /"relative isolate bg-white transition-all/.test(editor) &&
+    !/wb-thin-scroll|wb-slim-scroll/.test(
+      editor.slice(editor.indexOf('id="wb-preview-root"'), editor.indexOf('id="wb-preview-root"') + 1400),
+    ) &&
+    (codePage.match(/wb-slim-scroll/g) ?? []).length === 3 &&
     !/\.wb-thin-scroll/.test(css),
 )
 
 check(
-  "the canvas around the preview is chrome-dark, so the inset reads as a frame",
-  // Near-white, the eight pixels around the card read as leftover empty page.
-  /"relative flex-1 min-w-0 bg-\[#171717\] overflow-hidden flex justify-center"/.test(editor),
+  "the canvas around the preview is light, with no dark wedge at the card's corner",
+  // It was dark to make the inset read as matting. Once the inset went, the
+  // darkness had nothing left to do but show through the rounded corner as a
+  // black wedge against a white sidebar.
+  /"relative flex-1 min-w-0 bg-neutral-100 overflow-hidden flex justify-center"/.test(editor) &&
+    !/bg-\[#171717\] overflow-hidden flex justify-center/.test(editor),
 )
 
 check(
@@ -1274,12 +1286,12 @@ section("The code editor: its document is dark and still, and a file can leave")
 // ===========================================================================
 
 check(
-  "framed, the code page's own document does not scroll and is black to its edges",
-  // The white column down the right of the code card was the DOCUMENT's
-  // scrollbar gutter on a white body, behind a dark root div.
+  "framed, the code page's own document does not scroll, and the whole editor is a light surface",
   /html\.style\.overflow = "hidden"/.test(codePage) &&
-    /body\.style\.background = "#0e0e0e"/.test(codePage) &&
-    /\}, \[embedded\]\)/.test(codePage),
+    /body\.style\.background = "#ffffff"/.test(codePage) &&
+    /\}, \[embedded\]\)/.test(codePage) &&
+    // no black panels left anywhere in it
+    !/bg-\[#0e0e0e\]|bg-\[#141414\]|border-white\/|text-neutral-200/.test(codePage),
 )
 
 check(
@@ -1327,14 +1339,47 @@ check(
 )
 
 check(
-  "the drag handle is a move arrow in a target a finger can hit, and the row says it can be moved",
+  "the drag handle is a move arrow that appears on hover, and only the handle offers to be grabbed",
   // Two dots in a column are a convention somebody has to already know; the
   // four-headed arrow is the cursor every desktop shows over a draggable.
+  // But a column of them down a resting list is eight pieces of furniture
+  // for one occasional job, and a grab cursor over the whole row promises a
+  // drag the row does not accept.
   /<Move\s*\n\s*className=/.test(editor) &&
-    !/<GripVertical className=\{cn\("h-3\.5 w-3\.5 opacity-40"/.test(editor) &&
+    /opacity-0 transition-opacity duration-150 group-hover:opacity-70/.test(editor) &&
     /aria-label=\{`Drag \$\{section\.name\} to reorder`\}/.test(editor) &&
     /flex h-7 w-7 shrink-0 items-center justify-center rounded-md touch-none/.test(editor) &&
-    /!isStructure && "hover:cursor-grab"/.test(editor),
+    /cursor-grab active:cursor-grabbing/.test(editor) &&
+    !/!isStructure && "hover:cursor-grab"/.test(editor),
+)
+
+check(
+  "a selected section carries its own toolbar in the canvas, positioned by measurement",
+  /**
+   * Selecting a section told you it was selected and then made you go back to
+   * the sidebar to do anything about it. Nesting the toolbar inside the
+   * section would mean threading five callbacks through forty renderers and
+   * inheriting the theme's own font and colour, so it lives in the canvas and
+   * reads the section's rectangle instead.
+   */
+  /function SectionToolbar\(/.test(editor) &&
+    /document\.getElementById\(`wb-section-\$\{sectionId\}`\)/.test(editor) &&
+    /scroller\.addEventListener\("scroll", onScroll, \{ passive: true \}\)/.test(editor) &&
+    /if \(!frame\) frame = requestAnimationFrame\(measure\)/.test(editor) &&
+    /<SectionToolbar/.test(editor) &&
+    /inspectorEnabled && !isMobileView && previewMode === "preview" && \(\(\) => \{/.test(editor),
+)
+
+check(
+  "and it offers move, duplicate, hide and delete — with the chrome offered only what applies to it",
+  // The header and the footer cannot be reordered, duplicated or removed.
+  /label="Move up"/.test(editor) &&
+    /label="Move down"/.test(editor) &&
+    /label="Duplicate"/.test(editor) &&
+    /label=\{hidden \? "Show" : "Hide"\}/.test(editor) &&
+    /label="Delete"/.test(editor) &&
+    /\{!isChrome && \(/.test(editor) &&
+    /const moveSectionBy = useCallback\(\(sectionId: string, step: -1 \| 1\)/.test(editor),
 )
 
 // ===========================================================================

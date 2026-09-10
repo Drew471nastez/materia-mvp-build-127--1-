@@ -189,7 +189,9 @@ export function CodePane({
   const body = (
     <div
       className={cn(
-        "overflow-hidden bg-[#0e0e0e]",
+        // Light, like the rest of the app. A black panel inside a white
+        // builder is a second product bolted to the side of the first.
+        "overflow-hidden bg-white",
         fullScreen
           ? "fixed inset-0 z-[120] flex flex-col"
           : // `flex flex-col` is not decoration: the iframe's wrapper below is
@@ -197,8 +199,15 @@ export function CodePane({
             // the iframe fell back to its 150px HTML default and left the card
             // mostly empty on a desktop.
             "absolute inset-0 z-[80] flex flex-col rounded-l-xl",
-        "transition-[opacity,transform] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
-        visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0",
+        /**
+         * It rises AND settles: a short lift with a touch of scale, on the
+         * curve a thrown thing lands on, which reads as the canvas turning
+         * over rather than as a panel switched on. Longer than the old 220ms
+         * because the distance is small, and a fast small move is what makes
+         * a transition look like a flicker.
+         */
+        "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        visible ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none translate-y-3 scale-[0.995] opacity-0",
       )}
       aria-hidden={!visible}
     >
@@ -206,19 +215,19 @@ export function CodePane({
         /* Its own bar, because it covers the editor's. Back is the first
            thing on it. */
         <div
-          className="flex shrink-0 items-center gap-2 border-b border-white/10 bg-[#171717] px-2 py-1.5 text-white"
+          className="flex shrink-0 items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-2 py-1.5 text-neutral-900"
           style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 6px)" }}
         >
           <button
             type="button"
             onClick={onClose}
             aria-label="Back to the editor"
-            className="flex h-9 items-center gap-1.5 rounded-lg px-2 text-[15px] font-medium text-white/85 transition-[background-color,transform] duration-150 hover:bg-white/10 hover:text-white active:scale-95"
+            className="flex h-9 items-center gap-1.5 rounded-lg px-2 text-[15px] font-medium text-neutral-700 transition-[background-color,transform] duration-150 hover:bg-neutral-200 hover:text-neutral-900 active:scale-95"
           >
             <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
             Editor
           </button>
-          <span className="ml-1 flex items-center gap-1.5 text-[15px] font-medium text-white/60">
+          <span className="ml-1 flex items-center gap-1.5 text-[15px] font-medium text-neutral-500">
             <Code2 className="h-4 w-4" strokeWidth={1.75} />
             Code
           </span>
@@ -226,7 +235,7 @@ export function CodePane({
       )}
       <div className="relative min-h-0 flex-1">
         {!loaded && (
-          <div className="absolute inset-0 flex items-center justify-center text-white/50">
+          <div className="absolute inset-0 flex items-center justify-center text-neutral-400">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         )}
@@ -235,7 +244,7 @@ export function CodePane({
           src={`/website-builder/code/${installId}?embedded=1`}
           onLoad={() => setLoaded(true)}
           className={cn(
-            "h-full w-full border-0 bg-[#0e0e0e] transition-opacity duration-300",
+            "h-full w-full border-0 bg-white transition-opacity duration-300",
             loaded ? "opacity-100" : "opacity-0",
           )}
         />
