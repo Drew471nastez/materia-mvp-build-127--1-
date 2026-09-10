@@ -635,7 +635,7 @@ check(
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-0 z-\[80\] flex flex-col rounded-t-xl/.test(modeSwitch) &&
+    /absolute inset-1\.5 z-\[80\] flex flex-col rounded-xl border border-white\/10/.test(modeSwitch) &&
     /fixed inset-0 z-\[120\] flex flex-col/.test(modeSwitch) &&
     // It lifts in and settles out — a small translate, not a shrink, so the
     // code never looks like it is zooming at you.
@@ -657,7 +657,7 @@ check(
    * compared in the same place, so a site's header won and painted across the
    * editor's own menus — which is what covered the page switcher's panel.
    */
-  /"wb-thin-scroll relative isolate bg-white/.test(editor) &&
+  /"relative isolate bg-white/.test(editor) &&
     !/PREVIEW, OR THE CODE BEHIND IT/.test(editor) &&
     !/pointer-events-none absolute left-0 right-0 top-2 z-30/.test(editor),
 )
@@ -692,11 +692,13 @@ check(
    * site inside it was dark: the white strip down the right of the builder,
    * caused by styling the scrollbar rather than by failing to.
    */
-  /wb-thin-scroll relative isolate/.test(editor) &&
-    (codePage.match(/wb-thin-scroll/g) ?? []).length === 3 &&
-    /\.wb-thin-scroll \{\s*scrollbar-width: thin;\s*scrollbar-color: rgba\(148, 163, 184, 0\.45\) transparent;\s*\}/.test(css) &&
-    // and nothing gives it webkit rules, which is what reserved the column
-    !/wb-thin-scroll::-webkit-scrollbar/.test(css),
+  // Every scrollbar property, `scrollbar-width` and `scrollbar-color`
+  // included, opts an element out of the platform's overlay bar and into a
+  // classic one that reserves a column. So: none at all, on either.
+  !/wb-thin-scroll|wb-slim-scroll[^"]*relative isolate/.test(editor) &&
+    /"relative isolate bg-white border border-neutral-200\/70/.test(editor) &&
+    !/wb-thin-scroll|wb-slim-scroll/.test(codePage) &&
+    !/\.wb-thin-scroll/.test(css),
 )
 
 check(
@@ -718,13 +720,15 @@ check(
 )
 
 check(
-  "the preview card IS the canvas on a desktop: no inset, rounded only where it meets the bar",
+  "the preview card sits in a six pixel frame with four rounded corners, the bar floating inside it",
   // Eight pixels of dark around the card read as empty space however dark
   // they were. The card fills, and keeps its top corners so it still reads
   // as a card sitting under the bar rather than as the page.
-  /device === "desktop" \? "items-stretch p-0"/.test(editor) &&
-    /\? "rounded-t-xl border-x-0 border-b-0 w-full"/.test(editor) &&
-    /height: "calc\(100svh - var\(--wb-chrome-top\)\)"/.test(editor),
+  // A six pixel mat on every side: four rounded corners and a little dark
+  // around each, the reference's frame, with the bar floating inside.
+  /device === "desktop" \? "items-stretch p-1\.5"/.test(editor) &&
+    /\? "rounded-xl w-full"/.test(editor) &&
+    /height: "calc\(100svh - var\(--wb-chrome-top\) - 12px\)"/.test(editor),
 )
 
 check(
@@ -1079,7 +1083,7 @@ check(
     /calc\(100svh - var\(--wb-chrome-top\) - var\(--wb-sheet-peek\)\)/.test(editor) &&
     // The desktop card is now the whole canvas, so it subtracts the chrome
     // and nothing else.
-    /height: "calc\(100svh - var\(--wb-chrome-top\)\)"/.test(editor),
+    /height: "calc\(100svh - var\(--wb-chrome-top\) - 12px\)"/.test(editor),
 )
 
 check(
@@ -1234,9 +1238,12 @@ check(
   "a row shows one three-dots button under the pointer, and it opens the same menu a right-click does",
   !/title="Remove"/.test(editor) &&
     /aria-label=\{`Options for \$\{section\.name\}`\}/.test(editor) &&
-    /onClick=\{e => \{ e\.stopPropagation\(\); setContextMenuOpen\(\(v\) => !v\) \}\}/.test(editor) &&
-    /Duplicate\s*<\/button>/.test(editor) &&
-    /Delete\s*<\/button>/.test(editor),
+    // The three dots are the dropdown's own trigger, so open and close are
+    // its business; and the menu is the app's dropdown, with no red row.
+    /<DropdownMenuTrigger asChild>\s*<button\s*type="button"\s*aria-label=\{`Options for \$\{section\.name\}`\}/.test(editor) &&
+    /Duplicate\s*<\/DropdownMenuItem>/.test(editor) &&
+    /Delete\s*<\/DropdownMenuItem>/.test(editor) &&
+    !/text-red-500 hover:bg-red-50/.test(editor),
 )
 
 check(
@@ -1276,6 +1283,34 @@ check(
     /navigator\.clipboard\.writeText\(fileContent\)/.test(codePage) &&
     /aria-label="Download this file"/.test(codePage) &&
     /a\.download = selectedFile\.name/.test(codePage),
+)
+
+
+// ===========================================================================
+section("Links stay in the builder, and loading looks like what is coming")
+// ===========================================================================
+
+const headerRenderer = readFileSync(join(root, "components/website-builder/sections/renderers/HeaderSection.tsx"), "utf8")
+
+check(
+  "a nav link inside the editor is intercepted whether or not the inspector is on",
+  /**
+   * Gated on `isEditing`, a nav link with the inspector off was a real anchor
+   * to "/" — which in the editor's own document is storelib.com, not the
+   * site being built. Home took people out of the builder.
+   */
+  // Four doors: the nav link, its submenu, the CTA, and the phone menu.
+  !/if \(isEditing\) \{\s*e\.preventDefault\(\)/.test(headerRenderer) &&
+    (headerRenderer.match(/if \(onEditorNavigate\) \{\s*e\.preventDefault\(\)\s*e\.stopPropagation\(\)\s*onEditorNavigate\(/g) ?? []).length === 4 &&
+    /if \(onEditorNavigate\) onEditorNavigate\("\/cart"\)/.test(headerRenderer),
+)
+
+check(
+  "while the builder loads, the sidebar and the canvas show the shape of what is coming, and no spinner",
+  /const sidebarSkeleton = \(/.test(editor) &&
+    (editor.match(/\{loading \? sidebarSkeleton : renderSidebarContent\(\)\}/g) ?? []).length === 2 &&
+    /aria-label="Loading page"/.test(editor) &&
+    !/rounded-full animate-spin" \/>\s*<p className="text-xs text-neutral-400">Loading page/.test(editor),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

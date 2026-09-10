@@ -31,6 +31,13 @@ import {
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { PageSwitcher } from "@/components/website-builder/page-switcher"
@@ -5466,6 +5473,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     </>
   )
 
+  /**
+   * WHILE THE BUILDER LOADS.
+   * A skeleton in the shape of what is coming, not a spinner. A ring that
+   * turns says "something is happening somewhere"; a faint page and a faint
+   * list say "this is where your site and its sections are about to be",
+   * and they stop being faint in place rather than being replaced.
+   */
+  const sidebarSkeleton = (
+    <div className="flex h-full flex-col" aria-busy="true" aria-label="Loading">
+      <div className="border-b border-border px-4 py-3">
+        <div className="h-3.5 w-24 rounded bg-muted animate-pulse" />
+        <div className="mt-2 h-2.5 w-36 rounded bg-muted/70 animate-pulse" />
+      </div>
+      <div className="space-y-2 p-3">
+        <div className="h-10 rounded-lg border border-border/70 bg-muted/40 animate-pulse" />
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="flex items-center gap-3 px-2.5 py-3">
+            <div className="h-3 w-3 rounded-sm bg-muted animate-pulse" style={{ animationDelay: `${i * 60}ms` }} />
+            <div
+              className="h-3 rounded bg-muted animate-pulse"
+              style={{ width: `${[52, 36, 64, 48, 58, 40, 44][i]}%`, animationDelay: `${i * 60}ms` }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
   // ── Main editor layout ─────────────────────────────────────
   return (
     <div
@@ -5960,7 +5995,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
               <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
-                {renderSidebarContent()}
+                {loading ? sidebarSkeleton : renderSidebarContent()}
               </div>
             </div>
             {/* The grab edge. Wider than it looks, so it can be found; drawn
@@ -6040,7 +6075,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
-              {renderSidebarContent()}
+              {loading ? sidebarSkeleton : renderSidebarContent()}
             </div>
           </MobileEditorSheet>
           )
@@ -6125,7 +6160,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               // where it meets the bar above so it still reads as a card and
               // not as the page; the eight pixels of dark around it read as
               // empty space however dark they were.
-              : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
+              // A six pixel mat on every side, so the card has four rounded
+              // corners and a little dark around each — the reference's
+              // frame. The scrollbar floats inside the card; see below.
+              : device === "desktop" ? "items-stretch p-1.5" : "items-center py-6 px-6",
           )}
         >
           <CodePane
@@ -6164,7 +6202,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                * painted across a menu belonging to the editor. Isolating the
                * card means nothing inside it can ever climb out of it.
                */
-              "wb-thin-scroll relative isolate bg-white border border-neutral-200/70 transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
+              "relative isolate bg-white border border-neutral-200/70 transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
               // Leaving for the code fades rather than cuts: `invisible`
               // removed the site between one frame and the next, which is the
               // flash you see as the code arrives. Opacity keeps the scroll
@@ -6173,7 +6211,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full border-0 rounded-none"
                 : device === "desktop"
-                  ? "rounded-t-xl border-x-0 border-b-0 w-full"
+                  ? "rounded-xl w-full"
                   : "rounded-2xl",
             )}
             style={
@@ -6198,7 +6236,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   ? {
                       // Desktop — the card IS the canvas, edge to edge, and
                       // scrolls internally.
-                      height: "calc(100svh - var(--wb-chrome-top))",
+                      height: "calc(100svh - var(--wb-chrome-top) - 12px)",
                     }
                   : {
                       /**
@@ -6226,15 +6264,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <div ref={canvasRef} className="flex flex-col w-full flex-1">
             {/* Loading skeleton for canvas — page switch */}
             {(loading || canvasLoading) && (
-              <div>
-                <div className="h-14 bg-neutral-100/60 animate-pulse" />
-                <div className="h-[50vh] flex items-center justify-center bg-neutral-50/40">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="h-7 w-7 border-2 border-neutral-300/60 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-xs text-neutral-400">Loading page...</p>
+              /* The shape of a page, faintly: a bar, a hero, some lines.
+                 No spinner — see `sidebarSkeleton`. */
+              <div aria-busy="true" aria-label="Loading page" className="px-0">
+                <div className="flex h-16 items-center justify-between px-8">
+                  <div className="h-4 w-28 rounded bg-neutral-200/80 animate-pulse" />
+                  <div className="flex gap-6">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="h-3 w-14 rounded bg-neutral-200/70 animate-pulse" style={{ animationDelay: `${i * 70}ms` }} />
+                    ))}
                   </div>
                 </div>
-                <div className="h-20 bg-neutral-100/40 animate-pulse" style={{ animationDelay: "200ms" }} />
+                <div className="mx-8 mt-6 grid grid-cols-2 gap-10">
+                  <div className="space-y-4 py-10">
+                    <div className="h-3 w-24 rounded bg-neutral-200/70 animate-pulse" />
+                    <div className="h-9 w-4/5 rounded bg-neutral-200/80 animate-pulse" style={{ animationDelay: "90ms" }} />
+                    <div className="h-9 w-3/5 rounded bg-neutral-200/80 animate-pulse" style={{ animationDelay: "140ms" }} />
+                    <div className="h-3 w-full rounded bg-neutral-200/60 animate-pulse" style={{ animationDelay: "200ms" }} />
+                    <div className="h-3 w-5/6 rounded bg-neutral-200/60 animate-pulse" style={{ animationDelay: "240ms" }} />
+                    <div className="mt-2 h-10 w-36 rounded-lg bg-neutral-200/80 animate-pulse" style={{ animationDelay: "300ms" }} />
+                  </div>
+                  <div className="h-72 rounded-xl bg-neutral-200/60 animate-pulse" style={{ animationDelay: "160ms" }} />
+                </div>
+                <div className="mx-8 mt-12 grid grid-cols-3 gap-6">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="h-40 rounded-xl bg-neutral-200/50 animate-pulse" style={{ animationDelay: `${360 + i * 80}ms` }} />
+                  ))}
+                </div>
               </div>
             )}
 
@@ -6559,45 +6615,63 @@ function SidebarSectionRow({
             than an eye and a bin sitting on every row you pass. The menu is
             the same one a right-click opens. */}
         {!isStructure && (
-          <button
-            type="button"
-            aria-label={`Options for ${section.name}`}
-            aria-haspopup="menu"
-            aria-expanded={contextMenuOpen}
-            className={cn(
-              "h-6 w-6 shrink-0 rounded-md flex items-center justify-center transition-[opacity,background-color] duration-150",
-              "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-              (isSelected || contextMenuOpen) && "opacity-100",
-              isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10",
-            )}
-            onClick={e => { e.stopPropagation(); setContextMenuOpen((v) => !v) }}
-          >
-            <MoreHorizontal className="h-4 w-4" strokeWidth={1.75} />
-          </button>
+          /* The three dots ARE the menu's trigger, so opening and closing is
+             the dropdown's own business: a button that toggled state by hand
+             reopened on the same click that had just closed it, because the
+             pointer-down outside closes before the click lands. A right-click
+             on the row opens the same menu. */
+          <DropdownMenu open={contextMenuOpen} onOpenChange={setContextMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={`Options for ${section.name}`}
+                className={cn(
+                  "h-6 w-6 shrink-0 rounded-md flex items-center justify-center transition-[opacity,background-color] duration-150",
+                  "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+                  (isSelected || contextMenuOpen) && "opacity-100",
+                  isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10",
+                )}
+                onClick={e => e.stopPropagation()}
+              >
+                <MoreHorizontal className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+            </DropdownMenuTrigger>
+            {/* The app's own dropdown, the one every other menu on the page
+                is, not a hand-drawn card. Delete is a row like the others: a
+                red row shouts at somebody who has not decided anything yet,
+                and Undo takes a deletion back in one keystroke. */}
+            <DropdownMenuContent align="end" sideOffset={4} className="w-44" onClick={e => e.stopPropagation()}>
+              <DropdownMenuItem
+                className="cursor-pointer hover:bg-neutral-100 focus:bg-neutral-100 data-[highlighted]:bg-neutral-100"
+                onClick={() => onDuplicate()}
+              >
+                <Copy className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer hover:bg-neutral-100 focus:bg-neutral-100 data-[highlighted]:bg-neutral-100"
+                onClick={() => onToggleHide()}
+              >
+                {section.hidden ? (
+                  <Eye className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                ) : (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                )}
+                {section.hidden ? "Show" : "Hide"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="cursor-pointer hover:bg-neutral-100 focus:bg-neutral-100 data-[highlighted]:bg-neutral-100"
+                onClick={() => onRemove()}
+              >
+                <Trash2 className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
-      {/* Right-click context menu — positioned below the row */}
-      {contextMenuOpen && (
-        <>
-          <div className="fixed inset-0 z-[200]" onClick={() => setContextMenuOpen(false)} onContextMenu={e => { e.preventDefault(); setContextMenuOpen(false) }} />
-          <div className="absolute left-2 right-2 top-full mt-1 z-[201] bg-white rounded-lg shadow-xl border border-border py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
-            <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors rounded-md mx-0" onClick={() => { onDuplicate(); setContextMenuOpen(false) }}>
-              <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-              Duplicate
-            </button>
-            <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors rounded-md" onClick={() => { onToggleHide(); setContextMenuOpen(false) }}>
-              {section.hidden ? <Eye className="h-3.5 w-3.5 text-muted-foreground" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
-              {section.hidden ? "Show" : "Hide"}
-            </button>
-            <div className="h-px bg-border mx-2 my-1" />
-            <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors rounded-md" onClick={() => { onRemove(); setContextMenuOpen(false) }}>
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete
-            </button>
-          </div>
-        </>
-      )}
     </div>
   )
 }

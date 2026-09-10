@@ -575,25 +575,17 @@ html.capacitor body {
      Thumb only, no track, rounded to its own width, and it stays out of the
      way until the pointer is over the panel it belongs to. */
   /**
-   * THE SCROLLBAR THAT TAKES NO ROOM.
+   * THE PREVIEW AND THE CODE EDITOR HAVE NO SCROLLBAR RULES AT ALL.
    *
-   * `::-webkit-scrollbar` rules are what turn a platform's OVERLAY scrollbar
-   * into a classic one, and a classic one reserves a column of layout for
-   * itself. On the preview card that column was painted in the card's own
-   * white while the site inside it was dark, which is the white strip down
-   * the right of the whole builder — caused by styling the scrollbar, not by
-   * failing to.
-   *
-   * So this variant sets only the standard properties. macOS keeps its
-   * overlay bar, which floats over the content and reserves nothing; Firefox
-   * and Windows get a thin one instead of a chunky one. Nowhere gets a gutter
-   * it did not already have.
+   * Every scrollbar property, `scrollbar-width` and `scrollbar-color`
+   * included, opts an element out of the platform's OVERLAY scrollbar and
+   * into a classic one that reserves a column of layout. On the preview card
+   * that column was painted in the card's own white beside a dark site: the
+   * white strip down the right of the builder, twice over. Left entirely
+   * alone, macOS floats its bar over the content and reserves nothing, which
+   * is the look of the reference. The slim bar below stays for the editor's
+   * own light panels, where a reserved column is invisible.
    */
-  .wb-thin-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
-  }
-
   .wb-slim-scroll {
     scrollbar-width: thin;
     /* Firefox has no hover selector for the thumb, so it gets the resting

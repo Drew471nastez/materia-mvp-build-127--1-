@@ -886,11 +886,19 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           rel={openInNew ? "noopener noreferrer" : undefined}
           className="text-[14px] font-medium whitespace-nowrap inline-flex flex-row items-center gap-1.5 leading-none align-middle"
           style={{ color: navLinkColor }}
+          /**
+           * Intercepted whenever this header is INSIDE THE EDITOR, not only
+           * while the inspector is on. `onEditorNavigate` is only ever passed
+           * by the editor, so its presence is the test. Gated on `isEditing`,
+           * a nav link with the inspector off was a real anchor to "/" — which
+           * in the editor's own document is storelib.com, not the site being
+           * built. Home took people out of the builder.
+           */
           onClick={e => {
-            if (isEditing) {
+            if (onEditorNavigate) {
               e.preventDefault()
               e.stopPropagation()
-              onEditorNavigate?.(href)
+              onEditorNavigate(href)
             }
           }}
         >
@@ -963,10 +971,10 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
                   rel={childOpenInNew ? "noopener noreferrer" : undefined}
                   className="block px-4 py-2 text-[13.5px] font-medium text-gray-800 hover:bg-gray-50 transition-colors whitespace-nowrap"
                   onClick={e => {
-                    if (isEditing) {
+                    if (onEditorNavigate) {
                       e.preventDefault()
                       e.stopPropagation()
-                      onEditorNavigate?.(childHref)
+                      onEditorNavigate(childHref)
                     }
                   }}
                 >
@@ -1062,7 +1070,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
             // place. The control offered all three and always opened the
             // drawer.
             if (cartType === "page") {
-              if (isEditing) onEditorNavigate?.("/cart")
+              if (onEditorNavigate) onEditorNavigate("/cart")
               else window.location.href = "/cart"
               return
             }
@@ -1129,10 +1137,10 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
             ...buttonRadiusStyle(theme),
           }}
           onClick={e => {
-            if (isEditing) {
+            if (onEditorNavigate) {
               e.preventDefault()
               e.stopPropagation()
-              onEditorNavigate?.(str(s.cta_url, "#"))
+              onEditorNavigate(str(s.cta_url, "#"))
             }
           }}
         >

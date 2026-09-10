@@ -516,7 +516,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               </p>
             )}
           </div>
-          <div className="wb-thin-scroll flex-1 overflow-y-auto py-1 px-1">
+          <div className="flex-1 overflow-y-auto py-1 px-1">
             {visibleTree.map(node => (
               <FileTreeNode
                 key={node.path}
@@ -548,7 +548,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
         <div className={cn("flex-1 flex flex-col overflow-hidden min-w-0", narrow && showFiles && "hidden")}>
           {/* Tabs */}
           {openTabs.length > 0 && (
-            <div className="wb-thin-scroll flex items-end bg-[#141414] border-b border-white/10 overflow-x-auto shrink-0">
+            <div className="flex items-end bg-[#141414] border-b border-white/10 overflow-x-auto shrink-0">
               {openTabs.map(tab => {
                 const isActive = selectedFile?.path === tab.path
                 const isTabDirty = dirtyPaths.has(tab.path)
@@ -681,7 +681,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               <textarea
                 ref={textareaRef}
                 className={cn(
-                  "wb-thin-scroll absolute inset-0 w-full h-full bg-transparent text-transparent caret-white font-mono resize-none focus:outline-none px-[2.75rem] py-2 z-10",
+                  "absolute inset-0 w-full h-full bg-transparent text-transparent caret-white font-mono resize-none focus:outline-none px-[2.75rem] py-2 z-10",
                   CODE_TEXT,
                 )}
                 value={fileContent}
