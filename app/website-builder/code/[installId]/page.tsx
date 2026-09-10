@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Save, Loader2, File, Folder, FolderOpen,
   ChevronRight, X, AlertCircle, Check, RotateCcw, Code2,
-  RefreshCw, Search,
+  RefreshCw, Search, Copy, Download,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -130,6 +130,28 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   // `?embedded=1` is the theme editor framing this page over its canvas.
   const embedded =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("embedded") === "1"
+
+  /**
+   * Framed inside the editor, this page's own document must not scroll and
+   * must be black to its edges. It is the DOCUMENT that showed as a white
+   * column down the right of the code card: the root div is dark, but the
+   * html and body behind it were white, and a document scrollbar painted its
+   * gutter in that white. Nothing here scrolls at the document level; the
+   * panels scroll themselves.
+   */
+  useEffect(() => {
+    if (!embedded) return
+    const html = document.documentElement
+    const body = document.body
+    const prev = [html.style.overflow, html.style.background, body.style.overflow, body.style.background]
+    html.style.overflow = "hidden"
+    html.style.background = "#0e0e0e"
+    body.style.overflow = "hidden"
+    body.style.background = "#0e0e0e"
+    return () => {
+      ;[html.style.overflow, html.style.background, body.style.overflow, body.style.background] = prev
+    }
+  }, [embedded])
 
   const [install, setInstall] = useState<ThemeInstall | null>(null)
   const [fileTree, setFileTree] = useState<ThemeFileNode[]>([])
@@ -352,6 +374,34 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     }
   }
 
+  /**
+   * The file, out of the editor. Copy for a paste somewhere else; Download
+   * for a copy on disk with the file's own name. Both act on what is in the
+   * editor now, saved or not, because that is the version you can see.
+   */
+  const [copied, setCopied] = useState(false)
+  const copyFile = async () => {
+    try {
+      await navigator.clipboard.writeText(fileContent)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1400)
+    } catch {
+      toast.error("Could not copy. Select the text and copy it instead.")
+    }
+  }
+  const downloadFile = () => {
+    if (!selectedFile) return
+    const blob = new Blob([fileContent], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = selectedFile.name
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
   const closeTab = (path: string) => {
     setOpenTabs(prev => prev.filter(t => t.path !== path))
     if (selectedFile?.path === path) {
@@ -564,6 +614,26 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   <span className="ml-2 shrink-0 text-[10px] text-blue-400">● Modified</span>
                 )}
               </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void copyFile()}
+                aria-label="Copy file content"
+                title="Copy file content"
+                className="h-8 w-8 shrink-0 px-0 text-neutral-400 hover:text-white"
+              >
+                {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={downloadFile}
+                aria-label="Download this file"
+                title="Download this file"
+                className="h-8 w-8 shrink-0 px-0 text-neutral-400 hover:text-white"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
               {customizedPaths.has(selectedFile.path) && (
                 <Button
                   size="sm"

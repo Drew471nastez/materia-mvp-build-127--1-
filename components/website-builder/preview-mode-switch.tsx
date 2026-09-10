@@ -196,7 +196,7 @@ export function CodePane({
             // `flex-1`, and in a block container that resolves to nothing, so
             // the iframe fell back to its 150px HTML default and left the card
             // mostly empty on a desktop.
-            "absolute inset-2 z-[80] flex flex-col rounded-xl border border-white/10 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.8)]",
+            "absolute inset-0 z-[80] flex flex-col rounded-t-xl border-t border-white/10",
         "transition-[opacity,transform] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
         visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0",
       )}

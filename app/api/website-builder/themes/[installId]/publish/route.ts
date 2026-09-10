@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { takeBackup } from "@/lib/website-builder/backups"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -106,6 +107,15 @@ export async function POST(req: Request, { params }: Params) {
       action: "published",
       snapshot: settings?.settings ?? {},
     })
+
+    // A publish is a moment worth being able to go back to. Never allowed to
+    // fail the publish itself: the table is created by RUN_THEME_BACKUPS.sql
+    // and a site going live must not depend on a housekeeping row.
+    try {
+      await takeBackup(admin, installId, { label: "Published", source: "publish" })
+    } catch {
+      /* logged nowhere on purpose: nothing sensitive, nothing actionable */
+    }
 
     return NextResponse.json({ ok: true, status: "published" })
   }

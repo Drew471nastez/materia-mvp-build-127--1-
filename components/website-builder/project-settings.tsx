@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { ArrowLeft, Check, Copy, ExternalLink, Globe, Loader2, Rocket, Settings } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
+import { ArrowLeft, Check, Copy, ExternalLink, Globe, History, Loader2, Rocket, Settings, Sparkles, Upload } from "lucide-react"
 
 import { relativeTime } from "@/components/website-builder/publish-panel"
 import { cn } from "@/lib/utils"
@@ -24,13 +24,37 @@ import { cn } from "@/lib/utils"
  * things is how somebody loses an edit.
  *
  * ONLY WHAT IS REAL IS SHOWN. The reference has Analytics, Knowledge,
- * Skills, Backups. None of those exist here yet, and a nav entry that opens
- * an empty panel is a promise the product cannot keep. Three sections, each
- * backed by something: the name (PATCH exists), the address (it is what it
- * is), and publishing (status and time are on the install).
+ * Skills, Backups. A nav entry that opens an empty panel is a promise the
+ * product cannot keep, so each section here is backed by something: the
+ * name (PATCH exists), the address (it is what it is), publishing (status
+ * and time are on the install), and backups (a table, two routes, and a
+ * restore that takes a safety copy first).
  */
 
-type Section = "general" | "domains" | "publishing"
+type Section = "general" | "domains" | "publishing" | "backups"
+
+interface BackupRow {
+  id: string
+  label: string
+  source: "ai" | "publish" | "manual" | "restore"
+  created_at: string
+}
+
+/** "8 September 2026 at 09:57", in the reader's own locale and zone. */
+function backupWhen(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  const date = d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })
+  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+  return `${date} at ${time}`
+}
+
+const SOURCE_WORD: Record<BackupRow["source"], string> = {
+  ai: "Storelib AI",
+  publish: "Published",
+  manual: "Saved by you",
+  restore: "Before a restore",
+}
 
 export function ProjectSettings({
   open,
@@ -42,6 +66,7 @@ export function ProjectSettings({
   websiteUrlDisplay,
   live,
   publishedAt,
+  onRestored,
 }: {
   open: boolean
   onClose: () => void
@@ -52,6 +77,8 @@ export function ProjectSettings({
   websiteUrlDisplay: string
   live: boolean
   publishedAt: string | null
+  /** A backup has been written into the draft; the editor must reload it. */
+  onRestored?: () => void
 }) {
   const [section, setSection] = useState<Section>("general")
   const [draft, setDraft] = useState(name)
@@ -76,6 +103,77 @@ export function ProjectSettings({
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
   }, [open, onClose])
+
+  /**
+   * =========================================================================
+   *  BACKUPS
+   * =========================================================================
+   * Listed newest first, never with their contents: the list is a table of
+   * moments, and the snapshot behind each is only read when one is restored.
+   * Restoring asks first, because it replaces the draft; and it is never a
+   * one-way door, because the route takes a safety copy of the draft it is
+   * replacing before it writes. Nothing goes live until published.
+   */
+  const [backups, setBackups] = useState<BackupRow[] | null>(null)
+  const [backupsError, setBackupsError] = useState<string | null>(null)
+  const [backingUp, setBackingUp] = useState(false)
+  const [confirming, setConfirming] = useState<BackupRow | null>(null)
+  const [restoring, setRestoring] = useState(false)
+
+  const loadBackups = useCallback(async () => {
+    setBackupsError(null)
+    try {
+      const res = await fetch(`/api/website-builder/themes/${installId}/backups`)
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || "Could not load backups")
+      setBackups(json.backups ?? [])
+    } catch (e: any) {
+      setBackups([])
+      setBackupsError(e?.message || "Could not load backups")
+    }
+  }, [installId])
+
+  useEffect(() => {
+    if (open && section === "backups" && backups === null) void loadBackups()
+  }, [open, section, backups, loadBackups])
+
+  const backUpNow = async () => {
+    if (backingUp) return
+    setBackingUp(true)
+    setBackupsError(null)
+    try {
+      const res = await fetch(`/api/website-builder/themes/${installId}/backups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: "manual", label: "Manual backup" }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || "Could not save a backup")
+      await loadBackups()
+    } catch (e: any) {
+      setBackupsError(e?.message || "Could not save a backup")
+    } finally {
+      setBackingUp(false)
+    }
+  }
+
+  const restore = async (row: BackupRow) => {
+    if (restoring) return
+    setRestoring(true)
+    setBackupsError(null)
+    try {
+      const res = await fetch(`/api/website-builder/themes/${installId}/backups/${row.id}/restore`, { method: "POST" })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || "Could not restore this backup")
+      setConfirming(null)
+      onRestored?.()
+    } catch (e: any) {
+      setBackupsError(e?.message || "Could not restore this backup")
+      setConfirming(null)
+    } finally {
+      setRestoring(false)
+    }
+  }
 
   if (!open) return null
 
@@ -117,6 +215,7 @@ export function ProjectSettings({
     { id: "general", label: "General", Icon: Settings },
     { id: "domains", label: "Domains & Hosting", Icon: Globe },
     { id: "publishing", label: "Publishing", Icon: Rocket },
+    { id: "backups", label: "Backups", Icon: History },
   ]
 
   const ago = relativeTime(publishedAt)
@@ -272,8 +371,146 @@ export function ProjectSettings({
               </div>
             </>
           )}
+
+          {section === "backups" && (
+            <>
+              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <h1 className="text-[26px] font-semibold tracking-[-0.01em] md:text-[30px]">Project Backups</h1>
+                  <p className="mt-2 max-w-[560px] text-[15px] text-white/60">
+                    Storelib saves a backup each time it completes a task and each time you publish. Load a backup to
+                    put your project back to that point.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void backUpNow()}
+                  disabled={backingUp}
+                  className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 text-[14px] font-medium text-white transition-colors hover:bg-white/[0.12] disabled:opacity-60"
+                >
+                  {backingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" strokeWidth={1.75} />}
+                  Back up now
+                </button>
+              </div>
+
+              {backupsError && (
+                <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-[14px] text-red-300">
+                  {backupsError}
+                </p>
+              )}
+
+              <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                {backups === null ? (
+                  <div className="flex items-center justify-center py-14 text-white/50">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  </div>
+                ) : backups.length === 0 ? (
+                  <div className="px-5 py-12 text-center text-[15px] text-white/50">
+                    No backups yet. One is saved the next time Storelib AI finishes a task or you publish, or press
+                    Back up now.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-white/[0.07]">
+                    {backups.map((b) => (
+                      <li key={b.id} className="flex items-center gap-4 px-5 py-4">
+                        <span
+                          className={cn(
+                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                            b.source === "publish"
+                              ? "bg-emerald-500/15 text-emerald-300"
+                              : b.source === "ai"
+                                ? "bg-[#8B56FA]/20 text-[#c7b0ff]"
+                                : "bg-white/[0.08] text-white/70",
+                          )}
+                          aria-hidden
+                        >
+                          {b.source === "publish" ? (
+                            <Rocket className="h-4 w-4" strokeWidth={1.75} />
+                          ) : b.source === "ai" ? (
+                            <Sparkles className="h-4 w-4" strokeWidth={1.75} />
+                          ) : (
+                            <History className="h-4 w-4" strokeWidth={1.75} />
+                          )}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[15px] font-medium">{b.label}</p>
+                          <p className="mt-0.5 text-[13px] text-white/50">
+                            {backupWhen(b.created_at)}
+                            <span className="text-white/30"> · </span>
+                            {SOURCE_WORD[b.source]}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setConfirming(b)}
+                          className="h-9 shrink-0 rounded-lg border border-white/15 px-4 text-[14px] font-medium text-white transition-colors hover:bg-white/[0.1]"
+                        >
+                          Load
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <p className="mt-3 text-[13px] text-white/40">
+                The newest 30 backups are kept. A backup identical to the one before it is not saved twice.
+              </p>
+            </>
+          )}
         </div>
       </main>
+
+      {/* The question before a restore. It says what will happen and what
+          will not, which is the whole reason it is asked. */}
+      {confirming && (
+        <div
+          className="fixed inset-0 z-[160] flex items-end justify-center bg-black/60 p-4 backdrop-blur-[2px] md:items-center"
+          onClick={() => !restoring && setConfirming(null)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-label="Restore this backup"
+            onClick={(e) => e.stopPropagation()}
+            className="wb-settings-in w-full max-w-[460px] rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 text-white shadow-[0_32px_80px_-24px_rgba(0,0,0,0.9)]"
+          >
+            <h2 className="text-[20px] font-semibold">Restore this backup?</h2>
+            <p className="mt-2 text-[15px] leading-relaxed text-white/70">
+              Your draft will be replaced with the project as it was on{" "}
+              <span className="text-white">{backupWhen(confirming.created_at)}</span>.
+            </p>
+            <ul className="mt-4 space-y-2 text-[14px] text-white/70">
+              <li className="flex gap-2.5">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" strokeWidth={2} />
+                A backup of the draft you have now is saved first, so this can be undone.
+              </li>
+              <li className="flex gap-2.5">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" strokeWidth={2} />
+                Nothing changes on your live site until you publish.
+              </li>
+            </ul>
+            <div className="mt-6 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setConfirming(null)}
+                disabled={restoring}
+                className="h-10 rounded-xl px-4 text-[14px] font-medium text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void restore(confirming)}
+                disabled={restoring}
+                className="flex h-10 items-center gap-2 rounded-xl bg-[#8B56FA] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#7b46ec] disabled:opacity-60"
+              >
+                {restoring && <Loader2 className="h-4 w-4 animate-spin" />}
+                {restoring ? "Restoring" : "Restore"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

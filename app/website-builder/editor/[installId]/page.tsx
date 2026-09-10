@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon,
+  ArrowLeft, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, GripVertical, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, ShoppingBag, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, PanelTop, PanelBottom,
 } from "lucide-react"
 import {
   DndContext,
@@ -3473,6 +3473,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (v === "code" || v === "settings") setPreviewMode(v)
   }, [])
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
+
+  /**
+   * A backup after every task Storelib AI completes, labelled with what was
+   * asked. It waits for the draft to be written first (autosave is debounced),
+   * because a backup of the state BEFORE the change is not a backup of the
+   * task. Fire and forget: a backup that fails must never interrupt editing.
+   */
+  const backupAfterTask = useCallback(
+    (prompt: string) => {
+      window.setTimeout(() => {
+        void fetch(`/api/website-builder/themes/${installId}/backups`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ source: "ai", label: prompt }),
+        }).catch(() => {})
+      }, 2500)
+    },
+    [installId],
+  )
   const [isDirty, setIsDirty] = useState(false)
 
   /**
@@ -3607,7 +3626,57 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSections(previous => applyOp({ sections: previous, settings: {} }, op).sections)
   }, [sections])
 
+  /**
+   * =========================================================================
+   *  THE SIDEBAR IS AS WIDE AS YOU LEFT IT
+   * =========================================================================
+   * Dragged from its right edge, clamped so it can neither vanish nor eat
+   * the canvas, written straight to the element while the pointer moves
+   * (a React render per pointer event is a sidebar that lags its handle)
+   * and committed to state and storage on release.
+   */
   const [sidebarWidth, setSidebarWidth] = useState(288)
+  const sidebarRef = useRef<HTMLDivElement | null>(null)
+  const SIDEBAR_MIN = 240
+  const SIDEBAR_MAX = 560
+  useEffect(() => {
+    try {
+      const saved = Number(window.localStorage.getItem("wb:sidebar-width"))
+      if (Number.isFinite(saved) && saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX) setSidebarWidth(saved)
+    } catch {
+      /* storage blocked: the default is fine */
+    }
+  }, [])
+  const startSidebarResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = sidebarRef.current?.getBoundingClientRect().width ?? sidebarWidth
+    const handle = e.currentTarget
+    handle.setPointerCapture(e.pointerId)
+    document.body.style.cursor = "col-resize"
+    document.body.style.userSelect = "none"
+    let latest = startW
+    const onMove = (ev: PointerEvent) => {
+      latest = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startW + (ev.clientX - startX)))
+      if (sidebarRef.current) sidebarRef.current.style.width = `${latest}px`
+    }
+    const onUp = () => {
+      handle.removeEventListener("pointermove", onMove)
+      handle.removeEventListener("pointerup", onUp)
+      handle.removeEventListener("pointercancel", onUp)
+      document.body.style.cursor = ""
+      document.body.style.userSelect = ""
+      setSidebarWidth(latest)
+      try {
+        window.localStorage.setItem("wb:sidebar-width", String(Math.round(latest)))
+      } catch {
+        /* storage blocked */
+      }
+    }
+    handle.addEventListener("pointermove", onMove)
+    handle.addEventListener("pointerup", onUp)
+    handle.addEventListener("pointercancel", onUp)
+  }
   const [isMobileView, setIsMobileView] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [username, setUsername] = useState("")
@@ -4982,6 +5051,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     onDuplicate={() => duplicateSection(header.id)}
                     onRemove={() => removeSection(header.id)}
                     isStructure
+                    structureRole="header"
                   />
                 </div>
               )}
@@ -5041,6 +5111,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     onDuplicate={() => duplicateSection(footer.id)}
                     onRemove={() => removeSection(footer.id)}
                     isStructure
+                    structureRole="footer"
                   />
                 </div>
               )}
@@ -5829,6 +5900,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         websiteUrlDisplay={websiteUrlDisplay}
         live={install?.status === "published"}
         publishedAt={install?.published_at ?? null}
+        // The draft on the server has just been replaced. The editor's own
+        // copy of it is stale in every state it holds, and reloading is the
+        // one honest way to pick all of it up at once.
+        onRestored={() => window.location.reload()}
       />
 
       {/* Leaving. Rendered the moment Back is pressed: going back can take a
@@ -5878,11 +5953,30 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       <div className="relative flex flex-1 min-h-0 overflow-hidden">
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
-          <div className="relative flex-shrink-0 border-r border-border bg-background flex h-full overflow-hidden">
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden" style={{ width: sidebarWidth, minWidth: 260 }}>
+          <div className="relative flex-shrink-0 border-r border-border bg-background flex h-full overflow-visible">
+            <div
+              ref={sidebarRef}
+              className="flex-1 flex flex-col min-h-0 overflow-hidden"
+              style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
+            >
               <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
                 {renderSidebarContent()}
               </div>
+            </div>
+            {/* The grab edge. Wider than it looks, so it can be found; drawn
+                only under the pointer, so it is not a second border. */}
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize the sidebar"
+              onPointerDown={startSidebarResize}
+              onDoubleClick={() => {
+                setSidebarWidth(288)
+                if (sidebarRef.current) sidebarRef.current.style.width = "288px"
+              }}
+              className="group/resize absolute -right-1.5 top-0 z-20 h-full w-3 cursor-col-resize touch-none"
+            >
+              <div className="mx-auto h-full w-px bg-transparent transition-colors duration-150 group-hover/resize:bg-[#8B56FA]/70 group-active/resize:bg-[#8B56FA]" />
             </div>
           </div>
         ) : (
@@ -5974,6 +6068,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               settings={settingsDraft as Record<string, unknown>}
               selectedSectionId={selectedSectionId ?? undefined}
               onRunStart={pushUndo}
+              onRunEnd={backupAfterTask}
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}
             />
@@ -5989,6 +6084,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               settings={settingsDraft as Record<string, unknown>}
               selectedSectionId={selectedSectionId ?? undefined}
               onRunStart={pushUndo}
+              onRunEnd={backupAfterTask}
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}
             />
@@ -6025,7 +6121,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             // that card rather than the browser window.
             isMobileView
               ? "items-start p-0"
-              : device === "desktop" ? "items-start p-2" : "items-center py-6 px-6",
+              // No inset on a desktop. The card is the whole canvas, rounded
+              // where it meets the bar above so it still reads as a card and
+              // not as the page; the eight pixels of dark around it read as
+              // empty space however dark they were.
+              : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
           )}
         >
           <CodePane
@@ -6073,7 +6173,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full border-0 rounded-none"
                 : device === "desktop"
-                  ? "rounded-xl w-full"
+                  ? "rounded-t-xl border-x-0 border-b-0 w-full"
                   : "rounded-2xl",
             )}
             style={
@@ -6096,8 +6196,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   }
                 : device === "desktop"
                   ? {
-                      // Desktop — card fills the canvas area and scrolls internally.
-                      height: "calc(100svh - var(--wb-chrome-top) - 16px)",
+                      // Desktop — the card IS the canvas, edge to edge, and
+                      // scrolls internally.
+                      height: "calc(100svh - var(--wb-chrome-top))",
                     }
                   : {
                       /**
@@ -6390,6 +6491,7 @@ function SidebarSectionRow({
   onDuplicate,
   onRemove,
   isStructure = false,
+  structureRole,
   dragHandleProps,
 }: {
   section: SectionInstance
@@ -6399,6 +6501,8 @@ function SidebarSectionRow({
   onDuplicate: () => void
   onRemove: () => void
   isStructure?: boolean
+  /** Which piece of chrome this is, so it can carry its own icon. */
+  structureRole?: "header" | "footer"
   dragHandleProps?: Record<string, unknown>
 }) {
   const [contextMenuOpen, setContextMenuOpen] = useState(false)
@@ -6428,34 +6532,48 @@ function SidebarSectionRow({
             <GripVertical className={cn("h-3.5 w-3.5 opacity-40", isSelected && "opacity-70")} strokeWidth={1.75} />
           </span>
         )}
+        {/* The header and the footer are chrome, and chrome gets a badge:
+            a dark tile with the piece drawn on it, the way the reference
+            marks them out from the sections that are merely content. */}
+        {isStructure && structureRole && (
+          <span
+            aria-hidden
+            className={cn(
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
+              isSelected ? "bg-white/15 text-white" : "bg-neutral-800 text-white",
+            )}
+          >
+            {structureRole === "header" ? (
+              <PanelTop className="h-4 w-4" strokeWidth={1.75} />
+            ) : (
+              <PanelBottom className="h-4 w-4" strokeWidth={1.75} />
+            )}
+          </span>
+        )}
         <span className="flex-1 text-sm font-medium truncate">{section.name}</span>
         {section.hidden && (
           <EyeOff className={cn("h-3 w-3 shrink-0", isSelected ? "opacity-60" : "opacity-40")} />
         )}
 
-        {/* Hover actions — only eye + trash */}
+        {/* One button under the pointer, and the choices in a menu, rather
+            than an eye and a bin sitting on every row you pass. The menu is
+            the same one a right-click opens. */}
         {!isStructure && (
-          <div
+          <button
+            type="button"
+            aria-label={`Options for ${section.name}`}
+            aria-haspopup="menu"
+            aria-expanded={contextMenuOpen}
             className={cn(
-              "flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100",
-              isSelected && "opacity-100",
+              "h-6 w-6 shrink-0 rounded-md flex items-center justify-center transition-[opacity,background-color] duration-150",
+              "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+              (isSelected || contextMenuOpen) && "opacity-100",
+              isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10",
             )}
+            onClick={e => { e.stopPropagation(); setContextMenuOpen((v) => !v) }}
           >
-            <button
-              className={cn("h-6 w-6 rounded-md flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10")}
-              onClick={e => { e.stopPropagation(); onToggleHide() }}
-              title={section.hidden ? "Show" : "Hide"}
-            >
-              {section.hidden ? <Eye className="h-3.5 w-3.5" strokeWidth={1.75} /> : <EyeOff className="h-3.5 w-3.5" strokeWidth={1.75} />}
-            </button>
-            <button
-              className={cn("h-6 w-6 rounded-md flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20 text-red-300" : "hover:bg-red-100 text-red-400")}
-              onClick={e => { e.stopPropagation(); onRemove() }}
-              title="Remove"
-            >
-              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-            </button>
-          </div>
+            <MoreHorizontal className="h-4 w-4" strokeWidth={1.75} />
+          </button>
         )}
       </div>
 

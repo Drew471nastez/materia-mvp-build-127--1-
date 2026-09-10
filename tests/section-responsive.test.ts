@@ -631,11 +631,11 @@ check(
 )
 
 check(
-  "the code pane is a rounded card inset from the canvas on a desktop, the whole screen on a phone",
+  "the code pane is the whole canvas on a desktop, rounded where it meets the bar; the whole screen on a phone",
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-2 z-\[80\] flex flex-col rounded-xl/.test(modeSwitch) &&
+    /absolute inset-0 z-\[80\] flex flex-col rounded-t-xl/.test(modeSwitch) &&
     /fixed inset-0 z-\[120\] flex flex-col/.test(modeSwitch) &&
     // It lifts in and settles out — a small translate, not a shrink, so the
     // code never looks like it is zooming at you.
@@ -718,10 +718,13 @@ check(
 )
 
 check(
-  "the preview card is a rounded card in an even inset, like the code card",
-  /device === "desktop" \? "items-start p-2"/.test(editor) &&
-    /\? "rounded-xl w-full"/.test(editor) &&
-    /calc\(100svh - var\(--wb-chrome-top\) - 16px\)/.test(editor),
+  "the preview card IS the canvas on a desktop: no inset, rounded only where it meets the bar",
+  // Eight pixels of dark around the card read as empty space however dark
+  // they were. The card fills, and keeps its top corners so it still reads
+  // as a card sitting under the bar rather than as the page.
+  /device === "desktop" \? "items-stretch p-0"/.test(editor) &&
+    /\? "rounded-t-xl border-x-0 border-b-0 w-full"/.test(editor) &&
+    /height: "calc\(100svh - var\(--wb-chrome-top\)\)"/.test(editor),
 )
 
 check(
@@ -771,8 +774,10 @@ check(
 check(
   "and it only offers sections something real stands behind",
   // The reference has Analytics, Knowledge, Skills, Backups. A nav entry that
-  // opens an empty panel is a promise the product cannot keep.
-  !/Analytics|Knowledge|Skills|Backups/.test(settingsPage.slice(settingsPage.indexOf("const NAV"))),
+  // opens an empty panel is a promise the product cannot keep. Backups is
+  // offered because it is real now: a table, two routes, a safety copy.
+  !/Analytics|Knowledge|Skills/.test(settingsPage.slice(settingsPage.indexOf("const NAV"), settingsPage.indexOf("const NAV") + 400)) &&
+    /\{ id: "backups", label: "Backups", Icon: History \}/.test(settingsPage),
 )
 
 
@@ -1072,7 +1077,9 @@ check(
   !/calc\(100svh - 48px/.test(editor) &&
     !/calc\(100vh - 96px\)/.test(editor) &&
     /calc\(100svh - var\(--wb-chrome-top\) - var\(--wb-sheet-peek\)\)/.test(editor) &&
-    /calc\(100svh - var\(--wb-chrome-top\) - 16px\)/.test(editor),
+    // The desktop card is now the whole canvas, so it subtracts the chrome
+    // and nothing else.
+    /height: "calc\(100svh - var\(--wb-chrome-top\)\)"/.test(editor),
 )
 
 check(
@@ -1104,6 +1111,171 @@ check(
   /style=\{\{ paddingTop: "env\(safe-area-inset-top, 0px\)" \}\}/.test(editor) &&
     /style=\{\{ paddingTop: "env\(safe-area-inset-top, 0px\)" \}\}/.test(codePageSrc) &&
     /box-content/.test(codePageSrc),
+)
+
+
+// ===========================================================================
+section("Backups: every task, every publish, and a way back that is never one-way")
+// ===========================================================================
+
+const backupsLib = readFileSync(join(root, "lib/website-builder/backups.ts"), "utf8")
+const backupsRoute = readFileSync(join(root, "app/api/website-builder/themes/[installId]/backups/route.ts"), "utf8")
+const restoreRoute = readFileSync(
+  join(root, "app/api/website-builder/themes/[installId]/backups/[backupId]/restore/route.ts"),
+  "utf8",
+)
+const publishRoute = readFileSync(join(root, "app/api/website-builder/themes/[installId]/publish/route.ts"), "utf8")
+const backupsSql = readFileSync(join(root, "supabase/sql/RUN_THEME_BACKUPS.sql"), "utf8")
+const themeChat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
+
+check(
+  "a backup is the editor's own view of the project: the draft where there is one",
+  /draft_settings \?\? settingsRow\?\.settings/.test(backupsLib) && /p\.draft_sections \?\? p\.sections/.test(backupsLib),
+)
+
+check(
+  "an identical state is not stored twice in a row, and only the newest thirty survive",
+  // Publishing the same draft three times is one backup, not three; and a
+  // long day of work is a fraction of a megabyte, not a table that grows
+  // for ever.
+  /latest\.fingerprint === fingerprint/.test(backupsLib) &&
+    /export const BACKUPS_TO_KEEP = 30/.test(backupsLib) &&
+    /\.range\(BACKUPS_TO_KEEP, BACKUPS_TO_KEEP \+ 200\)/.test(backupsLib),
+)
+
+check(
+  "restoring writes the DRAFT, never the live site, and leaves pages the copy did not know about",
+  /update\(\{ draft_settings: snapshot\.settings \}\)/.test(backupsLib) &&
+    /update\(\{ draft_sections: page\.sections \}\)/.test(backupsLib) &&
+    !/update\(\{ sections: page\.sections/.test(backupsLib) &&
+    /Pages that exist now but were not in the snapshot are left alone/.test(backupsLib),
+)
+
+check(
+  "both routes prove the caller owns the install, and a restore is scoped to it",
+  // A backup id from one website cannot be restored into another even by
+  // its owner.
+  /\.eq\("creator_id", creator\.id\)/.test(backupsRoute) &&
+    /\.eq\("creator_id", creator\.id\)/.test(restoreRoute) &&
+    /\.eq\("id", backupId\)\s*\n\s*\.eq\("install_id", installId\)/.test(restoreRoute),
+)
+
+check(
+  "a restore takes a safety copy of the draft it replaces, before it writes",
+  (() => {
+    const safety = restoreRoute.indexOf('source: "restore"')
+    const apply = restoreRoute.indexOf("await applySnapshot(")
+    return safety > 0 && apply > safety && /if \(safety\.error\) return/.test(restoreRoute)
+  })(),
+)
+
+check(
+  "a client may claim only the two sources that are its to claim",
+  // "publish" and "restore" are written by the server from the routes that
+  // do those things.
+  /source: z\.enum\(\["ai", "manual"\]\)\.optional\(\)/.test(backupsRoute),
+)
+
+check(
+  "the list never carries the snapshots, and says plainly when the table is not set up",
+  /\.select\("id, label, source, created_at"\)/.test(backupsRoute) &&
+    /Run RUN_THEME_BACKUPS\.sql/.test(backupsRoute) &&
+    /status: missing \? 503 : 500/.test(backupsRoute),
+)
+
+check(
+  "publishing takes a backup, and a backup that fails cannot fail the publish",
+  /await takeBackup\(admin, installId, \{ label: "Published", source: "publish" \}\)/.test(publishRoute) &&
+    /try \{\s*await takeBackup\(admin/.test(publishRoute),
+)
+
+check(
+  "Storelib AI finishing a task takes one, labelled with what was asked, after the draft has been saved",
+  /onRunEnd\?: \(prompt: string\) => void/.test(themeChat) &&
+    /if \(snapshotTaken\) onRunEnd\?\.\(prompt\)/.test(themeChat) &&
+    /onRunEnd=\{backupAfterTask\}/.test(editor) &&
+    /window\.setTimeout\(\(\) => \{\s*void fetch\(`\/api\/website-builder\/themes\/\$\{installId\}\/backups`/.test(editor) &&
+    /source: "ai", label: prompt/.test(editor),
+)
+
+check(
+  "the table is owned through the same chain as every other theme table, and indexed for the one query it gets",
+  /references public\.store_theme_installs\(id\) on delete cascade/.test(backupsSql) &&
+    /check \(source in \('ai', 'publish', 'manual', 'restore'\)\)/.test(backupsSql) &&
+    /on public\.store_theme_backups \(install_id, created_at desc\)/.test(backupsSql) &&
+    /stb_select_own/.test(backupsSql) && /stb_insert_own/.test(backupsSql) && /stb_delete_own/.test(backupsSql) &&
+    /enable row level security/.test(backupsSql),
+)
+
+check(
+  "the Backups page lists moments with a Load, asks before restoring, and says what will and will not happen",
+  /Storelib saves a backup each time it completes a task and each time you publish/.test(settingsPage) &&
+    /Restore this backup\?/.test(settingsPage) &&
+    /A backup of the draft you have now is saved first, so this can be undone/.test(settingsPage) &&
+    /Nothing changes on your live site until you publish/.test(settingsPage) &&
+    /onRestored=\{\(\) => window\.location\.reload\(\)\}/.test(editor),
+)
+
+check(
+  "and its hooks all sit above the early return",
+  // A hook after `if (!open) return null` runs a different number of times
+  // depending on `open`, which React will not tolerate.
+  (() => {
+    const after = settingsPage.slice(settingsPage.indexOf("if (!open) return null"))
+    return !/\buse(State|Effect|Callback)\(/.test(after)
+  })(),
+)
+
+// ===========================================================================
+section("The sidebar: one menu per row, badges for the chrome, and a width you set")
+// ===========================================================================
+
+check(
+  "a row shows one three-dots button under the pointer, and it opens the same menu a right-click does",
+  !/title="Remove"/.test(editor) &&
+    /aria-label=\{`Options for \$\{section\.name\}`\}/.test(editor) &&
+    /onClick=\{e => \{ e\.stopPropagation\(\); setContextMenuOpen\(\(v\) => !v\) \}\}/.test(editor) &&
+    /Duplicate\s*<\/button>/.test(editor) &&
+    /Delete\s*<\/button>/.test(editor),
+)
+
+check(
+  "the header and the footer carry a badge saying which piece of chrome they are",
+  /structureRole="header"/.test(editor) &&
+    /structureRole="footer"/.test(editor) &&
+    /structureRole === "header" \? \(\s*<PanelTop/.test(editor) &&
+    /<PanelBottom/.test(editor),
+)
+
+check(
+  "the sidebar resizes from its right edge, clamped, written to the element while dragging, remembered after",
+  /onPointerDown=\{startSidebarResize\}/.test(editor) &&
+    /const SIDEBAR_MIN = 240/.test(editor) &&
+    /const SIDEBAR_MAX = 560/.test(editor) &&
+    /sidebarRef\.current\.style\.width = `\$\{latest\}px`/.test(editor) &&
+    /localStorage\.setItem\("wb:sidebar-width"/.test(editor) &&
+    /cursor-col-resize touch-none/.test(editor),
+)
+
+// ===========================================================================
+section("The code editor: its document is dark and still, and a file can leave")
+// ===========================================================================
+
+check(
+  "framed, the code page's own document does not scroll and is black to its edges",
+  // The white column down the right of the code card was the DOCUMENT's
+  // scrollbar gutter on a white body, behind a dark root div.
+  /html\.style\.overflow = "hidden"/.test(codePage) &&
+    /body\.style\.background = "#0e0e0e"/.test(codePage) &&
+    /\}, \[embedded\]\)/.test(codePage),
+)
+
+check(
+  "a file can be copied and downloaded, as it is in the editor now",
+  /aria-label="Copy file content"/.test(codePage) &&
+    /navigator\.clipboard\.writeText\(fileContent\)/.test(codePage) &&
+    /aria-label="Download this file"/.test(codePage) &&
+    /a\.download = selectedFile\.name/.test(codePage),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

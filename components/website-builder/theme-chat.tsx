@@ -112,6 +112,7 @@ export function ThemeChat({
   settings,
   selectedSectionId,
   onRunStart,
+  onRunEnd,
   onOp,
   onClose,
 }: {
@@ -127,6 +128,13 @@ export function ThemeChat({
   selectedSectionId?: string
   /** Called once before the first change, so one Undo takes the lot back. */
   onRunStart: () => void
+  /**
+   * Called once after a run that changed something finishes cleanly, with
+   * the prompt that asked for it. The editor takes a backup here, labelled
+   * with that prompt, so "load the version from before I asked for the red
+   * header" is a thing somebody can do.
+   */
+  onRunEnd?: (prompt: string) => void
   onOp: (op: ThemeOp) => void
   onClose: () => void
 }) {
@@ -410,6 +418,7 @@ export function ThemeChat({
         }
 
         patch((e) => ({ ...e, running: false }))
+        if (snapshotTaken) onRunEnd?.(prompt)
       } catch (thrown) {
         const stopped = thrown instanceof DOMException && thrown.name === "AbortError"
         patch((e) => ({
@@ -429,7 +438,7 @@ export function ThemeChat({
         setBusy(false)
       }
     },
-    [busy, installId, onOp, onRunStart],
+    [busy, installId, onOp, onRunStart, onRunEnd],
   )
 
   /**
