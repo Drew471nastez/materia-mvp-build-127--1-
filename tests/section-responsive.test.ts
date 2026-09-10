@@ -181,6 +181,8 @@ const editor = readFileSync(
   join(root, "app/website-builder/editor/[installId]/page.tsx"),
   "utf8",
 )
+const nativeChromeSrc = readFileSync(join(root, "components/website-builder/native-chrome.ts"), "utf8")
+const scrollbarSrc = readFileSync(join(root, "components/website-builder/canvas-scrollbar.tsx"), "utf8")
 
 check(
   "the phone is a real phone's width",
@@ -379,10 +381,41 @@ check(
 )
 
 check(
-  "the bar is dark, like the reference",
-  // Height moved into `.wb-editor-topbar` so the status-bar inset is added in
-  // one place; the colour is the part this rule is about.
-  /<header className="wb-editor-topbar relative bg-\[#171717\] text-white/.test(editor),
+  "the bar is dark on a desktop, like the reference, and reads its colours from one place",
+  /**
+   * Height moved into `.wb-editor-topbar` so the status-bar inset is added in
+   * one place; the colour is the part this rule is about. The colour is now
+   * a set of tokens on `.wb-editor`, dark by default, so the bar's markup
+   * names no white-on-dark utility of its own and a phone can flip the whole
+   * bar to light UI by adding one class.
+   */
+  /<header className="wb-editor-topbar relative bg-\[var\(--wb-chrome-bg\)\] text-\[var\(--wb-chrome-fg\)\]/.test(editor) &&
+    /\.wb-editor \{[\s\S]{0,600}?--wb-chrome-bg: #171717;/.test(readFileSync(join(root, "app/globals.css"), "utf8")) &&
+    /\.wb-editor\.wb-chrome-light \{\s*--wb-chrome-bg: #ffffff;/.test(readFileSync(join(root, "app/globals.css"), "utf8")) &&
+    // and nothing in the bar still says white-on-dark by hand
+    !/<header className="wb-editor-topbar[\s\S]*?text-white\/[78]0[\s\S]*?<\/header>/.test(editor),
+)
+
+check(
+  "on a phone the bar is light UI wherever the clock can still be read",
+  /**
+   * The status bar's text is iOS's to colour, not the page's. Without the
+   * StatusBar plugin it follows the system: dark in light mode, white in
+   * dark mode, and a white bar under white text has no clock on it. So the
+   * bar is light in a browser, light in a shell that has the plugin (which
+   * is asked for dark text), and light in a shell without it only while the
+   * system is in light mode. The lock paints the strip above the bar in the
+   * same colour either way, so there is no line under the clock.
+   */
+  /const chromeTone = usePhoneChromeTone\(isMobileView\)/.test(editor) &&
+    /chromeTone === "light" && "wb-chrome-light"/.test(editor) &&
+    /<FullScreenLock tone=\{chromeTone\} \/>/.test(editor) &&
+    /root\.style\.backgroundColor = tone === "light" \? "#ffffff" : "#171717"/.test(readFileSync(join(root, "components/website-builder/full-screen-lock.tsx"), "utf8")) &&
+    /isPluginAvailable\?\.\("StatusBar"\)/.test(nativeChromeSrc) &&
+    /setStyle\(\{ style: "LIGHT" \}\)/.test(nativeChromeSrc) &&
+    /prefers-color-scheme: light/.test(nativeChromeSrc) &&
+    // the purple action keeps white text whatever the chrome's tone
+    /live \? "bg-\[#8B56FA\] text-white hover:bg-\[#7b46ec\]"/.test(editor),
 )
 
 
@@ -635,7 +668,7 @@ check(
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-0 z-\[80\] flex flex-col rounded-tl-xl/.test(modeSwitch) &&
+    /absolute inset-0 z-\[80\] flex flex-col rounded-xl/.test(modeSwitch) &&
     // A black panel inside a white builder is a second product bolted on.
     /"overflow-hidden bg-white"/.test(modeSwitch) &&
     !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
@@ -737,19 +770,28 @@ check(
 )
 
 check(
-  "the preview card is flush with one rounded corner, the chrome's own dark showing through the arc",
+  "on a desktop every panel is a rounded card on the bar's own dark, with a mat around it",
   /**
-   * No surround. The only radius is the top left, where the sidebar and the
-   * bar meet it, and the sliver of canvas behind that arc is the bar's own
-   * dark — so the corner reads as chrome curving into the page rather than
-   * as a gap around it.
+   * This went back and forth: flush, then a mat, then flush with one corner.
+   * The owner then asked for it outright, with the reference beside it: the
+   * preview rounded on the right side too, the code editor the same, the
+   * sidebar rounded top and bottom with the gap around it. So the body row
+   * is the mat, eight pixels of the bar's dark on every side, and the
+   * sidebar, the AI, the preview and the code are all the same shape on it.
+   * A phone has no mat, since the card is the screen.
    */
-  /device === "desktop" \? "items-stretch p-0"/.test(editor) &&
-    /\? "rounded-tl-xl w-full"/.test(editor) &&
+  /!isMobileView && "bg-\[#171717\] p-2 gap-2"/.test(editor) &&
+    /device === "desktop" \? "items-stretch p-0"/.test(editor) &&
+    /\? "rounded-xl w-full"/.test(editor) &&
+    // the sidebar: rounded and clipped on the box with the width, so its
+    // own scrollbar is cut by the corner rather than drawn through it
+    /className="flex-1 flex flex-col min-h-0 overflow-hidden rounded-xl bg-white"/.test(editor) &&
+    /className="relative flex-shrink-0 overflow-hidden rounded-xl bg-white" style=\{\{ width: 340 \}\}/.test(editor) &&
     /isMobileView \? "bg-background" : "bg-\[#171717\]"/.test(editor) &&
     /height: "100%"/.test(editor) &&
     // and no hairline: a border beside chrome is a seam
-    !/bg-white border border-neutral-200\/70/.test(editor),
+    !/bg-white border border-neutral-200\/70/.test(editor) &&
+    !/border-r border-border bg-background flex h-full/.test(editor),
 )
 
 check(
@@ -843,11 +885,18 @@ check(
 )
 
 check(
-  "menus and the publish card are as tall as their content, never half a screen",
-  // A six-row menu at 50% was clipped under the browser's toolbar; the
-  // publish card at 62% floated over a band of nothing.
+  "menus are as tall as their content; the publish sheet is 40% of the screen with Publish pinned",
+  /**
+   * A six-row menu at 50% was clipped under the browser's toolbar, so the
+   * menu sizes to its rows. The publish card was content-sized too, until
+   * the owner asked for it at forty percent of the screen. At that height
+   * the card cannot always be shown whole, and the one thing it must show
+   * is the button, so the actions are pinned under a body that scrolls.
+   */
   /peekHeight=\{0\} fit>/.test(menu) &&
-    /peekHeight=\{0\}\s*\n(?:\s*\/\/.*\n)*\s*fit\s*\n\s*>/.test(publish) &&
+    /detents=\{\[0\.4\]\}/.test(publish) &&
+    !/detents=\{\[0\.62, 0\.92\]\}/.test(publish) &&
+    /<Body \{\.\.\.props\} pinActions \/>/.test(publish) &&
     /fit\?: boolean/.test(sheetSrc) &&
     /new ResizeObserver\(measure\)/.test(sheetSrc),
 )
@@ -1005,8 +1054,10 @@ check(
   "and the publish panel scrolls inside the sheet, so nothing in it is out of reach",
     // Not `flex-1`: a zero basis inside a content-sized `fit` wrapper measures
   // as nothing and the sheet sizes itself to an empty card.
-  /min-h-0 overflow-y-auto px-5 pb-\[calc\(1rem\+env\(safe-area-inset-bottom,_0px\)\)\] pt-1/.test(publish) &&
-    !/flex-1 overflow-y-auto px-5/.test(publish),
+  /<div data-sheet-scroll className="wb-slim-scroll min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-1">/.test(publish) &&
+    // and the actions sit under it, outside the scroll, so Publish is never
+    // the thing that scrolled away
+    /<div className="shrink-0 border-t border-white\/10 px-5 pb-3 pt-3 text-white">\{actions\}<\/div>/.test(publish),
 )
 
 check(
@@ -1089,7 +1140,7 @@ check(
   // Padded, not offset: the bar's own background then paints the inset, so a
   // dark editor does not show a notch of page colour above it.
   /\.wb-editor-topbar \{\s*height: var\(--wb-chrome-top\);\s*padding-top: var\(--wb-safe-top\);/.test(editorCss) &&
-    /<header className="wb-editor-topbar relative bg-\[#171717\]/.test(editor) &&
+    /<header className="wb-editor-topbar relative bg-\[var\(--wb-chrome-bg\)\]/.test(editor) &&
     !/<header className="relative h-12 bg-\[#171717\]/.test(editor),
 )
 
@@ -1439,7 +1490,7 @@ check(
   "the lock is scoped to the two full-screen surfaces and undone on the way out",
   // Every other page wants that padding — it is what holds a footer above
   // the home indicator — so this cannot be a global rule.
-  /<FullScreenLock \/>/.test(editor) &&
+  /<FullScreenLock tone=\{chromeTone\} \/>/.test(editor) &&
     /<FullScreenLock \/>/.test(codePageSrc) &&
     /return \(\) => \{\s*\n\s*root\.classList\.remove\("wb-fullscreen"\)/.test(lockSrc),
 )
@@ -1605,12 +1656,25 @@ check(
    * the canvas wherever one ended — the cut between the white and the grey.
    * A page that is loading is one empty page.
    */
-  /<div className="flex min-h-full flex-1 items-center justify-center bg-white">/.test(editor) &&
+  /className="wb-canvas-loader absolute inset-0 z-10 flex items-center justify-center bg-white"/.test(editor) &&
     !/h-\[50vh\] flex items-center justify-center bg-neutral-50\/40/.test(editor) &&
     /const showCanvasLoader = useDelayedFlag\(loading \|\| canvasLoading\)/.test(editor) &&
     /export function useDelayedFlag\(active: boolean, delay = 350\)/.test(loaderSrc) &&
     // and it clears the instant the work does, so nothing lingers
     /if \(!active\) \{\s*setShown\(false\)/.test(loaderSrc),
+)
+
+check(
+  "and when the page arrives the loader fades over it and the page rises in, rather than swapping in one frame",
+  // The surface is kept for a beat after the work ends so it can fade; the
+  // page is keyed by its id so each arrival rises in and a re-render does not.
+  /const canvasLoaderLingers = useLinger\(canvasBusy, 280\)/.test(editor) &&
+    /\(canvasBusy \|\| canvasLoaderLingers\) && \(/.test(editor) &&
+    /data-leaving=\{!canvasBusy\}/.test(editor) &&
+    /<div key=\{currentPage\} className="wb-canvas-in flex w-full flex-1 flex-col">/.test(editor) &&
+    /export function useLinger\(active: boolean, ms = 280\)/.test(loaderSrc) &&
+    /\.wb-canvas-loader\[data-leaving="true"\] \{\s*opacity: 0;/.test(editorCss) &&
+    /@keyframes wb-canvas-in/.test(editorCss),
 )
 
 check(
@@ -1661,7 +1725,7 @@ check(
    * and the unwrapped one is a control that must still fail.
    */
   // The wrapper carries the shape and the clip...
-  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,400}?\? "rounded-tl-xl w-full"\s*\n\s*: "rounded-2xl",/.test(editor) &&
+  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,400}?\? "rounded-xl w-full"\s*\n\s*: "rounded-2xl",/.test(editor) &&
     // ...and the scroller inside it is square and fills it, so nothing it
     // paints can reach a corner.
     /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"/.test(
@@ -1670,6 +1734,29 @@ check(
     // The id stays on the scroller: the sticky header portals into it and
     // listens to it for scroll.
     /id="wb-preview-root"/.test(editor),
+)
+
+check(
+  "on a desktop the canvas draws its own scrollbar over the card, and the native one is hidden",
+  /**
+   * The reference has a thin grey pill inset from the card's edge. A native
+   * bar cannot be that: styled, it becomes a classic bar that reserves a
+   * column (the white strip beside a dark site, see above); unstyled, it is
+   * whatever the platform draws and it runs through the corners. So the
+   * native bar is hidden and CanvasScrollbar draws a thumb over the scroller,
+   * six pixels in and eight short of either end. Nothing in the layout
+   * changes and no column exists. A phone keeps its native bar.
+   */
+  /!isMobileView && "wb-canvas-hidebar"/.test(editor) &&
+    /\{!isMobileView && <CanvasScrollbar targetId="wb-preview-root" \/>\}/.test(editor) &&
+    /\.wb-canvas-hidebar \{\s*scrollbar-width: none;/.test(editorCss) &&
+    /\.wb-canvas-hidebar::-webkit-scrollbar \{\s*display: none;/.test(editorCss) &&
+    /const INSET_END = 8/.test(scrollbarSrc) &&
+    /const INSET_SIDE = 6/.test(scrollbarSrc) &&
+    // measured once per frame, not once per event
+    /if \(!frame\.current\) frame\.current = requestAnimationFrame\(measure\)/.test(scrollbarSrc) &&
+    // and it can be grabbed
+    /onPointerDown=\{\(e\) => \{/.test(scrollbarSrc),
 )
 
 check(
@@ -1687,6 +1774,47 @@ check(
     /touchAction: "pan-y",\s*\n\s*overscrollBehavior: "contain",\s*\n\s*WebkitOverflowScrolling: "touch",\s*\n\s*\}\s*\n\s*: undefined/.test(
       editor,
     ),)
+// ===========================================================================
+section("Chrome is not a document, buttons are buttons, and the sheet costs one layout a frame")
+// ===========================================================================
+
+check(
+  "nothing in the editor's chrome can be selected, and everything typed into still can",
+  /**
+   * A long press on a label that selects it is the surest sign of a web page
+   * pretending to be an app. Selection stays on for inputs, textareas and
+   * anything contenteditable, and on the code page for the code itself.
+   */
+  /\.wb-editor,\s*\n\.wb-code \{\s*-webkit-user-select: none;\s*user-select: none;\s*-webkit-touch-callout: none;/.test(editorCss) &&
+    /\.wb-editor input,\s*\n\.wb-editor textarea,\s*\n\.wb-editor select,\s*\n\.wb-editor \[contenteditable="true"\],/.test(editorCss) &&
+    /\.wb-code textarea,\s*\n\.wb-code input,\s*\n\.wb-code pre,\s*\n\.wb-code code \{\s*-webkit-user-select: text;\s*user-select: text;/.test(editorCss),
+)
+
+check(
+  "Hide, Duplicate and Delete on the phone are three real buttons, not outlines with a red bin",
+  // 40px, the app's grey surface, a 600 label beside a 16px icon, a press that
+  // darkens. Delete says its name; its colour is the only warning it needs.
+  /"flex-1 h-10 flex items-center justify-center gap-2 rounded-xl text-\[13px\] font-semibold transition-colors duration-150",/.test(editor) &&
+    /bg-\[#f3f4f6\] text-\[#1a1a2e\] hover:bg-\[#e9eaee\] active:bg-\[#e3e4e9\]/.test(editor) &&
+    /text-\[#dc2626\] transition-colors duration-150 hover:bg-\[#fee2e2\] active:bg-\[#fecaca\]"\s*\n\s*onClick=\{\(\) => removeSection\(section\.id\)\}\s*\n\s*>\s*\n\s*<Trash2 className="h-4 w-4" strokeWidth=\{2\} \/>\s*\n\s*Delete/.test(editor) &&
+    !/py-2 text-xs text-red-400 hover:text-red-600 border border-border/.test(editor),
+)
+
+check(
+  "the sheet measures the viewport once per frame, not once per event, and paints on its own",
+  /**
+   * `visualViewport.scroll` fires every frame of a keyboard animation and
+   * each measurement is a synchronous layout of the whole editor. Coalesced
+   * into a rAF there is one per painted frame. `contain: paint` keeps the
+   * sheet's repaints to itself; not `layout`, which would pull fixed menus
+   * out of the viewport.
+   */
+  /let frame = 0\s*\n\s*const update = \(\) => \{\s*\n\s*if \(frame\) return\s*\n\s*frame = requestAnimationFrame\(\(\) => \{\s*\n\s*frame = 0\s*\n\s*measureViewport\(\)/.test(sheetSrc) &&
+    /if \(frame\) cancelAnimationFrame\(frame\)\s*\n\s*window\.removeEventListener\("resize", update\)/.test(sheetSrc) &&
+    /contain: "paint",/.test(sheetSrc) &&
+    !/contain: "layout/.test(sheetSrc),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

@@ -223,7 +223,25 @@ export function MobileEditorSheet({
   React.useEffect(() => {
     setMounted(true)
     const vv = window.visualViewport
+    /**
+     * ONE MEASUREMENT PER FRAME, HOWEVER MANY EVENTS.
+     *
+     * `visualViewport.scroll` fires on every frame of a keyboard animation
+     * and `resize` alongside it, and each `update` appends a probe and reads
+     * its box, which is a synchronous layout of the whole editor — the
+     * canvas, the site in it, the sheet. Several of those in one frame is the
+     * "lags the layout" that was reported. Coalesced into a rAF, the sheet
+     * measures once per painted frame and never more.
+     */
+    let frame = 0
     const update = () => {
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        measureViewport()
+      })
+    }
+    const measureViewport = () => {
       setViewport(Math.round(vv?.height ?? window.innerHeight))
       /**
        * The toolbar gap is measured here and the home indicator is NOT, and
@@ -236,7 +254,7 @@ export function MobileEditorSheet({
        */
       setChromeGap(browserChromeGap())
     }
-    update()
+    measureViewport()
     window.addEventListener("resize", update)
     vv?.addEventListener("resize", update)
     /**
@@ -246,6 +264,7 @@ export function MobileEditorSheet({
      */
     vv?.addEventListener("scroll", update)
     return () => {
+      if (frame) cancelAnimationFrame(frame)
       window.removeEventListener("resize", update)
       vv?.removeEventListener("resize", update)
       vv?.removeEventListener("scroll", update)
@@ -750,6 +769,14 @@ export function MobileEditorSheet({
           transform: `translateY(${open ? openY : closedY}px)`,
           transition: `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}`,
           willChange: "transform",
+          /**
+           * Painted on its own, so moving it never repaints the canvas under
+           * it, and nothing under it is repainted when its contents change.
+           * `paint` only: `layout` containment would also pull any
+           * `position: fixed` inside it out of the viewport, and menus that
+           * open from the sheet are fixed.
+           */
+          contain: "paint",
           // The home indicator, plus whatever the browser's bar is covering.
           paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${chromeGap}px)`,
           /**

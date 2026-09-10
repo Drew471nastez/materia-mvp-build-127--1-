@@ -55,7 +55,11 @@ function Body({
   websiteUrlDisplay,
   busy,
   onPublish,
-}: Omit<PublishPanelProps, "open" | "onOpenChange" | "anchorRef" | "mobile">) {
+  pinActions = false,
+}: Omit<PublishPanelProps, "open" | "onOpenChange" | "anchorRef" | "mobile"> & {
+  /** Keep the actions on screen under a scrolling body: the phone's sheet. */
+  pinActions?: boolean
+}) {
   const [copied, setCopied] = useState(false)
   // Re-rendered every half minute while visible, so "4 minutes ago" does not
   // still say four after ten. Cheap, and only while the panel is open.
@@ -82,7 +86,41 @@ function Body({
     }
   }
 
-  return (
+  const actions = (
+    <div className="flex items-center justify-between gap-3">
+      {/* Preview: the draft as a visitor would see it, with the builder's
+          bar over it. It was a button on the bar next to Publish, which
+          made two buttons for one decision. Here it is the question
+          before the answer. */}
+      {websiteUrl ? (
+        <a
+          href={`${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}builder_preview=1&show_preview_bar=1`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex h-10 items-center gap-2 rounded-xl border border-white/15 px-4 text-[15px] font-medium text-white/85 transition-colors hover:bg-white/10 hover:text-white"
+        >
+          <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
+          Preview
+        </a>
+      ) : (
+        <span />
+      )}
+      <button
+        type="button"
+        onClick={onPublish}
+        disabled={busy || (live && !pending)}
+        className={cn(
+          "flex h-10 items-center gap-2 rounded-xl px-5 text-[15px] font-semibold text-white transition-all",
+          "bg-[#8B56FA] hover:bg-[#7b46ec] disabled:cursor-default disabled:opacity-40",
+        )}
+      >
+        {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+        {busy ? "Publishing" : live ? (pending ? "Publish changes" : "Published") : "Publish"}
+      </button>
+    </div>
+  )
+
+  const content = (
     <div className="flex flex-col gap-5 text-white">
       <div>
         <div className="flex items-center gap-2.5">
@@ -131,38 +169,31 @@ function Body({
         <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" strokeWidth={1.75} />
         No security issues found
       </div>
+    </div>
+  )
 
-      <div className="flex items-center justify-between gap-3 pt-1">
-        {/* Preview: the draft as a visitor would see it, with the builder's
-            bar over it. It was a button on the bar next to Publish, which
-            made two buttons for one decision. Here it is the question
-            before the answer. */}
-        {websiteUrl ? (
-          <a
-            href={`${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}builder_preview=1&show_preview_bar=1`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex h-10 items-center gap-2 rounded-xl border border-white/15 px-4 text-[15px] font-medium text-white/85 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
-            Preview
-          </a>
-        ) : (
-          <span />
-        )}
-        <button
-          type="button"
-          onClick={onPublish}
-          disabled={busy || (live && !pending)}
-          className={cn(
-            "flex h-10 items-center gap-2 rounded-xl px-5 text-[15px] font-semibold text-white transition-all",
-            "bg-[#8B56FA] hover:bg-[#7b46ec] disabled:cursor-default disabled:opacity-40",
-          )}
-        >
-          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-          {busy ? "Publishing" : live ? (pending ? "Publish changes" : "Published") : "Publish"}
-        </button>
-      </div>
+  /**
+   * On a phone the actions are pinned under the scrolling part, so Publish
+   * is on screen whatever the sheet's height: a sheet at 40% of the screen
+   * cannot always show the whole card, and the one thing it must show is
+   * the button. On a desktop the card is as tall as it needs to be and the
+   * actions are simply its last row.
+   */
+  if (pinActions) {
+    return (
+      <>
+        <div data-sheet-scroll className="wb-slim-scroll min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-1">
+          {content}
+        </div>
+        <div className="shrink-0 border-t border-white/10 px-5 pb-3 pt-3 text-white">{actions}</div>
+      </>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-5 text-white">
+      {content}
+      <div className="pt-1">{actions}</div>
     </div>
   )
 }
@@ -207,27 +238,18 @@ export function PublishPanel(props: PublishPanelProps) {
         open={open}
         onOpenChange={onOpenChange}
         className="bg-[#1f1f1f]"
-        detents={[0.62, 0.92]}
+        // Forty percent of the screen, as asked: a card, not a page. The
+        // status and the URL scroll inside it if they must; the actions are
+        // pinned under them, so Publish is on screen at that height on any
+        // phone. One stop, so a drag either settles it back or closes it.
+        // The sheet itself pads for the home indicator.
+        detents={[0.4]}
         // Above the persistent Sections / Pages / Settings sheet, and gone
         // entirely when closed rather than leaving a peek of its own.
         layer="raised"
         peekHeight={0}
-        // As tall as the card, not 62% of whatever screen this is: the
-        // difference was a band of empty dark under the buttons.
-        fit
       >
-        {/* Scrolls only when it has to, so nothing in it is ever out of
-            reach. NOT `flex-1`: a basis of zero inside the content-sized
-            wrapper of a `fit` sheet measures as nothing, and the sheet would
-            size itself to an empty card. Left at the default `0 1 auto`, its
-            base size is its content — which is the number `fit` wants — and
-            `min-h-0` still lets it shrink and scroll under the cap. */}
-        {/* `data-sheet-scroll`: the sheet adds back whatever this is clipping
-            when it sizes itself, so a card taller than the measurement can
-            never collapse the sheet around it. */}
-        <div data-sheet-scroll className="wb-slim-scroll min-h-0 overflow-y-auto px-5 pb-[calc(1rem+env(safe-area-inset-bottom,_0px))] pt-1">
-          <Body {...props} />
-        </div>
+        <Body {...props} pinActions />
       </MobileEditorSheet>
     )
   }
