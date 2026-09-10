@@ -380,7 +380,9 @@ check(
 
 check(
   "the bar is dark, like the reference",
-  /<header className="relative h-12 bg-\[#171717\] text-white/.test(editor),
+  // Height moved into `.wb-editor-topbar` so the status-bar inset is added in
+  // one place; the colour is the part this rule is about.
+  /<header className="wb-editor-topbar relative bg-\[#171717\] text-white/.test(editor),
 )
 
 
@@ -699,7 +701,7 @@ check(
   "the preview card is a rounded card in an even inset, like the code card",
   /device === "desktop" \? "items-start p-2"/.test(editor) &&
     /\? "rounded-xl w-full"/.test(editor) &&
-    /calc\(100svh - 48px - 16px\)/.test(editor),
+    /calc\(100svh - var\(--wb-chrome-top\) - 16px\)/.test(editor),
 )
 
 check(
@@ -946,7 +948,7 @@ check(
   "a content-sized sheet opens all the way up, not to a fraction of a screen it no longer fills",
   // Its stops are its own height and away; the 0.62/0.92 detents describe a
   // sheet sized to the screen and pushed a content-sized one under the bar.
-  /fit && contentHeight > 0\s*\n\s*\? \/\/ One stop[\s\S]{0,80}\[0, Math\.max\(height - peekHeight, 0\)\]/.test(sheetSrc),
+  /fit && contentHeight > 0\s*\n\s*\? \/\/ One stop[\s\S]{0,80}\[0, Math\.max\(height - peek, 0\)\]/.test(sheetSrc),
 )
 
 check(
@@ -1002,6 +1004,86 @@ check(
     /rounded-full border border-white\/10 bg-white\/\[0\.05\] p-0\.5/.test(modeSwitch) &&
     /absolute top-0\.5 h-7 rounded-full/.test(modeSwitch) &&
     !/"Not published yet" : "Unsaved changes"/.test(editor),
+)
+
+// ===========================================================================
+//  THE EDITOR INSIDE A NATIVE SHELL
+// ===========================================================================
+// Capacitor loads the web layer from storelib.com into a viewport-fit:cover
+// webview, so y=0 is under the status bar and the Dynamic Island. The editor
+// is the one screen with no app chrome above it, so its own 48px bar sat
+// entirely inside a 59pt inset: on an iPhone the whole top row — Back, the
+// menu, undo, redo, Publish — was behind the clock, and the first pixels of
+// the preview under it too.
+//
+// It cannot be fixed natively. The native shell only loads a URL; a Swift or
+// Gradle change would need an App Store release, while everything below ships
+// with the next deploy. So the insets are read in CSS, from env(), where they
+// are real on iOS, zero in a browser, and zero on Android until that app goes
+// edge-to-edge — no branch, no user-agent test, no plugin.
+const editorCss = readFileSync(join(root, "app/globals.css"), "utf8")
+const codePageSrc = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+
+check(
+  "the editor's geometry comes from env(), in one place",
+  /\.wb-editor \{[\s\S]*?--wb-safe-top: env\(safe-area-inset-top, 0px\)/.test(editorCss) &&
+    /--wb-chrome-top: calc\(var\(--wb-topbar\) \+ var\(--wb-safe-top\)\)/.test(editorCss) &&
+    /--wb-sheet-peek: calc\(72px \+ var\(--wb-safe-bottom\)\)/.test(editorCss),
+)
+
+check(
+  "the top bar is as tall as the bar plus the strip above it, and pads rather than moves",
+  // Padded, not offset: the bar's own background then paints the inset, so a
+  // dark editor does not show a notch of page colour above it.
+  /\.wb-editor-topbar \{\s*height: var\(--wb-chrome-top\);\s*padding-top: var\(--wb-safe-top\);/.test(editorCss) &&
+    /<header className="wb-editor-topbar relative bg-\[#171717\]/.test(editor) &&
+    !/<header className="relative h-12 bg-\[#171717\]/.test(editor),
+)
+
+check(
+  "the root declares the geometry the bar and the canvas both read",
+  /"wb-editor h-svh flex flex-col/.test(editor),
+)
+
+check(
+  "nothing subtracts a bare 48px from the viewport any more",
+  // This is the actual bug, written down: a canvas sized against the bar's
+  // nominal height is a canvas that overlaps the bar by the inset.
+  !/calc\(100svh - 48px/.test(editor) &&
+    !/calc\(100vh - 96px\)/.test(editor) &&
+    /calc\(100svh - var\(--wb-chrome-top\) - var\(--wb-sheet-peek\)\)/.test(editor) &&
+    /calc\(100svh - var\(--wb-chrome-top\) - 16px\)/.test(editor),
+)
+
+check(
+  "the sheet leaves the same peek the canvas reserves",
+  // 72px of sheet on every phone: the CSS adds the inset to the number the
+  // canvas subtracts, and the sheet adds the measured one to what it shows.
+  // A sheet that only padded would have shown 38px of a 72px tab row.
+  /const peek = peekHeight > 0 \? peekHeight \+ peekInset : 0/.test(sheetSrc) &&
+    /setPeekInset\(safeAreaBottom\(\)\)/.test(sheetSrc) &&
+    // And measured on rotation only. visualViewport's scroll fires per frame
+    // on iOS, and the probe forces a layout every time it runs; a home
+    // indicator cannot change mid-scroll, so it does not belong on that path.
+    /window\.addEventListener\("orientationchange", measure\)/.test(sheetSrc) &&
+    !/setChromeGap\(browserChromeGap\(\)\)\s*\n\s*setPeekInset/.test(sheetSrc) &&
+    /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek \}\)/.test(sheetSrc),
+)
+
+check(
+  "a raised sheet still means gone, inset or not",
+  // `peekHeight={0}` is the menu, Publish and the AI. Growing that by the home
+  // indicator would leave a 34px sliver of every one of them on screen.
+  /peekHeight > 0 \? peekHeight \+ peekInset : 0/.test(sheetSrc),
+)
+
+check(
+  "everything else that pins itself to the top clears the inset too",
+  // The editor's toast, and the code page's bar when it is opened on its own
+  // rather than inside the editor's frame.
+  /style=\{\{ paddingTop: "env\(safe-area-inset-top, 0px\)" \}\}/.test(editor) &&
+    /style=\{\{ paddingTop: "env\(safe-area-inset-top, 0px\)" \}\}/.test(codePageSrc) &&
+    /box-content/.test(codePageSrc),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
