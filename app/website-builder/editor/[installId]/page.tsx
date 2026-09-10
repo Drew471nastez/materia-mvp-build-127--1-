@@ -6175,15 +6175,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * corners are visible because there is something for them to be
              * rounded against.
              */
+            "relative flex-1 min-w-0 overflow-hidden flex justify-center",
             /**
-             * Light. The surround was dark to make the card's inset read as
-             * matting, and once the inset went the darkness had nothing left
-             * to do but show through the rounded corner as a black wedge
-             * against a white sidebar. A near-white surround has no wedge to
-             * show, and the builder is one light product rather than a light
-             * one with a black hole in the middle.
+             * LIGHT ON A DESKTOP, THE SHEET'S SURFACE ON A PHONE.
+             *
+             * It was dark to make an inset card read as matted. Once the
+             * inset went, the dark had nothing left to do but show through
+             * the card's rounded corner as a black wedge against a white
+             * sidebar — so the desktop surround is near-white, and the
+             * builder is one light product rather than a light one with a
+             * black hole in the middle.
+             *
+             * A phone has no inset at all: the only surround is the strip
+             * reserved for the sheet's peek, where dark read as a black band
+             * above Sections / Pages / Settings. It takes the sheet's own
+             * surface, so even if the reservation and the sheet differ by a
+             * pixel the seam is invisible rather than black.
              */
-            "relative flex-1 min-w-0 bg-neutral-100 overflow-hidden flex justify-center",
+            isMobileView ? "bg-background" : "bg-neutral-100",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6198,11 +6207,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                */
               : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
           )}
-          // The sheet is pinned to the viewport, so the canvas has to keep
-          // its peek clear itself. Reserved as padding rather than arithmetic
-          // in the card's height: the card is then simply "the room left",
-          // and there is no viewport unit for the two to disagree about.
-          style={isMobileView ? { paddingBottom: "var(--wb-sheet-peek)" } : undefined}
+          /**
+           * The sheet is pinned to the viewport, so the canvas keeps its peek
+           * clear itself — with the number the sheet PUBLISHES, measured on
+           * this device, not a second computation of the same sum in CSS.
+           * The 72px fallback is the peek before any inset, for the frame
+           * before the sheet has measured itself.
+           */
+          style={isMobileView ? { paddingBottom: "var(--wb-sheet-peek, 72px)" } : undefined}
         >
           <CodePane
             installId={installId}

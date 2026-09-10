@@ -125,6 +125,21 @@ function CodeLine({ line, lineNumber }: { line: string; lineNumber: number }) {
 }
 
 // ── Main page ─────────────────────────────────────────────────
+/**
+ * The bar's buttons are written out rather than borrowed from the button
+ * component. `variant="ghost"` was the original bug — its hover is
+ * `bg-accent` / `text-accent-foreground`, and on the near-black bar this
+ * editor used to have, that turned Copy and Download into a white pill with
+ * a white glyph, the icon vanishing into its own background. The editor is a
+ * light surface now, but the lesson stands: one string, stated for the
+ * surface it is on, beats a variant that assumes a different one.
+ */
+const CODE_BAR_ICON_BUTTON =
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-500 " +
+  "transition-[background-color,color,transform] duration-150 " +
+  "hover:bg-neutral-100 hover:text-neutral-900 active:scale-95 " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
+
 export default function CodeEditorPage({ params }: { params: Promise<{ installId: string }> }) {
   const { installId } = use(params)
   const router = useRouter()
@@ -616,36 +631,42 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   <span className="ml-2 shrink-0 text-[10px] text-blue-600">● Modified</span>
                 )}
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
+              {/*
+                A PLAIN BUTTON, NOT `variant="ghost"`.
+                Ghost's hover is `hover:bg-accent hover:text-accent-foreground`,
+                and on the near-black bar this editor used to have that turned
+                the button into a white pill whose glyph vanished into its own
+                background. The surface is light now, but the rule that fixed
+                it stands: state the colours for the surface you are on rather
+                than borrow a variant that assumes a different one.
+              */}
+              <button
+                type="button"
                 onClick={() => void copyFile()}
                 aria-label="Copy file content"
                 title="Copy file content"
-                className="h-8 w-8 shrink-0 px-0 text-neutral-500 hover:text-neutral-900"
+                className={CODE_BAR_ICON_BUTTON}
               >
                 {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
+              </button>
+              <button
+                type="button"
                 onClick={downloadFile}
                 aria-label="Download this file"
                 title="Download this file"
-                className="h-8 w-8 shrink-0 px-0 text-neutral-500 hover:text-neutral-900"
+                className={CODE_BAR_ICON_BUTTON}
               >
                 <Download className="h-3.5 w-3.5" />
-              </Button>
+              </button>
               {customizedPaths.has(selectedFile.path) && (
-                <Button
-                  size="sm"
-                  variant="ghost"
+                <button
+                  type="button"
                   onClick={revertFile}
-                  className="h-8 shrink-0 gap-1.5 px-2.5 text-[12px] text-neutral-500 hover:text-neutral-900"
+                  className={cn(CODE_BAR_ICON_BUTTON, "w-auto gap-1.5 px-2.5 text-[12px]")}
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Revert</span>
-                </Button>
+                </button>
               )}
               <Button
                 size="sm"

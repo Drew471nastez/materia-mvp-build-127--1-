@@ -222,7 +222,10 @@ export function PublishPanel(props: PublishPanelProps) {
             size itself to an empty card. Left at the default `0 1 auto`, its
             base size is its content — which is the number `fit` wants — and
             `min-h-0` still lets it shrink and scroll under the cap. */}
-        <div className="wb-slim-scroll min-h-0 overflow-y-auto px-5 pb-[calc(1rem+env(safe-area-inset-bottom,_0px))] pt-1">
+        {/* `data-sheet-scroll`: the sheet adds back whatever this is clipping
+            when it sizes itself, so a card taller than the measurement can
+            never collapse the sheet around it. */}
+        <div data-sheet-scroll className="wb-slim-scroll min-h-0 overflow-y-auto px-5 pb-[calc(1rem+env(safe-area-inset-bottom,_0px))] pt-1">
           <Body {...props} />
         </div>
       </MobileEditorSheet>
