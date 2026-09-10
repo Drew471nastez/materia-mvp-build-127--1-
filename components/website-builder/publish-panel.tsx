@@ -238,12 +238,25 @@ export function PublishPanel(props: PublishPanelProps) {
         open={open}
         onOpenChange={onOpenChange}
         className="bg-[#1f1f1f]"
-        // Forty percent of the screen, as asked: a card, not a page. The
-        // status and the URL scroll inside it if they must; the actions are
-        // pinned under them, so Publish is on screen at that height on any
-        // phone. One stop, so a drag either settles it back or closes it.
-        // The sheet itself pads for the home indicator.
-        detents={[0.4]}
+        /**
+         * AS TALL AS WHAT IS IN IT, CAPPED.
+         *
+         * This was a flat 40% of the screen. Forty percent of a phone is not
+         * enough for a status line, a URL row, its visibility note and a
+         * security line, so the card arrived with its own content already
+         * scrolled: everything below the URL had to be dragged into view,
+         * which is not what a confirmation is for.
+         *
+         * `fit` measures what the content actually wants — including
+         * whatever the inner scroller is currently clipping, so it converges
+         * upward rather than settling into a collapse — and takes that,
+         * capped at 88% of the screen so it can never become a page. On a
+         * phone the whole card fits inside the cap and nothing scrolls at
+         * all; on a small screen it scrolls, with the actions still pinned
+         * underneath.
+         */
+        fit
+        detents={[0.88]}
         // Above the persistent Sections / Pages / Settings sheet, and gone
         // entirely when closed rather than leaving a peek of its own.
         layer="raised"

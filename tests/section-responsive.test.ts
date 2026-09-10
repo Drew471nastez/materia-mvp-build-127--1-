@@ -397,24 +397,23 @@ check(
 )
 
 check(
-  "on a phone the bar is light UI wherever the clock can still be read",
+  "the bar is dark on a phone too, because its own tiles need a surface",
   /**
-   * The status bar's text is iOS's to colour, not the page's. Without the
-   * StatusBar plugin it follows the system: dark in light mode, white in
-   * dark mode, and a white bar under white text has no clock on it. So the
-   * bar is light in a browser, light in a shell that has the plugin (which
-   * is asked for dark text), and light in a shell without it only while the
-   * system is in light mode. The lock paints the strip above the bar in the
-   * same colour either way, so there is no line under the clock.
+   * The phone's bar was light for a round. On a light bar the editor's tiles
+   * are grey on grey, and Undo and Redo are the worst of it: they are
+   * disabled most of the time, disabled means faded, and faded grey on light
+   * grey is two blank squares. The owner asked for the dark back.
+   *
+   * The hook stays rather than the call sites being unwound, because there
+   * is a real decision in it for whenever a light bar is tried again: in the
+   * native shell the status bar is drawn by iOS OVER the page and its text
+   * colour is not the page's to choose, so a light bar has to negotiate with
+   * the clock first. Today it answers dark without asking.
    */
   /const chromeTone = usePhoneChromeTone\(isMobileView\)/.test(editor) &&
-    /chromeTone === "light" && "wb-chrome-light"/.test(editor) &&
     /<FullScreenLock tone=\{chromeTone\} \/>/.test(editor) &&
+    /export function usePhoneChromeTone\(_phone: boolean\): ChromeTone \{\s*\n\s*return "dark"\s*\n\}/.test(nativeChromeSrc) &&
     /root\.style\.backgroundColor = tone === "light" \? "#ffffff" : "#171717"/.test(readFileSync(join(root, "components/website-builder/full-screen-lock.tsx"), "utf8")) &&
-    /isPluginAvailable\?\.\("StatusBar"\)/.test(nativeChromeSrc) &&
-    /setStyle\(\{ style: "LIGHT" \}\)/.test(nativeChromeSrc) &&
-    /prefers-color-scheme: light/.test(nativeChromeSrc) &&
-    // the purple action keeps white text whatever the chrome's tone
     /live \? "bg-\[#8B56FA\] text-white hover:bg-\[#7b46ec\]"/.test(editor),
 )
 
@@ -845,16 +844,15 @@ check(
 )
 
 check(
-  "nothing in the sidebar's list is a near-black tile",
+  "the header and the footer wear a black badge, because they are the two rows that are different",
   /**
-   * The header and the footer are chrome and get a badge so they are not
-   * mistaken for sections. That badge was `bg-neutral-800`: two black squares
-   * in a white list, and the first thing the eye lands on in the whole panel,
-   * above the page being edited. The quiet grey the list already uses marks
-   * them just as well, and the row keeps the outline that sets it apart.
+   * Quietened to grey for one round on the argument that two black squares
+   * are the loudest thing in a white list. The owner asked for the black
+   * back and is right that loud is the point: these are the only two rows
+   * that cannot be moved, duplicated or deleted, and the badge says so
+   * before anybody tries.
    */
-  /isSelected \? "bg-white\/15 text-white" : "bg-\[#f3f4f6\] text-\[#6b7280\]"/.test(editor) &&
-    !/bg-neutral-800 text-white/.test(editor),
+  /isSelected \? "bg-white\/15 text-white" : "bg-neutral-800 text-white"/.test(editor),
 )
 
 check(
@@ -948,18 +946,24 @@ check(
 )
 
 check(
-  "menus are as tall as their content; the publish sheet is 40% of the screen with Publish pinned",
+  "menus and the publish sheet are as tall as what is in them, capped",
   /**
    * A six-row menu at 50% was clipped under the browser's toolbar, so the
-   * menu sizes to its rows. The publish card was content-sized too, until
-   * the owner asked for it at forty percent of the screen. At that height
-   * the card cannot always be shown whole, and the one thing it must show
-   * is the button, so the actions are pinned under a body that scrolls.
+   * menu sizes to its rows. The publish card was pinned to a flat 40% for a
+   * round, and forty percent of a phone does not hold a status line, a URL,
+   * its visibility note and a security line: it arrived already scrolled,
+   * with everything under the URL below the fold. It measures its content
+   * too now, capped at 88% so it can never become a page, with the actions
+   * still pinned under a body that scrolls if a small screen makes it.
    */
   /peekHeight=\{0\} fit>/.test(menu) &&
-    /detents=\{\[0\.4\]\}/.test(publish) &&
-    !/detents=\{\[0\.62, 0\.92\]\}/.test(publish) &&
+    /fit\s*\n\s*detents=\{\[0\.88\]\}/.test(publish) &&
+    !/detents=\{\[0\.4\]\}/.test(publish) &&
     /<Body \{\.\.\.props\} pinActions \/>/.test(publish) &&
+    // the measurement adds back what each inner scroller is clipping, so it
+    // converges upward on the natural height instead of collapsing into one
+    /node\.scrollHeight - node\.clientHeight/.test(sheetSrc) &&
+    /data-sheet-scroll/.test(publish) &&
     /fit\?: boolean/.test(sheetSrc) &&
     /new ResizeObserver\(measure\)/.test(sheetSrc),
 )
@@ -1451,18 +1455,68 @@ check(
 check(
   "a section can be dragged with a mouse, a finger or the keyboard, and the taps say when",
   /**
-   * Five pixels is far enough that a short deliberate drag reads as a click
-   * that did nothing. A finger cannot use a distance rule at all — it
-   * competes with scrolling the list — so touch waits in place instead.
+   * Three pixels is far enough that a short deliberate drag does not read as
+   * a click that did nothing. A finger cannot use a distance rule at all,
+   * because it competes with scrolling the list, so touch waits in place:
+   * 220ms rather than 160, since at 160 an ordinary flick through a long
+   * list could be taken for a press, with 10px of tolerance rather than 8,
+   * since 8 is inside the noise a thumb makes resting on glass and a still
+   * finger was losing its own press.
+   *
+   * FOUR THINGS MAKE THE DRAG ITSELF ACCURATE.
+   *   - A DragOverlay: the row in the air is a separate fixed element on its
+   *     own layer, so it tracks the finger exactly instead of being a
+   *     transform on a row that is laid out, clipped and repainted with the
+   *     list it is inside.
+   *   - MeasuringStrategy.Always: the rows MOVE during a reorder, and the
+   *     default works from a snapshot taken when the drag began, so after
+   *     three or four swaps the row under the finger was not the row that
+   *     lit up.
+   *   - The transform is restricted to the vertical axis, because a list
+   *     reorders vertically and a thumb never travels straight.
+   *   - A light tick every time the order actually changes, which is what
+   *     makes a reorder feel like it is happening.
    */
   /useSensor\(PointerSensor, \{ activationConstraint: \{ distance: 3 \} \}\)/.test(editor) &&
-    /useSensor\(TouchSensor, \{ activationConstraint: \{ delay: 160, tolerance: 8 \} \}\)/.test(editor) &&
-    /const handleDragStart = useCallback\(\(\) => hapticTap\("medium"\), \[\]\)/.test(editor) &&
-    /onDragStart=\{handleDragStart\}/.test(editor) &&
+    /useSensor\(TouchSensor, \{ activationConstraint: \{ delay: 220, tolerance: 10 \} \}\)/.test(editor) &&
+    /<DragOverlay>/.test(editor) &&
+    /measuring=\{\{ droppable: \{ strategy: MeasuringStrategy\.Always \} \}\}/.test(editor) &&
+    /modifiers=\{\[restrictToVerticalAxis\]\}/.test(editor) &&
+    /const restrictToVerticalAxis: Modifier = useCallback\(\(\{ transform \}\) => \(\{ \.\.\.transform, x: 0 \}\), \[\]\)/.test(editor) &&
+    // the tick fires on a change of target, not once per animation frame
+    /if \(over === lastOverId\.current\) return/.test(editor) &&
+    /onDragOver=\{handleDragOver\}/.test(editor) &&
+    /hapticTap\("medium"\)/.test(editor) &&
     /hapticTap\("light"\)/.test(editor) &&
+    // the row left behind is the gap, not a second ghost of the same row
+    /opacity: isDragging \? 0 : 1/.test(editor) &&
     // through the one helper that reaches the iOS Taptic Engine
     /import \{ hapticTap \} from "@\/lib\/native-bridge"/.test(editor) &&
     !/navigator\.vibrate/.test(editor),
+)
+
+check(
+  "the canvas is its own memoised component, so a toast does not re-render forty sections",
+  /**
+   * The site's sections were rendered inline in the editor's own render, so
+   * every one of them re-rendered whenever ANY editor state changed: a
+   * toast, the publish sheet, the width of the sidebar, which row the
+   * pointer is over, where the section toolbar measured itself to on the
+   * last scroll frame. A long page is thirty or forty renderers, several of
+   * them carousels and grids, so on a mid-range phone that was thirty or
+   * forty renders of real work to move a toolbar four pixels.
+   *
+   * A component with props rather than a useMemo with a dependency array, on
+   * purpose: a prop it needs and does not get is a compile error, where a
+   * missing dependency is a canvas that quietly stops updating. Its two
+   * callbacks are built once in the parent, since a memoised component
+   * handed a fresh arrow function every render is not memoised at all.
+   */
+  /const EditorCanvasPage = memo\(function EditorCanvasPage\(/.test(editor) &&
+    /<EditorCanvasPage\s*\n\s*theme=\{activeThemeSettings\}/.test(editor) &&
+    /const selectSectionFromCanvas = useCallback\(/.test(editor) &&
+    /const openAddSection = useCallback\(\(\) => setAddSectionOpen\(true\), \[\]\)/.test(editor) &&
+    /onClick: inspectorEnabled \? \(\) => onSelectSection\(section\.id\) : undefined,/.test(editor),
 )
 
 check(

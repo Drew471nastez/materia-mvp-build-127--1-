@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
+import { useEffect, useState, useCallback, useMemo, useRef, use, memo } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
@@ -8,6 +8,8 @@ import {
 } from "lucide-react"
 import {
   DndContext,
+  DragOverlay,
+  MeasuringStrategy,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
@@ -15,6 +17,9 @@ import {
   useSensors,
   TouchSensor,
   type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+  type Modifier,
 } from "@dnd-kit/core"
 import {
   arrayMove,
@@ -3800,17 +3805,60 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 160, tolerance: 8 } }),
+    /**
+     * 220ms, up from 160, with a 10px tolerance.
+     *
+     * The delay is what separates "I am about to drag this" from "I am about
+     * to scroll the list", and at 160ms an ordinary flick through a long list
+     * of sections could be taken for a press. The tolerance is how far the
+     * finger may travel during the wait before the gesture is given back to
+     * the scroller; 8px is inside the noise a thumb makes resting on glass,
+     * so a still finger sometimes lost its own press.
+     */
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 10 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
   /**
+   * A list reorders vertically, so the drag does too.
+   *
+   * Two pixels of horizontal drift on every vertical move is the difference
+   * between a row that tracks the finger and a row that wobbles under it, and
+   * a thumb never travels straight. Written here rather than pulled in from
+   * @dnd-kit/modifiers, since the whole of it is "throw away x".
+   */
+  const restrictToVerticalAxis: Modifier = useCallback(({ transform }) => ({ ...transform, x: 0 }), [])
+
+  /** The row currently in the air, drawn by the overlay. */
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  /** What it was last over, so the tick fires on a change and not per frame. */
+  const lastOverId = useRef<string | null>(null)
+
+  /**
    * The taps a reorder is worth. Picking up is the moment that needs
    * confirming — on a phone the finger is over the row it has just lifted, so
-   * the tap is the only signal that the press was taken as a press. Dropping
-   * gets a lighter one. Silent on a platform with no haptics.
+   * the tap is the only signal that the press was taken as a press. Every
+   * time the order actually changes under the finger gets a light tick, which
+   * is what makes a reorder feel like it is happening rather than like it is
+   * being computed. Dropping gets one too. Silent where there are no haptics.
    */
-  const handleDragStart = useCallback(() => hapticTap("medium"), [])
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setDraggingId(String(event.active.id))
+    lastOverId.current = String(event.active.id)
+    hapticTap("medium")
+  }, [])
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const over = event.over ? String(event.over.id) : null
+    if (over === lastOverId.current) return
+    lastOverId.current = over
+    if (over) hapticTap("light")
+  }, [])
+
+  const handleDragCancel = useCallback(() => {
+    setDraggingId(null)
+    lastOverId.current = null
+  }, [])
 
   // Scroll to a section in the canvas
   const scrollToSection = useCallback((sectionId: string) => {
@@ -3822,6 +3870,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   // Drag end — reorder body sections (keep header/footer pinned)
   const handleDragEnd = useCallback((event: DragEndEvent) => {
+    setDraggingId(null)
+    lastOverId.current = null
     hapticTap("light")
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -4827,6 +4877,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const activeThemeSettings: ThemeSettingsValues = settingsDraft
 
+  /**
+   * The canvas's two callbacks, made once.
+   *
+   * They exist as their own useCallbacks because EditorCanvasPage below is
+   * memoised, and a memoised component handed a freshly built arrow function
+   * on every render is a memoised component that re-renders on every render.
+   * Neither closes over a section, so neither has a reason to be rebuilt.
+   */
+  const selectSectionFromCanvas = useCallback(
+    (sectionId: string) => {
+      setSelectedPanel({ type: "section", sectionId })
+      scrollToSection(sectionId)
+    },
+    [scrollToSection],
+  )
+  const openAddSection = useCallback(() => setAddSectionOpen(true), [])
+
   // Narrow the selected section id safely
   const selectedSectionId: string | null =
     selectedPanel.type === "section" ? (selectedPanel as { type: "section"; sectionId: string }).sectionId : null
@@ -5139,7 +5206,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
+                modifiers={[restrictToVerticalAxis]}
+                /**
+                 * Re-measure the rows while the drag is in flight.
+                 *
+                 * The default measures them once, when the drag starts, and
+                 * then works from that snapshot. But the rows MOVE during a
+                 * reorder, so every swap put the real rows further from where
+                 * dnd-kit believed they were, and by the third or fourth one
+                 * the row under the finger was not the row that lit up. That
+                 * is the whole of "it is not accurate". Measuring always
+                 * costs a layout per animation frame of the drag and buys
+                 * back a drop that lands where it was aimed.
+                 */
+                measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
                 onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragCancel={handleDragCancel}
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext items={bodySection.map(s => s.id)} strategy={verticalListSortingStrategy}>
@@ -5182,6 +5265,35 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     )
                   })()}
                 </SortableContext>
+                {/**
+                 * THE ROW IN THE AIR IS A SEPARATE ROW.
+                 *
+                 * Without this the row being dragged is the row in the list,
+                 * moved by a transform: it is laid out with its neighbours,
+                 * clipped by whatever clips them, and it repaints inside the
+                 * scrolling list on every frame. The overlay is one fixed
+                 * element on its own layer that follows the pointer, so the
+                 * finger has something that tracks it exactly while the list
+                 * underneath quietly reflows into the new order.
+                 *
+                 * `dropAnimation` is left at the default, which flies the
+                 * overlay back to the placeholder's final rectangle. That
+                 * flight is the confirmation that the drop was taken.
+                 */}
+                <DragOverlay>
+                  {draggingId ? (
+                    <div className="wb-drag-lift rounded-lg bg-white">
+                      <SidebarSectionRow
+                        section={sections.find((x) => x.id === draggingId) ?? bodySection[0]}
+                        isSelected={false}
+                        onSelect={() => {}}
+                        onToggleHide={() => {}}
+                        onDuplicate={() => {}}
+                        onRemove={() => {}}
+                      />
+                    </div>
+                  ) : null}
+                </DragOverlay>
               </DndContext>
 
               {/* Footer (global) */}
@@ -6545,84 +6657,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                * how a section is rendered, with selection, hovering and the
                * device mode on it.
                */}
-              <ThemePage
+              <EditorCanvasPage
                 theme={activeThemeSettings}
                 sections={sections}
-                /**
-                 * `atTop` says whether this header has any chrome above it.
-                 * ThemePage answers that because ThemePage draws the chrome;
-                 * reading the theme's own flags from here is how the
-                 * announcement bar came to exist in four places at once.
-                 */
-                renderSection={(section, role, atTop) => {
-                  const shared = {
-                    section,
-                    theme: activeThemeSettings,
-                    // TRUE whether or not the Inspector is on — it tells a
-                    // section "you are inside the canvas card, use the
-                    // editor-scoped sticky mode". `isEditing` flips with the
-                    // toggle; this does not, which is what kept the header
-                    // from going `position: fixed` over the editor chrome.
-                    insideEditor: true,
-                    isEditing: inspectorEnabled,
-                    isSelected: inspectorEnabled && selectedSectionId === section.id,
-                    onClick: inspectorEnabled
-                      ? () => {
-                          setSelectedPanel({ type: "section", sectionId: section.id })
-                          scrollToSection(section.id)
-                        }
-                      : undefined,
-                    deviceMode: device,
-                    onEditorNavigate: handleEditorNavigate,
-                  }
-
-                  // The header takes `wrapperId` rather than sitting in a
-                  // wrapping div: the id has to land on the SectionWrapper's
-                  // own root, or `position: sticky` gets a containing block
-                  // exactly the header's height and never sticks.
-                  if (role === "header") {
-                    return (
-                      <SectionRenderer
-                        key={section.id}
-                        wrapperId={`wb-section-${section.id}`}
-                        {...shared}
-                        /**
-                         * Only when the header IS the top of the card. With an
-                         * announcement bar above it the header is a square band
-                         * in the middle of the page, and rounding its selection
-                         * ring there curves the corners of nothing — which is
-                         * the ring that looked arbitrary.
-                         */
-                        canvasRoundedTopPx={atTop ? (device === "desktop" ? 12 : 16) : undefined}
-                      />
-                    )
-                  }
-
-                  return (
-                    <div key={section.id} id={`wb-section-${section.id}`}>
-                      <SectionRenderer
-                        {...shared}
-                        canvasRoundedBottomPx={
-                          role === "footer" && device !== "desktop" ? 16 : undefined
-                        }
-                      />
-                    </div>
-                  )
-                }}
-              >
-                {bodyCount === 0 && sections.length > 0 && (
-                  <div className="py-24 flex items-center justify-center text-center">
-                    <div>
-                      <p className="text-xl font-bold tracking-tight text-neutral-300 uppercase mb-1">Empty Page</p>
-                      <p className="text-sm text-neutral-400 mb-4">Create your beautiful page by adding sections</p>
-                      <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted transition-colors" onClick={() => setAddSectionOpen(true)}>
-                        <Plus className="h-4 w-4" />
-                        Add a section
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </ThemePage>
+                inspectorEnabled={inspectorEnabled}
+                selectedSectionId={selectedSectionId}
+                device={device}
+                bodyCount={bodyCount}
+                onSelectSection={selectSectionFromCanvas}
+                onAddSection={openAddSection}
+                onEditorNavigate={handleEditorNavigate}
+              />
               </div>
             )}
             </div>
@@ -6788,11 +6833,21 @@ function InsertSectionDivider({ onClick }: { onClick: () => void }) {
 // ── Sortable wrapper for drag-and-drop ───────────────────────
 function SortableSectionRow(props: Parameters<typeof SidebarSectionRow>[0]) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.section.id })
-  const style = {
+  /**
+   * While this row is in the air the overlay is drawing it, so what is left
+   * here is the gap it came out of. It was drawn at half opacity, which is
+   * a second, ghostly copy of the row sliding around under the real one.
+   *
+   * The rows that are NOT being dragged are the ones that animate, and they
+   * are hinted for it only while a drag is actually happening: a permanent
+   * `will-change` on every row in a long list is a permanent layer for every
+   * row in a long list.
+   */
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0 : 1,
+    willChange: transform ? "transform" : undefined,
   }
   return (
     <div ref={setNodeRef} style={style}>
@@ -7030,6 +7085,129 @@ function SectionToolbar({
   )
 }
 
+/**
+ * ===========================================================================
+ *  THE CANVAS, AND WHY IT IS ITS OWN COMPONENT
+ * ===========================================================================
+ *
+ * Everything below this line used to be written inline in the editor's
+ * render, which meant every one of the site's sections was re-rendered
+ * whenever ANY of the editor's state changed. The editor has a great deal of
+ * state that has nothing to do with the page: a toast, the publish sheet, the
+ * width of the sidebar, which row the pointer is over, where the section
+ * toolbar has measured itself to on the last scroll frame. A long page is
+ * thirty or forty section renderers, several of them carousels and grids, so
+ * on a mid-range phone that is thirty or forty renders of real work to move
+ * a toolbar four pixels.
+ *
+ * Extracted and memoised, it re-renders when the page it is drawing changes
+ * and not before. It is a component with props rather than a `useMemo` with a
+ * dependency array on purpose: a prop this needs and does not get is a
+ * compile error, where a missing dependency is a canvas that quietly stops
+ * updating.
+ *
+ * The callbacks are the whole reason it works, so they must be stable in the
+ * parent. `onSelectSection` and `onAddSection` take no closure over a
+ * section; they are given the id.
+ */
+const EditorCanvasPage = memo(function EditorCanvasPage({
+  theme,
+  sections,
+  inspectorEnabled,
+  selectedSectionId,
+  device,
+  bodyCount,
+  onSelectSection,
+  onAddSection,
+  onEditorNavigate,
+}: {
+  theme: ThemeSettingsValues
+  sections: SectionInstance[]
+  inspectorEnabled: boolean
+  selectedSectionId: string | null
+  device: DeviceMode
+  bodyCount: number
+  onSelectSection: (sectionId: string) => void
+  onAddSection: () => void
+  onEditorNavigate: (href: string) => void
+}) {
+  return (
+    <ThemePage
+      theme={theme}
+      sections={sections}
+      /**
+       * `atTop` says whether this header has any chrome above it.
+       * ThemePage answers that because ThemePage draws the chrome;
+       * reading the theme's own flags from here is how the
+       * announcement bar came to exist in four places at once.
+       */
+      renderSection={(section, role, atTop) => {
+        const shared = {
+          section,
+          theme,
+          // TRUE whether or not the Inspector is on — it tells a
+          // section "you are inside the canvas card, use the
+          // editor-scoped sticky mode". `isEditing` flips with the
+          // toggle; this does not, which is what kept the header
+          // from going `position: fixed` over the editor chrome.
+          insideEditor: true,
+          isEditing: inspectorEnabled,
+          isSelected: inspectorEnabled && selectedSectionId === section.id,
+          onClick: inspectorEnabled ? () => onSelectSection(section.id) : undefined,
+          deviceMode: device,
+          onEditorNavigate,
+        }
+
+        // The header takes `wrapperId` rather than sitting in a
+        // wrapping div: the id has to land on the SectionWrapper's
+        // own root, or `position: sticky` gets a containing block
+        // exactly the header's height and never sticks.
+        if (role === "header") {
+          return (
+            <SectionRenderer
+              key={section.id}
+              wrapperId={`wb-section-${section.id}`}
+              {...shared}
+              /**
+               * Only when the header IS the top of the card. With an
+               * announcement bar above it the header is a square band
+               * in the middle of the page, and rounding its selection
+               * ring there curves the corners of nothing — which is
+               * the ring that looked arbitrary.
+               */
+              canvasRoundedTopPx={atTop ? (device === "desktop" ? 12 : 16) : undefined}
+            />
+          )
+        }
+
+        return (
+          <div key={section.id} id={`wb-section-${section.id}`}>
+            <SectionRenderer
+              {...shared}
+              canvasRoundedBottomPx={
+                role === "footer" && device !== "desktop" ? 16 : undefined
+              }
+            />
+          </div>
+        )
+      }}
+    >
+      {bodyCount === 0 && sections.length > 0 && (
+        <div className="py-24 flex items-center justify-center text-center">
+          <div>
+            <p className="text-xl font-bold tracking-tight text-neutral-300 uppercase mb-1">Empty Page</p>
+            <p className="text-sm text-neutral-400 mb-4">Create your beautiful page by adding sections</p>
+            <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted transition-colors" onClick={onAddSection}>
+              <Plus className="h-4 w-4" />
+              Add a section
+            </button>
+          </div>
+        </div>
+      )}
+    </ThemePage>
+  )
+})
+
 // ── Sidebar section row ──────────────────────────────────────
 function SidebarSectionRow({
   section,
@@ -7097,17 +7275,19 @@ function SidebarSectionRow({
           </span>
         )}
         {/* The header and the footer are chrome, and chrome gets a badge so
-            they are not mistaken for sections. A near-black tile did that job
-            far too loudly: two black squares in a white list are the first
-            thing the eye lands on, above the page you are editing. The same
-            grey the list uses for everything quiet marks them just as well,
-            and the row still carries the outline that sets it apart. */}
+            they are not mistaken for sections: a dark tile with the piece
+            drawn on it. It was quietened to grey for one round on the
+            argument that two black squares are the loudest thing in a white
+            list; the owner asked for the black back, and they are right that
+            loud is the point here. These two rows are the only ones in the
+            list that cannot be moved, duplicated or deleted, and the badge
+            is what says so before you try. */}
         {isStructure && structureRole && (
           <span
             aria-hidden
             className={cn(
               "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
-              isSelected ? "bg-white/15 text-white" : "bg-[#f3f4f6] text-[#6b7280]",
+              isSelected ? "bg-white/15 text-white" : "bg-neutral-800 text-white",
             )}
           >
             {structureRole === "header" ? (

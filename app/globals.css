@@ -857,6 +857,20 @@ html.capacitor body {
     .wb-loading-line { animation: none }
   }
 
+  /* ── The row in the air ──
+     The overlay's job is to look picked up. A shadow and a hair of scale is
+     the whole of that: it is on its own compositor layer already, so the
+     transform costs nothing per frame, and the shadow is drawn once. The
+     cursor stays a grabbing hand over it, since the finger or pointer has
+     not let go. */
+  .wb-drag-lift {
+    transform: scale(1.02);
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.08),
+      0 18px 36px -12px rgba(15, 23, 42, 0.35);
+    cursor: grabbing;
+  }
+
   /* The confirmation before leaving. The same glass as the leaving screen,
      so the two read as one moment: the builder goes behind frosted glass,
      and the question is the only thing in focus on it. */
