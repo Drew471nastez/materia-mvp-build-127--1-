@@ -2254,3 +2254,39 @@ picture {
   height: var(--wb-chrome-top);
   padding-top: var(--wb-safe-top);
 }
+
+/* ── While a full-screen builder surface is mounted ──────────────────────
+   The editor and the code editor are screens, not documents. The rule that
+   makes every ordinary page clear the home indicator —
+
+       body { min-height: 100svh; padding-bottom: env(safe-area-inset-bottom) }
+
+   — makes the document 34px taller than the viewport as soon as its child
+   is itself a full screen, because content plus padding is one screen plus
+   the inset. Those 34px were the whole of "I can drag the top bar and the
+   builder scrolls": the editor slid up by them, its bar went back under the
+   status bar, and the html canvas showed through underneath as the black
+   band above the sections sheet.
+
+   Zeroed here for the life of those two screens only. They pin themselves
+   to the viewport with `position: fixed` and pad their own chrome, so they
+   need nothing from the body — and every other page keeps the rule that
+   holds its footer above the home indicator. See
+   components/website-builder/full-screen-lock.tsx. */
+html.wb-fullscreen,
+html.wb-fullscreen body {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  /* No rubber-band either: there is nothing to scroll, and on iOS the bounce
+     would still lift the whole surface off the top of the screen. */
+  overscroll-behavior: none;
+}
+html.wb-fullscreen body {
+  padding-top: 0;
+  padding-bottom: 0;
+  /* Left and right go too. In landscape they are a real inset, and a surface
+     that pins itself to the viewport would be pushed off-centre by them. */
+  padding-left: 0;
+  padding-right: 0;
+}

@@ -15,7 +15,13 @@ export default async function WebsiteBuilderEditorLayout({
   if (!user) redirect("/login")
 
   return (
-    <div className="h-svh overflow-hidden bg-background">
+    /*
+      `fixed inset-0`, for the same reason the editor's own root is: an
+      `h-svh` wrapper is content, and the body's safe-area padding sits
+      underneath it, making the document taller than the screen by the
+      home indicator. Pinned to the viewport it adds no height at all.
+    */
+    <div className="fixed inset-0 overflow-hidden bg-background">
       {children}
       <Toaster position="bottom-right" />
     </div>
