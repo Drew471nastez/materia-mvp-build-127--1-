@@ -6196,12 +6196,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * surface, so even if the reservation and the sheet differ by a
              * pixel the seam is invisible rather than black.
              */
-            // The sidebar's own surface on both. Anything else — dark, or a
-            // shade of grey — is what the card's rounded corner arcs over,
-            // and that arc against a white sidebar is the line in the corner.
-            // Matching it means the corner rounds into the chrome instead of
-            // cutting a notch out of it.
-            "bg-background",
+            /**
+             * The bar's own dark on a desktop: it is matting, and matting is
+             * what a rounded card sits on.
+             *
+             * A phone has no mat — the card is the screen — so the only
+             * surround left there is the strip reserved for the sheet's peek,
+             * where dark read as a black band above Sections / Pages /
+             * Settings. It takes the sheet's own surface, so a one-pixel
+             * disagreement is a seam rather than a band.
+             */
+            isMobileView ? "bg-background" : "bg-[#171717]",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6210,11 +6215,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             isMobileView
               ? "items-start p-0"
               /**
-               * NO MAT ON A DESKTOP. The card meets the sidebar and the bar
-               * directly and is rounded on the side where it does, so the
-               * three read as one piece with a page inside.
+               * A MAT, AND A CARD ROUNDED ON IT.
+               *
+               * A rounded corner is only a corner if something different is
+               * behind it. Flush against white chrome the radius had nothing
+               * to arc over and read as a dent; on a near-white surround it
+               * read as a stray line. The answer was never which shade to
+               * put behind the arc — it was that the card needs room to be a
+               * card. Eight pixels of the bar's own dark on every side, and
+               * the corner is a corner.
                */
-              : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
+              : device === "desktop" ? "items-stretch p-2" : "items-center py-6 px-6",
           )}
           /**
            * The sheet is pinned to the viewport, so the canvas keeps its peek
@@ -6273,12 +6284,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full border-0 rounded-none"
                 : device === "desktop"
-                  // Square, and flush. Every radius here arced over whatever
-                  // was behind it and left that as a notch beside the
-                  // sidebar's own divider: dark read as a wedge, grey as a
-                  // line, and white as a dent in the border. A corner that
-                  // meets chrome exactly has nothing to show through.
-                  ? "w-full"
+                  ? "rounded-xl w-full"
                   : "rounded-2xl",
             )}
             style={

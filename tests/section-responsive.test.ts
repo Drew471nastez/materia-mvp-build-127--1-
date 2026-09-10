@@ -635,7 +635,7 @@ check(
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-0 z-\[80\] flex flex-col",/.test(modeSwitch) &&
+    /absolute inset-2 z-\[80\] flex flex-col rounded-xl/.test(modeSwitch) &&
     // A black panel inside a white builder is a second product bolted on.
     /"overflow-hidden bg-white"/.test(modeSwitch) &&
     !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
@@ -711,16 +711,12 @@ check(
 )
 
 check(
-  "the canvas surround is the sidebar's own surface, so the card's corner arcs over nothing",
-  /**
-   * Dark made an inset card read as matted; once the inset went it showed
-   * through the rounded corner as a black wedge against a white sidebar, and
-   * a grey did the same in miniature — the thin line in the corner. Whatever
-   * is behind that arc has to be what is beside it.
-   */
+  "the surround is the bar's dark on a desktop and the sheet's own surface on a phone",
+  // Matting is a desktop idea: it is what the eight pixels around an inset
+  // card are for. A phone has no inset, so its only surround is the strip
+  // reserved for the sheet's peek, where dark read as a black band.
   /"relative flex-1 min-w-0 overflow-hidden flex justify-center"/.test(editor) &&
-    /\n\s*"bg-background",/.test(editor) &&
-    !/bg-\[#171717\] overflow-hidden|bg-neutral-100 overflow-hidden/.test(editor),
+    /isMobileView \? "bg-background" : "bg-\[#171717\]"/.test(editor),
 )
 
 check(
@@ -736,18 +732,19 @@ check(
 )
 
 check(
-  "the preview card meets the chrome exactly: no mat, no border, no corner",
+  "the preview card is a rounded card on a dark mat, which is the only way a corner is a corner",
   /**
-   * Every radius here arced over whatever was behind it and left that as a
-   * notch beside the sidebar's own divider — dark read as a wedge, grey as a
-   * line, white as a dent in the border. A corner that meets chrome exactly
-   * has nothing to show through.
+   * A rounded corner is only a corner if something different is behind it.
+   * Flush against white chrome the radius had nothing to arc over and read as
+   * a dent; on a near-white surround it read as a stray line. The answer was
+   * never which shade to put behind the arc — the card needs room to be a
+   * card.
    */
-  /device === "desktop" \? "items-stretch p-0"/.test(editor) &&
-    /\n\s*\? "w-full"/.test(editor) &&
-    !/rounded-l-xl w-full|rounded-xl w-full/.test(editor) &&
+  /device === "desktop" \? "items-stretch p-2"/.test(editor) &&
+    /\? "rounded-xl w-full"/.test(editor) &&
+    /isMobileView \? "bg-background" : "bg-\[#171717\]"/.test(editor) &&
     /height: "100%"/.test(editor) &&
-    // and no hairline: flush against chrome, a border is a seam
+    // and no hairline: the mat is the edge, a border would be a second one
     !/bg-white border border-neutral-200\/70/.test(editor),
 )
 
