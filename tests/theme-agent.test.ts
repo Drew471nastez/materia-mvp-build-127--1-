@@ -1489,7 +1489,7 @@ section("The mobile sheet snaps where it should")
      * above drives `offsetsFor` directly. What is worth pinning now is that
      * the component has not gone back to computing its own.
      */
-    /offsetsFor\(\{ viewport, detents: stops, peekHeight \}\)\.offsets/.test(sheet) &&
+    /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek \}\)\.offsets/.test(sheet) &&
       !/const list = stops$/m.test(sheet),
   )
 

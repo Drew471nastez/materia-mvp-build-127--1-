@@ -397,7 +397,14 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       {/* Inside the editor's own frame the bar above is the editor's, and a
           second one saying the same things is a second header. */}
       {!embedded && (
-      <header className="h-11 bg-[#141414] border-b border-white/10 flex items-center px-4 gap-3 shrink-0">
+      <header
+        className="h-11 bg-[#141414] border-b border-white/10 flex items-center px-4 gap-3 shrink-0 box-content"
+        // Opened on its own rather than inside the editor's frame, this is the
+        // topmost bar on the screen — so on a phone it is the one that lands
+        // under the status bar. `box-content` so the padding adds to the 44px
+        // rather than eating it.
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      >
         <button
           className="flex items-center gap-1.5 text-[13px] text-neutral-500 hover:text-neutral-200 mr-1"
           onClick={() => router.push("/app/website-builder")}
