@@ -6155,7 +6155,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * corners are visible because there is something for them to be
              * rounded against.
              */
-            "relative flex-1 min-w-0 bg-[#171717] overflow-hidden flex justify-center",
+            "relative flex-1 min-w-0 overflow-hidden flex justify-center",
+            /**
+             * The dark is MATTING, and matting is a desktop idea: it is what
+             * the eight pixels around an inset card are for. A phone has no
+             * inset — the card is the screen — so the only dark left is the
+             * strip reserved for the sheet's peek, where it read as a black
+             * band above Sections / Pages / Settings rather than as anything
+             * deliberate. There it takes the sheet's own surface, so even if
+             * the reservation and the sheet ever differ by a pixel the seam
+             * is invisible instead of black.
+             */
+            isMobileView ? "bg-background" : "bg-[#171717]",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6173,11 +6184,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                */
               : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
           )}
-          // The sheet is pinned to the viewport, so the canvas has to keep
-          // its peek clear itself. Reserved as padding rather than arithmetic
-          // in the card's height: the card is then simply "the room left",
-          // and there is no viewport unit for the two to disagree about.
-          style={isMobileView ? { paddingBottom: "var(--wb-sheet-peek)" } : undefined}
+          /**
+           * The sheet is pinned to the viewport, so the canvas keeps its peek
+           * clear itself — with the number the sheet PUBLISHES, measured on
+           * this device, not a second computation of the same sum in CSS.
+           * The 72px fallback is the peek before any inset, for the frame
+           * before the sheet has measured itself.
+           */
+          style={isMobileView ? { paddingBottom: "var(--wb-sheet-peek, 72px)" } : undefined}
         >
           <CodePane
             installId={installId}
