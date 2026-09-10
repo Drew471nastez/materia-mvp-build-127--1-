@@ -960,10 +960,10 @@ check(
     /fit\s*\n\s*detents=\{\[0\.88\]\}/.test(publish) &&
     !/detents=\{\[0\.4\]\}/.test(publish) &&
     /<Body \{\.\.\.props\} pinActions \/>/.test(publish) &&
-    // the measurement adds back what each inner scroller is clipping, so it
-    // converges upward on the natural height instead of collapsing into one
-    /node\.scrollHeight - node\.clientHeight/.test(sheetSrc) &&
+    // and the measurement it uses is the one below, which reads the content's
+    // own height rather than the height the sheet happens to be at
     /data-sheet-scroll/.test(publish) &&
+    /<div data-sheet-content>\{content\}<\/div>/.test(publish) &&
     /fit\?: boolean/.test(sheetSrc) &&
     /new ResizeObserver\(measure\)/.test(sheetSrc),
 )
@@ -1657,21 +1657,39 @@ check(
 )
 
 check(
-  "a sheet sized to its content measures what the content wants, not what it was allowed",
+  "a sheet sized to its content takes a measurement that cannot depend on the answer",
   /**
-   * The measurement read the wrapper's own box, and the wrapper is a flex item
-   * with `min-h-0` around a scroller that is free to shrink — so the number fed
-   * back into itself. Reproduced in Chromium with the real flex shape: starting
-   * from a small height the old measurement returns that small height and stays
-   * there for ever (120 → 120 → 120 …) however much content is inside, which is
-   * a Publish card whose own buttons are below the fold. Adding back what each
-   * scroller is clipping makes it converge upward instead: 120 → 542, the
-   * content's real need, in one step.
+   * Two attempts at this got stuck, and both got stuck the same way: the
+   * number was read from boxes whose size the number itself decides. The
+   * sheet took the height it measured, that squeezed the scroller inside it,
+   * the next measurement came back smaller.
+   *
+   * "Add back whatever the scroller is currently clipping" was meant to make
+   * that converge upward, and it does — but only while the scroller is the
+   * thing being clipped. Where the squeeze lands elsewhere, or where the
+   * scroller has been given MORE room than it needs, the correction is zero
+   * and every height is self-consistent: any starting height is a fixed
+   * point, including a bad one. Measured in Chromium at four sheet heights
+   * with the real flex shape, it answered 441, 441, 441, 740 — agreeing with
+   * a 420px sheet and with a 760px one, and therefore leaving neither.
+   *
+   * The property that fixes it is not "converges" but "does not depend on
+   * the answer". A scroller contributes the height of its CONTENT, read from
+   * a box inside it that the scroller cannot squeeze, corrected by the
+   * difference against what that scroller was actually given. Same four
+   * heights: 427, 427, 427, 427.
+   *
+   * `node scripts/check-sheet-fit.mjs`
    */
-  /\[data-sheet-scroll\]/.test(sheetSrc) &&
-    /clipped \+= Math\.max\(0, node\.scrollHeight - node\.clientHeight\)/.test(sheetSrc) &&
-    /data-sheet-scroll/.test(publishPanel) &&
-    /data-sheet-scroll/.test(menu),
+  /function naturalScrollHeight\(scroller: HTMLElement\): number/.test(sheetSrc) &&
+    /const inner = scroller\.querySelector<HTMLElement>\("\[data-sheet-content\]"\)/.test(sheetSrc) &&
+    /if \(scroller\) h \+= naturalScrollHeight\(scroller\) - scroller\.clientHeight/.test(sheetSrc) &&
+    // and it is taken again when the sheet opens: a ResizeObserver reports a
+    // box that CHANGED, and content laid out once presents nothing to report
+    /\}, \[fit, mounted, chromeGap, open\]\)/.test(sheetSrc) &&
+    // both sheets that use it mark the box to measure
+    /data-sheet-content/.test(publishPanel) &&
+    /data-sheet-content/.test(menu),
 )
 
 check(

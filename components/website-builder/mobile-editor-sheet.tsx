@@ -44,6 +44,26 @@ import {
 
 const PEEK_HEIGHT = 72
 
+/**
+ * How tall a scroller's content is, independent of how tall the scroller is.
+ *
+ * `scrollHeight` is `max(content, client)`, so it answers this correctly only
+ * while the scroller is actually overflowing: give the scroller more room
+ * than its content needs and it reports the room, not the content, and a
+ * sheet sized from it can never shrink again. A `[data-sheet-content]` box
+ * inside the scroller is not sized by the scroller, so its rectangle is the
+ * content's own height at any sheet height. `scrollHeight` stays as the
+ * fallback for a scroller that has not marked its content, where it is right
+ * in the overflowing case and no worse than before in the other.
+ */
+function naturalScrollHeight(scroller: HTMLElement): number {
+  const inner = scroller.querySelector<HTMLElement>("[data-sheet-content]")
+  if (!inner) return scroller.scrollHeight
+  const cs = getComputedStyle(scroller)
+  const padding = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0)
+  return inner.getBoundingClientRect().height + padding
+}
+
 /** The home-indicator inset, as a number, for sizing a content-fit sheet. */
 function safeAreaBottom(): number {
   if (typeof document === "undefined") return 0
@@ -183,42 +203,62 @@ export function MobileEditorSheet({
       const safe = safeAreaBottom() + browserChromeGap()
       /**
        * ===============================================================
-       *  MEASURE WHAT THE CONTENT WANTS, NOT WHAT IT WAS ALLOWED
+       *  A MEASUREMENT THAT CANNOT DEPEND ON THE ANSWER
        * ===============================================================
-       * This measured the wrapper's own box, and the wrapper contains a
-       * scroller that is free to shrink (`min-h-0` + `overflow-y-auto`).
-       * So the number fed back into itself: the sheet took the height it
-       * measured, that squeezed the scroller, the wrapper re-measured
-       * smaller, and round it went. It settled wherever the collapse ran
-       * out — a Publish card a third of the screen tall with its own
-       * buttons below the fold, which is "I can see the URL but not the
-       * Publish button".
+       * Two attempts at this have now got stuck, and both got stuck the
+       * same way: the number was read from boxes whose size the number
+       * itself decides. The wrapper holds a scroller that is free to
+       * shrink, so the sheet took the height it measured, that squeezed
+       * the scroller, the next measurement came back smaller, and the pair
+       * settled wherever the collapse ran out — a Publish card a third of
+       * the screen tall with its own URL row below the fold.
        *
-       * Adding back whatever each scroller is currently clipping makes the
-       * measurement converge UPWARD on the natural height instead: once
-       * the sheet is tall enough to show everything, the clipped amount is
-       * zero and it stops. The cap is still the tallest detent, so long
-       * content ends up scrollable rather than off the screen.
+       * Adding back "whatever the scroller is currently clipping" was
+       * supposed to make it converge upward instead. It converges only
+       * while the scroller is the thing being clipped; the moment the
+       * squeeze lands anywhere else — the wrapper cut by the sheet's own
+       * `overflow: hidden`, a scroller handed zero height by a flex line
+       * that had none to give — the correction is zero and every height is
+       * self-consistent. Any starting height is then a fixed point,
+       * including a bad one, which is exactly what shipped.
+       *
+       * So nothing here is measured from a constrained box. A scroller
+       * contributes the height of its CONTENT, which is inside it and
+       * therefore never squeezed by it, and the correction is applied as a
+       * difference against what that scroller was actually given. The
+       * result is the same number whatever height the sheet happens to be
+       * at when it is taken, so there is no loop to settle and no fixed
+       * point to get caught in.
        */
-      let clipped = 0
-      for (const node of el.querySelectorAll<HTMLElement>("[data-sheet-scroll]")) {
-        clipped += Math.max(0, node.scrollHeight - node.clientHeight)
+      let wanted = 0
+      for (const child of Array.from(el.children) as HTMLElement[]) {
+        let h = child.getBoundingClientRect().height
+        const scroller = child.matches("[data-sheet-scroll]")
+          ? child
+          : child.querySelector<HTMLElement>("[data-sheet-scroll]")
+        if (scroller) h += naturalScrollHeight(scroller) - scroller.clientHeight
+        wanted += h
       }
       setContentHeight(
-        Math.ceil(
-          el.getBoundingClientRect().height +
-            clipped +
-            (handle?.getBoundingClientRect().height ?? 0) +
-            safe,
-        ),
+        Math.ceil(wanted + (handle?.getBoundingClientRect().height ?? 0) + safe),
       )
     }
     measure()
+    // The wrapper's own box stops changing as soon as the sheet settles, so
+    // observing only that misses a card whose CONTENT grew: a URL arriving,
+    // a status line changing from one word to three. Every marked content
+    // box is observed as well.
     const ro = new ResizeObserver(measure)
     ro.observe(el)
+    for (const node of el.querySelectorAll<HTMLElement>("[data-sheet-content]")) ro.observe(node)
     return () => ro.disconnect()
+    // `open` is in here deliberately. A ResizeObserver reports a box that
+    // CHANGED, and a card whose content was laid out once and never touched
+    // again presents no change to report — so the one measurement that has
+    // to be right, the one taken at the moment the sheet is shown, would be
+    // whatever the last one happened to be.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fit, mounted, chromeGap])
+  }, [fit, mounted, chromeGap, open])
 
   React.useEffect(() => {
     setMounted(true)

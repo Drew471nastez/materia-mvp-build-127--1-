@@ -91,6 +91,9 @@ export function ResponsiveActionMenu({
 
           {/* Actions — scroll only if there really are more rows than screen. */}
           <div data-sheet-scroll className="min-h-0 flex-1 overflow-y-auto px-3 pt-0.5 pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))]">
+            {/* The box the sheet measures: inside the scroller, so its height
+                is the rows' own and not the room they were given. */}
+            <div data-sheet-content>
             {items.map((item, i) => (
               <React.Fragment key={i}>
                 {item.separatorBefore && i !== 0 && (
@@ -145,6 +148,7 @@ export function ResponsiveActionMenu({
                 )}
               </React.Fragment>
             ))}
+            </div>
           </div>
         </MobileEditorSheet>
       </>

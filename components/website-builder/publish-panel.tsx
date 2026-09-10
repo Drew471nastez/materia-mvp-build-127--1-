@@ -183,7 +183,11 @@ function Body({
     return (
       <>
         <div data-sheet-scroll className="wb-slim-scroll min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-1">
-          {content}
+          {/* The box the sheet measures. It is inside the scroller, so its
+              height is the content's own at any sheet height, which is what
+              lets the sheet size to it without the answer feeding back into
+              the question. */}
+          <div data-sheet-content>{content}</div>
         </div>
         <div className="shrink-0 border-t border-white/10 px-5 pb-3 pt-3 text-white">{actions}</div>
       </>
