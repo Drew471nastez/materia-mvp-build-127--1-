@@ -90,7 +90,7 @@ export function PreviewModeSwitch({
         aria-pressed={active}
         aria-label={label}
         className={cn(
-          "relative z-10 flex h-8 items-center rounded-full px-2.5 text-[13px] font-medium transition-colors duration-200",
+          "relative z-10 flex h-7 items-center rounded-full px-2.5 text-[12.5px] font-medium transition-colors duration-200",
           active ? "text-white" : "text-white/55 hover:text-white/85",
         )}
       >
@@ -116,14 +116,16 @@ export function PreviewModeSwitch({
   return (
     <div
       ref={trackRef}
-      className="relative flex items-center gap-0.5 rounded-full border border-white/10 bg-white/[0.05] p-1"
+      // Slim. At h-8 in a p-1 track it was a 40px slab on a 48px bar, which
+      // is a control shouting over the bar it sits on.
+      className="relative flex items-center gap-0.5 rounded-full border border-white/10 bg-white/[0.05] p-0.5"
     >
       {/* The bubble. `transform` and `width` only, so it composites; the
           overshoot curve is the one a thrown switch settles on. */}
       {bubble && (
         <span
           aria-hidden
-          className="absolute top-1 h-8 rounded-full bg-[#8B56FA]/25 ring-1 ring-inset ring-[#8B56FA]/60 shadow-[0_0_18px_-4px_rgba(139,86,250,0.7)]"
+          className="absolute top-0.5 h-7 rounded-full bg-[#8B56FA]/25 ring-1 ring-inset ring-[#8B56FA]/60 shadow-[0_0_18px_-4px_rgba(139,86,250,0.7)]"
           style={{
             left: 0,
             width: bubble.width,
@@ -190,7 +192,11 @@ export function CodePane({
         "overflow-hidden bg-[#0e0e0e]",
         fullScreen
           ? "fixed inset-0 z-[120] flex flex-col"
-          : "absolute inset-2 z-[80] rounded-xl border border-white/10 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.8)]",
+          : // `flex flex-col` is not decoration: the iframe's wrapper below is
+            // `flex-1`, and in a block container that resolves to nothing, so
+            // the iframe fell back to its 150px HTML default and left the card
+            // mostly empty on a desktop.
+            "absolute inset-2 z-[80] flex flex-col rounded-xl border border-white/10 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.8)]",
         "transition-[opacity,transform] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
         visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0",
       )}

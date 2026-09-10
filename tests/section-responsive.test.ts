@@ -620,7 +620,10 @@ check(
 
 check(
   "the code pane is a rounded card inset from the canvas on a desktop, the whole screen on a phone",
-  /absolute inset-2 z-\[80\] rounded-xl/.test(modeSwitch) &&
+  // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
+    // `flex-1`, which resolves to nothing in a block container, and the
+    // iframe then falls back to its 150px HTML default.
+    /absolute inset-2 z-\[80\] flex flex-col rounded-xl/.test(modeSwitch) &&
     /fixed inset-0 z-\[120\] flex flex-col/.test(modeSwitch) &&
     // It lifts in and settles out — a small translate, not a shrink, so the
     // code never looks like it is zooming at you.
@@ -907,7 +910,7 @@ check(
   "the section list has a hairline between rows, drawn without waiting for a cursor",
   // There is no hover on a phone, so a hover-only divider is no divider, and
   // the list read as one block.
-  /absolute inset-x-2 h-px bg-border transition-colors duration-150 group-hover:bg-foreground\/50/.test(editor),
+  /absolute inset-x-2 h-px bg-border\/50 transition-colors duration-150 group-hover:bg-foreground\/50/.test(editor),
 )
 
 
@@ -936,6 +939,18 @@ check(
     const rows = wbPage.slice(wbPage.indexOf("aria-label={`Edit ${i.name}`}"))
     return !/<StatusDot status=\{i\.status\}/.test(rows) && (wbPage.match(/<StatusDot /g) ?? []).length === 1
   })(),
+)
+
+
+check(
+  "the mode pill is slim, and the bar does not narrate the save",
+  // At h-8 in a p-1 track it was a 40px slab on a 48px bar. And a sentence of
+  // grey text pushed the project's name away from the switcher it belongs to,
+  // to say what the Publish button already says.
+  /flex h-7 items-center rounded-full px-2\.5 text-\[12\.5px\]/.test(modeSwitch) &&
+    /rounded-full border border-white\/10 bg-white\/\[0\.05\] p-0\.5/.test(modeSwitch) &&
+    /absolute top-0\.5 h-7 rounded-full/.test(modeSwitch) &&
+    !/"Not published yet" : "Unsaved changes"/.test(editor),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

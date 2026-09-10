@@ -5596,14 +5596,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               end of the row of things you do TO the project, which is where
               a thumb already is. */}
           {isMobileView && undoRedo}
-          {/* Autosave means "unsaved" is rarely true and rarely interesting.
-              What somebody needs to know on a live theme is that the public
-              site is behind — which is a different fact and outlives a save. */}
-          {(install?.status === "published" ? unpublished : isDirty) && (
-            <span className="text-xs text-white/70 hidden md:inline ml-2">
-              {install?.status === "published" ? "Not published yet" : "Unsaved changes"}
-            </span>
-          )}
+          {/* No running commentary on the save. The Publish button already
+              says whether the public site is behind, in the one place
+              somebody goes to do something about it, and a sentence of grey
+              text beside the project's name only pushed the name and its
+              menu away from the switcher they belong next to. */}
         </div>
         </div>
 
@@ -6325,7 +6322,7 @@ function InsertSectionDivider({ onClick }: { onClick: () => void }) {
           reads as one block of text on a phone, where there is no cursor to
           reveal a hover line — which is what made this list look unfinished.
           It brightens under a pointer, where the strip is also a target. */}
-      <div className="pointer-events-none absolute inset-x-2 h-px bg-border transition-colors duration-150 group-hover:bg-foreground/50" />
+      <div className="pointer-events-none absolute inset-x-2 h-px bg-border/50 transition-colors duration-150 group-hover:bg-foreground/50" />
       <div className="pointer-events-none relative z-10 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
         <Plus className="h-2.5 w-2.5 text-foreground" strokeWidth={2.5} />
       </div>
