@@ -5870,14 +5870,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         // nothing to the document. FullScreenLock below zeroes that padding
         // so nothing else can put the scroll back.
         /**
-         * The colour the workspace's four corners open onto. Nothing else of
-         * it is ever visible: the bar covers the top of this and the rounded
-         * row covers the rest, so all it does is give the arcs somewhere to
-         * be. A step darker than the workspace, which is what makes them
-         * read; when the two were the same grey the corners were clipped
-         * correctly and could not be seen.
+         * THREE TONES, BECAUSE THERE ARE THREE PLACES A CORNER CAN TURN.
+         *
+         * An arc is only visible if what it opens onto differs from what is
+         * beside it, and this builder has two rings of corners: the four on
+         * the outside of the workspace, and the ones where the panels meet
+         * each other. Each ring needs its own backdrop, so:
+         *
+         *   #eef1f5   here, and inside the canvas: the light the outer arcs
+         *             open onto, and the canvas's own surround
+         *   #d9dee6   the row between the panels: what the seam's arcs open
+         *             onto, and the only part of the row ever seen
+         *   #ffffff   the panels themselves
+         *
+         * Nothing of this root is visible except inside those four outer
+         * arcs: the bar covers the top of it and the rounded row the rest.
          */
-        "wb-editor fixed inset-0 flex flex-col bg-[#d9dee6] overflow-hidden wb-editor-enter",
+        "wb-editor fixed inset-0 flex flex-col bg-[#eef1f5] overflow-hidden wb-editor-enter",
         chromeTone === "light" && "wb-chrome-light",
         // Leaving fades the editor while the next page is fetched, so the
         // hand-off is a dissolve rather than a hard cut when it lands.
@@ -6380,11 +6389,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           that narrows downward, and a wedge is a notch: it reads as a bite
           taken out of the row, not as a rounded corner.
 
-          A divider is a divider. The corners belong on the OUTSIDE, where
-          the workspace meets the screen, and there are four of them: left and
-          right, top and bottom. So this row carries the radius and the clip,
-          the panels inside it are square, and the seam between them is the
-          same hairline every other divider in the app uses.
+          There are two rings of corners, and both of them are real. The four
+          on the OUTSIDE, where the workspace meets the screen, belong to this
+          row: it carries that radius and the clip. The ones where the panels
+          meet EACH OTHER belong to the panels, which curve away from one
+          another at the seam.
+
+          What made the seam look like a notch the first time was not the arc
+          but the colour: the row behind it was the same grey as the canvas,
+          so the wedge had nothing to be. This row paints #d9dee6, a step
+          darker than either panel, and that wedge is now the surface they are
+          sitting on rather than a bite out of them. It is the only part of
+          this row anybody ever sees.
 
           `overflow-hidden` here is what does it: everything in the row is cut
           to this shape, so the panels do not each need their own. Menus and
@@ -6392,7 +6408,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           none of them is clipped by it. */}
       <div
         className={cn(
-          "relative flex flex-1 min-h-0 overflow-hidden bg-[#eef1f5]",
+          "relative flex flex-1 min-h-0 overflow-hidden bg-[#d9dee6]",
           // A phone has no frame to round: the workspace is the screen.
           !isMobileView && "rounded-2xl",
         )}
@@ -6404,12 +6420,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 scrollbar stays inside it. The outer box stays
                 `overflow-visible` for the grab edge that hangs past it.
 
-                Square. The row around it carries the shape now, and clips
-                this to it, so the only corners in the workspace are the four
-                on its outside. */}
+                Rounded where it faces the canvas, square everywhere else:
+                the row around it carries the outer shape and clips this to
+                it, so the only arc this needs is the one at the seam. */}
             <div
               ref={sidebarRef}
-              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-[#e5e7eb]"
+              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-[#e5e7eb] rounded-tr-2xl"
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
               <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
@@ -6528,11 +6544,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </MobileEditorSheet>
         )}
 
-        {/* Square, like the sidebar: the row's own clip is the only shape in
-            here, so opening the AI adds a column rather than another set of
-            corners in the middle of the workspace. */}
+        {/* The same turn as the sidebar, so opening the AI adds a column that
+            belongs to the row rather than a square block between two rounded
+            ones. */}
         {!isMobileView && aiOpen && (
-          <div className="relative flex-shrink-0 overflow-hidden bg-white border-r border-[#e5e7eb]" style={{ width: 340 }}>
+          <div className="relative flex-shrink-0 overflow-hidden bg-white border-r border-[#e5e7eb] rounded-tr-2xl" style={{ width: 340 }}>
             <ThemeChat
               installId={installId}
               page={currentPage}
@@ -6574,11 +6590,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * with a hole in the middle. On a phone preview the hole is most
              * of the screen.
              *
-             * A light grey, far enough from white to give a device preview
-             * an edge to be seen against. No radius: the row around it is
-             * the rounded thing and this is cut to it.
+             * A light grey, far enough from white to give a device preview an
+             * edge to be seen against, and rounded where it faces the
+             * sidebar. Its other three corners are the row's to cut.
              */
-            isMobileView ? "bg-background" : "bg-[#eef1f5]",
+            isMobileView ? "bg-background" : "bg-[#eef1f5] rounded-tl-2xl",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6587,12 +6603,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             isMobileView
               ? "items-start p-0"
               /**
-               * NO MAT, AND NO CORNERS OF ITS OWN.
+               * NO MAT, AND ONE CORNER OF ITS OWN.
                *
-               * The card is flush on every side and square: the row around
-               * the whole workspace carries the radius and clips this to it,
-               * so the arcs are on the outside of the builder rather than in
-               * the middle of it. A device preview is a card floating in the
+               * Flush on every side, turning only where it faces the sidebar.
+               * The row around the whole workspace carries the outer radius
+               * and clips this to it, so the other three corners are not this
+               * card's business. A device preview is a card floating in the
                * canvas instead, so that one is rounded all the way round.
                */
               : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
@@ -6643,7 +6659,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full rounded-none"
                 : device === "desktop"
-                  ? "rounded-none w-full"
+                  ? "rounded-tl-2xl w-full"
                   // A phone or a tablet is a card floating on the canvas, so
                   // it needs the edge and the lift a card has. On the dark
                   // surround the contrast did that job; on a light one it has

@@ -671,7 +671,7 @@ check(
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-0 z-\[80\] flex flex-col",/.test(modeSwitch) &&
+    /absolute inset-0 z-\[80\] flex flex-col rounded-tl-2xl/.test(modeSwitch) &&
     // A black panel inside a white builder is a second product bolted on.
     /"overflow-hidden bg-white"/.test(modeSwitch) &&
     !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
@@ -769,7 +769,7 @@ check(
   // no surround at all beyond the strip reserved for the sheet's peek, which
   // takes the sheet's own colour so a one-pixel disagreement is a seam.
   /"relative flex-1 min-w-0 overflow-hidden flex justify-center"/.test(editor) &&
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor),
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-tl-2xl",/.test(editor),
 )
 
 check(
@@ -800,19 +800,19 @@ check(
    * sliver inside the preview's one rounded corner.
    */
   // no mat: no padding, no gap, and the row itself is the light surface
-  /"relative flex flex-1 min-h-0 overflow-hidden bg-\[#eef1f5\]",/.test(editor) &&
+  /"relative flex flex-1 min-h-0 overflow-hidden bg-\[#d9dee6\]",/.test(editor) &&
     !/bg-\[#171717\] p-2 gap-2/.test(editor) &&
-    // and the preview is square, because the row around it is the shape
-    /\? "rounded-none w-full"/.test(editor) &&
+    // and the preview turns only at the seam, the row cutting its other three
+    /\? "rounded-tl-2xl w-full"/.test(editor) &&
     // the sidebar and the AI: flush, clipped, a hairline instead of a gutter
-    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]"/.test(editor) &&
-    /className="relative flex-shrink-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]" style=\{\{ width: 340 \}\}/.test(editor) &&
+    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-tr-2xl"/.test(editor) &&
+    /className="relative flex-shrink-0 overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-tr-2xl" style=\{\{ width: 340 \}\}/.test(editor) &&
     // and what shows through that one arc is a LIGHT surround: the bar is
     // chrome and is meant to be dark, the canvas is the page being worked on,
     // and a near-black field around it makes the builder read as two products
     // with a hole between them. On a phone preview the hole is most of the
     // screen, which is what was reported with the screenshot beside it.
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor) &&
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-tl-2xl",/.test(editor) &&
     !/: "bg-\[#171717\]"/.test(editor) &&
     // a device preview is a card floating on that surround, so it is drawn
     // with the edge and the lift the dark used to give it for free
@@ -898,35 +898,37 @@ check(
 )
 
 check(
-  "the workspace is one rounded slab, and the seam inside it is flat",
+  "two rings of corners, and a tone behind each",
   /**
-   * The rounding was in the wrong place every time, and each attempt moved it
-   * somewhere equally wrong: one corner of the canvas, then two, then all
-   * four of the top corners across both panels. Every one of those puts an
-   * arc in the MIDDLE of the workspace, where the sidebar meets the canvas.
-   * Two panels curving away from each other leave a wedge between them that
-   * narrows downward, and a wedge is a notch — a bite out of the row rather
-   * than a corner.
+   * This builder has corners in two places, and every attempt so far served
+   * one ring at the expense of the other: the four on the OUTSIDE, where the
+   * workspace meets the screen, and the ones at the SEAM, where the panels
+   * meet each other. Moving the radius between them is how the same corner
+   * kept being reported as square.
    *
-   * A divider is a divider. The corners belong on the OUTSIDE, where the
-   * workspace meets the screen, and there are four of them: left and right,
-   * top and bottom. The row carries the radius and the clip, every panel
-   * inside it is square, and the seam is the app's own hairline.
+   * An arc is only visible if what it opens onto differs from what is beside
+   * it, which is why several of those attempts were clipped correctly and
+   * still read square. Two rings need two backdrops, so there are three
+   * tones: the panels (#fff and #eef1f5), the row they sit in (#d9dee6,
+   * which is all the seam's arcs ever show), and the root behind the row
+   * (#eef1f5, which is all the outer arcs ever show).
    *
-   * Measured at all four, counting only the pixels each arc should have cut
-   * away: 44/44, 44/44, 43/44, 43/44, with 0 at the seam — against 0 at every
-   * outer corner and 110 at the seam for the shape it replaces.
-   * `node scripts/check-workspace-corners.mjs`
+   * What made the seam look like a notch the first time was not the arc but
+   * the colour: the row behind it was the same grey as the canvas, so the
+   * wedge had nothing to be.
+   *
+   * Measured at all six: 44/44 at each outer corner, 44/44 and 35/44 at the
+   * two sides of the seam, against 0/44 and 0/44 for the flat-seam shape it
+   * replaces. `node scripts/check-workspace-corners.mjs`
    */
-  /"relative flex flex-1 min-h-0 overflow-hidden bg-\[#eef1f5\]",\s*\n[\s\S]{0,200}?!isMobileView && "rounded-2xl",/.test(editor) &&
-    // the backdrop those four arcs open onto, a step darker so they read
-    /"wb-editor fixed inset-0 flex flex-col bg-\[#d9dee6\] overflow-hidden wb-editor-enter"/.test(editor) &&
-    // and nothing inside the row carries a radius of its own
-    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]"/.test(editor) &&
-    /className="relative flex-shrink-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]" style=\{\{ width: 340 \}\}/.test(editor) &&
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor) &&
-    /\? "rounded-none w-full"/.test(editor) &&
-    !/rounded-t-2xl/.test(editor),
+  // the outer ring, on the row
+  /"relative flex flex-1 min-h-0 overflow-hidden bg-\[#d9dee6\]",\s*\n[\s\S]{0,200}?!isMobileView && "rounded-2xl",/.test(editor) &&
+    /"wb-editor fixed inset-0 flex flex-col bg-\[#eef1f5\] overflow-hidden wb-editor-enter"/.test(editor) &&
+    // the seam ring, on the panels that face each other across it
+    /bg-white border-r border-\[#e5e7eb\] rounded-tr-2xl"/.test(editor) &&
+    /bg-white border-r border-\[#e5e7eb\] rounded-tr-2xl" style=\{\{ width: 340 \}\}/.test(editor) &&
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-tl-2xl",/.test(editor) &&
+    /\? "rounded-tl-2xl w-full"/.test(editor),
 )
 
 check(
@@ -2045,7 +2047,7 @@ check(
    * and the unwrapped one is a control that must still fail.
    */
   // The wrapper carries the shape and the clip...
-  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,700}?\? "rounded-none w-full"/.test(editor) &&
+  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,700}?\? "rounded-tl-2xl w-full"/.test(editor) &&
     // ...and the scroller inside it is square and fills it, so nothing it
     // paints can reach a corner.
     /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"/.test(

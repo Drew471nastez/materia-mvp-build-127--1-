@@ -225,10 +225,10 @@ export function CodePane({
             // `flex-1`, and in a block container that resolves to nothing, so
             // the iframe fell back to its 150px HTML default and left the card
             // mostly empty on a desktop.
-            // Square, like the preview it covers. The workspace row around
-            // the whole builder carries the radius and clips this to it, so
-            // the corners are on the outside rather than around each panel.
-            "absolute inset-0 z-[80] flex flex-col",
+            // The same shape as the preview it covers: turning where it
+            // faces the sidebar, with its other three corners cut by the
+            // workspace row around the whole builder.
+            "absolute inset-0 z-[80] flex flex-col rounded-tl-2xl",
         /**
          * It rises AND settles: a short lift with a touch of scale, on the
          * curve a thrown thing lands on, which reads as the canvas turning

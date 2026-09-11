@@ -1,22 +1,23 @@
 /**
  * ===========================================================================
- *  THE WORKSPACE IS ONE ROUNDED SLAB, AND THE SEAM INSIDE IT IS FLAT
+ *  TWO RINGS OF CORNERS, AND A TONE BEHIND EACH
  * ===========================================================================
- * The rounding was in the wrong place every time, and each attempt moved it
- * somewhere equally wrong: one corner of the canvas, then two, then all four
- * of the top corners across both panels. Every one of those puts an arc in
- * the MIDDLE of the workspace, where the sidebar meets the canvas. Two panels
- * curving away from each other leave a wedge between them that narrows
- * downward, and a wedge is a notch — a bite out of the row, not a corner.
+ * This builder has corners in two places, and every attempt so far has served
+ * one ring at the expense of the other: the four on the OUTSIDE, where the
+ * workspace meets the screen, and the ones at the SEAM, where the panels meet
+ * each other.
  *
- * A divider is a divider. The corners belong on the OUTSIDE, where the
- * workspace meets the screen, and there are four of them: left and right, top
- * and bottom. The row carries the radius and the clip, the panels inside it
- * are square, and the seam between them is a hairline.
+ * An arc is only visible if what it opens onto differs from what is beside
+ * it, which is why so many of those attempts were "clipped correctly and
+ * still square to the eye". Two rings need two backdrops, so there are three
+ * tones: the panels, the row they sit in, and the root behind the row.
  *
- * So this samples the four outer corners, which must show the backdrop, and
- * the seam, which must show none of it. The shape it replaces is the control:
- * it had nothing at the outer corners and a wedge at the seam.
+ *   #ffffff / #eef1f5   the panels
+ *   #d9dee6             the row: what the seam's arcs open onto
+ *   #eef1f5             the root: what the outer arcs open onto
+ *
+ * So this samples six places: four outer corners, and both sides of the seam.
+ * The control is the shape it replaces, which had a flat seam.
  *
  *   node scripts/check-workspace-corners.mjs
  */
@@ -35,9 +36,11 @@ if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}. Set CHROMIUM=/path/t
 
 /** `rounded-2xl`, the bar's height, the sidebar's width, the viewport. */
 const R = 16, BAR = 44, SIDE = 160, W = 560, H = 300
-/** What the workspace's four corners open onto: the editor root. */
+/** The editor root: what the four OUTER arcs open onto. */
+const ROOT = [0xee, 0xf1, 0xf5]
+/** The row between the panels: what the SEAM's arcs open onto. */
 const GAP = [0xd9, 0xde, 0xe6]
-/** The workspace itself, which is the thing with the radius. */
+/** The canvas panel, beside the white sidebar. */
 const CANVAS = [0xee, 0xf1, 0xf5]
 
 const page = (shape) => `<!doctype html><html><head><meta charset="utf-8"><style>
@@ -51,21 +54,22 @@ const page = (shape) => `<!doctype html><html><head><meta charset="utf-8"><style
  * reports its own rectangle and the assertions sample that.
  */
 html,body{height:100%;overflow:hidden}
-/* the editor root: only ever seen inside the four arcs */
-body{background:rgb(${GAP})}
+/* the editor root: only ever seen inside the four outer arcs */
+body{background:rgb(${ROOT})}
 .bar{position:fixed;left:0;right:0;top:0;height:${BAR}px;background:#171717}
 .row{position:fixed;left:0;right:0;top:${BAR}px;bottom:0;
-     display:flex;background:rgb(${CANVAS});overflow:hidden}
+     display:flex;background:rgb(${GAP});overflow:hidden}
 .side{width:${SIDE}px;background:#fff;border-right:1px solid #e5e7eb;flex:none}
 .canvas{flex:1;background:rgb(${CANVAS})}
 .card{width:100%;height:100%;background:#fff}
 ${shape === "after"
-    ? /* the row is the rounded thing, and everything in it is square */
-      `.row{border-radius:${R}px}`
-    : /* the shape it replaces: every panel rounded at the top, the row not */
-      `.side{border-top-left-radius:${R}px;border-top-right-radius:${R}px}
-       .canvas{border-top-left-radius:${R}px;border-top-right-radius:${R}px}
-       .card{border-top-left-radius:${R}px;border-top-right-radius:${R}px}`}
+    ? /* the row owns the outside, the panels own the seam */
+      `.row{border-radius:${R}px}
+       .side{border-top-right-radius:${R}px}
+       .canvas{border-top-left-radius:${R}px}
+       .card{border-top-left-radius:${R}px}`
+    : /* the shape it replaces: the outside only, with a flat seam */
+      `.row{border-radius:${R}px}`}
 </style></head><body>
 <div class="bar"></div>
 <div class="row"><div class="side"></div><div class="canvas"><div class="card"></div></div></div>
@@ -127,6 +131,7 @@ function readPng(path) {
  * arc's own antialiasing and outside the border.
  */
 const isGap = (p) => p.every((v, i) => Math.abs(v - GAP[i]) < 2)
+const isRoot = (p) => p.every((v, i) => Math.abs(v - ROOT[i]) < 2)
 
 /**
  * Of the pixels an arc at this corner should have cut away, how many show the
@@ -143,26 +148,30 @@ function corner(img, box, side, edge) {
     for (let y = y0; y < y0 + R; y++) {
       if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= R + 0.5) continue
       total++
-      if (isGap(img.at(x, y))) bar++
+      if (isRoot(img.at(x, y))) bar++
     }
   }
   return { bar, total }
 }
 
 /**
- * The seam is a divider and must carry no arc at all. What a wedge there is
- * made of is the ROW showing between two panels that have curved away from
- * each other, so that is what to count: workspace-coloured pixels in the
- * junction, under the bar, where there should be panel, hairline and nothing
- * else.
+ * Both sides of the seam, sampled apart. They face each other, so together
+ * they read as one valley — but a one-sided notch is exactly what passes if
+ * the two are counted as a single box.
  */
-const isWorkspace = (p) => p.every((v, i) => Math.abs(v - CANVAS[i]) < 5)
-function seamWedge(img, box) {
-  let n = 0
-  for (let x = box.left + SIDE - R; x < box.left + SIDE + R; x++) {
-    for (let y = box.top; y < box.top + R; y++) if (isWorkspace(img.at(x, y))) n++
+function seamCorner(img, box, which) {
+  const left = which === "sidebar" ? box.left + SIDE - R : box.left + SIDE + 1
+  const cx = which === "sidebar" ? box.left + SIDE - R : box.left + SIDE + 1 + R
+  const cy = box.top + R
+  let bar = 0, total = 0
+  for (let x = left; x < left + R; x++) {
+    for (let y = box.top; y < box.top + R; y++) {
+      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= R + 0.5) continue
+      total++
+      if (isGap(img.at(x, y))) bar++
+    }
   }
-  return n
+  return { bar, total }
 }
 
 let broken = 0
@@ -200,44 +209,52 @@ try {
       topRight: corner(img, box, "right", "top"),
       bottomLeft: corner(img, box, "left", "bottom"),
       bottomRight: corner(img, box, "right", "bottom"),
-      seam: seamWedge(img, box),
+      seamSide: seamCorner(img, box, "sidebar"),
+      seamCanvas: seamCorner(img, box, "canvas"),
     }
   }
 
   const after = read("after")
   const before = read("before")
 
-  console.log("\nthe workspace is one rounded slab, and the seam inside it is flat\n")
+  console.log("\ntwo rings of corners, and a tone behind each\n")
 
   // Antialiasing blends the boundary ring, so a pixel or two on the arc is
-  // not a square corner. Most of the wedge has to be the backdrop.
+  // not a square corner. Most of the wedge has to be what it opens onto.
   const ratio = (m) => m.bar / m.total
-  const CORNERS = [
+  const OUTER = [
     ["topLeft", "the top left"],
     ["topRight", "the top right"],
     ["bottomLeft", "the bottom left"],
     ["bottomRight", "the bottom right"],
   ]
-  for (const [key, name] of CORNERS) {
-    expect(ratio(after[key]) > 0.75, `the workspace turns at ${name}`,
-      `${after[key].bar} of ${after[key].total} wedge pixels are the backdrop`)
+  for (const [key, name] of OUTER) {
+    expect(ratio(after[key]) > 0.75, `the workspace turns at ${name}, onto the root`,
+      `${after[key].bar} of ${after[key].total} wedge pixels are the root`)
   }
-  expect(after.seam === 0, "and carries no arc at the seam, because a divider is a divider",
-    `${after.seam} pixels of the row showing through the junction`)
+  expect(ratio(after.seamSide) > 0.75, "the sidebar turns at the seam, onto the row",
+    `${after.seamSide.bar} of ${after.seamSide.total} wedge pixels are the row`)
+  expect(ratio(after.seamCanvas) > 0.75, "and the canvas turns to meet it",
+    `${after.seamCanvas.bar} of ${after.seamCanvas.total} wedge pixels are the row`)
 
-  // The control: panels rounded individually have nothing at the outside and
-  // a wedge in the middle, which is the notch that was reported.
-  expect(CORNERS.every(([key]) => ratio(before[key]) < 0.1) && before.seam > 0,
-    "rounding the panels instead left the outside square and put a wedge at the seam",
-    `seam ${before.seam}, corners ${CORNERS.map(([k]) => `${before[k].bar}/${before[k].total}`).join(" ")}`)
+  // The control: the shape this replaces had the outer ring and a flat seam,
+  // which is the corner that kept being reported as square.
+  expect(ratio(before.seamSide) < 0.1 && ratio(before.seamCanvas) < 0.1,
+    "the shape it replaces left the seam flat, so this is a real measurement",
+    `the control's seam was ${before.seamSide.bar}/${before.seamSide.total} and ${before.seamCanvas.bar}/${before.seamCanvas.total}`)
 
   const lum = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b
-  const separation = lum(CANVAS) - lum(GAP)
-  expect(separation >= 12, "and the backdrop is far enough from the workspace for a 16px arc to read",
-    `only ${separation.toFixed(1)} points of luminance between them`)
+  const outerSep = Math.abs(lum(ROOT) - lum(GAP))
+  const seamSep = Math.abs(lum([255, 255, 255]) - lum(GAP))
+  expect(outerSep >= 12, "the root is far enough from the row for the outer arcs to read",
+    `only ${outerSep.toFixed(1)} points of luminance`)
+  expect(seamSep >= 24, "and the row far enough from the panels for the seam's to read",
+    `only ${seamSep.toFixed(1)} points of luminance`)
 
-  console.log(`\n  backdrop to workspace: ${separation.toFixed(1)} points of luminance`)
-  const cols = (m) => CORNERS.map(([k]) => `${m[k].bar}/${m[k].total}`).join("  ") + `   seam ${m.seam}`
+  console.log(`\n  root to row:   ${outerSep.toFixed(1)} points of luminance`)
+  console.log(`  row to panel:  ${seamSep.toFixed(1)} points`)
+  const cols = (m) => OUTER.map(([k]) => `${m[k].bar}/${m[k].total}`).join("  ") +
+    `   seam ${m.seamSide.bar}/${m.seamSide.total} | ${m.seamCanvas.bar}/${m.seamCanvas.total}`
   console.log(`  after    ${cols(after)}`)
   console.log(`  before   ${cols(before)}\n`)
 } finally {
