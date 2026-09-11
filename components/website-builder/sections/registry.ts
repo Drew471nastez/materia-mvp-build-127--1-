@@ -25,7 +25,11 @@ import type { SectionProps } from "./_shared"
 import { HeaderSection } from "./renderers/HeaderSection"
 import { FooterSection } from "./renderers/FooterSection"
 import { ProductSection } from "./renderers/ProductSection"
-import { HeroSection } from "./renderers/HeroSection"
+// The hero renders from themes/default/sections/hero.storelib through the
+// theme engine. ./renderers/HeroSection.tsx stays as the reference
+// scripts/check-storelib-hero.mjs measures the engine's output against, and
+// leaves with the next section that moves.
+import { StorelibSection } from "./StorelibSection"
 import { RichTextSection } from "./renderers/RichTextSection"
 import { ImageBannerSection } from "./renderers/ImageBannerSection"
 import { ImageSection } from "./renderers/ImageSection"
@@ -82,7 +86,7 @@ import { CollectionBannerSection } from "./renderers/CollectionBannerSection"
 // JSON under themes/default/sections/<type>.json.
 export const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
   header: HeaderSection,
-  hero: HeroSection,
+  hero: StorelibSection,
   rich_text: RichTextSection,
   image_banner: ImageBannerSection,
   split_content: SplitContentSection,

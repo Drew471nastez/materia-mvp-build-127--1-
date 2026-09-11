@@ -5,6 +5,7 @@
  *
  *   npx tsx tests/storelib-theme.test.ts
  */
+import { themeSourcesModule } from "../scripts/emit-theme-sources"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -77,6 +78,16 @@ check("every example validates against its own type", CONTROL_TYPES.every((t) =>
   try { doc = read("docs/theme/05-controls-reference.md") } catch { /* not emitted yet */ }
   check("05-controls-reference.md on disk is what the registry would write (rule 39: docs from source)", doc === controlsAsMarkdown())
   check("the reference names every control and only the controls", CONTROL_TYPES.every((t) => doc.includes(`\n## ${t}\n`)) && (doc.match(/\n## /g) ?? []).length === CONTROL_TYPES.length + 1)
+}
+
+{
+  // The application cannot import a .storelib file, so the default theme's
+  // sources reach the bundle through a generated module. It must be what the
+  // emitter would write, or the canvas renders a hero the file no longer is.
+  let onDisk = ""
+  try { onDisk = read("themes/default/sources.generated.ts") } catch { /* not emitted yet */ }
+  check("themes/default/sources.generated.ts is what scripts/emit-theme-sources.ts would write", onDisk === themeSourcesModule())
+  check("the generated module carries the hero", onDisk.includes('"sections/hero.storelib"'))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

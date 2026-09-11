@@ -77,10 +77,24 @@ const componentFile = new Map<string, string>()
 for (const m of registry.matchAll(/import\s+\{\s*(\w+)\s*\}\s+from\s+"\.\/renderers\/(\w+)"/g)) {
   componentFile.set(m[1], m[2])
 }
+/**
+ * A type that maps to `StorelibSection` has no renderer file: its source is
+ * `themes/default/sections/<type>.storelib`, and the audit reads that
+ * instead. The template reads a setting as `settings.x`, which `readsOf`
+ * already understands, so the contract is the same one the renderers meet:
+ * everything the panel offers is read, and nothing is read that it does not
+ * offer.
+ */
+const STORELIB_COMPONENT = /import\s+\{\s*StorelibSection\s*\}\s+from\s+"\.\/StorelibSection"/.test(registry) ? "StorelibSection" : ""
 const rendererFor = new Map<string, string>()
+const storelibTypes = new Set<string>()
 for (const m of registry.matchAll(/^\s{2}(\w+):\s*(\w+),?\s*$/gm)) {
   const file = componentFile.get(m[2])
   if (file) rendererFor.set(m[1], file)
+  else if (STORELIB_COMPONENT && m[2] === STORELIB_COMPONENT) {
+    rendererFor.set(m[1], `sections/${m[1]}.storelib`)
+    storelibTypes.add(m[1])
+  }
 }
 
 /**
@@ -123,6 +137,15 @@ const sources = new Map<string, string>()
 for (const type of types) {
   schemas.set(type, JSON.parse(readFileSync(join(SECTIONS, `${type}.json`), "utf8")))
   const file = rendererFor.get(type)
+  if (storelibTypes.has(type)) {
+    // The template and the style are what render; the schema block is the
+    // panel's side of the contract and is audited by tests/storelib-theme.
+    const path = join(SECTIONS, `${type}.storelib`)
+    const raw = existsSync(path) ? readFileSync(path, "utf8") : ""
+    const withoutSchema = raw.replace(/^<schema>[\s\S]*?^<\/schema>/m, "")
+    sources.set(type, stripComments(withoutSchema.replace(/<!--[\s\S]*?-->/g, " ")))
+    continue
+  }
   const path = file ? join(RENDERERS, `${file}.tsx`) : ""
   sources.set(type, path && existsSync(path) ? stripComments(readFileSync(path, "utf8")) : "")
 }
