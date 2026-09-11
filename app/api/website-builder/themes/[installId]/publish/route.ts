@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { takeBackup } from "@/lib/website-builder/backups"
+import { promoteFileDrafts } from "@/lib/website-builder/theme-file-drafts"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -93,6 +94,13 @@ export async function POST(req: Request, { params }: Params) {
         }
       }
     }
+
+    /**
+     * And every section file somebody has saved since the last publish. Same
+     * promotion as draft_sections above, for the same reason: what is on the
+     * site changes when a person says so, not when they press Save.
+     */
+    await promoteFileDrafts(admin, installId)
 
     // Audit log
     const { data: settings } = await admin
