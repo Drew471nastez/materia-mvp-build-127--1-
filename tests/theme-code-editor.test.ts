@@ -221,7 +221,7 @@ section("It is reachable, and it works on a file longer than the window")
     "and it loads in place, so unsaved theme work is not navigated away from",
     (() => {
       const pane = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
-      return /src=\{`\/website-builder\/code\/\$\{installId\}\?embedded=1`\}/.test(pane)
+      return /src=\{`\/website-builder\/code\/\$\{installId\}\?embedded=1\$\{codeFilePath \? `&path=/.test(pane)
     })(),
   )
 }

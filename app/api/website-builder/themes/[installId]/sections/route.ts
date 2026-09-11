@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { LIMITS } from "@/lib/storelib-theme/types"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -99,6 +100,32 @@ export async function PUT(req: Request, { params }: Params) {
     page_key: string
     sections: SectionInstance[]
     mode?: "draft" | "publish"
+  }
+
+  /**
+   * ===========================================================================
+   *  WHAT A PAGE WILL HOLD
+   * ===========================================================================
+   * These ceilings existed and were enforced when a theme was IMPORTED as a
+   * package, and nowhere on the path people actually use: the editor and the
+   * assistant could both grow a page past any of them, one section at a time,
+   * and the first anyone would know is a page that takes a second to render.
+   *
+   * Checked here because this is the single door every section change goes
+   * through, whichever surface made it.
+   */
+  if (sections.length > LIMITS.sectionsPerTemplate) {
+    return NextResponse.json(
+      { error: `A page holds ${LIMITS.sectionsPerTemplate} sections. This one has ${sections.length}.` },
+      { status: 413 },
+    )
+  }
+  const overfull = sections.find((s) => (s.blocks?.length ?? 0) > LIMITS.blocksPerSection)
+  if (overfull) {
+    return NextResponse.json(
+      { error: `A section holds ${LIMITS.blocksPerSection} blocks. "${overfull.name || overfull.type}" has ${overfull.blocks?.length}.` },
+      { status: 413 },
+    )
   }
 
   const update =

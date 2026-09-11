@@ -160,11 +160,18 @@ export function CodePane({
    */
   fullScreen = false,
   onClose,
+  codeFilePath,
 }: {
   installId: string
   visible: boolean
   fullScreen?: boolean
   onClose?: () => void
+  /**
+   * Open straight onto this file. Set when the assistant has just written a
+   * section and somebody pressed "Open it": landing on the tree with the file
+   * somewhere in it is not opening it.
+   */
+  codeFilePath?: string | null
 }) {
   const [everShown, setEverShown] = useState(visible)
   const [loaded, setLoaded] = useState(false)
@@ -374,7 +381,7 @@ export function CodePane({
         <iframe
           ref={frameRef}
           title="Code editor"
-          src={`/website-builder/code/${installId}?embedded=1`}
+          src={`/website-builder/code/${installId}?embedded=1${codeFilePath ? `&path=${encodeURIComponent(codeFilePath)}` : ""}`}
           onLoad={() => setLoaded(true)}
           className={cn(
             "h-full w-full border-0 bg-white transition-opacity duration-300",

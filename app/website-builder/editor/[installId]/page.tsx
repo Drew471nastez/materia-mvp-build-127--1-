@@ -4209,6 +4209,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [canvasInsertAt, setCanvasInsertAt] = useState<number | null>(null)
   /** The AI panel, docked beside the sidebar. Closed until asked for. */
   const [aiOpen, setAiOpen] = useState(false)
+  /** A file to open the code editor onto, set when the assistant writes one. */
+  const [codeFilePath, setCodeFilePath] = useState<string | null>(null)
   /**
    * Mounted on first open and kept: the phone's AI sheet used to unmount the
    * instant it closed, which is a sheet that vanishes rather than one that
@@ -7377,6 +7379,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onRunEnd={backupAfterTask}
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}
+              onOpenCodeEditor={(path) => {
+                setCodeFilePath(path)
+                setPreviewMode("code")
+                setAiOpen(false)
+              }}
             />
           </MobileEditorSheet>
         )}
@@ -7397,6 +7404,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onRunEnd={backupAfterTask}
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}
+              onOpenCodeEditor={(path) => {
+                setCodeFilePath(path)
+                setPreviewMode("code")
+                setAiOpen(false)
+              }}
             />
             </div>
           </div>
@@ -7478,6 +7490,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             visible={previewMode === "code"}
             fullScreen={isMobileView}
             onClose={() => setPreviewMode("preview")}
+            codeFilePath={codeFilePath}
           />
           {/* ── The card's rounded corners survive its scrollbar ──
               A scrollbar is laid out and painted inside the scroll

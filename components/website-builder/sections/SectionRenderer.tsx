@@ -20,7 +20,8 @@
 //     don't re-run every section on unrelated state changes.
 // ============================================================
 
-import { memo } from "react"
+import { memo, type ReactNode } from "react"
+import { SectionErrorBoundary } from "./SectionErrorBoundary"
 import type { SectionProps } from "./_shared"
 import { SECTION_COMPONENTS } from "./registry"
 import { StorelibSection } from "./StorelibSection"
@@ -83,7 +84,25 @@ export function renderSection(props: SectionProps) {
    * SectionWrapper root or `position: sticky` gets a containing block exactly
    * the header's height and never sticks.
    */
-  if (NO_CONTAINER.has(props.section.type)) return <Component {...props} />
+  /**
+   * EVERY SECTION IS BEHIND A BOUNDARY. A render that throws with nothing to
+   * catch it takes the whole React tree down: on a published page that is the
+   * site replaced by nothing, and in the editor it is the canvas, the sidebar
+   * and every unsaved change. Here, because this is the one place every
+   * surface goes through, so no route can forget it.
+   */
+  const guard = (node: ReactNode) => (
+    <SectionErrorBoundary
+      sectionId={props.section.id}
+      sectionType={props.section.type}
+      sectionName={props.section.name}
+      isEditing={props.isEditing || props.insideEditor}
+    >
+      {node}
+    </SectionErrorBoundary>
+  )
+
+  if (NO_CONTAINER.has(props.section.type)) return guard(<Component {...props} />)
   /**
    * The id goes on the CONTAINER, not passed down: forty-nine of the fifty
    * renderers never destructured `wrapperId`, so an id handed to them
@@ -92,7 +111,7 @@ export function renderSection(props: SectionProps) {
    */
   return (
     <div className="@container" id={props.wrapperId}>
-      <Component {...props} />
+      {guard(<Component {...props} />)}
     </div>
   )
 }
