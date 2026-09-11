@@ -800,7 +800,7 @@ check(
    * sliver inside the preview's one rounded corner.
    */
   // no mat: no padding, no gap, and the row itself is the light surface
-  /"relative flex flex-1 min-h-0 overflow-hidden bg-\[#d9dee6\]",/.test(editor) &&
+  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#eef1f5\]">/.test(editor) &&
     !/bg-\[#171717\] p-2 gap-2/.test(editor) &&
     // and the preview turns only at the seam, the row cutting its other three
     /\? "rounded-tl-\[22px\] w-full"/.test(editor) &&
@@ -911,37 +911,21 @@ check(
 )
 
 check(
-  "two rings of corners, and a tone behind each",
+  "one arc in the whole editor, and it is the seam",
   /**
-   * This builder has corners in two places, and every attempt so far served
-   * one ring at the expense of the other: the four on the OUTSIDE, where the
-   * workspace meets the screen, and the ones at the SEAM, where the panels
-   * meet each other. Moving the radius between them is how the same corner
-   * kept being reported as square.
+   * The workspace carried four more at the screen's edges, and every one of
+   * them was a chip taken out of the page. An arc at the edge of the screen
+   * has nothing behind it but the root: against a dark site header it reads
+   * as a bright notch bitten out of the top right, against a light one as
+   * nothing at all. There is nothing there for a corner to turn away FROM.
    *
-   * An arc is only visible if what it opens onto differs from what is beside
-   * it, which is why several of those attempts were clipped correctly and
-   * still read square. Two rings need two backdrops, so there are three
-   * tones: the panels (#fff and #eef1f5), the row they sit in (#d9dee6,
-   * which is all the seam's arcs ever show), and the root behind the row
-   * (#eef1f5, which is all the outer arcs ever show).
-   *
-   * What made the seam look like a notch the first time was not the arc but
-   * the colour: the row behind it was the same grey as the canvas, so the
-   * wedge had nothing to be.
-   *
-   * AND THE SEAM'S CORNER IS REVERSED. Rounding the second panel to match
-   * the first does not close the gap, it doubles it: two arcs curving away
-   * from each other leave a lens, which is the notch. The panel beside the
-   * canvas stays square and FILLS that wedge instead, with a radial gradient
-   * that paints its own colour everywhere outside the arc's own circle, so
-   * the flat surface flows into the corner along exactly the curve the
-   * canvas turns on and the two meet with nothing between them.
-   *
-   * 22px, not 16: sixteen pixels of arc between two panels is a softened
-   * corner, and what was asked for is a corner you can see turning. The
-   * canvas's radius is the same number and has to be, since the two shapes
-   * are halves of one circle and meet on its edge.
+   * The one place two surfaces actually meet is the seam. The canvas turns
+   * there, and the panel beside it fills what that turn leaves behind with a
+   * REVERSED corner: a box of its own colour with the arc's own circle taken
+   * out of it, so the flat surface flows into the corner along exactly the
+   * curve the canvas turns on. Rounding the second panel instead does not
+   * close the gap, it doubles it — two arcs curving away from each other
+   * leave a lens, which is the notch that kept being reported.
    *
    * The fill is a CHILD OF THE CANVAS. It hung off `left: 100%` of the
    * sidebar's wrapper, which is the same place as the canvas's left edge only
@@ -951,42 +935,30 @@ check(
    * radius on its CARD and stays square itself: rounding the canvas as well
    * would clip the very thing the fill is there to draw.
    *
-   * AND THE HAIRLINE STOPS SHORT OF IT. The divider between the two panels
-   * ran the full height of the seam, so it ran straight up through the
-   * corner as well: the white flowed around the curve and a grey line cut
-   * across it a millimetre from the arc, which is the seam still reading as
-   * an edge however well the corner was drawn. A divider divides panels, and
-   * in the top 22px there are no panels to divide — one surface is curving
-   * into the other — so it starts below the arc.
+   * And the hairline stops short of it. Running the full height of the seam
+   * it cut across the corner a millimetre from the arc, which is the seam
+   * still reading as an edge however well the curve was made.
    *
-   * Measured: 44/44 at each outer corner; at the seam, 0 pixels of the row
-   * still showing, a white edge that travels 17 of 22px down the junction,
-   * and 0 divider pixels inside the arc. The shape it replaces left 91
-   * pixels of gap, an edge that travelled 0, and 23 pixels of hairline
-   * cutting through the corner. `node scripts/check-workspace-corners.mjs`
+   * Measured: 0 pixels of anything showing through at the four screen
+   * corners, against 44, 42, 44 and 42 for the rounded row; at the seam, 0
+   * gap, a white edge travelling 17 of 22px down the curve, and 0 divider
+   * pixels inside it. `node scripts/check-workspace-corners.mjs`
    */
-  // the outer ring, on the row
-  /"relative flex flex-1 min-h-0 overflow-hidden bg-\[#d9dee6\]",\s*\n[\s\S]{0,200}?!isMobileView && "rounded-2xl",/.test(editor) &&
-    /"wb-editor fixed inset-0 flex flex-col bg-\[#eef1f5\] overflow-hidden wb-editor-enter"/.test(editor) &&
-    // the seam ring: the canvas turns, and the panel beside it FILLS the
-    // wedge that turn leaves rather than curving away from it as well
-    // the fill is a CHILD OF THE CANVAS, so it and the arc it completes are
-    // measured from the same corner and cannot drift apart
+  // square at the screen's edges
+  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#eef1f5\]">/.test(editor) &&
+    !/!isMobileView && "rounded-2xl"/.test(editor) &&
+    // the seam's arc, on the card, with the fill beside it in the same box
+    /\? "rounded-tl-\[22px\] w-full"/.test(editor) &&
     /\{!isMobileView && device === "desktop" && <span aria-hidden className="wb-seam-fill" \/>\}/.test(editor) &&
-    /\.wb-seam-fill \{[\s\S]{0,900}?left: 0;/.test(readFileSync(join(root, "app/globals.css"), "utf8")) &&
-    !/rounded-tr-2xl/.test(editor) &&
-    // and the hairline starts BELOW the arc, rather than running the full
-    // height of the seam and cutting across the corner the fill just drew
-    /<span aria-hidden className="wb-seam-divider" \/>/.test(editor) &&
-    /\.wb-seam-divider \{[\s\S]{0,300}?top: 22px;/.test(readFileSync(join(root, "app/globals.css"), "utf8")) &&
-    !/bg-white border-r border-\[#e5e7eb\]/.test(editor) &&
-    // read here rather than through `editorCss`, which is declared further
-    // down the file and is in its temporal dead zone at this point
-    /\.wb-seam-fill \{[\s\S]{0,1400}?background: radial-gradient\(circle 22px at 100% 100%, rgba\(255, 255, 255, 0\) 0 98%, #ffffff 100%\);/.test(
-      readFileSync(join(root, "app/globals.css"), "utf8"),
-    ) &&
     /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor) &&
-    /\? "rounded-tl-\[22px\] w-full"/.test(editor),
+    !/rounded-tr-2xl/.test(editor) &&
+    // and the hairline that starts below it
+    /<span aria-hidden className="wb-seam-divider" \/>/.test(editor) &&
+    !/bg-white border-r border-\[#e5e7eb\]/.test(editor) &&
+    ((css) =>
+      /\.wb-seam-fill \{[\s\S]{0,1400}?left: 0;/.test(css) &&
+      /\.wb-seam-fill \{[\s\S]{0,1400}?background: radial-gradient\(circle 22px at 100% 100%, rgba\(255, 255, 255, 0\) 0 98%, #ffffff 100%\);/.test(css) &&
+      /\.wb-seam-divider \{[\s\S]{0,300}?top: 22px;/.test(css))(readFileSync(join(root, "app/globals.css"), "utf8")),
 )
 
 check(

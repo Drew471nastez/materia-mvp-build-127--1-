@@ -6516,30 +6516,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           that narrows downward, and a wedge is a notch: it reads as a bite
           taken out of the row, not as a rounded corner.
 
-          There are two rings of corners, and both of them are real. The four
-          on the OUTSIDE, where the workspace meets the screen, belong to this
-          row: it carries that radius and the clip. The ones where the panels
-          meet EACH OTHER belong to the panels, which curve away from one
-          another at the seam.
+          ONE ARC IN THE WHOLE EDITOR, AND IT IS THE SEAM.
 
-          What made the seam look like a notch the first time was not the arc
-          but the colour: the row behind it was the same grey as the canvas,
-          so the wedge had nothing to be. This row paints #d9dee6, a step
-          darker than either panel, and that wedge is now the surface they are
-          sitting on rather than a bite out of them. It is the only part of
-          this row anybody ever sees.
+          This row carried four more, at the screen's corners, and every one
+          of them was a chip taken out of the page. An arc at the edge of the
+          screen has nothing behind it but the root, so against a dark site
+          header it reads as a bright notch bitten out of the top right, and
+          against a light one it reads as nothing at all. That is the whole of
+          "it looks cut and chopped, and the right corner is empty".
+
+          There is nothing at the screen's edges for a corner to turn AWAY
+          from. The one place two surfaces actually meet is the seam, where
+          the canvas curves and the panel beside it fills what that curve
+          leaves. So that is the only radius left, and the row is square.
 
           `overflow-hidden` here is what does it: everything in the row is cut
           to this shape, so the panels do not each need their own. Menus and
           tooltips are portalled to the body and the drag overlay is fixed, so
           none of them is clipped by it. */}
-      <div
-        className={cn(
-          "relative flex flex-1 min-h-0 overflow-hidden bg-[#d9dee6]",
-          // A phone has no frame to round: the workspace is the screen.
-          !isMobileView && "rounded-2xl",
-        )}
-      >
+      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-[#eef1f5]">
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
           <div className="relative flex-shrink-0 flex h-full overflow-visible">

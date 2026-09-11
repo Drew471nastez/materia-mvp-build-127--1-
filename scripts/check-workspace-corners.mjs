@@ -1,23 +1,25 @@
 /**
  * ===========================================================================
- *  TWO RINGS OF CORNERS, AND A TONE BEHIND EACH
+ *  ONE ARC IN THE WHOLE EDITOR, AND IT IS THE SEAM
  * ===========================================================================
- * This builder has corners in two places, and every attempt so far has served
- * one ring at the expense of the other: the four on the OUTSIDE, where the
- * workspace meets the screen, and the ones at the SEAM, where the panels meet
- * each other.
+ * The workspace carried four corners at the screen's edges as well, and every
+ * one of them was a chip taken out of the page. An arc at the edge of the
+ * screen has nothing behind it but the root: against a dark site header it
+ * reads as a bright notch bitten out of the top right, and against a light one
+ * it reads as nothing at all. There is nothing there for a corner to turn away
+ * FROM.
  *
- * An arc is only visible if what it opens onto differs from what is beside
- * it, which is why so many of those attempts were "clipped correctly and
- * still square to the eye". Two rings need two backdrops, so there are three
- * tones: the panels, the row they sit in, and the root behind the row.
+ * The one place two surfaces actually meet is the seam, where the sidebar ends
+ * and the canvas begins. The canvas turns there, and the panel beside it fills
+ * what that turn leaves behind with a REVERSED corner: a box of its own colour
+ * with the arc's own circle taken out of it, so the flat surface flows into
+ * the corner along exactly the curve the canvas turns on. Rounding the second
+ * panel instead would not close the gap, it would double it, and two arcs
+ * curving away from each other leave a lens.
  *
- *   #ffffff / #eef1f5   the panels
- *   #d9dee6             the row: what the seam's arcs open onto
- *   #eef1f5             the root: what the outer arcs open onto
- *
- * So this samples six places: four outer corners, and both sides of the seam.
- * The control is the shape it replaces, which had a flat seam.
+ * So this measures the seam three ways — the gap is closed, the fill traces a
+ * curve rather than filling a square, and no hairline cuts across it — and the
+ * screen's corners are square. The control is the shape it replaces.
  *
  *   node scripts/check-workspace-corners.mjs
  */
@@ -36,10 +38,10 @@ if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}. Set CHROMIUM=/path/t
 
 /** `rounded-2xl`, the bar's height, the sidebar's width, the viewport. */
 const R = 16, SEAM_R = 22, BAR = 44, SIDE = 160, W = 560, H = 300
-/** The editor root: what the four OUTER arcs open onto. */
+/** The workspace, which is also the root: nothing is cut away from it now. */
 const ROOT = [0xee, 0xf1, 0xf5]
-/** The row between the panels: what the SEAM's arcs open onto. */
-const GAP = [0xd9, 0xde, 0xe6]
+/** What a gap at the seam would show, if the reversed corner left one. */
+const GAP = [0xee, 0xf1, 0xf5]
 /** The canvas panel, beside the white sidebar. */
 const CANVAS = [0xee, 0xf1, 0xf5]
 
@@ -58,7 +60,7 @@ html,body{height:100%;overflow:hidden}
 body{background:rgb(${ROOT})}
 .bar{position:fixed;left:0;right:0;top:0;height:${BAR}px;background:#171717}
 .row{position:fixed;left:0;right:0;top:${BAR}px;bottom:0;
-     display:flex;background:rgb(${GAP});overflow:hidden}
+     display:flex;background:rgb(${ROOT});overflow:hidden}
 .side{width:${SIDE}px;background:#fff;flex:none}
 .divider{position:absolute;left:${SIDE - 1}px;top:${SEAM_R}px;bottom:0;width:1px;background:#e5e7eb;z-index:10}
 .canvas{flex:1;position:relative;background:rgb(${CANVAS});overflow:hidden}
@@ -66,9 +68,8 @@ body{background:rgb(${ROOT})}
    reversed corner's white and the page it meets is unambiguous */
 .card{width:100%;height:100%;background:#111827}
 ${shape === "after"
-    ? /* the row owns the outside, the panels own the seam */
-      `.row{border-radius:${R}px}
-       .card{border-top-left-radius:${SEAM_R}px}
+    ? /* square at the screen's edges; the only arc is the seam's */
+      `.card{border-top-left-radius:${SEAM_R}px}
        .fill{position:absolute;top:0;left:0;width:${SEAM_R}px;height:${SEAM_R}px;z-index:90;
              background:radial-gradient(circle ${SEAM_R}px at 100% 100%, rgba(255,255,255,0) 0 98%, #ffffff 100%)}`
     : /* the shape it replaces: the two panels curving AWAY from each other,
@@ -257,7 +258,7 @@ try {
   const after = read("after")
   const before = read("before")
 
-  console.log("\ntwo rings of corners, and a tone behind each\n")
+  console.log("\none arc in the whole editor, and it is the seam\n")
 
   // Antialiasing blends the boundary ring, so a pixel or two on the arc is
   // not a square corner. Most of the wedge has to be what it opens onto.
@@ -269,9 +270,12 @@ try {
     ["bottomRight", "the bottom right"],
   ]
   for (const [key, name] of OUTER) {
-    expect(ratio(after[key]) > 0.75, `the workspace turns at ${name}, onto the root`,
-      `${after[key].bar} of ${after[key].total} wedge pixels are the root`)
+    expect(after[key].bar === 0, `nothing is cut out of the page at ${name}`,
+      `${after[key].bar} of ${after[key].total} pixels there are the root showing through a chip`)
   }
+  expect(OUTER.some(([key]) => before[key].bar > 0),
+    "the rounded row did cut those chips, so this is a real measurement",
+    "the control had square corners too")
   expect(after.seamGap === 0, "the reversed corner fills the wedge the canvas's arc leaves",
     `${after.seamGap} pixels of the row still showing at the junction`)
   expect(after.seamProfile.travel >= SEAM_R - 6, "and it fills it along a curve, not as a square corner",
@@ -287,16 +291,7 @@ try {
   expect(before.seamGap > 0, "two panels curving away from each other left a gap, so this is a real measurement",
     "the control had no gap either")
 
-  const lum = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b
-  const outerSep = Math.abs(lum(ROOT) - lum(GAP))
-  const seamSep = Math.abs(lum([255, 255, 255]) - lum(GAP))
-  expect(outerSep >= 12, "the root is far enough from the row for the outer arcs to read",
-    `only ${outerSep.toFixed(1)} points of luminance`)
-  expect(seamSep >= 24, "and the row far enough from the panels to be seen where it does show",
-    `only ${seamSep.toFixed(1)} points of luminance`)
-
-  console.log(`\n  root to row:   ${outerSep.toFixed(1)} points of luminance`)
-  console.log(`  row to panel:  ${seamSep.toFixed(1)} points`)
+  console.log("")
   const cols = (m) => OUTER.map(([k]) => `${m[k].bar}/${m[k].total}`).join("  ") +
     `   seam gap ${m.seamGap}, curve ${m.seamProfile.travel}px of ${SEAM_R}, divider ${m.cornerDivider}`
   console.log(`  after    ${cols(after)}`)
