@@ -21,11 +21,12 @@
  * is. What is drawn there is a line: one pixel on the arc, transparent either
  * side, which is the card's edge for the pages light enough to need one.
  *
- * So this measures four things — the screen's corners are square, the wedge is
+ * So this measures five things — the screen's corners are square, the wedge is
  * the workspace and not the sidebar, the wedge traces the arc rather than
- * squaring off, and the hairline runs the whole seam and meets the arc where
- * the arc is already vertical. Two controls: the white fill this replaces, and
- * the two-panels-curving-away shape before that.
+ * squaring off, the hairline runs the whole seam and meets the arc where the
+ * arc is already vertical, and the line carries on across the top instead of
+ * stopping when the corner ends. Two controls: the white fill this replaces,
+ * and the two-panels-curving-away shape before that.
  *
  *   node scripts/check-workspace-corners.mjs
  */
@@ -78,10 +79,12 @@ body{background:rgb(${SHELL})}
    a page like this is exactly what was reported */
 .card{width:100%;height:100%;background:#111827;border-top-left-radius:${SEAM_R}px}
 .fill{position:absolute;top:0;left:0;width:${SEAM_R}px;height:${SEAM_R}px;z-index:90}
+.top{display:none;position:absolute;top:0;left:${SEAM_R}px;right:0;height:1px;background:#e5e7eb;z-index:90}
 ${shape === "after"
     ? /* the wedge is left alone and only the card's edge is drawn on it */
       `.fill{background:radial-gradient(circle ${SEAM_R}px at 100% 100%,
-         rgba(255,255,255,0) 0 95%, #e5e7eb 95.6% 99.6%, rgba(255,255,255,0) 100%)}`
+         rgba(255,255,255,0) 0 95%, #e5e7eb 95.6% 99.6%, rgba(255,255,255,0) 100%)}
+       .top{display:block}`
     : shape === "white"
     ? /* the reversed corner: the same ring, but the sidebar's white past it,
          and the hairline held back so as not to cut the fill */
@@ -96,7 +99,7 @@ ${shape === "after"
        .fill{display:none}`}
 </style></head><body>
 <div class="bar"></div>
-<div class="row"><div class="side"></div><div class="canvas"><div class="card"></div><i class="fill"></i></div><i class="divider"></i></div>
+<div class="row"><div class="side"></div><div class="canvas"><div class="card"></div><i class="fill"></i><i class="top"></i></div><i class="divider"></i></div>
 <script>
 const r = document.querySelector(".row").getBoundingClientRect()
 document.title = JSON.stringify({ left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) })
@@ -250,6 +253,21 @@ function arcLine(img, box) {
   return { on, total }
 }
 
+/**
+ * The line does not stop when it runs out of corner. From the arc's
+ * horizontal tangent at (R, 0) out to the far side of the canvas, the card's
+ * top edge should carry the same hairline: one edge down the seam, round the
+ * turn and along the top, rather than a 22px flourish and then nothing.
+ */
+function topEdge(img, box) {
+  let on = 0, total = 0
+  for (let x = box.left + SIDE + SEAM_R; x < box.right - 1; x++) {
+    total++
+    if (isDivider(img.at(x, box.top)) || isDivider(img.at(x, box.top + 1))) on++
+  }
+  return { on, total }
+}
+
 let broken = 0
 const expect = (ok, what, got = "") => {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${what}${ok ? "" : `   ${got}`}`)
@@ -289,6 +307,7 @@ try {
       shellProfile: shellProfile(img, box),
       dividerAtCorner: dividerAtCorner(img, box),
       arcLine: arcLine(img, box),
+      topEdge: topEdge(img, box),
     }
   }
 
@@ -332,6 +351,11 @@ try {
     "the straight-only hairline did not follow the arc, so this is a real measurement",
     `the control already had ${rounded.arcLine.on} of ${rounded.arcLine.total}`)
 
+  expect(after.topEdge.on / after.topEdge.total > 0.95, "and it carries on across the top rather than stopping when the corner ends",
+    `${after.topEdge.on} of ${after.topEdge.total} pixels of the card's top edge carry it`)
+  expect(white.topEdge.on / white.topEdge.total < 0.05, "the line used to stop 22px in, so this is a real measurement",
+    `the control already drew ${white.topEdge.on} of ${white.topEdge.total}`)
+
   // The hairline divides the two panels for the whole of the seam, including
   // the part of it beside the corner, because up there they still meet.
   expect(after.dividerAtCorner >= SEAM_R - 5, "and the hairline runs the whole seam rather than starting below the corner",
@@ -342,7 +366,8 @@ try {
   console.log("")
   const cols = (m) => OUTER.map(([k]) => `${m[k].bar}/${m[k].total}`).join("  ") +
     `   wedge ${m.wedge.shell} shell / ${m.wedge.white} white of ${m.wedge.total}` +
-    `, curve ${m.shellProfile.travel}px of ${SEAM_R}, seam ${m.dividerAtCorner}, arc ${m.arcLine.on}/${m.arcLine.total}`
+    `, curve ${m.shellProfile.travel}px of ${SEAM_R}, seam ${m.dividerAtCorner}` +
+    `, arc ${m.arcLine.on}/${m.arcLine.total}, top ${m.topEdge.on}/${m.topEdge.total}`
   console.log(`  after     ${cols(after)}`)
   console.log(`  white     ${cols(white)}`)
   console.log(`  rounded   ${cols(rounded)}\n`)

@@ -6580,9 +6580,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 `overflow-visible` for the grab edge that hangs past it.
 
                 Square. The turn at the seam belongs to the canvas, which
-                also carries the reversed corner that completes it: see
-                `wb-seam-fill`, a child of the canvas so that it and the arc
-                are measured from the same corner. */}
+                also carries the line drawn on that turn: see `wb-seam-fill`,
+                a child of the canvas so that it and the arc are measured
+                from the same corner. */}
             <div
               ref={sidebarRef}
               className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white"
@@ -6800,11 +6800,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
            */
           style={isMobileView ? { paddingBottom: "var(--wb-sheet-peek, 72px)" } : undefined}
         >
-          {/* The reversed corner, completing the card's arc from the same
-              origin: this box's top left IS the card's top left, so the two
-              cannot drift. White, because the panel on the other side of the
-              seam is white whether that is the sidebar or the AI. */}
-          {!isMobileView && device === "desktop" && <span aria-hidden className="wb-seam-fill" />}
+          {/* The card's edge, drawn from the same origin as the card: this
+              box's top left IS the card's top left, so the arc the line sits
+              on and the arc the card is cut to cannot drift. Nothing is
+              painted past it, so what the corner shows is the workspace the
+              card is sitting on. The top edge carries the same line out to
+              the far side, so it does not stop 22px in for no reason. */}
+          {!isMobileView && device === "desktop" && (
+            <>
+              <span aria-hidden className="wb-seam-fill" />
+              <span aria-hidden className="wb-seam-top" />
+            </>
+          )}
           <CodePane
             installId={installId}
             visible={previewMode === "code"}

@@ -910,6 +910,23 @@ html.capacitor body {
     );
   }
 
+  /* ── And out along the top ──
+     The line on the arc turns from vertical to horizontal and then stopped,
+     22px in, which is the same orphan the hairline used to be when it started
+     22px down. This carries it the rest of the way across, so what is drawn
+     is one edge: down the seam, round the turn, along the top of the card.
+     It begins where the arc's line ends, at the arc's horizontal tangent. */
+  .wb-seam-top {
+    position: absolute;
+    top: 0;
+    left: 22px;
+    right: 0;
+    height: 1px;
+    background: #e5e7eb;
+    pointer-events: none;
+    z-index: 90;
+  }
+
   /* ── The divider runs the whole seam ──
      It used to start 22px down, because the corner was filled with the
      sidebar's own white and a grey line cutting across that fill read as an

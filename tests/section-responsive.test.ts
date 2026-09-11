@@ -945,6 +945,12 @@ check(
    * radius on its CARD and stays square itself: rounding the canvas as well
    * would clip the very thing the fill is there to draw.
    *
+   * AND IT CARRIES ON ACROSS THE TOP. The line turns from vertical to
+   * horizontal and then used to stop, 22px in, which is the same orphan the
+   * hairline was when it started 22px down. `wb-seam-top` takes it the rest
+   * of the way, beginning at the arc's horizontal tangent, so what is drawn
+   * is one edge: down the seam, round the turn, along the top of the card.
+   *
    * AND THE HAIRLINE RUNS THE WHOLE SEAM. It started 22px down so as not to
    * cut across the white fill. With nothing in the wedge there is no surface
    * to interrupt: up there the sidebar's white meets the workspace's grey,
@@ -957,7 +963,8 @@ check(
    * 42, 44 and 42 for the rounded row; in the wedge 40 of 40 pixels the
    * workspace and 0 the sidebar, against 40 white for the fill it replaces;
    * the edge travelling 16 of 22px down the curve; 31 of 31 points on the arc
-   * carrying the line against 6 for a straight-only hairline; and 19 of the
+   * carrying the line against 6 for a straight-only hairline; 377 of 377
+   * pixels of the card's top edge carrying it against 0 before; and 19 of the
    * top 19 rows of the seam carrying it against 0 before.
    * `node scripts/check-workspace-corners.mjs`
    */
@@ -966,7 +973,8 @@ check(
     !/!isMobileView && "rounded-2xl"/.test(editor) &&
     // the seam's arc, on the card, with the fill beside it in the same box
     /\? "rounded-tl-\[22px\] w-full"/.test(editor) &&
-    /\{!isMobileView && device === "desktop" && <span aria-hidden className="wb-seam-fill" \/>\}/.test(editor) &&
+    /<span aria-hidden className="wb-seam-fill" \/>\s*\n\s*<span aria-hidden className="wb-seam-top" \/>/.test(editor) &&
+    /\{!isMobileView && device === "desktop" && \(/.test(editor) &&
     /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor) &&
     !/rounded-tr-2xl/.test(editor) &&
     // and the hairline beside it
@@ -977,6 +985,7 @@ check(
       // transparent past the ring: the workspace shows, nothing is painted on it
       /rgba\(255, 255, 255, 0\) 0 95%,\s*\n\s*#e5e7eb 95\.6% 99\.6%,\s*\n\s*rgba\(255, 255, 255, 0\) 100%/.test(css) &&
       !/#ffffff 100%/.test(css) &&
+      /\.wb-seam-top \{[\s\S]{0,200}?left: 22px;[\s\S]{0,200}?background: #e5e7eb;/.test(css) &&
       /\.wb-seam-divider \{[\s\S]{0,300}?top: 0;/.test(css))(readFileSync(join(root, "app/globals.css"), "utf8")),
 )
 
