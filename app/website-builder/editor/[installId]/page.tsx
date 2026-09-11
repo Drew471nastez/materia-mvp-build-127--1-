@@ -6436,7 +6436,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * white preview an edge to be seen against and its corners
              * something to be rounded away from.
              */
-            isMobileView ? "bg-background" : "bg-[#eceef1] rounded-tr-2xl",
+            isMobileView ? "bg-background" : "bg-[#eceef1] rounded-t-2xl",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6445,16 +6445,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             isMobileView
               ? "items-start p-0"
               /**
-               * NO MAT, AND ONE ROUNDED CORNER: THE OUTER ONE.
+               * NO MAT, AND BOTH TOP CORNERS.
                *
-               * The card is flush on every side. Its one radius used to be
-               * the top LEFT, at the sidebar's edge, which is an internal
-               * seam: an arc in the middle of the row, with both ends of the
-               * row still square against the screen. The turn belongs where
-               * the workspace meets the chrome, so it is the top right now,
-               * and the sidebar takes the matching top left. A device preview
-               * is a card in the middle of the canvas instead, so that one is
-               * rounded all the way round.
+               * The card is flush on every side and turns at the top, on BOTH
+               * ends: at the right, where it meets the edge of the screen
+               * under the bar, and at the left, where it meets the sidebar
+               * under the bar. Those are the two places the canvas ends and
+               * the chrome begins, and the bar's own dark shows through both
+               * arcs, so the page reads as tucked under the chrome from
+               * either side rather than butted against it on one.
+               *
+               * This has been one corner twice: the left alone, then the
+               * right alone. Both times half the junction stayed square,
+               * which is what kept being reported. A device preview is a card
+               * in the middle of the canvas instead, so that one is rounded
+               * all the way round.
                */
               : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
           )}
@@ -6504,7 +6509,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full rounded-none"
                 : device === "desktop"
-                  ? "rounded-tr-2xl w-full"
+                  ? "rounded-t-2xl w-full"
                   // A phone or a tablet is a card floating on the canvas, so
                   // it needs the edge and the lift a card has. On the dark
                   // surround the contrast did that job; on a light one it has

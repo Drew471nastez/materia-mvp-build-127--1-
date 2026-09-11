@@ -1,25 +1,23 @@
 /**
  * ===========================================================================
- *  THE WORKSPACE IS ONE ROUNDED SHAPE UNDER THE BAR
+ *  THE WORKSPACE TURNS AT EVERY PLACE IT MEETS THE CHROME
  * ===========================================================================
- * The editor's rounding sat at the sidebar/canvas junction, which is an
- * internal seam. That put an arc in the MIDDLE of the row and left both ends
- * of the row square against the screen: the sidebar's own top-left corner was
- * a right angle, and so was the canvas at the right-hand edge.
+ * Three corners, and this took three goes to get right because each go moved
+ * the one arc somewhere else instead of adding the ones that were missing.
  *
- * The turn belongs where the workspace meets the chrome. The sidebar rounds
- * at the top left, the canvas at the top right, the seam between them is a
- * straight hairline, and the two wedges the arcs open onto are the bar's own
- * colour carrying on around the corner.
+ * The canvas ends in two places, and the chrome begins in both: at the right,
+ * where it meets the edge of the screen under the bar, and at the left, where
+ * it meets the sidebar under the bar. The sidebar ends in one place, at the
+ * left edge of the screen. All three turn, and the bar's own colour shows
+ * through all three arcs, so the workspace reads as tucked under the chrome
+ * from either side rather than butted against it on one.
  *
- * So this renders the row and samples three places:
+ * First it was the left of the canvas alone — an arc in the middle of the row
+ * with both ends of the row square. Then the outer two alone, which left the
+ * sidebar and the canvas meeting in a right angle. Both halves were reported.
  *
- *   top left    outside the arc must be the bar, not the sidebar
- *   top right   outside the arc must be the bar, not the canvas
- *   the seam    the top row at the junction must be panel, with no arc in it
- *
- * The "before" column is a control: the old shape must fail the corners it
- * did not have and show an arc at the seam it did.
+ * So this renders the row and samples all three corners, plus a control at
+ * each: the shape being replaced must fail the corners it did not have.
  *
  *   node scripts/check-workspace-corners.mjs
  */
@@ -52,11 +50,12 @@ body{background:#888}
 .card{width:100%;height:100%;background:#fff}
 ${shape === "after"
     ? `.side{border-top-left-radius:${R}px}
+       .canvas{border-top-left-radius:${R}px;border-top-right-radius:${R}px}
+       .card{border-top-left-radius:${R}px;border-top-right-radius:${R}px}`
+    : /* the shape it replaces: the outer two, with the seam left square */
+      `.side{border-top-left-radius:${R}px}
        .canvas{border-top-right-radius:${R}px}
-       .card{border-top-right-radius:${R}px}`
-    : /* the old shape: one arc at the junction, both ends square */
-      `.canvas{border-top-left-radius:${R}px}
-       .card{border-top-left-radius:${R}px}`}
+       .card{border-top-right-radius:${R}px}`}
 </style></head><body>
 <div class="bar"></div>
 <div class="row"><div class="side"></div><div class="canvas"><div class="card"></div></div></div>
@@ -128,13 +127,24 @@ function wedge(img, side) {
   return { bar, total }
 }
 
-/** The seam is a divider, not a corner: its top row is panel all the way. */
-function seamIsFlat(img) {
-  let barPixels = 0
-  for (let x = SIDE - R; x < SIDE + R; x++) {
-    for (let y = BAR; y < BAR + 3; y++) if (isChrome(img.at(x, y))) barPixels++
+/**
+ * The seam turns too. The canvas's own top-left arc starts one pixel right of
+ * the sidebar's border, so the wedge to sample is the corner box that begins
+ * there — everything outside the quarter disc must be the bar.
+ */
+function seamWedge(img) {
+  const left = SIDE + 1
+  const cx = left + R
+  const cy = BAR + R
+  let bar = 0, total = 0
+  for (let x = left; x < left + R; x++) {
+    for (let y = BAR; y < BAR + R; y++) {
+      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= R + 0.5) continue
+      total++
+      if (isChrome(img.at(x, y))) bar++
+    }
   }
-  return barPixels
+  return { bar, total }
 }
 
 let broken = 0
@@ -156,32 +166,31 @@ try {
       { stdio: "ignore" },
     )
     const img = readPng(png)
-    return { left: wedge(img, "left"), right: wedge(img, "right"), seam: seamIsFlat(img) }
+    return { left: wedge(img, "left"), right: wedge(img, "right"), seam: seamWedge(img) }
   }
   const after = read("after")
   const before = read("before")
 
-  console.log("\nthe workspace is one rounded shape under the bar\n")
+  console.log("\nthe workspace turns at every place it meets the chrome\n")
 
   // Antialiasing blends the boundary ring, so a pixel or two on the arc is
   // not a square corner. Most of the wedge has to be the bar.
   const ratio = (m) => m.bar / m.total
-  expect(ratio(after.left) > 0.75, "the sidebar turns at the top left, onto the bar",
+  expect(ratio(after.left) > 0.75, "the sidebar turns at the screen's left edge, onto the bar",
     `${after.left.bar} of ${after.left.total} wedge pixels are the bar`)
-  expect(ratio(after.right) > 0.75, "the canvas turns at the top right, onto the bar",
+  expect(ratio(after.seam) > 0.75, "the canvas turns where it meets the sidebar, onto the bar",
+    `${after.seam.bar} of ${after.seam.total} wedge pixels are the bar`)
+  expect(ratio(after.right) > 0.75, "the canvas turns at the screen's right edge, onto the bar",
     `${after.right.bar} of ${after.right.total} wedge pixels are the bar`)
-  expect(after.seam === 0, "the seam between them is a straight hairline, with no arc in it",
-    `${after.seam} pixels of bar showing at the junction`)
 
-  // The control: the old shape had neither outer corner, and did have an arc
-  // in the middle of the row.
-  expect(ratio(before.left) < 0.1 && ratio(before.right) < 0.1,
-    "the old shape had no outer corners, so this is a real measurement",
-    `left ${before.left.bar}/${before.left.total}, right ${before.right.bar}/${before.right.total}`)
-  expect(before.seam > 0, "and it did put an arc at the seam", "the control had a flat seam too")
+  // The control: the shape this replaces had the outer two and a square seam,
+  // which is the half of the junction that kept being reported.
+  expect(ratio(before.seam) < 0.1,
+    "the shape it replaces left the seam square, so this is a real measurement",
+    `the control's seam was already ${before.seam.bar}/${before.seam.total}`)
 
-  console.log(`\n  after    left ${after.left.bar}/${after.left.total}   right ${after.right.bar}/${after.right.total}   seam ${after.seam}`)
-  console.log(`  before   left ${before.left.bar}/${before.left.total}   right ${before.right.bar}/${before.right.total}   seam ${before.seam}\n`)
+  console.log(`\n  after    left ${after.left.bar}/${after.left.total}   seam ${after.seam.bar}/${after.seam.total}   right ${after.right.bar}/${after.right.total}`)
+  console.log(`  before   left ${before.left.bar}/${before.left.total}   seam ${before.seam.bar}/${before.seam.total}   right ${before.right.bar}/${before.right.total}\n`)
 } finally {
   rmSync(out, { recursive: true, force: true })
 }
