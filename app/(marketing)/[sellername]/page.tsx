@@ -10,6 +10,18 @@ import { mayPreview, pageSections, previewTokenFrom, themeSettings as themeSetti
 import { publishedSiteByName } from "@/lib/website-builder/published-site"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
+/**
+ * Dynamic because this route reads `searchParams` for the preview token, so
+ * it could never be prerendered anyway.
+ *
+ * IT DOES NOT TURN OFF THE CACHE UNDER IT, which is the thing worth writing
+ * down. `force-dynamic` changes the default for `fetch`, and Next's
+ * `unstable_cache` gates on `workStore.fetchCache === "force-no-store"` —
+ * which is set only by an explicit `export const fetchCache` in the module,
+ * and there is none here. So the published site below stays cached. Adding
+ * `export const fetchCache = "force-no-store"` to this file would silently
+ * put every visitor back on eight database round trips; a test refuses it.
+ */
 export const dynamic = "force-dynamic"
 
 interface PageProps {
