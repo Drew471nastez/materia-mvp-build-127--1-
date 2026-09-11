@@ -39,6 +39,7 @@ import {
   type ColorScheme,
   type SchemeColorKey,
 } from "@/lib/storelib-theme/color-schemes"
+import { sayRatio, schemeContrast } from "@/lib/storelib-theme/contrast"
 import {
   DEFAULT_TYPE_STYLES,
   TYPE_STYLE_KEYS,
@@ -547,6 +548,15 @@ export function ColorsPanel({
 
   const existing = Array.from(new Set(Object.values(current).filter((v): v is string => typeof v === "string" && /^#/.test(v)))).slice(0, 14)
 
+  /**
+   * Seventeen colours can be set to anything, and the pair that stops being
+   * readable is the one nobody notices: it looks fine on the screen it was
+   * picked on. The ratio is arithmetic, so it can simply be said. It is a
+   * note and not a block. Somebody may have a reason, and a scheme the
+   * editor refuses to save is worse than one it has an opinion about.
+   */
+  const contrast = schemeContrast(current)
+
   return (
     <div className="space-y-4">
       <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
@@ -604,6 +614,22 @@ export function ColorsPanel({
             onChange={(e) => updateSetting("default_color_scheme", e.target.checked ? activeKey : FALLBACK_SCHEME_KEY)}
           />
         </label>
+
+        {contrast.failing.length > 0 && (
+          <div className="border-l-2 border-[#c2751a] pl-2.5 space-y-0.5">
+            <p className="text-[12px] font-medium text-foreground">Hard to read</p>
+            {contrast.failing.map((f) => (
+              <p key={`${f.fg}-${f.bg}`} className="text-[12px] text-muted-foreground leading-snug">
+                {f.label} is {sayRatio(f.ratio)}, under the {f.need} to 1 it needs.
+              </p>
+            ))}
+          </div>
+        )}
+        {current.gradient && contrast.unknown.length > 0 && (
+          <p className="text-[12px] text-muted-foreground leading-snug">
+            A gradient sits over the background, so text on it is not measured here.
+          </p>
+        )}
 
         {SCHEME_COLOR_GROUPS.map((group) => (
           <div key={group.label} className="space-y-1">

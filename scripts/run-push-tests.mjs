@@ -48,6 +48,7 @@ const SUITES = [
   "tests/storelib-blocks.test.ts",
   "tests/storelib-parity.test.ts",
   "tests/preview-link.test.ts",
+  "tests/contrast.test.ts",
   "tests/storelib-security.test.ts",
   "tests/storelib-performance.test.ts",
   "tests/design-tokens.test.ts",
