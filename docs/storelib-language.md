@@ -334,7 +334,20 @@ compile renders nothing on a published page, which is a gap rather than a
 broken storefront, and renders a card naming the file and the line in the
 editor, where somebody can fix it.
 
-## 9. Writing one
+## 9. Limits
+
+A page holds 60 sections; a section holds 50 blocks and 120 settings; a file
+is at most 512 KB, its CSS 128 KB, its script 64 KB; a theme holds 2000 files.
+These are refused at the point of saving, not only when a theme is exported.
+
+## 10. Error boundaries
+
+A section that throws while rendering takes only itself. On a published page
+it renders nothing, which is a gap rather than an outage; in the builder it is
+a card naming the section and the error, with a button to try it again once
+the setting that caused it is fixed.
+
+## 11. Writing one
 
 In the website builder, open the code editor, **New file**, and type a name.
 The folder and the extension are fixed; what you type is the name. The
@@ -356,5 +369,17 @@ what each was: a save, a publish, or a restore. Opening an old one puts it in
 the editor as an unsaved change rather than writing over anything, so it goes
 back out through the same compile and the same conflict check as anything you
 type.
+
+The starter you get is scheme-aware and responsive already: it declares a
+`color_scheme` setting and reads `scheme.*` rather than hardcoding a colour,
+its padding is a setting, and it carries container queries for tablet and
+desktop over a phone-first base.
+
+**Or ask for one.** Storelib AI has two modes: Change this page, which edits
+what is there, and Code a section, which writes a new `.storelib` file. What
+comes back is compiled before it is kept, gets one repair attempt if it does
+not compile, is refused if its type or name is already taken here, and lands
+in the code editor as a draft for you to read. Nothing it writes is on a page
+or in front of a visitor until you put it there.
 
 `docs/theme/14-creating-a-section.md` walks through one from an empty file.

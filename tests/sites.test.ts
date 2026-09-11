@@ -5049,7 +5049,9 @@ check(
      * blank if somebody tidies that block away.
      */
     const cover = ours.filter((f) => f.src.startsWith("/api/sites/") && f.src.endsWith("/cover"))
-    const code = ours.filter((f) => /^\/website-builder\/code\/\$\{installId\}\?embedded=1$/.test(f.src))
+    // The src carries an optional `&path=` now, so the assistant's "Open it"
+    // lands on the file rather than on the tree with the file somewhere in it.
+    const code = ours.filter((f) => f.src.startsWith("/website-builder/code/${installId}?embedded=1"))
     return ours.length === 2 && cover.length === 1 && code.length === 1
   })(),
   JSON.stringify(iframeSources().filter((f) => f.src.startsWith("/"))),

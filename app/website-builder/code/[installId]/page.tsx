@@ -248,6 +248,13 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   // `?embedded=1` is the theme editor framing this page over its canvas.
   const embedded =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("embedded") === "1"
+  /**
+   * `?path=` opens straight onto one file. Used when the assistant has just
+   * written a section: "Open it" should land on the file, not on the tree with
+   * the file somewhere in it.
+   */
+  const wantedPath =
+    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("path") : null
 
   /**
    * Framed inside the editor, this page's own document must not scroll and
@@ -526,6 +533,23 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
   useEffect(() => { loadInstall() }, [loadInstall])
 
+  /**
+   * And straight onto the file the URL named, once the tree is there. Only
+   * the first time: after that it is whatever the person has open.
+   */
+  const openedWanted = useRef(false)
+  useEffect(() => {
+    if (!wantedPath || openedWanted.current || loadingInstall) return
+    openedWanted.current = true
+    void openFile({
+      path: wantedPath,
+      name: wantedPath.split("/").pop() ?? wantedPath,
+      type: "file",
+      isCustomized: true,
+      language: detectLanguage(wantedPath),
+    })
+  }, [wantedPath, loadingInstall])
+
   const openFile = async (node: ThemeFileNode) => {
     if (node.type !== "file") return
 
@@ -684,28 +708,88 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   }
 
   /** What a new file starts as: a section that compiles, or an empty object. */
+  /**
+   * ===========================================================================
+   *  WHAT A NEW SECTION STARTS AS
+   * ===========================================================================
+   * Not the smallest thing that compiles. The starter is the only example most
+   * people will ever read closely, so it is the shape a section should have,
+   * and everything it demonstrates is something that was routinely missing
+   * from sections written from the old one:
+   *
+   *   IT TAKES THE SITE'S COLOUR SCHEME. A section that hardcodes its colours
+   *   ignores the theme, so changing the site's palette leaves it behind and
+   *   the page stops looking like one site. `color_scheme` is a setting and
+   *   `scheme.*` is where its colours come from.
+   *
+   *   IT IS RESPONSIVE. Container queries, not viewport ones: a section is as
+   *   wide as the column it is in, and in the builder's phone preview that is
+   *   not the width of the screen.
+   *
+   *   ITS SPACING IS A SETTING, so the person who adds it can change it
+   *   without opening the code.
+   */
   const starterFor = (path: string): string => {
     const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
     if (m) {
       const type = m[1]
       const name = type.replace(/[-_]+/g, " ").replace(/^\w/, (c) => c.toUpperCase())
       return [
+        "{# " + name + " — yours. Everything below is a starting point. #}",
         "<template>",
-        `<section class="${type}">`,
-        "  <h2>{{ settings.heading }}</h2>",
+        `<section class="${type}" style="--bg: {{ scheme.bg }}; --text: {{ scheme.paragraph }}; --heading: {{ scheme.heading }}; --accent: {{ scheme.accent }}; --pt: {{ settings.padding_top }}px; --pb: {{ settings.padding_bottom }}px;">`,
+        `  <div class="${type}__in">`,
+        `    {% if settings.eyebrow %}<p class="${type}__eyebrow">{{ settings.eyebrow }}</p>{% endif %}`,
+        `    <h2 class="${type}__h">{{ settings.heading }}</h2>`,
+        `    {% if settings.body %}<p class="${type}__body">{{ settings.body }}</p>{% endif %}`,
+        "  </div>",
         "</section>",
         "</template>",
         "",
-        "<style scoped>",
-        `.${type} { padding: 48px 24px; text-align: center; }`,
+        "<style>",
+        `.${type} {`,
+        "  /* container-type lets the rules below ask how wide THIS section is,",
+        "     rather than how wide the browser window is. */",
+        "  container-type: inline-size;",
+        "  background: var(--bg);",
+        "  color: var(--text);",
+        "  padding: var(--pt) var(--theme-padding-x, 24px) var(--pb);",
+        "}",
+        `.${type}__in { max-width: 720px; margin: 0 auto; text-align: center; }`,
+        `.${type}__eyebrow {`,
+        "  margin: 0 0 12px;",
+        "  font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;",
+        "  color: var(--accent);",
+        "}",
+        `.${type}__h {`,
+        "  margin: 0;",
+        "  font-size: 28px; line-height: 1.15; font-weight: 700;",
+        "  color: var(--heading);",
+        "  /* A bare family name falls back to the browser's serif: give it a stack. */",
+        "  font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif;",
+        "}",
+        `.${type}__body { margin: 14px 0 0; font-size: 16px; line-height: 1.6; }`,
+        "",
+        "/* Tablet, then desktop. Phone is what the rules above already are. */",
+        `@container (min-width: 640px) { .${type}__h { font-size: 34px; } }`,
+        `@container (min-width: 1024px) { .${type}__h { font-size: 40px; } }`,
         "</style>",
         "",
         "<schema>",
         JSON.stringify({
+          language_version: 1,
           type,
           name,
           category: "content",
-          settings: [{ type: "text", id: "heading", label: "Heading", default: name }],
+          settings: [
+            { type: "color_scheme", id: "color_scheme", label: "Color scheme", default: "white" },
+            { type: "text", id: "eyebrow", label: "Eyebrow", placeholder: "Short label above the heading" },
+            { type: "text", id: "heading", label: "Heading", default: name },
+            { type: "textarea", id: "body", label: "Text" },
+            { type: "header", id: "hdr_spacing", label: "Spacing" },
+            { type: "range", id: "padding_top", label: "Padding top", min: 0, max: 160, step: 4, unit: "px", default: 64 },
+            { type: "range", id: "padding_bottom", label: "Padding bottom", min: 0, max: 160, step: 4, unit: "px", default: 64 },
+          ],
           presets: [{ name }],
         }, null, 2),
         "</schema>",

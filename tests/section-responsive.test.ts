@@ -122,7 +122,9 @@ check(
 
 check(
   "and the exclusion is a refusal to wrap, not a refusal to render",
-  /if \(NO_CONTAINER\.has\(props\.section\.type\)\) return <Component \{\.\.\.props\} \/>/.test(
+  // Still no @container wrapper for it, and now behind the error boundary
+  // every section is behind: see SectionErrorBoundary.
+  /if \(NO_CONTAINER\.has\(props\.section\.type\)\) return guard\(<Component \{\.\.\.props\} \/>\)/.test(
     dispatcher,
   ),
 )

@@ -71,6 +71,19 @@ const SUGGESTIONS = [
 ]
 
 /**
+ * The other mode. These ask for a section TYPE that does not exist yet, which
+ * is a different act from changing a page: it writes a file. Each one names
+ * something the thirty sections in the library do not do, because asking for
+ * a hero produces a worse hero than the one already there.
+ */
+const CODE_SUGGESTIONS = [
+  "A comparison table of my plans, with a row per feature",
+  "A before-and-after image slider with a draggable handle",
+  "A stack of press quotes with the publication's logo beside each",
+  "An opening-hours table with today highlighted",
+]
+
+/**
  * The three choices, as a person would describe them rather than as model ids.
  *
  * `provider` and `tier` are what the endpoint takes: the vendor, and how hard
@@ -115,8 +128,15 @@ export function ThemeChat({
   onRunEnd,
   onOp,
   onClose,
+  onOpenCodeEditor,
 }: {
   installId: string
+  /**
+   * Opens the code editor at a path. A section the assistant writes is a file,
+   * and the honest end of that is the creator reading it — not a thing that
+   * appeared on their site without them seeing what it was.
+   */
+  onOpenCodeEditor?: (path: string) => void
   page: string
   sections: SectionInstance[]
   settings: Record<string, unknown>
@@ -142,6 +162,18 @@ export function ThemeChat({
   const [loadingHistory, setLoadingHistory] = React.useState(true)
   const [historyError, setHistoryError] = React.useState<null | "not_set_up" | "read_failed">(null)
   const [draft, setDraft] = React.useState("")
+  /**
+   * WHICH OF THE TWO THINGS IS BEING ASKED FOR. "change" edits this page and
+   * goes to the agent; "code" writes a new section type and goes to the one
+   * endpoint that compiles a file before keeping it. They are different acts
+   * with different answers, and a single box that guessed between them would
+   * guess wrong on "add a comparison table" — which could mean either.
+   */
+  const [mode, setMode] = React.useState<"change" | "code">("change")
+  /** The last section written, so the panel can offer to open it. */
+  const [written, setWritten] = React.useState<{ path: string; name: string } | null>(null)
+  const [writing, setWriting] = React.useState(false)
+  const [writeError, setWriteError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   /**
    * THE NEXT THING TO ASK, WHILE THE LAST ONE IS STILL GOING.
@@ -453,18 +485,64 @@ export function ThemeChat({
   }, [busy, queued, send])
 
   /** Enter sends, or queues if something is already running. */
+  /**
+   * WRITE ME A SECTION. Not the agent loop: that edits a page, and every one
+   * of its operations names something that already exists. This asks for a
+   * file, and the server compiles it before keeping it — a section that does
+   * not compile is never stored, so the worst outcome here is being told why.
+   */
+  const writeOne = React.useCallback(
+    async (prompt: string) => {
+      setWriting(true)
+      setWriteError(null)
+      setWritten(null)
+      try {
+        const res = await fetch(`/api/website-builder/themes/${installId}/sections/code`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt }),
+        })
+        const d = (await res.json().catch(() => ({}))) as {
+          path?: string
+          name?: string
+          error?: string
+          errors?: { line?: number; message: string }[]
+        }
+        if (!res.ok) {
+          setWriteError(
+            d.errors?.length
+              ? `${d.error ?? "It did not compile."} ${d.errors[0].line ? `Line ${d.errors[0].line}: ` : ""}${d.errors[0].message}`
+              : d.error ?? "That did not work.",
+          )
+          return
+        }
+        if (d.path && d.name) setWritten({ path: d.path, name: d.name })
+      } catch {
+        setWriteError("The assistant could not be reached.")
+      } finally {
+        setWriting(false)
+      }
+    },
+    [installId],
+  )
+
   const submit = React.useCallback(
     (text: string) => {
       const prompt = text.trim()
       if (!prompt) return
       setDraft("")
+      if (mode === "code") {
+        if (writing) return
+        void writeOne(prompt)
+        return
+      }
       if (busy) {
         setQueued(prompt)
         return
       }
       void send(prompt)
     },
-    [busy, send],
+    [busy, send, mode, writing, writeOne],
   )
 
   /**
@@ -583,13 +661,40 @@ export function ThemeChat({
           </div>
         ) : exchanges.length === 0 ? (
           <div className="space-y-4">
+            {/*
+              * TWO THINGS, NAMED. Changing this page and writing a new kind of
+              * section are different acts with different answers, and "add a
+              * comparison table" is a sentence that could mean either. Asking
+              * beats guessing, and it costs one row.
+              */}
+            <div className="flex gap-1 rounded-lg bg-muted/60 p-0.5">
+              {([
+                ["change", "Change this page"],
+                ["code", "Code a section"],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => { setMode(key); setWriteError(null) }}
+                  aria-pressed={mode === key}
+                  className={cn(
+                    "flex-1 rounded-[7px] px-2 py-1.5 text-[12px] font-medium transition-colors",
+                    mode === key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             <p className="text-[13px] leading-relaxed text-muted-foreground">
-              Describe a change and it is made on this page. It writes the same sections, blocks and
-              controls the panels do, the same sliders, pickers and colours, so everything stays
-              undoable and nothing saves until you press Save.
+              {mode === "change"
+                ? "Describe a change and it is made on this page. It writes the same sections, blocks and controls the panels do, the same sliders, pickers and colours, so everything stays undoable and nothing saves until you press Save."
+                : "Describe a section the library does not have and it is written as a .storelib file: blocks, your colour scheme, responsive rules. It has to compile before it is kept, and it lands in the code editor for you to read before it goes anywhere near a page."}
             </p>
+
             <div className="space-y-1.5">
-              {SUGGESTIONS.map((suggestion) => (
+              {(mode === "change" ? SUGGESTIONS : CODE_SUGGESTIONS).map((suggestion) => (
                 <button
                   key={suggestion}
                   type="button"
@@ -604,6 +709,37 @@ export function ThemeChat({
                 </button>
               ))}
             </div>
+
+            {writing && (
+              <p className="text-[12.5px] text-muted-foreground">
+                Writing it, then compiling it. A section that does not compile is not kept.
+              </p>
+            )}
+
+            {written && (
+              <div className="rounded-lg border border-border bg-background p-3">
+                <p className="text-[13px] font-medium text-foreground">{written.name} is written</p>
+                <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
+                  It compiled and is saved as <span className="font-mono text-[12px]">{written.path}</span>.
+                  It is in Add Section under Created by you, and not published until you publish.
+                </p>
+                {onOpenCodeEditor && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenCodeEditor(written.path)}
+                    className="mt-2 h-7 rounded-md bg-foreground px-2.5 text-[12px] font-[550] text-background"
+                  >
+                    Open it
+                  </button>
+                )}
+              </div>
+            )}
+
+            {writeError && (
+              <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-[12.5px] leading-snug text-foreground">
+                {writeError}
+              </p>
+            )}
           </div>
         ) : (
           <ul className="space-y-5">
@@ -740,7 +876,7 @@ export function ThemeChat({
                 submit(draft)
               }
             }}
-            placeholder={busy ? "Ask for the next change…" : "Change this page…"}
+            placeholder={mode === "code" ? "Describe a section to write…" : busy ? "Ask for the next change…" : "Change this page…"}
             className="w-full resize-none bg-transparent px-3 pt-2.5 text-[13px] leading-snug outline-none placeholder:text-muted-foreground/50"
           />
           <div className="flex items-center justify-between px-2 pb-2">
