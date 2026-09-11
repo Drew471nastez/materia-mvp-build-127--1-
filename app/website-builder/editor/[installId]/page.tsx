@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useLayoutEffect, useCallback, useMemo, useRef, use, memo } from "react"
+import { useEffect, useState, useLayoutEffect, useCallback, useMemo, useRef, use, memo, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
@@ -797,9 +797,62 @@ function buildPreviewSection(type: string, presetIndex = 0, given?: SectionSchem
  */
 const PREVIEW_RATIO = 0.5
 
+/**
+ * ===========================================================================
+ *  A PREVIEW IS DRAWN ONCE AND THEN IT IS MARKUP
+ * ===========================================================================
+ * Every card mounted a live `SectionRenderer`: a full React tree per section,
+ * with its hooks, its effects and its reconciliation, thirty of them in one
+ * modal. Opening the library built all thirty. Picking a category rebuilt
+ * whatever the new list held. On a phone that is the freeze, the lag and the
+ * glitch on close — the main thread is building sections while the sheet is
+ * trying to animate, and the sheet's animation is the thing that loses.
+ *
+ * The previews are not live for any reason. Nothing in them is interactive —
+ * they are `pointer-events: none` and scaled to a third of their size — and
+ * nothing about them changes after they are drawn. So each one is drawn ONCE,
+ * its markup is taken, and from then on the card is that markup.
+ *
+ * EXACTLY 1:1, and that is the point of doing it this way rather than
+ * drawing pictures of the sections: the markup comes from the real renderer,
+ * with the real theme, so a preview cannot drift from the section it stands
+ * for. It is the same pixels, without the machinery that produced them.
+ *
+ * Cached across the whole session by type and preset, so a category switch, a
+ * keystroke in the search box and a second opening of the library all cost
+ * nothing. The cache is module-level on purpose: it outlives the modal, which
+ * is exactly the case that used to rebuild everything.
+ */
+const PREVIEW_MARKUP = new Map<string, string>()
+
 function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, schema }: { type: string; presetIndex?: number; containerWidth?: number; schema?: SectionSchema }) {
   const section = useMemo(() => buildPreviewSection(type, presetIndex, schema), [type, presetIndex, schema])
   const height = Math.round(containerWidth * PREVIEW_RATIO)
+  const cacheKey = `${type}:${presetIndex}`
+  const captureRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * What we already have. Read during the first render rather than in an
+   * effect, so a card whose section has been drawn before never mounts a
+   * renderer at all — not even for one frame.
+   */
+  const [markup, setMarkup] = useState<string | null>(() => PREVIEW_MARKUP.get(cacheKey) ?? null)
+
+  /**
+   * The one live render, and only if nothing is cached. `useLayoutEffect`
+   * rather than `useEffect`: the markup is read and the renderer is dropped
+   * before the browser paints, so there is no frame where both exist.
+   */
+  useLayoutEffect(() => {
+    if (markup !== null || !section) return
+    const node = captureRef.current
+    if (!node) return
+    const html = node.innerHTML
+    if (!html) return
+    PREVIEW_MARKUP.set(cacheKey, html)
+    setMarkup(html)
+  }, [markup, section, cacheKey])
+
   if (!section) {
     return (
       <div className="w-full flex items-center justify-center bg-muted" style={{ height }}>
@@ -807,7 +860,15 @@ function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, 
       </div>
     )
   }
+
   const scale = containerWidth / PREVIEW_RENDER_WIDTH
+  const inner: CSSProperties = {
+    width: PREVIEW_RENDER_WIDTH,
+    transform: `scale(${scale})`,
+    pointerEvents: "none",
+    userSelect: "none",
+  }
+
   return (
     <div
       className="relative w-full overflow-hidden"
@@ -817,22 +878,24 @@ function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, 
         containIntrinsicSize: `${containerWidth}px ${height}px`,
       }}
     >
-      <div
-        className="absolute left-0 top-0 origin-top-left"
-        style={{
-          width: PREVIEW_RENDER_WIDTH,
-          transform: `scale(${scale})`,
-          pointerEvents: "none",
-          userSelect: "none",
-        }}
-      >
-        <SectionRenderer
-          section={section}
-          theme={PREVIEW_THEME}
-          isEditing={false}
-          isSelected={false}
+      {markup === null ? (
+        <div ref={captureRef} className="absolute left-0 top-0 origin-top-left" style={inner}>
+          <SectionRenderer section={section} theme={PREVIEW_THEME} isEditing={false} isSelected={false} />
+        </div>
+      ) : (
+        /**
+         * The same box, the same transform, the same markup — and no React
+         * below this point. `dangerouslySetInnerHTML` is the whole of it:
+         * the string came from this application's own renderer a moment ago,
+         * not from anywhere a creator or a visitor can reach.
+         */
+        <div
+          className="absolute left-0 top-0 origin-top-left"
+          style={inner}
+          aria-hidden
+          dangerouslySetInnerHTML={{ __html: markup }}
         />
-      </div>
+      )}
     </div>
   )
 }
@@ -1168,7 +1231,7 @@ function AddSectionModal({
       >
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="shrink-0 px-5 pb-3 pt-0.5">
-            <h2 className="text-[17px] font-semibold tracking-tight text-foreground">Add section</h2>
+            <h2 className="text-[17px] font-semibold tracking-tight text-[#1a1a2e]">Add section</h2>
           </div>
 
           <div className="shrink-0 px-4 pb-3">{search}</div>
@@ -1195,9 +1258,28 @@ function AddSectionModal({
                          */
                         "wb-chip shrink-0 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap",
                         "transition-[background-color,color,scale] duration-200 ease-out active:scale-[0.96]",
+                        /**
+                         * EXPLICIT COLOURS, NOT `bg-foreground` / `bg-muted`.
+                         *
+                         * Those are the app's semantic tokens, and they are
+                         * defined twice: once on `:root` and once under
+                         * `.dark`. The builder is a light surface by
+                         * decision — every other thing in it is a literal,
+                         * `#1a1a2e` and `#f3f4f6` and the rest — but these
+                         * chips asked the document what "foreground" meant.
+                         * Put the sheet under a dark root and the selected
+                         * chip becomes near-white ON near-white: a pill you
+                         * cannot read and cannot see you have selected.
+                         *
+                         * Nothing here needs to be relative to anything. The
+                         * selected chip is the near-black this product uses
+                         * for a primary action, the rest are the same grey
+                         * the section actions use, and neither can be
+                         * flipped by a class on an ancestor.
+                         */
                         on
-                          ? "bg-foreground text-background"
-                          : "bg-muted text-muted-foreground",
+                          ? "bg-[#1a1a2e] text-white"
+                          : "bg-[#f3f4f6] text-[#4b5563]",
                       )}
                     >
                       {cat.label}
@@ -5727,6 +5809,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto wb-slim-scroll p-3 space-y-0.5">
+              {/* ── Add section, ABOVE everything on a phone ──
+                  At the bottom of the list it is below the header, every body
+                  section and every insert slot: on a phone that is a scroll
+                  to the end of a sheet before you can add anything, and the
+                  sheet is the only way in. The list grows, so the control
+                  gets further away the more you have built.
+
+                  Above the list on a phone, where the thumb already is. The
+                  desktop keeps it at the bottom, where the list is fully
+                  visible and the button reads as the end of it. */}
+              {isMobileView && (
+                <button
+                  className="mb-3 w-full flex items-center gap-2.5 px-3 py-3 text-sm text-foreground/70 active:bg-muted active:text-foreground rounded-lg transition-colors font-medium"
+                  onClick={() => { setPendingInsertIndex(null); setAddSectionOpen(true) }}
+                >
+                  <div className="h-8 w-8 rounded-lg border border-dashed border-border flex items-center justify-center">
+                    <Plus className="h-4 w-4" />
+                  </div>
+                  Add section
+                </button>
+              )}
+
               {/* Header (global) */}
               {header && (
                 <div className="border border-border rounded-lg mb-3">
@@ -5793,15 +5897,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                             <InsertSectionDivider onClick={() => openInsert(idx + 1)} />
                           </div>
                         ))}
-                        <button
-                          className="w-full flex items-center gap-2.5 px-3 py-3 text-sm text-foreground/70 hover:bg-muted hover:text-foreground rounded-lg transition-colors font-medium"
-                          onClick={() => { setPendingInsertIndex(null); setAddSectionOpen(true) }}
-                        >
-                          <div className="h-8 w-8 rounded-lg border border-dashed border-border flex items-center justify-center">
-                            <Plus className="h-4 w-4" />
-                          </div>
-                          Add section
-                        </button>
+                        {/* The same control, at the end of the list, where a
+                            desktop can see the whole list above it. A phone
+                            has one at the top instead: see above. */}
+                        {!isMobileView && (
+                          <button
+                            className="w-full flex items-center gap-2.5 px-3 py-3 text-sm text-foreground/70 hover:bg-muted hover:text-foreground rounded-lg transition-colors font-medium"
+                            onClick={() => { setPendingInsertIndex(null); setAddSectionOpen(true) }}
+                          >
+                            <div className="h-8 w-8 rounded-lg border border-dashed border-border flex items-center justify-center">
+                              <Plus className="h-4 w-4" />
+                            </div>
+                            Add section
+                          </button>
+                        )}
                       </div>
                     )
                   })()}
@@ -6378,6 +6487,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // ── Main editor layout ─────────────────────────────────────
   return (
     <div
+      /**
+       * This surface polices its own touch. `CapacitorBounceGuard` listens on
+       * the document and cancels a vertical gesture whenever the DOCUMENT is
+       * not scrollable — and this one never is, by design. Everything the
+       * guard would do here is already done: html and body are locked with
+       * `overscroll-behavior: none`, the canvas is `touch-action: pan-y` with
+       * `overscroll-behavior: contain`, and it nudges itself off either end
+       * at touchdown. See the opt-out in that component.
+       */
+      data-wb-no-bounce-guard=""
       className={cn(
         // `fixed inset-0`, not `h-svh`. A 100svh element is CONTENT, and the
         // body adds its safe-area padding underneath it — one screen plus
@@ -8066,7 +8185,14 @@ function SidebarSectionRow({
       <div
         className={cn(
           "group flex items-center gap-2 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors",
-          isSelected ? "bg-foreground text-background" : "hover:bg-muted text-foreground",
+          /* Explicit, for the same reason the category chips are: these are
+             the app's semantic tokens, defined once on `:root` and again
+             under `.dark`, and the builder is a light surface by decision.
+             Under a dark root the selected row went near-white on near-white.
+             The badge inside it already assumes a dark selected row — it goes
+             `bg-white/15 text-white` when selected — so this was the half
+             that could disagree with itself. */
+          isSelected ? "bg-[#1a1a2e] text-white" : "hover:bg-[#f3f4f6] text-[#1a1a2e]",
           section.hidden && "opacity-50",
         )}
         onClick={onSelect}

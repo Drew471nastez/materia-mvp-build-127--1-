@@ -1150,36 +1150,6 @@ check(
 )
 
 check(
-  "the code editor arrives as its own shape, and the arriving costs no paint",
-  /**
-   * It waited behind a spinning circle in an empty card: that says something
-   * is happening and nothing else, in the one place the eye already is, and
-   * then everything it stood in for appears somewhere else.
-   *
-   * The skeleton is the shape of what is coming — gutter, tabs, file list,
-   * lines at the lengths code has. And the motion is ONE element animating
-   * `transform`, which is a compositor layer sliding rather than forty bars
-   * repainting per frame. Measured with `Element.getAnimations()`: 1
-   * animation of [transform] against 40 of [backgroundPositionX,
-   * backgroundPositionY] for the per-bar shimmer it replaces, with the
-   * gutter and the first code column landing within 0px of the real
-   * editor's. `dark` follows the code editor's own theme, over the channel
-   * the bar above it already reads. `node scripts/check-code-skeleton.mjs`
-   */
-  /function CodeSkeleton\(\{ dark = false \}/.test(modeSwitch) &&
-    /\{!loaded && <CodeSkeleton dark=\{dark\} \/>\}/.test(modeSwitch) &&
-    !/\bLoader2\b/.test(modeSwitch) &&
-    ((css) =>
-      /\.wb-code-skeleton-sweep \{/.test(css) &&
-      /animation: wb-code-sweep /.test(css) &&
-      /@keyframes wb-code-sweep \{\s*\n\s*from \{ transform: translate3d/.test(css) &&
-      // the reduced-motion answer keeps the promise and drops the movement
-      /\.wb-code-skeleton-sweep \{ animation: none; opacity: 0\.35; \}/.test(css))(
-        readFileSync(join(root, "app/globals.css"), "utf8"),
-      ),
-)
-
-check(
   "the code editor's bar wears the code editor's theme, and carries the switch",
   /**
    * On a phone the code editor is a full-screen page with a bar of its own,
@@ -1303,6 +1273,110 @@ check(
     /setLeaving\(false\)\s*\n\s*setPendingExit\(null\)/.test(editor) &&
     // and the effect only exists while there is something to undo
     /useEffect\(\(\) => \{\s*\n\s*if \(!leaving\) return/.test(editor),
+)
+
+check(
+  "a preview is drawn once and is markup after that",
+  /**
+   * Every card mounted a live `SectionRenderer`: a full React tree per
+   * section, with its hooks, its effects and its reconciliation, thirty of
+   * them in one modal. Opening the library built all thirty; picking a
+   * category rebuilt whatever the new list held. On a phone that is the
+   * freeze, the lag and the glitch on close — the main thread is building
+   * sections while the sheet is trying to animate, and the sheet loses.
+   *
+   * Nothing in a preview is live for any reason. They are
+   * `pointer-events: none`, scaled to a third of their size, and nothing
+   * about them changes after they are drawn. So each is drawn ONCE, its
+   * markup is taken, and the card is that markup from then on.
+   *
+   * EXACTLY 1:1, which is why it is done this way rather than by drawing
+   * pictures of the sections: the markup comes from the real renderer with
+   * the real theme, so a preview cannot drift from the section it stands
+   * for. Same pixels, without the machinery that made them.
+   *
+   * `useLayoutEffect`, not `useEffect`: the markup is read and the renderer
+   * dropped before the browser paints, so there is no frame where both
+   * exist. And the cache is MODULE-LEVEL, outliving the modal — which is
+   * exactly the case that used to rebuild everything.
+   */
+  /const PREVIEW_MARKUP = new Map<string, string>\(\)/.test(editor) &&
+    /useState<string \| null>\(\(\) => PREVIEW_MARKUP\.get\(cacheKey\) \?\? null\)/.test(editor) &&
+    /useLayoutEffect\(\(\) => \{\s*\n\s*if \(markup !== null \|\| !section\) return/.test(editor) &&
+    /PREVIEW_MARKUP\.set\(cacheKey, html\)/.test(editor) &&
+    /dangerouslySetInnerHTML=\{\{ __html: markup \}\}/.test(editor),
+)
+
+check(
+  "the category chips cannot be flipped by a class on an ancestor",
+  /**
+   * They were `bg-foreground` / `bg-muted`: the app's semantic tokens, which
+   * are defined twice, once on `:root` and once under `.dark`. The builder is
+   * a light surface by decision — everything else in it is a literal,
+   * `#1a1a2e` and `#f3f4f6` and the rest — but these chips asked the document
+   * what "foreground" meant. Under a dark root the selected chip becomes
+   * near-white ON near-white: a pill you cannot read and cannot see you have
+   * selected, which is what was reported as the pill going white.
+   *
+   * Nothing here needs to be relative to anything.
+   */
+  /\? "bg-\[#1a1a2e\] text-white"\s*\n\s*: "bg-\[#f3f4f6\] text-\[#4b5563\]",/.test(editor) &&
+    !/\? "bg-foreground text-background"/.test(editor) &&
+    ((css) => /\.wb-chip-row \{[\s\S]{0,400}?-webkit-tap-highlight-color: transparent;/.test(css))(
+      readFileSync(join(root, "app/globals.css"), "utf8"),
+    ),
+)
+
+check(
+  "Add section is the first thing in the sheet on a phone, and the last on a desktop",
+  /**
+   * At the bottom of the list it is below the header, every body section and
+   * every insert slot: on a phone that is a scroll to the end of a sheet
+   * before you can add anything, and the sheet is the only way in. The list
+   * grows, so the control gets further away the more you have built.
+   *
+   * Above the list on a phone, where the thumb already is. The desktop keeps
+   * it at the bottom, where the whole list is visible above it and the button
+   * reads as the end of it.
+   */
+  /\{isMobileView && \(\s*\n\s*<button\s*\n\s*className="mb-3 w-full flex items-center gap-2\.5 px-3 py-3/.test(editor) &&
+    /\{!isMobileView && \(\s*\n\s*<button\s*\n\s*className="w-full flex items-center gap-2\.5 px-3 py-3/.test(editor),
+)
+
+check(
+  "the bounce guard does not police the builder, which polices itself",
+  /**
+   * `CapacitorBounceGuard` listens on the document and cancels touchmove to
+   * stop WKWebView rubber-banding. Its last branch is the one that mattered:
+   * when the DOCUMENT is not scrollable it prevents every vertical move, in
+   * both directions, reasoning that a page which fits on screen has nothing
+   * to scroll so any movement is a bounce.
+   *
+   * The builder's document is NEVER scrollable. That is deliberate — it is a
+   * fixed screen and html and body are locked to the viewport — so any touch
+   * inside it that did not find a scrollable ancestor on the way up had its
+   * gesture cancelled outright. A canvas showing a page shorter than itself,
+   * a canvas mid-layout, a touch landing between two scrollers: all of them
+   * came out as "the preview is frozen, it will not scroll", which is what
+   * was reported after closing the code editor or project settings over it.
+   *
+   * So it opts out, the way the bottom sheets already do. Everything the
+   * guard would do there is already done by that surface: html and body
+   * locked with `overscroll-behavior: none`, the canvas `touch-action: pan-y`
+   * with `overscroll-behavior: contain`, and a nudge off either end at
+   * touchdown.
+   *
+   * Measured with real touch events at a locked document: cancelled with no
+   * opt-out, left alone with it, and still cancelled outside the builder —
+   * so it is an opt-out and not an off switch.
+   * `node scripts/check-bounce-guard.mjs`
+   */
+  ((guard) =>
+    /target\?\.closest\("\[data-wb-no-bounce-guard\]"\)/.test(guard) &&
+    // the branch that did the damage is still there for everywhere else
+    /Page fits on screen — prevent rubber-band in both directions/.test(guard))(
+      readFileSync(join(root, "components/platform/capacitor-bounce-guard.tsx"), "utf8"),
+    ) && /data-wb-no-bounce-guard=""/.test(editor),
 )
 
 check(

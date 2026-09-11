@@ -56,10 +56,33 @@ export function CapacitorBounceGuard() {
       // Never interfere with mobile sheet portals — they handle their own
       // drag-to-dismiss gesture. Calling preventDefault here would block the
       // sheet's handle-bar from being dragged down to close.
+      //
+      // NOR WITH A SURFACE THAT ALREADY DOES ALL OF THIS ITSELF.
+      //
+      // The website builder is a fixed, self-contained screen: it locks html
+      // and body to the viewport with `overscroll-behavior: none`, sets
+      // `touch-action: pan-y` on the canvas, gives the canvas
+      // `overscroll-behavior: contain`, and nudges its scrollTop a pixel off
+      // either end at touchdown so there is never a hand-off to make. Every
+      // job this guard exists to do is already done there, by code written
+      // for that surface.
+      //
+      // And leaving the guard on did REAL harm, which is the reason this is
+      // here. Read the document branch at the bottom of this function: when
+      // the document is not scrollable it prevents EVERY vertical move. The
+      // builder's document is never scrollable — that is the whole point of
+      // the lock — so any touch that failed to find a scrollable ancestor on
+      // the way up had its gesture cancelled outright. A canvas showing a
+      // page shorter than itself, a canvas that had not finished laying out,
+      // a touch that landed on a gap between two scrollers: all of them came
+      // out as "the preview will not scroll, it is frozen", which is exactly
+      // what was reported after closing the code editor or project settings
+      // over it.
       const target = e.target as Element | null
       if (
         target?.closest("[data-mobile-bottom-sheet]") ||
-        target?.closest("[data-mobile-top-sheet]")
+        target?.closest("[data-mobile-top-sheet]") ||
+        target?.closest("[data-wb-no-bounce-guard]")
       ) {
         return
       }
