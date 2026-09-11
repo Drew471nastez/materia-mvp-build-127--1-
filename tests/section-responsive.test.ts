@@ -1264,6 +1264,47 @@ check(
 )
 
 check(
+  "nothing keeps the editor disabled once you are back in it",
+  /**
+   * Pressing Back puts two things over the builder: `.wb-editor-leaving`,
+   * which is `pointer-events: none` on the whole editor, and `.wb-leaving`, a
+   * fixed scrim at z-index 300 with no pointer-events rule at all. Both are
+   * right for the second between the press and the next page arriving — a
+   * second press on a control already on its way out is how you get two of
+   * whatever it does.
+   *
+   * `leaving` was set and never cleared. The only thing that ever un-set it
+   * was the component being destroyed, which is fine exactly as long as the
+   * navigation happens AND this editor is thrown away. Neither is guaranteed:
+   * back out of the pushed page and the browser may restore this one from its
+   * back/forward cache with every piece of React state as it was, and a push
+   * that is cancelled or refused leaves the editor under its own blocker with
+   * nothing to lift it. Either way the editor is alive, looks nearly normal,
+   * and takes no input — the canvas will not scroll and nothing in it can be
+   * pressed.
+   *
+   * Three ways back, covering different failures. `pageshow` with `persisted`
+   * is the bfcache restore and is the specific one. `popstate` is any
+   * in-history return. The watchdog is the general answer to "the navigation
+   * did not happen": a push that works takes this component with it, so still
+   * being here after three seconds means it did not.
+   *
+   * Measured: with the scrim up a touch in the middle of the canvas reaches
+   * the scrim and the canvas does not move; with only the class, it reaches
+   * BODY and still does not; with both lifted it reaches the page and
+   * scrolls. `node scripts/check-leaving-revive.mjs`
+   */
+  /window\.addEventListener\("pageshow", onPageShow\)/.test(editor) &&
+    /window\.addEventListener\("popstate", revive\)/.test(editor) &&
+    /const watchdog = window\.setTimeout\(revive, 3000\)/.test(editor) &&
+    /if \(e\.persisted\) revive\(\)/.test(editor) &&
+    // it clears BOTH, or the confirm reopens the moment anything sets it again
+    /setLeaving\(false\)\s*\n\s*setPendingExit\(null\)/.test(editor) &&
+    // and the effect only exists while there is something to undo
+    /useEffect\(\(\) => \{\s*\n\s*if \(!leaving\) return/.test(editor),
+)
+
+check(
   "the header and the footer wear a black badge, because they are the two rows that are different",
   /**
    * Quietened to grey for one round on the argument that two black squares

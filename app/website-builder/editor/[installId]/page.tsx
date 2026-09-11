@@ -6240,6 +6240,56 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const chromeTone = usePhoneChromeTone(isMobileView)
 
+  /**
+   * ===========================================================================
+   *  NOTHING KEEPS THE EDITOR DISABLED ONCE YOU ARE BACK IN IT
+   * ===========================================================================
+   * `leaving` puts two things over the editor: `.wb-editor-leaving`, which is
+   * `pointer-events: none` on the whole of it, and `.wb-leaving`, a fixed
+   * scrim at z-index 300 with no pointer-events rule at all. Together they
+   * are a deliberate, total block — correct for the second and a half between
+   * pressing Back and the next page arriving.
+   *
+   * It was set and never cleared. The only thing that ever un-set it was the
+   * component being destroyed, which is fine exactly as long as the
+   * navigation happens AND the editor is thrown away. Neither is guaranteed:
+   *
+   *   - Back out of the page it pushed and the browser may restore this one
+   *     from its back/forward cache, with every piece of React state exactly
+   *     as it was. `leaving` comes back true, and so does the scrim.
+   *   - A push that is cancelled, or refused, or simply slow leaves the
+   *     editor sitting under its own blocker with nothing to lift it.
+   *
+   * Either way the editor is alive, looks nearly normal, and takes no input:
+   * the canvas will not scroll and nothing in it can be pressed. That is the
+   * freeze that gets reported as "the preview stopped working".
+   *
+   * Three ways back, because they cover different failures. `pageshow` with
+   * `persisted` is the bfcache restore and is the specific one. `popstate` is
+   * any in-history return. And the watchdog is the general answer to "the
+   * navigation did not happen": a push that works takes this component with
+   * it, so still being here after three seconds means it did not, and the
+   * blocker has outlived its reason.
+   */
+  useEffect(() => {
+    if (!leaving) return
+    const revive = () => {
+      setLeaving(false)
+      setPendingExit(null)
+    }
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) revive()
+    }
+    window.addEventListener("pageshow", onPageShow)
+    window.addEventListener("popstate", revive)
+    const watchdog = window.setTimeout(revive, 3000)
+    return () => {
+      window.removeEventListener("pageshow", onPageShow)
+      window.removeEventListener("popstate", revive)
+      window.clearTimeout(watchdog)
+    }
+  }, [leaving])
+
   /** What leaving would cost right now, if anything. */
   const leaveReason: LeaveReason = {
     draft: isDirty,

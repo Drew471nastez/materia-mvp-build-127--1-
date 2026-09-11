@@ -1018,6 +1018,20 @@ html.capacitor body {
     inset: 0;
     /* Above every sheet, which render into the body at 80 and below. */
     z-index: 300;
+    /**
+     * IT BLOCKS ON PURPOSE, AND THAT IS WHY IT HAS TO BE LIFTED.
+     *
+     * No `pointer-events: none` here: for the second between pressing Back
+     * and the next page arriving, nothing behind this should be pressable —
+     * a second press on a control that is already on its way out is how you
+     * get two of whatever it does.
+     *
+     * The cost is that this is a total block on a full-screen layer, so
+     * anything that leaves it up leaves the editor alive and deaf. See the
+     * revive effect in the editor: `pageshow`, `popstate` and a watchdog,
+     * because a navigation that does not happen used to leave this here
+     * with nothing able to remove it.
+     */
     display: flex;
     align-items: center;
     justify-content: center;
