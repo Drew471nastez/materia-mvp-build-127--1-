@@ -5814,7 +5814,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         // the status bar. Fixed is measured against the viewport and adds
         // nothing to the document. FullScreenLock below zeroes that padding
         // so nothing else can put the scroll back.
-        "wb-editor fixed inset-0 flex flex-col bg-muted/30 overflow-hidden wb-editor-enter",
+        /**
+         * The colour the workspace's four corners open onto. Nothing else of
+         * it is ever visible: the bar covers the top of this and the rounded
+         * row covers the rest, so all it does is give the arcs somewhere to
+         * be. A step darker than the workspace, which is what makes them
+         * read; when the two were the same grey the corners were clipped
+         * correctly and could not be seen.
+         */
+        "wb-editor fixed inset-0 flex flex-col bg-[#d9dee6] overflow-hidden wb-editor-enter",
         chromeTone === "light" && "wb-chrome-light",
         // Leaving fades the editor while the next page is fetched, so the
         // hand-off is a dissolve rather than a hard cut when it lands.
@@ -6307,50 +6315,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       </div>
 
       {/* ── Body ──
-          NO MAT, AND NOTHING BLACK BEHIND THE PANELS.
+          THE WORKSPACE IS ONE ROUNDED SLAB, AND THE SEAM INSIDE IT IS FLAT.
 
-          This was eight pixels of the bar's dark on every side of every
-          panel, which put a black gutter down the left of the sidebar, a
-          black band under the preview and a black seam between the two. Dark
-          matting only works where it is wide enough to read as a frame; at
-          eight pixels it reads as a gap that failed to close, and that is
-          what was reported.
+          The rounding has been in the wrong place every time. It went on the
+          panels — first one of their corners, then two, then all four of the
+          top ones, on both panels — and every version of that puts an arc in
+          the MIDDLE of the workspace, where the sidebar meets the canvas.
+          Two panels curving away from each other leave a wedge between them
+          that narrows downward, and a wedge is a notch: it reads as a bite
+          taken out of the row, not as a rounded corner.
 
-          So the panels are flush: the sidebar meets the left edge, the
-          preview meets the sidebar, and the only surround left anywhere is
-          the two wedges inside the workspace's outer top corners.
+          A divider is a divider. The corners belong on the OUTSIDE, where
+          the workspace meets the screen, and there are four of them: left and
+          right, top and bottom. So this row carries the radius and the clip,
+          the panels inside it are square, and the seam between them is the
+          same hairline every other divider in the app uses.
 
-          THE WORKSPACE IS ONE ROUNDED SHAPE UNDER THE BAR.
-
-          The rounding used to sit at the sidebar/canvas junction, which put
-          an arc in the middle of the row and left both ends of it square
-          against the screen. That is backwards: the seam between two panels
-          is an internal divider and wants to be a straight hairline, and the
-          corners that meet the chrome are the ones that should turn. So the
-          sidebar rounds at the top left, the canvas rounds at the top right,
-          and the row reads as a single sheet tucked under the bar.
-
-          This row paints the LIGHT surround, not the bar's dark. The dark was
-          tried and it reads as a hole punched between two white panels: the
-          arcs are small, and a small dark shape surrounded by white is a gap,
-          not a frame. In the workspace's own light grey the same arcs read as
-          the surface the panels are sitting on, which is what they are.
-
-          THIS ROW IS DARKER THAN THE CANVAS, AND THAT IS THE WHOLE TRICK.
-
-          Every arc in the row opens onto this colour, so it has to differ
-          from BOTH things that curve away from it: the white of the sidebar
-          and the light grey of the canvas. It was the same grey as the
-          canvas, which meant the canvas's own corners revealed exactly the
-          colour already beside them — present, correctly clipped, and
-          invisible. That is why the canvas kept reading as square under the
-          bar while the sidebar beside it read as round.
-
-          #d9dee6 is 33 points of luminance from white and 19 from the canvas,
-          so both curves are visible, and the canvas itself gets LIGHTER at
-          the same time rather than darker. None of this colour is ever seen
-          except inside those four arcs. */}
-      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-[#d9dee6]">
+          `overflow-hidden` here is what does it: everything in the row is cut
+          to this shape, so the panels do not each need their own. Menus and
+          tooltips are portalled to the body and the drag overlay is fixed, so
+          none of them is clipped by it. */}
+      <div
+        className={cn(
+          "relative flex flex-1 min-h-0 overflow-hidden bg-[#eef1f5]",
+          // A phone has no frame to round: the workspace is the screen.
+          !isMobileView && "rounded-2xl",
+        )}
+      >
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
           <div className="relative flex-shrink-0 flex h-full overflow-visible">
@@ -6358,15 +6349,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 scrollbar stays inside it. The outer box stays
                 `overflow-visible` for the grab edge that hangs past it.
 
-                BOTH TOP CORNERS, like the canvas beside it. The sidebar
-                turned only at the screen's edge, so at the seam a rounded
-                canvas met a square sidebar and the surround between them was
-                a one-sided notch. Curving both sides makes it a symmetric
-                valley: two panels tucked under the bar, mirroring each
-                other, with the workspace's own surface showing between. */}
+                Square. The row around it carries the shape now, and clips
+                this to it, so the only corners in the workspace are the four
+                on its outside. */}
             <div
               ref={sidebarRef}
-              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-[#e5e7eb] rounded-t-2xl"
+              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-[#e5e7eb]"
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
               <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
@@ -6485,11 +6473,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </MobileEditorSheet>
         )}
 
-        {/* The AI takes the same shape as the panels either side of it, so
-            opening it adds a column to the row rather than a square block in
-            the middle of a row of rounded ones. */}
+        {/* Square, like the sidebar: the row's own clip is the only shape in
+            here, so opening the AI adds a column rather than another set of
+            corners in the middle of the workspace. */}
         {!isMobileView && aiOpen && (
-          <div className="relative flex-shrink-0 overflow-hidden bg-white border-r border-[#e5e7eb] rounded-t-2xl" style={{ width: 340 }}>
+          <div className="relative flex-shrink-0 overflow-hidden bg-white border-r border-[#e5e7eb]" style={{ width: 340 }}>
             <ThemeChat
               installId={installId}
               page={currentPage}
@@ -6531,14 +6519,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * with a hole in the middle. On a phone preview the hole is most
              * of the screen.
              *
-             * So the surround is a light grey, far enough from white to give
-             * the preview an edge, and its own corners curve away onto the
-             * row behind it — which is a step darker again, so they can be
-             * seen. When this and the row were the same grey, the canvas's
-             * corners revealed the colour already beside them and read as
-             * square however correctly they were clipped.
+             * A light grey, far enough from white to give a device preview
+             * an edge to be seen against. No radius: the row around it is
+             * the rounded thing and this is cut to it.
              */
-            isMobileView ? "bg-background" : "bg-[#eef1f5] rounded-t-2xl",
+            isMobileView ? "bg-background" : "bg-[#eef1f5]",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6547,20 +6532,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             isMobileView
               ? "items-start p-0"
               /**
-               * NO MAT, AND BOTH TOP CORNERS.
+               * NO MAT, AND NO CORNERS OF ITS OWN.
                *
-               * The card is flush on every side and turns at the top, on BOTH
-               * ends: at the right, where it meets the edge of the screen
-               * under the bar, and at the left, where it meets the sidebar
-               * under the bar. The sidebar mirrors it, so the four top
-               * corners in the row all curve and the workspace's own light
-               * surface shows through every one of them.
-               *
-               * This has been one corner twice — the left alone, then the
-               * right alone — and dark behind the arcs once, which read as a
-               * hole punched between two white panels rather than as a frame.
-               * A device preview is a card in the middle of the canvas
-               * instead, so that one is rounded all the way round.
+               * The card is flush on every side and square: the row around
+               * the whole workspace carries the radius and clips this to it,
+               * so the arcs are on the outside of the builder rather than in
+               * the middle of it. A device preview is a card floating in the
+               * canvas instead, so that one is rounded all the way round.
                */
               : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
           )}
@@ -6610,7 +6588,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full rounded-none"
                 : device === "desktop"
-                  ? "rounded-t-2xl w-full"
+                  ? "rounded-none w-full"
                   // A phone or a tablet is a card floating on the canvas, so
                   // it needs the edge and the lift a card has. On the dark
                   // surround the contrast did that job; on a light one it has

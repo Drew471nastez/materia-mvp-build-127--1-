@@ -671,7 +671,7 @@ check(
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-0 z-\[80\] flex flex-col rounded-t-2xl/.test(modeSwitch) &&
+    /absolute inset-0 z-\[80\] flex flex-col",/.test(modeSwitch) &&
     // A black panel inside a white builder is a second product bolted on.
     /"overflow-hidden bg-white"/.test(modeSwitch) &&
     !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
@@ -769,7 +769,7 @@ check(
   // no surround at all beyond the strip reserved for the sheet's peek, which
   // takes the sheet's own colour so a one-pixel disagreement is a seam.
   /"relative flex-1 min-w-0 overflow-hidden flex justify-center"/.test(editor) &&
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-t-2xl"/.test(editor),
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor),
 )
 
 check(
@@ -800,19 +800,19 @@ check(
    * sliver inside the preview's one rounded corner.
    */
   // no mat: no padding, no gap, and the row itself is the light surface
-  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#d9dee6\]">/.test(editor) &&
+  /"relative flex flex-1 min-h-0 overflow-hidden bg-\[#eef1f5\]",/.test(editor) &&
     !/bg-\[#171717\] p-2 gap-2/.test(editor) &&
-    // both top corners on the preview, matching the sidebar beside it
-    /\? "rounded-t-2xl w-full"/.test(editor) &&
+    // and the preview is square, because the row around it is the shape
+    /\? "rounded-none w-full"/.test(editor) &&
     // the sidebar and the AI: flush, clipped, a hairline instead of a gutter
-    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-t-2xl"/.test(editor) &&
-    /className="relative flex-shrink-0 overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-t-2xl" style=\{\{ width: 340 \}\}/.test(editor) &&
+    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]"/.test(editor) &&
+    /className="relative flex-shrink-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]" style=\{\{ width: 340 \}\}/.test(editor) &&
     // and what shows through that one arc is a LIGHT surround: the bar is
     // chrome and is meant to be dark, the canvas is the page being worked on,
     // and a near-black field around it makes the builder read as two products
     // with a hole between them. On a phone preview the hole is most of the
     // screen, which is what was reported with the screenshot beside it.
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-t-2xl"/.test(editor) &&
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor) &&
     !/: "bg-\[#171717\]"/.test(editor) &&
     // a device preview is a card floating on that surround, so it is drawn
     // with the edge and the lift the dark used to give it for free
@@ -871,49 +871,35 @@ check(
 )
 
 check(
-  "every panel in the row turns at the top, onto the light",
+  "the workspace is one rounded slab, and the seam inside it is flat",
   /**
-   * Four corners, and it took four goes: each go moved the one arc somewhere
-   * else instead of adding the ones that were missing, and the first shape
-   * that had them all put the wrong colour behind them.
+   * The rounding was in the wrong place every time, and each attempt moved it
+   * somewhere equally wrong: one corner of the canvas, then two, then all
+   * four of the top corners across both panels. Every one of those puts an
+   * arc in the MIDDLE of the workspace, where the sidebar meets the canvas.
+   * Two panels curving away from each other leave a wedge between them that
+   * narrows downward, and a wedge is a notch — a bite out of the row rather
+   * than a corner.
    *
-   * The panels sit in a row under the bar and each ends where the chrome
-   * begins: the sidebar at the screen's left edge and at the seam, the canvas
-   * at that same seam and at the screen's right edge. All four turn, so the
-   * two mirror each other and what is between them is a symmetric valley
-   * rather than the one-sided notch that was reported.
+   * A divider is a divider. The corners belong on the OUTSIDE, where the
+   * workspace meets the screen, and there are four of them: left and right,
+   * top and bottom. The row carries the radius and the clip, every panel
+   * inside it is square, and the seam is the app's own hairline.
    *
-   * And the row is LIGHT behind those arcs. The bar's dark was tried: the
-   * arcs are small, and a small dark shape surrounded by white reads as a
-   * hole punched between two panels rather than as a frame around them. In
-   * the workspace's own grey the same arcs read as the surface the panels sit
-   * on, which is what they are.
-   *
-   * Measured, counting only the pixels each arc should have cut away: 44 of
-   * 44 at the left edge, 44 and 40 at the two sides of the seam, 44 at the
-   * right, against 0 of 44 for the sidebar's side of the seam in the shape it
-   * replaces.
-   *
-   * AND THE ROW IS DARKER THAN THE CANVAS, which is the part that was
-   * actually wrong. Every arc opens onto the row, so the row has to differ
-   * from BOTH things curving away from it: the sidebar's white and the
-   * canvas's grey. It was the same grey as the canvas, so the canvas's
-   * corners revealed the exact colour already beside them — clipped
-   * correctly, and invisible. That is why the canvas read as square under the
-   * bar while the sidebar beside it read as round.
-   *
-   * The row is 33.5 points of luminance from white and 19.1 from the canvas,
-   * against 0.0 before; and the canvas itself gets LIGHTER in the process
-   * rather than darker. `node scripts/check-workspace-corners.mjs`
+   * Measured at all four, counting only the pixels each arc should have cut
+   * away: 44/44, 44/44, 43/44, 43/44, with 0 at the seam — against 0 at every
+   * outer corner and 110 at the seam for the shape it replaces.
+   * `node scripts/check-workspace-corners.mjs`
    */
-  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#d9dee6\]">/.test(editor) &&
-    !/bg-\[var\(--wb-chrome-bg\)\]">/.test(editor) &&
-    // the sidebar turns on both of its top corners, and so does the AI column
-    /overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-t-2xl"/.test(editor) &&
-    /overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-t-2xl" style=\{\{ width: 340 \}\}/.test(editor) &&
-    // and so does the canvas, and the card inside it
-    /"bg-\[#eef1f5\] rounded-t-2xl"/.test(editor) &&
-    /\? "rounded-t-2xl w-full"/.test(editor),
+  /"relative flex flex-1 min-h-0 overflow-hidden bg-\[#eef1f5\]",\s*\n[\s\S]{0,200}?!isMobileView && "rounded-2xl",/.test(editor) &&
+    // the backdrop those four arcs open onto, a step darker so they read
+    /"wb-editor fixed inset-0 flex flex-col bg-\[#d9dee6\] overflow-hidden wb-editor-enter"/.test(editor) &&
+    // and nothing inside the row carries a radius of its own
+    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]"/.test(editor) &&
+    /className="relative flex-shrink-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]" style=\{\{ width: 340 \}\}/.test(editor) &&
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor) &&
+    /\? "rounded-none w-full"/.test(editor) &&
+    !/rounded-t-2xl/.test(editor),
 )
 
 check(
@@ -2032,7 +2018,7 @@ check(
    * and the unwrapped one is a control that must still fail.
    */
   // The wrapper carries the shape and the clip...
-  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,600}?\? "rounded-t-2xl w-full"/.test(editor) &&
+  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,700}?\? "rounded-none w-full"/.test(editor) &&
     // ...and the scroller inside it is square and fills it, so nothing it
     // paints can reach a corner.
     /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"/.test(
