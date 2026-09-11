@@ -35,6 +35,7 @@
 import { readdirSync, readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import { DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
+import { BUILT_IN_SCHEME_KEYS } from "@/lib/storelib-theme/color-schemes"
 import { contrastRatio } from "@/lib/website-builder/agent/review"
 import { STORELIB_SCHEMAS, STORELIB_SECTION_TYPES } from "@/lib/website-builder/storelib-schemas"
 
@@ -339,7 +340,7 @@ section("Colour is controllable on every section")
 // ===========================================================================
 
 {
-  const SCHEMES = ["white", "light", "dark", "black", "highlight"]
+  const SCHEMES: string[] = [...BUILT_IN_SCHEME_KEYS]
 
   const usesScheme = types.filter((t) => /sectionColors\(|resolveScheme\(/.test(sources.get(t)!))
   const declaresScheme = types.filter((t) =>

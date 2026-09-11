@@ -15,6 +15,19 @@ export type { Capability } from "./storelib/script"
 export { compileSection, createCompileCache, createLru, COMPILE_CACHE_LIMIT, sourceHash } from "./storelib/compile"
 export { resolveInstance, resolveOne, resolveSettings, stripDefaults, fillResponsive, themeTokens } from "./resolve"
 export { renderSection } from "./render"
+export {
+  SCHEME_COLOR_KEYS, SCHEME_COLOR_LABELS, SCHEME_COLOR_GROUPS, SECTION_OVERRIDE_KEYS, SCHEME_CSS_VARS, SCHEME_GRADIENT_VAR,
+  BUILT_IN_SCHEME_KEYS, DEFAULT_COLOR_SCHEMES, FALLBACK_SCHEME_KEY, LEGACY_TO_SEMANTIC, LEGACY_FIXED,
+  normalizeScheme, newSchemeFrom, themeColorSchemes, isBuiltInScheme, defaultSchemeKey, sectionOverrides,
+  resolveSectionColors, schemeVars, legacySchemeValues, styleAttr, remapScheme, stripSchemeDefaults,
+} from "./color-schemes"
+export type { ColorScheme, SchemeColorKey, BuiltInSchemeKey, ResolvedSectionColors } from "./color-schemes"
+export {
+  TYPE_STYLE_KEYS, TYPE_STYLE_LABELS, FONT_ROLES, TEXT_TRANSFORMS, TYPE_BREAKPOINTS, DEFAULT_TYPE_STYLES,
+  SECTION_HEADING_STYLES, SECTION_BODY_STYLES, responsiveSize, normalizeTypeStyle, baseTypeStyles, themeTypography,
+  stripTypeStyleDefaults, fontVars, typographyVars, typographySizeVars, sectionTypography, typographyStylesheet,
+} from "./typography"
+export type { TypeStyle, TypeStyleKey, FontRole, TextTransform, ResponsiveSize, ThemeFonts, ThemeTypography, SectionTypography } from "./typography"
 export type { Rendered, RenderInput } from "./render"
 export { buildLibrary, allowedOn, templatesUsing, sectionTypeFromPath } from "./discovery"
 export type { Library, LibraryEntry } from "./discovery"

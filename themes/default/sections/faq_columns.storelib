@@ -42,17 +42,19 @@
 .s__eyebrow { margin: 0 0 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--s-accent); }
 .s__h {
   margin: 0;
-  font-size: 32px;
-  line-height: 1.15;
-  font-weight: 700;
+  /* The section's heading style: Heading 2 unless the section picked
+     another, set by the theme stylesheet on the section root. */
+  font-size: var(--section-heading-size, 32px);
+  line-height: var(--section-heading-line-height, 1.15);
+  font-weight: var(--section-heading-weight, 700);
   color: var(--s-heading);
-  letter-spacing: -0.01em;
+  letter-spacing: var(--section-heading-tracking, -0.01em);
+  text-transform: var(--section-heading-transform, none);
   /* The theme's font when the page sets one, the token otherwise, and a real
      stack either way: a bare family name falls back to the browser's serif. */
   font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif;
 }
-@container (min-width: 768px) { .s__h { font-size: 40px; } }
-.s__sub { margin: 14px 0 0; font-size: 17px; line-height: 1.6; color: var(--s-para); }
+.s__sub { margin: 14px 0 0; font-size: var(--section-text-size, 17px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); }
 .s__head { max-width: 44rem; }
 .s__head--center { margin-inline: auto; text-align: center; }
 .s__btns { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }

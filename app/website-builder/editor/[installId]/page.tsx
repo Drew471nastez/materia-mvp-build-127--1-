@@ -60,8 +60,10 @@ import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type {
   ThemeInstall, SectionInstance, ThemeSettingsValues,
-  PageKey, EditorPanel, SchemaField, ColorSchemeValues, ColorSchemeKey, SectionSchema } from "@/lib/website-builder/types"
-import { PAGE_META, DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
+  PageKey, EditorPanel, SchemaField, SectionSchema } from "@/lib/website-builder/types"
+import { ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/website-builder/editor/design-panels"
+import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
+import { PAGE_META } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
@@ -550,7 +552,8 @@ function FieldEditor({
   }
 
   if (kind === "color_scheme") {
-    const keys = Object.keys(DEFAULT_COLOR_SCHEMES)
+    const schemes = themeColorSchemes({})
+    const keys = Object.keys(schemes)
     return (
       <div className="relative">
         <select
@@ -558,7 +561,7 @@ function FieldEditor({
           value={typeof raw === "string" && keys.includes(raw) ? raw : keys[0]}
           onChange={e => onChange(e.target.value)}
         >
-          {keys.map(k => <option key={k} value={k}>{k.charAt(0).toUpperCase() + k.slice(1)}</option>)}
+          {keys.map(k => <option key={k} value={k}>{schemes[k].name}</option>)}
         </select>
         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
       </div>
@@ -1846,836 +1849,6 @@ function WbSelect({
   )
 }
 
-// ── Shared Scheme Pill List ──────────────────────────────────
-// Vertical list of 5 Aa pills whose bg + text colors come straight
-// from the scheme's own background + heading colors in
-// theme.color_schemes (with DEFAULT_COLOR_SCHEMES as a fallback).
-// Labels are "Scheme 1..5" so editing the underlying colors doesn't
-// make the name lie. Active row reveals an Edit button that jumps
-// to General Settings → Color Schemes.
-const SCHEME_KEYS_ORDERED: ColorSchemeKey[] = ["white", "light", "dark", "black", "highlight"]
-const SCHEME_PILL_LABELS: Record<ColorSchemeKey, string> = {
-  white: "Scheme 1", light: "Scheme 2", dark: "Scheme 3", black: "Scheme 4", highlight: "Scheme 5",
-}
-
-function SchemePillList({
-  value,
-  onChange,
-  themeSchemes,
-  onEditScheme,
-  dense = false,
-}: {
-  value: string
-  onChange: (v: string) => void
-  themeSchemes: Record<string, ColorSchemeValues> | undefined
-  onEditScheme?: (schemeKey?: ColorSchemeKey) => void
-  dense?: boolean
-}) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false)
-    }
-    document.addEventListener("mousedown", onDoc)
-    document.addEventListener("keydown", onKey)
-    return () => {
-      document.removeEventListener("mousedown", onDoc)
-      document.removeEventListener("keydown", onKey)
-    }
-  }, [open])
-
-  const activeKey = (SCHEME_KEYS_ORDERED.includes(value as ColorSchemeKey)
-    ? (value as ColorSchemeKey)
-    : SCHEME_KEYS_ORDERED[0])
-  const activeScheme = { ...DEFAULT_COLOR_SCHEMES[activeKey], ...(themeSchemes?.[activeKey] ?? {}) }
-
-  return (
-    <div ref={rootRef} className="relative">
-      {/* Trigger — shows the currently selected scheme */}
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className={cn(
-          "w-full h-12 flex items-center justify-between gap-2 px-3 rounded-xl border transition-all cursor-pointer",
-          open ? "border-blue-500" : "border-neutral-200 hover:border-neutral-300",
-        )}
-        style={{ background: activeScheme.bg, color: activeScheme.heading }}
-      >
-        <span className="flex items-center gap-2.5 min-w-0">
-          <span className="text-[16px] font-bold">Aa</span>
-          <span className="text-[14px] font-medium truncate">{SCHEME_PILL_LABELS[activeKey]}</span>
-        </span>
-        <span className="flex items-center gap-2 shrink-0">
-          {onEditScheme && (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={e => { e.stopPropagation(); onEditScheme(activeKey) }}
-              onKeyDown={e => { if (e.key === "Enter") { e.stopPropagation(); onEditScheme(activeKey) } }}
-              className="text-[12px] font-medium px-3 py-1 rounded-md bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer shadow-sm"
-            >
-              Edit
-            </span>
-          )}
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 opacity-70 transition-transform duration-200 ease-out",
-              open && "rotate-180",
-            )}
-          />
-        </span>
-      </button>
-
-      {/* Dropdown panel */}
-      {open && (
-        <div
-          className="absolute left-0 right-0 top-full mt-2 z-50 rounded-xl border border-neutral-200 bg-popover shadow-lg p-1.5 space-y-1 origin-top"
-          style={{
-            animation: "scheme-dropdown-in 180ms cubic-bezier(0.32, 0.72, 0, 1) both",
-          }}
-        >
-          <style jsx>{`
-            @keyframes scheme-dropdown-in {
-              from { opacity: 0; transform: translateY(-4px) scaleY(0.98); }
-              to   { opacity: 1; transform: translateY(0) scaleY(1); }
-            }
-          `}</style>
-          {SCHEME_KEYS_ORDERED.map(k => {
-            const sc = { ...DEFAULT_COLOR_SCHEMES[k], ...(themeSchemes?.[k] ?? {}) }
-            const isActive = value === k
-            return (
-              <button
-                key={k}
-                type="button"
-                onClick={() => { onChange(k); setOpen(false) }}
-                className={cn(
-                  "w-full h-11 flex items-center gap-2.5 px-3 rounded-lg border-2 transition-colors duration-150 cursor-pointer",
-                  isActive ? "border-blue-500" : "border-transparent hover:border-blue-200",
-                )}
-                style={{ background: sc.bg, color: sc.heading }}
-              >
-                <span className="text-[15px] font-bold">Aa</span>
-                <span className="text-[13px] font-medium truncate">{SCHEME_PILL_LABELS[k]}</span>
-                {isActive && <Check className="h-3.5 w-3.5 ml-auto opacity-70" />}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Per-section Color Scheme Picker ──────────────────────────
-function SectionColorSchemePicker({
-  value,
-  onChange,
-  themeSchemes,
-  onEditScheme,
-}: {
-  value: string
-  onChange: (v: string) => void
-  themeSchemes: Record<string, ColorSchemeValues> | undefined
-  onEditScheme?: (schemeKey?: ColorSchemeKey) => void
-}) {
-  return (
-    <div className="border-b border-border p-4 space-y-3">
-      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Color Scheme</p>
-      <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
-        <Info className="h-3 w-3 shrink-0 mt-0.5" />
-        <p className="flex-1">
-          Choose a color scheme for this section. Visit the{" "}
-          {onEditScheme ? (
-            <button type="button" onClick={() => onEditScheme()} className="text-blue-600 hover:underline inline">
-              color scheme editor
-            </button>
-          ) : (
-            <span className="text-blue-600 inline">color scheme editor</span>
-          )}{" "}
-          to customise colors.
-        </p>
-      </div>
-      <SchemePillList
-        value={value}
-        onChange={onChange}
-        themeSchemes={themeSchemes}
-        onEditScheme={onEditScheme}
-      />
-    </div>
-  )
-}
-
-// ── Global Color Schemes Editor ──────────────────────────────
-// Renders a tabbed editor for the 5 global color schemes (white,
-// light, dark, black, highlight). Each scheme exposes the color
-// slots that the renderer reads when a section selects it.
-const COLOR_SCHEME_KEYS: ColorSchemeKey[] = ["white", "light", "dark", "black", "highlight"]
-// Labels are generic "Scheme N" so editing a scheme's colors doesn't
-// make its name lie. The 5 built-in keys (white/light/dark/black/
-// highlight) are still used internally for stable storage.
-const COLOR_SCHEME_LABELS: Record<ColorSchemeKey, string> = {
-  white: "Scheme 1", light: "Scheme 2", dark: "Scheme 3", black: "Scheme 4", highlight: "Scheme 5",
-}
-// Full color slot definitions, grouped by section as in the spec.
-const COLOR_SCHEME_GROUPS: { id: keyof ColorSchemeValues; label: string; group: string }[] = [
-  // Header
-  { id: "store_title",           label: "Store title",           group: "Header" },
-  { id: "nav_link",              label: "Navigation links",      group: "Header" },
-  // Section
-  { id: "bg",                    label: "Background",            group: "Section" },
-  { id: "inset_border",          label: "Inset border",          group: "Section" },
-  // Text
-  { id: "heading",               label: "Heading text",          group: "Text" },
-  { id: "paragraph",             label: "Paragraph text",        group: "Text" },
-  { id: "link",                  label: "Link",                  group: "Text" },
-  { id: "link_underline",        label: "Link underline",        group: "Text" },
-  // Primary Button — Normal
-  { id: "primary_btn_bg",        label: "Background",            group: "Primary Button (Normal State)" },
-  { id: "primary_btn_text",      label: "Text",                  group: "Primary Button (Normal State)" },
-  { id: "primary_btn_border",    label: "Border",                group: "Primary Button (Normal State)" },
-  // Primary Button — Hover
-  { id: "primary_btn_hover_bg",  label: "Background",            group: "Primary Button (Hover State)" },
-  { id: "primary_btn_hover_text",label: "Text",                  group: "Primary Button (Hover State)" },
-  { id: "primary_btn_hover_border", label: "Border",             group: "Primary Button (Hover State)" },
-  // Secondary Button — Normal
-  { id: "secondary_btn_bg",      label: "Background",            group: "Secondary Button (Normal State)" },
-  { id: "secondary_btn_text",    label: "Text",                  group: "Secondary Button (Normal State)" },
-  { id: "secondary_btn_border",  label: "Border",                group: "Secondary Button (Normal State)" },
-  // Secondary Button — Hover
-  { id: "secondary_btn_hover_bg",label: "Background",            group: "Secondary Button (Hover State)" },
-  { id: "secondary_btn_hover_text", label: "Text",               group: "Secondary Button (Hover State)" },
-  { id: "secondary_btn_hover_border", label: "Border",           group: "Secondary Button (Hover State)" },
-  // Footer
-  { id: "footer_link",           label: "Footer link",           group: "Footer" },
-  { id: "footer_link_underline", label: "Footer link underline", group: "Footer" },
-  // Misc
-  { id: "borders",               label: "Borders",               group: "Misc" },
-  { id: "on_sale",               label: "On sale",               group: "Misc" },
-  // Subscription Page
-  { id: "plan_bg",               label: "Plan background",       group: "Subscription Page" },
-  { id: "plan_border",           label: "Plan border",           group: "Subscription Page" },
-  { id: "plan_heading",          label: "Plan heading",          group: "Subscription Page" },
-  { id: "plan_paragraph",        label: "Plan paragraph",        group: "Subscription Page" },
-  { id: "plan_link",             label: "Plan link",             group: "Subscription Page" },
-  { id: "plan_link_underline",   label: "Plan link underline",   group: "Subscription Page" },
-  // Subscription Login Page
-  { id: "login_form_bg",         label: "Login form background", group: "Subscription Login Page" },
-  { id: "login_form_border",     label: "Login form border",     group: "Subscription Login Page" },
-  // Slideshow Section
-  { id: "slideshow_controls",    label: "Controls",              group: "Slideshow Section" },
-  { id: "slideshow_controls_bg", label: "Controls background",   group: "Slideshow Section" },
-  // Image Overlay
-  { id: "image_overlay_bg",      label: "Background",            group: "Image Overlay" },
-  { id: "image_overlay_text",    label: "Text",                  group: "Image Overlay" },
-  // Announcement Bar
-  { id: "announcement_bg",       label: "Background",            group: "Announcement Bar" },
-  { id: "announcement_text",     label: "Text",                  group: "Announcement Bar" },
-  // Image Collage
-  { id: "collage_title",         label: "Title",                 group: "Image Collage" },
-  { id: "collage_subtitle",      label: "Subtitle",              group: "Image Collage" },
-  { id: "collage_bg",            label: "Background",            group: "Image Collage" },
-  { id: "collage_link",          label: "Image collage link",    group: "Image Collage" },
-  { id: "collage_link_underline",label: "Image collage link underline", group: "Image Collage" },
-  // Header Dropdown
-  { id: "header_dropdown_bg",    label: "Background",            group: "Header Dropdown" },
-  { id: "header_dropdown_link",  label: "Link",                  group: "Header Dropdown" },
-  // Header Cart Notification
-  { id: "cart_notification_bg",  label: "Background",            group: "Header Cart Notification" },
-  { id: "cart_notification_text",label: "Text",                  group: "Header Cart Notification" },
-  // Pagination
-  { id: "pagination_bg",         label: "Background",            group: "Pagination (Normal State)" },
-  { id: "pagination_text",       label: "Text",                  group: "Pagination (Normal State)" },
-  { id: "pagination_active_bg",  label: "Background",            group: "Pagination (Active State)" },
-  { id: "pagination_active_text",label: "Text",                  group: "Pagination (Active State)" },
-  // Course Curriculum
-  { id: "curriculum_bg",         label: "Background",            group: "Course Curriculum" },
-  { id: "curriculum_list_title", label: "List item title",       group: "Course Curriculum" },
-  { id: "curriculum_lesson_title", label: "Lesson title",        group: "Course Curriculum" },
-  { id: "curriculum_icon",       label: "Icon",                  group: "Course Curriculum" },
-  { id: "curriculum_free_badge", label: "Free preview badge",    group: "Course Curriculum" },
-  // Customer Reviews
-  { id: "review_star",           label: "Star rating",           group: "Customer Reviews" },
-  { id: "review_verified",       label: "Verified buyer icon",   group: "Customer Reviews" },
-  { id: "review_recommended",    label: "Recommended icon",      group: "Customer Reviews" },
-  // Video Play Button
-  { id: "video_play_bg",         label: "Background",            group: "Video Play Button" },
-  { id: "video_play_icon",       label: "Icon",                  group: "Video Play Button" },
-  // On Sale Badge
-  { id: "sale_badge_bg",         label: "Background",            group: "On Sale Badge" },
-  { id: "sale_badge_text",       label: "Text",                  group: "On Sale Badge" },
-  { id: "sale_badge_border",     label: "Border",                group: "On Sale Badge" },
-  // Out Of Stock Badge
-  { id: "oos_badge_bg",          label: "Background",            group: "Out Of Stock Badge" },
-  { id: "oos_badge_text",        label: "Text",                  group: "Out Of Stock Badge" },
-  { id: "oos_badge_border",      label: "Border",                group: "Out Of Stock Badge" },
-  // Sale Time Remaining
-  { id: "sale_time_bg",          label: "Background",            group: "Sale Time Remaining" },
-  { id: "sale_time_text",        label: "Text",                  group: "Sale Time Remaining" },
-  { id: "sale_time_border",      label: "Border",                group: "Sale Time Remaining" },
-  // Inventory Low Message
-  { id: "inventory_low_text",    label: "Text",                  group: "Inventory Low Message" },
-  // Description Tab
-  { id: "desc_tab_bg",           label: "Background",            group: "Description Tab" },
-  { id: "desc_tab_text",         label: "Text",                  group: "Description Tab" },
-  { id: "desc_tab_border",       label: "Border",                group: "Description Tab" },
-  // Slider List Section
-  { id: "slider_controls",       label: "Controls",              group: "Slider List Section" },
-  { id: "slider_controls_bg",    label: "Controls background",   group: "Slider List Section" },
-]
-
-const SCHEME_PILL_STYLES: Record<ColorSchemeKey, { bg: string; text: string }> = {
-  white:     { bg: "#ffffff", text: "#0f172a" },
-  light:     { bg: "#f1f5f9", text: "#0f172a" },
-  dark:      { bg: "#1f2937", text: "#ffffff" },
-  black:     { bg: "#000000", text: "#ffffff" },
-  highlight: { bg: "#fde2e4", text: "#1f2937" },
-}
-
-// ── HSV ↔ HEX helpers ────────────────────────────────────────
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  let h = hex.replace("#", "").trim()
-  if (h.length === 3) h = h.split("").map(c => c + c).join("")
-  if (h.length !== 6 || !/^[0-9a-f]+$/i.test(h)) return { r: 0, g: 0, b: 0 }
-  const n = parseInt(h, 16)
-  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
-}
-function rgbToHex(r: number, g: number, b: number): string {
-  const to = (n: number) => {
-    const x = Math.max(0, Math.min(255, Math.round(n))).toString(16)
-    return x.length === 1 ? "0" + x : x
-  }
-  return "#" + to(r) + to(g) + to(b)
-}
-function rgbToHsv(r: number, g: number, b: number): { h: number; s: number; v: number } {
-  r /= 255; g /= 255; b /= 255
-  const max = Math.max(r, g, b), min = Math.min(r, g, b)
-  const d = max - min
-  let h = 0
-  if (d !== 0) {
-    if (max === r) h = ((g - b) / d) % 6
-    else if (max === g) h = (b - r) / d + 2
-    else h = (r - g) / d + 4
-    h *= 60
-    if (h < 0) h += 360
-  }
-  const s = max === 0 ? 0 : d / max
-  return { h, s, v: max }
-}
-function hsvToRgb(h: number, s: number, v: number): { r: number; g: number; b: number } {
-  const c = v * s
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
-  const m = v - c
-  let r = 0, g = 0, b = 0
-  if (h < 60)       { r = c; g = x; b = 0 }
-  else if (h < 120) { r = x; g = c; b = 0 }
-  else if (h < 180) { r = 0; g = c; b = x }
-  else if (h < 240) { r = 0; g = x; b = c }
-  else if (h < 300) { r = x; g = 0; b = c }
-  else              { r = c; g = 0; b = x }
-  return { r: (r + m) * 255, g: (g + m) * 255, b: (b + m) * 255 }
-}
-function hsvToHex(h: number, s: number, v: number): string {
-  const { r, g, b } = hsvToRgb(h, s, v)
-  return rgbToHex(r, g, b)
-}
-
-// ── Pretty color picker dropdown (chevron + popup) ───────────
-// Uses a portal + fixed positioning so the popup floats above every
-// sidebar scroller and isn't clipped by the parent `overflow-y-auto`.
-function ColorChip({
-  value,
-  onChange,
-  existing,
-}: {
-  value: string
-  onChange: (v: string) => void
-  existing: string[]
-}) {
-  const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const popupRef = useRef<HTMLDivElement>(null)
-  const svRef = useRef<HTMLDivElement>(null)
-  const hueRef = useRef<HTMLDivElement>(null)
-  const POPUP_W = 230
-  const POPUP_H = 320
-
-  // Current HSV state derived from the hex value (keeps the marker
-  // positions stable while editing even when the hex rounding changes
-  // the visible color slightly).
-  const isTransparent = !value || value === "transparent"
-  const initial = isTransparent ? { r: 92, g: 91, b: 99 } : hexToRgb(value)
-  const [hsv, setHsv] = useState(() => rgbToHsv(initial.r, initial.g, initial.b))
-  const [hexInput, setHexInput] = useState(isTransparent ? "" : value.toUpperCase())
-
-  // Re-sync from prop value whenever it changes externally
-  useEffect(() => {
-    if (isTransparent) return
-    const rgb = hexToRgb(value)
-    const next = rgbToHsv(rgb.r, rgb.g, rgb.b)
-    setHsv(next)
-    setHexInput(value.toUpperCase())
-  }, [value, isTransparent])
-
-  // Position the popup BELOW the trigger (slightly offset to the left so
-  // the trigger chevron sits at the top-right edge of the popup, matching
-  // the mock). Keep it on-screen on all sides.
-  useEffect(() => {
-    if (!open) return
-    const update = () => {
-      const el = triggerRef.current
-      if (!el) return
-      const r = el.getBoundingClientRect()
-      const vw = window.innerWidth
-      const vh = window.innerHeight
-      // Align popup's right edge ~12 px past the trigger's right so the
-      // chevron sits at the top-right corner of the popup.
-      let left = r.right - POPUP_W + 12
-      if (left < 8) left = 8
-      if (left + POPUP_W > vw - 8) left = vw - POPUP_W - 8
-      // Open just below the trigger; flip up if it would overflow.
-      let top = r.bottom + 6
-      if (top + POPUP_H > vh - 8) {
-        top = r.top - POPUP_H - 6
-        if (top < 8) top = 8
-      }
-      setPos({ top, left })
-    }
-    update()
-    const onScroll = () => update()
-    window.addEventListener("scroll", onScroll, true)
-    window.addEventListener("resize", update)
-    return () => {
-      window.removeEventListener("scroll", onScroll, true)
-      window.removeEventListener("resize", update)
-    }
-  }, [open])
-
-  // Close on outside click / escape
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => {
-      const t = e.target as Node
-      if (triggerRef.current?.contains(t)) return
-      if (popupRef.current?.contains(t)) return
-      setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
-    document.addEventListener("mousedown", onDoc)
-    window.addEventListener("keydown", onKey)
-    return () => {
-      document.removeEventListener("mousedown", onDoc)
-      window.removeEventListener("keydown", onKey)
-    }
-  }, [open])
-
-  // Commit a new HSV state to both local state and the parent via hex
-  const commit = useCallback((next: { h: number; s: number; v: number }) => {
-    setHsv(next)
-    const hex = hsvToHex(next.h, next.s, next.v)
-    setHexInput(hex.toUpperCase())
-    onChange(hex)
-  }, [onChange])
-
-  // Saturation/value box drag handling
-  const handleSvPoint = useCallback((clientX: number, clientY: number) => {
-    const el = svRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const x = Math.max(0, Math.min(1, (clientX - r.left) / r.width))
-    const y = Math.max(0, Math.min(1, (clientY - r.top) / r.height))
-    commit({ h: hsv.h, s: x, v: 1 - y })
-  }, [commit, hsv.h])
-
-  const onSvPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.currentTarget.setPointerCapture(e.pointerId)
-    handleSvPoint(e.clientX, e.clientY)
-  }
-  const onSvPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.buttons !== 1) return
-    handleSvPoint(e.clientX, e.clientY)
-  }
-
-  // Hue slider drag handling
-  const handleHuePoint = useCallback((clientX: number) => {
-    const el = hueRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const x = Math.max(0, Math.min(1, (clientX - r.left) / r.width))
-    commit({ h: x * 360, s: hsv.s, v: hsv.v })
-  }, [commit, hsv.s, hsv.v])
-
-  const onHuePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.currentTarget.setPointerCapture(e.pointerId)
-    handleHuePoint(e.clientX)
-  }
-  const onHuePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.buttons !== 1) return
-    handleHuePoint(e.clientX)
-  }
-
-  // Hex text input — only commit when it's a valid hex
-  const onHexInputChange = (v: string) => {
-    setHexInput(v)
-    const clean = v.startsWith("#") ? v : "#" + v
-    if (/^#[0-9a-f]{6}$/i.test(clean)) {
-      const rgb = hexToRgb(clean)
-      commit(rgbToHsv(rgb.r, rgb.g, rgb.b))
-    }
-  }
-
-  const pureHue = hsvToHex(hsv.h, 1, 1)
-  const markerLeft = `${hsv.s * 100}%`
-  const markerTop  = `${(1 - hsv.v) * 100}%`
-  const hueLeft    = `${(hsv.h / 360) * 100}%`
-  const swatchColor = isTransparent ? "transparent" : hsvToHex(hsv.h, hsv.s, hsv.v)
-
-  const popup = open && pos && typeof document !== "undefined" ? createPortal(
-    <div
-      ref={popupRef}
-      className="fixed z-[200] w-[230px] bg-white border border-border rounded-xl shadow-2xl p-2.5 animate-in fade-in zoom-in-95 duration-100"
-      style={{ top: pos.top, left: pos.left }}
-      onMouseDown={e => e.stopPropagation()}
-    >
-      {/* Saturation/value box */}
-      <div
-        ref={svRef}
-        className="relative h-[120px] w-full rounded-md overflow-hidden cursor-crosshair touch-none select-none"
-        style={{
-          background: `
-            linear-gradient(to top, #000, rgba(0,0,0,0)),
-            linear-gradient(to right, #fff, rgba(255,255,255,0)),
-            ${pureHue}
-          `,
-        }}
-        onPointerDown={onSvPointerDown}
-        onPointerMove={onSvPointerMove}
-      >
-        <div
-          className="absolute h-3.5 w-3.5 rounded-full border-2 border-white pointer-events-none"
-          style={{
-            left: markerLeft,
-            top: markerTop,
-            transform: "translate(-50%, -50%)",
-            boxShadow: "0 0 0 1px rgba(0,0,0,0.4)",
-          }}
-        />
-      </div>
-
-      {/* Hue slider */}
-      <div
-        ref={hueRef}
-        className="relative mt-2.5 h-2.5 w-full rounded-full cursor-pointer touch-none select-none"
-        style={{
-          background: "linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)",
-        }}
-        onPointerDown={onHuePointerDown}
-        onPointerMove={onHuePointerMove}
-      >
-        <div
-          className="absolute top-1/2 h-4 w-4 rounded-full border-2 border-white pointer-events-none"
-          style={{
-            left: hueLeft,
-            transform: "translate(-50%, -50%)",
-            background: pureHue,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
-          }}
-        />
-      </div>
-
-      {/* Hex input with swatch preview */}
-      <div className="mt-2.5 flex items-center gap-2 h-9 px-2 border border-border rounded-lg bg-muted/20">
-        <span
-          className="h-5 w-5 rounded border border-border shrink-0"
-          style={{
-            background: isTransparent
-              ? "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 8px 8px"
-              : swatchColor,
-          }}
-        />
-        <input
-          type="text"
-          value={hexInput}
-          onChange={e => onHexInputChange(e.target.value)}
-          className="flex-1 h-full text-[12px] bg-transparent border-0 tabular-nums uppercase focus:outline-none"
-          placeholder="#FFFFFF"
-        />
-      </div>
-
-      {existing.length > 0 && (
-        <div className="mt-2.5">
-          <p className="text-[10px] font-medium text-muted-foreground mb-1">Existing colors</p>
-          <div className="grid grid-cols-8 gap-1">
-            {existing.map((c, i) => (
-              <button
-                key={`${c}-${i}`}
-                type="button"
-                onClick={() => { onChange(c); setOpen(false) }}
-                className="h-5 w-5 rounded border border-border hover:scale-110 transition-transform"
-                style={{ background: c }}
-                aria-label={`Use ${c}`}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={() => { onChange("transparent"); setOpen(false) }}
-        className="mt-2.5 w-full h-8 flex items-center justify-center gap-1.5 text-[12px] font-medium border border-border rounded-lg hover:bg-muted transition-colors"
-      >
-        <span className="inline-block h-3.5 w-3.5 rounded-full" style={{ background: "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 6px 6px" }} />
-        Don&apos;t apply any color
-      </button>
-    </div>,
-    document.body,
-  ) : null
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 h-7 px-1.5 rounded border border-border hover:border-foreground/30 transition-colors cursor-pointer"
-        aria-label="Pick color"
-      >
-        <span
-          className="h-5 w-5 rounded-full border border-border shrink-0"
-          style={{
-            background: isTransparent
-              ? "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 8px 8px"
-              : value,
-          }}
-        />
-        <ChevronDown className="h-3 w-3 text-muted-foreground" />
-      </button>
-      {popup}
-    </>
-  )
-}
-
-function ColorSchemesEditor({
-  value,
-  onChange,
-  initialActive,
-  onInitialActiveConsumed,
-}: {
-  value: Record<string, ColorSchemeValues> | undefined
-  onChange: (v: Record<string, ColorSchemeValues>) => void
-  initialActive?: ColorSchemeKey | null
-  onInitialActiveConsumed?: () => void
-}) {
-  const [active, setActive] = useState<ColorSchemeKey>(initialActive ?? "white")
-  useEffect(() => {
-    if (initialActive) {
-      setActive(initialActive)
-      onInitialActiveConsumed?.()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialActive])
-  const [stepOneOpen, setStepOneOpen] = useState(false)
-
-  // Merge defaults so we always have a complete shape to edit
-  const schemes: Record<ColorSchemeKey, ColorSchemeValues> = {
-    white:     { ...DEFAULT_COLOR_SCHEMES.white,     ...(value?.white ?? {}) },
-    light:     { ...DEFAULT_COLOR_SCHEMES.light,     ...(value?.light ?? {}) },
-    dark:      { ...DEFAULT_COLOR_SCHEMES.dark,      ...(value?.dark ?? {}) },
-    black:     { ...DEFAULT_COLOR_SCHEMES.black,     ...(value?.black ?? {}) },
-    highlight: { ...DEFAULT_COLOR_SCHEMES.highlight, ...(value?.highlight ?? {}) },
-  }
-  const current = schemes[active]
-
-  const updateColor = (key: keyof ColorSchemeValues, color: string) => {
-    onChange({ ...schemes, [active]: { ...current, [key]: color } })
-  }
-  const resetScheme = () => {
-    onChange({ ...schemes, [active]: { ...DEFAULT_COLOR_SCHEMES[active] } })
-  }
-
-  // Build the recently-used color list for the picker
-  const existing = Array.from(
-    new Set(
-      Object.values(current).filter((v): v is string => typeof v === "string" && v !== "transparent"),
-    ),
-  ).slice(0, 14)
-
-  // Group fields by their group label
-  const grouped: Record<string, typeof COLOR_SCHEME_GROUPS> = {}
-  for (const f of COLOR_SCHEME_GROUPS) {
-    (grouped[f.group] ??= []).push(f)
-  }
-
-  // Step 1 dropdown portal positioning — matches trigger width and sits
-  // just below the trigger with on-screen clamping, so the dropdown is
-  // never clipped by a sidebar overflow-y-auto.
-  const stepOneTriggerRef = useRef<HTMLButtonElement>(null)
-  const [stepOnePos, setStepOnePos] = useState<{ top: number; left: number; width: number } | null>(null)
-  useEffect(() => {
-    if (!stepOneOpen) return
-    const update = () => {
-      const el = stepOneTriggerRef.current
-      if (!el) return
-      const r = el.getBoundingClientRect()
-      const vh = window.innerHeight
-      const desiredHeight = 5 * 48 + 8
-      let top = r.bottom + 4
-      if (top + desiredHeight > vh - 8) top = Math.max(8, r.top - desiredHeight - 4)
-      setStepOnePos({ top, left: r.left, width: r.width })
-    }
-    update()
-    const onScroll = () => update()
-    window.addEventListener("scroll", onScroll, true)
-    window.addEventListener("resize", update)
-    return () => {
-      window.removeEventListener("scroll", onScroll, true)
-      window.removeEventListener("resize", update)
-    }
-  }, [stepOneOpen])
-  useEffect(() => {
-    if (!stepOneOpen) return
-    const onDoc = (e: MouseEvent) => {
-      const t = e.target as Node
-      if (stepOneTriggerRef.current?.contains(t)) return
-      const popup = document.getElementById("color-scheme-step1-popup")
-      if (popup?.contains(t)) return
-      setStepOneOpen(false)
-    }
-    document.addEventListener("mousedown", onDoc)
-    return () => document.removeEventListener("mousedown", onDoc)
-  }, [stepOneOpen])
-
-  return (
-    <div className="space-y-4">
-      <h3 className="text-[15px] font-semibold">Edit Section Color Scheme</h3>
-      <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
-        <Info className="h-3 w-3 shrink-0 mt-0.5" />
-        <p className="flex-1">Click on any element in the preview, then its settings will appear. Each scheme is global. Every section using it updates.</p>
-      </div>
-
-      {/* ─── Step 1: Choose color scheme (dropdown) ─── */}
-      <div className="space-y-2">
-        <p className="text-[12px] font-semibold text-foreground"><span className="font-bold">Step 1:</span> Choose color scheme you&apos;d like to edit</p>
-        <div className="relative">
-          <button
-            ref={stepOneTriggerRef}
-            type="button"
-            onClick={() => setStepOneOpen(o => !o)}
-            className={cn(
-              "w-full h-12 flex items-center justify-between gap-2 px-3 rounded-lg border-2 bg-white transition-all duration-150",
-              stepOneOpen
-                ? "border-blue-500 shadow-[0_0_0_3px_rgba(59,130,246,0.15)]"
-                : "border-border hover:border-blue-400 hover:shadow-sm",
-            )}
-          >
-            <span className="flex items-center gap-2.5 min-w-0">
-              <span
-                className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-[13px] font-semibold shrink-0 transition-colors"
-                style={{ background: schemes[active].bg, color: schemes[active].heading }}
-              >
-                Aa
-              </span>
-              <span className="text-sm font-medium text-foreground truncate">{COLOR_SCHEME_LABELS[active]}</span>
-            </span>
-            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", stepOneOpen && "rotate-180 text-blue-500")} />
-          </button>
-          {stepOneOpen && stepOnePos && typeof document !== "undefined" && createPortal(
-            <div
-              id="color-scheme-step1-popup"
-              className="fixed z-[200] bg-white border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-150 ease-out p-1"
-              style={{ top: stepOnePos.top, left: stepOnePos.left, width: stepOnePos.width }}
-            >
-              {COLOR_SCHEME_KEYS.map(k => {
-                const isActive = active === k
-                const sc = schemes[k]
-                return (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => { setActive(k); setStepOneOpen(false) }}
-                    className={cn(
-                      "w-full h-11 flex items-center gap-2.5 px-2.5 rounded-md transition-all duration-100",
-                      isActive
-                        ? "bg-blue-50 ring-1 ring-blue-500/40"
-                        : "hover:bg-muted/60 active:scale-[0.99]",
-                    )}
-                  >
-                    <span
-                      className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-[13px] font-semibold shrink-0"
-                      style={{ background: sc.bg, color: sc.heading }}
-                    >
-                      Aa
-                    </span>
-                    <span className={cn(
-                      "text-sm font-medium flex-1 text-left truncate",
-                      isActive ? "text-blue-700" : "text-foreground",
-                    )}>
-                      {COLOR_SCHEME_LABELS[k]}
-                    </span>
-                    {isActive && <CheckCircle className="h-4 w-4 text-blue-500 shrink-0" />}
-                  </button>
-                )
-              })}
-            </div>,
-            document.body,
-          )}
-        </div>
-      </div>
-
-      <div className="h-px bg-border" />
-
-      {/* ─── Step 2: Edit colors ─── */}
-      <div className="flex items-center justify-between">
-        <p className="text-[12px] font-semibold text-foreground"><span className="font-bold">Step 2:</span> Edit the colors of this color scheme</p>
-        <button
-          type="button"
-          onClick={resetScheme}
-          className="text-[11px] font-medium text-foreground/70 hover:text-foreground flex items-center gap-1"
-        >
-          <RotateCcw className="h-3 w-3" />
-          Reset
-        </button>
-      </div>
-
-      <div className="space-y-5">
-        {Object.entries(grouped).map(([groupLabel, fields]) => (
-          <div key={groupLabel} className="space-y-1">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{groupLabel}</p>
-            <div>
-              {fields.map((f, idx) => (
-                <div
-                  key={f.id}
-                  className={cn(
-                    "flex items-center justify-between gap-3 py-2.5",
-                    idx > 0 && "border-t border-border/60",
-                  )}
-                >
-                  <span className="text-[13px] text-foreground flex-1 truncate">{f.label}</span>
-                  <ColorChip
-                    value={current[f.id] || "#000000"}
-                    onChange={c => updateColor(f.id, c)}
-                    existing={existing}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ── Professional Radio Segment Control ───────────────────────
 function WbRadioSegment({
   label,
@@ -3142,7 +2315,7 @@ function HeaderSectionSettings({
   products,
   collections,
   customPages,
-  themeSchemes,
+  theme,
   onEditScheme,
 }: {
   section: SectionInstance
@@ -3156,8 +2329,8 @@ function HeaderSectionSettings({
   products: { id: string; title: string; slug: string }[]
   collections: { id: string; name: string; slug: string }[]
   customPages: { name: string; key: string }[]
-  themeSchemes: Record<string, ColorSchemeValues> | undefined
-  onEditScheme: (schemeKey?: ColorSchemeKey) => void
+  theme: ThemeSettingsValues
+  onEditScheme: (schemeKey?: string) => void
 }) {
   const [activeTab, setActiveTab] = useState<string | null>(null)
   const s = section.settings
@@ -3369,7 +2542,6 @@ function HeaderSectionSettings({
 
       case "header": {
         const currentLayout = (typeof s.header_layout === "string" ? s.header_layout : "logo_left_nav_right")
-        const currentScheme = (typeof s.color_scheme === "string" ? s.color_scheme : "white")
         const colorSchemes: { id: string; label: string; bg: string; text: string }[] = [
           { id: "white",     label: "White",     bg: "#ffffff", text: "#0f172a" },
           { id: "light",     label: "Light",     bg: "#f1f5f9", text: "#0f172a" },
@@ -3500,23 +2672,13 @@ function HeaderSectionSettings({
                 the layout pickers — matches the visual priority ordering the
                 user asked for in the sidebar. */}
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Colors</p>
-              <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
-                <Info className="h-3 w-3 shrink-0 mt-0.5" />
-                <p className="flex-1">
-                  Choose a color scheme for the header. Visit the{" "}
-                  <button type="button" onClick={() => onEditScheme()} className="text-blue-600 hover:underline inline">
-                    color scheme editor
-                  </button>{" "}
-                  to customise colors.
-                </p>
-              </div>
-              <SchemePillList
-                value={currentScheme}
-                onChange={v => onUpdateSetting("color_scheme", v)}
-                themeSchemes={themeSchemes}
+              <SectionDesignPanel
+                compact
+                section={section}
+                schema={{ ...(schema ?? {}), supports_typography_overrides: false }}
+                theme={theme}
+                onUpdateSetting={onUpdateSetting}
                 onEditScheme={onEditScheme}
-                dense
               />
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground block">Menu link hover style</label>
@@ -4199,7 +3361,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const switchingPage = useRef(false)
   const [expandedSettings, setExpandedSettings] = useState<string | null>(null)
-  const [editSchemeKey, setEditSchemeKey] = useState<ColorSchemeKey | null>(null)
+  const [editSchemeKey, setEditSchemeKey] = useState<string | null>(null)
   const [addSectionOpen, setAddSectionOpen] = useState(false)
   // Absolute index in `sections` where a new section should be inserted.
   // Set when the user clicks an "insert between" divider in the sidebar.
@@ -5859,7 +5021,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
             </div>
             <div className="flex-1 overflow-y-auto wb-slim-scroll p-2">
-              {THEME_SETTINGS_GROUPS.map(group => (
+              {THEME_SETTINGS_GROUPS.filter(group => group.id !== "colors").map(group => (
                 <div key={group.id} className="mb-0.5">
                   <button
                     className={cn(
@@ -5875,11 +5037,40 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     <div className="px-3 py-3 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150">
                       {/* Custom Color Schemes editor */}
                       {group.id === "color_schemes" ? (
-                        <ColorSchemesEditor
-                          value={settingsDraft.color_schemes as Record<string, ColorSchemeValues> | undefined}
-                          onChange={v => updateSetting("color_schemes", v)}
+                        <ColorsPanel
+                          theme={settingsDraft}
+                          updateSetting={updateSetting}
+                          onRemapSections={(from, to) => {
+                            debouncedPushUndo()
+                            setSections(prev => remapScheme(prev, from, to))
+                            setIsDirty(true)
+                          }}
                           initialActive={editSchemeKey}
                           onInitialActiveConsumed={() => setEditSchemeKey(null)}
+                          advanced={THEME_SETTINGS_GROUPS.find(g => g.id === "colors")?.fields.map(field => (
+                            <div key={field.id}>
+                              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                              <FieldEditor
+                                field={field}
+                                value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
+                                onChange={v => updateSetting(field.id, v)}
+                              />
+                            </div>
+                          ))}
+                        />
+                      ) : group.id === "typography" ? (
+                        <TypographyPanel
+                          theme={settingsDraft}
+                          updateSetting={updateSetting}
+                          fonts={group.fields.map(field => (
+                            <WbSelect
+                              key={field.id}
+                              label={field.label}
+                              value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
+                              onChange={v => updateSetting(field.id, v)}
+                              options={field.options ?? []}
+                            />
+                          ))}
                         />
                       ) : group.id === "branding" ? (
                         <BrandingTabPanel
@@ -6179,7 +5370,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               { name: "Contact", key: "contact" },
               ...customPages.map(p => ({ name: p.name, key: p.key as string })),
             ]}
-            themeSchemes={settingsDraft.color_schemes as Record<string, ColorSchemeValues> | undefined}
+            theme={settingsDraft}
             onEditScheme={(schemeKey) => {
               if (schemeKey) setEditSchemeKey(schemeKey)
               setSidebarMode("settings")
@@ -6206,11 +5397,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </div>
 
           <div className="flex-1 overflow-y-auto wb-slim-scroll">
-            {/* Per-section color scheme picker (uses global Color Schemes) */}
-            <SectionColorSchemePicker
-              value={typeof section.settings.color_scheme === "string" ? section.settings.color_scheme : "white"}
-              onChange={v => updateSectionSetting(section.id, "color_scheme", v)}
-              themeSchemes={settingsDraft.color_schemes as Record<string, ColorSchemeValues> | undefined}
+            {/* The section's design: its scheme, Customize, heading and body style */}
+            <SectionDesignPanel
+              section={section}
+              schema={schema}
+              theme={settingsDraft}
+              onUpdateSetting={(key, val) => updateSectionSetting(section.id, key, val)}
               onEditScheme={(schemeKey) => {
                 if (schemeKey) setEditSchemeKey(schemeKey)
                 setSidebarMode("settings")
@@ -6224,7 +5416,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               // color fields so sidebars only expose content + layout.
               // Also drop "header"/"paragraph" dividers that only separated
               // color groups and end up as orphans once the colors are gone.
-              const visible = schema.fields.filter(f => f.type !== "color")
+              const DESIGN_FIELDS = new Set(["color_scheme", "heading_style", "body_style", "custom_heading", "custom_body", "color_overrides"])
+              const visible = schema.fields.filter(f => f.type !== "color" && f.type !== "color_scheme" && !DESIGN_FIELDS.has(f.id))
               const clean: typeof visible = []
               for (let i = 0; i < visible.length; i++) {
                 const f = visible[i]

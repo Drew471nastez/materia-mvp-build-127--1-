@@ -65,6 +65,8 @@ function stripComments(src: string): string {
 /** Everything that could read a theme setting. */
 const CONSUMERS = [
   "lib/website-builder/theme-css.ts",
+  "lib/storelib-theme/typography.ts",
+  "lib/storelib-theme/color-schemes.ts",
   "lib/website-builder/theme-metadata.ts",
   "components/website-builder/theme/ThemePage.tsx",
   "components/website-builder/theme/ThemeSocials.tsx",
@@ -351,9 +353,14 @@ section("The header, the announcement bar, and the space between them")
    * a CLASS of fault and the next one will be a different setting.
    */
   const css = stripComments(readFileSync(join(root, "lib/website-builder/theme-css.ts"), "utf8"))
+  const typography = stripComments(readFileSync(join(root, "lib/storelib-theme/typography.ts"), "utf8"))
   check(
     "heading tracking is written in the unit its control declares",
-    /"--theme-heading-tracking": `\$\{Math\.max\(-2, Math\.min\(8, num\(t\.heading_letter_spacing, 0\)\)\)\}px`/.test(css) &&
+    // The control seeds the Heading 2 style's letter spacing, clamped to the
+    // control's own range in the typography module, and the variable is
+    // written from that style in px.
+    /"--theme-heading-tracking": `\$\{typo\.styles\.h2\.letter_spacing\}px`/.test(css) &&
+      /Math\.max\(-2, Math\.min\(8, num\(t\.heading_letter_spacing, 0\)\)\)/.test(typography) &&
       !/heading_letter_spacing, 0\)\}em/.test(css),
   )
   check(

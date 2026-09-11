@@ -12,7 +12,9 @@
  * instance's — it came from the template JSON, and it survives every
  * render, which is the point of it.
  */
+import { resolveSectionColors, styleAttr } from "./color-schemes"
 import { resolveInstance, themeTokens } from "./resolve"
+import { sectionTypography } from "./typography"
 import { cssForInstance } from "./storelib/css"
 import { renderTemplate, type CompiledTemplate } from "./storelib/template"
 import type { CompiledSection, RenderContext, SectionInstanceData } from "./types"
@@ -44,20 +46,36 @@ export function renderSection(input: RenderInput): Rendered {
   const assets = input.assets ?? {}
   const { settings, blocks } = resolveInstance(compiled.schema, instance, { assets })
   const theme = themeTokens(input.theme)
+  /**
+   * The section's colours: its scheme, then its own overrides, resolved by
+   * the same function the React renderers call. Exposed under both the
+   * semantic names and the legacy ones.
+   */
   const schemeSetting = compiled.schema.settings.find((s) => s.type === "color_scheme" || s.id === "color_scheme")
-  const schemes = (theme.schemes ?? {}) as Record<string, Record<string, unknown>>
-  const schemeName = schemeSetting ? String(settings[schemeSetting.id] ?? "") : ""
+  const colorSettings = schemeSetting && schemeSetting.id !== "color_scheme" ? { ...settings, color_scheme: settings[schemeSetting.id] } : settings
+  const colors = resolveSectionColors(input.theme, colorSettings)
   const ctx: RenderContext = {
     settings,
     blocks,
     theme,
-    scheme: schemes[schemeName] ?? schemes.white ?? {},
+    scheme: { ...colors.legacy, ...colors.scheme },
     page: input.page,
     section: { id, type: compiled.type },
     assets,
   }
   const inner = renderTemplate(compiled.template as CompiledTemplate, ctx)
-  const html = `<div data-section-id="${escapeAttr(id)}" data-section-type="${escapeAttr(compiled.type)}">${inner}</div>`
+  const typo = sectionTypography(settings)
+  const attrs = [
+    `data-section-id="${escapeAttr(id)}"`,
+    `data-section-type="${escapeAttr(compiled.type)}"`,
+    `data-color-scheme="${escapeAttr(colors.key)}"`,
+  ]
+  if (typo.heading) attrs.push(`data-heading-style="${escapeAttr(typo.heading)}"`)
+  if (typo.body) attrs.push(`data-body-style="${escapeAttr(typo.body)}"`)
+  const rootStyle: Record<string, string> = { ...colors.vars, ...typo.vars }
+  if (colors.scheme.gradient) rootStyle.background = colors.scheme.gradient
+  attrs.push(`style="${escapeAttr(styleAttr(rootStyle))}"`)
+  const html = `<div ${attrs.join(" ")}>${inner}</div>`
   return {
     html,
     css: compiled.css

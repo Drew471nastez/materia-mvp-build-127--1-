@@ -73,8 +73,13 @@ without every section noticing.
 
 ## Colour schemes
 
-A `color_scheme` setting names one of `theme.schemes`. The engine looks it up
-and puts the result in `scheme`, so a template reads `scheme.bg`,
-`scheme.heading`, `scheme.paragraph`, `scheme.border`, `scheme.text` without
-a dynamic index. A theme's `color_schemes` setting overrides any of the five
-defaults by name or adds new ones; an unknown name falls back to `white`.
+A `color_scheme` setting names one of `theme.schemes`. The engine looks it up,
+applies the instance's `color_overrides` on top, and puts the result in
+`scheme`, so a template reads `scheme.background`, `scheme.heading`,
+`scheme.text`, `scheme.border`, `scheme.primary_button_background` without a
+dynamic index. The older names (`scheme.bg`, `scheme.paragraph`,
+`scheme.primary_btn_bg`) still read. A theme's `color_schemes` setting
+overrides any of the five defaults by key or adds new ones; a name the theme
+no longer has follows `theme.color_scheme_remaps`, then falls back to
+`theme.default_color_scheme`, then to `white`. See
+[16-design-tokens.md](16-design-tokens.md).

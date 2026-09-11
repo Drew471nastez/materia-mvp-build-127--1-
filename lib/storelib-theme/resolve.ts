@@ -34,6 +34,8 @@
  *               was renamed, keeps its data.
  */
 import { controlFor, holdsValue, type ValueKind } from "./controls/registry"
+import { legacySchemeValues, themeColorSchemes } from "./color-schemes"
+import { themeTypography } from "./typography"
 import { BREAKPOINTS, isAssetRef, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition } from "./types"
 
 export interface ResolveOptions {
@@ -157,30 +159,22 @@ export function stripDefaults(defs: SettingDefinition[], values: Record<string, 
 /**
  * The theme's tokens, from its settings. Sections read `theme.colors.primary`
  * rather than `theme.settings.primary_color`, so a theme can rename a
- * setting without every section noticing — and the raw settings are still
+ * setting without every section noticing, and the raw settings are still
  * there under `theme.settings` for anything a token does not cover.
+ *
+ * `schemes` holds every colour scheme the theme has, each under both its
+ * semantic names (`background`, `heading`, `primary_button_background`) and
+ * the legacy ones (`bg`, `heading`, `primary_btn_bg`) templates were written
+ * against. The defaults live in ./color-schemes, and the application reads
+ * them from there too, so the two renderer families cannot drift.
  */
-/**
- * The five schemes every theme starts with. Copied here rather than imported:
- * this package must not reach into the application, and these are data. A
- * theme's own `color_schemes` setting overrides any of them by name.
- */
-export const DEFAULT_SCHEMES: Record<string, Record<string, string>> = {
-  white: { bg: "#ffffff", text: "#5C5B63", heading: "#0f172a", paragraph: "#5C5B63", border: "#e2e8f0", link: "#0f172a", accent: "#1f2937", primary_btn_bg: "#000000", primary_btn_text: "#ffffff", secondary_btn_bg: "#ffffff", secondary_btn_text: "#0f172a" },
-  light: { bg: "#f8fafc", text: "#0f172a", heading: "#0f172a", paragraph: "#475569", border: "#e2e8f0", link: "#0f172a", accent: "#1f2937", primary_btn_bg: "#0f172a", primary_btn_text: "#ffffff", secondary_btn_bg: "#ffffff", secondary_btn_text: "#0f172a" },
-  dark: { bg: "#1f2937", text: "#f8fafc", heading: "#ffffff", paragraph: "#cbd5e1", border: "#374151", link: "#f8fafc", accent: "#e5e7eb", primary_btn_bg: "#ffffff", primary_btn_text: "#0f172a", secondary_btn_bg: "transparent", secondary_btn_text: "#ffffff" },
-  black: { bg: "#000000", text: "#ffffff", heading: "#ffffff", paragraph: "#cbd5e1", border: "#1f2937", link: "#ffffff", accent: "#e5e7eb", primary_btn_bg: "#ffffff", primary_btn_text: "#000000", secondary_btn_bg: "transparent", secondary_btn_text: "#ffffff" },
-  highlight: { bg: "#fde2e4", text: "#1f2937", heading: "#1f2937", paragraph: "#475569", border: "#fbcfd1", link: "#1f2937", accent: "#0f172a", primary_btn_bg: "#1f2937", primary_btn_text: "#fde2e4", secondary_btn_bg: "transparent", secondary_btn_text: "#1f2937" },
-}
-
 export function themeTokens(settings: Record<string, unknown>): Record<string, unknown> {
   const s = (k: string, d: unknown = undefined) => (settings[k] === undefined ? d : settings[k])
-  const own = isPlain(settings.color_schemes) ? (settings.color_schemes as Record<string, unknown>) : {}
   const schemes: Record<string, Record<string, unknown>> = {}
-  for (const [name, base] of Object.entries(DEFAULT_SCHEMES)) {
-    schemes[name] = { ...base, ...(isPlain(own[name]) ? (own[name] as Record<string, unknown>) : {}) }
+  for (const [name, scheme] of Object.entries(themeColorSchemes(settings))) {
+    schemes[name] = { ...legacySchemeValues(scheme), ...scheme }
   }
-  for (const [name, v] of Object.entries(own)) if (!schemes[name] && isPlain(v)) schemes[name] = v
+  const typography = themeTypography(settings)
   return {
     schemes,
     colors: {
@@ -193,8 +187,10 @@ export function themeTokens(settings: Record<string, unknown>): Record<string, u
       muted: s("muted_color", "#6b7280"),
     },
     typography: {
-      heading: s("font_heading", "Inter"),
-      body: s("font_body", "Inter"),
+      heading: typography.fonts.heading,
+      body: typography.fonts.body,
+      accent: typography.fonts.accent,
+      styles: typography.styles,
     },
     radius: {
       small: 4,

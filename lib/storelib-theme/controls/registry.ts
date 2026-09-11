@@ -225,7 +225,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
   color_scheme: def({
     type: "color_scheme",
     label: "Colour scheme",
-    description: "One of the theme's named colour schemes.",
+    description: "One of the theme's named colour schemes, by key: the built-in white, light, dark, black and highlight (Light, Soft, Dark, Brand and Accent in the editor) or one the creator added. The editor offers every scheme the theme has; see docs/theme/16-design-tokens.md.",
     value: "enum",
     schema: z.string(),
     fallback: "white",

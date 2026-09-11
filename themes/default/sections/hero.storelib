@@ -198,6 +198,7 @@
   "name": "Hero",
   "category": "content",
   "icon": "star",
+  "supports_typography_overrides": false,
   "version": "1.0.0",
   "description": "Full-width hero with heading, subheading, two buttons and a flexible background",
   "settings": [

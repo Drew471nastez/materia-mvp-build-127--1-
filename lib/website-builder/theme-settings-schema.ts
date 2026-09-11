@@ -19,14 +19,18 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
   },
   {
     id: "color_schemes",
-    label: "Color Schemes",
+    label: "Colors",
     icon: "palette",
-    // Rendered by a custom UI in the editor (handles editing of all 5 schemes).
+    // The schemes. Rendered by ColorsPanel; the values live in
+    // theme.color_schemes, theme.default_color_scheme and
+    // theme.color_scheme_remaps (see lib/storelib-theme/color-schemes.ts).
     fields: [],
   },
   {
+    // Shown inside the Colors panel, behind "Page colors". Not a top-level
+    // group in the panel: the page's own colours are the advanced case.
     id: "colors",
-    label: "Legacy colors",
+    label: "Page colors",
     icon: "palette",
     fields: [
       { id: "primary_color", label: "Primary", type: "color", default: "#6366f1" },
@@ -91,34 +95,29 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
           { label: "Open Sans", value: "Open Sans" },
         ],
       },
-      { id: "font_size_base", label: "Base font size", type: "range", min: 13, max: 20, step: 1, default: 16, unit: "px" },
-      { id: "line_height_base", label: "Line height", type: "range", min: 1.2, max: 2.0, step: 0.05, default: 1.6 },
       {
-        id: "heading_weight",
-        label: "Heading weight",
-        type: "select",
-        default: "700",
+        id: "font_accent",
+        label: "Accent font",
+        type: "font",
+        default: "",
         options: [
-          { label: "Regular (400)", value: "400" },
-          { label: "Medium (500)", value: "500" },
-          { label: "Semibold (600)", value: "600" },
-          { label: "Bold (700)", value: "700" },
-          { label: "Extrabold (800)", value: "800" },
-          { label: "Black (900)", value: "900" },
+          { label: "Same as heading font", value: "" },
+          { label: "Inter", value: "Inter" },
+          { label: "DM Sans", value: "DM Sans" },
+          { label: "Plus Jakarta Sans", value: "Plus Jakarta Sans" },
+          { label: "Space Grotesk", value: "Space Grotesk" },
+          { label: "Poppins", value: "Poppins" },
+          { label: "Nunito", value: "Nunito" },
+          { label: "Source Sans 3", value: "Source Sans 3" },
+          { label: "Lato", value: "Lato" },
+          { label: "Open Sans", value: "Open Sans" },
         ],
       },
-      {
-        id: "heading_transform",
-        label: "Heading transform",
-        type: "select",
-        default: "none",
-        options: [
-          { label: "None", value: "none" },
-          { label: "Uppercase", value: "uppercase" },
-          { label: "Capitalize", value: "capitalize" },
-        ],
-      },
-      { id: "heading_letter_spacing", label: "Heading letter spacing", type: "range", min: -2, max: 8, step: 0.5, default: 0, unit: "px" },
+      // Sizes, weights, line heights, spacing and transforms are the text
+      // styles (Heading 1 to Caption) in theme.typography_styles, rendered by
+      // TypographyPanel. The older flat controls (font_size_base,
+      // line_height_base, heading_weight, heading_transform,
+      // heading_letter_spacing) still seed those styles' defaults.
     ],
   },
   {

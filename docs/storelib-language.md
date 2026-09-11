@@ -90,7 +90,7 @@ the page, the server, another section, or anything not handed to it.
 | `section.settings` | the same as `settings` |
 | `section.blocks` | the same as `blocks` |
 | `theme` | the theme's own settings: `theme.typography.heading`, colours, spacing |
-| `scheme` | the colours of the colour scheme this section is set to |
+| `scheme` | the colours of the colour scheme this section is set to, with the section's own overrides applied: `scheme.background`, `scheme.heading`, `scheme.text`, `scheme.accent`, `scheme.border`, `scheme.primary_button_background`, … (the older `scheme.bg`, `scheme.paragraph`, `scheme.primary_btn_bg` still read) |
 | `page.template` | `"index"`, `"product"`, `"page.about"` |
 | `page.in_editor` | true only while the builder is drawing |
 | `forloop` | inside a `{% for %}`: `.index`, `.index0`, `.first`, `.last`, `.length` |

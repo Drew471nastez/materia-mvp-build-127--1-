@@ -21,7 +21,7 @@
 // ============================================================
 
 import { memo } from "react"
-import type { SectionProps } from "./_shared"
+import { sectionTokenAttrs, type SectionProps } from "./_shared"
 import { SECTION_COMPONENTS } from "./registry"
 import { StorelibSection } from "./StorelibSection"
 
@@ -90,8 +90,16 @@ export function renderSection(props: SectionProps) {
    * vanished. Putting it here means every section on a published page has a
    * stable anchor — `/#section-<id>` — which none of them had before.
    */
+  /**
+   * The container also carries the section's design tokens: its colour
+   * scheme as `--scheme-*` custom properties, the scheme's gradient when it
+   * has one, and the heading and body style the theme stylesheet keys off.
+   * Every renderer reads the same values through `sectionColors()`, so a
+   * section painting `c.bg` and a stylesheet reading `var(--scheme-background)`
+   * agree, in the editor and on the published page alike.
+   */
   return (
-    <div className="@container" id={props.wrapperId}>
+    <div className="@container" id={props.wrapperId} {...sectionTokenAttrs(props.section, props.theme)}>
       <Component {...props} />
     </div>
   )

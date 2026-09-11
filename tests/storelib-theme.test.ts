@@ -271,7 +271,7 @@ const FIXTURE = `<template>
       theme: {},
       page: { template: "home" },
     })
-    check("the root carries the instance id and type", out.html.startsWith(`<div data-section-id="card-9f" data-section-type="card">`))
+    check("the root carries the instance id and type", out.html.startsWith(`<div data-section-id="card-9f" data-section-type="card" data-color-scheme="`))
     check("settings render escaped, blocks in block_order with their defaults", out.html.includes("<h2>A &amp; B</h2>") && out.html.indexOf(`<p class="item">…</p>`) < out.html.indexOf(`<p class="item">one</p>`))
     check("the CSS is scoped to this instance and no other", out.css.includes(`[data-section-id="card-9f"] .card`) && !out.css.includes("__SECTION_ID__"))
     check("no script, no bundle", out.script === null)

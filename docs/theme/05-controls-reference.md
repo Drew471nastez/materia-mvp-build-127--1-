@@ -255,7 +255,7 @@ The JSON schemas the builder shipped with used a few other names. They still val
 
 ## color_scheme
 
-**Colour scheme.** One of the theme's named colour schemes.
+**Colour scheme.** One of the theme's named colour schemes, by key: the built-in white, light, dark, black and highlight (Light, Soft, Dark, Brand and Accent in the editor) or one the creator added. The editor offers every scheme the theme has; see docs/theme/16-design-tokens.md.
 
 - Value: enum
 - Default when the schema gives none: `"white"`

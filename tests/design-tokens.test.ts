@@ -1,0 +1,265 @@
+/**
+ * ===========================================================================
+ *  DESIGN TOKENS: ONE RESOLVER, GLOBAL SCHEMES, LOCAL OVERRIDES
+ * ===========================================================================
+ * A theme has named colour schemes and text styles; a section picks a scheme
+ * and a style and may override a few colours of its own. The rules this
+ * suite holds the code to:
+ *
+ *   • the React renderers and the .storelib renderer resolve a section's
+ *     colours through the same function, so the editor canvas and the
+ *     published page cannot disagree;
+ *   • a scheme saved in the old eighty-slot shape still reads;
+ *   • changing a global scheme reaches every section on it, and a section's
+ *     own overrides survive that change;
+ *   • deleting a scheme moves its sections somewhere sensible, on pages
+ *     that were open and pages that were not;
+ *   • the text styles compile to custom properties, narrow widths included,
+ *     and every rule stays under the page root.
+ *
+ * Run with:  npm run test:push
+ */
+
+import { readdirSync, readFileSync } from "node:fs"
+import { join } from "node:path"
+
+import {
+  DEFAULT_COLOR_SCHEMES,
+  SCHEME_COLOR_KEYS,
+  SECTION_OVERRIDE_KEYS,
+  legacySchemeValues,
+  normalizeScheme,
+  remapScheme,
+  resolveSectionColors,
+  themeColorSchemes,
+} from "@/lib/storelib-theme/color-schemes"
+import { sectionTypography, themeTypography, typographyStylesheet } from "@/lib/storelib-theme/typography"
+import { themeStylesheet, themeVars, THEME_ROOT_ATTRIBUTE } from "@/lib/website-builder/theme-css"
+import { designSupport } from "@/lib/website-builder/design-support"
+import { effectiveOverride, resetOverrides, setOverride } from "@/lib/website-builder/section-overrides"
+import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
+import { STORELIB_SCHEMAS } from "@/lib/website-builder/storelib-schemas"
+import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
+import { sectionColors } from "@/components/website-builder/sections/_shared"
+import { DEFAULT_COLOR_SCHEMES as LEGACY_DEFAULTS, type SectionInstance, type ThemeSettingsValues } from "@/lib/website-builder/types"
+
+const root = process.cwd()
+let passed = 0
+let failed = 0
+const failures: string[] = []
+
+function check(name: string, ok: boolean, detail?: string) {
+  if (ok) {
+    passed++
+    console.log(`  ok    ${name}`)
+  } else {
+    failed++
+    failures.push(name)
+    console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`)
+  }
+}
+function section(title: string) {
+  console.log(`\n${title}`)
+}
+function stripComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1")
+}
+const read = (f: string) => readFileSync(join(root, f), "utf8")
+
+// ===========================================================================
+section("Both renderer families resolve colours through one function")
+// ===========================================================================
+
+{
+  const shared = stripComments(read("components/website-builder/sections/_shared.tsx"))
+  const render = stripComments(read("lib/storelib-theme/render.ts"))
+  const resolve = stripComments(read("lib/storelib-theme/resolve.ts"))
+  check("the React helpers call the engine's resolver", /resolveSectionColors\(/.test(shared))
+  check("and so does the .storelib renderer", /resolveSectionColors\(/.test(render))
+  const sharedColours = shared.slice(shared.indexOf("Color-scheme resolution"), shared.indexOf("Value coercion helpers"))
+  const typesColours = read("lib/website-builder/types.ts")
+  check(
+    "and neither side keeps a default palette of its own",
+    !/#[0-9a-f]{6}/i.test(sharedColours) && !/DEFAULT_SCHEMES\s*[:=]/.test(resolve) && !/#[0-9a-f]{6}/i.test(typesColours.slice(typesColours.indexOf("export const DEFAULT_COLOR_SCHEMES"), typesColours.indexOf("export interface ThemeSettingsValues"))),
+  )
+
+  const theme = {
+    color_schemes: { dark: { background: "#101010", heading: "#fafafa" } },
+  } as ThemeSettingsValues
+  const sec: SectionInstance = {
+    id: "hero-1",
+    type: "hero",
+    name: "Hero",
+    settings: { color_scheme: "dark", color_overrides: { heading: "#ff0000" }, heading: "Hello" },
+  }
+  const react = sectionColors(sec, theme)
+  const out = renderStorelibSection(sec, theme, { template: "index" })
+  const html = out.ok ? out.html : ""
+  check("the React side sees the theme's scheme with the section's override on top", react.bg === "#101010" && react.heading === "#ff0000", `${react.bg} ${react.heading}`)
+  check(
+    "the .storelib side draws the same values",
+    html.includes("--scheme-background:#101010") && html.includes("--scheme-heading:#ff0000") && html.includes('data-color-scheme="dark"'),
+    html.slice(0, 300),
+  )
+  check("and a template's legacy names still read", html.includes("--hero-text: #ff0000"), html.slice(0, 400))
+}
+
+// ===========================================================================
+section("A scheme is seventeen values, and the old eighty still read")
+// ===========================================================================
+
+{
+  check("seventeen semantic values", SCHEME_COLOR_KEYS.length === 17)
+  const legacy = normalizeScheme({ bg: "#123456", paragraph: "#222222", text: "#333333", primary_btn_bg: "#ABCDEF" }, DEFAULT_COLOR_SCHEMES.white)
+  check(
+    "a scheme saved in the old shape fills the semantic values",
+    legacy.background === "#123456" && legacy.text === "#333333" && legacy.primary_button_background === "#abcdef",
+    JSON.stringify(legacy),
+  )
+  check("and an old scheme with only a paragraph colour keeps it as its text", normalizeScheme({ paragraph: "#222222" }, DEFAULT_COLOR_SCHEMES.white).text === "#222222")
+  const semantic = normalizeScheme({ background: "#000000", bg: "#ffffff" }, DEFAULT_COLOR_SCHEMES.white)
+  check("and the semantic key wins when both are present", semantic.background === "#000000")
+
+  const types = read("lib/website-builder/types.ts")
+  const iface = types.slice(types.indexOf("export interface ColorSchemeValues"), types.indexOf("export type ColorSchemeKey"))
+  const slots = Array.from(iface.matchAll(/^\s+([a-z_]+)\??: string/gm)).map((m) => m[1]).filter((k) => k !== "gradient" && k !== "name")
+  const produced = legacySchemeValues(DEFAULT_COLOR_SCHEMES.white)
+  const missing = slots.filter((k) => typeof produced[k] !== "string" || !produced[k])
+  check(`every one of the ${slots.length} legacy slots a renderer might read is produced`, slots.length >= 70 && missing.length === 0, missing.join(", "))
+  check(
+    "and the legacy defaults the tests and renderers import are the engine's",
+    LEGACY_DEFAULTS.white.bg === DEFAULT_COLOR_SCHEMES.white.background && LEGACY_DEFAULTS.dark.heading === DEFAULT_COLOR_SCHEMES.dark.heading,
+  )
+}
+
+// ===========================================================================
+section("Global changes reach every section; local overrides survive them")
+// ===========================================================================
+
+{
+  const settings = { color_scheme: "white", color_overrides: { heading: "#ff0000" } }
+  const before = resolveSectionColors({}, settings)
+  const after = resolveSectionColors({ color_schemes: { white: { background: "#000000" } } }, settings)
+  check("a global scheme change reaches a section on it", before.scheme.background === "#ffffff" && after.scheme.background === "#000000")
+  check("and the section's own override is still there afterwards", after.scheme.heading === "#ff0000" && after.overrides.heading === "#ff0000")
+  check("overrides are stored apart from the scheme", after.base.heading === DEFAULT_COLOR_SCHEMES.white.heading)
+  check("only the slots a section may override are read", SECTION_OVERRIDE_KEYS.length === 9 && !resolveSectionColors({}, { color_overrides: { input_border: "#ff0000" } }).overrides.input_border)
+
+  const grad = resolveSectionColors({ color_schemes: { dark: { gradient: "linear-gradient(135deg, #000 0%, #333 100%)" } } }, { color_scheme: "dark" })
+  check("a gradient is published as --scheme-gradient and as the legacy bg", grad.vars["--scheme-gradient"].startsWith("linear-gradient") && grad.legacy.bg.startsWith("linear-gradient"))
+  check("and a section that overrides its background drops the scheme's gradient", resolveSectionColors({ color_schemes: { dark: { gradient: "linear-gradient(#000, #333)" } } }, { color_scheme: "dark", color_overrides: { background: "#111111" } }).scheme.gradient === "")
+}
+
+// ===========================================================================
+section("Deleting or renaming a scheme cannot strand a section")
+// ===========================================================================
+
+{
+  const theme = { color_schemes: { custom_a: { name: "Mint", background: "#e0fff4" } } }
+  check("a scheme the creator added is listed after the built-ins, by name", Object.keys(themeColorSchemes(theme)).slice(-1)[0] === "custom_a" && themeColorSchemes(theme).custom_a.name === "Mint")
+  check("renaming changes the name and never the key", themeColorSchemes({ color_schemes: { white: { name: "Paper" } } }).white.name === "Paper")
+
+  const sections = [{ id: "a", settings: { color_scheme: "custom_a" } }, { id: "b", settings: { color_scheme: "dark" } }]
+  const moved = remapScheme(sections, "custom_a", "light")
+  check("sections on the open page move to the replacement", moved[0].settings.color_scheme === "light" && moved[1].settings.color_scheme === "dark")
+  check(
+    "a page that was not open follows the remap the deletion recorded",
+    resolveSectionColors({ color_scheme_remaps: { custom_a: "dark" } }, { color_scheme: "custom_a" }).key === "dark",
+  )
+  check("a scheme nobody remapped falls back to the theme's default", resolveSectionColors({ default_color_scheme: "light" }, { color_scheme: "gone" }).key === "light")
+  check("and a remap loop ends at the default rather than never", resolveSectionColors({ color_scheme_remaps: { a: "b", b: "a" } }, { color_scheme: "a" }).key === "white")
+}
+
+// ===========================================================================
+section("The section panel's overrides and the fields that came before them")
+// ===========================================================================
+
+{
+  const preset = { bg_color: "#0f172a", text_color: "#ffffff", heading: "Hi" }
+  check("a preset's baked colour shows as the override it is", effectiveOverride(preset, "background") === "#0f172a")
+  const next = setOverride(preset, "background", "#ff00ff")
+  check("writing a slot sets the override and blanks the old field", (next.color_overrides as Record<string, string>).background === "#ff00ff" && next.bg_color === "")
+  const cleared = setOverride(next, "background", "")
+  check("clearing a slot leaves the scheme in charge", cleared.color_overrides === undefined && effectiveOverride(cleared, "background") === "")
+  const reset = resetOverrides(preset)
+  check("reset to scheme clears every slot", SECTION_OVERRIDE_KEYS.every((k) => effectiveOverride(reset, k) === "") && reset.heading === "Hi")
+}
+
+// ===========================================================================
+section("A schema says what the panel may change")
+// ===========================================================================
+
+{
+  const withScheme = { fields: [{ id: "color_scheme", type: "color_scheme" }] }
+  const s1 = designSupport(withScheme)
+  check("a section with a colour scheme gets the picker, the overrides and the text styles", s1.colorScheme && s1.colorOverrides.length === 9 && s1.typography)
+  const s2 = designSupport({ ...withScheme, supports_color_overrides: ["background"] })
+  check("a section may allow only some overrides", s2.colorOverrides.length === 1 && s2.colorOverrides[0] === "background")
+  const s3 = designSupport({ ...withScheme, supportsColorOverrides: false, supportsTypographyOverrides: false })
+  check("and switch either off, in either spelling", s3.colorOverrides.length === 0 && !s3.typography)
+  check("a section with no scheme setting gets neither picker nor overrides", !designSupport({ fields: [] }).colorScheme && designSupport({ fields: [] }).colorOverrides.length === 0)
+  const hero = STORELIB_SCHEMAS.hero as unknown as Record<string, unknown>
+  check("the hero keeps its own heading size control instead of a heading style", hero.supports_typography_overrides === false && !designSupport(STORELIB_SCHEMAS.hero).typography)
+}
+
+// ===========================================================================
+section("Typography compiles to tokens at three widths")
+// ===========================================================================
+
+{
+  const vars = themeVars({} as ThemeSettingsValues)
+  check("the nine styles compile to custom properties", vars["--type-h1-size"] === "56px" && vars["--type-body-size"] === "16px" && vars["--type-caption-weight"] === "500")
+  check("the three fonts too, the accent falling back to the heading font", themeVars({ font_heading: "Lora" } as ThemeSettingsValues)["--theme-font-accent"] === "Lora")
+  const seeded = themeTypography({ heading_weight: "800", font_size_base: 18 })
+  check("the older flat controls still seed the styles", seeded.styles.h1.weight === "800" && seeded.styles.h3.weight === "800" && seeded.styles.body.size.desktop === 18)
+  const own = themeVars({ typography_styles: { h1: { size: { desktop: 72, mobile: 40 }, transform: "uppercase" } } } as ThemeSettingsValues)
+  check("a style the theme set wins", own["--type-h1-size"] === "72px" && own["--type-h1-transform"] === "uppercase")
+
+  const css = themeStylesheet({ typography_styles: { h1: { size: { desktop: 72, tablet: 60, mobile: 40 } } } } as ThemeSettingsValues)
+  check("tablet and phone sizes take over inside a container query", /@container \(max-width:1023px\)\{[^}]*--type-h1-size:60px/.test(css) && /@container \(max-width:767px\)\{[^}]*--type-h1-size:40px/.test(css))
+  const unscoped = css
+    .split("\n")
+    .filter((line) => line.trim() && !line.trim().startsWith("@"))
+    .map((line) => line.split("{")[0].trim())
+    .filter((sel) => !sel.split(",").every((part) => part.trim().startsWith(`[${THEME_ROOT_ATTRIBUTE}]`)))
+  check("every typography rule is under the page root", unscoped.length === 0, unscoped.join(" | "))
+  check("the header's and footer's headings are left alone", /\[data-section\]:not\(\[data-chrome\]\) h1\)/.test(css))
+  check("h3 and h4 keep the size a section gave them", !/h3\)\{[^}]*font-size/.test(css) && /h3\)\{[^}]*font-weight/.test(css))
+
+  const t = sectionTypography({ heading_style: "h3", body_style: "body_large" })
+  check("a section picks a heading style and a body style", t.heading === "h3" && t.body === "body_large" && Object.keys(t.vars).length === 0)
+  const c = sectionTypography({ heading_style: "custom", custom_heading: { size: 48, weight: "900", family: "Georgia" } })
+  check("and only Custom carries its own values", c.vars["--custom-heading-size"] === "48px" && c.vars["--custom-heading-weight"] === "900" && c.vars["--custom-heading-font"].startsWith("Georgia"))
+  check("a style the theme does not have is ignored", sectionTypography({ heading_style: "h9" }).heading === undefined)
+  check("the stylesheet maps the choice onto the section's variables", typographyStylesheet("[x]", themeTypography({})).includes('[x] [data-heading-style="h3"] [data-section]{--section-heading-font:var(--type-h3-font)'))
+
+  const dir = join(root, "themes/default/sections")
+  const storelib = readdirSync(dir).filter((f: string) => f.endsWith(".storelib"))
+  const reading = storelib.filter((f: string) => /--section-heading-size/.test(readFileSync(join(dir, f), "utf8")))
+  check("the theme's own sections read the section heading style", reading.length >= 30, `${reading.length}`)
+}
+
+// ===========================================================================
+section("The panel is simple, and the settings match the model")
+// ===========================================================================
+
+{
+  const page = stripComments(read("app/website-builder/editor/[installId]/page.tsx"))
+  check("the eighty-picker scheme editor is gone from the editor", !/COLOR_SCHEME_GROUPS|ColorSchemesEditor|SchemePillList/.test(page))
+  check("the section panel, the Colors panel and the Typography panel are the design panels", /<SectionDesignPanel/.test(page) && /<ColorsPanel/.test(page) && /<TypographyPanel/.test(page))
+  const colors = THEME_SETTINGS_GROUPS.find((g) => g.id === "color_schemes")
+  const typography = THEME_SETTINGS_GROUPS.find((g) => g.id === "typography")
+  check("Theme settings has Colors and Typography", colors?.label === "Colors" && typography?.label === "Typography")
+  check("Typography's fields are the three fonts; the styles are the panel's", (typography?.fields ?? []).map((f) => f.id).join(",") === "font_heading,font_body,font_accent")
+  const panels = read("components/website-builder/editor/design-panels.tsx")
+  check("Customize is a disclosure, not fifteen pickers", /Advanced colors/.test(panels) && /Reset to scheme/.test(panels) && /Use scheme/.test(panels))
+  check("no em dashes in the panels' copy", !/—/.test(panels))
+  const doc = read("docs/theme/16-design-tokens.md")
+  check("the tokens are documented for theme developers", /--scheme-background/.test(doc) && /heading_style/.test(doc) && /supports_color_overrides/.test(doc))
+}
+
+console.log(`\n${passed} passed, ${failed} failed`)
+if (failed > 0) {
+  console.log(failures.map((f) => `  - ${f}`).join("\n"))
+  process.exit(1)
+}

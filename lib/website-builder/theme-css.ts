@@ -24,6 +24,7 @@
  * suite drives it directly.
  */
 
+import { themeTypography, typographyStylesheet, typographyVars } from "@/lib/storelib-theme/typography"
 import type { ThemeSettingsValues } from "./types"
 
 /** A setting that arrived as `"1280"`, or as nothing at all. */
@@ -77,6 +78,7 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
   const radius = num(t.border_radius, 8)
   const buttonShape = str(t.button_shape, "rounded")
   const buttonSize = BUTTON_SIZES[str(t.button_size, "md")] ?? BUTTON_SIZES.md
+  const typo = themeTypography(t)
 
   return {
     // ── Colour ────────────────────────────────────────────────────────────
@@ -97,29 +99,19 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
     "--theme-error": str(t.error_color, "#ef4444"),
 
     // ── Type ──────────────────────────────────────────────────────────────
-    "--theme-font-heading": str(t.font_heading, "Inter"),
-    "--theme-font-body": str(t.font_body, "Inter"),
-    "--theme-font-size": `${num(t.font_size_base, 16)}px`,
-    "--theme-line-height": String(num(t.line_height_base, 1.6)),
-    "--theme-heading-weight": str(t.heading_weight, "700"),
-    "--theme-heading-transform": str(t.heading_transform, "none"),
     /**
-     * PIXELS, AND THE CONTROL ALWAYS SAID PIXELS.
-     *
-     * The setting is `{ min: -2, max: 8, step: 0.5, unit: "px" }` — a slider
-     * labelled in px, stepping half a pixel at a time — and this line wrote its
-     * value in `em`. One step below zero, which the panel presents as
-     * "-0.5px", emitted `-0.5em`: half the font size of negative tracking, so
-     * at a 60px hero heading every letter landed thirty pixels on top of the
-     * one before it and the headline rendered as a single white smear. It is
-     * the only setting in this file whose unit disagreed with its control.
-     *
-     * Clamped to the control's own range as well, because the broken value is
-     * already saved in themes and would go on wrecking them until somebody
-     * touched the slider again. The clamp is what makes existing sites correct
-     * on the next render rather than on the next edit.
+     * The three fonts and the nine text styles, compiled by the engine's
+     * typography module (lib/storelib-theme/typography.ts): `--theme-font-*`
+     * and `--type-<style>-*`. The older `--theme-font-size`, `--theme-line-
+     * height` and `--theme-heading-*` names stay, now read off the Body and
+     * Heading 2 styles, for anything written against them.
      */
-    "--theme-heading-tracking": `${Math.max(-2, Math.min(8, num(t.heading_letter_spacing, 0)))}px`,
+    ...typographyVars(typo),
+    "--theme-font-size": `${typo.styles.body.size.desktop}px`,
+    "--theme-line-height": String(typo.styles.body.line_height),
+    "--theme-heading-weight": typo.styles.h2.weight,
+    "--theme-heading-transform": typo.styles.h2.transform,
+    "--theme-heading-tracking": `${typo.styles.h2.letter_spacing}px`,
 
     // ── Layout ────────────────────────────────────────────────────────────
     "--theme-page-width": `${num(t.page_width, 1280)}px`,
@@ -139,7 +131,7 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
     "--theme-button-radius": BUTTON_SHAPES[buttonShape] ?? `${num(t.button_border_radius, radius)}px`,
     "--theme-button-padding": buttonSize.padding,
     "--theme-button-size": buttonSize.size,
-    "--theme-button-weight": str(t.button_font_weight, "600"),
+    "--theme-button-weight": typo.styles.button.weight,
     "--theme-button-shadow": SHADOWS[str(t.button_shadow, "none")] ?? "none",
 
     // ── Motion ────────────────────────────────────────────────────────────
@@ -177,8 +169,8 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
   const rules: string[] = [
     // Body type. `font-size` on the root is what `rem`-less sections inherit.
     `${root}{background:var(--theme-bg);color:var(--theme-text);font-family:var(--theme-font-body),ui-sans-serif,system-ui,sans-serif;font-size:var(--theme-font-size);line-height:var(--theme-line-height);}`,
-    // Headings answer to the theme, which is the whole Typography group.
-    `${root} h1,${root} h2,${root} h3,${root} h4{font-family:var(--theme-font-heading),ui-sans-serif,system-ui,sans-serif;font-weight:var(--theme-heading-weight);text-transform:var(--theme-heading-transform);letter-spacing:var(--theme-heading-tracking);}`,
+    // Headings answer to the theme's text styles, section by section.
+    typographyStylesheet(root, themeTypography(t)),
     // Links, unless a section has painted them itself.
     `${root} a:not([style*="color"]){color:inherit;}`,
     /**

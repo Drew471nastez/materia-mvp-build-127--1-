@@ -175,11 +175,11 @@
       "default": "dark",
       "options": [
         {
-          "label": "White",
+          "label": "Light",
           "value": "white"
         },
         {
-          "label": "Light",
+          "label": "Soft",
           "value": "light"
         },
         {
@@ -187,11 +187,11 @@
           "value": "dark"
         },
         {
-          "label": "Black",
+          "label": "Brand",
           "value": "black"
         },
         {
-          "label": "Highlight",
+          "label": "Accent",
           "value": "highlight"
         }
       ]

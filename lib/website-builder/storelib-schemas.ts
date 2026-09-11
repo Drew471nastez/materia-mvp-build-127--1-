@@ -13,6 +13,7 @@
  * FieldEditor resolves those through the same registry, so the file, the
  * validator, the AI's reference and the panel all describe one control.
  */
+import { DESIGN_SUPPORT_KEYS } from "./design-support"
 import { COMPILE_CACHE_LIMIT, createLru } from "@/lib/storelib-theme/storelib/compile"
 import { parseStorelib, parseSchemaJson } from "@/lib/storelib-theme/storelib/parse"
 import { validateSectionSchema } from "@/lib/storelib-theme/schema/validate"
@@ -53,6 +54,8 @@ export function editorSchema(schema: EngineSchema): SectionSchema {
     })
   }
   if (schema.max_blocks !== undefined) out.max_blocks = schema.max_blocks
+  // What the panel may change about the section's design. See design-support.ts.
+  for (const key of DESIGN_SUPPORT_KEYS) if (schema[key] !== undefined) (out as unknown as Record<string, unknown>)[key] = schema[key]
   if (schema.presets) {
     out.presets = schema.presets.map((p): SectionPreset => {
       const preset: SectionPreset = { name: p.name, settings: p.settings ?? {} }

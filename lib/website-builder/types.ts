@@ -1,3 +1,5 @@
+import { BUILT_IN_SCHEME_KEYS, DEFAULT_COLOR_SCHEMES as ENGINE_DEFAULT_COLOR_SCHEMES, legacySchemeValues } from "@/lib/storelib-theme/color-schemes"
+
 // ============================================================
 // Website Builder: Core Types
 // ============================================================
@@ -188,160 +190,33 @@ export interface ColorSchemeValues {
   // ── Slider List Section ──
   slider_controls: string
   slider_controls_bg: string
+  /** A CSS gradient over the background, when the scheme has one. */
+  gradient?: string
+  name?: string
 }
 export type ColorSchemeKey = "white" | "light" | "dark" | "black" | "highlight"
 export type ColorSchemes = Record<ColorSchemeKey, ColorSchemeValues>
 
-// Helper to build a complete scheme from a small palette
-function buildScheme(p: {
-  bg: string; text: string; heading: string; paragraph: string; border: string;
-  link: string; primaryBtnBg: string; primaryBtnText: string;
-  secondaryBtnBg: string; secondaryBtnText: string;
-  navLink: string; storeTitle: string; accent: string;
-}): ColorSchemeValues {
-  return {
-    // Header
-    store_title: p.storeTitle,
-    nav_link: p.navLink,
-    // Section
-    bg: p.bg,
-    inset_border: p.border,
-    // Text
-    heading: p.heading,
-    paragraph: p.paragraph,
-    link: p.link,
-    link_underline: p.link,
-    text: p.text,
-    border: p.border,
-    // Primary button
-    primary_btn_bg: p.primaryBtnBg,
-    primary_btn_text: p.primaryBtnText,
-    primary_btn_border: p.primaryBtnBg,
-    primary_btn_hover_bg: p.accent,
-    primary_btn_hover_text: p.primaryBtnText,
-    primary_btn_hover_border: p.accent,
-    // Secondary button
-    secondary_btn_bg: p.secondaryBtnBg,
-    secondary_btn_text: p.secondaryBtnText,
-    secondary_btn_border: p.secondaryBtnText,
-    secondary_btn_hover_bg: p.secondaryBtnText,
-    secondary_btn_hover_text: p.secondaryBtnBg,
-    secondary_btn_hover_border: p.secondaryBtnText,
-    // Footer
-    footer_link: p.link,
-    footer_link_underline: p.link,
-    // Misc
-    borders: p.border,
-    on_sale: "#ef4444",
-    // Subscription Page
-    plan_bg: p.bg,
-    plan_border: p.border,
-    plan_heading: p.heading,
-    plan_paragraph: p.paragraph,
-    plan_link: p.link,
-    plan_link_underline: p.link,
-    // Subscription Login Page
-    login_form_bg: p.bg,
-    login_form_border: p.border,
-    // Slideshow
-    slideshow_controls: p.text,
-    slideshow_controls_bg: p.bg,
-    // Image Overlay
-    image_overlay_bg: "rgba(0,0,0,0.4)",
-    image_overlay_text: "#ffffff",
-    // Announcement Bar
-    announcement_bg: p.heading,
-    announcement_text: p.bg,
-    // Image Collage
-    collage_title: p.heading,
-    collage_subtitle: p.paragraph,
-    collage_bg: p.bg,
-    collage_link: p.link,
-    collage_link_underline: p.link,
-    // Header Dropdown
-    header_dropdown_bg: p.bg,
-    header_dropdown_link: p.text,
-    // Cart Notification
-    cart_notification_bg: p.heading,
-    cart_notification_text: p.bg,
-    // Pagination
-    pagination_bg: p.bg,
-    pagination_text: p.text,
-    pagination_active_bg: p.heading,
-    pagination_active_text: p.bg,
-    // Course Curriculum
-    curriculum_bg: p.bg,
-    curriculum_list_title: p.heading,
-    curriculum_lesson_title: p.text,
-    curriculum_icon: p.text,
-    curriculum_free_badge: "#10b981",
-    // Customer Reviews
-    review_star: "#f59e0b",
-    review_verified: "#10b981",
-    review_recommended: "#6366f1",
-    // Video Play Button
-    video_play_bg: "rgba(0,0,0,0.6)",
-    video_play_icon: "#ffffff",
-    // On Sale Badge
-    sale_badge_bg: "#ef4444",
-    sale_badge_text: "#ffffff",
-    sale_badge_border: "#ef4444",
-    // Out Of Stock Badge
-    oos_badge_bg: "#9ca3af",
-    oos_badge_text: "#ffffff",
-    oos_badge_border: "#9ca3af",
-    // Sale Time Remaining
-    sale_time_bg: "#fef3c7",
-    sale_time_text: "#92400e",
-    sale_time_border: "#fde68a",
-    // Inventory Low Message
-    inventory_low_text: "#ef4444",
-    // Description Tab
-    desc_tab_bg: p.bg,
-    desc_tab_text: p.text,
-    desc_tab_border: p.border,
-    // Slider List
-    slider_controls: p.text,
-    slider_controls_bg: p.bg,
-  }
-}
-
-export const DEFAULT_COLOR_SCHEMES: ColorSchemes = {
-  white: buildScheme({
-    bg: "#ffffff", text: "#5C5B63", heading: "#0f172a", paragraph: "#5C5B63", border: "#e2e8f0",
-    link: "#0f172a", primaryBtnBg: "#000000", primaryBtnText: "#ffffff",
-    secondaryBtnBg: "#ffffff", secondaryBtnText: "#0f172a",
-    navLink: "#5C5B63", storeTitle: "#0f172a", accent: "#1f2937",
-  }),
-  light: buildScheme({
-    bg: "#f8fafc", text: "#0f172a", heading: "#0f172a", paragraph: "#475569", border: "#e2e8f0",
-    link: "#0f172a", primaryBtnBg: "#0f172a", primaryBtnText: "#ffffff",
-    secondaryBtnBg: "#ffffff", secondaryBtnText: "#0f172a",
-    navLink: "#0f172a", storeTitle: "#0f172a", accent: "#1f2937",
-  }),
-  dark: buildScheme({
-    bg: "#1f2937", text: "#f8fafc", heading: "#ffffff", paragraph: "#cbd5e1", border: "#374151",
-    link: "#f8fafc", primaryBtnBg: "#ffffff", primaryBtnText: "#0f172a",
-    secondaryBtnBg: "transparent", secondaryBtnText: "#ffffff",
-    navLink: "#f8fafc", storeTitle: "#ffffff", accent: "#e5e7eb",
-  }),
-  black: buildScheme({
-    bg: "#000000", text: "#ffffff", heading: "#ffffff", paragraph: "#cbd5e1", border: "#1f2937",
-    link: "#ffffff", primaryBtnBg: "#ffffff", primaryBtnText: "#000000",
-    secondaryBtnBg: "transparent", secondaryBtnText: "#ffffff",
-    navLink: "#ffffff", storeTitle: "#ffffff", accent: "#e5e7eb",
-  }),
-  highlight: buildScheme({
-    bg: "#fde2e4", text: "#1f2937", heading: "#1f2937", paragraph: "#475569", border: "#fbcfd1",
-    link: "#1f2937", primaryBtnBg: "#1f2937", primaryBtnText: "#fde2e4",
-    secondaryBtnBg: "transparent", secondaryBtnText: "#1f2937",
-    navLink: "#1f2937", storeTitle: "#1f2937", accent: "#0f172a",
-  }),
-}
+/**
+ * THE LEGACY VIEW OF THE ENGINE'S SCHEMES. The five built-in schemes live in
+ * lib/storelib-theme/color-schemes.ts as seventeen semantic values each;
+ * this is those same schemes spelled out under the eighty slot names the
+ * React renderers were written against. Derived, never copied, so the two
+ * renderer families cannot disagree about a default.
+ */
+export const DEFAULT_COLOR_SCHEMES: ColorSchemes = Object.fromEntries(
+  BUILT_IN_SCHEME_KEYS.map((key) => [key, legacySchemeValues(ENGINE_DEFAULT_COLOR_SCHEMES[key]) as unknown as ColorSchemeValues]),
+) as ColorSchemes
 
 export interface ThemeSettingsValues {
-  // Global color schemes
-  color_schemes?: ColorSchemes
+  // Global color schemes: keyed by scheme key, each holding only what
+  // differs from the built-in default (semantic keys, see the engine).
+  color_schemes?: Record<string, Record<string, unknown>>
+  /** The scheme a section gets when it names none. */
+  default_color_scheme?: string
+  /** Per text style, only what differs from the default. */
+  typography_styles?: Record<string, unknown>
+  font_accent?: string
 
   // Branding
   brand_name?: string
@@ -523,6 +398,13 @@ export interface SectionSchema {
   blocks?: BlockSchema[]
   max_blocks?: number
   presets?: SectionPreset[]
+  /** What the panel may change about the section's design. See design-support.ts. */
+  supports_color_scheme?: boolean
+  supportsColorScheme?: boolean
+  supports_color_overrides?: boolean | string[]
+  supportsColorOverrides?: boolean | string[]
+  supports_typography_overrides?: boolean
+  supportsTypographyOverrides?: boolean
 }
 
 // ── Editor state ─────────────────────────────────────────────

@@ -316,7 +316,10 @@ section("A page is a page, whichever surface renders it")
   const footerAt = html.indexOf('id="section-footer-1"')
   check(
     "and so does the footer",
-    /data-chrome/.test(html.slice(footerAt - 400, footerAt + 200)),
+    // The container with the id carries the section's design tokens (a
+    // style attribute of `--scheme-*` properties) before the wrapper that
+    // says chrome, so the window after the id is wider than the header's.
+    /data-chrome/.test(html.slice(footerAt - 400, footerAt + 1400)),
   )
   check(
     "while an ordinary section does not",

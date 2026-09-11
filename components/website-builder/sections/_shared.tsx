@@ -13,8 +13,9 @@
 // dispatcher and the renderers.
 // ============================================================
 
-import type { SectionInstance, ThemeSettingsValues, ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
-import { DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
+import type { SectionInstance, ThemeSettingsValues, ColorSchemeValues } from "@/lib/website-builder/types"
+import { resolveSectionColors } from "@/lib/storelib-theme/color-schemes"
+import { sectionTypography } from "@/lib/storelib-theme/typography"
 // `Zap` alone, and only as the fallback for a name no theme should be using.
 import { Zap } from "lucide-react"
 import { ICON_MAP } from "./icon-map"
@@ -70,19 +71,45 @@ export interface SectionProps {
 
 // ── Color-scheme resolution ─────────────────────────────────
 
-// Resolve a section's color scheme — falls back to the theme-level scheme,
-// then to DEFAULT_COLOR_SCHEMES.
+/**
+ * ONE RESOLVER FOR BOTH RENDERER FAMILIES. These call the engine's
+ * `resolveSectionColors()`, the same function `render.ts` calls for a
+ * .storelib section, and hand back the eighty legacy slot names the
+ * renderers were written against (`c.bg`, `c.heading`, `c.primary_btn_bg`),
+ * every one derived from the scheme's seventeen semantic values. A section's
+ * own `color_overrides` are already applied, so a renderer reading `c.bg`
+ * gets the override without knowing there is one.
+ */
 export function resolveScheme(theme: ThemeSettingsValues, key: string | undefined): ColorSchemeValues {
-  const k = (key && (key in DEFAULT_COLOR_SCHEMES) ? key : "white") as ColorSchemeKey
-  const themeSchemes = (theme.color_schemes as Record<string, ColorSchemeValues> | undefined) ?? {}
-  return { ...DEFAULT_COLOR_SCHEMES[k], ...(themeSchemes[k] ?? {}) }
+  return resolveSectionColors(theme as Record<string, unknown>, { color_scheme: key }).legacy as unknown as ColorSchemeValues
 }
 
 // Single entry point every section uses to resolve its effective colors.
-// Reads section.settings.color_scheme and returns the merged scheme.
+// Reads section.settings.color_scheme and color_overrides and returns the
+// merged scheme.
 export function sectionColors(section: SectionInstance, theme: ThemeSettingsValues): ColorSchemeValues {
-  const schemeKey = typeof section.settings.color_scheme === "string" ? section.settings.color_scheme : "white"
-  return resolveScheme(theme, schemeKey)
+  const chosen = { color_scheme: section.settings.color_scheme, color_overrides: section.settings.color_overrides }
+  return resolveSectionColors(theme as Record<string, unknown>, chosen).legacy as unknown as ColorSchemeValues
+}
+
+/**
+ * What the dispatcher puts on the container around a section: the scheme's
+ * custom properties, the gradient when the scheme has one, and the
+ * heading and body style attributes the theme stylesheet keys off.
+ */
+export function sectionTokenAttrs(
+  section: SectionInstance,
+  theme: ThemeSettingsValues,
+): { style: CSSProperties; "data-color-scheme": string; "data-heading-style"?: string; "data-body-style"?: string } {
+  const chosen = { color_scheme: section.settings.color_scheme, color_overrides: section.settings.color_overrides }
+  const colors = resolveSectionColors(theme as Record<string, unknown>, chosen)
+  const typo = sectionTypography(section.settings)
+  const style: Record<string, string> = { ...colors.vars, ...typo.vars }
+  if (colors.scheme.gradient) style.background = colors.scheme.gradient
+  const out: ReturnType<typeof sectionTokenAttrs> = { style: style as CSSProperties, "data-color-scheme": colors.key }
+  if (typo.heading) out["data-heading-style"] = typo.heading
+  if (typo.body) out["data-body-style"] = typo.body
+  return out
 }
 
 // ── Value coercion helpers ──────────────────────────────────
