@@ -13,7 +13,7 @@
     {% endif %}
 
     {% if blocks.size == 0 %}
-      <p class="tst__empty">Add testimonial blocks in the sidebar</p>
+      {% if page.in_editor %}<p class="tst__empty">Add testimonial blocks in the sidebar</p>{% endif %}
     {% else %}
       <div class="tst__list">
         {% for block in blocks %}

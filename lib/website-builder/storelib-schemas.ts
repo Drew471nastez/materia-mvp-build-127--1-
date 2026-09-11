@@ -46,7 +46,11 @@ export function editorSchema(schema: EngineSchema): SectionSchema {
   if (schema.icon !== undefined) out.icon = schema.icon
   if (schema.category !== undefined) out.category = schema.category
   if (schema.blocks) {
-    out.blocks = schema.blocks.map((b): BlockSchema => ({ type: b.type, name: b.name, fields: b.settings.map(field) }))
+    out.blocks = schema.blocks.map((b): BlockSchema => {
+      const block: BlockSchema = { type: b.type, name: b.name, fields: b.settings.map(field) }
+      if (b.limit !== undefined) block.limit = b.limit
+      return block
+    })
   }
   if (schema.max_blocks !== undefined) out.max_blocks = schema.max_blocks
   if (schema.presets) {

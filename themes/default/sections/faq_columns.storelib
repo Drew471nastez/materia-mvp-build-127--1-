@@ -11,7 +11,7 @@
     </div>
     <div class="fc2__list">
       {% if blocks.size == 0 %}
-        <p class="empty">Add questions in the sidebar</p>
+        {% if page.in_editor %}<p class="empty">Add questions in the sidebar</p>{% endif %}
       {% else %}
         {% for block in blocks %}
 

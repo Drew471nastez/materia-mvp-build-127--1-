@@ -14,7 +14,7 @@
       {% elsif settings.source == 'embed' and settings.embed_url %}
         <iframe src="{{ settings.embed_url | embed }}" title="{{ settings.heading | default: 'Video' }}" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen></iframe>
       {% else %}
-        <div class="vid__empty">Add a video in the sidebar</div>
+        {% if page.in_editor %}<div class="vid__empty">Add a video in the sidebar</div>{% endif %}
       {% endif %}
     </div>
     {% if settings.caption %}<p class="vid__cap">{{ settings.caption }}</p>{% endif %}

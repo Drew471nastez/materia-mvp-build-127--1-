@@ -158,6 +158,11 @@ export interface SectionPreset {
 /** The `<schema>` block of a `.storelib` file. */
 export interface SectionSchema {
   schema_version: number
+  /**
+   * The version of the template language this section is written in. Absent
+   * means 1, permanently: see lib/storelib-theme/language.ts.
+   */
+  language_version?: number
   type: string
   name: string
   category?: string
@@ -198,6 +203,13 @@ export interface SourceBlock {
 export interface CompiledSection {
   type: string
   schema: SectionSchema
+  /**
+   * The language version this section was compiled as: what it declared, or 1
+   * when it declared nothing. Carried on the compiled result so that when the
+   * language does change, the renderer can keep an old file behaving the way
+   * its author wrote it rather than the way the engine now prefers.
+   */
+  language_version: number
   /** The template as an interpretable tree — see storelib/template.ts. */
   template: unknown
   /** CSS already scoped to `[data-section-id="…"]`, with the id left as a placeholder. */
@@ -279,8 +291,19 @@ export interface RenderContext {
    * the lookup and a template reads `scheme.bg`.
    */
   scheme: Record<string, unknown>
-  /** What page this is on, and what that page is about. */
-  page: { template: string; [key: string]: unknown }
+  /**
+   * What page this is on, and what that page is about.
+   *
+   * `page.in_editor` is true only while the builder is drawing, and it is the
+   * one sanctioned difference between the two surfaces. A section with no
+   * blocks yet needs to say so to the person adding them and must say nothing
+   * at all to a visitor: fifteen sections in this theme were printing "Add
+   * questions in the sidebar" onto live pages, because there was no way for a
+   * template to tell where it was. There is now, and it is the only thing of
+   * its kind — everything else about a render is identical on both surfaces,
+   * which is what tests/storelib-parity.test.ts holds them to.
+   */
+  page: { template: string; in_editor?: boolean; [key: string]: unknown }
   /** The instance's id. Used for scoping; not for a template to invent ids. */
   section: { id: string; type: string }
   /** `asset://…` → URL, for the `asset` filter. */

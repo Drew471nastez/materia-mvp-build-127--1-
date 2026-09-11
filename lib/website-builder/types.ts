@@ -498,6 +498,13 @@ export interface BlockSchema {
   type: string
   name: string
   fields: SchemaField[]
+  /**
+   * How many of THIS kind of block the section holds, as distinct from
+   * `max_blocks`, which is how many it holds in total. A slideshow that takes
+   * eight slides and one caption needs both. It was declared in the schema
+   * and dropped on the way here, so it could never be enforced.
+   */
+  limit?: number
 }
 
 export interface SectionPreset {

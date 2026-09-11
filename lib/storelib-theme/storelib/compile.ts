@@ -22,6 +22,7 @@
  */
 import { createHash } from "node:crypto"
 
+import { DEFAULT_LANGUAGE_VERSION } from "../language"
 import { validateSectionSchema } from "../schema/validate"
 import { LIMITS, type CompiledSection, type Result, type ThemeError } from "../types"
 import { scopeCss } from "./css"
@@ -194,6 +195,8 @@ export function compileSection(source: string, opts: CompileOptions = {}): Resul
     value: {
       type: schema.value.type,
       schema: schema.value,
+      // What it declared, or 1 because it declared nothing. Never "current".
+      language_version: schema.value.language_version ?? DEFAULT_LANGUAGE_VERSION,
       template: (template as { ok: true; value: CompiledTemplate }).value,
       css,
       cssTemplate,

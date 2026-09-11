@@ -20,6 +20,14 @@ const FilesBodySchema = z.object({
       message: "Invalid path",
     }),
   content: z.string().max(MAX_FILE_BYTES),
+  /**
+   * What the row said when the editor loaded it. Sent back on save so a
+   * second tab, a second device or somebody else on the account cannot be
+   * overwritten without anyone noticing: last write wins is fine for a
+   * setting and wrong for a file somebody spent an hour in. Optional, so an
+   * older client still saves rather than breaking.
+   */
+  base_updated_at: z.string().optional(),
 })
 
 const SAFE_PATH = (p: string) => !p.includes("..") && !p.startsWith("/") && !p.includes("\0") && !p.includes("\\")
@@ -205,6 +213,29 @@ export async function PUT(req: Request, { params }: Params) {
           { status: 409 },
         )
       }
+    }
+  }
+
+  /**
+   * HAS IT MOVED SINCE? Only checked when the editor said what it loaded, and
+   * only refused when the row is genuinely newer — the answer carries what is
+   * there now, so the editor can show both rather than just saying no.
+   */
+  if (parsed.data.base_updated_at) {
+    const { data: current } = await supabase
+      .from("store_theme_custom_files")
+      .select("content, updated_at")
+      .eq("install_id", installId)
+      .eq("path", path)
+      .maybeSingle()
+    if (current && current.updated_at && current.updated_at !== parsed.data.base_updated_at) {
+      return NextResponse.json(
+        {
+          error: "This file was saved somewhere else while you were editing it.",
+          conflict: { updated_at: current.updated_at, content: current.content },
+        },
+        { status: 409 },
+      )
     }
   }
 

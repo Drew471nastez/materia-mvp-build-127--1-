@@ -9,7 +9,7 @@
       </div>
     {% endif %}
     {% if blocks.size == 0 %}
-      <p class="empty">Add moments in the sidebar</p>
+      {% if page.in_editor %}<p class="empty">Add moments in the sidebar</p>{% endif %}
     {% else %}
       <ol class="tl">
         {% for block in blocks %}
