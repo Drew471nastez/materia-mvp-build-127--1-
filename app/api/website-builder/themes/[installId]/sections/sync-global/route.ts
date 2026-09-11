@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -98,6 +99,10 @@ export async function PUT(req: Request, { params }: Params) {
 
   const results = await Promise.all(updates)
   const synced = results.filter(r => !r.error).length
+
+  // A shared header pushed to every page in publish mode is a change to the
+  // live site on every one of them.
+  if (mode === "publish") revalidatePublishedSite((creator as { id: string }).id)
 
   return NextResponse.json({ ok: true, synced })
 }
