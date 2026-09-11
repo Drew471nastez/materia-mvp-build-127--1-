@@ -367,6 +367,14 @@ export interface SchemaField {
   unit?: string
   placeholder?: string
   info?: string
+  /**
+   * The setting may hold a different value per breakpoint. Declared in the
+   * .storelib schema and, for a while, dropped on the way here: the engine
+   * honoured it, the templates read `settings.columns.desktop`, and the
+   * editor drew one control, so a value a phone needed could be set by
+   * hand-editing the file and by no other means.
+   */
+  responsive?: boolean
 }
 
 export interface BlockSchema {
