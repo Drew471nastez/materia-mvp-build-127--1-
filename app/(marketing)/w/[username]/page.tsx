@@ -5,6 +5,7 @@ import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
+import { pageSections } from "@/lib/website-builder/preview-link"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
@@ -135,7 +136,13 @@ export default async function WebsitePublicPage({ params }: PageProps) {
     (install as any).store_theme_settings?.settings ??
     {}
 
-  const sections: SectionInstance[] = pageData?.sections ?? pageData?.draft_sections ?? []
+  /**
+   * PUBLISHED ONLY. The fallback to `draft_sections` here meant a page added
+   * since the last publish was live before anybody published it. Sharing an
+   * unpublished version is the preview link's job, on the storefront route:
+   * see lib/website-builder/preview-link.ts.
+   */
+  const sections: SectionInstance[] = pageSections<SectionInstance[]>(pageData, false) ?? []
 
   /**
    * Rendered here, on the server, once. Without this a .storelib section

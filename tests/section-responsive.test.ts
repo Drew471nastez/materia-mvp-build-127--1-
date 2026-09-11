@@ -631,10 +631,17 @@ check(
   "the Preview button is off the bar and inside the publish panel",
   // Two buttons for one decision. The panel is where "what am I about to
   // publish" is answered, so looking at it belongs there.
+  // The evidence moved, the rule did not. Preview used to be a link with
+  // `builder_preview=1` on it, which nothing ever read: it showed drafts
+  // only because the public pages were serving drafts to everybody. It now
+  // goes through a real preview token, so what proves it is in the panel is
+  // the press that asks for one.
   !/aria-label="Preview"/.test(headerSrc) &&
     !/builder_preview=1/.test(editor) &&
-    /builder_preview=1&show_preview_bar=1/.test(publishPanel) &&
-    />\s*<ExternalLink[^>]*\/>\s*Preview\s*<\/a>/.test(publishPanel),
+    // the URL, not the paragraph explaining why it is gone
+    !/builder_preview=1&show_preview_bar=1/.test(publishPanel) &&
+    /onClick=\{\(\) => void openPreview\(\)\}/.test(publishPanel) &&
+    /Preview\s*<\/button>/.test(publishPanel),
 )
 
 check(
@@ -1534,7 +1541,7 @@ check(
   /peekHeight=\{0\} fit>/.test(menu) &&
     /fit\s*\n\s*detents=\{\[0\.88\]\}/.test(publish) &&
     !/detents=\{\[0\.4\]\}/.test(publish) &&
-    /<Body \{\.\.\.props\} pinActions \/>/.test(publish) &&
+    /<Body \{\.\.\.props\} pinActions active=\{open\} \/>/.test(publish) &&
     // and the measurement it uses is the one below, which reads the content's
     // own height rather than the height the sheet happens to be at
     /data-sheet-scroll/.test(publish) &&

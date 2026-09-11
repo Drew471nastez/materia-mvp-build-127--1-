@@ -6,12 +6,15 @@ import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
+import { mayPreview, pageSections, previewTokenFrom, themeSettings as themeSettings_ } from "@/lib/website-builder/preview-link"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 export const dynamic = "force-dynamic"
 
 interface PageProps {
   params: Promise<{ sellername: string }>
+  /** `?preview=<token>` shows the drafts, to whoever has the link. */
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
 // Known static paths that should NOT match this dynamic route
@@ -22,11 +25,30 @@ const RESERVED_PATHS = new Set([
   "store", "store-builder", "website-builder", "admin",
 ])
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { sellername } = await params
 
   // Skip reserved paths
   if (RESERVED_PATHS.has(sellername.toLowerCase())) return { title: "Not Found" }
+
+  /**
+   * A PREVIEW IS NOT FOR SEARCH ENGINES. The link is shared with a person,
+   * and the page behind it is by definition not the one the creator has
+   * decided on. Refusing indexing here rather than after the fact: a draft
+   * that reaches an index outlives the draft.
+   *
+   * Checked on the SHAPE of the token, not against the database. The answer
+   * is the same either way — a wrong token renders the published page, which
+   * is indexable — and this keeps a lookup out of metadata generation.
+   */
+  const looksLikePreview = previewTokenFrom(new URLSearchParams(
+    Object.entries((await searchParams) ?? {}).flatMap(([k, v]) =>
+      v === undefined ? [] : Array.isArray(v) ? v.map((x) => [k, x] as [string, string]) : [[k, v] as [string, string]],
+    ),
+  )) !== null
+  if (looksLikePreview) {
+    return { title: "Preview", robots: { index: false, follow: false } }
+  }
 
   const supabase = await createClient()
 
@@ -116,7 +138,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-export default async function SellerWebsitePage({ params }: PageProps) {
+export default async function SellerWebsitePage({ params, searchParams }: PageProps) {
   const { sellername } = await params
 
   // Skip reserved paths
@@ -185,12 +207,23 @@ export default async function SellerWebsitePage({ params }: PageProps) {
   // internet, and the `store_theme_*` tables have RLS that locks them down
   // to the owning creator for the regular (anon) client.
   const publicAdmin = createAdminClient()
+  /**
+   * THE PREVIEW LINK. A long random token on the install; with it this page
+   * renders the unpublished drafts and asks not to be indexed, without it
+   * the published site. See lib/website-builder/preview-link.ts.
+   */
+  const wantedToken = previewTokenFrom(new URLSearchParams(
+    Object.entries((await searchParams) ?? {}).flatMap(([k, v]) =>
+      v === undefined ? [] : Array.isArray(v) ? v.map((x) => [k, x] as [string, string]) : [[k, v] as [string, string]],
+    ),
+  ))
   const { data: install } = await publicAdmin
     .from("store_theme_installs")
     .select(`
       id,
       name,
       status,
+      preview_token,
       store_theme_settings (
         settings,
         draft_settings
@@ -221,12 +254,18 @@ export default async function SellerWebsitePage({ params }: PageProps) {
     .eq("page_key", "home")
     .maybeSingle()
 
-  const themeSettings: ThemeSettingsValues =
-    (install as any).store_theme_settings?.[0]?.settings ??
-    (install as any).store_theme_settings?.settings ??
-    {}
+  const preview = mayPreview((install as { preview_token?: string | null }).preview_token, wantedToken)
 
-  const sections: SectionInstance[] = pageData?.sections ?? pageData?.draft_sections ?? []
+  const settingsRow =
+    (install as any).store_theme_settings?.[0] ?? (install as any).store_theme_settings ?? null
+  const themeSettings: ThemeSettingsValues = (themeSettings_(settingsRow, preview) ?? {}) as ThemeSettingsValues
+
+  /**
+   * PUBLISHED ONLY, unless this is a preview. The fallback to
+   * `draft_sections` that used to be here meant a page added since the last
+   * publish was live before anybody published it.
+   */
+  const sections: SectionInstance[] = (pageSections<SectionInstance[]>(pageData, preview) ?? [])
 
   // NOTE on the "black gap" bug:
   // Previously this page used `min-h-screen flex flex-col` + `flex-1` on
