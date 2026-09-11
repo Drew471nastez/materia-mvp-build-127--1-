@@ -75,7 +75,6 @@ import stats from "../../themes/default/sections/stats.json"
 import sticky_bar from "../../themes/default/sections/sticky_bar.json"
 import tabs_content from "../../themes/default/sections/tabs_content.json"
 import team_members from "../../themes/default/sections/team_members.json"
-import testimonials from "../../themes/default/sections/testimonials.json"
 import timeline from "../../themes/default/sections/timeline.json"
 import trust_badges from "../../themes/default/sections/trust_badges.json"
 import video_embed from "../../themes/default/sections/video_embed.json"
@@ -109,7 +108,8 @@ export const SECTION_SCHEMAS: Record<string, SectionSchema> = {
   product_list: asSchema(product_list),
   feature_grid: asSchema(feature_grid),
   footer: asSchema(footer),
-  testimonials: asSchema(testimonials),
+  // From themes/default/sections/testimonials.storelib.
+  testimonials: STORELIB_SCHEMAS.testimonials,
   faq: asSchema(faq),
   cta: asSchema(cta),
   stats: asSchema(stats),

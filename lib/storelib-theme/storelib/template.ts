@@ -373,8 +373,10 @@ const FILTERS: Record<string, Filter> = {
   capitalize: (v) => { const s = str(v); return s.charAt(0).toUpperCase() + s.slice(1) },
   strip: (v) => str(v).trim(),
   size: (v) => (Array.isArray(v) || typeof v === "string" ? v.length : 0),
-  first: (v) => (Array.isArray(v) ? v[0] : undefined),
-  last: (v) => (Array.isArray(v) ? v[v.length - 1] : undefined),
+  /** The first item of a list, or the first character of a string. */
+  first: (v) => (Array.isArray(v) ? v[0] : typeof v === "string" ? v.slice(0, 1) : undefined),
+  /** The last item of a list, or the last character of a string. */
+  last: (v) => (Array.isArray(v) ? v[v.length - 1] : typeof v === "string" ? v.slice(-1) : undefined),
   join: (v, [sep]) => (Array.isArray(v) ? v.map(str).join(str(sep ?? ", ")) : str(v)),
   truncate: (v, [n, tail]) => { const s = str(v); const len = Number(n ?? 50); return s.length > len ? s.slice(0, Math.max(0, len - 1)) + str(tail ?? "…") : s },
   append: (v, [s]) => str(v) + str(s),
