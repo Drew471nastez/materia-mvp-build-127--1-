@@ -871,6 +871,53 @@ html.capacitor body {
      tone, not for the shape. Two arcs curving apart over a colour belonging
      to neither panel is a lens. Over the panels' own white it is a gap. */
 
+  /* ── The code editor arrives as itself ──
+     It waited behind a spinner: a circle rotating in the middle of an empty
+     white card, which says "something is happening" and nothing else, and
+     says it in the one place your eye is already looking.
+
+     This is the shape of the thing being fetched instead — a gutter, and
+     lines of code at the lengths code actually has. It tells you what is
+     coming, it is in the right places when it arrives, and there is nothing
+     to un-see when it does.
+
+     ONE ANIMATED ELEMENT, and it animates `transform` only. A sweep across a
+     static skeleton is a single compositor layer sliding: no layout, no
+     paint, no style recalculation per frame, so it runs at whatever the
+     display can do rather than at whatever the main thread has left over.
+     Animating each bar's `opacity` or `background-position` instead would be
+     forty elements repainting on every tick, which is the flicker that makes
+     a shimmer look cheap. */
+  .wb-code-skeleton-sweep {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    /* The bright band. A variable, because the same sweep has to cross a
+       dark skeleton as well, where white at 72% is a searchlight. */
+    background: linear-gradient(
+      100deg,
+      transparent 30%,
+      var(--wb-sweep, rgba(255, 255, 255, 0.72)) 50%,
+      transparent 70%
+    );
+    /* Wider than the box and started off its left edge, so the bright band
+       is fully outside before the loop repeats and there is no seam. */
+    width: 220%;
+    left: -60%;
+    animation: wb-code-sweep 1.45s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+    will-change: transform;
+  }
+  @keyframes wb-code-sweep {
+    from { transform: translate3d(-45%, 0, 0); }
+    to { transform: translate3d(45%, 0, 0); }
+  }
+  /* A skeleton is a promise that something is loading. Reduced motion does
+     not remove the promise, only the movement, so the shape stays and the
+     sweep stops. */
+  @media (prefers-reduced-motion: reduce) {
+    .wb-code-skeleton-sweep { animation: none; opacity: 0.35; }
+  }
+
   /* ── A row of chips settles where you let go ──
      A horizontally scrolling row of categories with no snap stops wherever
      momentum runs out, which is usually with a chip cut in half at the edge.

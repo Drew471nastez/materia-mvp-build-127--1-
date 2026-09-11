@@ -1150,6 +1150,36 @@ check(
 )
 
 check(
+  "the code editor arrives as its own shape, and the arriving costs no paint",
+  /**
+   * It waited behind a spinning circle in an empty card: that says something
+   * is happening and nothing else, in the one place the eye already is, and
+   * then everything it stood in for appears somewhere else.
+   *
+   * The skeleton is the shape of what is coming — gutter, tabs, file list,
+   * lines at the lengths code has. And the motion is ONE element animating
+   * `transform`, which is a compositor layer sliding rather than forty bars
+   * repainting per frame. Measured with `Element.getAnimations()`: 1
+   * animation of [transform] against 40 of [backgroundPositionX,
+   * backgroundPositionY] for the per-bar shimmer it replaces, with the
+   * gutter and the first code column landing within 0px of the real
+   * editor's. `dark` follows the code editor's own theme, over the channel
+   * the bar above it already reads. `node scripts/check-code-skeleton.mjs`
+   */
+  /function CodeSkeleton\(\{ dark = false \}/.test(modeSwitch) &&
+    /\{!loaded && <CodeSkeleton dark=\{dark\} \/>\}/.test(modeSwitch) &&
+    !/\bLoader2\b/.test(modeSwitch) &&
+    ((css) =>
+      /\.wb-code-skeleton-sweep \{/.test(css) &&
+      /animation: wb-code-sweep /.test(css) &&
+      /@keyframes wb-code-sweep \{\s*\n\s*from \{ transform: translate3d/.test(css) &&
+      // the reduced-motion answer keeps the promise and drops the movement
+      /\.wb-code-skeleton-sweep \{ animation: none; opacity: 0\.35; \}/.test(css))(
+        readFileSync(join(root, "app/globals.css"), "utf8"),
+      ),
+)
+
+check(
   "the code editor's bar wears the code editor's theme, and carries the switch",
   /**
    * On a phone the code editor is a full-screen page with a bar of its own,
