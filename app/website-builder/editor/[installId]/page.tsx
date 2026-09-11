@@ -6420,12 +6420,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 scrollbar stays inside it. The outer box stays
                 `overflow-visible` for the grab edge that hangs past it.
 
-                Rounded where it faces the canvas, square everywhere else:
-                the row around it carries the outer shape and clips this to
-                it, so the only arc this needs is the one at the seam. */}
+                Square. The turn at the seam belongs to the canvas, and what
+                this contributes is the REVERSED corner beside it: see
+                `wb-seam-fill` below, which flows this panel's white into the
+                wedge the canvas's arc leaves behind. */}
             <div
               ref={sidebarRef}
-              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-[#e5e7eb] rounded-tr-2xl"
+              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-[#e5e7eb]"
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
               <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
@@ -6434,6 +6435,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
             {/* The grab edge. Wider than it looks, so it can be found; drawn
                 only under the pointer, so it is not a second border. */}
+            {/* The reversed corner. It sits just outside this panel, at the
+                top of the seam, and is white with the canvas's arc cut out
+                of it — so the sidebar flows into the corner the canvas curves
+                away from and the two meet on one curve. `left: 100%` of this
+                wrapper, whose width IS the sidebar's, so it follows the
+                resize without being told. */}
+            <span aria-hidden className="wb-seam-fill" />
             <div
               role="separator"
               aria-orientation="vertical"
@@ -6544,11 +6552,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </MobileEditorSheet>
         )}
 
-        {/* The same turn as the sidebar, so opening the AI adds a column that
-            belongs to the row rather than a square block between two rounded
-            ones. */}
+        {/* The same shape as the sidebar, reversed corner and all: when the
+            AI is open it is the panel the canvas sits beside, so the wedge is
+            its to fill. The clip moves to an inner box, since the filler has
+            to hang outside this one. */}
         {!isMobileView && aiOpen && (
-          <div className="relative flex-shrink-0 overflow-hidden bg-white border-r border-[#e5e7eb] rounded-tr-2xl" style={{ width: 340 }}>
+          <div className="relative flex-shrink-0" style={{ width: 340 }}>
+            <span aria-hidden className="wb-seam-fill" />
+            <div className="h-full overflow-hidden bg-white border-r border-[#e5e7eb]">
             <ThemeChat
               installId={installId}
               page={currentPage}
@@ -6560,6 +6571,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}
             />
+            </div>
           </div>
         )}
 
@@ -7010,8 +7022,12 @@ function CanvasInsertStrip({ onClick }: { onClick: () => void }) {
         onClick()
       }}
     >
-      <span className="pointer-events-none absolute inset-x-0 h-[2px] origin-center scale-x-0 bg-[#8B56FA] opacity-0 transition-[opacity,scale] duration-200 ease-out group-hover:scale-x-100 group-hover:opacity-100 group-focus-visible:scale-x-100 group-focus-visible:opacity-100 motion-reduce:transition-none" />
-      <span className="pointer-events-none relative z-10 flex h-6 w-6 -rotate-90 scale-75 items-center justify-center rounded-full bg-[#8B56FA] text-white opacity-0 shadow-[0_2px_10px_-2px_rgba(139,86,250,0.8)] transition-[opacity,rotate,scale] duration-200 ease-out group-hover:rotate-0 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:rotate-0 group-focus-visible:scale-100 group-focus-visible:opacity-100 motion-reduce:transition-none">
+      {/* Grey and near-black, not purple. A brand colour drawn across the
+          middle of somebody's page is the editor talking over the thing it
+          is meant to be showing: the line has to be findable, not loud, and
+          the only strong mark is the 24px button that says what it does. */}
+      <span className="pointer-events-none absolute inset-x-0 h-[2px] origin-center scale-x-0 bg-[#d4d7dd] opacity-0 transition-[opacity,scale] duration-200 ease-out group-hover:scale-x-100 group-hover:opacity-100 group-focus-visible:scale-x-100 group-focus-visible:opacity-100 motion-reduce:transition-none" />
+      <span className="pointer-events-none relative z-10 flex h-6 w-6 -rotate-90 scale-75 items-center justify-center rounded-full bg-[#1a1a2e] text-white opacity-0 shadow-[0_2px_10px_-4px_rgba(15,23,42,0.7)] transition-[opacity,rotate,scale] duration-200 ease-out group-hover:rotate-0 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:rotate-0 group-focus-visible:scale-100 group-focus-visible:opacity-100 motion-reduce:transition-none">
         <Plus className="h-3.5 w-3.5" strokeWidth={2.75} />
       </span>
     </div>

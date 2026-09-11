@@ -61,18 +61,26 @@ body{background:rgb(${ROOT})}
      display:flex;background:rgb(${GAP});overflow:hidden}
 .side{width:${SIDE}px;background:#fff;border-right:1px solid #e5e7eb;flex:none}
 .canvas{flex:1;background:rgb(${CANVAS})}
-.card{width:100%;height:100%;background:#fff}
+/* the site's own content: dark on purpose, so the boundary between the
+   reversed corner's white and the page it meets is unambiguous */
+.card{width:100%;height:100%;background:#111827}
 ${shape === "after"
     ? /* the row owns the outside, the panels own the seam */
       `.row{border-radius:${R}px}
+       .canvas{border-top-left-radius:${R}px}
+       .card{border-top-left-radius:${R}px}
+       .fill{position:absolute;top:0;left:${SIDE}px;width:${R}px;height:${R}px;z-index:10;
+             background:radial-gradient(circle ${R}px at 100% 100%, rgba(255,255,255,0) 0 98%, #ffffff 100%)}`
+    : /* the shape it replaces: the two panels curving AWAY from each other,
+         which leaves the lens-shaped wedge that was reported as a notch */
+      `.row{border-radius:${R}px}
        .side{border-top-right-radius:${R}px}
        .canvas{border-top-left-radius:${R}px}
-       .card{border-top-left-radius:${R}px}`
-    : /* the shape it replaces: the outside only, with a flat seam */
-      `.row{border-radius:${R}px}`}
+       .card{border-top-left-radius:${R}px}
+       .fill{display:none}`}
 </style></head><body>
 <div class="bar"></div>
-<div class="row"><div class="side"></div><div class="canvas"><div class="card"></div></div></div>
+<div class="row"><div class="side"></div><div class="canvas"><div class="card"></div></div><i class="fill"></i></div>
 <script>
 const r = document.querySelector(".row").getBoundingClientRect()
 document.title = JSON.stringify({ left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) })
@@ -155,23 +163,39 @@ function corner(img, box, side, edge) {
 }
 
 /**
- * Both sides of the seam, sampled apart. They face each other, so together
- * they read as one valley — but a one-sided notch is exactly what passes if
- * the two are counted as a single box.
+ * THE SEAM, MEASURED TWO WAYS.
+ *
+ * `wedge` is how much of the row shows through the junction: a rounded panel
+ * curving away leaves a gap, and the reversed corner beside it fills that gap
+ * with the flat panel's own colour, so the answer has to be zero.
+ *
+ * `isArc` is the other half, and it is the one that matters. Zero gap is also
+ * what a plain square corner gives, so filling it proves nothing on its own.
+ * This walks down the junction row by row and records where the white ends:
+ * against a square corner that x never moves, and against a reversed one it
+ * traces the same curve the canvas arcs away on.
  */
-function seamCorner(img, box, which) {
-  const left = which === "sidebar" ? box.left + SIDE - R : box.left + SIDE + 1
-  const cx = which === "sidebar" ? box.left + SIDE - R : box.left + SIDE + 1 + R
-  const cy = box.top + R
-  let bar = 0, total = 0
-  for (let x = left; x < left + R; x++) {
-    for (let y = box.top; y < box.top + R; y++) {
-      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= R + 0.5) continue
-      total++
-      if (isGap(img.at(x, y))) bar++
-    }
+function seamFill(img, box) {
+  let n = 0
+  for (let x = box.left + SIDE; x < box.left + SIDE + R; x++) {
+    for (let y = box.top; y < box.top + R; y++) if (isGap(img.at(x, y))) n++
   }
-  return { bar, total }
+  return n
+}
+
+const isWhite = (p) => p.every((v) => v > 250)
+function seamProfile(img, box) {
+  const edges = []
+  for (let y = box.top; y < box.top + R; y++) {
+    // From the seam RIGHTWARDS, which is the direction the fill runs: the
+    // white reaches furthest at the top and tapers to nothing at the bottom.
+    // Scanning the other way stops on the arc's own antialiasing in the first
+    // pixel it tests and reports a straight edge for every row.
+    let x = 0
+    while (x < R && isWhite(img.at(box.left + SIDE + x, y))) x++
+    edges.push(x)
+  }
+  return { edges, travel: Math.max(...edges) - Math.min(...edges) }
 }
 
 let broken = 0
@@ -209,8 +233,8 @@ try {
       topRight: corner(img, box, "right", "top"),
       bottomLeft: corner(img, box, "left", "bottom"),
       bottomRight: corner(img, box, "right", "bottom"),
-      seamSide: seamCorner(img, box, "sidebar"),
-      seamCanvas: seamCorner(img, box, "canvas"),
+      seamGap: seamFill(img, box),
+      seamProfile: seamProfile(img, box),
     }
   }
 
@@ -232,29 +256,28 @@ try {
     expect(ratio(after[key]) > 0.75, `the workspace turns at ${name}, onto the root`,
       `${after[key].bar} of ${after[key].total} wedge pixels are the root`)
   }
-  expect(ratio(after.seamSide) > 0.75, "the sidebar turns at the seam, onto the row",
-    `${after.seamSide.bar} of ${after.seamSide.total} wedge pixels are the row`)
-  expect(ratio(after.seamCanvas) > 0.75, "and the canvas turns to meet it",
-    `${after.seamCanvas.bar} of ${after.seamCanvas.total} wedge pixels are the row`)
+  expect(after.seamGap === 0, "the reversed corner fills the wedge the canvas's arc leaves",
+    `${after.seamGap} pixels of the row still showing at the junction`)
+  expect(after.seamProfile.travel >= R - 6, "and it fills it along a curve, not as a square corner",
+    `the white edge moved ${after.seamProfile.travel}px down the junction, so it is not tracing the arc`)
 
-  // The control: the shape this replaces had the outer ring and a flat seam,
-  // which is the corner that kept being reported as square.
-  expect(ratio(before.seamSide) < 0.1 && ratio(before.seamCanvas) < 0.1,
-    "the shape it replaces left the seam flat, so this is a real measurement",
-    `the control's seam was ${before.seamSide.bar}/${before.seamSide.total} and ${before.seamCanvas.bar}/${before.seamCanvas.total}`)
+  // The control: two panels curving away from each other leave the lens that
+  // was reported as a notch.
+  expect(before.seamGap > 0, "two panels curving away from each other left a gap, so this is a real measurement",
+    "the control had no gap either")
 
   const lum = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b
   const outerSep = Math.abs(lum(ROOT) - lum(GAP))
   const seamSep = Math.abs(lum([255, 255, 255]) - lum(GAP))
   expect(outerSep >= 12, "the root is far enough from the row for the outer arcs to read",
     `only ${outerSep.toFixed(1)} points of luminance`)
-  expect(seamSep >= 24, "and the row far enough from the panels for the seam's to read",
+  expect(seamSep >= 24, "and the row far enough from the panels to be seen where it does show",
     `only ${seamSep.toFixed(1)} points of luminance`)
 
   console.log(`\n  root to row:   ${outerSep.toFixed(1)} points of luminance`)
   console.log(`  row to panel:  ${seamSep.toFixed(1)} points`)
   const cols = (m) => OUTER.map(([k]) => `${m[k].bar}/${m[k].total}`).join("  ") +
-    `   seam ${m.seamSide.bar}/${m.seamSide.total} | ${m.seamCanvas.bar}/${m.seamCanvas.total}`
+    `   seam gap ${m.seamGap}, curve ${m.seamProfile.travel}px`
   console.log(`  after    ${cols(after)}`)
   console.log(`  before   ${cols(before)}\n`)
 } finally {

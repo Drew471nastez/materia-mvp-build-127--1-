@@ -857,6 +857,38 @@ html.capacitor body {
     .wb-loading-line { animation: none }
   }
 
+  /* ── THE REVERSED CORNER ──
+     Where a rounded panel meets a flat one, the panel's arc leaves a small
+     wedge behind it and the surface underneath shows through. Rounding the
+     other panel to match only doubles the wedge: two arcs curving away from
+     each other leave a lens, which is the notch that kept being reported.
+
+     This is the corner turned the other way. A square of the flat panel's
+     own colour sits in that wedge with the quarter disc masked out of it, so
+     the flat surface flows INTO the corner along exactly the arc the rounded
+     panel curves away on. The two meet on the same curve and there is no gap
+     left to see.
+
+     It is a BACKGROUND, not a mask. A radial gradient centred on the arc's
+     own centre — the bottom right of this 16px box, which is 16px right and
+     16px down from the junction — painting nothing inside the radius and the
+     panel's colour outside it. A mask draws the same shape and was measured
+     doing so, but it costs a compositing pass and two vendor spellings for a
+     result a background gets for free. 98% rather than 100% so the boundary
+     has a pixel of blend and the join does not alias against the arc it
+     meets, and the transparent stop is white-with-no-alpha rather than
+     `transparent`, which is black-with-no-alpha and fringes the blend grey. */
+  .wb-seam-fill {
+    position: absolute;
+    top: 0;
+    left: 100%;
+    width: 16px;
+    height: 16px;
+    pointer-events: none;
+    z-index: 10;
+    background: radial-gradient(circle 16px at 100% 100%, rgba(255, 255, 255, 0) 0 98%, #ffffff 100%);
+  }
+
   /* ── The row in the air ──
      The overlay's job is to look picked up. A shadow and a hair of scale is
      the whole of that: it is on its own compositor layer already, so the

@@ -805,8 +805,8 @@ check(
     // and the preview turns only at the seam, the row cutting its other three
     /\? "rounded-tl-2xl w-full"/.test(editor) &&
     // the sidebar and the AI: flush, clipped, a hairline instead of a gutter
-    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-tr-2xl"/.test(editor) &&
-    /className="relative flex-shrink-0 overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-tr-2xl" style=\{\{ width: 340 \}\}/.test(editor) &&
+    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]"/.test(editor) &&
+    /<span aria-hidden className="wb-seam-fill" \/>/.test(editor) &&
     // and what shows through that one arc is a LIGHT surround: the bar is
     // chrome and is meant to be dark, the canvas is the page being worked on,
     // and a near-black field around it makes the builder read as two products
@@ -871,6 +871,19 @@ check(
 )
 
 check(
+  "the insert line is the page's colour, not the brand's",
+  /**
+   * A purple rule drawn across the middle of somebody's page is the editor
+   * talking over the thing it is meant to be showing. The line has to be
+   * findable, not loud; the only strong mark is the button that says what it
+   * does, and near-black says it without claiming the page.
+   */
+  /h-\[2px\] origin-center scale-x-0 bg-\[#d4d7dd\]/.test(editor) &&
+    /rounded-full bg-\[#1a1a2e\] text-white opacity-0/.test(editor) &&
+    !/bg-\[#8B56FA\] opacity-0 transition-\[opacity,scale\]/.test(editor),
+)
+
+check(
   "the canvas's insert affordance costs the page no height",
   /**
    * It was `h-6 w-full` in flow, which is 24px of nothing inserted between
@@ -917,16 +930,31 @@ check(
    * the colour: the row behind it was the same grey as the canvas, so the
    * wedge had nothing to be.
    *
-   * Measured at all six: 44/44 at each outer corner, 44/44 and 35/44 at the
-   * two sides of the seam, against 0/44 and 0/44 for the flat-seam shape it
-   * replaces. `node scripts/check-workspace-corners.mjs`
+   * AND THE SEAM'S CORNER IS REVERSED. Rounding the second panel to match
+   * the first does not close the gap, it doubles it: two arcs curving away
+   * from each other leave a lens, which is the notch. The panel beside the
+   * canvas stays square and FILLS that wedge instead, with a radial gradient
+   * that paints its own colour everywhere outside the arc's own circle, so
+   * the flat surface flows into the corner along exactly the curve the
+   * canvas turns on and the two meet with nothing between them.
+   *
+   * Measured: 44/44 at each outer corner; at the seam, 0 pixels of the row
+   * still showing and a white edge that travels 12 of 16px down the junction
+   * — a curve, not a square fill. The shape it replaces left 43 pixels of gap
+   * and an edge that travelled 0. `node scripts/check-workspace-corners.mjs`
    */
   // the outer ring, on the row
   /"relative flex flex-1 min-h-0 overflow-hidden bg-\[#d9dee6\]",\s*\n[\s\S]{0,200}?!isMobileView && "rounded-2xl",/.test(editor) &&
     /"wb-editor fixed inset-0 flex flex-col bg-\[#eef1f5\] overflow-hidden wb-editor-enter"/.test(editor) &&
-    // the seam ring, on the panels that face each other across it
-    /bg-white border-r border-\[#e5e7eb\] rounded-tr-2xl"/.test(editor) &&
-    /bg-white border-r border-\[#e5e7eb\] rounded-tr-2xl" style=\{\{ width: 340 \}\}/.test(editor) &&
+    // the seam ring: the canvas turns, and the panel beside it FILLS the
+    // wedge that turn leaves rather than curving away from it as well
+    /<span aria-hidden className="wb-seam-fill" \/>/.test(editor) &&
+    !/rounded-tr-2xl/.test(editor) &&
+    // read here rather than through `editorCss`, which is declared further
+    // down the file and is in its temporal dead zone at this point
+    /\.wb-seam-fill \{[\s\S]{0,500}?background: radial-gradient\(circle 16px at 100% 100%, rgba\(255, 255, 255, 0\) 0 98%, #ffffff 100%\);/.test(
+      readFileSync(join(root, "app/globals.css"), "utf8"),
+    ) &&
     /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-tl-2xl",/.test(editor) &&
     /\? "rounded-tl-2xl w-full"/.test(editor),
 )

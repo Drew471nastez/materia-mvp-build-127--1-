@@ -778,15 +778,17 @@ section("The editor has one accent, and it is the app's own")
    * purple on a builder also reads as "AI demo" rather than as a tool, which
    * is the specific thing this was asked to stop looking like.
    *
-   * Counted rather than forbidden outright: the one survivor is a COMMENT
+   * Counted rather than forbidden outright: the survivors are COMMENTS
    * explaining that the inspector outline is blue and deliberately not purple,
-   * and a rule that cannot tell a mention from a use is a rule somebody
-   * deletes the first time it is wrong.
+   * and that the canvas's insert line is grey for the same reason. A rule that
+   * cannot tell a mention from a use is a rule somebody deletes the first time
+   * it is wrong — which is why `{/*` is in the exemption beside `//` and `/*`.
+   * A JSX comment is a comment, and this file is mostly JSX.
    */
   const uses = editor
     .split("\n")
     .filter((line) => /purple/.test(line))
-    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+    .filter((line) => !/^\s*(\/\/|\*|\/\*|\{\/\*)/.test(line))
   check("no purple is actually applied anywhere", uses.length === 0, uses.slice(0, 3).join(" | "))
 
   /**
