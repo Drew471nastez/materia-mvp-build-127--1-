@@ -436,7 +436,25 @@ export interface ThemeCustomFile {
 
 // ── Schema field types ───────────────────────────────────────
 
+/**
+ * The registry's control names (lib/storelib-theme/controls/registry.ts) and
+ * the older names the JSON schemas used for some of them. FieldEditor
+ * resolves either through the registry, so `link` and `url` are one control.
+ */
 export type SchemaFieldType =
+  | "url"
+  | "image_picker"
+  | "video_picker"
+  | "icon_picker"
+  | "font_picker"
+  | "color_scheme"
+  | "checkbox"
+  | "divider"
+  | "image_gallery"
+  | "file_picker"
+  | "page_picker"
+  | "product_picker"
+  | "community_picker"
   | "text"
   | "textarea"
   | "richtext"

@@ -6,11 +6,12 @@
  */
 import { renderToStaticMarkup } from "react-dom/server"
 import { createElement, type CSSProperties } from "react"
-import { readFileSync, writeFileSync } from "node:fs"
+import { writeFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { HeroSection } from "@/components/website-builder/sections/renderers/HeroSection"
 import { StorelibSection } from "@/components/website-builder/sections/StorelibSection"
+import { STORELIB_SCHEMAS } from "@/lib/website-builder/storelib-schemas"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { themeVars } from "@/lib/website-builder/theme-css"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -22,7 +23,7 @@ const theme = Object.fromEntries(
   THEME_SETTINGS_GROUPS.flatMap((g) => (g.fields ?? []).filter((f) => f.default !== undefined).map((f) => [f.id, f.default])),
 ) as unknown as ThemeSettingsValues
 
-const schema = JSON.parse(readFileSync(join(process.cwd(), "themes/default/sections/hero.json"), "utf8")) as {
+const schema = STORELIB_SCHEMAS.hero as {
   fields: { id: string; default?: unknown }[]
   presets: { name: string; settings: Record<string, unknown> }[]
 }

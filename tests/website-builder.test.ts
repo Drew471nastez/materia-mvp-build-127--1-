@@ -39,6 +39,7 @@ import {
 import { looksLikeImage, previousSnapshotPath, SNAPSHOT_BUCKET } from "@/lib/website-builder/snapshot"
 import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition, coverSpecFromSettings } from "@/components/website-builder/theme-cover"
 import { editorHref } from "@/app/app/website-builder/website-builder-client"
+import { STORELIB_SCHEMAS, STORELIB_SECTION_TYPES } from "@/lib/website-builder/storelib-schemas"
 
 let passed = 0
 let failed = 0
@@ -70,6 +71,8 @@ for (const f of readdirSync(SCHEMA_DIR)) {
   const s = JSON.parse(readFileSync(join(SCHEMA_DIR, f), "utf8")) as Schema
   schemas.set(s.type ?? f.replace(/\.json$/, ""), s)
 }
+// Sections that live in a .storelib file, through the adapter the sidebar reads.
+for (const type of STORELIB_SECTION_TYPES) schemas.set(type, STORELIB_SCHEMAS[type] as Schema)
 const settable = (fields: Field[] | undefined) => (fields ?? []).filter((x) => x.type !== "header")
 const optionValues = (x: Field): string[] | null => {
   if (x.type !== "select" && x.type !== "radio") return null
@@ -341,8 +344,16 @@ section("Choosing an icon, and choosing where a link goes")
     /from "lucide-react"/.test(map) && !/dynamicIconImports/.test(map),
   )
 
-  check("an icon field gets a picker instead of falling through to a text box", /if \(field\.type === "icon"\) \{\s*return <IconPicker/.test(editorSrc))
-  check("and a link field gets one instead of a bare input", /if \(field\.type === "link"\) \{\s*return <LinkFieldEditor/.test(editorSrc) && !/field\.type === "text" \|\| field\.type === "link"/.test(editorSrc))
+  /**
+   * FieldEditor resolves a field's type through the control registry first
+   * (`kind`), so the JSON schemas' `icon` and `link` and the .storelib
+   * schemas' `icon_picker` and `url` reach the same branch. The branch is
+   * checked by its resolved name, and the resolution itself is checked, or a
+   * branch on the raw type would quietly leave one spelling with a text box.
+   */
+  check("field types are resolved through the control registry, once", /const kind = resolveControlType\(field\.type\) \?\? field\.type/.test(editorSrc) && !/if \(field\.type === "(icon|link|image|video|font)"\)/.test(editorSrc))
+  check("an icon field gets a picker instead of falling through to a text box", /if \(kind === "icon_picker"\) \{\s*return <IconPicker/.test(editorSrc))
+  check("and a link field gets one instead of a bare input", /if \(kind === "url"\) \{\s*return <LinkFieldEditor/.test(editorSrc) && !/kind === "text" \|\| kind === "url"/.test(editorSrc))
 
   check("the link picker lists the site's own pages, products and collections", /kind: "page"/.test(linkPicker) && /kind: "product"/.test(linkPicker) && /kind: "collection"/.test(linkPicker))
   check("and still takes any address at all", /Or any address/.test(linkPicker) && /mailto:/.test(linkPicker))
