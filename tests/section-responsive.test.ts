@@ -799,14 +799,14 @@ check(
    * the app uses, and the only dark left anywhere below the bar is the
    * sliver inside the preview's one rounded corner.
    */
-  // no mat: no padding, no gap, no dark on the row itself
-  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[var\(--wb-chrome-bg\)\]">/.test(editor) &&
+  // no mat: no padding, no gap, and the row itself is the light surface
+  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#eceef1\]">/.test(editor) &&
     !/bg-\[#171717\] p-2 gap-2/.test(editor) &&
-    // one corner on the preview, where the sidebar and the bar meet it
+    // both top corners on the preview, matching the sidebar beside it
     /\? "rounded-t-2xl w-full"/.test(editor) &&
     // the sidebar and the AI: flush, clipped, a hairline instead of a gutter
-    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-tl-2xl"/.test(editor) &&
-    /className="relative flex-shrink-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]" style=\{\{ width: 340 \}\}/.test(editor) &&
+    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-t-2xl"/.test(editor) &&
+    /className="relative flex-shrink-0 overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-t-2xl" style=\{\{ width: 340 \}\}/.test(editor) &&
     // and what shows through that one arc is a LIGHT surround: the bar is
     // chrome and is meant to be dark, the canvas is the page being worked on,
     // and a near-black field around it makes the builder read as two products
@@ -821,31 +821,37 @@ check(
 )
 
 check(
-  "the workspace turns at every place it meets the chrome",
+  "every panel in the row turns at the top, onto the light",
   /**
-   * Three corners, and it took three goes because each go moved the one arc
-   * somewhere else instead of adding the ones that were missing. First the
-   * canvas's left alone, which is an arc in the MIDDLE of the row with both
-   * ends of the row square. Then the outer two alone, which left the sidebar
-   * and the canvas meeting in a right angle. Both halves were reported.
+   * Four corners, and it took four goes: each go moved the one arc somewhere
+   * else instead of adding the ones that were missing, and the first shape
+   * that had them all put the wrong colour behind them.
    *
-   * The canvas ends in two places and the chrome begins in both: the screen's
-   * right edge under the bar, and the sidebar under the bar. The sidebar ends
-   * in one, at the screen's left edge. All three turn, and the row paints the
-   * bar's own colour because the only part of it ever visible is the wedges
-   * those three arcs open onto.
+   * The panels sit in a row under the bar and each ends where the chrome
+   * begins: the sidebar at the screen's left edge and at the seam, the canvas
+   * at that same seam and at the screen's right edge. All four turn, so the
+   * two mirror each other and what is between them is a symmetric valley
+   * rather than the one-sided notch that was reported.
    *
-   * Measured: 44 of 44 wedge pixels are the bar at the left edge, 36 of 44 at
-   * the seam (the rest being the sidebar's hairline and the arc's own
-   * antialiasing) and 44 of 44 at the right, against 0 of 44 at the seam for
-   * the shape it replaces. `node scripts/check-workspace-corners.mjs`
+   * And the row is LIGHT behind those arcs. The bar's dark was tried: the
+   * arcs are small, and a small dark shape surrounded by white reads as a
+   * hole punched between two panels rather than as a frame around them. In
+   * the workspace's own grey the same arcs read as the surface the panels sit
+   * on, which is what they are.
+   *
+   * Measured, counting only the pixels each arc should have cut away: 44 of
+   * 44 at the left edge, 44 and 42 at the two sides of the seam, 44 at the
+   * right, against 0 of 44 for the sidebar's side of the seam in the shape it
+   * replaces. `node scripts/check-workspace-corners.mjs`
    */
-  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[var\(--wb-chrome-bg\)\]">/.test(editor) &&
-    /overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-tl-2xl"/.test(editor) &&
+  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#eceef1\]">/.test(editor) &&
+    !/bg-\[var\(--wb-chrome-bg\)\]">/.test(editor) &&
+    // the sidebar turns on both of its top corners, and so does the AI column
+    /overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-t-2xl"/.test(editor) &&
+    /overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-t-2xl" style=\{\{ width: 340 \}\}/.test(editor) &&
+    // and so does the canvas, and the card inside it
     /"bg-\[#eceef1\] rounded-t-2xl"/.test(editor) &&
-    /\? "rounded-t-2xl w-full"/.test(editor) &&
-    // and the sidebar keeps its own turn at the screen's left edge
-    /border-r border-\[#e5e7eb\] rounded-tl-2xl"/.test(editor),
+    /\? "rounded-t-2xl w-full"/.test(editor),
 )
 
 check(

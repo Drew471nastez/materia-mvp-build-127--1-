@@ -1,23 +1,25 @@
 /**
  * ===========================================================================
- *  THE WORKSPACE TURNS AT EVERY PLACE IT MEETS THE CHROME
+ *  EVERY PANEL IN THE ROW TURNS AT THE TOP, ONTO THE LIGHT
  * ===========================================================================
- * Three corners, and this took three goes to get right because each go moved
- * the one arc somewhere else instead of adding the ones that were missing.
+ * Four corners, and this took four goes because each go moved the one arc
+ * somewhere else instead of adding the ones that were missing, and because
+ * the first shape that had them all put the wrong colour behind them.
  *
- * The canvas ends in two places, and the chrome begins in both: at the right,
- * where it meets the edge of the screen under the bar, and at the left, where
- * it meets the sidebar under the bar. The sidebar ends in one place, at the
- * left edge of the screen. All three turn, and the bar's own colour shows
- * through all three arcs, so the workspace reads as tucked under the chrome
- * from either side rather than butted against it on one.
+ * The panels sit in a row under the bar, and each of them ends where the
+ * chrome begins: the sidebar at the screen's left edge and at the seam, the
+ * canvas at that same seam and at the screen's right edge. All four turn, so
+ * the two panels mirror each other and what is between them is a symmetric
+ * valley rather than a one-sided notch.
  *
- * First it was the left of the canvas alone — an arc in the middle of the row
- * with both ends of the row square. Then the outer two alone, which left the
- * sidebar and the canvas meeting in a right angle. Both halves were reported.
+ * And the row is LIGHT behind those arcs. The bar's dark was tried: the arcs
+ * are small, and a small dark shape surrounded by white reads as a hole
+ * punched between two panels rather than as a frame around them. In the
+ * workspace's own grey the same arcs read as the surface the panels are
+ * sitting on, which is what they are.
  *
- * So this renders the row and samples all three corners, plus a control at
- * each: the shape being replaced must fail the corners it did not have.
+ * So this renders the row and samples all four corners, with the shape it
+ * replaces beside it as a control that must fail the ones it did not have.
  *
  *   node scripts/check-workspace-corners.mjs
  */
@@ -36,26 +38,28 @@ if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}. Set CHROMIUM=/path/t
 
 /** `rounded-2xl`, the bar's height, the sidebar's width, the viewport. */
 const R = 16, BAR = 44, SIDE = 160, W = 560, H = 300
-/** `--wb-chrome-bg`, and the canvas surround. */
-const CHROME = [0x17, 0x17, 0x17]
+/** The workspace's own surface, which is what every arc opens onto. */
+const GAP = [0xec, 0xee, 0xf1]
 
 const page = (shape) => `<!doctype html><html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box;margin:0}html,body{height:100%;overflow:hidden}
 body{background:#888}
-.bar{height:${BAR}px;background:rgb(${CHROME})}
-/* the row paints the bar's colour: the two wedges are all that is ever seen */
-.row{display:flex;height:${H - BAR}px;background:rgb(${CHROME})}
+.bar{height:${BAR}px;background:#171717}
+/* the row paints the workspace's own light surface: the four wedges the
+   arcs open onto are all of it that is ever seen */
+.row{display:flex;height:${H - BAR}px;background:rgb(${GAP})}
 .side{width:${SIDE}px;background:#fff;border-right:1px solid #e5e7eb;overflow:hidden;flex:none}
-.canvas{flex:1;background:#eceef1;overflow:hidden}
+.canvas{flex:1;background:rgb(${GAP});overflow:hidden}
 .card{width:100%;height:100%;background:#fff}
 ${shape === "after"
-    ? `.side{border-top-left-radius:${R}px}
+    ? `.side{border-top-left-radius:${R}px;border-top-right-radius:${R}px}
        .canvas{border-top-left-radius:${R}px;border-top-right-radius:${R}px}
        .card{border-top-left-radius:${R}px;border-top-right-radius:${R}px}`
-    : /* the shape it replaces: the outer two, with the seam left square */
+    : /* the shape it replaces: the sidebar square on its inner side, so the
+         seam was a notch on one side only */
       `.side{border-top-left-radius:${R}px}
-       .canvas{border-top-right-radius:${R}px}
-       .card{border-top-right-radius:${R}px}`}
+       .canvas{border-top-left-radius:${R}px;border-top-right-radius:${R}px}
+       .card{border-top-left-radius:${R}px;border-top-right-radius:${R}px}`}
 </style></head><body>
 <div class="bar"></div>
 <div class="row"><div class="side"></div><div class="canvas"><div class="card"></div></div></div>
@@ -105,11 +109,17 @@ function readPng(path) {
   return { w, h, at: (x, y) => { const o = y * stride + x * ch; return [px[o], px[o + 1], px[o + 2]] } }
 }
 
-const isChrome = (p) => p.every((v, i) => Math.abs(v - CHROME[i]) < 14)
+/**
+ * Tight on purpose. The sidebar's own right border is #e5e7eb, which is
+ * within seven of the row's #eceef1: at a loose tolerance the border column
+ * counts as the row showing through, and a square corner with a hairline
+ * beside it scores ten out of forty-four for nothing.
+ */
+const isGap = (p) => p.every((v, i) => Math.abs(v - GAP[i]) < 5)
 
 /**
  * Of the pixels an arc at this corner should have cut away, how many are the
- * bar showing through. The sample is the corner's bounding box minus the
+ * row showing through. The sample is the corner's bounding box minus the
  * quarter disc, so it counts only what falls outside the panel's shape.
  */
 function wedge(img, side) {
@@ -121,27 +131,28 @@ function wedge(img, side) {
     for (let y = BAR; y < BAR + R; y++) {
       if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= R + 0.5) continue
       total++
-      if (isChrome(img.at(x, y))) bar++
+      if (isGap(img.at(x, y))) bar++
     }
   }
   return { bar, total }
 }
 
 /**
- * The seam turns too. The canvas's own top-left arc starts one pixel right of
- * the sidebar's border, so the wedge to sample is the corner box that begins
- * there — everything outside the quarter disc must be the bar.
+ * The seam has two arcs, one from each panel, and they face each other. The
+ * sidebar's is the box ending at its right edge; the canvas's is the box
+ * starting one pixel past it. Sampled apart, because a one-sided notch is
+ * exactly what passes if they are sampled together.
  */
-function seamWedge(img) {
-  const left = SIDE + 1
-  const cx = left + R
+function seamWedge(img, which) {
+  const left = which === "sidebar" ? SIDE - R : SIDE + 1
+  const cx = which === "sidebar" ? SIDE - R : left + R
   const cy = BAR + R
   let bar = 0, total = 0
   for (let x = left; x < left + R; x++) {
     for (let y = BAR; y < BAR + R; y++) {
       if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= R + 0.5) continue
       total++
-      if (isChrome(img.at(x, y))) bar++
+      if (isGap(img.at(x, y))) bar++
     }
   }
   return { bar, total }
@@ -166,31 +177,39 @@ try {
       { stdio: "ignore" },
     )
     const img = readPng(png)
-    return { left: wedge(img, "left"), right: wedge(img, "right"), seam: seamWedge(img) }
+    return {
+      left: wedge(img, "left"),
+      right: wedge(img, "right"),
+      seamSide: seamWedge(img, "sidebar"),
+      seamCanvas: seamWedge(img, "canvas"),
+    }
   }
   const after = read("after")
   const before = read("before")
 
-  console.log("\nthe workspace turns at every place it meets the chrome\n")
+  console.log("\nevery panel in the row turns at the top, onto the light\n")
 
   // Antialiasing blends the boundary ring, so a pixel or two on the arc is
-  // not a square corner. Most of the wedge has to be the bar.
+  // not a square corner. Most of the wedge has to be the row showing through.
   const ratio = (m) => m.bar / m.total
-  expect(ratio(after.left) > 0.75, "the sidebar turns at the screen's left edge, onto the bar",
-    `${after.left.bar} of ${after.left.total} wedge pixels are the bar`)
-  expect(ratio(after.seam) > 0.75, "the canvas turns where it meets the sidebar, onto the bar",
-    `${after.seam.bar} of ${after.seam.total} wedge pixels are the bar`)
-  expect(ratio(after.right) > 0.75, "the canvas turns at the screen's right edge, onto the bar",
-    `${after.right.bar} of ${after.right.total} wedge pixels are the bar`)
+  expect(ratio(after.left) > 0.75, "the sidebar turns at the screen's left edge",
+    `${after.left.bar} of ${after.left.total} wedge pixels are the row`)
+  expect(ratio(after.seamSide) > 0.75, "the sidebar turns at the seam as well, so the valley has two sides",
+    `${after.seamSide.bar} of ${after.seamSide.total} wedge pixels are the row`)
+  expect(ratio(after.seamCanvas) > 0.75, "the canvas turns at the seam, facing it",
+    `${after.seamCanvas.bar} of ${after.seamCanvas.total} wedge pixels are the row`)
+  expect(ratio(after.right) > 0.75, "the canvas turns at the screen's right edge",
+    `${after.right.bar} of ${after.right.total} wedge pixels are the row`)
 
-  // The control: the shape this replaces had the outer two and a square seam,
-  // which is the half of the junction that kept being reported.
-  expect(ratio(before.seam) < 0.1,
-    "the shape it replaces left the seam square, so this is a real measurement",
-    `the control's seam was already ${before.seam.bar}/${before.seam.total}`)
+  // The control: the shape this replaces curved the canvas at the seam and
+  // left the sidebar square there, which is the one-sided notch reported.
+  expect(ratio(before.seamSide) < 0.1,
+    "the shape it replaces left the sidebar square at the seam, so this is a real measurement",
+    `the control's sidebar seam was already ${before.seamSide.bar}/${before.seamSide.total}`)
 
-  console.log(`\n  after    left ${after.left.bar}/${after.left.total}   seam ${after.seam.bar}/${after.seam.total}   right ${after.right.bar}/${after.right.total}`)
-  console.log(`  before   left ${before.left.bar}/${before.left.total}   seam ${before.seam.bar}/${before.seam.total}   right ${before.right.bar}/${before.right.total}\n`)
+  const cols = (m) => `left ${m.left.bar}/${m.left.total}   seam ${m.seamSide.bar}/${m.seamSide.total} | ${m.seamCanvas.bar}/${m.seamCanvas.total}   right ${m.right.bar}/${m.right.total}`
+  console.log(`\n  after    ${cols(after)}`)
+  console.log(`  before   ${cols(before)}\n`)
 } finally {
   rmSync(out, { recursive: true, force: true })
 }

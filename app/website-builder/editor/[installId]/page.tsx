@@ -6254,22 +6254,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           sidebar rounds at the top left, the canvas rounds at the top right,
           and the row reads as a single sheet tucked under the bar.
 
-          This row paints the bar's own colour, because that is what those
-          two wedges show: sixteen pixels each, at the two places the bar and
-          the workspace meet, and nothing else of it is ever visible. */}
-      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-[var(--wb-chrome-bg)]">
+          This row paints the LIGHT surround, not the bar's dark. The dark was
+          tried and it reads as a hole punched between two white panels: the
+          arcs are small, and a small dark shape surrounded by white is a gap,
+          not a frame. In the workspace's own light grey the same arcs read as
+          the surface the panels are sitting on, which is what they are. */}
+      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-[#eceef1]">
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
           <div className="relative flex-shrink-0 flex h-full overflow-visible">
             {/* Clipped HERE, on the box with the width, so the list's own
                 scrollbar stays inside it. The outer box stays
                 `overflow-visible` for the grab edge that hangs past it.
-                A hairline, not a gutter: what separates the sidebar from the
-                canvas is one pixel of the same grey every divider in the app
-                uses, rather than eight pixels of black. */}
+
+                BOTH TOP CORNERS, like the canvas beside it. The sidebar
+                turned only at the screen's edge, so at the seam a rounded
+                canvas met a square sidebar and the surround between them was
+                a one-sided notch. Curving both sides makes it a symmetric
+                valley: two panels tucked under the bar, mirroring each
+                other, with the workspace's own surface showing between. */}
             <div
               ref={sidebarRef}
-              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-[#e5e7eb] rounded-tl-2xl"
+              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-[#e5e7eb] rounded-t-2xl"
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
               <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
@@ -6388,8 +6394,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </MobileEditorSheet>
         )}
 
+        {/* The AI takes the same shape as the panels either side of it, so
+            opening it adds a column to the row rather than a square block in
+            the middle of a row of rounded ones. */}
         {!isMobileView && aiOpen && (
-          <div className="relative flex-shrink-0 overflow-hidden bg-white border-r border-[#e5e7eb]" style={{ width: 340 }}>
+          <div className="relative flex-shrink-0 overflow-hidden bg-white border-r border-[#e5e7eb] rounded-t-2xl" style={{ width: 340 }}>
             <ThemeChat
               installId={installId}
               page={currentPage}
@@ -6450,16 +6459,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                * The card is flush on every side and turns at the top, on BOTH
                * ends: at the right, where it meets the edge of the screen
                * under the bar, and at the left, where it meets the sidebar
-               * under the bar. Those are the two places the canvas ends and
-               * the chrome begins, and the bar's own dark shows through both
-               * arcs, so the page reads as tucked under the chrome from
-               * either side rather than butted against it on one.
+               * under the bar. The sidebar mirrors it, so the four top
+               * corners in the row all curve and the workspace's own light
+               * surface shows through every one of them.
                *
-               * This has been one corner twice: the left alone, then the
-               * right alone. Both times half the junction stayed square,
-               * which is what kept being reported. A device preview is a card
-               * in the middle of the canvas instead, so that one is rounded
-               * all the way round.
+               * This has been one corner twice — the left alone, then the
+               * right alone — and dark behind the arcs once, which read as a
+               * hole punched between two white panels rather than as a frame.
+               * A device preview is a card in the middle of the canvas
+               * instead, so that one is rounded all the way round.
                */
               : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
           )}
