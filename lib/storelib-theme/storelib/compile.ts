@@ -71,6 +71,7 @@ export function compileSection(source: string, opts: CompileOptions = {}): Resul
   if (template.ok === false) errors.push(...template.errors)
 
   let css = ""
+  let cssTemplate: unknown
   if (src.style.text.trim()) {
     if (!src.style.scoped) {
       errors.push({
@@ -81,8 +82,14 @@ export function compileSection(source: string, opts: CompileOptions = {}): Resul
       })
     } else {
       const scoped = scopeCss(src.style.text, { file, line: src.style.line, type: schema.value.type })
-      if (scoped.ok === true) css = scoped.value
-      else errors.push(...scoped.errors)
+      if (scoped.ok === true) {
+        css = scoped.value
+        if (css.includes("{{")) {
+          const t = compileTemplate(css, { file, line: src.style.line })
+          if (t.ok === true) cssTemplate = t.value
+          else errors.push(...t.errors.map((e) => ({ ...e, stage: "css" as const })))
+        }
+      } else errors.push(...scoped.errors)
     }
   }
 
@@ -112,6 +119,7 @@ export function compileSection(source: string, opts: CompileOptions = {}): Resul
       schema: schema.value,
       template: (template as { ok: true; value: CompiledTemplate }).value,
       css,
+      cssTemplate,
       script,
       sourceHash: sourceHash(source),
     },

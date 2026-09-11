@@ -1,0 +1,9 @@
+{
+  "format": "storelib-theme",
+  "format_version": 1,
+  "name": "From the future",
+  "version": "9.0.0",
+  "engine": {
+    "min": 99
+  }
+}

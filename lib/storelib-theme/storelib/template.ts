@@ -435,7 +435,23 @@ function evaluate(e: Expr, scope: Record<string, unknown>, ctx: RenderContext): 
   }
 }
 
-export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext): string {
+export interface RenderOptions {
+  /**
+   * "html" (the default) escapes output for markup. "css" is for a section's
+   * style block, where HTML escaping would turn a quote into `&quot;` and
+   * break the rule: a value is stripped of the characters that could end a
+   * declaration or a block instead, since no legitimate CSS value holds one.
+   */
+  mode?: "html" | "css"
+}
+
+/** A value on its way into a stylesheet. No braces, no angle brackets, no at-rules. */
+function cssValue(s: string): string {
+  return s.replace(/[<>{}]/g, "").replace(/@import/gi, "")
+}
+
+export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: RenderOptions = {}): string {
+  const css = opts.mode === "css"
   const out: string[] = []
   const base: Record<string, unknown> = {
     settings: ctx.settings,
@@ -451,7 +467,7 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext): strin
         case "text": out.push(n.value); break
         case "output": {
           const v = evaluate(n.expr, scope, ctx)
-          out.push(v instanceof Safe ? v.html : escapeHtml(str(v)))
+          out.push(v instanceof Safe ? v.html : css ? cssValue(str(v)) : escapeHtml(str(v)))
           break
         }
         case "if": {

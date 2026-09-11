@@ -60,7 +60,12 @@ export function renderSection(input: RenderInput): Rendered {
   const html = `<div data-section-id="${escapeAttr(id)}" data-section-type="${escapeAttr(compiled.type)}">${inner}</div>`
   return {
     html,
-    css: compiled.css ? cssForInstance(compiled.css, id) : "",
+    css: compiled.css
+      ? cssForInstance(
+          compiled.cssTemplate ? renderTemplate(compiled.cssTemplate as CompiledTemplate, ctx, { mode: "css" }) : compiled.css,
+          id,
+        )
+      : "",
     script: compiled.script,
   }
 }

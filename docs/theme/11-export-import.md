@@ -1,7 +1,5 @@
 # Export and import
 
-> Status: this is the Phase D package format. Today's export is `manifest.json` + `images/`, described under "Migrating the old format"; `package.ts` lands with Phase D and reads both.
-
 A theme leaves Storelib as one file, `<name>.storelib-theme`, and comes back
 the same way. The file is a zip of the folder in 01 plus a manifest that lets
 the importer check it.
@@ -72,6 +70,13 @@ Nothing is written until everything passes. An import is a transaction.
 Account data: asset URLs, install ids, publish state, revisions, chats. A
 package is the theme and only the theme.
 
+## Fixtures
+
+`tests/fixtures/themes` holds one theme per case — minimal, complex,
+blocks, assets, custom JS, an invalid schema, a newer engine, and a
+`storelib-theme/v2` export — and `tests/storelib-package.test.ts` round-trips
+every valid one, refuses every invalid one, and migrates the old one.
+
 ## Migrating the old format
 
 The builder's earlier exports (`manifest.json` with `format: "storelib-theme/v1"`
@@ -84,8 +89,19 @@ until they do.
 ## From code
 
 ```ts
-import { exportTheme, importTheme } from "@/lib/storelib-theme/package"  // Phase D
+import { buildPackage, readPackage } from "@/lib/storelib-theme"
 
-const zip = await exportTheme(files, assets)              // Uint8Array
-const r = await importTheme(zip)                          // Result<{ files, assets, manifest }>
+const bytes = await buildPackage({ theme, files, assets })      // Uint8Array
+const r = await readPackage(bytes, { knownTypes })              // Result<ReadPackage>
+if (r.ok === false) for (const e of r.errors) console.log(`${e.file}:${e.line} ${e.message}`)
 ```
+
+`buildPackage` is deterministic: entries are written in sorted order with a
+fixed timestamp, so the same theme builds to the same bytes and a round trip
+— build, read, build — is byte-equal. `generated_at` appears in the manifest
+only when the caller passes one.
+
+`GET /api/website-builder/themes/<id>/export` returns a package;
+`?legacy=1` returns the older zip. `POST /api/website-builder/themes/import`
+reads either, and a package that fails any check is refused with the whole
+list before anything is written.

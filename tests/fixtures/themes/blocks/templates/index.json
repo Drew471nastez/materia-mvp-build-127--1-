@@ -1,0 +1,36 @@
+{
+  "sections": {
+    "faq_1": {
+      "type": "faq",
+      "settings": {},
+      "blocks": {
+        "b_2": {
+          "type": "question",
+          "settings": {
+            "q": "Returns?",
+            "a": "<p>30 days.</p>"
+          }
+        },
+        "b_1": {
+          "type": "question",
+          "settings": {
+            "q": "Shipping?"
+          }
+        },
+        "b_3": {
+          "type": "divider",
+          "settings": {},
+          "hidden": true
+        }
+      },
+      "block_order": [
+        "b_1",
+        "b_2",
+        "b_3"
+      ]
+    }
+  },
+  "order": [
+    "faq_1"
+  ]
+}

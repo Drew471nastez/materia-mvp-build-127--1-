@@ -1,0 +1,13 @@
+{
+  "sections": {
+    "notice_1": {
+      "type": "notice",
+      "settings": {
+        "message": "Hello"
+      }
+    }
+  },
+  "order": [
+    "notice_1"
+  ]
+}

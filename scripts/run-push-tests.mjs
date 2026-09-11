@@ -41,6 +41,7 @@ const SUITES = [
   "tests/analytics-chart.test.ts",
   "tests/website-builder.test.ts",
   "tests/storelib-theme.test.ts",
+  "tests/storelib-package.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
