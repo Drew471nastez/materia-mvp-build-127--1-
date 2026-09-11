@@ -15,10 +15,9 @@
 
 import type { SectionInstance, ThemeSettingsValues, ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
 import { DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
-import {
-  Zap, Shield, Star, CheckCircle, Download, Heart, Globe, Lock,
-  RefreshCw, Rocket,
-} from "lucide-react"
+// `Zap` alone, and only as the fallback for a name no theme should be using.
+import { Zap } from "lucide-react"
+import { ICON_MAP } from "./icon-map"
 import type { CSSProperties } from "react"
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
@@ -282,19 +281,17 @@ export function hexToRgba(hex: string, alpha: number): string {
 
 // ── Dynamic icon (feature grids, icon boxes, etc.) ──────────
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
-  zap: Zap,
-  shield: Shield,
-  star: Star,
-  "check-circle": CheckCircle,
-  download: Download,
-  heart: Heart,
-  globe: Globe,
-  lock: Lock,
-  "refresh-cw": RefreshCw,
-  rocket: Rocket,
-}
-
+/**
+ * The map used to be ten icons written out here, and the themes already named
+ * icons that were not in it: `stats.json` defaults to "users" and
+ * `process_steps.json` to "user-plus", neither of which was a key, so every
+ * statistic and every process step on every site rendered a lightning bolt.
+ *
+ * It is 188 icons in components/website-builder/sections/icon-map.tsx now,
+ * generated from lucide's own exports and shared with the editor's picker,
+ * so what a creator can choose and what a page can draw are the same set by
+ * construction.
+ */
 export function DynamicIcon({ name, className }: { name: string; className?: string }) {
   const Icon = ICON_MAP[name] ?? Zap
   return <Icon className={className} strokeWidth={1.5} />
