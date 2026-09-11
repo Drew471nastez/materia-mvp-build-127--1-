@@ -1,0 +1,57 @@
+{
+  "format": "storelib-theme/v2",
+  "exported_at": "2026-01-01T00:00:00Z",
+  "install": {
+    "name": "Old export",
+    "theme_id": "storelib-default",
+    "sort_order": 0
+  },
+  "settings": {
+    "primary_color": "#6366f1",
+    "logo_url": "https://cdn.example.com/u/1/hero.png"
+  },
+  "pages": [
+    {
+      "page_key": "home",
+      "sections": [
+        {
+          "id": "hero-1",
+          "type": "hero",
+          "name": "Hero",
+          "settings": {
+            "heading": "Hi",
+            "bg_type": "image",
+            "bg_image": "https://cdn.example.com/u/1/hero.png"
+          },
+          "blocks": []
+        },
+        {
+          "id": "faq-1",
+          "type": "faq",
+          "name": "FAQ",
+          "settings": {},
+          "blocks": [
+            {
+              "id": "q1",
+              "type": "question",
+              "settings": {
+                "question": "Why?"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "image_map": {
+    "https://cdn.example.com/u/1/hero.png": "images/2732f12a8f18d27c.png"
+  },
+  "theme_pack": {
+    "sections": {
+      "faq": {
+        "type": "faq",
+        "fields": []
+      }
+    }
+  }
+}

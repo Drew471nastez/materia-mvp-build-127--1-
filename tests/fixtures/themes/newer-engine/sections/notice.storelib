@@ -1,0 +1,22 @@
+<template>
+<div class="notice notice--{{ settings.tone }}"><p>{{ settings.message }}</p></div>
+</template>
+
+<style scoped>
+.notice { padding: 16px 24px; font: 500 14px/1.4 sans-serif; }
+.notice--info { background: {{ theme.colors.surface }}; }
+.notice--warn { background: #fff7ed; color: #9a3412; }
+</style>
+
+<schema>
+{
+  "type": "notice",
+  "name": "Notice bar",
+  "category": "Promotion",
+  "settings": [
+    { "type": "text", "id": "message", "label": "Message", "default": "Free shipping over $50" },
+    { "type": "select", "id": "tone", "label": "Tone", "default": "info", "options": [{ "label": "Info", "value": "info" }, { "label": "Warning", "value": "warn" }] }
+  ],
+  "presets": [{ "name": "Notice bar" }]
+}
+</schema>

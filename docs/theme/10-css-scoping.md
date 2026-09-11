@@ -42,8 +42,12 @@ and at render time `__SECTION_ID__` becomes the instance's id.
 
 ## Settings in CSS
 
-The style block runs through the template language before it is scoped, so a
-rule can read a setting:
+A rule can read a setting. The block is scoped once, at compile time — with
+each `{{ … }}` masked so postcss sees valid CSS and reports real line numbers
+— and the expressions are filled per instance at render, which is a string
+walk rather than a second parse. Output is made safe for a stylesheet rather
+than HTML-escaped: braces and angle brackets are stripped from a value, since
+no legitimate CSS value holds one.
 
 ```css
 .hero { padding-top: {{ settings.padding_top }}px; }

@@ -1,0 +1,11 @@
+{
+  "sections": {
+    "n": {
+      "type": "notice",
+      "settings": {}
+    }
+  },
+  "order": [
+    "n"
+  ]
+}

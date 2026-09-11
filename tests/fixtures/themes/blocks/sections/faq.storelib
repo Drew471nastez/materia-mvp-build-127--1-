@@ -1,0 +1,32 @@
+<template>
+<section class="faq">
+{% for block in blocks %}
+  {% if block.type == "question" %}
+  <details data-block-id="{{ block.id }}"><summary>{{ block.settings.q }}</summary><div>{{ block.settings.a | raw }}</div></details>
+  {% elsif block.type == "divider" %}<hr data-block-id="{{ block.id }}">{% endif %}
+{% else %}
+  <p>Add a question</p>
+{% endfor %}
+</section>
+</template>
+
+<style scoped>
+.faq details { border-bottom: 1px solid #e5e7eb; padding: 12px 0; }
+</style>
+
+<schema>
+{
+  "type": "faq",
+  "name": "FAQ",
+  "settings": [],
+  "blocks": [
+    { "type": "question", "name": "Question", "settings": [
+      { "type": "text", "id": "q", "label": "Question", "default": "" },
+      { "type": "richtext", "id": "a", "label": "Answer", "default": "" }
+    ]},
+    { "type": "divider", "name": "Divider", "limit": 3, "settings": [] }
+  ],
+  "max_blocks": 30,
+  "presets": [{ "name": "FAQ", "blocks": [{ "type": "question" }, { "type": "question" }, { "type": "divider" }] }]
+}
+</schema>

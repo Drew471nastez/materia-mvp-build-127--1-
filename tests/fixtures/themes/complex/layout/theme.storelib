@@ -1,0 +1,12 @@
+<template>
+<main class="page">{{ content }}</main>
+</template>
+
+<style>
+:root { --page-width: 1200px; }
+body { margin: 0; }
+</style>
+
+<schema>
+{ "type": "theme", "name": "Layout", "settings": [] }
+</schema>

@@ -264,7 +264,9 @@ section("The page")
   check("covers show the theme on a desktop and a phone", /ThemeCoverPair/.test(client) && /phone/.test(client))
   check("publishing over a live website asks first and says what happens to the old one", /Publish “\{publishing\?\.name\}”\?/.test(client) && /It replaces “\{live\.name\}”/.test(client))
   check("every install action is still here: rename, duplicate, code, settings, export, publish, unpublish, delete, import, add", [
-    "Rename", "Duplicate", "Edit code", "Project settings", "Export .zip", "Take offline", "Remove", "Upload .zip", "themes/add", "action: \"publish\"", "action: \"unpublish\"", "themes/import",
+    // The file is a .storelib-theme package now, so the two labels name the
+    // thing rather than the container; the actions are the same ones.
+    "Rename", "Duplicate", "Edit code", "Project settings", "Export theme", "Take offline", "Remove", "Import theme", "themes/add", "action: \"publish\"", "action: \"unpublish\"", "themes/import",
   ].every((s) => client.includes(s)))
   check("the library is capped at the limit and says so", /THEME_INSTALL_LIMIT/.test(client) && /Your library is full/.test(client))
   check("the marketplace route the old page linked to now exists", existsSync(join(process.cwd(), "app/app/website-builder/themes/page.tsx")))
