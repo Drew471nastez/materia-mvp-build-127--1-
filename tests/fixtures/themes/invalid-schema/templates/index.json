@@ -1,0 +1,11 @@
+{
+  "sections": {
+    "x": {
+      "type": "broken",
+      "settings": {}
+    }
+  },
+  "order": [
+    "x"
+  ]
+}

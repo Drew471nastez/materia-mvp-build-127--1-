@@ -1,0 +1,10 @@
+{
+  "format": "storelib-theme",
+  "format_version": 1,
+  "name": "Custom JS",
+  "version": "1.0.0",
+  "author": "Storelib",
+  "engine": {
+    "min": 1
+  }
+}

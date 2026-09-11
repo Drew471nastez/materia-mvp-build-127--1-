@@ -1,0 +1,14 @@
+{
+  "sections": {
+    "b1": {
+      "type": "banner",
+      "settings": {
+        "image": "asset://b1ff9c8ea3a780bad09b346c423d2d0e46815926879b18e841d928376a946640",
+        "alt": "A red dot"
+      }
+    }
+  },
+  "order": [
+    "b1"
+  ]
+}

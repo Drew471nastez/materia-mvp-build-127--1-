@@ -1,0 +1,11 @@
+{
+  "sections": {
+    "t1": {
+      "type": "ticker",
+      "settings": {}
+    }
+  },
+  "order": [
+    "t1"
+  ]
+}

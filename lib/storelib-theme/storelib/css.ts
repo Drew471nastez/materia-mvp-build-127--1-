@@ -43,14 +43,42 @@ export interface ScopeOptions {
   type: string
 }
 
+/**
+ * `{{ … }}` IS NOT CSS, AND POSTCSS IS RIGHT TO SAY SO.
+ *
+ * A style block runs through the template language, so a rule may read a
+ * setting (docs/theme/10). To postcss an expression is an unknown word, so
+ * each one is swapped for an inert placeholder of the same length before
+ * parsing and swapped back after: the stylesheet postcss sees is valid CSS,
+ * the columns it reports are the real ones, and the scoped output still
+ * carries the expressions for the template step that follows.
+ */
+const EXPR = /\{\{[\s\S]*?\}\}/g
+
+function maskExpressions(css: string): { masked: string; exprs: string[] } {
+  const exprs: string[] = []
+  const masked = css.replace(EXPR, (m) => {
+    const token = `--sl-x${exprs.length}`
+    exprs.push(m)
+    // Same shape wherever it lands: a value, a selector fragment, a name.
+    return token.padEnd(Math.max(m.length, token.length), "0")
+  })
+  return { masked, exprs }
+}
+
+function unmaskExpressions(css: string, exprs: string[]): string {
+  return css.replace(/--sl-x(\d+)0*/g, (m, i) => exprs[Number(i)] ?? m)
+}
+
 export function scopeCss(css: string, opts: ScopeOptions): Result<string> {
   if (Buffer.byteLength(css, "utf8") > LIMITS.cssBytes) {
     return { ok: false, errors: [{ stage: "css", file: opts.file, line: opts.line, message: `The stylesheet is over ${LIMITS.cssBytes / 1024} KB` }] }
   }
   const base = (opts.line ?? 1) - 1
+  const { masked, exprs } = maskExpressions(css)
   let root
   try {
-    root = postcss.parse(css, { from: opts.file })
+    root = postcss.parse(masked, { from: opts.file })
   } catch (e) {
     const err = e as { line?: number; column?: number; reason?: string; message: string }
     return {
@@ -101,7 +129,7 @@ export function scopeCss(css: string, opts: ScopeOptions): Result<string> {
   }
 
   if (errors.length) return { ok: false, errors }
-  return { ok: true, value: root.toString() }
+  return { ok: true, value: unmaskExpressions(root.toString(), exprs) }
 }
 
 /** Fill the placeholder for one instance. */

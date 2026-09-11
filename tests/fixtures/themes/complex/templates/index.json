@@ -1,0 +1,25 @@
+{
+  "sections": {
+    "n1": {
+      "type": "notice",
+      "settings": {}
+    },
+    "c1": {
+      "type": "columns",
+      "settings": {
+        "columns": {
+          "desktop": 4,
+          "mobile": 1
+        },
+        "color_scheme": "dark"
+      },
+      "meta": {
+        "editor_note": "kept"
+      }
+    }
+  },
+  "order": [
+    "n1",
+    "c1"
+  ]
+}

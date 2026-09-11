@@ -1,0 +1,24 @@
+<template>
+<section class="ticker"><span data-count>0</span> {{ settings.label }}</section>
+</template>
+
+<style scoped>
+.ticker { font-variant-numeric: tabular-nums; }
+</style>
+
+<script>
+var el = root.querySelector("[data-count]")
+var n = 0
+setInterval(function () { n += 1; el.textContent = String(n) }, 1000)
+storelib.analytics.track("ticker_seen", { label: settings.label })
+</script>
+
+<schema>
+{
+  "type": "ticker",
+  "name": "Ticker",
+  "capabilities": ["timers", "analytics"],
+  "settings": [{ "type": "text", "id": "label", "label": "Label", "default": "seconds" }],
+  "presets": [{ "name": "Ticker" }]
+}
+</schema>

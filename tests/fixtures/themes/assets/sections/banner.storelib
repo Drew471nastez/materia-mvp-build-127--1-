@@ -1,0 +1,20 @@
+<template>
+<section class="banner">{% if settings.image %}<img src="{{ settings.image }}" alt="{{ settings.alt }}">{% endif %}<h2>{{ settings.heading }}</h2></section>
+</template>
+
+<style scoped>
+.banner img { width: 100%; }
+</style>
+
+<schema>
+{
+  "type": "banner",
+  "name": "Banner",
+  "settings": [
+    { "type": "image_picker", "id": "image", "label": "Image", "default": "" },
+    { "type": "text", "id": "alt", "label": "Alt text", "default": "" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Banner" }
+  ],
+  "presets": [{ "name": "Banner" }]
+}
+</schema>

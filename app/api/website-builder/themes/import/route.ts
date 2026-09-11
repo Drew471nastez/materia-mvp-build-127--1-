@@ -18,6 +18,10 @@ import {
   ALLOWED_IMAGE_EXTENSIONS,
   type ThemePackageManifest,
 } from "@/lib/website-builder/theme-package-schema"
+import { readPackage, sectionsFromTemplate } from "@/lib/storelib-theme"
+import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+
+import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.generated"
 
 const BUCKET = "store-builder-images"
 
@@ -65,6 +69,99 @@ export async function POST(req: Request) {
     zip = await JSZip.loadAsync(buf)
   } catch {
     return NextResponse.json({ error: "Invalid zip file" }, { status: 400 })
+  }
+
+  /**
+   * ===========================================================================
+   *  A .storelib-theme PACKAGE
+   * ===========================================================================
+   * Read as a whole or not at all (docs/theme/11): the paths, theme.json,
+   * every hash in the manifest, every section compiled, every template
+   * checked against the sections the theme has. A package that fails is
+   * refused with the list, and nothing is written.
+   *
+   * The builder's earlier `manifest.json` + `images/` exports fall through
+   * to the code below, which is unchanged.
+   */
+  if (zip.file("theme.json")) {
+    const read = await readPackage(new Uint8Array(buf), { knownTypes: Object.keys(SECTION_SCHEMAS) })
+    if (read.ok === false) {
+      return NextResponse.json(
+        { error: read.errors[0]?.message ?? "This package is not valid", errors: read.errors },
+        { status: 400 },
+      )
+    }
+    const pkg = read.value
+
+    /** Assets, stored under this account, and every reference to them rewritten. */
+    const refToUrl: Record<string, string> = {}
+    await Promise.all(Object.entries(pkg.assets).map(async ([hash, asset]) => {
+      try {
+        const ext = (asset.filename.split(".").pop() ?? "").toLowerCase()
+        if (!(ALLOWED_IMAGE_EXTENSIONS as readonly string[]).includes(ext)) return
+        if (asset.bytes.byteLength > MAX_IMAGE_BYTES_IN_ZIP) return
+        const path = `${user.id}/imported/${hash.slice(0, 32)}.${ext}`
+        const { error: upErr } = await admin.storage.from(BUCKET).upload(path, Buffer.from(asset.bytes), {
+          contentType: extToMime(ext),
+          upsert: true,
+          cacheControl: "31536000",
+        })
+        if (upErr) return
+        refToUrl[`asset://${hash}`] = admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
+      } catch {
+        /* an asset that will not store leaves its reference alone */
+      }
+    }))
+
+    const settings = rewriteUrls(JSON.parse(pkg.files["config/settings.json"] ?? "{}"), refToUrl) as Record<string, unknown>
+    const pages: { page_key: string; sections: unknown }[] = []
+    for (const [path, text] of Object.entries(pkg.files)) {
+      const m = path.match(/^templates\/([A-Za-z0-9_.\-]+)\.json$/)
+      if (!m) continue
+      pages.push({ page_key: m[1], sections: rewriteUrls(sectionsFromTemplate(JSON.parse(text)), refToUrl) })
+    }
+
+    const { data: maxRow } = await admin
+      .from("store_theme_installs")
+      .select("sort_order")
+      .eq("creator_id", creator.id)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const installName = String(pkg.theme.name ?? "Imported theme").slice(0, 80)
+    const { data: created, error: createErr } = await admin
+      .from("store_theme_installs")
+      .insert({
+        creator_id: creator.id,
+        theme_id: typeof pkg.theme.source_theme_id === "string" ? pkg.theme.source_theme_id : null,
+        name: installName,
+        status: "unpublished",
+        sort_order: ((maxRow?.sort_order ?? -1) as number) + 1,
+        is_custom: true,
+      })
+      .select("id")
+      .single()
+    if (createErr || !created) {
+      return NextResponse.json({ error: createErr?.message ?? "Failed to create install" }, { status: 500 })
+    }
+
+    await admin.from("store_theme_settings").insert({ install_id: created.id, settings, draft_settings: settings })
+    if (pages.length > 0) {
+      await admin.from("store_theme_pages").insert(pages.map(p => ({ install_id: created.id, page_key: p.page_key, sections: p.sections })))
+    }
+    /**
+     * The theme's own source files. Only those that differ from what this
+     * build ships are stored: a package that carries the same hero as the
+     * bundle writes no row for it, so the install follows the theme's
+     * updates rather than freezing a copy of today's file.
+     */
+    const rows = Object.entries(pkg.files)
+      .filter(([path]) => path.endsWith(".storelib"))
+      .filter(([path, content]) => DEFAULT_THEME_SOURCES[path] !== content)
+      .map(([path, content]) => ({ install_id: created.id, path, content }))
+    if (rows.length > 0) await admin.from("store_theme_custom_files").insert(rows)
+
+    return NextResponse.json({ ok: true, install_id: created.id, name: installName, migrated: pkg.legacy })
   }
 
   const manifestFile = zip.file("manifest.json")

@@ -1,0 +1,9 @@
+{
+  "primary_color": "#111827",
+  "font_heading": "Inter",
+  "color_schemes": {
+    "dark": {
+      "bg": "#101010"
+    }
+  }
+}

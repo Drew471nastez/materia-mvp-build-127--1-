@@ -202,6 +202,12 @@ export interface CompiledSection {
   template: unknown
   /** CSS already scoped to `[data-section-id="…"]`, with the id left as a placeholder. */
   css: string
+  /**
+   * The same CSS as an interpretable tree, when it reads a setting. Scoping
+   * happens once, at compile; the expressions are filled per instance, which
+   * is a string walk rather than another parse.
+   */
+  cssTemplate?: unknown
   /** The script's source, checked and wrapped; null when there is none. */
   script: string | null
   /** SHA-256 of the source it came from, for caching. */

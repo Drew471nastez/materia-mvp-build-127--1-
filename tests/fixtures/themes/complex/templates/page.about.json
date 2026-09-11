@@ -1,0 +1,13 @@
+{
+  "sections": {
+    "c2": {
+      "type": "columns",
+      "settings": {
+        "heading": "About"
+      }
+    }
+  },
+  "order": [
+    "c2"
+  ]
+}

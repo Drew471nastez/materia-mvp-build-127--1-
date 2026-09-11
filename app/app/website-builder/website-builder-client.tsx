@@ -371,7 +371,7 @@ export function WebsiteBuilderClient({
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `${i.name.replace(/[^a-z0-9-_]+/gi, "-").toLowerCase()}.storelib-export.zip`
+      a.download = `${i.name.replace(/[^a-z0-9-_]+/gi, "-").toLowerCase()}.storelib-theme`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -389,7 +389,7 @@ export function WebsiteBuilderClient({
     }
     const fd = new FormData()
     fd.append("file", file)
-    await run("import", () => fetch("/api/website-builder/themes/import", { method: "POST", body: fd }), `Imported ${file.name.replace(/\.zip$/i, "")}`, "Could not import that file")
+    await run("import", () => fetch("/api/website-builder/themes/import", { method: "POST", body: fd }), `Imported ${file.name.replace(/\.(storelib-theme|zip)$/i, "")}`, "Could not import that file")
     if (fileInput.current) fileInput.current.value = ""
   }
 
@@ -407,7 +407,7 @@ export function WebsiteBuilderClient({
       { label: "Duplicate", icon: <Layers className="h-4 w-4" />, onClick: () => void duplicate(i) },
       { label: "Edit code", icon: <Code2 className="h-4 w-4" />, onClick: () => go(editorHref(username, i.id, "code")) },
       { label: "Project settings", icon: <Settings2 className="h-4 w-4" />, onClick: () => go(editorHref(username, i.id, "settings")) },
-      { label: "Export .zip", icon: <Download className="h-4 w-4" />, onClick: () => void exportTheme(i) },
+      { label: "Export theme", icon: <Download className="h-4 w-4" />, onClick: () => void exportTheme(i) },
     )
     if (i.status === "published") {
       items.push({ label: "Take offline", icon: <EyeOff className="h-4 w-4" />, onClick: () => setUnpublishing(i), variant: "warning", separatorBefore: true })
@@ -574,7 +574,7 @@ export function WebsiteBuilderClient({
             <input
               ref={fileInput}
               type="file"
-              accept=".zip,application/zip"
+              accept=".storelib-theme,.zip,application/zip"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0]
@@ -591,7 +591,7 @@ export function WebsiteBuilderClient({
               className="h-11 rounded-xl px-3 text-[13px] font-medium text-[#4b5563] hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
             >
               {busy === "import" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Upload .zip
+              Import theme
             </Button>
             <Button
               asChild
