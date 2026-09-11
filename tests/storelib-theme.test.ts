@@ -318,8 +318,20 @@ section("Hero, the first real section")
   const c = compileSection(src, { file: "sections/hero.storelib", expectType: "hero" })
   check("hero.storelib compiles", c.ok, c.ok === true ? "" : c.errors.map((e) => `${e.line ?? "?"}: ${e.message}`).join(" | "))
   if (c.ok === true) {
-    const legacy = JSON.parse(read("themes/default/sections/hero.json")) as { fields: { id: string; type: string }[] }
-    const oldIds = legacy.fields.filter((f) => f.type !== "header").map((f) => f.id).sort()
+    /**
+     * THE IDS ARE THE CONTRACT (rule: setting ids are stable forever). This
+     * is every setting hero.json declared on the day the hero moved to its
+     * .storelib file; a saved hero anywhere stores its content under these
+     * keys. Adding one is fine. Removing or renaming one is a migration and
+     * has to be written as one — see docs/theme/13-versioning.md.
+     */
+    const oldIds = [
+      "animate_heading", "badge_text", "bg_color", "bg_gradient", "bg_image", "bg_overlay_color", "bg_overlay_opacity",
+      "bg_type", "bg_video", "button2_style", "button2_text", "button2_url", "button_border_radius", "button_color",
+      "button_style", "button_text", "button_text_color", "button_url", "color_scheme", "eyebrow", "font_size_heading",
+      "full_height", "heading", "hero_image", "layout", "max_width", "padding_bottom", "padding_top", "scroll_indicator",
+      "subheading", "text_color",
+    ].sort()
     const newIds = c.value.schema.settings.filter((s) => s.type !== "header").map((s) => s.id).sort()
     // The scheme the instance chose reaches the markup, and a theme that
     // renames a scheme's background reaches it too — the lookup is the
@@ -333,7 +345,7 @@ section("Hero, the first real section")
       const unknown = renderSection({ compiled: c.value, id: "hero_x", instance: { type: "hero", settings: { color_scheme: "nope", bg_type: "color" } }, theme: {}, page: { template: "index" } })
       check("hero: an unknown scheme falls back to white rather than to nothing", unknown.html.includes("background: #ffffff"), unknown.html.slice(0, 400))
     }
-    check("every setting id the JSON hero had, the .storelib hero has: the ids are the contract", JSON.stringify(oldIds) === JSON.stringify(newIds), `missing: ${oldIds.filter((i) => !newIds.includes(i)).join(",")} extra: ${newIds.filter((i) => !oldIds.includes(i)).join(",")}`)
+    check("every setting id the hero has ever had, hero.storelib still has: the ids are the contract", oldIds.every((i) => newIds.includes(i)), `missing: ${oldIds.filter((i) => !newIds.includes(i)).join(",")} extra: ${newIds.filter((i) => !oldIds.includes(i)).join(",")}`)
     check("hero has a preset, so it is addable", !!c.value.schema.presets?.length)
     check("no warnings: every setting is read by the template", !c.warnings?.length, (c.warnings ?? []).map((w) => w.path).join(","))
     const out = renderSection({

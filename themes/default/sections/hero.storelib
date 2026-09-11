@@ -245,18 +245,73 @@
     { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 60 }
   ],
   "presets": [
-    {
-      "name": "Hero",
-      "settings": {
-        "eyebrow": "New collection",
-        "heading": "Build something great",
-        "subheading": "Premium digital products for creators and businesses.",
-        "button_text": "Shop now",
-        "button_url": "/products",
-        "button2_text": "Learn more",
-        "button2_url": "/about"
+      {
+          "name": "Dark centered hero",
+          "settings": {
+              "eyebrow": "New collection",
+              "heading": "Build Something Great",
+              "subheading": "Premium digital products for creators and businesses.",
+              "button_text": "Shop Now",
+              "button_url": "/products",
+              "button_style": "filled",
+              "button_color": "#6366f1",
+              "button_text_color": "#ffffff",
+              "button2_text": "Learn More",
+              "button2_url": "/about",
+              "button2_style": "outline",
+              "bg_type": "color",
+              "bg_color": "#0f172a",
+              "text_color": "#ffffff",
+              "layout": "center",
+              "full_height": false,
+              "scroll_indicator": true,
+              "padding_top": 80,
+              "padding_bottom": 80
+          }
+      },
+      {
+          "name": "Light split hero",
+          "settings": {
+              "eyebrow": "Introducing",
+              "heading": "Crafted for the Modern Creator",
+              "subheading": "Everything you need to build, launch, and grow.",
+              "button_text": "Get Started",
+              "button_url": "/products",
+              "button_style": "filled",
+              "button_color": "#0f172a",
+              "button_text_color": "#ffffff",
+              "button2_text": "View Demo",
+              "button2_url": "/demo",
+              "button2_style": "ghost",
+              "bg_type": "color",
+              "bg_color": "#f8fafc",
+              "text_color": "#0f172a",
+              "layout": "split",
+              "full_height": false,
+              "padding_top": 60,
+              "padding_bottom": 60
+          }
+      },
+      {
+          "name": "Gradient hero",
+          "settings": {
+              "heading": "Your Vision, Delivered",
+              "subheading": "Powerful tools built around you.",
+              "button_text": "Explore Now",
+              "button_url": "/products",
+              "button_style": "filled",
+              "button_color": "#ffffff",
+              "button_text_color": "#6366f1",
+              "bg_type": "gradient",
+              "bg_gradient": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              "text_color": "#ffffff",
+              "layout": "center",
+              "full_height": true,
+              "scroll_indicator": true,
+              "padding_top": 60,
+              "padding_bottom": 60
+          }
       }
-    }
   ]
 }
 </schema>

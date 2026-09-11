@@ -50,7 +50,6 @@ import feature_grid from "../../themes/default/sections/feature_grid.json"
 import footer from "../../themes/default/sections/footer.json"
 import gallery from "../../themes/default/sections/gallery.json"
 import header from "../../themes/default/sections/header.json"
-import hero from "../../themes/default/sections/hero.json"
 import icon_box from "../../themes/default/sections/icon_box.json"
 import image_banner from "../../themes/default/sections/image_banner.json"
 import image_comparison from "../../themes/default/sections/image_comparison.json"
@@ -81,6 +80,7 @@ import timeline from "../../themes/default/sections/timeline.json"
 import trust_badges from "../../themes/default/sections/trust_badges.json"
 import video_embed from "../../themes/default/sections/video_embed.json"
 import video_hero from "../../themes/default/sections/video_hero.json"
+import { STORELIB_SCHEMAS } from "./storelib-schemas"
 
 // JSON imports are inferred with very narrow literal types (e.g. every
 // `type: "toggle"` is inferred as the string literal `"toggle"`). That's
@@ -99,7 +99,8 @@ const asSchema = (s: unknown): SectionSchema => s as SectionSchema
 
 export const SECTION_SCHEMAS: Record<string, SectionSchema> = {
   header: asSchema(header),
-  hero: asSchema(hero),
+  // From themes/default/sections/hero.storelib: the file's own <schema>, through the engine's validator.
+  hero: STORELIB_SCHEMAS.hero,
   video_hero: asSchema(video_hero),
   rich_text: asSchema(rich_text),
   split_content: asSchema(split_content),

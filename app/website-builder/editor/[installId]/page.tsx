@@ -64,6 +64,7 @@ import type {
 } from "@/lib/website-builder/types"
 import { PAGE_META, DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES } from "@/lib/website-builder/section-schemas"
+import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget } from "@/components/website-builder/link-picker"
@@ -330,13 +331,23 @@ function FieldEditor({
   onChange: (v: unknown) => void
 }) {
   const raw = value ?? field.default
+  /**
+   * ONE NAME PER CONTROL. The JSON schemas said `link`, `image`, `icon`,
+   * `video`, `font`; a .storelib schema says `url`, `image_picker`,
+   * `icon_picker`, `video_picker`, `font_picker`. The registry
+   * (lib/storelib-theme/controls) owns the names and the aliases, and this
+   * function draws whatever it resolves to — so a control exists in exactly
+   * one place, and a schema written for either spelling gets the same editor.
+   */
+  const kind = resolveControlType(field.type) ?? field.type
+  const targets = useLinkTargets()
 
   /**
    * An icon field had NO editor at all — it fell through to the last branch
    * of this function — so changing a feature's icon meant knowing that the
    * value is a kebab-case lucide name and typing one.
    */
-  if (field.type === "icon") {
+  if (kind === "icon_picker") {
     return <IconPicker value={typeof raw === "string" ? raw : ""} onChange={(name) => onChange(name)} />
   }
 
@@ -346,11 +357,11 @@ function FieldEditor({
    * The picker lists what the site actually has, and still takes anything
    * typed.
    */
-  if (field.type === "link") {
+  if (kind === "url") {
     return <LinkFieldEditor value={typeof raw === "string" ? raw : ""} onChange={onChange} placeholder={field.placeholder} />
   }
 
-  if (field.type === "text") {
+  if (kind === "text") {
     return (
       <input
         type="text"
@@ -362,7 +373,7 @@ function FieldEditor({
     )
   }
 
-  if (field.type === "textarea" || field.type === "richtext") {
+  if (kind === "textarea" || kind === "richtext") {
     return (
       <textarea
         className="w-full min-h-[80px] px-3 py-2.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 resize-y transition-colors"
@@ -373,7 +384,7 @@ function FieldEditor({
     )
   }
 
-  if (field.type === "color") {
+  if (kind === "color") {
     return (
       <div className="flex items-center gap-2">
         <div className="relative h-9 w-9 rounded-lg overflow-hidden border border-border shrink-0">
@@ -394,7 +405,7 @@ function FieldEditor({
     )
   }
 
-  if (field.type === "select") {
+  if (kind === "select") {
     return (
       <div className="relative">
         <select
@@ -411,7 +422,7 @@ function FieldEditor({
     )
   }
 
-  if (field.type === "toggle") {
+  if (kind === "toggle" || kind === "checkbox") {
     const checked = typeof raw === "boolean" ? raw : !!field.default
     return (
       <button
@@ -429,7 +440,7 @@ function FieldEditor({
     )
   }
 
-  if (field.type === "range") {
+  if (kind === "range") {
     const num = typeof raw === "number" ? raw : Number(field.default ?? 0)
     return (
       <SliderNumberControl
@@ -443,7 +454,7 @@ function FieldEditor({
     )
   }
 
-  if (field.type === "number") {
+  if (kind === "number") {
     return (
       <input
         type="number"
@@ -457,7 +468,7 @@ function FieldEditor({
     )
   }
 
-  if (field.type === "image") {
+  if (kind === "image_picker") {
     return (
       <WbImagePicker
         value={typeof raw === "string" ? raw : undefined}
@@ -468,7 +479,7 @@ function FieldEditor({
     )
   }
 
-  if (field.type === "header") {
+  if (kind === "header") {
     return (
       <div className="pt-3 pb-1 border-t border-border mt-2">
         <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{field.label}</span>
@@ -477,13 +488,13 @@ function FieldEditor({
     )
   }
 
-  if (field.type === "paragraph") {
+  if (kind === "paragraph") {
     return (
       <p className="text-xs text-muted-foreground leading-relaxed">{field.info ?? field.label}</p>
     )
   }
 
-  if (field.type === "video") {
+  if (kind === "video_picker") {
     return (
       <div className="space-y-2">
         {typeof raw === "string" && raw && (
@@ -508,7 +519,7 @@ function FieldEditor({
     )
   }
 
-  if (field.type === "font") {
+  if (kind === "font_picker") {
     return (
       <select
         className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
@@ -533,7 +544,95 @@ function FieldEditor({
     )
   }
 
-  if (field.type === "radio") {
+  if (kind === "divider") {
+    return <hr className="border-0 border-t border-border my-1" />
+  }
+
+  if (kind === "color_scheme") {
+    const keys = Object.keys(DEFAULT_COLOR_SCHEMES)
+    return (
+      <div className="relative">
+        <select
+          className={cn("w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300", "appearance-none pr-8")}
+          value={typeof raw === "string" && keys.includes(raw) ? raw : keys[0]}
+          onChange={e => onChange(e.target.value)}
+        >
+          {keys.map(k => <option key={k} value={k}>{k.charAt(0).toUpperCase() + k.slice(1)}</option>)}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+      </div>
+    )
+  }
+
+  if (kind === "alignment") {
+    const current = typeof raw === "string" ? raw : "left"
+    return (
+      <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-muted/60">
+        {(["left", "center", "right"] as const).map(a => (
+          <button
+            key={a}
+            type="button"
+            className={cn("h-7 rounded-md text-xs font-medium capitalize transition-colors", current === a ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+            onClick={() => onChange(a)}
+          >
+            {a}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  if (kind === "image_gallery") {
+    const list = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : []
+    return (
+      <div className="space-y-2">
+        {list.map((url, i) => (
+          <WbImagePicker
+            key={`${i}-${url}`}
+            value={url}
+            onChange={next => onChange(next ? list.map((u, j) => (j === i ? next : u)) : list.filter((_, j) => j !== i))}
+            aspectRatio="video"
+            folder="sections"
+          />
+        ))}
+        <WbImagePicker value={undefined} onChange={next => { if (next) onChange([...list, next]) }} aspectRatio="video" folder="sections" />
+      </div>
+    )
+  }
+
+  if (kind === "page_picker" || kind === "product_picker") {
+    const want = kind === "page_picker" ? "page" : "product"
+    const options = targets.filter(t => t.kind === want)
+    const current = typeof raw === "string" ? raw : ""
+    return (
+      <div className="relative">
+        <select
+          className={cn("w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300", "appearance-none pr-8")}
+          value={current}
+          onChange={e => onChange(e.target.value)}
+        >
+          <option value="">{options.length ? `Choose a ${want}` : `No ${want}s yet`}</option>
+          {options.map(t => <option key={t.href} value={t.href}>{t.label}</option>)}
+          {current && !options.some(t => t.href === current) && <option value={current}>{current}</option>}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+      </div>
+    )
+  }
+
+  if (kind === "file_picker" || kind === "community_picker") {
+    return (
+      <input
+        type="text"
+        className={"w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"}
+        placeholder={field.placeholder ?? (kind === "file_picker" ? "Paste a file URL" : "Community id")}
+        value={typeof raw === "string" ? raw : ""}
+        onChange={e => onChange(e.target.value)}
+      />
+    )
+  }
+
+  if (kind === "radio") {
     const current = typeof raw === "string" ? raw : String(field.default ?? "")
     const opts = field.options ?? []
     // Fallback to a select when there are too many options for a segmented control
@@ -5573,6 +5672,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                             {!!block.settings.author && <span className="ml-1 opacity-50">{String(block.settings.author)}</span>}
                           </span>
                           <div className="flex items-center gap-1.5">
+                            {(() => {
+                              const list = section.blocks ?? []
+                              const at = list.findIndex(b => b.id === block.id)
+                              const move = (to: number) => {
+                                const next = [...list]
+                                next.splice(at, 1)
+                                next.splice(to, 0, block)
+                                reorderBlocks(section.id, next)
+                              }
+                              const copy = () => {
+                                const next = [...list]
+                                next.splice(at + 1, 0, { ...block, id: `${block.type}-${Date.now()}`, settings: { ...block.settings } })
+                                reorderBlocks(section.id, next)
+                              }
+                              return (
+                                <>
+                                  <button type="button" aria-label="Move up" disabled={at <= 0} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-muted disabled:opacity-30" onClick={e => { e.preventDefault(); move(at - 1) }}>
+                                    <ChevronDown className="h-3 w-3 rotate-180" />
+                                  </button>
+                                  <button type="button" aria-label="Move down" disabled={at >= list.length - 1} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-muted disabled:opacity-30" onClick={e => { e.preventDefault(); move(at + 1) }}>
+                                    <ChevronDown className="h-3 w-3" />
+                                  </button>
+                                  <button type="button" aria-label="Duplicate" className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-muted" onClick={e => { e.preventDefault(); copy() }}>
+                                    <Copy className="h-3 w-3" />
+                                  </button>
+                                </>
+                              )
+                            })()}
                             <button
                               className="h-6 w-6 flex items-center justify-center rounded hover:bg-red-50 text-red-400 hover:text-red-600"
                               onClick={e => { e.preventDefault(); removeBlock(section.id, block.id) }}
