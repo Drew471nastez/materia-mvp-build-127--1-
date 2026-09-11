@@ -27,7 +27,7 @@
  * that knows about it.
  */
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react"
+import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react"
 
 import { THEME_ROOT_ATTRIBUTE, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -280,6 +280,7 @@ export function ThemePage({
   theme,
   sections,
   renderSection,
+  renderGap,
   emptyTitle = "This website is being set up",
   emptyDetail = "Check back soon.",
   className,
@@ -300,6 +301,20 @@ export function ThemePage({
    * ignores it.
    */
   renderSection?: (section: SectionInstance, role: SectionRole, atTop: boolean) => ReactNode
+  /**
+   * What to draw in the gaps BETWEEN body sections, and after the last one.
+   *
+   * The editor uses it for the strip you hover to insert a section there. It
+   * lives here rather than in the editor's `renderSection` for the same
+   * reason that one does not do its own ordering: the index a new section
+   * would land at is a fact about the order, and the order is this file's.
+   * An editor computing it from its own copy of the list is how the four
+   * renderers drifted apart in the first place.
+   *
+   * `at` counts body sections: 0 is above the first, `body.length` below the
+   * last. The published routes leave this out and get nothing.
+   */
+  renderGap?: (at: number) => ReactNode
   emptyTitle?: string
   emptyDetail?: string
   className?: string
@@ -360,7 +375,14 @@ export function ThemePage({
         bottom of the viewport with nothing between it and the last section.
         Natural flow leaves a short page short, which is correct.
       */}
-      {body.map((section) => render(section, "body", false))}
+      {body.map((section, i) => (
+        <Fragment key={`slot-${section.id}`}>
+          {renderGap?.(i)}
+          {render(section, "body", false)}
+        </Fragment>
+      ))}
+      {/* And below the last one, so a page can be added to at the end. */}
+      {body.length > 0 && renderGap?.(body.length)}
 
       {sections.length === 0 && (
         <div className="flex min-h-[50vh] items-center justify-center">
