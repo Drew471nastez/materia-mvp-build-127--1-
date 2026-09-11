@@ -116,6 +116,32 @@ async function main() {
   // ═══════════════════════════════════════════════════════════════════════
   section("The section draws the shop, or the picked ones, and says which")
   // ═══════════════════════════════════════════════════════════════════════
+  /**
+   * EVERY SECTION THAT LISTS PRODUCTS, not the one that was done first.
+   * Discovered from the schemas rather than named here, so a product section
+   * added later is held to the same rule instead of quietly shipping with
+   * hand-typed cards.
+   */
+  const productSections = Object.entries(SECTION_SCHEMAS)
+    .filter(([, sc]) => (sc?.blocks ?? []).some((b) => b.type === "product"))
+    .map(([type]) => type)
+
+  check("every section that lists products can draw the shop", (() => {
+    const without = productSections.filter((t) => !(SECTION_SCHEMAS[t].fields ?? []).some((f) => f.id === "source"))
+    if (without.length) console.log(`        ${without.join(", ")}`)
+    return productSections.length >= 2 && without.length === 0
+  })(), "a product section with no source setting is one that cannot show the real catalogue")
+
+  for (const type of productSections) {
+    const sc = SECTION_SCHEMAS[type]
+    const p0 = sc.presets?.[0]
+    const bl = (p0?.blocks ?? []).map((b, i) => ({ id: `b${i}`, type: b.type, settings: b.settings ?? {} }))
+    const prods = [toCard({ ...ROW, id: "z", title: "From The Shop", slug: "z" })]
+    const sec = { id: "x", type, name: type, settings: { ...(p0?.settings ?? {}), source: "shop" }, blocks: bl }
+    const r = renderStorelibSection(sec, theme, { template: "index" }, {}, prods)
+    check(`${type} draws the shop when asked`, r.ok && r.html.includes("From The Shop"), r.ok ? "rendered without the product" : "did not render")
+  }
+
   {
     const schema = SECTION_SCHEMAS["product_grid"]
     const preset = schema.presets?.[0]

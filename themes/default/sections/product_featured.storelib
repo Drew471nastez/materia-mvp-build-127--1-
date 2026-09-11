@@ -8,11 +8,14 @@
         {% if settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% endif %}
       </div>
     {% endif %}
-    {% if blocks.size == 0 %}
-      {% if page.in_editor %}<p class="empty">Add products in the sidebar</p>{% endif %}
-    {% else %}
-      <div class="grid">
-        {% for block in blocks %}
+    {# Two sources, one card. See sections/product_grid.storelib and the
+       "Drawing the shop" note in docs/storelib-language.md. #}
+    {% if settings.source == 'shop' %}
+      {% if products.size == 0 %}
+        {% if page.in_editor %}<p class="empty">Your published products appear here</p>{% endif %}
+      {% else %}
+        <div class="grid">
+          {% for block in products %}
           <article class="card feat" data-block-id="{{ block.id }}">
             <div class="card__media" style="aspect-ratio: {{ settings.shape }};">
               {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
@@ -27,8 +30,32 @@
               {% if block.settings.url %}<a class="feat__go" href="{{ block.settings.url | url }}">{{ settings.link_text }}</a>{% endif %}
             </div>
           </article>
-        {% endfor %}
-      </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% else %}
+      {% if blocks.size == 0 %}
+        {% if page.in_editor %}<p class="empty">Add products in the sidebar</p>{% endif %}
+      {% else %}
+        <div class="grid">
+          {% for block in blocks %}
+          <article class="card feat" data-block-id="{{ block.id }}">
+            <div class="card__media" style="aspect-ratio: {{ settings.shape }};">
+              {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
+            </div>
+            <div class="feat__body">
+              {% if block.settings.tag %}<p class="feat__tag">{{ block.settings.tag }}</p>{% endif %}
+              <h3 class="card__title">{{ block.settings.title }}</h3>
+              {% if block.settings.text %}<p class="card__text">{{ block.settings.text }}</p>{% endif %}
+              {% if block.settings.price %}
+                <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
+              {% endif %}
+              {% if block.settings.url %}<a class="feat__go" href="{{ block.settings.url | url }}">{{ settings.link_text }}</a>{% endif %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      {% endif %}
     {% endif %}
   </div>
 </section>
@@ -107,6 +134,23 @@
   "icon": "star",
   "settings": [
     {
+      "type": "select",
+      "id": "source",
+      "label": "Products",
+      "info": "Your shop stays in step on its own. Picked products are whatever you type here.",
+      "default": "picked",
+      "options": [
+        {
+          "label": "The ones I pick",
+          "value": "picked"
+        },
+        {
+          "label": "My shop, newest first",
+          "value": "shop"
+        }
+      ]
+    },
+    {
       "type": "header",
       "id": "hdr_content",
       "label": "Content"
@@ -154,7 +198,11 @@
       "type": "range",
       "id": "columns",
       "label": "Columns",
-      "default": { "desktop": 3, "tablet": 2, "mobile": 1 },
+      "default": {
+        "desktop": 3,
+        "tablet": 2,
+        "mobile": 1
+      },
       "min": 1,
       "max": 4,
       "step": 1,
