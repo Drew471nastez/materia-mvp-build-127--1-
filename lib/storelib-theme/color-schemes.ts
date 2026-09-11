@@ -157,14 +157,14 @@ function scheme(name: string, v: Record<SchemeColorKey, string>, gradient = ""):
  */
 export const DEFAULT_COLOR_SCHEMES: Record<BuiltInSchemeKey, ColorScheme> = {
   white: scheme("Light", {
-    background: "#ffffff", background_secondary: "#f8fafc", text: "#5c5b63", text_muted: "#8b8a93",
+    background: "#ffffff", background_secondary: "#f8fafc", text: "#5c5b63", text_muted: "#76757d",
     heading: "#0f172a", accent: "#1f2937", link: "#0f172a", border: "#e2e8f0",
     primary_button_background: "#000000", primary_button_text: "#ffffff", primary_button_border: "#000000",
     secondary_button_background: "#ffffff", secondary_button_text: "#0f172a", secondary_button_border: "#0f172a",
     input_background: "#ffffff", input_text: "#0f172a", input_border: "#e2e8f0",
   }),
   light: scheme("Soft", {
-    background: "#f8fafc", background_secondary: "#ffffff", text: "#475569", text_muted: "#94a3b8",
+    background: "#f8fafc", background_secondary: "#ffffff", text: "#475569", text_muted: "#697483",
     heading: "#0f172a", accent: "#1f2937", link: "#0f172a", border: "#e2e8f0",
     primary_button_background: "#0f172a", primary_button_text: "#ffffff", primary_button_border: "#0f172a",
     secondary_button_background: "#ffffff", secondary_button_text: "#0f172a", secondary_button_border: "#0f172a",
@@ -185,7 +185,7 @@ export const DEFAULT_COLOR_SCHEMES: Record<BuiltInSchemeKey, ColorScheme> = {
     input_background: "#111111", input_text: "#ffffff", input_border: "#1f2937",
   }),
   highlight: scheme("Accent", {
-    background: "#fde2e4", background_secondary: "#fff1f2", text: "#475569", text_muted: "#6b7280",
+    background: "#fde2e4", background_secondary: "#fff1f2", text: "#475569", text_muted: "#626976",
     heading: "#1f2937", accent: "#0f172a", link: "#1f2937", border: "#fbcfd1",
     primary_button_background: "#1f2937", primary_button_text: "#fde2e4", primary_button_border: "#1f2937",
     secondary_button_background: "transparent", secondary_button_text: "#1f2937", secondary_button_border: "#1f2937",
