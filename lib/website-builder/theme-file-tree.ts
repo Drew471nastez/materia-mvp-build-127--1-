@@ -32,6 +32,8 @@ import manifest from "../../themes/default/manifest.json"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, STRUCTURE_SECTIONS } from "./section-schemas"
 import { THEME_SETTINGS_GROUPS } from "./theme-settings-schema"
 import type { PageKey, ThemeFileNode } from "./types"
+import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
+import { isStorelibSection } from "./storelib-runtime"
 
 /** The pages a theme has. Matches `PageKey`, which is what the editor stores. */
 export const THEME_PAGES: PageKey[] = ["home", "product", "about", "contact"]
@@ -72,7 +74,7 @@ export function buildThemeFileTree(customizedPaths: string[] = []): ThemeFileNod
     children,
   })
 
-  return [
+  const tree: ThemeFileNode[] = [
     file("theme.json", "json"),
     folder("config", [
       file("config/settings_schema.json", "json"),
@@ -84,7 +86,12 @@ export function buildThemeFileTree(customizedPaths: string[] = []): ThemeFileNod
     ),
     folder(
       "sections",
-      orderedSectionTypes().map((type) => file(`sections/${type}.json`, "json")),
+      /**
+       * A section that has moved to the theme engine is its .storelib file;
+       * one that has not is still its JSON schema. Both are the section, and
+       * the browser shows each as what it is.
+       */
+      orderedSectionTypes().map((type) => (isStorelibSection(type) ? file(`sections/${type}.storelib`, "storelib") : file(`sections/${type}.json`, "json"))),
     ),
     folder("snippets", [
       file("snippets/button.json", "json"),
@@ -95,6 +102,27 @@ export function buildThemeFileTree(customizedPaths: string[] = []): ThemeFileNod
       file("assets/theme.js", "javascript"),
     ]),
   ]
+  /**
+   * FILES A PERSON CREATED. A saved path the default theme does not have —
+   * a new section, a snippet — belongs in the tree under its folder, or the
+   * file exists and cannot be opened. Folders the default theme does not
+   * have are made for it.
+   */
+  const known = new Set(flattenTree(tree))
+  for (const path of [...customized].sort()) {
+    if (known.has(path) || path.includes("..") || path.startsWith("/")) continue
+    const parts = path.split("/")
+    if (parts.length === 1) { tree.push(file(path)); continue }
+    let level = tree
+    for (let i = 0; i < parts.length - 1; i++) {
+      const folderPath = parts.slice(0, i + 1).join("/")
+      let node = level.find((n) => n.type === "folder" && n.path === folderPath)
+      if (!node) { node = folder(folderPath, []); node.name = parts[i]; level.push(node) }
+      level = node.children!
+    }
+    level.push(file(path))
+  }
+  return tree
 }
 
 /** Every path the tree contains, flattened. For search and for tests. */
@@ -110,9 +138,10 @@ export function flattenTree(nodes: ThemeFileNode[]): string[] {
   return out
 }
 
-function detectLanguage(path: string): string {
+export function detectLanguage(path: string): string {
   const ext = path.split(".").pop() ?? ""
   const map: Record<string, string> = {
+    storelib: "storelib",
     json: "json",
     css: "css",
     js: "javascript",
@@ -204,8 +233,16 @@ export function getDefaultFileContent(path: string, themeName: string = "Storeli
     return JSON.stringify({ layout: "default", sections: { order } }, null, 2)
   }
 
+  /** A .storelib file's default is the default theme's file, verbatim. */
+  if (path.endsWith(".storelib")) {
+    return DEFAULT_THEME_SOURCES[path] ?? `<!-- There is no ${path} in this theme. Save this file to create it. -->\n`
+  }
+
   if (path.startsWith("sections/") && path.endsWith(".json")) {
     const type = path.replace("sections/", "").replace(".json", "")
+    if (isStorelibSection(type)) {
+      return JSON.stringify({ error: `"${type}" lives in sections/${type}.storelib now; open that file.` }, null, 2)
+    }
     const schema = SECTION_SCHEMAS[type]
     if (!schema) {
       return JSON.stringify(

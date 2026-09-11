@@ -80,7 +80,7 @@ import timeline from "../../themes/default/sections/timeline.json"
 import trust_badges from "../../themes/default/sections/trust_badges.json"
 import video_embed from "../../themes/default/sections/video_embed.json"
 import video_hero from "../../themes/default/sections/video_hero.json"
-import { STORELIB_SCHEMAS } from "./storelib-schemas"
+import { STORELIB_SCHEMAS, addableSections } from "./storelib-schemas"
 
 // JSON imports are inferred with very narrow literal types (e.g. every
 // `type: "toggle"` is inferred as the string literal `"toggle"`). That's
@@ -153,7 +153,7 @@ export const SECTION_SCHEMAS: Record<string, SectionSchema> = {
 
 // ── Ordered list of sections available in the "Add section" panel ──
 // Sourced from the theme manifest so packaged themes can customise order.
-export const ADDABLE_SECTIONS: string[] = manifest.addable_sections
+export const ADDABLE_SECTIONS: string[] = addableSections(manifest.addable_sections, STORELIB_SCHEMAS)
 
 // ── Structure sections (header/footer) — shown separately at top/bottom of sidebar ──
 export const STRUCTURE_SECTIONS: string[] = manifest.structure_sections

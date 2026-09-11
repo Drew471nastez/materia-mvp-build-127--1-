@@ -65,6 +65,8 @@ import type {
 import { PAGE_META, DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES } from "@/lib/website-builder/section-schemas"
 import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
+import { schemaFor } from "@/lib/website-builder/storelib-schemas"
+import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget } from "@/components/website-builder/link-picker"
@@ -759,12 +761,12 @@ const PREVIEW_THEME: ThemeSettingsValues = {
   font_body: "Inter",
 }
 
-function buildPreviewSection(type: string): SectionInstance | null {
+function buildPreviewSection(type: string, presetIndex = 0): SectionInstance | null {
   const schema = SECTION_SCHEMAS[type]
   if (!schema) return null
-  const preset = schema.presets?.[0]
+  const preset = schema.presets?.[presetIndex] ?? schema.presets?.[0]
   return {
-    id: `preview-${type}`,
+    id: `preview-${type}-${presetIndex}`,
     type,
     name: schema.name,
     settings: preset?.settings ?? {},
@@ -773,8 +775,8 @@ function buildPreviewSection(type: string): SectionInstance | null {
   }
 }
 
-function SectionPreviewThumbnail({ type, containerWidth = 220 }: { type: string; containerWidth?: number }) {
-  const section = buildPreviewSection(type)
+function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220 }: { type: string; presetIndex?: number; containerWidth?: number }) {
+  const section = buildPreviewSection(type, presetIndex)
   if (!section) {
     return (
       <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -811,7 +813,7 @@ function AddSectionModal({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onAddSection: (type: string) => void
+  onAddSection: (type: string, presetIndex?: number) => void
 }) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [isMobileLayout, setIsMobileLayout] = useState(false)
@@ -843,13 +845,26 @@ function AddSectionModal({
     ...categories.map(cat => ({ key: cat, label: SECTION_CATEGORIES[cat] ?? cat })),
   ]
 
-  const handleAdd = (type: string) => {
-    onAddSection(type)
+  const handleAdd = (type: string, presetIndex = 0) => {
+    onAddSection(type, presetIndex)
     onOpenChange(false)
   }
 
+  /**
+   * ONE CARD PER PRESET. A section's presets are the different things it can
+   * first appear as — the hero's dark centred, light split and gradient —
+   * and each is drawn as its own card with its own preview. A section with
+   * one preset, or none declared, is one card named after the section.
+   */
+  const entries = (type: string): { type: string; presetIndex: number; title: string }[] => {
+    const schema = SECTION_SCHEMAS[type]
+    const presets = schema?.presets ?? []
+    if (presets.length <= 1) return [{ type, presetIndex: 0, title: schema?.name ?? type }]
+    return presets.map((p, i) => ({ type, presetIndex: i, title: p.name || schema!.name }))
+  }
+
   // ── Section card (shared between mobile & desktop) ──
-  const SectionCard = ({ type, mobile }: { type: string; mobile?: boolean }) => {
+  const SectionCard = ({ type, presetIndex = 0, title, mobile }: { type: string; presetIndex?: number; title?: string; mobile?: boolean }) => {
     const schema = SECTION_SCHEMAS[type]
     const cardRef = useRef<HTMLButtonElement>(null)
     const [cardWidth, setCardWidth] = useState(mobile ? 300 : 260)
@@ -865,7 +880,7 @@ function AddSectionModal({
     return (
       <button
         ref={cardRef}
-        onClick={() => handleAdd(type)}
+        onClick={() => handleAdd(type, presetIndex)}
         className={cn(
           "flex flex-col w-full rounded-xl border border-border bg-background overflow-hidden text-left",
           "transition-all duration-200 ease-out will-change-transform",
@@ -878,11 +893,11 @@ function AddSectionModal({
       >
         {/* Title above the preview */}
         <div className="px-4 pt-3 pb-2.5 shrink-0">
-          <p className="font-semibold text-sm leading-tight text-foreground">{schema.name}</p>
+          <p className="font-semibold text-sm leading-tight text-foreground">{title ?? schema.name}</p>
         </div>
         {/* Full-width real section preview */}
         <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden">
-          <SectionPreviewThumbnail type={type} containerWidth={cardWidth} />
+          <SectionPreviewThumbnail type={type} presetIndex={presetIndex} containerWidth={cardWidth} />
         </div>
       </button>
     )
@@ -943,8 +958,8 @@ function AddSectionModal({
           {/* Section list — single column */}
           <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overscroll-contain px-4 pt-3 pb-8">
             <div className="flex flex-col gap-3">
-              {visibleSections.map((type) => (
-                <SectionCard key={type} type={type} mobile />
+              {visibleSections.flatMap(entries).map(e => (
+                <SectionCard key={`${e.type}-${e.presetIndex}`} type={e.type} presetIndex={e.presetIndex} title={e.title} mobile />
               ))}
             </div>
             {visibleSections.length === 0 && (
@@ -998,8 +1013,8 @@ function AddSectionModal({
           {/* Right: 1-column grid */}
           <div className="flex-1 overflow-y-auto wb-slim-scroll overscroll-contain p-5">
             <div className="grid grid-cols-1 gap-4">
-              {visibleSections.map((type) => (
-                <SectionCard key={type} type={type} />
+              {visibleSections.flatMap(entries).map(e => (
+                <SectionCard key={`${e.type}-${e.presetIndex}`} type={e.type} presetIndex={e.presetIndex} title={e.title} />
               ))}
             </div>
             {visibleSections.length === 0 && (
@@ -3627,17 +3642,39 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [pendingExit, setPendingExit] = useState<string | null>(null)
   /** Reported by the code editor in its frame; see its postMessage. */
   const [codeDirty, setCodeDirty] = useState(false)
+  /**
+   * THE SECTIONS THIS PERSON SAVED IN THE CODE EDITOR, path to source. The
+   * canvas renders a .storelib section from these before the bundled
+   * default, and the sidebar draws that section's panel from the saved
+   * schema. Loaded once, and again whenever the code editor's frame says a
+   * file was saved, reverted, renamed or deleted — the compile cache is
+   * keyed by source text, so a changed file compiles once and an unchanged
+   * one is a hit.
+   */
+  const [storelibSources, setStorelibSources] = useState<Record<string, string>>({})
+  const loadStorelibSources = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`)
+      if (!res.ok) return
+      const d = (await res.json()) as { files?: Record<string, string> }
+      setStorelibSources(d.files ?? {})
+    } catch {
+      /* the bundled sources still render; the next save reloads */
+    }
+  }, [installId])
+  useEffect(() => { void loadStorelibSources() }, [loadStorelibSources])
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       // Same-origin only: the frame is our own page and nothing else may
       // tell the builder what its unsaved state is.
       if (e.origin !== window.location.origin) return
-      const data = e.data as { type?: string; dirty?: boolean } | null
+      const data = e.data as { type?: string; dirty?: boolean; path?: string } | null
       if (data?.type === "storelib:code-dirty") setCodeDirty(Boolean(data.dirty))
+      if (data?.type === "storelib:file-saved") void loadStorelibSources()
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
-  }, [])
+  }, [loadStorelibSources])
   /** `document` exists only after the first client render, and the leaving
    *  screen is portalled into it. */
   const [portalReady, setPortalReady] = useState(false)
@@ -4752,11 +4789,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     })
   }
 
-  const addSection = (type: string) => {
+  const addSection = (type: string, presetIndex = 0) => {
     pushUndo()
     const schema = SECTION_SCHEMAS[type]
     if (!schema) return
-    const preset = schema.presets?.[0]
+    const preset = schema.presets?.[presetIndex] ?? schema.presets?.[0]
     const newSection: SectionInstance = {
       id: `${type}-${Date.now()}`,
       type,
@@ -5272,7 +5309,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (selectedPanel.type === "section") {
         const section = sections.find(s => s.id === (selectedPanel as any).sectionId)
         if (!section) { setSelectedPanel({ type: "pages" }); return null }
-        const schema = SECTION_SCHEMAS[section.type]
+        const schema = schemaFor(section.type, storelibSources, SECTION_SCHEMAS)
         // This will fall through to the existing SECTION panel code below
       } else {
         // Global theme settings
@@ -5554,7 +5591,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (selectedPanel.type === "section") {
       const section = sections.find(s => s.id === selectedPanel.sectionId)
       if (!section) return null
-      const schema = SECTION_SCHEMAS[section.type]
+      const schema = schemaFor(section.type, storelibSources, SECTION_SCHEMAS)
 
       // Special Header Section UI matching the screenshot
       if (section.type === "header") {
@@ -6963,6 +7000,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                */}
               <EditorCanvasPage
                 theme={activeThemeSettings}
+                sources={storelibSources}
                 sections={sections}
                 inspectorEnabled={inspectorEnabled}
                 selectedSectionId={selectedSectionId}
@@ -7508,6 +7546,7 @@ function SectionToolbar({
 const EditorCanvasPage = memo(function EditorCanvasPage({
   theme,
   sections,
+  sources,
   inspectorEnabled,
   selectedSectionId,
   device,
@@ -7519,6 +7558,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
 }: {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
+  /** Saved .storelib files, path to source; see storelibSources in the editor. */
+  sources: Record<string, string>
   inspectorEnabled: boolean
   selectedSectionId: string | null
   device: DeviceMode
@@ -7529,6 +7570,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   onEditorNavigate: (href: string) => void
 }) {
   return (
+    <StorelibSourcesProvider sources={sources}>
     <ThemePage
       theme={theme}
       sections={sections}
@@ -7608,6 +7650,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
         </div>
       )}
     </ThemePage>
+    </StorelibSourcesProvider>
   )
 })
 

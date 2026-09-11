@@ -35,6 +35,9 @@ import {
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { DEFAULT_THEME_SOURCES } from "../themes/default/sources.generated"
+import { isStorelibSection } from "@/lib/website-builder/storelib-runtime"
+import { detectLanguage } from "@/lib/website-builder/theme-file-tree"
 
 const root = process.cwd()
 
@@ -65,9 +68,10 @@ section("Every section is in the browser, because the browser is derived")
 // ===========================================================================
 
 {
+  /** A section is its .json schema or, once it has moved to the engine, its .storelib file. */
   const listed = paths
     .filter((path) => path.startsWith("sections/"))
-    .map((path) => path.slice("sections/".length, -".json".length))
+    .map((path) => path.slice("sections/".length).replace(/\.(json|storelib)$/, ""))
   const real = Object.keys(SECTION_SCHEMAS)
 
   const missing = real.filter((type) => !listed.includes(type))
@@ -119,6 +123,7 @@ section("A file shows what that file is")
    */
   const thin: string[] = []
   for (const type of Object.keys(SECTION_SCHEMAS)) {
+    if (isStorelibSection(type)) continue // its file is the source itself, checked below
     const parsed = JSON.parse(getDefaultFileContent(`sections/${type}.json`))
     const fields = parsed.fields?.length ?? 0
     if (fields === 0 && (SECTION_SCHEMAS[type].fields ?? []).length > 0) thin.push(type)
@@ -274,6 +279,66 @@ section("It is reachable, and it works on a file longer than the window")
       /if \(embedded \|\| !codeDirty\) return/.test(code) &&
       /postMessage\(\{ type: "storelib:code-dirty", dirty: codeDirty \}, window\.location\.origin\)/.test(code),
   )
+}
+
+// ===========================================================================
+section("A section that lives in a .storelib file is edited as that file")
+// ===========================================================================
+{
+  const hero = getDefaultFileContent("sections/hero.storelib")
+  check("sections/hero.storelib opens as the file itself, verbatim", hero === DEFAULT_THEME_SOURCES["sections/hero.storelib"] && hero.includes("<schema>"))
+  check("the tree lists it as .storelib, not as a JSON schema it no longer is", paths.includes("sections/hero.storelib") && !paths.includes("sections/hero.json"))
+  check("and asking for the JSON says where the hero went", /hero\.storelib/.test(getDefaultFileContent("sections/hero.json")))
+  check("a .storelib the theme does not have opens as a note, not as a crash", /Save this file to create it/.test(getDefaultFileContent("sections/nothing.storelib")))
+  check("a .storelib is a language the editor knows", detectLanguage("sections/x.storelib") === "storelib")
+
+  /**
+   * FILES A PERSON CREATED are in the tree under their folder, and a folder
+   * the theme does not have is made for them. Without this a saved file
+   * exists and cannot be opened.
+   */
+  const withOwn = flattenTree(buildThemeFileTree(["sections/testimonial.storelib", "snippets/badge.storelib", "extras/notes.json"]))
+  check("a saved section file the theme does not have is listed", withOwn.includes("sections/testimonial.storelib"))
+  check("a saved snippet is listed", withOwn.includes("snippets/badge.storelib"))
+  check("a saved file in a folder the theme does not have gets the folder", withOwn.includes("extras/notes.json"))
+  check("a path that escapes the theme is never listed", !flattenTree(buildThemeFileTree(["../etc/passwd", "/abs.json"])).some((p) => p.includes("..") || p.startsWith("/")))
+}
+
+// ===========================================================================
+section("Save compiles, errors carry lines, the canvas finds out")
+// ===========================================================================
+{
+  const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8")
+  const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const creator = readFileSync(join(root, "app/(marketing)/[sellername]/page.tsx"), "utf8")
+  const section = readFileSync(join(root, "components/website-builder/sections/StorelibSection.tsx"), "utf8")
+
+  check(
+    "PUT compiles a .storelib before storing it and refuses with the errors, 422",
+    /compileSection\(content, \{ file: path, expectType/.test(route) && /\{ error: `\$\{path\} did not compile`, errors: r\.errors \},\s*\{ status: 422 \}/.test(route),
+  )
+  check(
+    "and the compile runs before the upsert, so a broken file never reaches a row",
+    route.indexOf("compileSection(content, { file: path, expectType") < route.indexOf('.upsert({ install_id: installId, path, content }'),
+  )
+  check(
+    "DELETE of a section file the theme does not have is refused with the pages that use it",
+    /status: 409/.test(route) && /used_by: usedBy/.test(route) && /searchParams\.get\("force"\) !== "1"/.test(route),
+  )
+  check("a rename compiles under the new name before the row moves", /export async function PATCH/.test(route) && route.indexOf("compileSection(existing.content, { file: to") < route.indexOf('.upsert({ install_id: installId, path: to'))
+  check("the canvas can ask for every saved source at once", /searchParams\.get\("sources"\) === "1"/.test(route) && /\.like\("path", "%\.storelib"\)/.test(route))
+
+  check("the code editor shows the compiler's errors with their lines", /res\.status === 422 && Array\.isArray\(d\.errors\)/.test(codePage) && /data-compile-errors=""/.test(codePage) && /goToLine\(err\.line\)/.test(codePage))
+  check("and marks the line in the gutter", /hasError=\{errorLines\.has\(i \+ 1\)\}/.test(codePage) && /data-error-line=/.test(codePage))
+  check("a broken file is not saved and says so", /did not compile — not saved/.test(codePage))
+  check("the code editor tells the canvas when a file changed", (codePage.match(/announceFileChange\(/g) ?? []).length >= 5 && /type: "storelib:file-saved"/.test(codePage))
+  check("the editor listens and reloads the saved sources", /data\?\.type === "storelib:file-saved"\) void loadStorelibSources\(\)/.test(editor) && /files\?sources=1/.test(editor))
+  check("and hands them to the canvas and the sidebar", /<StorelibSourcesProvider sources=\{sources\}>/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, SECTION_SCHEMAS\)/g) ?? []).length === 2)
+  check("a section renders from the saved source when there is one", /useStorelibSources\(\)/.test(section) && /renderStorelibSection\(section, theme, \{ template: "index" \}, sources\)/.test(section))
+  check("the published page draws the saved sections too, not the bundled ones", /\.from\("store_theme_custom_files"\)/.test(creator) && /<StorelibSourcesProvider sources=\{storelibSources\}>/.test(creator))
+  check("a new section file starts as one that compiles", /const starterFor = \(path: string\)/.test(codePage) && /"<template>",/.test(codePage) && /"<schema>",/.test(codePage))
+  check("new, rename, duplicate and delete are there", /kind: "new"/.test(codePage) && /kind: "rename"/.test(codePage) && /kind: "duplicate"/.test(codePage) && /deleteFile\(true\)/.test(codePage))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
