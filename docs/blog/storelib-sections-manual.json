@@ -1,0 +1,1968 @@
+{
+  "title": "Storelib Sections and Theme Language: The Complete Documentation",
+  "slug": "storelib-sections-theme-language-documentation",
+  "excerpt": "How a Storelib site is built, end to end: the section file, the template language, the schema, settings resolution, colour schemes and text styles, scripts, packaging and the rules a section has to follow.",
+  "category": "Getting Started",
+  "read_time": "45 min read",
+  "author": "Storelib Team",
+  "seo_title": "Storelib Sections and Theme Language Documentation",
+  "seo_description": "The complete reference for building Storelib sections: the template language, schema, settings, colour schemes, typography tokens, scripts and packaging.",
+  "seo_keywords": "storelib sections, storelib theme, storelib website builder, storelib template language, storelib schema, how to build a storelib section, storelib documentation, storelib theme development, storelib color schemes, storelib blocks",
+  "is_published": true,
+  "content": [
+    {
+      "type": "p",
+      "html": "This is the complete reference for how a Storelib site is built: what a theme is made of, how a section is written, what the template language does, what a schema may declare, how settings resolve, how colour and type are decided, and what the editor does with all of it."
+    },
+    {
+      "type": "p",
+      "html": "It is written for three readers. Somebody building their own sections. A developer packaging a theme. And a model asked to write a section, which needs the rules stated rather than implied."
+    },
+    {
+      "type": "p",
+      "html": "Everything here describes the engine as it ships. Where something is accepted but not yet acted on, it says so rather than pretending."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "1. The model, in one page"
+    },
+    {
+      "type": "p",
+      "html": "A Storelib site is a theme. A theme is a folder of source files plus the content a merchant put into them."
+    },
+    {
+      "type": "code",
+      "lang": "code",
+      "text": "Theme\n ├── Design tokens        colour schemes, text styles, spacing, radius\n ├── Sections             one file per type: markup, style, script, schema\n ├── Templates            which sections a page has, in order, with settings\n └── Assets               images, video, files, addressed by content hash"
+    },
+    {
+      "type": "p",
+      "html": "Two words carry the whole design."
+    },
+    {
+      "type": "p",
+      "html": "A <strong>section</strong> is a type. It is one file, written once, and it decides what the markup is and which settings exist. <code>sections/hero.storelib</code> is a section."
+    },
+    {
+      "type": "p",
+      "html": "An <strong>instance</strong> is one use of a section on one page, with its own settings and its own blocks. A home page with two heroes has one section and two instances."
+    },
+    {
+      "type": "p",
+      "html": "Change a section and every page using it changes how it works, while nobody's content moves. Change a template and one page's content changes, while no section changes how it works. No file does both. That split is what makes a theme updatable without breaking the sites built on it."
+    },
+    {
+      "type": "h3",
+      "html": "The chain of ownership"
+    },
+    {
+      "type": "code",
+      "lang": "code",
+      "text": "Theme settings          the fonts, the colour schemes, the page width\n    ↓\nSection schema          which settings this type has, and their defaults\n    ↓\nSection instance        what this merchant typed, on this page\n    ↓\nLocal overrides         the few colours this instance chose to differ on"
+    },
+    {
+      "type": "p",
+      "html": "Later wins, and each level stores only what differs from the one above. A merchant who never touched a setting follows the theme forever, including after an update."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "2. Anatomy of a section file"
+    },
+    {
+      "type": "p",
+      "html": "A section is one file ending in <code>.storelib</code>, holding up to four blocks."
+    },
+    {
+      "type": "code",
+      "lang": "html",
+      "text": "<template>\n  <section class=\"hero\">\n    <h2 class=\"hero__title\">{{ settings.heading }}</h2>\n    {% if settings.subheading %}\n      <p class=\"hero__sub\">{{ settings.subheading }}</p>\n    {% endif %}\n    {% if settings.button_text %}\n      <a class=\"hero__btn\" href=\"{{ settings.button_url | url }}\">{{ settings.button_text }}</a>\n    {% endif %}\n  </section>\n</template>\n\n<style>\n.hero {\n  background: var(--scheme-background);\n  color: var(--scheme-text);\n  padding: {{ settings.padding_top }}px 0 {{ settings.padding_bottom }}px;\n}\n.hero__title {\n  color: var(--scheme-heading);\n  font-size: var(--section-heading-size, 32px);\n  line-height: var(--section-heading-line-height, 1.15);\n  font-weight: var(--section-heading-weight, 700);\n}\n.hero__btn {\n  background: var(--scheme-button-primary);\n  color: var(--scheme-button-primary-text);\n  border-radius: var(--theme-button-radius, 8px);\n}\n@container (min-width: 768px) {\n  .hero__title { font-size: var(--section-heading-size, 44px); }\n}\n</style>\n\n<schema>\n{\n  \"schema_version\": 1,\n  \"type\": \"hero\",\n  \"name\": \"Hero\",\n  \"category\": \"hero\",\n  \"icon\": \"star\",\n  \"supports_color_scheme\": true,\n  \"settings\": [\n    { \"type\": \"color_scheme\", \"id\": \"color_scheme\", \"label\": \"Colour scheme\", \"default\": \"white\" },\n    { \"type\": \"text\", \"id\": \"heading\", \"label\": \"Heading\", \"default\": \"Welcome\" },\n    { \"type\": \"textarea\", \"id\": \"subheading\", \"label\": \"Subheading\", \"default\": \"\" },\n    { \"type\": \"text\", \"id\": \"button_text\", \"label\": \"Button text\", \"default\": \"\" },\n    { \"type\": \"url\", \"id\": \"button_url\", \"label\": \"Button link\", \"default\": \"\" },\n    { \"type\": \"range\", \"id\": \"padding_top\", \"label\": \"Padding top\", \"min\": 0, \"max\": 160, \"step\": 4, \"unit\": \"px\", \"default\": 64 },\n    { \"type\": \"range\", \"id\": \"padding_bottom\", \"label\": \"Padding bottom\", \"min\": 0, \"max\": 160, \"step\": 4, \"unit\": \"px\", \"default\": 64 }\n  ],\n  \"presets\": [{ \"name\": \"Hero\", \"settings\": { \"color_scheme\": \"white\" } }]\n}\n</schema>"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Block",
+        "Required",
+        "Holds"
+      ],
+      "rows": [
+        [
+          "<template>",
+          "Yes",
+          "Markup, output, conditionals, loops."
+        ],
+        [
+          "<style>",
+          "No",
+          "CSS. Always scoped to this section's instances."
+        ],
+        [
+          "<script>",
+          "No",
+          "Behaviour. Checked and stored; not executed yet. See section 11."
+        ],
+        [
+          "<schema>",
+          "Yes",
+          "JSON: what this section is and which settings it has."
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "html": "Rules the parser enforces:"
+    },
+    {
+      "type": "ul",
+      "items": [
+        "An opening tag starts a line. A closing tag is alone on its own line. That is what stops a </style> written inside template text from ending the style block.",
+        "Order is free. Two blocks of the same kind is an error naming the first one's line.",
+        "Only these four tags and single-line HTML comments may appear at the top level.",
+        "The file name and the schema's type must agree. sections/hero.storelib must declare \"type\": \"hero\"."
+      ]
+    },
+    {
+      "type": "p",
+      "html": "You may write <code>&lt;style scoped&gt;</code>. The word is accepted and ignored: a section's CSS is always scoped, because there is no such thing here as a section rule that is not."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "3. The template language"
+    },
+    {
+      "type": "p",
+      "html": "The template block is HTML plus four things: output, conditionals, loops and comments. It compiles to a tree, and the tree is walked. There is no <code>eval</code> anywhere in the pipeline, which is what lets a published storefront run under a strict content security policy and makes two renders of the same input identical."
+    },
+    {
+      "type": "p",
+      "html": "It looks like Liquid and it is not Liquid. The list below is the whole language. Anything not on it does not exist."
+    },
+    {
+      "type": "h3",
+      "html": "3.1 Output"
+    },
+    {
+      "type": "code",
+      "lang": "html",
+      "text": "{{ settings.heading }}"
+    },
+    {
+      "type": "p",
+      "html": "Always HTML escaped. The only way to emit markup is the <code>raw</code> filter, which is for <code>richtext</code> values, because those were sanitised when they were saved."
+    },
+    {
+      "type": "code",
+      "lang": "html",
+      "text": "<div class=\"prose\">{{ settings.body | raw }}</div>"
+    },
+    {
+      "type": "h3",
+      "html": "3.2 Comments"
+    },
+    {
+      "type": "code",
+      "lang": "html",
+      "text": "{# This is never rendered and never reaches the page. #}"
+    },
+    {
+      "type": "p",
+      "html": "<code>{% comment %}</code> does not exist and is an error. Use <code>{# … #}</code>. It may span lines, and it works between the top-level blocks as well as inside a template."
+    },
+    {
+      "type": "h3",
+      "html": "3.3 Conditionals"
+    },
+    {
+      "type": "code",
+      "lang": "html",
+      "text": "{% if settings.show_subheading and settings.subheading != \"\" %}\n  <p>{{ settings.subheading }}</p>\n{% elsif settings.show_subheading %}\n  <p>No subheading yet</p>\n{% else %}\n  <!-- nothing -->\n{% endif %}"
+    },
+    {
+      "type": "p",
+      "html": "It is spelled <code>elsif</code>. Not <code>elseif</code>, not <code>else if</code>. Every <code>{% elsif %}</code> must come before the <code>{% else %}</code>."
+    },
+    {
+      "type": "p",
+      "html": "There is no <code>{% unless %}</code>, no <code>{% case %}</code> and no <code>{% when %}</code>. Write <code>not</code>, or write an <code>if</code> chain."
+    },
+    {
+      "type": "h3",
+      "html": "3.4 Loops"
+    },
+    {
+      "type": "code",
+      "lang": "html",
+      "text": "<ul>\n{% for item in blocks %}\n  <li class=\"{% if forloop.first %}is-first{% endif %}\">\n    {{ forloop.index }}. {{ item.settings.title | upcase }}\n  </li>\n{% else %}\n  <li>Add an item</li>\n{% endfor %}\n</ul>"
+    },
+    {
+      "type": "p",
+      "html": "The <code>{% else %}</code> branch runs when the collection is empty or is not a list at all. That is how a section says \"add a block\" to the person building the page and says nothing to a visitor."
+    },
+    {
+      "type": "p",
+      "html": "<code>forloop</code> has exactly five properties: <code>index</code> (1 based), <code>index0</code>, <code>first</code>, <code>last</code>, <code>length</code>. There is no <code>rindex</code> and no <code>parentloop</code>; in a nested loop the inner <code>forloop</code> hides the outer one."
+    },
+    {
+      "type": "p",
+      "html": "There are no loop modifiers. <code>limit:</code>, <code>offset:</code> and <code>reversed</code> are not supported, and neither are numeric ranges: <code>{% for i in (1..5) %}</code> is a parse error. Loop over a real list, or write the repetition out."
+    },
+    {
+      "type": "h3",
+      "html": "3.5 What does not exist"
+    },
+    {
+      "type": "p",
+      "html": "No assignment of any kind. No <code>{% assign %}</code>, no <code>{% capture %}</code>. Loop variables are the only names that ever enter scope."
+    },
+    {
+      "type": "p",
+      "html": "No <code>{% include %}</code>, <code>{% render %}</code> or <code>{% section %}</code>. A section is one file."
+    },
+    {
+      "type": "p",
+      "html": "No whitespace control. <code>{%-</code> and <code>-%}</code> are not stripped and will be read as part of the tag."
+    },
+    {
+      "type": "p",
+      "html": "An unrecognised tag is a compile error naming it: <code>unknown tag {% assign %}</code>."
+    },
+    {
+      "type": "h3",
+      "html": "3.6 Expressions"
+    },
+    {
+      "type": "ul",
+      "items": [
+        "Literals: \"text\", 'text', 12, 1.5, true, false, and null, nil or blank, which all mean null.",
+        "Strings have no escape sequences. A quote inside a string ends it.",
+        "Numbers may be negative and may have decimals. No exponents, no hex.",
+        "Paths: settings.heading, block.settings.url, theme.colors.primary, items[0], items[\"key\"]. Literal indexes only. There are no computed lookups and no dashes in names.",
+        "Comparisons: ==, !=, <, <=, >, >=, contains. One comparison per expression: a < b < c is a parse error.",
+        "Logic: and, or, not, and parentheses.",
+        "Filters: value | name: arg1, arg2, applied left to right, at the top level of an expression only. ( a | upcase ) is a parse error."
+      ]
+    },
+    {
+      "type": "p",
+      "html": "There are no arithmetic operators. <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code> and <code>%</code> do not exist in an expression. Use the <code>plus</code>, <code>minus</code>, <code>times</code> and <code>divided_by</code> filters."
+    },
+    {
+      "type": "p",
+      "html": "Things that surprise people, all of them deliberate:"
+    },
+    {
+      "type": "ul",
+      "items": [
+        "and and or return true or false, not the operand. {{ a or b }} prints \"true\", never the value of a. For a value fallback use default.",
+        "<, <=, > and >= coerce to numbers. Two strings do not compare alphabetically; they compare as NaN, which is always false.",
+        "== is strict, except that null equals nil, and two non-objects compare as strings. 1 == \"1\" is true.",
+        "contains is includes on a list and a substring test on anything else.",
+        "not a == b parses as not (a == b)."
+      ]
+    },
+    {
+      "type": "h3",
+      "html": "3.7 Truthiness"
+    },
+    {
+      "type": "p",
+      "html": "Falsy: <code>undefined</code>, <code>null</code>, <code>false</code>, <code>\"\"</code>, <code>NaN</code>, and an empty list."
+    },
+    {
+      "type": "p",
+      "html": "Truthy: everything else, including <code>0</code>, <code>\"0\"</code>, <code>\"false\"</code>, a string of spaces, and an empty object."
+    },
+    {
+      "type": "h3",
+      "html": "3.8 Path lookup"
+    },
+    {
+      "type": "p",
+      "html": "A path reads plain data and nothing else. <code>__proto__</code>, <code>constructor</code> and <code>prototype</code> are unreachable. A function is never called. A path that does not exist is null rather than an error, so a template written against a setting that was later removed renders empty instead of failing."
+    },
+    {
+      "type": "p",
+      "html": "Lists expose <code>size</code>, <code>length</code>, <code>first</code>, <code>last</code> and integer indexes. Strings expose <code>size</code> and <code>length</code>. Objects expose their own keys only."
+    },
+    {
+      "type": "h3",
+      "html": "3.9 Filters"
+    },
+    {
+      "type": "p",
+      "html": "All 25 of them."
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Filter",
+        "Does"
+      ],
+      "rows": [
+        [
+          "default: x",
+          "x when the value is falsy. Note 0 is truthy and is kept."
+        ],
+        [
+          "upcase, downcase",
+          "Case."
+        ],
+        [
+          "capitalize",
+          "Uppercases the first character. The rest is left alone."
+        ],
+        [
+          "strip",
+          "Trims both ends."
+        ],
+        [
+          "size",
+          "Length of a list or string. Anything else is 0."
+        ],
+        [
+          "first, last",
+          "First or last of a list or string."
+        ],
+        [
+          "join: \", \"",
+          "Joins a list. A non-list comes back as a string."
+        ],
+        [
+          "truncate: 80",
+          "Cuts to 80 characters and appends …. A second argument replaces the ellipsis."
+        ],
+        [
+          "append: \"…\", prepend: \"…\"",
+          "Concatenate."
+        ],
+        [
+          "replace: \"a\", \"b\"",
+          "Replaces every occurrence. Plain text, not a pattern."
+        ],
+        [
+          "plus, minus, times, divided_by",
+          "Arithmetic. Dividing by zero gives 0."
+        ],
+        [
+          "round: 2",
+          "To that many decimal places."
+        ],
+        [
+          "json",
+          "JSON encode. Safe in an attribute."
+        ],
+        [
+          "escape",
+          "HTML escape. Output is already escaped, so this double-escapes."
+        ],
+        [
+          "raw",
+          "Emit unescaped. For richtext only."
+        ],
+        [
+          "url",
+          "Makes a link safe. See below."
+        ],
+        [
+          "embed",
+          "Turns a video URL into a player URL. See section 11.3."
+        ],
+        [
+          "asset",
+          "Turns asset://<hash> into the URL this account serves it from."
+        ],
+        [
+          "alpha: 0.5",
+          "The same colour at the given alpha. Hex only."
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "html": "<code>url</code> keeps root-relative <code>/…</code>, <code>http://</code>, <code>https://</code>, <code>mailto:</code>, <code>tel:</code> and <code>#…</code>. Everything else becomes <code>#</code>, including a protocol-relative <code>//host</code> and a plain relative path like <code>products/thing</code>. Put it on every <code>href</code> that comes from a setting, including the ones you believe are internal."
+    },
+    {
+      "type": "p",
+      "html": "<code>alpha</code> accepts <code>#rgb</code> and <code>#rrggbb</code> only. Anything else passes through unchanged, so a scheme value that is <code>transparent</code> stays <code>transparent</code> rather than becoming nonsense."
+    },
+    {
+      "type": "p",
+      "html": "One trap worth knowing: a misspelled filter name is not an error. It is ignored and the value passes through unfiltered. <code>{{ settings.link | ur }}</code> renders the raw value with no link checking. Spell them correctly."
+    },
+    {
+      "type": "h3",
+      "html": "3.10 What a template can read"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Name",
+        "What it is"
+      ],
+      "rows": [
+        [
+          "settings.<id>",
+          "This instance's settings, resolved: defaults applied, asset:// turned into URLs, responsive values as {desktop, tablet, mobile}."
+        ],
+        [
+          "blocks",
+          "This instance's blocks in order. Each is { id, type, settings }. Hidden blocks are absent."
+        ],
+        [
+          "section.id, section.type",
+          "This instance's id and its type."
+        ],
+        [
+          "section.settings, section.blocks",
+          "The same objects as settings and blocks. Write whichever reads better."
+        ],
+        [
+          "theme.*",
+          "The theme's tokens. See section 7."
+        ],
+        [
+          "scheme.*",
+          "The colour scheme this instance chose, with the instance's own overrides applied. See section 8."
+        ],
+        [
+          "page.template",
+          "\"index\", \"product\", \"page.about\"."
+        ],
+        [
+          "page.in_editor",
+          "True only while the builder is drawing."
+        ],
+        [
+          "forloop.*",
+          "Inside a for."
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "html": "Those seven roots are the whole context. Reading anything else is a compile error that says so."
+    },
+    {
+      "type": "p",
+      "html": "<code>page.in_editor</code> is how a section shows an empty state to the person building the page and nothing to a visitor. It is false unless something sets it, so a surface that forgets shows the visitor's version, which is the safe way round."
+    },
+    {
+      "type": "h3",
+      "html": "3.11 The compiler reads your template against your schema"
+    },
+    {
+      "type": "p",
+      "html": "This is the part that catches most mistakes before anybody sees them. Every path the template reads is held against the schema, and these are errors, not warnings:"
+    },
+    {
+      "type": "ul",
+      "items": [
+        "No setting is called \"headin\". This section declares: heading, subheading, …",
+        "A section has id, type, settings and blocks. \"section.colour\" is always empty.",
+        "\"product\" is not something a section can read. A section reads settings, blocks, theme, scheme, page and section.",
+        "This section declares no blocks, so \"block.settings.title\" is always empty. Add a \"blocks\" list to the schema."
+      ]
+    },
+    {
+      "type": "p",
+      "html": "And one warning, which does not stop a save:"
+    },
+    {
+      "type": "ul",
+      "items": [
+        "The template never reads settings.unused"
+      ]
+    },
+    {
+      "type": "p",
+      "html": "A control that changes nothing is worse than no control, so take the warning seriously."
+    },
+    {
+      "type": "h3",
+      "html": "3.12 What is refused in markup"
+    },
+    {
+      "type": "p",
+      "html": "Each refusal names the file and the line."
+    },
+    {
+      "type": "ul",
+      "items": [
+        "<script> anywhere in the template. Behaviour goes in the script block.",
+        "on*= attributes: onclick, onload, and the rest.",
+        "javascript: written literally. One arriving through a setting becomes # when it passes through the url filter, which is why that filter is not optional.",
+        "<object> and <embed>.",
+        "<iframe>, unless the schema declares the embed capability and the src is written exactly as src=\"{{ something | embed }}\".",
+        "Vue directives, by name. v-if, v-for, v-bind:, @click, :key and the rest each produce a message telling you what to write instead. A section is not a Vue component.",
+        "An unclosed {{ or {%, an {% if %} with no {% endif %}, an unknown tag, a malformed expression."
+      ]
+    },
+    {
+      "type": "p",
+      "html": "None of these are style preferences. Each one is a way for a section to become a hole in a site that other people's customers use."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "4. The schema"
+    },
+    {
+      "type": "p",
+      "html": "The schema is JSON inside the <code>&lt;schema&gt;</code> block. Plain JSON: no comments, no trailing commas. It decides what the section is called, where it can go, and which settings the editor draws."
+    },
+    {
+      "type": "h3",
+      "html": "4.1 Top level"
+    },
+    {
+      "type": "code",
+      "lang": "json",
+      "text": "{\n  \"schema_version\": 1,\n  \"type\": \"faq\",\n  \"name\": \"FAQ\",\n  \"category\": \"faq\",\n  \"icon\": \"help-circle\",\n  \"description\": \"Questions and answers, in an accordion.\",\n  \"version\": \"1.2.0\",\n  \"settings\": [],\n  \"blocks\": [],\n  \"max_blocks\": 30,\n  \"presets\": [],\n  \"allowed_templates\": [\"index\", \"page.about\"],\n  \"capabilities\": [\"analytics\"],\n  \"supports_color_scheme\": true,\n  \"supports_color_overrides\": true,\n  \"supports_typography_overrides\": true\n}"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Key",
+        "Required",
+        "Means"
+      ],
+      "rows": [
+        [
+          "type",
+          "Yes",
+          "The section's stable id. Matches the file name. Never changes."
+        ],
+        [
+          "name",
+          "Yes",
+          "What the editor calls it. 1 to 80 characters."
+        ],
+        [
+          "settings",
+          "In practice",
+          "The controls, in the order the sidebar shows them. Omitting it means none."
+        ],
+        [
+          "schema_version",
+          "No",
+          "The schema format this file is written for. Defaults to 1."
+        ],
+        [
+          "language_version",
+          "No",
+          "The template language version. Absent means 1, permanently."
+        ],
+        [
+          "category",
+          "No",
+          "Which group of the Add Section list it appears in."
+        ],
+        [
+          "icon",
+          "No",
+          "The icon beside its name."
+        ],
+        [
+          "description",
+          "No",
+          "One line under the name."
+        ],
+        [
+          "version",
+          "No",
+          "The section author's own version."
+        ],
+        [
+          "blocks",
+          "No",
+          "Repeatable children. A section without this has no block interface at all."
+        ],
+        [
+          "max_blocks",
+          "No",
+          "Total blocks allowed. Must be 50 or less."
+        ],
+        [
+          "presets",
+          "No",
+          "What Add Section produces. A section with no preset is not offered."
+        ],
+        [
+          "allowed_templates",
+          "No",
+          "Where it may be placed. Absent means anywhere."
+        ],
+        [
+          "disabled_templates",
+          "No",
+          "Where it may not. Not with allowed_templates."
+        ],
+        [
+          "capabilities",
+          "No",
+          "What the script and the template may reach. Absent means nothing."
+        ],
+        [
+          "supports_color_scheme",
+          "No",
+          "Whether the panel offers a scheme picker. Defaults to true when a color_scheme setting exists."
+        ],
+        [
+          "supports_color_overrides",
+          "No",
+          "true, false, or the list of slots this section allows."
+        ],
+        [
+          "supports_typography_overrides",
+          "No",
+          "Whether the panel offers heading and body style pickers. Defaults to true."
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "html": "Unknown keys survive. A schema written for a later engine keeps everything it carries when this one reads it. A <code>schema_version</code> newer than the engine reads is refused with both numbers rather than misread."
+    },
+    {
+      "type": "h3",
+      "html": "4.2 Naming, and the id contract"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Thing",
+        "Allowed",
+        "Example"
+      ],
+      "rows": [
+        [
+          "Section type",
+          "Lowercase letter first, then lowercase letters, digits, -, _",
+          "product_grid, faq-short"
+        ],
+        [
+          "Setting id",
+          "Lowercase letter first, then lowercase letters, digits, _. No hyphen",
+          "heading, padding_top"
+        ],
+        [
+          "Block type",
+          "Same as section type",
+          "question, slide"
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "html": "Setting ids are unique within the section's own list, and within each block's list. A block may reuse an id the section also uses."
+    },
+    {
+      "type": "p",
+      "html": "Ids are a contract with every page already using the section. An update may add settings, add block types, change defaults, and change markup and CSS freely. Instances that never overrode a default follow the new one. Instances that did keep what they chose. An update must not rename or remove an id."
+    },
+    {
+      "type": "p",
+      "html": "The schema accepts a <code>migrations</code> list for renames:"
+    },
+    {
+      "type": "code",
+      "lang": "json",
+      "text": "\"migrations\": [{ \"from\": \"title\", \"to\": \"heading\", \"since\": \"1.1.0\" }]"
+    },
+    {
+      "type": "p",
+      "html": "<strong>Be careful here.</strong> The shape is validated and stored, and the rename is not applied by the engine today. Saved content under the old id survives as an unknown key, which means it is not lost, but a template reading the new id sees the new id's default. Until that lands, treat a rename as something you do not do."
+    },
+    {
+      "type": "h3",
+      "html": "4.3 Settings"
+    },
+    {
+      "type": "p",
+      "html": "Every setting is an object with <code>type</code>, <code>id</code> and usually <code>label</code>, plus <code>default</code> and whatever extra keys its control reads."
+    },
+    {
+      "type": "code",
+      "lang": "json",
+      "text": "{ \"type\": \"range\", \"id\": \"padding_top\", \"label\": \"Padding top\",\n  \"min\": 0, \"max\": 160, \"step\": 4, \"unit\": \"px\", \"default\": 64, \"responsive\": true }"
+    },
+    {
+      "type": "p",
+      "html": "These are all 25 control types, with what they hold, what a template sees when nothing was set, and whether they may carry a value per breakpoint."
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Type",
+        "Holds",
+        "Default when unset",
+        "Responsive",
+        "Extra keys"
+      ],
+      "rows": [
+        [
+          "text",
+          "string",
+          "\"\"",
+          "no",
+          "placeholder"
+        ],
+        [
+          "textarea",
+          "string",
+          "\"\"",
+          "no",
+          "placeholder"
+        ],
+        [
+          "richtext",
+          "string",
+          "\"\"",
+          "no",
+          ""
+        ],
+        [
+          "number",
+          "number",
+          "0",
+          "yes",
+          "min, max, step, unit, placeholder"
+        ],
+        [
+          "toggle",
+          "boolean",
+          "false",
+          "no",
+          ""
+        ],
+        [
+          "checkbox",
+          "boolean",
+          "false",
+          "no",
+          ""
+        ],
+        [
+          "select",
+          "enum",
+          "\"\"",
+          "no",
+          "options"
+        ],
+        [
+          "radio",
+          "enum",
+          "\"\"",
+          "no",
+          "options"
+        ],
+        [
+          "range",
+          "number",
+          "0",
+          "yes",
+          "min, max, step, unit"
+        ],
+        [
+          "color",
+          "colour",
+          "\"\"",
+          "no",
+          ""
+        ],
+        [
+          "color_scheme",
+          "enum",
+          "\"white\"",
+          "no",
+          ""
+        ],
+        [
+          "font_picker",
+          "string",
+          "\"\"",
+          "no",
+          ""
+        ],
+        [
+          "alignment",
+          "enum",
+          "\"left\"",
+          "yes",
+          ""
+        ],
+        [
+          "image_picker",
+          "asset",
+          "\"\"",
+          "no",
+          ""
+        ],
+        [
+          "image_gallery",
+          "asset list",
+          "[]",
+          "no",
+          "max"
+        ],
+        [
+          "video_picker",
+          "asset",
+          "\"\"",
+          "no",
+          ""
+        ],
+        [
+          "file_picker",
+          "asset",
+          "\"\"",
+          "no",
+          ""
+        ],
+        [
+          "icon_picker",
+          "string",
+          "\"\"",
+          "no",
+          ""
+        ],
+        [
+          "url",
+          "string",
+          "\"\"",
+          "no",
+          "placeholder"
+        ],
+        [
+          "page_picker",
+          "string",
+          "\"\"",
+          "no",
+          ""
+        ],
+        [
+          "product_picker",
+          "string",
+          "\"\"",
+          "no",
+          ""
+        ],
+        [
+          "community_picker",
+          "string",
+          "\"\"",
+          "no",
+          ""
+        ],
+        [
+          "header",
+          "nothing",
+          "",
+          "no",
+          ""
+        ],
+        [
+          "paragraph",
+          "nothing",
+          "",
+          "no",
+          "content"
+        ],
+        [
+          "divider",
+          "nothing",
+          "",
+          "no",
+          ""
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "html": "The last three hold no value. They organise the sidebar, they take no <code>default</code>, and a template cannot read them."
+    },
+    {
+      "type": "p",
+      "html": "Six older names still validate and mean the same as their current one: <code>link</code> is <code>url</code>, <code>image</code> is <code>image_picker</code>, <code>video</code> is <code>video_picker</code>, <code>icon</code> is <code>icon_picker</code>, <code>font</code> is <code>font_picker</code>, and <code>spacing</code> is <code>range</code>."
+    },
+    {
+      "type": "p",
+      "html": "What the validator refuses:"
+    },
+    {
+      "type": "ul",
+      "items": [
+        "A type that is not one of the 25, with the list in the message.",
+        "A select or radio with no options, or a default that is not one of them.",
+        "\"responsive\": true on anything but number, range and alignment.",
+        "A range without both min and max, or with min at or above max.",
+        "A default of the wrong type for its control.",
+        "A default on header, paragraph or divider.",
+        "More than 120 settings. Block settings are counted separately."
+      ]
+    },
+    {
+      "type": "h3",
+      "html": "4.4 Responsive settings"
+    },
+    {
+      "type": "code",
+      "lang": "json",
+      "text": "{ \"type\": \"range\", \"id\": \"columns\", \"label\": \"Columns\", \"min\": 1, \"max\": 6, \"default\": 3, \"responsive\": true }"
+    },
+    {
+      "type": "p",
+      "html": "The template then receives an object with every breakpoint filled:"
+    },
+    {
+      "type": "code",
+      "lang": "html",
+      "text": "<div style=\"--cols: {{ settings.columns.desktop }}; --cols-t: {{ settings.columns.tablet }}; --cols-m: {{ settings.columns.mobile }}\">"
+    },
+    {
+      "type": "p",
+      "html": "Set desktop only and tablet and mobile inherit it. Set all three and each is its own. The filling happens before the template runs, so a template never has to check whether a breakpoint was set."
+    },
+    {
+      "type": "h3",
+      "html": "4.5 Blocks"
+    },
+    {
+      "type": "code",
+      "lang": "json",
+      "text": "\"blocks\": [\n  { \"type\": \"question\", \"name\": \"Question\", \"settings\": [\n    { \"type\": \"text\", \"id\": \"q\", \"label\": \"Question\", \"default\": \"\" },\n    { \"type\": \"richtext\", \"id\": \"a\", \"label\": \"Answer\", \"default\": \"\" }\n  ]},\n  { \"type\": \"divider\", \"name\": \"Divider\", \"limit\": 3, \"settings\": [] }\n],\n\"max_blocks\": 30"
+    },
+    {
+      "type": "p",
+      "html": "<code>limit</code> caps one block type and <code>max_blocks</code> caps the total. The ceiling is 50 per section. A block type declared twice is an error."
+    },
+    {
+      "type": "h3",
+      "html": "4.6 Presets"
+    },
+    {
+      "type": "p",
+      "html": "A preset is what Add Section produces. A section with no preset is not offered in the list, which is how a section is retired without breaking the pages already using it."
+    },
+    {
+      "type": "code",
+      "lang": "json",
+      "text": "\"presets\": [\n  { \"name\": \"FAQ\", \"settings\": { \"color_scheme\": \"white\", \"heading\": \"Questions\" },\n    \"blocks\": [{ \"type\": \"question\" }, { \"type\": \"question\" }, { \"type\": \"question\" }] }\n]"
+    },
+    {
+      "type": "p",
+      "html": "A preset that sets a key which is not a setting of the section is an error, and so is one that adds a block type the section does not declare."
+    },
+    {
+      "type": "p",
+      "html": "Do not bake colours into a preset. A preset that sets <code>bg_color</code> to a literal makes the colour scheme picker do nothing on a section somebody just added, at the moment they are most likely to try it. Name the scheme instead."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "5. How a setting gets its value"
+    },
+    {
+      "type": "p",
+      "html": "Every value a template reads was decided in one order, every time."
+    },
+    {
+      "type": "ol",
+      "items": [
+        "Storelib's own default for that control type.",
+        "The section schema's default.",
+        "The instance's saved value.",
+        "For a block, the block instance's saved value."
+      ]
+    },
+    {
+      "type": "p",
+      "html": "Later wins. Three transformations happen on the way through so a template never has to do them."
+    },
+    {
+      "type": "p",
+      "html": "<strong>Responsive.</strong> A setting marked responsive comes out as <code>{desktop, tablet, mobile}</code> with every breakpoint filled."
+    },
+    {
+      "type": "p",
+      "html": "<strong>Assets.</strong> An <code>asset://…</code> reference in an image, video or file setting comes out as the URL this account serves it from. The template sees a URL; the stored data never contains one."
+    },
+    {
+      "type": "p",
+      "html": "<strong>Unknown keys.</strong> A saved key the schema does not declare is passed through untouched. A theme from a later engine, or a setting that was renamed, keeps its data."
+    },
+    {
+      "type": "p",
+      "html": "Saving runs the same order backwards: only what differs from the default is written. That is what makes a later change to a default reach every instance that never overrode it."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "6. Styling a section"
+    },
+    {
+      "type": "h3",
+      "html": "6.1 Scoping"
+    },
+    {
+      "type": "p",
+      "html": "Every section's CSS applies to that section's instances and nothing else. Two sections that both declare <code>.title</code> do not fight, and two instances of one section do not share a rule that reads a setting."
+    },
+    {
+      "type": "p",
+      "html": "Given this:"
+    },
+    {
+      "type": "code",
+      "lang": "css",
+      "text": ".hero { padding: 64px 0; }\nh1 { font-size: 48px; }\n:root { --gap: 16px; }\n@keyframes rise { from { opacity: 0 } to { opacity: 1 } }\n.hero h1 { animation: rise 400ms ease-out; }\n@media (max-width: 640px) { .hero { padding: 32px 0; } }"
+    },
+    {
+      "type": "p",
+      "html": "the compiler emits this:"
+    },
+    {
+      "type": "code",
+      "lang": "css",
+      "text": "[data-section-id=\"sec_8f2a\"] .hero { padding: 64px 0; }\n[data-section-id=\"sec_8f2a\"] h1 { font-size: 48px; }\n[data-section-id=\"sec_8f2a\"] { --gap: 16px; }\n@keyframes sl-hero-rise { from { opacity: 0 } to { opacity: 1 } }\n[data-section-id=\"sec_8f2a\"] .hero h1 { animation: sl-hero-rise 400ms ease-out; }\n@media (max-width: 640px) { [data-section-id=\"sec_8f2a\"] .hero { padding: 32px 0; } }"
+    },
+    {
+      "type": "ul",
+      "items": [
+        "Every selector is prefixed, inside @media, @container, @supports and @layer too.",
+        "html, body and :root become the section root. A section cannot style the page.",
+        "A selector starting with & is joined without a descendant space, so &.is-open works as you would expect.",
+        "Keyframe names are prefixed with the section type, and every animation and animation-name that uses one is rewritten. Write animation, not -webkit-animation, or the rename will miss it.",
+        "@import is refused. There is no fetching from a stylesheet.",
+        "Over 128 KB is refused."
+      ]
+    },
+    {
+      "type": "h3",
+      "html": "6.2 Settings in CSS"
+    },
+    {
+      "type": "p",
+      "html": "A rule can read a setting:"
+    },
+    {
+      "type": "code",
+      "lang": "css",
+      "text": ".hero { padding: {{ settings.padding_top }}px 0 {{ settings.padding_bottom }}px; }"
+    },
+    {
+      "type": "p",
+      "html": "The block is scoped once at compile time, with each expression masked so the CSS parser sees valid CSS and reports real line numbers, and the expressions are filled per instance at render. Values are made safe for a stylesheet rather than for HTML: <code>&lt; &gt; { } ;</code> and <code>@import</code> are stripped, because no legitimate CSS value holds one."
+    },
+    {
+      "type": "h3",
+      "html": "6.3 Container queries, not viewport queries"
+    },
+    {
+      "type": "p",
+      "html": "This is the single most common mistake in a Storelib section."
+    },
+    {
+      "type": "p",
+      "html": "The builder does not render its preview in an iframe. It renders the real section inline, in the editor's own document, inside a card that is 390px wide when somebody presses the phone button. A viewport media query asks how wide the browser window is. The window is still 1400px. So a section built with <code>@media (min-width: 768px)</code> shows its desktop layout inside a phone preview, and the person building the page cannot see what their visitors will see."
+    },
+    {
+      "type": "p",
+      "html": "Write container queries against the section's own width:"
+    },
+    {
+      "type": "code",
+      "lang": "css",
+      "text": ".grid { display: grid; grid-template-columns: 1fr; gap: 16px; }\n@container (min-width: 768px) { .grid { grid-template-columns: repeat(3, 1fr); } }"
+    },
+    {
+      "type": "p",
+      "html": "Every section is given a container by the renderer, so this works with no setup. It is also more correct on a real device, because a section in a narrow column is narrow whatever the screen is doing."
+    },
+    {
+      "type": "h3",
+      "html": "6.4 Long words"
+    },
+    {
+      "type": "p",
+      "html": "One unbreakable string, a pasted URL or a long product name, will push a page sideways. The theme sets <code>overflow-wrap: anywhere</code> on every section for that reason. Do not undo it."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "7. Theme tokens"
+    },
+    {
+      "type": "p",
+      "html": "A template reads tokens rather than raw settings, so a theme can rename a setting without every section noticing."
+    },
+    {
+      "type": "code",
+      "lang": "code",
+      "text": "theme.colors.{primary, secondary, accent, background, surface, text, muted}\ntheme.typography.{heading, body, accent}\ntheme.typography.styles.{h1, h2, h3, h4, body_large, body, body_small, button, caption}\ntheme.radius.{small, medium, large, pill}\ntheme.spacing.{small, medium, large, xlarge}\ntheme.schemes.<key>\ntheme.settings.*        the raw settings, for anything a token does not cover"
+    },
+    {
+      "type": "p",
+      "html": "The theme also compiles to CSS custom properties on the page root, which is how a theme setting reaches a section without either side knowing about the other:"
+    },
+    {
+      "type": "code",
+      "lang": "code",
+      "text": "--theme-page-width      --theme-padding-x       --theme-spacing-scale\n--theme-radius          --theme-card-shadow     --theme-image-radius\n--theme-button-radius   --theme-button-padding  --theme-button-weight\n--theme-font-heading    --theme-font-body       --theme-font-accent\n--theme-animation-duration                      --theme-animation-stagger"
+    },
+    {
+      "type": "p",
+      "html": "Use them:"
+    },
+    {
+      "type": "code",
+      "lang": "css",
+      "text": ".wrap { max-width: var(--theme-page-width); padding-inline: var(--theme-padding-x); }\n.card { border-radius: var(--theme-radius); box-shadow: var(--theme-card-shadow); }\n.btn  { border-radius: var(--theme-button-radius); font-weight: var(--theme-button-weight); }"
+    },
+    {
+      "type": "p",
+      "html": "A section that hard codes 1230px instead of reading the page width is a section whose merchant cannot change the page width."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "8. Colour schemes and text styles"
+    },
+    {
+      "type": "p",
+      "html": "This is the part of the system that decides what a site looks like, and it rests on one rule: a section never names a colour the theme should own."
+    },
+    {
+      "type": "h3",
+      "html": "8.1 What a scheme is"
+    },
+    {
+      "type": "p",
+      "html": "A theme has named colour schemes. Five ship with every theme, keyed <code>white</code>, <code>light</code>, <code>dark</code>, <code>black</code> and <code>highlight</code>, and named Light, Soft, Dark, Brand and Accent. A merchant can rename them, add more, and delete the ones they added. The keys never change, which is why a section saved years ago still resolves."
+    },
+    {
+      "type": "p",
+      "html": "A scheme is seventeen semantic values and an optional gradient. Each is published as a custom property on the section's root."
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Value",
+        "Custom property"
+      ],
+      "rows": [
+        [
+          "background",
+          "--scheme-background"
+        ],
+        [
+          "background_secondary",
+          "--scheme-background-secondary"
+        ],
+        [
+          "text",
+          "--scheme-text"
+        ],
+        [
+          "text_muted",
+          "--scheme-text-muted"
+        ],
+        [
+          "heading",
+          "--scheme-heading"
+        ],
+        [
+          "accent",
+          "--scheme-accent"
+        ],
+        [
+          "link",
+          "--scheme-link"
+        ],
+        [
+          "border",
+          "--scheme-border"
+        ],
+        [
+          "primary_button_background",
+          "--scheme-button-primary"
+        ],
+        [
+          "primary_button_text",
+          "--scheme-button-primary-text"
+        ],
+        [
+          "primary_button_border",
+          "--scheme-button-primary-border"
+        ],
+        [
+          "secondary_button_background",
+          "--scheme-button-secondary"
+        ],
+        [
+          "secondary_button_text",
+          "--scheme-button-secondary-text"
+        ],
+        [
+          "secondary_button_border",
+          "--scheme-button-secondary-border"
+        ],
+        [
+          "input_background",
+          "--scheme-input"
+        ],
+        [
+          "input_text",
+          "--scheme-input-text"
+        ],
+        [
+          "input_border",
+          "--scheme-input-border"
+        ],
+        [
+          "gradient",
+          "--scheme-gradient, which is the background when there is none"
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "html": "In a template the same values are <code>scheme.background</code>, <code>scheme.heading</code>, <code>scheme.primary_button_background</code> and so on. Older names still read: <code>scheme.bg</code>, <code>scheme.paragraph</code>, <code>scheme.primary_btn_bg</code> and the rest of the legacy slot names, each derived from a semantic value."
+    },
+    {
+      "type": "h3",
+      "html": "8.2 A section picks one"
+    },
+    {
+      "type": "code",
+      "lang": "json",
+      "text": "{ \"type\": \"color_scheme\", \"id\": \"color_scheme\", \"label\": \"Colour scheme\", \"default\": \"white\" }"
+    },
+    {
+      "type": "p",
+      "html": "That is the whole of what a section has to do. Recolour the scheme in theme settings and every section on it changes at once, in the editor and on the published site, because both go through one resolver."
+    },
+    {
+      "type": "h3",
+      "html": "8.3 Overrides"
+    },
+    {
+      "type": "p",
+      "html": "A section may override a few of the scheme's values on its own: background, text, heading, accent, border, and the two buttons. They are stored apart from the scheme, under <code>color_overrides</code>, so a later change to the scheme still reaches every value the section did not touch."
+    },
+    {
+      "type": "p",
+      "html": "In the editor this sits behind Advanced colors rather than as fifteen pickers in everybody's face. Each slot reads \"use the scheme\" until it is set, and Reset to scheme puts them all back."
+    },
+    {
+      "type": "h3",
+      "html": "8.4 Text styles"
+    },
+    {
+      "type": "p",
+      "html": "A theme names three fonts, heading, body and accent, and nine text styles: H1 to H4, Body large, Body, Body small, Button and Caption. Each style is a font role, a weight, a size at desktop, tablet and phone width, a line height, a letter spacing and a transform."
+    },
+    {
+      "type": "p",
+      "html": "They compile to custom properties on the page root:"
+    },
+    {
+      "type": "code",
+      "lang": "code",
+      "text": "--type-h1-font   --type-h1-size    --type-h1-weight\n--type-h1-line-height              --type-h1-tracking   --type-h1-transform"
+    },
+    {
+      "type": "p",
+      "html": "and the same for <code>h2</code>, <code>h3</code>, <code>h4</code>, <code>body-large</code>, <code>body</code>, <code>body-small</code>, <code>button</code> and <code>caption</code>. The tablet and phone sizes take over inside container queries at 1023px and 767px, measured against the section's own container, so the phone size is what the editor's phone preview draws."
+    },
+    {
+      "type": "p",
+      "html": "A section does not pick fonts. It says which style its heading is and which its body is, and the choice arrives in its CSS:"
+    },
+    {
+      "type": "code",
+      "lang": "css",
+      "text": ".s__h {\n  font-size: var(--section-heading-size, 32px);\n  line-height: var(--section-heading-line-height, 1.15);\n  font-weight: var(--section-heading-weight, 700);\n  letter-spacing: var(--section-heading-tracking, -0.01em);\n  text-transform: var(--section-heading-transform, none);\n}\n.s__sub {\n  font-size: var(--section-text-size, 17px);\n  line-height: var(--section-text-line-height, 1.6);\n}"
+    },
+    {
+      "type": "p",
+      "html": "The fallback is what the section draws when nobody has chosen a style, so a section written this way looks right before anyone touches it and follows the theme after."
+    },
+    {
+      "type": "p",
+      "html": "A section with a size control of its own should declare <code>\"supports_typography_overrides\": false</code> rather than offer two controls for one size."
+    },
+    {
+      "type": "h3",
+      "html": "8.5 Deleting a scheme"
+    },
+    {
+      "type": "p",
+      "html": "Deleting a scheme moves every section on it to the replacement on the page that is open, and records the remap so a section on a page that was not open follows the same move the next time it renders. A scheme nobody remapped falls back to the theme's default. No section is ever left pointing at nothing."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "9. Blocks"
+    },
+    {
+      "type": "p",
+      "html": "A block is a repeatable child of a section: one question in an FAQ, one slide in a carousel, one feature in a grid. A section declares which block types it accepts and what settings each has, and the merchant adds, removes, reorders, duplicates and hides them without the section's author writing any of that."
+    },
+    {
+      "type": "code",
+      "lang": "html",
+      "text": "{% for block in blocks %}\n  {% if block.type == \"question\" %}\n    <details data-block-id=\"{{ block.id }}\">\n      <summary>{{ block.settings.q }}</summary>\n      <div>{{ block.settings.a | raw }}</div>\n    </details>\n  {% elsif block.type == \"divider\" %}\n    <hr data-block-id=\"{{ block.id }}\">\n  {% endif %}\n{% endfor %}"
+    },
+    {
+      "type": "p",
+      "html": "Put <code>data-block-id=\"{{ block.id }}\"</code> on a block's root. That is what lets somebody click a block in the preview and land on its settings."
+    },
+    {
+      "type": "p",
+      "html": "Blocks are stored on the instance, not the section:"
+    },
+    {
+      "type": "code",
+      "lang": "json",
+      "text": "{\n  \"type\": \"faq\",\n  \"settings\": { \"heading\": \"Questions\" },\n  \"blocks\": {\n    \"blk_8f2a\": { \"type\": \"question\", \"settings\": { \"q\": \"Do you ship abroad?\", \"a\": \"<p>Yes.</p>\" } },\n    \"blk_c31d\": { \"type\": \"question\", \"settings\": { \"q\": \"Returns?\" }, \"hidden\": true }\n  },\n  \"block_order\": [\"blk_8f2a\", \"blk_c31d\"]\n}"
+    },
+    {
+      "type": "p",
+      "html": "Ids are minted when the block is created and never change. Reordering changes <code>block_order</code> only. Duplicating mints a new id."
+    },
+    {
+      "type": "p",
+      "html": "A block whose type the section no longer declares is kept with its raw settings and rendered by nothing. Updating a section never deletes content."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "10. Assets"
+    },
+    {
+      "type": "p",
+      "html": "An asset is a binary file a theme uses. A theme refers to one by its content, never by where it is stored:"
+    },
+    {
+      "type": "code",
+      "lang": "code",
+      "text": "asset://3f2a9c0e4b1d…        the SHA-256 of the bytes"
+    },
+    {
+      "type": "p",
+      "html": "That is what an <code>image_picker</code>, <code>video_picker</code>, <code>file_picker</code> or <code>image_gallery</code> setting holds, what a template file stores, and what a package carries. It is never a URL."
+    },
+    {
+      "type": "p",
+      "html": "Two identical files are one asset. Changing storage or CDNs changes no template, because no template knows where the bytes are. A package moves between accounts because the hashes match the files in its <code>assets/</code> folder."
+    },
+    {
+      "type": "p",
+      "html": "Settings are resolved before the template runs, so an image setting is already a URL:"
+    },
+    {
+      "type": "code",
+      "lang": "html",
+      "text": "<img src=\"{{ settings.image }}\" alt=\"{{ settings.image_alt }}\" width=\"1200\" height=\"675\" loading=\"lazy\" decoding=\"async\">"
+    },
+    {
+      "type": "p",
+      "html": "A reference held somewhere else goes through the <code>asset</code> filter:"
+    },
+    {
+      "type": "code",
+      "lang": "html",
+      "text": "<video src=\"{{ block.settings.clip | asset }}\" muted playsinline></video>"
+    },
+    {
+      "type": "p",
+      "html": "A reference the account does not have resolves to <code>\"\"</code>. Treat an empty image as \"no image\", never as an error."
+    },
+    {
+      "type": "p",
+      "html": "Two rules that matter more than they look. Give every image an explicit width and height or an aspect ratio, or the page will jump when the picture arrives. And do not put <code>loading=\"lazy\"</code> on the image at the top of the page: it asks the browser to wait before fetching the one thing the page is measured on."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "11. Scripts, capabilities and embeds"
+    },
+    {
+      "type": "h3",
+      "html": "11.1 Status"
+    },
+    {
+      "type": "p",
+      "html": "A section's <code>&lt;script&gt;</code> is for behaviour that belongs to that section: opening a menu, advancing a slider, submitting a form."
+    },
+    {
+      "type": "p",
+      "html": "<strong>Scripts are parsed, checked and stored. They are not executed yet.</strong> Write one if you want it ready, and do not build a section whose content depends on it running. Everything below is the contract it is checked against and will run under."
+    },
+    {
+      "type": "h3",
+      "html": "11.2 The sandbox"
+    },
+    {
+      "type": "p",
+      "html": "The bundle is wrapped as:"
+    },
+    {
+      "type": "code",
+      "lang": "js",
+      "text": "\"use strict\";\n(function (root, settings, blocks, theme, page, storelib) { … })"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Name",
+        "What it is"
+      ],
+      "rows": [
+        [
+          "root",
+          "The section's root element. The whole DOM the script has."
+        ],
+        [
+          "settings, blocks, theme, page",
+          "The same resolved data the template rendered from."
+        ],
+        [
+          "storelib",
+          "The API surface. What is on it depends on capabilities."
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "html": "These identifiers are refused at compile time, each with its line: <code>window</code>, <code>document</code>, <code>globalThis</code>, <code>self</code>, <code>top</code>, <code>parent</code>, <code>frames</code>, <code>opener</code>, <code>eval</code>, <code>Function</code>, <code>import</code>, <code>require</code>, <code>WebAssembly</code>, <code>fetch</code>, <code>XMLHttpRequest</code>, <code>WebSocket</code>, <code>EventSource</code>, <code>navigator</code>, <code>sendBeacon</code>, <code>localStorage</code>, <code>sessionStorage</code>, <code>indexedDB</code>, <code>cookie</code>, <code>location</code>, <code>history</code>, <code>postMessage</code>, <code>Worker</code>, <code>SharedWorker</code>, <code>ServiceWorker</code>, <code>setTimeout</code>, <code>setInterval</code>, <code>requestAnimationFrame</code> and <code>queueMicrotask</code>."
+    },
+    {
+      "type": "p",
+      "html": "The check skips strings, comments and member access, so <code>\"window\"</code> inside a string and <code>obj.window</code> are both fine. Only the bare identifier is refused. The message tells you where to go instead."
+    },
+    {
+      "type": "p",
+      "html": "A script is at most 64 KB."
+    },
+    {
+      "type": "h3",
+      "html": "11.3 Capabilities"
+    },
+    {
+      "type": "p",
+      "html": "Six, declared in the schema and shown in the editor."
+    },
+    {
+      "type": "code",
+      "lang": "json",
+      "text": "\"capabilities\": [\"navigation\", \"analytics\", \"timers\"]"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Capability",
+        "Grants"
+      ],
+      "rows": [
+        [
+          "navigation",
+          "storelib.navigate(path)"
+        ],
+        [
+          "commerce",
+          "storelib.cart.add(variantId, qty), storelib.cart.get()"
+        ],
+        [
+          "analytics",
+          "storelib.analytics.track(event, props)"
+        ],
+        [
+          "forms",
+          "storelib.forms.submit(name, fields)"
+        ],
+        [
+          "timers",
+          "The names setTimeout, setInterval and requestAnimationFrame. Not queueMicrotask, which stays out."
+        ],
+        [
+          "embed",
+          "Markup rather than script: it lets the template open one allow-listed iframe."
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "html": "An unknown capability is refused with the list of real ones. Everything a capability exposes goes to Storelib's own endpoints for this site. A section never gets an arbitrary host."
+    },
+    {
+      "type": "p",
+      "html": "<code>embed</code> is the one capability that changes what the template may contain:"
+    },
+    {
+      "type": "code",
+      "lang": "html",
+      "text": "<iframe src=\"{{ settings.video_url | embed }}\" loading=\"lazy\" allowfullscreen></iframe>"
+    },
+    {
+      "type": "p",
+      "html": "The <code>embed</code> filter accepts YouTube, Vimeo, Spotify and SoundCloud URLs and normalises them to their player form. YouTube becomes <code>youtube-nocookie.com</code>. Anything else returns an empty string, so an iframe whose src came from a link the filter did not recognise renders empty rather than loading it."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "12. Templates and pages"
+    },
+    {
+      "type": "p",
+      "html": "A template is a page: which section instances it has, in what order, with what settings. A theme ships four page templates, <code>home</code>, <code>product</code>, <code>about</code> and <code>contact</code>, and a merchant can add their own."
+    },
+    {
+      "type": "code",
+      "lang": "json",
+      "text": "{\n  \"sections\": [\n    { \"id\": \"sec_1a\", \"type\": \"header\", \"settings\": {} },\n    { \"id\": \"sec_2b\", \"type\": \"hero\", \"settings\": { \"heading\": \"New season\", \"color_scheme\": \"black\" } },\n    { \"id\": \"sec_3c\", \"type\": \"faq\", \"settings\": {}, \"blocks\": {}, \"block_order\": [] },\n    { \"id\": \"sec_4d\", \"type\": \"footer\", \"settings\": {} }\n  ]\n}"
+    },
+    {
+      "type": "p",
+      "html": "A template holds no markup. A section holds no content."
+    },
+    {
+      "type": "p",
+      "html": "The header and the footer are chrome rather than content. They sit outside the section container, they are excluded from the theme's entrance animation, and the heading rules that follow a section's text style leave them alone, because a cart drawer's title is not the section's heading."
+    },
+    {
+      "type": "p",
+      "html": "A template may hold at most 60 sections."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "13. The editor"
+    },
+    {
+      "type": "p",
+      "html": "What a merchant sees maps directly onto what a schema declares."
+    },
+    {
+      "type": "ul",
+      "items": [
+        "The Add section list is built from every section with a preset, grouped by category, with a preview of the preset rendered at the width the device switch is set to.",
+        "The sidebar lists the sections on the page. Drag to reorder, and each row has hide, duplicate and delete.",
+        "Selecting a section draws its settings in the order the schema lists them. header, paragraph and divider settings organise that list.",
+        "Colour is not in that list. It is the scheme picker at the top, with the section's own overrides behind Advanced colors.",
+        "Theme settings holds Colors and Typography, then buttons, layout, animations, the announcement bar, social links and the cart.",
+        "The code editor opens the theme's files, with the merchant's own sections under sections/, and writes a revision on every save."
+      ]
+    },
+    {
+      "type": "p",
+      "html": "Clicking an element in the preview selects the section it belongs to, which is what <code>data-section-id</code> and <code>data-block-id</code> are for."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "14. Draft and published"
+    },
+    {
+      "type": "p",
+      "html": "Two copies of every page exist: what is live, and what is being worked on."
+    },
+    {
+      "type": "ul",
+      "items": [
+        "Editing writes the draft.",
+        "Publish copies the draft over the live version.",
+        "The public site serves what was published. A page that has never been published shows nothing rather than showing work in progress.",
+        "A preview link, ?preview=<token>, renders the drafts for somebody holding the token, and asks search engines not to index the page. The token is per install, unguessable, and rotating it revokes every link already shared.",
+        "Every save writes a revision. Restoring one writes a new revision rather than deleting history."
+      ]
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "15. Packaging a theme"
+    },
+    {
+      "type": "p",
+      "html": "A theme leaves Storelib as one file and comes back the same way."
+    },
+    {
+      "type": "code",
+      "lang": "code",
+      "text": "my-theme.storelib-theme\n├── theme.json           name, version, engine requirement\n├── manifest.json        every file's hash and size, every asset's metadata\n├── config/settings.json the theme's own settings\n├── layout/theme.storelib\n├── templates/*.json\n├── sections/*.storelib\n├── snippets/*.storelib\n├── assets/<hash>.<ext>\n└── locales/*.json"
+    },
+    {
+      "type": "code",
+      "lang": "json",
+      "text": "{\n  \"format\": \"storelib-theme\",\n  \"format_version\": 1,\n  \"name\": \"Workbench\",\n  \"version\": \"1.2.0\",\n  \"author\": \"Ada\",\n  \"engine\": { \"min\": 1 }\n}"
+    },
+    {
+      "type": "p",
+      "html": "<code>engine.min</code> is the lowest engine that can render the theme. A package needing a newer engine is refused with the number rather than misread."
+    },
+    {
+      "type": "p",
+      "html": "The importer recomputes every hash and refuses a package whose file does not match its name. That is a corrupted or tampered package, not a warning."
+    },
+    {
+      "type": "p",
+      "html": "<code>layout/theme.storelib</code> is the page shell and the only place a theme may put CSS that is not scoped to a section."
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Limit",
+        "Value"
+      ],
+      "rows": [
+        [
+          "Package",
+          "50 MB"
+        ],
+        [
+          "One asset",
+          "15 MB"
+        ],
+        [
+          "One source file",
+          "512 KB"
+        ],
+        [
+          "A section's CSS",
+          "128 KB"
+        ],
+        [
+          "A section's script",
+          "64 KB"
+        ],
+        [
+          "Files per package",
+          "2000"
+        ],
+        [
+          "Sections per template",
+          "60"
+        ],
+        [
+          "Blocks per section",
+          "50"
+        ],
+        [
+          "Settings per schema",
+          "120"
+        ]
+      ]
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "16. Versioning"
+    },
+    {
+      "type": "p",
+      "html": "Four things carry a version, and they move independently."
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Thing",
+        "Bumped when"
+      ],
+      "rows": [
+        [
+          "Engine",
+          "The engine gains something a theme can require."
+        ],
+        [
+          "Package format",
+          "The zip layout or the manifest changes."
+        ],
+        [
+          "Section schema format",
+          "The schema JSON gains or changes a key."
+        ],
+        [
+          "A theme, and a section",
+          "The author says so."
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "html": "A file written for a newer version is refused rather than misread, and the refusal carries both numbers. A file written for an older version is read. Unknown keys survive every read and write, so nothing is lost in the meantime."
+    },
+    {
+      "type": "p",
+      "html": "The template language carries its own version. A section may declare <code>\"language_version\": 1</code>, and absent means 1, permanently. A section written for a language version this engine does not read is refused with a message saying what to do about it."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "17. Errors"
+    },
+    {
+      "type": "p",
+      "html": "Nothing in the engine throws on bad input. Every function that reads a file, a schema, a template, a stylesheet or a script returns a result."
+    },
+    {
+      "type": "code",
+      "lang": "ts",
+      "text": "type Result<T> =\n  | { ok: true; value: T; warnings?: ThemeError[] }\n  | { ok: false; errors: ThemeError[] }\n\ninterface ThemeError {\n  stage: \"parse\" | \"schema\" | \"template\" | \"css\" | \"script\" | \"package\"\n  message: string\n  file?: string      // \"sections/hero.storelib\"\n  line?: number      // 1 based, in that file\n  column?: number\n  path?: string      // \"settings[3].default\"\n}"
+    },
+    {
+      "type": "p",
+      "html": "The code editor shows <code>file:line message</code>. The assistant receives the same list and fixes its own output against it. The importer refuses a package with the list attached. One shape, three readers."
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Stage",
+        "Refuses"
+      ],
+      "rows": [
+        [
+          "parse",
+          "A malformed file: a block never closed, two of the same block, junk at the top level."
+        ],
+        [
+          "schema",
+          "Bad JSON, or a schema that breaks a rule in section 4."
+        ],
+        [
+          "template",
+          "Refused markup, an unknown tag, a malformed expression, a path that cannot exist."
+        ],
+        [
+          "css",
+          "A syntax error, @import, size."
+        ],
+        [
+          "script",
+          "A forbidden identifier, an unknown capability, size."
+        ],
+        [
+          "package",
+          "A hash that does not match, an engine that is too old, a limit."
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "html": "A warning is something worth knowing that the compiler cannot be sure is wrong, such as a setting the template never reads. Warnings do not stop a save."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "18. Writing a section, end to end"
+    },
+    {
+      "type": "p",
+      "html": "A testimonials section, from nothing."
+    },
+    {
+      "type": "p",
+      "html": "<strong>1. Decide the instance data.</strong> A heading, and a repeatable quote with an author, a photo and a rating. That is a few settings and one block type."
+    },
+    {
+      "type": "p",
+      "html": "<strong>2. Write the schema first.</strong> It is the contract, and the markup follows it."
+    },
+    {
+      "type": "code",
+      "lang": "json",
+      "text": "{\n  \"schema_version\": 1,\n  \"type\": \"quotes\",\n  \"name\": \"Quotes\",\n  \"category\": \"social-proof\",\n  \"icon\": \"message-square\",\n  \"supports_color_scheme\": true,\n  \"settings\": [\n    { \"type\": \"color_scheme\", \"id\": \"color_scheme\", \"label\": \"Colour scheme\", \"default\": \"white\" },\n    { \"type\": \"text\", \"id\": \"heading\", \"label\": \"Heading\", \"default\": \"What people say\" },\n    { \"type\": \"range\", \"id\": \"columns\", \"label\": \"Columns\", \"min\": 1, \"max\": 4, \"step\": 1, \"default\": 3, \"responsive\": true },\n    { \"type\": \"range\", \"id\": \"padding_top\", \"label\": \"Padding top\", \"min\": 0, \"max\": 160, \"step\": 4, \"unit\": \"px\", \"default\": 80 },\n    { \"type\": \"range\", \"id\": \"padding_bottom\", \"label\": \"Padding bottom\", \"min\": 0, \"max\": 160, \"step\": 4, \"unit\": \"px\", \"default\": 80 }\n  ],\n  \"blocks\": [\n    { \"type\": \"quote\", \"name\": \"Quote\", \"settings\": [\n      { \"type\": \"textarea\", \"id\": \"text\", \"label\": \"Quote\", \"default\": \"\" },\n      { \"type\": \"text\", \"id\": \"author\", \"label\": \"Author\", \"default\": \"\" },\n      { \"type\": \"image_picker\", \"id\": \"avatar\", \"label\": \"Photo\" },\n      { \"type\": \"range\", \"id\": \"stars\", \"label\": \"Rating\", \"min\": 0, \"max\": 5, \"step\": 1, \"default\": 5 }\n    ]}\n  ],\n  \"max_blocks\": 12,\n  \"presets\": [\n    { \"name\": \"Quotes\", \"settings\": { \"color_scheme\": \"white\" },\n      \"blocks\": [{ \"type\": \"quote\" }, { \"type\": \"quote\" }, { \"type\": \"quote\" }] }\n  ]\n}"
+    },
+    {
+      "type": "p",
+      "html": "Save it as <code>sections/quotes.storelib</code>. The file name and the <code>type</code> must match."
+    },
+    {
+      "type": "p",
+      "html": "<strong>3. Write the markup against it.</strong> Every setting is read, blocks carry their id, and the empty state speaks only to the builder."
+    },
+    {
+      "type": "code",
+      "lang": "html",
+      "text": "<template>\n  <section class=\"q\" style=\"--cols: {{ settings.columns.desktop }}; --cols-t: {{ settings.columns.tablet }};\">\n    {% if settings.heading %}<h2 class=\"q__h\">{{ settings.heading }}</h2>{% endif %}\n\n    <div class=\"q__grid\">\n      {% for block in blocks %}\n        <figure class=\"q__card\" data-block-id=\"{{ block.id }}\">\n          {% if block.settings.stars > 0 %}\n            <div class=\"q__stars\" style=\"--filled: {{ block.settings.stars }}\"\n                 aria-label=\"{{ block.settings.stars }} out of 5\">\n              <span class=\"q__stars-on\">★★★★★</span>\n              <span class=\"q__stars-off\" aria-hidden=\"true\">★★★★★</span>\n            </div>\n          {% endif %}\n          <blockquote class=\"q__quote\">{{ block.settings.text }}</blockquote>\n          <figcaption class=\"q__by\">\n            {% if block.settings.avatar %}\n              <img class=\"q__avatar\" src=\"{{ block.settings.avatar }}\" alt=\"\"\n                   width=\"40\" height=\"40\" loading=\"lazy\" decoding=\"async\">\n            {% endif %}\n            {{ block.settings.author }}\n          </figcaption>\n        </figure>\n      {% else %}\n        {% if page.in_editor %}<p class=\"q__empty\">Add a quote to get started</p>{% endif %}\n      {% endfor %}\n    </div>\n  </section>\n</template>"
+    },
+    {
+      "type": "p",
+      "html": "Note what the rating does <strong>not</strong> do. There is no loop over a number and no arithmetic in the template, because the language has neither. The count goes into a custom property and CSS draws it."
+    },
+    {
+      "type": "p",
+      "html": "<strong>4. Style it against the tokens.</strong> No colour is named, no page width is guessed, and the layout is a container query."
+    },
+    {
+      "type": "code",
+      "lang": "html",
+      "text": "<style>\n.q {\n  background: var(--scheme-background);\n  color: var(--scheme-text);\n  padding: calc({{ settings.padding_top }}px * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px)\n           calc({{ settings.padding_bottom }}px * var(--theme-spacing-scale, 1));\n}\n.q__h {\n  margin: 0 0 32px;\n  color: var(--scheme-heading);\n  font-family: var(--section-heading-font, var(--theme-font-heading), ui-sans-serif, system-ui, sans-serif);\n  font-size: var(--section-heading-size, 32px);\n  line-height: var(--section-heading-line-height, 1.15);\n  font-weight: var(--section-heading-weight, 700);\n  text-align: center;\n}\n.q__grid {\n  display: grid; gap: 20px; grid-template-columns: 1fr;\n  max-width: var(--theme-page-width, 1230px); margin-inline: auto;\n}\n@container (min-width: 640px)  { .q__grid { grid-template-columns: repeat(var(--cols-t, 2), 1fr); } }\n@container (min-width: 1024px) { .q__grid { grid-template-columns: repeat(var(--cols, 3), 1fr); } }\n.q__card {\n  margin: 0; padding: 24px;\n  background: var(--scheme-background-secondary);\n  border: 1px solid var(--scheme-border);\n  border-radius: var(--theme-radius, 8px);\n}\n.q__stars { position: relative; display: inline-block; margin-bottom: 12px; letter-spacing: 2px; }\n.q__stars-off { color: var(--scheme-border); }\n.q__stars-on {\n  position: absolute; inset: 0; overflow: hidden; white-space: nowrap;\n  color: var(--scheme-accent);\n  width: calc(var(--filled) / 5 * 100%);\n}\n.q__quote { margin: 0 0 16px; font-size: var(--section-text-size, 15px); line-height: var(--section-text-line-height, 1.6); }\n.q__by { display: flex; align-items: center; gap: 10px; color: var(--scheme-text-muted); font-size: 13px; }\n.q__avatar { width: 40px; height: 40px; border-radius: 999px; object-fit: cover; }\n.q__empty { text-align: center; color: var(--scheme-text-muted); }\n</style>"
+    },
+    {
+      "type": "p",
+      "html": "<strong>5. Check it.</strong> Add it to a page, switch the preview to phone, and read the result rather than the intention. Then change the colour scheme in theme settings and confirm the whole section follows."
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "19. Rules of thumb"
+    },
+    {
+      "type": "p",
+      "html": "For anybody writing a section, including a model asked to write one."
+    },
+    {
+      "type": "ol",
+      "items": [
+        "Never name a colour the theme should own. Read var(--scheme-*) or scheme.*. A literal hex in a section is a section the merchant cannot recolour.",
+        "Never name a page width, a radius or a spacing scale. They are theme tokens.",
+        "Container queries, never viewport media queries. A section is as wide as the column it is in.",
+        "Every setting the schema declares must be read by the template, and every path the template reads must be declared. The compiler checks both.",
+        "Run every href through | url.",
+        "Give blocks data-block-id.",
+        "Say something in the editor when a section is empty, and nothing to a visitor. That is page.in_editor.",
+        "Do not bake colours into a preset. Name the scheme.",
+        "Ids are forever. Do not rename one.",
+        "Images get a width and a height. And the first image on the page is not lazy.",
+        "Check your defaults for contrast. What a section ships with is what somebody sees a second after they add it, before they have touched anything. Body text wants 4.5:1 against its background.",
+        "No arithmetic and no ranges in a template. Push the number into a custom property and let CSS do the work.",
+        "Prefer fewer settings. Ten controls somebody understands beat forty they scroll past."
+      ]
+    },
+    {
+      "type": "hr"
+    },
+    {
+      "type": "h2",
+      "html": "20. Reference"
+    },
+    {
+      "type": "h3",
+      "html": "Context roots"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Root",
+        "Holds"
+      ],
+      "rows": [
+        [
+          "settings",
+          "This instance's settings, resolved."
+        ],
+        [
+          "blocks",
+          "This instance's blocks, in order."
+        ],
+        [
+          "section",
+          ".id, .type, .settings, .blocks."
+        ],
+        [
+          "theme",
+          ".colors, .typography, .radius, .spacing, .schemes, .settings."
+        ],
+        [
+          "scheme",
+          "The chosen scheme, with this instance's overrides applied."
+        ],
+        [
+          "page",
+          ".template, .in_editor."
+        ],
+        [
+          "forloop",
+          ".index, .index0, .first, .last, .length."
+        ]
+      ]
+    },
+    {
+      "type": "h3",
+      "html": "Tags"
+    },
+    {
+      "type": "code",
+      "lang": "code",
+      "text": "{{ expression }}          output, HTML escaped\n{# comment #}             never rendered\n{% if %} {% elsif %} {% else %} {% endif %}\n{% for x in list %} {% else %} {% endfor %}"
+    },
+    {
+      "type": "p",
+      "html": "That is all of them."
+    },
+    {
+      "type": "h3",
+      "html": "Setting types"
+    },
+    {
+      "type": "p",
+      "html": "Values somebody types or picks: <code>text</code>, <code>textarea</code>, <code>richtext</code>, <code>number</code>, <code>toggle</code>, <code>checkbox</code>, <code>select</code>, <code>radio</code>, <code>range</code>, <code>color</code>, <code>color_scheme</code>, <code>font_picker</code>, <code>alignment</code>."
+    },
+    {
+      "type": "p",
+      "html": "References to something else: <code>image_picker</code>, <code>image_gallery</code>, <code>video_picker</code>, <code>file_picker</code>, <code>icon_picker</code>, <code>url</code>, <code>page_picker</code>, <code>product_picker</code>, <code>community_picker</code>."
+    },
+    {
+      "type": "p",
+      "html": "Presentational, holding no value: <code>header</code>, <code>paragraph</code>, <code>divider</code>."
+    },
+    {
+      "type": "h3",
+      "html": "Custom properties a section can read"
+    },
+    {
+      "type": "code",
+      "lang": "code",
+      "text": "--scheme-background            --scheme-background-secondary\n--scheme-text                  --scheme-text-muted\n--scheme-heading               --scheme-accent\n--scheme-link                  --scheme-border\n--scheme-button-primary        --scheme-button-primary-text\n--scheme-button-primary-border\n--scheme-button-secondary      --scheme-button-secondary-text\n--scheme-button-secondary-border\n--scheme-input                 --scheme-input-text   --scheme-input-border\n--scheme-gradient\n\n--section-heading-font    --section-heading-size    --section-heading-weight\n--section-heading-line-height   --section-heading-tracking\n--section-heading-transform\n--section-text-size       --section-text-line-height\n\n--theme-page-width    --theme-padding-x     --theme-spacing-scale\n--theme-radius        --theme-card-shadow   --theme-image-radius\n--theme-button-radius --theme-button-weight --theme-button-padding\n--theme-font-heading  --theme-font-body     --theme-font-accent\n--theme-animation-duration    --theme-animation-stagger"
+    },
+    {
+      "type": "h3",
+      "html": "Glossary"
+    },
+    {
+      "type": "p",
+      "html": "<strong>Section</strong> a type, written once, in one file. <strong>Instance</strong> one use of a section on one page. <strong>Block</strong> a repeatable child of an instance. <strong>Template</strong> a page: which instances it has, in order. <strong>Scheme</strong> a named set of seventeen colours the whole theme shares. <strong>Token</strong> a value the theme owns and a section reads. <strong>Preset</strong> what Add Section produces. <strong>Draft</strong> what is being worked on. <strong>Published</strong> what visitors get."
+    }
+  ]
+}
