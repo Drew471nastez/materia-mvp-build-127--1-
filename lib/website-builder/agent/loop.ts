@@ -52,7 +52,7 @@ import {
 } from "./operations"
 import { describeHouseStyle, readHouseStyle } from "./house-style"
 import { describeFindings, reviewSections } from "./review"
-import { SECTION_SCHEMAS } from "../section-schemas"
+import { nameOf as typeName, schemaMapFor, schemaOf, type SchemaMap } from "./schemas"
 import type {
   AgentProvider,
   AgentTurn,
@@ -131,7 +131,7 @@ Rules:
 - YOUR WORK IS CHECKED BEFORE YOU FINISH. Contrast, empty text, repeated entries, and a section left holding its preset's demo copy are all checked against the page as it stands after your changes. If anything is wrong you will be told and you fix it. So get it right first: text needs at least 4.5:1 against what is behind it, every section you add gets real copy about this store, and no two entries say the same thing.
 - When you are done, reply with one plain sentence saying what you changed. No preamble, no markdown, no lists.`
 
-function toolSpecs(addable: string[]): ToolSpec<string>[] {
+function toolSpecs(addable: string[], schemas?: SchemaMap): ToolSpec<string>[] {
   return [
     {
       name: "read_section",
@@ -177,7 +177,7 @@ function toolSpecs(addable: string[]): ToolSpec<string>[] {
     },
     {
       name: "add_section",
-      description: `Add a section to the page. It arrives filled from its preset and this tool hands back every control it has, so you can follow up with update_section and add_block to make it this store's. Available types:\n${describeSectionTypes(addable)}`,
+      description: `Add a section to the page. It arrives filled from its preset and this tool hands back every control it has, so you can follow up with update_section and add_block to make it this store's. Available types:\n${describeSectionTypes(addable, schemas)}`,
       parameters: {
         type: "object",
         properties: {
@@ -352,14 +352,14 @@ function summarise(done: string[]): string {
 }
 
 /** A short line for the chat: "Added a pricing section", not "add_section". */
-function labelFor(op: ThemeOp, state: ThemeState): string {
+function labelFor(op: ThemeOp, state: ThemeState, schemas?: SchemaMap): string {
   const nameOf = (id: string) => {
     const section = state.sections.find((s) => s.id === id)
-    return section ? SECTION_SCHEMAS[section.type]?.name ?? section.type : "a section"
+    return section ? typeName(schemas, section.type) : "a section"
   }
   switch (op.kind) {
     case "add_section":
-      return `Added ${SECTION_SCHEMAS[op.sectionType]?.name ?? op.sectionType}`
+      return `Added ${typeName(schemas, op.sectionType)}`
     case "update_section":
       return `Updated ${nameOf(op.id)}`
     case "rename_section":
@@ -387,6 +387,14 @@ function labelFor(op: ThemeOp, state: ThemeState): string {
 
 export interface ThemeAgentInput {
   provider: AgentProvider
+  /**
+   * This install's saved `.storelib` files, path to source. What makes the
+   * sections the creator wrote visible to the assistant: they exist only
+   * here, so without them it knew their names and nothing about their
+   * settings. Left out, it sees the theme's sections and no others, which is
+   * what it saw before.
+   */
+  sources?: Record<string, string>
   model: string
   prompt: string
   state: ThemeState
@@ -450,6 +458,17 @@ export async function* themeAgent(
   const maxTurns = input.maxTurns ?? MAX_TURNS
   const maxReviews = input.maxReviews ?? MAX_REVIEWS
   const newId = input.newId ?? ((type: string) => `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`)
+  /**
+   * EVERY SECTION TYPE THIS INSTALL CAN SEE, built once for this run: the
+   * theme's, and the ones the creator wrote, which exist only in their own
+   * files. Without it the assistant could move, hide, duplicate and remove
+   * their sections but could not name a single setting on one, because the
+   * map it read was built when the site was built.
+   *
+   * Built here and passed down rather than held anywhere: a module-level map
+   * would be shared by every request this server is handling at once.
+   */
+  const schemas = schemaMapFor(input.sources)
 
   let state: ThemeState = { sections: [...input.state.sections], settings: { ...input.state.settings } }
   const ops: ThemeOp[] = []
@@ -495,19 +514,19 @@ export async function* themeAgent(
     {
       role: "user",
       content: [
-        describeTheme(state, page),
+        describeTheme(state, page, schemas),
         /**
          * BEFORE the theme settings and before the request, because it is the
          * frame everything else is read in. A model told what the page has
          * already decided writes a first attempt that belongs there; one told
          * afterwards has already chosen.
          */
-        describeHouseStyle(readHouseStyle(state)),
+        describeHouseStyle(readHouseStyle(state, [], schemas)),
         `THEME SETTINGS\n${JSON.stringify(state.settings, null, 2).slice(0, 3_000)}`,
         selected && locked
-          ? `THE CREATOR HAS THIS SECTION OPEN AND LOCKED. It is the ONLY thing you may change — its settings, its blocks, its name. You may READ anything else on the page to match it, but every write to another section, and every change to the theme, will be refused. If what they asked for genuinely needs more than this section, do what you can here and say plainly what the rest would take.\n\n${describeSection(selected)}`
+          ? `THE CREATOR HAS THIS SECTION OPEN AND LOCKED. It is the ONLY thing you may change — its settings, its blocks, its name. You may READ anything else on the page to match it, but every write to another section, and every change to the theme, will be refused. If what they asked for genuinely needs more than this section, do what you can here and say plainly what the rest would take.\n\n${describeSection(selected, schemas)}`
           : selected
-            ? `THE CREATOR HAS THIS SECTION SELECTED AND OPEN. "this section", "this", "it" and "here" all mean THIS one unless they clearly name another.\n\n${describeSection(selected)}`
+            ? `THE CREATOR HAS THIS SECTION SELECTED AND OPEN. "this section", "this", "it" and "here" all mean THIS one unless they clearly name another.\n\n${describeSection(selected, schemas)}`
             : "",
         `REQUEST\n${prompt}`,
       ]
@@ -529,7 +548,7 @@ export async function* themeAgent(
         model,
         system: SYSTEM_PROMPT,
         turns: [...turns],
-        tools: toolSpecs(addable),
+        tools: toolSpecs(addable, schemas),
         maxOutputTokens: 8_000,
         cacheKey: input.cacheKey,
         effort: input.effort,
@@ -615,14 +634,14 @@ export async function* themeAgent(
           continue
         }
 
-        const { output, op } = execute(call.name, call.argumentsJson, state, newId, locked)
+        const { output, op } = execute(call.name, call.argumentsJson, state, newId, locked, schemas)
         if (op) {
           /**
            * Labelled against the state BEFORE the operation, so "Removed FAQ"
            * can still name the section it removed.
            */
-          const label = labelFor(op, state)
-          state = applyOp(state, op)
+          const label = labelFor(op, state, schemas)
+          state = applyOp(state, op, schemas)
           ops.push(op)
           done.push(label)
           if ("sectionId" in op) touched.add(op.sectionId)
@@ -720,6 +739,8 @@ function execute(
   newId: (type: string) => string,
   /** When set, the only section any operation may touch. */
   locked?: string,
+  /** Every type this install can see, theirs included. See ./schemas. */
+  schemas?: SchemaMap,
 ): { output: string; op?: ThemeOp } {
   let args: Record<string, unknown>
   try {
@@ -746,7 +767,7 @@ function execute(
   if (locked) {
     const lockedSection = state.sections.find((s) => s.id === locked)
     const lockedName = lockedSection
-      ? `${SECTION_SCHEMAS[lockedSection.type]?.name ?? lockedSection.type} [${locked}]`
+      ? `${typeName(schemas, lockedSection.type)} [${locked}]`
       : `[${locked}]`
 
     const wholePage: Record<string, string> = {
@@ -774,7 +795,7 @@ function execute(
   switch (name) {
     case "read_section": {
       if (!found) return { output: notFound(id, state) }
-      return { output: describeSection(found) }
+      return { output: describeSection(found, schemas) }
     }
 
     case "update_section": {
@@ -797,7 +818,7 @@ function execute(
        * here, with the control's own description, is the only place anybody
        * finds out.
        */
-      const checked = checkSettings(fieldsFor(found.type), settings, found.type)
+      const checked = checkSettings(fieldsFor(found.type, schemas), settings, found.type)
       if (checked.error) return { output: checked.error }
 
       return {
@@ -810,11 +831,11 @@ function execute(
 
     case "read_section_type": {
       const wanted = typeof args.sectionType === "string" ? args.sectionType : ""
-      const schema = SECTION_SCHEMAS[wanted]
+      const schema = schemaOf(schemas, wanted)
       if (!schema) {
         return { output: `There is no section type "${wanted}". The types are listed on add_section.` }
       }
-      const specimen = buildSection(`preview-${wanted}`, wanted)
+      const specimen = buildSection(`preview-${wanted}`, wanted, schemas)
       return {
         output: [
           `${wanted} — ${schema.name}${schema.description ? `: ${schema.description}` : ""}`,
@@ -832,7 +853,7 @@ function execute(
 
     case "add_section": {
       const sectionType = typeof args.sectionType === "string" ? args.sectionType : ""
-      if (!SECTION_SCHEMAS[sectionType]) {
+      if (!schemaOf(schemas, sectionType)) {
         return { output: `There is no section type "${sectionType}". Use one of the types listed on this tool.` }
       }
       let settings = parseSettings(args.settingsJson) ?? undefined

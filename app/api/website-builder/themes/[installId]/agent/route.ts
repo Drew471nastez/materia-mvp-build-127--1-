@@ -20,6 +20,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
 import { createClient } from "@/lib/supabase/server"
+import { editorContent } from "@/lib/website-builder/theme-file-drafts"
+import { customAddableSections, customSectionSchemas } from "@/lib/website-builder/storelib-schemas"
 // `MissingKeyError` only: the provider itself now comes from the resolver.
 import { MissingKeyError } from "@/lib/sites/agent/openai-provider"
 import { agentRateLimit } from "@/lib/sites/rate-limit"
@@ -187,8 +189,39 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         const notice = substitutionNotice(resolved)
         if (notice) send({ type: "thinking", text: notice })
 
+        /**
+         * THE SECTIONS THIS CREATOR WROTE. Read through their own client, so
+         * row-level security decides what the assistant can see, the same way
+         * every other read in this route does. Without them the assistant
+         * could name their sections and nothing about their settings, because
+         * the map it read was built when the site was built.
+         *
+         * The draft half where there is one: the assistant works on the page
+         * as it is being edited, which is where the creator is.
+         */
+        let agentSources: Record<string, string> | undefined
+        try {
+          const { data: fileRows, error: fileErr } = await supabase
+            .from("store_theme_custom_files")
+            .select("path, content, draft_content")
+            .eq("install_id", installId)
+            .like("path", "%.storelib")
+          const rows = fileErr
+            ? ((await supabase.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
+            : (fileRows ?? [])
+          if (rows.length > 0) {
+            agentSources = {}
+            for (const row of rows as { path: string; content: string; draft_content?: string | null }[]) {
+              agentSources[row.path] = editorContent(row)
+            }
+          }
+        } catch {
+          /* the assistant works without them, as it always did */
+        }
+
         const loop = themeAgent({
           provider: resolved.provider,
+          sources: agentSources,
           model: resolved.model,
           maxTurns: shape.maxTurns,
           /**
@@ -199,7 +232,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           prompt: body.prompt,
           page: body.page,
           state: { sections: body.sections, settings: body.settings },
-          addable: ADDABLE_SECTIONS,
+          /**
+           * And it can add them, not only edit them. A section somebody wrote
+           * is a section: if it declares a preset it belongs on this list
+           * beside the theme's thirty, or the assistant can describe it and
+           * not put one on the page.
+           */
+          addable: agentSources
+            ? [...ADDABLE_SECTIONS, ...customAddableSections(customSectionSchemas(agentSources))]
+            : ADDABLE_SECTIONS,
           selectedSectionId: body.selectedSectionId,
           lockToSelection: body.lockToSelection === true && !!body.selectedSectionId,
           /**

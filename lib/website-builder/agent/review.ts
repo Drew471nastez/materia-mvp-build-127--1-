@@ -28,7 +28,7 @@
  */
 
 import { houseStyleFindings, readHouseStyle } from "./house-style"
-import { SECTION_SCHEMAS } from "../section-schemas"
+import { schemaOf, type SchemaMap } from "./schemas"
 import type { SchemaField, SectionInstance } from "../types"
 import type { ThemeState } from "./operations"
 
@@ -146,8 +146,8 @@ const MINIMUM_RATIO = 4.5
  * DEAD — an emptied heading and a section left holding its demo copy both went
  * unreported, and the suite caught it rather than the code shipping silent.
  */
-function shippedValue(type: string, fieldId: string): unknown {
-  const schema = SECTION_SCHEMAS[type]
+function shippedValue(type: string, fieldId: string, schemas?: SchemaMap): unknown {
+  const schema = schemaOf(schemas, type)
   const preset = schema?.presets?.[0]?.settings?.[fieldId]
   if (preset !== undefined) return preset
   return (schema?.fields ?? []).find((f) => f.id === fieldId)?.default
@@ -195,10 +195,11 @@ function pairIsEstablished(
   fg: string,
   bg: string,
   touched: Set<string>,
+  schemas?: SchemaMap,
 ): boolean {
   return state.sections.some((other) => {
     if (other.id === section.id || touched.has(other.id)) return false
-    const ids = new Set((SECTION_SCHEMAS[other.type]?.fields ?? []).map((f) => f.id))
+    const ids = new Set((schemaOf(schemas, other.type)?.fields ?? []).map((f) => f.id))
     for (const [foreground, backgrounds] of PAIRS) {
       if (!ids.has(foreground)) continue
       const backgroundId = backgrounds.find((id) => ids.has(id))
@@ -222,8 +223,9 @@ function contrastFindings(
   written: Set<string>,
   state?: ThemeState,
   touched?: Set<string>,
+  schemas?: SchemaMap,
 ): Finding[] {
-  const ids = new Set((SECTION_SCHEMAS[section.type]?.fields ?? []).map((f) => f.id))
+  const ids = new Set((schemaOf(schemas, section.type)?.fields ?? []).map((f) => f.id))
   const out: Finding[] = []
 
   for (const [foreground, backgrounds] of PAIRS) {
@@ -258,8 +260,8 @@ function contrastFindings(
 /* ========================================================================== */
 
 /** The fields that carry words somebody reads. */
-function textFields(type: string): SchemaField[] {
-  return (SECTION_SCHEMAS[type]?.fields ?? []).filter(
+function textFields(type: string, schemas?: SchemaMap): SchemaField[] {
+  return (schemaOf(schemas, type)?.fields ?? []).filter(
     (f) => f.type === "text" || f.type === "textarea" || f.type === "richtext",
   )
 }
@@ -302,8 +304,8 @@ function looksLikePlaceholder(value: unknown): boolean {
  * Only for sections the run created. Editing a section is not a promise to
  * rewrite every word in it.
  */
-function untouchedPresetFindings(section: SectionInstance): Finding[] {
-  const preset = SECTION_SCHEMAS[section.type]?.presets?.[0]
+function untouchedPresetFindings(section: SectionInstance, schemas?: SchemaMap): Finding[] {
+  const preset = schemaOf(schemas, section.type)?.presets?.[0]
   const out: Finding[] = []
 
   const presetBlocks = preset?.blocks ?? []
@@ -361,8 +363,8 @@ function untouchedPresetFindings(section: SectionInstance): Finding[] {
  * Only for sections this run ADDED. Trimming an existing section is somebody's
  * decision, not a mistake.
  */
-function thinFindings(section: SectionInstance): Finding[] {
-  const schema = SECTION_SCHEMAS[section.type]
+function thinFindings(section: SectionInstance, schemas?: SchemaMap): Finding[] {
+  const schema = schemaOf(schemas, section.type)
   const takesBlocks = (schema?.blocks ?? []).length > 0
   if (!takesBlocks) return []
 
@@ -470,6 +472,13 @@ function duplicateBlockFindings(section: SectionInstance): Finding[] {
 
 export interface ReviewInput {
   state: ThemeState
+  /**
+   * Every section type this install can see: the theme's, and the ones the
+   * creator wrote. Built per request, so one creator's sections never reach
+   * another's review. Absent, it is the built-in map, which is what the
+   * review saw before — see ./schemas.
+   */
+  schemas?: SchemaMap
   /** Sections this run wrote to. Nothing else is anybody's business here. */
   touched: string[]
   /** Sections this run created, which are held to a higher bar on copy. */
@@ -501,6 +510,8 @@ export interface ReviewInput {
  */
 export function reviewSections(input: ReviewInput): Finding[] {
   const { state, touched, added } = input
+  /** This install's sections, theirs included. See ./schemas. */
+  const schemas = input.schemas
   const findings: Finding[] = []
   /**
    * The page's own system, read from the page. See ./house-style for why this
@@ -508,11 +519,11 @@ export function reviewSections(input: ReviewInput): Finding[] {
    * from a shared vocabulary, and an edit that invents a fourth near-identical
    * grey is what makes a page read as machine-made.
    */
-  const style = readHouseStyle(state, touched)
+  const style = readHouseStyle(state, touched, schemas)
 
   for (const id of new Set(touched)) {
     const section = state.sections.find((s) => s.id === id)
-    if (!section || !SECTION_SCHEMAS[section.type]) continue
+    if (!section || !schemaOf(schemas, section.type)) continue
 
     const written = new Set(input.written?.[id] ?? [])
 
