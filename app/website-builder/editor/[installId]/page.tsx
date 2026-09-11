@@ -6618,8 +6618,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
           Open at the bottom on purpose. Padding on three sides is a shelf;
           padding on four is a frame, and a band of grey under the page is the
-          gutter that failed to close. */}
-      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-[#eef1f5] gap-2 px-2 pt-2">
+          gutter that failed to close.
+
+          AND IT IS A DESKTOP IDEA. On a phone the canvas is not a card on a
+          surface, it IS the surface: there is no sidebar beside it to be
+          separated from, and six pixels of grey around a 390px screen is six
+          pixels taken from the page and given to nothing. Flush there, with
+          no radius, which is what the preview card already does. */}
+      <div
+        className={cn(
+          "relative flex flex-1 min-h-0 overflow-hidden bg-[#eef1f5]",
+          // Six, not eight. Eight read as a margin; six reads as a seam with
+          // a surface behind it, which is what it is.
+          !isMobileView && "gap-1.5 px-1.5 pt-1.5",
+        )}
+      >
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
           <div className="relative flex-shrink-0 flex h-full overflow-visible">
@@ -6792,6 +6805,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             // The same 20px the panels round by. Both corners, always: the
             // shelf runs behind this on the right whether the AI is open or
             // not, so there is never a side of it butted against the window.
+            // Nothing on a phone, where there is no shelf to stand on.
             !isMobileView && "rounded-t-[20px]",
             /**
              * LIGHT. THE BUILDER IS A LIGHT PRODUCT.
@@ -7045,6 +7059,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 inspectorEnabled={inspectorEnabled}
                 selectedSectionId={selectedSectionId}
                 device={device}
+                /**
+                 * What the canvas card's top corners are cut to, so the
+                 * selection ring on the top section can be cut to the same
+                 * thing. It was a literal 12 in there while the card moved
+                 * from 16 to 22 to 20, and a 12px ring inside a 20px card
+                 * pushes its corner out past the card's curve, where the
+                 * card's own `overflow: hidden` takes a bite out of it. That
+                 * is the chewed blue corner that was reported.
+                 */
+                canvasRadiusPx={isMobileView ? 0 : device === "desktop" ? 20 : 16}
                 bodyCount={bodyCount}
                 onSelectSection={selectSectionFromCanvas}
                 onAddSection={openAddSection}
@@ -7593,6 +7617,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   inspectorEnabled,
   selectedSectionId,
   device,
+  canvasRadiusPx,
   bodyCount,
   onSelectSection,
   onAddSection,
@@ -7608,6 +7633,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   inspectorEnabled: boolean
   selectedSectionId: string | null
   device: DeviceMode
+  /** The canvas card's top radius, so a ring inside it is cut to match. */
+  canvasRadiusPx: number
   bodyCount: number
   onSelectSection: (sectionId: string) => void
   onAddSection: () => void
@@ -7664,8 +7691,14 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
                * in the middle of the page, and rounding its selection
                * ring there curves the corners of nothing — which is
                * the ring that looked arbitrary.
+               *
+               * THE CARD'S OWN NUMBER, passed in. This was a literal 12
+               * while the card went 16, then 22, then 20, so the ring
+               * was cut to a curve the card did not have: its corner
+               * reached past the card's, and the card's `overflow:
+               * hidden` bit a piece out of it.
                */
-              canvasRoundedTopPx={atTop ? (device === "desktop" ? 12 : 16) : undefined}
+              canvasRoundedTopPx={atTop && canvasRadiusPx ? canvasRadiusPx : undefined}
             />
           )
         }

@@ -871,6 +871,51 @@ html.capacitor body {
      tone, not for the shape. Two arcs curving apart over a colour belonging
      to neither panel is a lens. Over the panels' own white it is a gap. */
 
+  /* ── The code editor arrives as itself ──
+     It waited behind a spinner: a circle rotating in the middle of an empty
+     white card, which says "something is happening" and nothing else, and
+     says it in the one place your eye is already looking.
+
+     This is the shape of the thing being fetched instead — a gutter, and
+     lines of code at the lengths code actually has. It tells you what is
+     coming, it is in the right places when it arrives, and there is nothing
+     to un-see when it does.
+
+     ONE ANIMATED ELEMENT, and it animates `transform` only. A sweep across a
+     static skeleton is a single compositor layer sliding: no layout, no
+     paint, no style recalculation per frame, so it runs at whatever the
+     display can do rather than at whatever the main thread has left over.
+     Animating each bar's `opacity` or `background-position` instead would be
+     forty elements repainting on every tick, which is the flicker that makes
+     a shimmer look cheap. */
+  .wb-code-skeleton-sweep {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      100deg,
+      rgba(255, 255, 255, 0) 30%,
+      rgba(255, 255, 255, 0.72) 50%,
+      rgba(255, 255, 255, 0) 70%
+    );
+    /* Wider than the box and started off its left edge, so the bright band
+       is fully outside before the loop repeats and there is no seam. */
+    width: 220%;
+    left: -60%;
+    animation: wb-code-sweep 1.45s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+    will-change: transform;
+  }
+  @keyframes wb-code-sweep {
+    from { transform: translate3d(-45%, 0, 0); }
+    to { transform: translate3d(45%, 0, 0); }
+  }
+  /* A skeleton is a promise that something is loading. Reduced motion does
+     not remove the promise, only the movement, so the shape stays and the
+     sweep stops. */
+  @media (prefers-reduced-motion: reduce) {
+    .wb-code-skeleton-sweep { animation: none; opacity: 0.35; }
+  }
+
   /* ── The row in the air ──
      The overlay's job is to look picked up. A shadow and a hair of scale is
      the whole of that: it is on its own compositor layer already, so the
@@ -1883,6 +1928,34 @@ html.capacitor::before {
   background-color: #000000;
   z-index: 9999;
   pointer-events: none;
+}
+
+/* ── The builder reaches the top of the screen ───────────────────────────
+   The shield above is a FIXED, PURE BLACK layer at z-9999 over the safe
+   area, and every ordinary page in the app wants it: their headers are
+   black, so it continues them and no gap can open above one.
+
+   The builder's bar is #171717, not #000, and z-9999 beats everything the
+   editor can paint. So the bar padded itself to `env(safe-area-inset-top)`,
+   painted that strip its own colour, and the shield painted straight over
+   it in a darker one: a black band under the clock with the editor starting
+   below it, which is the "not full screen, cut at the top" that has been
+   reported more than once.
+
+   Stood down while the editor is up. Nothing is lost by it: the bar already
+   covers the same strip, in the colour it should be, and `html:has(.wb-editor)`
+   sets the canvas behind it to the same #171717 for the frame before paint
+   and for any bounce.
+
+   TWO RULES, NOT A SELECTOR LIST. One selector a browser cannot parse throws
+   away the whole rule, so an iOS without `:has()` would lose the class-based
+   fallback as well — the opposite of a fallback. `.wb-fullscreen` is added by
+   an effect and `:has()` holds from the first paint; either alone is enough. */
+html.capacitor.wb-fullscreen::before {
+  display: none;
+}
+html.capacitor:has(.wb-editor)::before {
+  display: none;
 }
 
 html.capacitor {

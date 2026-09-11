@@ -44,7 +44,7 @@ const fail = (m) => {
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}. Set CHROMIUM=/path/to/chromium.`)
 
 /** The radius, the gap, the bar, the sidebar, the AI panel, the viewport. */
-const R = 20, GAP = 8, PAD = 8, BAR = 44, SIDE = 160, AI = 120, W = 620, H = 300
+const R = 20, GAP = 6, PAD = 6, BAR = 44, SIDE = 160, AI = 120, W = 620, H = 300
 /** The page in the canvas: the one thing in the window with a colour. */
 const PAPER = "#dbe4fb"
 

@@ -765,7 +765,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="Find a file…"
                 spellCheck={false}
-                className="w-full rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] py-1 pl-7 pr-6 text-[11.5px] text-[var(--code-text)] outline-none placeholder:text-[var(--code-faint)] focus:border-[var(--code-focus)]"
+                className="w-full rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] py-1.5 pl-7 pr-6 text-[16px] md:py-1 md:text-[11.5px] text-[var(--code-text)] outline-none placeholder:text-[var(--code-faint)] focus:border-[var(--code-focus)]"
               />
               {filter && (
                 <button
@@ -799,8 +799,11 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
             ))}
           </div>
 
-          {/* Legend */}
-          <div className="px-3 py-2 border-t border-[var(--code-border)] space-y-1">
+          {/* Legend. Not on a phone: two lines of 10px text explaining two
+              dots, holding a strip of a 390px screen that the file list
+              needs more. The dots are still there and still mean the same
+              thing; what goes is the caption. */}
+          <div className={cn("px-3 py-2 border-t border-[var(--code-border)] space-y-1", narrow && "hidden")}>
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-600 shrink-0" />
               <span className="text-[10px] text-[var(--code-muted)]">Customized</span>
@@ -1026,7 +1029,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                       value={pendingAction.path}
                       onChange={e => setPendingAction({ kind: "new", path: e.target.value })}
                       onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}
-                      className="h-8 w-72 rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[12px] text-[var(--code-text)] focus:outline-none"
+                      className="h-9 w-72 max-w-full rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[16px] md:h-8 md:text-[12px] text-[var(--code-text)] focus:outline-none"
                       aria-label="Path of the new file"
                     />
                     <button type="submit" className="h-8 rounded-md bg-[#8B56FA] px-3 text-[12px] text-white hover:bg-[#7b46ec]">Create</button>
@@ -1091,7 +1094,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                 value={pendingAction.path}
                 onChange={e => setPendingAction({ ...pendingAction, path: e.target.value })}
                 onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}
-                className="h-7 min-w-0 flex-1 rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[12px] text-[var(--code-text)] focus:outline-none"
+                className="h-9 min-w-0 flex-1 rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[16px] md:h-7 md:text-[12px] text-[var(--code-text)] focus:outline-none"
                 aria-label="Path"
               />
               <button type="submit" className="h-7 rounded-md bg-[#8B56FA] px-2.5 text-[12px] text-white hover:bg-[#7b46ec]">

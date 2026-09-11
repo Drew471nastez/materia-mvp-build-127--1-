@@ -737,7 +737,7 @@ check(
   /export function headerTouchesTop\(theme: ThemeSettingsValues\): boolean/.test(themePage) &&
     /render\(section, "header", headerTouchesTop\(theme\)\)/.test(themePage) &&
     /renderSection=\{\(section, role, atTop\) =>/.test(editor) &&
-    /canvasRoundedTopPx=\{atTop \? \(device === "desktop" \? 12 : 16\) : undefined\}/.test(editor),
+    /canvasRoundedTopPx=\{atTop && canvasRadiusPx \? canvasRadiusPx : undefined\}/.test(editor),
 )
 
 check(
@@ -922,10 +922,15 @@ check(
    * you cannot see is not a gap, and on a white page the sidebar, the space
    * and the canvas were one undifferentiated field.
    *
-   * So the space has a tone. The panels are cards now, inset 8px and rounded
+   * So the space has a tone. The panels are cards now, inset 6px and rounded
    * 20px on BOTH top corners, standing on the light grey the builder already
    * uses for the surface a device preview sits on. One tone below the bar,
    * doing both jobs, rather than two.
+   *
+   * AND IT IS A DESKTOP IDEA. On a phone the canvas is not a card on a
+   * surface, it IS the surface: nothing beside it to be separated from, and
+   * six pixels of grey around a 390px screen is six pixels taken from the
+   * page and given to nothing. Flush and square there.
    *
    * THAT GREY IS WHY THIS WORKS WHERE EVERY EARLIER VERSION DID NOT, and the
    * difference is worth stating exactly, because it was got wrong five times.
@@ -941,7 +946,7 @@ check(
    * The BAR is not part of any of it. It is dark, it sits above the row with
    * its own edge, and nothing at the seam opens onto it.
    *
-   * Measured: 8 pixels between the page and each panel and 8 more around the
+   * Measured: 6 pixels between the page and each panel and 6 more around the
    * outside, against 0 and 0 flush; the gap 17 away from the panels either
    * side, against 0 for a gap of their own white, and uneven by 0 down its
    * whole height, against 18 with a hairline crossing it; all three arcs
@@ -952,9 +957,9 @@ check(
    */
   // the shelf, and the cards standing on it
   /"wb-editor fixed inset-0 flex flex-col bg-\[#eef1f5\] overflow-hidden wb-editor-enter"/.test(editor) &&
-    /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#eef1f5\] gap-2 px-2 pt-2">/.test(editor) &&
+    /"relative flex flex-1 min-h-0 overflow-hidden bg-\[#eef1f5\]",\s*\n[\s\S]{0,240}?!isMobileView && "gap-1\.5 px-1\.5 pt-1\.5",/.test(editor) &&
     // open at the bottom: a shelf, not a frame
-    !/pb-2"/.test(editor) &&
+    !/pt-1\.5 pb-1\.5/.test(editor) &&
     // both top corners, on all three: a card with one square top corner and
     // one round one reads as a mistake
     /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white rounded-t-\[20px\]"/.test(editor) &&
@@ -970,6 +975,106 @@ check(
     // the surround was briefly changed to match
     /const chromeTone = usePhoneChromeTone\(isMobileView\)/.test(editor) &&
     ((css) => !/\.wb-seam-(fill|divider|top) \{/.test(css))(readFileSync(join(root, "app/globals.css"), "utf8")),
+)
+
+check(
+  "the selection ring is cut to the card it sits in",
+  /**
+   * The ring on the top section took a literal 12px radius while the canvas
+   * card's own corners went 16, then 22, then 20. A 12px corner inside a 20px
+   * one pushes past the card's curve, and the card's `overflow: hidden` takes
+   * a bite out of it: a blue corner with a piece missing, which is what was
+   * reported with the header selected.
+   *
+   * The card's own number is passed in now, so there is one place it is
+   * decided. Zero on a phone, where the preview card is `rounded-none` and a
+   * rounded ring would curve the corners of nothing.
+   */
+  /canvasRadiusPx=\{isMobileView \? 0 : device === "desktop" \? 20 : 16\}/.test(editor) &&
+    /canvasRoundedTopPx=\{atTop && canvasRadiusPx \? canvasRadiusPx : undefined\}/.test(editor) &&
+    !/canvasRoundedTopPx=\{atTop \? \(device === "desktop" \? 12 : 16\) : undefined\}/.test(editor),
+)
+
+check(
+  "the builder reaches the top of the screen on a phone",
+  /**
+   * `html.capacitor::before` is a FIXED, PURE BLACK layer at z-9999 over the
+   * safe area, and every ordinary page wants it: their headers are black, so
+   * it continues them and no gap can open above one.
+   *
+   * The builder's bar is #171717, and z-9999 beats anything the editor can
+   * paint. So the bar padded itself to `env(safe-area-inset-top)`, painted
+   * that strip its own colour, and the shield painted over it in a darker
+   * one — a black band under the clock with the editor starting below it,
+   * which is the "not full screen, cut at the top" reported more than once.
+   *
+   * Stood down while the editor is up, in TWO RULES rather than a selector
+   * list: one selector a browser cannot parse throws away the whole rule, so
+   * sharing a list would cost an iOS without `:has()` the class-based
+   * fallback as well. Either alone is enough.
+   */
+  ((css) =>
+    /html\.capacitor\.wb-fullscreen::before \{\s*\n\s*display: none;/.test(css) &&
+    /html\.capacitor:has\(\.wb-editor\)::before \{\s*\n\s*display: none;/.test(css) &&
+    // and the bar still pays for the strip it now owns
+    /\.wb-editor-topbar \{[\s\S]{0,120}?padding-top: var\(--wb-safe-top\);/.test(css))(
+      readFileSync(join(root, "app/globals.css"), "utf8"),
+    ) && /<FullScreenLock tone=\{chromeTone\} \/>/.test(editor),
+)
+
+check(
+  "the code editor arrives as its own shape, and the arriving costs no paint",
+  /**
+   * It waited behind a spinning circle in an empty card: that says something
+   * is happening and nothing else, in the one place the eye already is, and
+   * then everything it stood in for appears somewhere else.
+   *
+   * The skeleton is the shape of what is coming — gutter, tabs, file list,
+   * lines at the lengths code has. And the motion is ONE element animating
+   * `transform`, which is a compositor layer sliding rather than forty bars
+   * repainting per frame. Measured with `Element.getAnimations()`: 1
+   * animation of [transform] against 40 of [backgroundPositionX,
+   * backgroundPositionY] for the per-bar shimmer it replaces, with the
+   * gutter and the first code column landing within 0px of the real
+   * editor's. `node scripts/check-code-skeleton.mjs`
+   */
+  /function CodeSkeleton\(\)/.test(modeSwitch) &&
+    /\{!loaded && <CodeSkeleton \/>\}/.test(modeSwitch) &&
+    !/\bLoader2\b[^\n]*from "lucide-react"/.test(modeSwitch) &&
+    !/<Loader2\b/.test(modeSwitch) &&
+    ((css) =>
+      /\.wb-code-skeleton-sweep \{/.test(css) &&
+      /animation: wb-code-sweep /.test(css) &&
+      /@keyframes wb-code-sweep \{\s*\n\s*from \{ transform: translate3d/.test(css) &&
+      // the reduced-motion answer keeps the promise and drops the movement
+      /\.wb-code-skeleton-sweep \{ animation: none; opacity: 0\.35; \}/.test(css))(
+        readFileSync(join(root, "app/globals.css"), "utf8"),
+      ),
+)
+
+check(
+  "no field in the code editor is small enough to make iOS zoom the page",
+  /**
+   * iOS zooms when a text field under 16px takes focus, and it does not zoom
+   * back: the bar ends up wider than the screen and the editor sits scrolled
+   * sideways with no way back from inside the page. The code area already
+   * knew this — 16px on a phone, 12 from `md` up — and the three fields
+   * around it did not: the file filter at 11.5px and two path fields at 12.
+   *
+   * Both halves matter. 16px on a phone, and BACK DOWN above `md`, or the
+   * explorer is 16px text in a 224px column.
+   * `node scripts/check-code-mobile.mjs`
+   */
+  ((code) =>
+    /py-1\.5 pl-7 pr-6 text-\[16px\] md:py-1 md:text-\[11\.5px\]/.test(code) &&
+    /h-9 w-72 max-w-full rounded-md border[^"]*text-\[16px\] md:h-8 md:text-\[12px\]/.test(code) &&
+    /h-9 min-w-0 flex-1 rounded-md border[^"]*text-\[16px\] md:h-7 md:text-\[12px\]/.test(code) &&
+    // the code itself was always right, and stays the pattern the rest follow
+    /const CODE_TEXT = "text-\[16px\] leading-6 md:text-\[12px\] md:leading-5"/.test(code) &&
+    // and the legend is desktop furniture
+    /border-t border-\[var\(--code-border\)\] space-y-1", narrow && "hidden"/.test(code))(
+      readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"),
+    ),
 )
 
 check(
