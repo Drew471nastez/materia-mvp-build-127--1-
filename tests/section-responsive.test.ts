@@ -197,16 +197,28 @@ check(
 )
 
 check(
-  "and there is no tablet",
+  "and the preview offers no tablet",
   /**
    * Removed on request, and it was the right call: nobody designs to 834, a
    * layout that works at 390 and at 1280 works between them, and a breakpoint
    * that exists only in a preview is one nobody tests against. It was a third
    * choice the builder offered and did nothing with.
+   *
+   * NARROWED, AND THE RULE IS UNCHANGED. This used to fail on the string
+   * `id: "tablet"` appearing anywhere in the file, which is about the PREVIEW
+   * DEVICE SWITCH but reads as a ban on the word. A setting that holds one
+   * value per breakpoint has three, because the engine has three and the
+   * sections' own container queries break at 640px and at 900px: without the
+   * middle one, a 700px window gets the desktop column count. That is the
+   * .storelib language's business, not the preview's, so the guard now names
+   * the thing it was protecting.
    */
   !/tablet: 834/.test(editor) &&
-    !/id: "tablet"/.test(editor) &&
-    !/"desktop" \| "tablet" \| "mobile"/.test(editor),
+    !/DEVICE_WIDTH[\s\S]{0,120}tablet/.test(editor) &&
+    !/DeviceMode = [^\n]*tablet/.test(editor) &&
+    !/"desktop" \| "tablet" \| "mobile"/.test(editor) &&
+    // the switch itself is still two devices, one toggling control
+    /setDevice\(device === "desktop" \? "mobile" : "desktop"\)/.test(editor),
 )
 
 check(

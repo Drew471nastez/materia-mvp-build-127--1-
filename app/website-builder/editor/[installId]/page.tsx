@@ -65,7 +65,8 @@ import { ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/w
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
-import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
+import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/registry"
+import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
@@ -323,6 +324,80 @@ function LinkFieldEditor({
   return <LinkPicker value={value} onChange={(href) => onChange(href)} targets={targets} placeholder={placeholder} />
 }
 
+/**
+ * ===========================================================================
+ *  ONE SETTING, THREE SCREENS
+ * ===========================================================================
+ * A section may say `"responsive": true` on a setting, and seven of the
+ * shipped ones do. The engine honoured it and the templates read
+ * `settings.columns.desktop`, but there was no control: the editor drew a
+ * single input, so the only way to give a phone its own number was to open
+ * the file and type JSON. Meanwhile every grid shipped with the desktop
+ * number on a phone, which is how a product card ended up 93px wide.
+ *
+ * The switch picks which screen you are setting. The control underneath is
+ * the ordinary one for the setting, so a range is still a range and an
+ * alignment is still an alignment: this wraps controls, it does not replace
+ * them.
+ *
+ * WHAT IT STORES. A scalar while all three agree, an object the moment they
+ * do not. Collapsing keeps a section that never needed a phone number out of
+ * the responsive shape entirely, and matches what `stripDefaults` does on
+ * the way to disk, so the editor and the engine hold the same belief about
+ * what "unset" looks like.
+ *
+ * WHAT IT SHOWS when a breakpoint has no value of its own: the one that
+ * would apply, filled down from above by `fillResponsive`, which is the same
+ * function the renderer uses. A control showing the default while the page
+ * renders something else is worse than no control.
+ */
+const RESPONSIVE_SCREENS = [
+  { id: "desktop", label: "Desktop" },
+  { id: "tablet", label: "Tablet" },
+  { id: "mobile", label: "Phone" },
+] as const
+
+function ResponsiveField({
+  field,
+  value,
+  onChange,
+}: {
+  field: SchemaField
+  value: unknown
+  onChange: (v: unknown) => void
+}) {
+  const [screen, setScreen] = useState<(typeof RESPONSIVE_SCREENS)[number]["id"]>("desktop")
+  const parts = fillResponsive(value, field.default)
+
+  const set = (v: unknown) => {
+    const next = { ...parts, [screen]: v }
+    const same = next.desktop === next.tablet && next.tablet === next.mobile
+    onChange(same ? next.desktop : next)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-0.5 rounded-lg bg-muted/60 p-0.5">
+        {RESPONSIVE_SCREENS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setScreen(s.id)}
+            className={cn(
+              "flex-1 h-7 rounded-md text-[11px] font-medium transition-colors",
+              screen === s.id ? "bg-background text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      {/* `responsive: false` on the way down, or this recurses forever. */}
+      <FieldEditor field={{ ...field, responsive: false }} value={parts[screen]} onChange={set} />
+    </div>
+  )
+}
+
 // ── Field editor ─────────────────────────────────────────────
 function FieldEditor({
   field,
@@ -344,6 +419,16 @@ function FieldEditor({
    */
   const kind = resolveControlType(field.type) ?? field.type
   const targets = useLinkTargets()
+
+  /**
+   * After the hooks, never before: an early return above `useLinkTargets`
+   * would change the hook order between a responsive field and an ordinary
+   * one. The registry decides which controls can hold a value per
+   * breakpoint, so a schema cannot ask for a responsive image picker.
+   */
+  if (field.responsive && controlFor(field.type)?.responsive) {
+    return <ResponsiveField field={field} value={value} onChange={onChange} />
+  }
 
   /**
    * An icon field had NO editor at all — it fell through to the last branch

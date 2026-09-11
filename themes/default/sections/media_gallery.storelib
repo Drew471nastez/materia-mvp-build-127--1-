@@ -141,7 +141,7 @@
       "type": "range",
       "id": "columns",
       "label": "Columns",
-      "default": 3,
+      "default": { "desktop": 3, "tablet": 3, "mobile": 2 },
       "min": 1,
       "max": 4,
       "step": 1,
@@ -330,7 +330,7 @@
       "name": "Image Gallery with captions",
       "settings": {
         "show_captions": true,
-        "columns": 2
+        "columns": { "desktop": 2, "tablet": 2, "mobile": 1 }
       },
       "blocks": [
         {
