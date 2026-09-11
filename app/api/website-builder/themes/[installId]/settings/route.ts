@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 
@@ -26,7 +27,9 @@ async function getCreatorInstall(installId: string) {
     .eq("id", installId).eq("creator_id", creator.id).maybeSingle()
   if (!install) return { error: "Theme not found", status: 404, supabase: null }
 
-  return { error: null, status: 200, supabase }
+  // The creator id comes back too: a write that lands on the LIVE `settings`
+  // column changes the website, so the cached published site has to go.
+  return { error: null, status: 200, supabase, creatorId: (creator as { id: string }).id }
 }
 
 // GET /api/website-builder/themes/[installId]/settings
@@ -51,7 +54,7 @@ export async function GET(_req: Request, { params }: Params) {
 // When publishing, pass settings (and clear draft_settings).
 export async function PUT(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase } = await getCreatorInstall(installId)
+  const { error, status, supabase, creatorId } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
   let body: unknown
@@ -106,6 +109,13 @@ export async function PUT(req: Request, { params }: Params) {
     if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
     result = data
   }
+
+  /**
+   * Whenever the LIVE column was written, whichever branch above decided to
+   * write it. Keyed on `update.settings` rather than on `mode`, because one
+   * of those branches writes it without being asked to publish.
+   */
+  if (update.settings !== undefined && creatorId) revalidatePublishedSite(creatorId)
 
   return NextResponse.json({ settings: result })
 }

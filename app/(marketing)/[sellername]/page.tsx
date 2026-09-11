@@ -7,6 +7,7 @@ import { StorelibSourcesProvider } from "@/components/website-builder/sections/s
 import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import { mayPreview, pageSections, previewTokenFrom, themeSettings as themeSettings_ } from "@/lib/website-builder/preview-link"
+import { publishedSiteByName } from "@/lib/website-builder/published-site"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 export const dynamic = "force-dynamic"
@@ -144,12 +145,71 @@ export default async function SellerWebsitePage({ params, searchParams }: PagePr
   // Skip reserved paths
   if (RESERVED_PATHS.has(sellername.toLowerCase())) notFound()
 
+  /**
+   * THE PREVIEW LINK. A long random token on the install; with it this page
+   * renders the unpublished drafts and asks not to be indexed, without it
+   * the published site. See lib/website-builder/preview-link.ts.
+   *
+   * A preview NEVER goes through the cache below. It is one person's view of
+   * unpublished work, and a cache keyed by the address would hand it to the
+   * next visitor. So the two paths are separate from here down: the fast one
+   * knows nothing about drafts, and the draft one is not cached at all.
+   */
+  const wantedToken = previewTokenFrom(new URLSearchParams(
+    Object.entries((await searchParams) ?? {}).flatMap(([k, v]) =>
+      v === undefined ? [] : Array.isArray(v) ? v.map((x) => [k, x] as [string, string]) : [[k, v] as [string, string]],
+    ),
+  ))
+
+  // Awaited rather than used as an element: an async component is fine at
+  // runtime either way, and this keeps the types honest about it.
+  if (wantedToken) return await previewPage(sellername, wantedToken)
+
+  const found = await publishedSiteByName(sellername)
+  if (found.kind === "renamed") redirect(`/${found.to}`)
+  if (found.kind === "missing") notFound()
+  if (found.kind === "unpublished") return <ComingSoon />
+
+  const { site } = found
+  return (
+    <StorelibSourcesProvider prerendered={site.prerendered} page={{ template: "index" }}>
+      <ThemePage
+        theme={site.themeSettings}
+        sections={site.sections}
+        emptyDetail="Check back soon!"
+      />
+    </StorelibSourcesProvider>
+  )
+}
+
+function ComingSoon() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Website Coming Soon</h1>
+        <p className="text-gray-500">This website is currently being built.</p>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * ===========================================================================
+ *  THE DRAFT, FOR WHOEVER HOLDS THE LINK
+ * ===========================================================================
+ * Uncached and unshared, reading the install directly so the token can be
+ * compared against it. Everything here is the slow path on purpose: it is
+ * one person looking at their own unpublished work, and being a few hundred
+ * milliseconds slower than the live site is the correct trade for never
+ * putting a draft anywhere a stranger could be handed it.
+ *
+ * A wrong token is not an error. It renders the published site, which is
+ * what that address is, and says nothing about whether a link exists.
+ */
+async function previewPage(sellername: string, token: string) {
   const supabase = await createClient()
 
-  // Try to find the creator by profile username first, then by creator slug
   let creatorId: string | null = null
-  let displayName = ""
-
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, display_name, username")
@@ -157,66 +217,32 @@ export default async function SellerWebsitePage({ params, searchParams }: PagePr
     .maybeSingle()
 
   if (profile) {
-    // Find the creator linked to this profile
     const { data: creator } = await supabase
       .from("creators")
       .select("id, slug, display_name")
       .eq("user_id", profile.id)
       .maybeSingle()
-
-    if (creator) {
-      creatorId = creator.id
-      displayName = creator.display_name || profile.display_name || profile.username || sellername
-    }
+    if (creator) creatorId = creator.id
   }
 
   if (!creatorId) {
-    // Fallback: look up by creator slug directly
     const { data: creator } = await supabase
       .from("creators")
       .select("id, slug, display_name")
       .eq("slug", sellername.toLowerCase())
       .maybeSingle()
-
-    if (creator) {
-      creatorId = creator.id
-      displayName = creator.display_name || creator.slug || sellername
-    }
+    if (creator) creatorId = creator.id
   }
 
-  if (!creatorId) {
-    // Check username history for redirect
-    const adminSupabase = createAdminClient()
-    const { data: historyRecord } = await adminSupabase
-      .from("username_history")
-      .select("new_username")
-      .ilike("old_username", sellername)
-      .order("changed_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
+  if (!creatorId) notFound()
 
-    if (historyRecord?.new_username) {
-      redirect(`/${historyRecord.new_username}`)
-    }
-
-    notFound()
-  }
-
-  // Find the published theme install for this creator.
-  // Use admin client — published installs must be readable by anyone on the
-  // internet, and the `store_theme_*` tables have RLS that locks them down
-  // to the owning creator for the regular (anon) client.
-  const publicAdmin = createAdminClient()
   /**
-   * THE PREVIEW LINK. A long random token on the install; with it this page
-   * renders the unpublished drafts and asks not to be indexed, without it
-   * the published site. See lib/website-builder/preview-link.ts.
+   * Admin, because published installs must be readable by anyone on the
+   * internet and the `store_theme_*` tables are locked to the owning creator
+   * for the anon client. The token is what authorises the drafts, and it is
+   * compared in constant time.
    */
-  const wantedToken = previewTokenFrom(new URLSearchParams(
-    Object.entries((await searchParams) ?? {}).flatMap(([k, v]) =>
-      v === undefined ? [] : Array.isArray(v) ? v.map((x) => [k, x] as [string, string]) : [[k, v] as [string, string]],
-    ),
-  ))
+  const publicAdmin = createAdminClient()
   const { data: install } = await publicAdmin
     .from("store_theme_installs")
     .select(`
@@ -235,18 +261,8 @@ export default async function SellerWebsitePage({ params, searchParams }: PagePr
     .limit(1)
     .maybeSingle()
 
-  if (!install) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Website Coming Soon</h1>
-          <p className="text-gray-500">This website is currently being built.</p>
-        </div>
-      </div>
-    )
-  }
+  if (!install) return <ComingSoon />
 
-  // Get published sections for the home page (admin bypasses RLS)
   const { data: pageData } = await publicAdmin
     .from("store_theme_pages")
     .select("sections, draft_sections")
@@ -254,39 +270,13 @@ export default async function SellerWebsitePage({ params, searchParams }: PagePr
     .eq("page_key", "home")
     .maybeSingle()
 
-  const preview = mayPreview((install as { preview_token?: string | null }).preview_token, wantedToken)
+  const preview = mayPreview((install as { preview_token?: string | null }).preview_token, token)
 
   const settingsRow =
     (install as any).store_theme_settings?.[0] ?? (install as any).store_theme_settings ?? null
   const themeSettings: ThemeSettingsValues = (themeSettings_(settingsRow, preview) ?? {}) as ThemeSettingsValues
-
-  /**
-   * PUBLISHED ONLY, unless this is a preview. The fallback to
-   * `draft_sections` that used to be here meant a page added since the last
-   * publish was live before anybody published it.
-   */
   const sections: SectionInstance[] = (pageSections<SectionInstance[]>(pageData, preview) ?? [])
 
-  // NOTE on the "black gap" bug:
-  // Previously this page used `min-h-screen flex flex-col` + `flex-1` on
-  // the body container to pin the footer to the bottom of the viewport on
-  // short pages. The problem: when the user's page has less content than
-  // a full viewport, the `flex-1` body stretches to fill the gap and
-  // exposes the outer div's `backgroundColor` — which on dark themes
-  // renders as a visible BLACK band between the hero and the footer.
-  // The editor preview doesn't use this flex pattern (it's a contained
-  // scroll canvas), which is why the gap was live-only and invisible in
-  // the editor.
-  //
-  // Fix: let sections flow naturally. No fake vertical filler. If the
-  // user has a short page, the page is short — no gap is fabricated.
-  /**
-   * RENDERED HERE, ONCE. A .storelib section becomes markup and a scoped
-   * stylesheet on the server; the visitor's browser receives both and never
-   * needs the compiler. A section whose file does not compile renders
-   * nothing on a published page, which is the rule for a broken section
-   * (docs/theme/12) and not an exception made here.
-   */
   const prerendered = await prerenderStorelibSections(
     publicAdmin as never,
     install.id,

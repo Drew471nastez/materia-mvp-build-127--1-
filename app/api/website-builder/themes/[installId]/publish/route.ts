@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { takeBackup } from "@/lib/website-builder/backups"
 import { promoteFileDrafts } from "@/lib/website-builder/theme-file-drafts"
+import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -125,6 +126,15 @@ export async function POST(req: Request, { params }: Params) {
       /* logged nowhere on purpose: nothing sensitive, nothing actionable */
     }
 
+    /**
+     * THE LAST THING, AND NOT OPTIONAL. The published site is held in a
+     * cache until this says otherwise, so a publish that does not reach
+     * here is a publish that changed the database and not the website.
+     * Last, so it can only ever throw away a cache of something already
+     * written.
+     */
+    revalidatePublishedSite(creator.id)
+
     return NextResponse.json({ ok: true, status: "published" })
   }
 
@@ -143,6 +153,9 @@ export async function POST(req: Request, { params }: Params) {
       creator_id: creator.id,
       action: "unpublished",
     })
+
+    // A site taken down that stays in a cache is still up.
+    revalidatePublishedSite(creator.id)
 
     return NextResponse.json({ ok: true, status: "unpublished" })
   }

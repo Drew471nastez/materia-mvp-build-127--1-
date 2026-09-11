@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { LIMITS } from "@/lib/storelib-theme/types"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
@@ -44,7 +45,10 @@ async function getCreatorInstall(installId: string) {
     .eq("id", installId).eq("creator_id", creator.id).maybeSingle()
   if (!install) return { error: "Theme not found", status: 404, supabase: null }
 
-  return { error: null, status: 200, supabase }
+  // The creator id comes back too: a write that lands on the LIVE columns
+  // has to throw away the cached published site, and that cache is keyed by
+  // creator. See lib/website-builder/published-site.ts.
+  return { error: null, status: 200, supabase, creatorId: (creator as { id: string }).id }
 }
 
 // GET /api/website-builder/themes/[installId]/sections?page=home
@@ -79,7 +83,7 @@ export async function GET(req: Request, { params }: Params) {
 // body: { page_key: string, sections: SectionInstance[], mode: "draft" | "publish" }
 export async function PUT(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase } = await getCreatorInstall(installId)
+  const { error, status, supabase, creatorId } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
   let body: unknown
@@ -165,6 +169,14 @@ export async function PUT(req: Request, { params }: Params) {
     if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
     result = data
   }
+
+  /**
+   * `mode: "publish"` writes the LIVE columns, so it changes the website and
+   * the cached copy of it has to go. A draft save changes nothing a visitor
+   * can see, and throwing the cache away on every keystroke would undo the
+   * point of having one.
+   */
+  if (mode === "publish" && creatorId) revalidatePublishedSite(creatorId)
 
   return NextResponse.json({ page: result })
 }
