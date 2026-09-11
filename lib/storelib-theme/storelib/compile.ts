@@ -127,9 +127,50 @@ export function compileSection(source: string, opts: CompileOptions = {}): Resul
   }
 }
 
+/**
+ * BOUNDED, BECAUSE THE KEY IS THE SOURCE TEXT.
+ *
+ * Caching on content is what makes an unchanged file free and a changed one
+ * compile exactly once. It also means every version of every file anybody
+ * has ever saved is a new key: on a server that lives for days, a Map here
+ * only grows, and the thing growing is a compiled template tree per entry.
+ * Someone saving a file in a loop would be filling the process's heap with
+ * no way to get it back.
+ *
+ * So it is a least-recently-used cache with a ceiling. A Map iterates in
+ * insertion order, so the oldest key is the first one, and re-reading a key
+ * moves it to the end. The ceiling is generous enough that the working set
+ * of a busy account never reaches it.
+ */
+export const COMPILE_CACHE_LIMIT = 200
+
+export function createLru<T>(limit: number) {
+  const map = new Map<string, T>()
+  return {
+    get(key: string): T | undefined {
+      const hit = map.get(key)
+      if (hit === undefined) return undefined
+      map.delete(key)
+      map.set(key, hit)
+      return hit
+    },
+    set(key: string, value: T) {
+      if (map.has(key)) map.delete(key)
+      map.set(key, value)
+      while (map.size > limit) {
+        const oldest = map.keys().next()
+        if (oldest.done) break
+        map.delete(oldest.value)
+      }
+    },
+    clear() { map.clear() },
+    get size() { return map.size },
+  }
+}
+
 /** A compile cache keyed by source hash, so an unchanged file is never compiled twice. */
-export function createCompileCache() {
-  const cache = new Map<string, Result<CompiledSection>>()
+export function createCompileCache(limit = COMPILE_CACHE_LIMIT) {
+  const cache = createLru<Result<CompiledSection>>(limit)
   return {
     compile(source: string, opts: CompileOptions = {}): Result<CompiledSection> {
       const key = `${opts.file ?? ""}\0${sourceHash(source)}`

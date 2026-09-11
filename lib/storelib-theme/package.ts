@@ -195,12 +195,55 @@ export interface ReadOptions {
 
 const err = (message: string, file?: string, line?: number): ThemeError => ({ stage: "package", message, file, line })
 
+/**
+ * WHAT AN ENTRY SAYS IT WILL BECOME, before it becomes it.
+ *
+ * A zip stores each entry's uncompressed size in its header, and deflate
+ * compresses a megabyte of one repeated byte to about a kilobyte. So a
+ * package inside every limit this module checks — 50 MB on disk, 2000
+ * files — can hold gigabytes, and reading it to find out how big it is is
+ * exactly the wrong order: the allocation happens first and the check
+ * arrives after the server has already fallen over.
+ *
+ * Measured: an 82 KB zip carrying one 80 MB entry took 519ms and 80 MB of
+ * heap before any limit in this file was consulted.
+ *
+ * So every entry is judged by its header, and the whole package by the sum
+ * of those headers, before a single byte is decompressed.
+ */
+function declaredSize(file: JSZip.JSZipObject): number {
+  const internal = (file as unknown as { _data?: { uncompressedSize?: number } })._data
+  return typeof internal?.uncompressedSize === "number" ? internal.uncompressedSize : 0
+}
+
+/** The most a package may become once unpacked. */
+const MAX_UNPACKED_BYTES = LIMITS.packageBytes * 4
+
+function checkDeclaredSizes(entries: JSZip.JSZipObject[]): ThemeError[] {
+  const errors: ThemeError[] = []
+  let total = 0
+  for (const f of entries) {
+    const size = declaredSize(f)
+    total += size
+    const limit = f.name.startsWith("assets/") ? LIMITS.assetBytes : LIMITS.sourceBytes
+    if (size > limit) errors.push(err(`${f.name} unpacks to ${Math.round(size / 1024)} KB; the limit is ${Math.round(limit / 1024)} KB`, f.name))
+  }
+  if (total > MAX_UNPACKED_BYTES) {
+    errors.push(err(`The package unpacks to ${Math.round(total / 1024 / 1024)} MB; the limit is ${MAX_UNPACKED_BYTES / 1024 / 1024} MB`))
+  }
+  return errors
+}
+
 export async function readPackage(bytes: Uint8Array, opts: ReadOptions = {}): Promise<Result<ReadPackage>> {
   if (bytes.byteLength > LIMITS.packageBytes) return { ok: false, errors: [err(`The package is ${Math.round(bytes.byteLength / 1024 / 1024)} MB; the limit is ${LIMITS.packageBytes / 1024 / 1024} MB`)] }
   let zip: JSZip
   try { zip = await JSZip.loadAsync(bytes) } catch { return { ok: false, errors: [err("This is not a zip file")] } }
   const entries = Object.values(zip.files).filter((f) => !f.dir)
   if (entries.length > LIMITS.filesPerPackage) return { ok: false, errors: [err(`${entries.length} files; the limit is ${LIMITS.filesPerPackage}`)] }
+
+  // Before anything is decompressed. See checkDeclaredSizes.
+  const tooBig = checkDeclaredSizes(entries)
+  if (tooBig.length) return { ok: false, errors: tooBig }
 
   if (!zip.file("theme.json") && zip.file("manifest.json")) return readLegacy(zip, opts)
 

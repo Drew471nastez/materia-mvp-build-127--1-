@@ -28,6 +28,25 @@ const RenameBodySchema = z.object({
   to: z.string().min(1).max(256).refine(SAFE_PATH, { message: "Invalid path" }),
 })
 
+/**
+ * Which of this install's pages hold a section of this type — published or
+ * draft. One answer for DELETE and for a rename, because they do the same
+ * thing to the same pages.
+ */
+async function pagesUsingSection(
+  supabase: NonNullable<Awaited<ReturnType<typeof getCreatorInstall>>["supabase"]>,
+  installId: string,
+  type: string,
+): Promise<string[]> {
+  const { data: pages } = await supabase
+    .from("store_theme_pages")
+    .select("page_key, sections, draft_sections")
+    .eq("install_id", installId)
+  const uses = (list: unknown) =>
+    Array.isArray(list) && list.some((x) => x && typeof x === "object" && (x as { type?: unknown }).type === type)
+  return (pages ?? []).filter((pg) => uses(pg.sections) || uses(pg.draft_sections)).map((pg) => pg.page_key as string)
+}
+
 async function getCreatorInstall(installId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -176,13 +195,7 @@ export async function DELETE(req: Request, { params }: Params) {
    */
   const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
   if (m && !(path in DEFAULT_THEME_SOURCES) && searchParams.get("force") !== "1") {
-    const type = m[1]
-    const { data: pages } = await supabase
-      .from("store_theme_pages")
-      .select("page_key, sections, draft_sections")
-      .eq("install_id", installId)
-    const uses = (list: unknown) => Array.isArray(list) && list.some((x) => x && typeof x === "object" && (x as { type?: unknown }).type === type)
-    const usedBy = (pages ?? []).filter((pg) => uses(pg.sections) || uses(pg.draft_sections)).map((pg) => pg.page_key as string)
+    const usedBy = await pagesUsingSection(supabase, installId, m[1])
     if (usedBy.length) {
       return NextResponse.json({ error: `${path} is used by ${usedBy.length} page${usedBy.length === 1 ? "" : "s"}`, used_by: usedBy }, { status: 409 })
     }
@@ -204,6 +217,7 @@ export async function PATCH(req: Request, { params }: Params) {
   const { error, status, supabase } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
+  const { searchParams } = new URL(req.url)
   const body = await req.json().catch(() => null)
   const parsed = RenameBodySchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Invalid body", issues: parsed.error.issues }, { status: 400 })
@@ -217,6 +231,21 @@ export async function PATCH(req: Request, { params }: Params) {
     .eq("path", from)
     .maybeSingle()
   if (!existing) return NextResponse.json({ error: `${from} is not a saved file` }, { status: 404 })
+
+  /**
+   * A RENAME IS A DELETE, FOR THE PAGES THAT USE IT. `sections/x.storelib`
+   * renamed to `sections/y.storelib` takes the type with it, and every
+   * instance of `x` on every page goes back to rendering nothing — exactly
+   * what DELETE refuses to do quietly, so this refuses it the same way and
+   * with the same answer.
+   */
+  const fromSection = from.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
+  if (fromSection && fromSection[1] !== to.match(/^sections\/([a-z0-9_-]+)\.storelib$/)?.[1] && searchParams.get("force") !== "1") {
+    const usedBy = await pagesUsingSection(supabase, installId, fromSection[1])
+    if (usedBy.length) {
+      return NextResponse.json({ error: `${from} is used by ${usedBy.length} page${usedBy.length === 1 ? "" : "s"}`, used_by: usedBy }, { status: 409 })
+    }
+  }
 
   /**
    * A section file's name and its schema's type are one thing (the

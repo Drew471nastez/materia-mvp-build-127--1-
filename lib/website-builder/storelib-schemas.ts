@@ -13,6 +13,7 @@
  * FieldEditor resolves those through the same registry, so the file, the
  * validator, the AI's reference and the panel all describe one control.
  */
+import { COMPILE_CACHE_LIMIT, createLru } from "@/lib/storelib-theme/storelib/compile"
 import { parseStorelib, parseSchemaJson } from "@/lib/storelib-theme/storelib/parse"
 import { validateSectionSchema } from "@/lib/storelib-theme/schema/validate"
 import type { SectionSchema as EngineSchema, SettingDefinition } from "@/lib/storelib-theme/types"
@@ -62,7 +63,8 @@ export function editorSchema(schema: EngineSchema): SectionSchema {
 
 export type StorelibSchemaResult = { ok: true; schema: SectionSchema } | { ok: false; errors: string[] }
 
-const cache = new Map<string, StorelibSchemaResult>()
+/** Bounded for the same reason the compile cache is: the key is the file's text. */
+const cache = createLru<StorelibSchemaResult>(COMPILE_CACHE_LIMIT)
 
 /** The `<schema>` of a `.storelib` source, as the editor's schema. Cached per source text. */
 export function schemaFromStorelib(source: string, file: string): StorelibSchemaResult {

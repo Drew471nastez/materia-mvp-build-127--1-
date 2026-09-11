@@ -20,10 +20,12 @@ import {
 } from "@/lib/website-builder/theme-package-schema"
 import { readPackage, sectionsFromTemplate } from "@/lib/storelib-theme"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+import { STORELIB_DEFAULT_ID, THEME_REGISTRY, themeCatalogRow } from "@/lib/website-builder/theme-registry"
 
 import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.generated"
 
 const BUCKET = "store-builder-images"
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function rewriteUrls(node: unknown, urlMap: Record<string, string>): unknown {
   if (typeof node === "string") return urlMap[node] ?? node
@@ -129,11 +131,33 @@ export async function POST(req: Request) {
       .limit(1)
       .maybeSingle()
     const installName = String(pkg.theme.name ?? "Imported theme").slice(0, 80)
+    /**
+     * `store_theme_installs.theme_id` is NOT NULL and a foreign key into
+     * `themes`. A package carries the id of the theme it came from, and that
+     * id means nothing in an account whose catalogue never had it — which is
+     * the ordinary case for a package from somebody else. Writing it
+     * unchecked fails the insert and the import dies with a 500 the person
+     * can do nothing about, so the id is used only when the row is really
+     * there, and the default theme stands in when it is not.
+     */
+    const claimed = typeof pkg.theme.source_theme_id === "string" ? pkg.theme.source_theme_id : null
+    let themeId = STORELIB_DEFAULT_ID
+    if (claimed && UUID.test(claimed)) {
+      const { data: known } = await admin.from("themes").select("id").eq("id", claimed).maybeSingle()
+      if (known) themeId = claimed
+    }
+    if (themeId === STORELIB_DEFAULT_ID) {
+      const { data: haveDefault } = await admin.from("themes").select("id").eq("id", STORELIB_DEFAULT_ID).maybeSingle()
+      if (!haveDefault) {
+        const def = THEME_REGISTRY.find(t => t.id === STORELIB_DEFAULT_ID)
+        if (def) await admin.from("themes").upsert(themeCatalogRow(def), { onConflict: "id" })
+      }
+    }
     const { data: created, error: createErr } = await admin
       .from("store_theme_installs")
       .insert({
         creator_id: creator.id,
-        theme_id: typeof pkg.theme.source_theme_id === "string" ? pkg.theme.source_theme_id : null,
+        theme_id: themeId,
         name: installName,
         status: "unpublished",
         sort_order: ((maxRow?.sort_order ?? -1) as number) + 1,

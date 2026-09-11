@@ -24,6 +24,7 @@ import { join } from "node:path"
 
 import { SECTION_COMPONENTS } from "@/components/website-builder/sections/registry"
 import { STORELIB_SCHEMAS, STORELIB_SECTION_TYPES } from "@/lib/website-builder/storelib-schemas"
+import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
@@ -135,7 +136,16 @@ const rendered = new Map<string, string>()
     }
     try {
       const html = renderToStaticMarkup(
-        createElement(Component, { section: asShipped(type, schema), theme }),
+        /**
+         * A .storelib section has no markup until something compiles it, and
+         * in the editor that something is StorelibLiveProvider. Wrapping every
+         * section in it renders the JSON ones exactly as before and gives the
+         * engine-backed ones the renderer the editor gives them.
+         */
+        createElement(StorelibLiveProvider, {
+          sources: {},
+          children: createElement(Component, { section: asShipped(type, schema), theme }),
+        }),
       )
       rendered.set(type, html)
       // A wrapper div and nothing inside it is a section that renders as a
@@ -243,10 +253,13 @@ section("A page is a page, whichever surface renders it")
   const outOfOrder = [shipped("footer"), shipped("hero"), shipped("header")]
 
   const html = renderToStaticMarkup(
-    createElement(ThemePage, {
-      theme: { ...theme, announcement_bar_enabled: true, announcement_bar_text: "Free shipping" },
-      sections: outOfOrder,
-    }),
+    createElement(StorelibLiveProvider, {
+      sources: {},
+      children: createElement(ThemePage, {
+        theme: { ...theme, announcement_bar_enabled: true, announcement_bar_text: "Free shipping" },
+        sections: outOfOrder,
+      }),
+    })
   )
 
   /**

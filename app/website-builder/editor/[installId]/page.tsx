@@ -66,7 +66,7 @@ import { PAGE_META, DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES } from "@/lib/website-builder/section-schemas"
 import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { schemaFor } from "@/lib/website-builder/storelib-schemas"
-import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
+import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget } from "@/components/website-builder/link-picker"
@@ -745,6 +745,9 @@ const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
   mobile: 390,
 }
 
+/** A thumbnail draws the theme's own file, never a creator's edit of it. */
+const EMPTY_SOURCES: Record<string, string> = {}
+
 const PREVIEW_RENDER_WIDTH = 800
 const PREVIEW_THEME: ThemeSettingsValues = {
   primary_color: "#6366f1",
@@ -785,7 +788,14 @@ function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220 }
     )
   }
   const scale = containerWidth / PREVIEW_RENDER_WIDTH
+  /**
+   * The thumbnail is drawn outside the canvas, so it brings its own renderer:
+   * a .storelib section has no markup until something compiles it, and the
+   * canvas's provider does not reach into this modal. No saved sources here
+   * on purpose — the card shows the section as the theme ships it.
+   */
   return (
+    <StorelibLiveProvider sources={EMPTY_SOURCES}>
     <div
       className="origin-top-left overflow-hidden"
       style={{
@@ -802,6 +812,7 @@ function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220 }
         isSelected={false}
       />
     </div>
+    </StorelibLiveProvider>
   )
 }
 
@@ -7008,6 +7019,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <EditorCanvasPage
                 theme={activeThemeSettings}
                 sources={storelibSources}
+                pageTemplate={currentPage === "home" ? "index" : currentPage}
                 sections={sections}
                 inspectorEnabled={inspectorEnabled}
                 selectedSectionId={selectedSectionId}
@@ -7554,6 +7566,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   theme,
   sections,
   sources,
+  pageTemplate,
   inspectorEnabled,
   selectedSectionId,
   device,
@@ -7567,6 +7580,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   sections: SectionInstance[]
   /** Saved .storelib files, path to source; see storelibSources in the editor. */
   sources: Record<string, string>
+  /** Which page's sections these are, for `page.template` in a section. */
+  pageTemplate: string
   inspectorEnabled: boolean
   selectedSectionId: string | null
   device: DeviceMode
@@ -7577,7 +7592,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   onEditorNavigate: (href: string) => void
 }) {
   return (
-    <StorelibSourcesProvider sources={sources}>
+    <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }}>
     <ThemePage
       theme={theme}
       sections={sections}
@@ -7657,7 +7672,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
         </div>
       )}
     </ThemePage>
-    </StorelibSourcesProvider>
+    </StorelibLiveProvider>
   )
 })
 
