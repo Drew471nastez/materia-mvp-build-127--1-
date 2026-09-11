@@ -75,10 +75,23 @@ const optionValues = (x: Field): string[] | null => {
   if (x.type !== "select" && x.type !== "radio") return null
   return (x.options ?? []).map((o) => (typeof o === "string" ? o : (o.value ?? ""))).filter(Boolean)
 }
+/**
+ * The icons a theme is allowed to name.
+ *
+ * Read from icon-map.tsx, which is where the map lives now — it was ten
+ * entries inline in _shared.tsx, and this parser went on finding an empty set
+ * for a moment after they moved, which turned every preset's icon into a
+ * failure. A parser that silently returns nothing is a guard that passes when
+ * the map is deleted, so it now refuses to run on an empty result.
+ */
 const iconNames = (() => {
-  const src = read("components/website-builder/sections/_shared.tsx")
+  const src = read("components/website-builder/sections/icon-map.tsx")
   const m = src.match(/const ICON_MAP[^{]*\{([\s\S]*?)\n\}/)
-  return new Set((m?.[1] ?? "").split("\n").map((l) => l.trim().match(/^"?([\w-]+)"?:/)?.[1]).filter(Boolean) as string[])
+  const names = new Set(
+    (m?.[1] ?? "").split("\n").map((l) => l.trim().match(/^"?([\w-]+)"?:/)?.[1]).filter(Boolean) as string[],
+  )
+  if (names.size === 0) throw new Error("ICON_MAP parsed as empty — the map moved again, or its shape changed")
+  return names
 })()
 
 // ── 1. The registry ─────────────────────────────────────────────────────
@@ -279,6 +292,74 @@ section("Adding a section where you are pointing")
   // editor falls back to appending rather than splicing at a made-up index.
   check("a page with only chrome reports no gap", bodyGapToListIndex([S("h", "header"), S("f", "footer")], 0) === null)
   check("an empty page reports no gap", bodyGapToListIndex([], 0) === null)
+}
+
+// ── Icons, and where a link goes ────────────────────────────────────────
+section("Choosing an icon, and choosing where a link goes")
+{
+  const lib = read("lib/website-builder/icon-library.ts")
+  const map = read("components/website-builder/sections/icon-map.tsx")
+  const shared = read("components/website-builder/sections/_shared.tsx")
+  const picker = stripComments(read("components/website-builder/icon-picker.tsx"))
+  const linkPicker = stripComments(read("components/website-builder/link-picker.tsx"))
+  const editorSrc = stripComments(read("app/website-builder/editor/[installId]/page.tsx"))
+
+  /**
+   * THE SET OFFERED AND THE SET DRAWN ARE THE SAME SET.
+   *
+   * This is the rule that matters. The old map had ten icons in it while the
+   * themes already named others — `stats.json` defaults to "users" and
+   * `process_steps.json` to "user-plus", neither of which was a key — so every
+   * statistic and every process step on every site drew a lightning bolt. An
+   * icon a creator can pick and then cannot get is the same bug wearing a
+   * nicer coat.
+   */
+  const inLibrary = new Set([...lib.matchAll(/names: \[([^\]]*)\]/g)].flatMap((m) => [...m[1].matchAll(/"([a-z0-9-]+)"/g)].map((x) => x[1])))
+  const inMap = new Set([...map.matchAll(/^  "([a-z0-9-]+)":/gm)].map((m) => m[1]))
+  const offered = [...inLibrary].filter((n) => !inMap.has(n))
+  const drawn = [...inMap].filter((n) => !inLibrary.has(n))
+  check(
+    "the set a creator can pick from and the set a page can draw are the same set",
+    inMap.size >= 150 && offered.length === 0 && drawn.length === 0,
+    offered.length ? `offered but not drawable: ${offered.join(", ")}` : `drawable but not offered: ${drawn.join(", ")}`,
+  )
+  check(
+    "and the two theme defaults that used to fall back to a lightning bolt now resolve",
+    inMap.has("users") && inMap.has("user-plus"),
+  )
+  // Everything the old ten-icon map could draw, it still can. Dropping one
+  // silently would swap a live site's icon for a lightning bolt, which is how
+  // this went wrong in the first place: "star" was left out of the first
+  // draft of the library and a theme was already using it.
+  check(
+    "no icon the old map had was lost on the way",
+    ["zap", "shield", "star", "check-circle", "download", "heart", "globe", "lock", "refresh-cw", "rocket"].every((n) => inMap.has(n)),
+  )
+  check("the renderer reads that map rather than a hand-written ten", /import \{ ICON_MAP \} from "\.\/icon-map"/.test(shared) && !/const ICON_MAP: Record<string, React\.ComponentType/.test(shared))
+  check(
+    "the icons are imported by name, not through lucide's thousand dynamic imports",
+    /from "lucide-react"/.test(map) && !/dynamicIconImports/.test(map),
+  )
+
+  check("an icon field gets a picker instead of falling through to a text box", /if \(field\.type === "icon"\) \{\s*return <IconPicker/.test(editorSrc))
+  check("and a link field gets one instead of a bare input", /if \(field\.type === "link"\) \{\s*return <LinkFieldEditor/.test(editorSrc) && !/field\.type === "text" \|\| field\.type === "link"/.test(editorSrc))
+
+  check("the link picker lists the site's own pages, products and collections", /kind: "page"/.test(linkPicker) && /kind: "product"/.test(linkPicker) && /kind: "collection"/.test(linkPicker))
+  check("and still takes any address at all", /Or any address/.test(linkPicker) && /mailto:/.test(linkPicker))
+  check(
+    "the targets come from the same lists the page browser shows, so the two cannot disagree",
+    /const linkTargets = useMemo<LinkTarget\[\]>/.test(editorSrc) &&
+      /\.\.\.customPages\.map/.test(editorSrc) &&
+      /\.\.\.products\.map/.test(editorSrc) &&
+      /\.\.\.collections\.map/.test(editorSrc) &&
+      (editorSrc.match(/<LinkTargetsProvider targets=\{linkTargets\}>/g) ?? []).length === 2,
+  )
+
+  // Opening in the flow rather than floating: the sidebar is a scroller
+  // inside a canvas inside a phone sheet, and a positioned popover there has
+  // to be re-measured on every scroll and can still land under the fold.
+  check("the pickers open in the flow, and close on Escape or a click away", /export function FieldPopover/.test(stripComments(read("components/website-builder/field-popover.tsx"))) && /e\.key !== "Escape"/.test(read("components/website-builder/field-popover.tsx")))
+  check("and both are measured by the phone sheet rather than collapsing it", /data-sheet-scroll/.test(picker) && /data-sheet-scroll/.test(linkPicker))
 }
 
 check("the editor deep link carries the creator slug and the pane", editorHref("mara", "abc", "code") === "/store/mara/themes/abc/editor?previewPath=%2F&view=code")

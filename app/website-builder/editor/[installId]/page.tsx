@@ -65,6 +65,8 @@ import type {
 import { PAGE_META, DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES } from "@/lib/website-builder/section-schemas"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
+import { IconPicker } from "@/components/website-builder/icon-picker"
+import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget } from "@/components/website-builder/link-picker"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
@@ -303,6 +305,20 @@ function SliderNumberControl({
   )
 }
 
+/** Reads the site's pages and products out of context and picks among them. */
+function LinkFieldEditor({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string
+  onChange: (v: unknown) => void
+  placeholder?: string
+}) {
+  const targets = useLinkTargets()
+  return <LinkPicker value={value} onChange={(href) => onChange(href)} targets={targets} placeholder={placeholder} />
+}
+
 // ── Field editor ─────────────────────────────────────────────
 function FieldEditor({
   field,
@@ -315,7 +331,26 @@ function FieldEditor({
 }) {
   const raw = value ?? field.default
 
-  if (field.type === "text" || field.type === "link") {
+  /**
+   * An icon field had NO editor at all — it fell through to the last branch
+   * of this function — so changing a feature's icon meant knowing that the
+   * value is a kebab-case lucide name and typing one.
+   */
+  if (field.type === "icon") {
+    return <IconPicker value={typeof raw === "string" ? raw : ""} onChange={(name) => onChange(name)} />
+  }
+
+  /**
+   * A link field was a bare text box, which meant knowing that your own shop
+   * is the string "/shop" and that a product is "/products/" and then a slug.
+   * The picker lists what the site actually has, and still takes anything
+   * typed.
+   */
+  if (field.type === "link") {
+    return <LinkFieldEditor value={typeof raw === "string" ? raw : ""} onChange={onChange} placeholder={field.placeholder} />
+  }
+
+  if (field.type === "text") {
     return (
       <input
         type="text"
@@ -4961,6 +4996,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [scrollToSection],
   )
   const openAddSection = useCallback(() => setAddSectionOpen(true), [])
+
+  /**
+   * Everywhere on this site a link can point, for the link fields.
+   *
+   * Built from exactly what the page browser already lists, so the two cannot
+   * disagree about what pages a site has: if it is somewhere you can open in
+   * the editor, it is somewhere you can link to.
+   */
+  const linkTargets = useMemo<LinkTarget[]>(
+    () => [
+      { href: "/", label: "Home", kind: "page" },
+      { href: "/shop", label: "Shop", kind: "page" },
+      { href: "/about", label: "About", kind: "page" },
+      { href: "/contact", label: "Contact", kind: "page" },
+      ...customPages.map((p) => ({ href: `/${p.key}`, label: p.name, kind: "page" as const })),
+      ...products.map((p) => ({ href: `/products/${p.slug}`, label: p.title, kind: "product" as const })),
+      ...collections.map((c) => ({ href: `/collections/${c.slug}`, label: c.name, kind: "collection" as const })),
+    ],
+    [customPages, products, collections],
+  )
   /**
    * Insert at a gap in the canvas. `at` counts BODY sections — 0 is above the
    * first — and `addSection` clamps whatever lands here into the range
@@ -6358,7 +6413,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
               <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
-                {renderSidebarContent()}
+                <LinkTargetsProvider targets={linkTargets}>{renderSidebarContent()}</LinkTargetsProvider>
               </div>
             </div>
             {/* The grab edge. Wider than it looks, so it can be found; drawn
@@ -6438,7 +6493,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
-              {renderSidebarContent()}
+              <LinkTargetsProvider targets={linkTargets}>{renderSidebarContent()}</LinkTargetsProvider>
             </div>
           </MobileEditorSheet>
           )
