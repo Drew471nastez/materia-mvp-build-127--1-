@@ -1028,36 +1028,6 @@ check(
 )
 
 check(
-  "the code editor arrives as its own shape, and the arriving costs no paint",
-  /**
-   * It waited behind a spinning circle in an empty card: that says something
-   * is happening and nothing else, in the one place the eye already is, and
-   * then everything it stood in for appears somewhere else.
-   *
-   * The skeleton is the shape of what is coming — gutter, tabs, file list,
-   * lines at the lengths code has. And the motion is ONE element animating
-   * `transform`, which is a compositor layer sliding rather than forty bars
-   * repainting per frame. Measured with `Element.getAnimations()`: 1
-   * animation of [transform] against 40 of [backgroundPositionX,
-   * backgroundPositionY] for the per-bar shimmer it replaces, with the
-   * gutter and the first code column landing within 0px of the real
-   * editor's. `node scripts/check-code-skeleton.mjs`
-   */
-  /function CodeSkeleton\(\{ dark = false \}/.test(modeSwitch) &&
-    /\{!loaded && <CodeSkeleton dark=\{dark\} \/>\}/.test(modeSwitch) &&
-    !/\bLoader2\b[^\n]*from "lucide-react"/.test(modeSwitch) &&
-    !/<Loader2\b/.test(modeSwitch) &&
-    ((css) =>
-      /\.wb-code-skeleton-sweep \{/.test(css) &&
-      /animation: wb-code-sweep /.test(css) &&
-      /@keyframes wb-code-sweep \{\s*\n\s*from \{ transform: translate3d/.test(css) &&
-      // the reduced-motion answer keeps the promise and drops the movement
-      /\.wb-code-skeleton-sweep \{ animation: none; opacity: 0\.35; \}/.test(css))(
-        readFileSync(join(root, "app/globals.css"), "utf8"),
-      ),
-)
-
-check(
   "no field in the code editor is small enough to make iOS zoom the page",
   /**
    * iOS zooms when a text field under 16px takes focus, and it does not zoom
@@ -1186,8 +1156,8 @@ check(
    * and that bar belongs to the BUILDER: it is outside the frame the editor
    * runs in. So it was `bg-neutral-50` whatever the editor was set to — a
    * white bar with a back button sitting on a #0e0e0e editor, one seam
-   * straight across the top of the screen. The skeleton behind it and the
-   * frame's own background had the same problem: white, always.
+   * straight across the top of the screen. The frame's own background and
+   * the pane behind it had the same problem: white, always.
    *
    * Same origin, so the two just talk. The page inside the frame stays the
    * source of truth — it owns the setting and its storage — and says so over
@@ -1215,8 +1185,7 @@ check(
     /dark \? "border-white\/10 bg-\[#151515\] text-white" : "border-neutral-200 bg-neutral-50 text-neutral-900"/.test(mode) &&
     /"ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-lg/.test(mode) &&
     // and nothing behind it flashes white on a dark editor
-    /dark \? "bg-\[#0e0e0e\]" : "bg-white"/.test(mode) &&
-    /<CodeSkeleton dark=\{dark\} \/>/.test(mode))(modeSwitch) &&
+    /dark \? "bg-\[#0e0e0e\]" : "bg-white"/.test(mode))(modeSwitch) &&
     ((code) =>
       /type: "storelib:code-theme", theme: codeTheme/.test(code) &&
       /data\.type !== "storelib:set-code-theme"/.test(code))(

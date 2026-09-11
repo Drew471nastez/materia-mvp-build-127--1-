@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { ArrowLeft, Code2, Globe, Moon, Settings, Sun } from "lucide-react"
+import { ArrowLeft, Code2, Globe, Loader2, Moon, Settings, Sun } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -150,89 +150,6 @@ export function PreviewModeSwitch({
  * preview underneath is made invisible while it shows, so nothing of the
  * site can bleed through its corners or over its edge.
  */
-/**
- * ===========================================================================
- *  WHAT IS COMING, NOT THAT SOMETHING IS COMING
- * ===========================================================================
- * The code editor waited behind a lucide spinner set to `animate-spin`: a
- * circle rotating in the middle of an empty white card. It says something is
- * happening and nothing else, in the one place the eye is already looking,
- * and then everything it was standing in for appears somewhere else.
- *
- * This is the shape of the thing being fetched — a file gutter, a tab strip,
- * and lines at the lengths code actually has, indented where code is indented.
- * Nothing moves when the real editor lands, because the real editor is this
- * shape. The bar widths are a fixed pattern rather than random: a skeleton
- * that reshuffles on every render is a second thing to look at.
- *
- * The motion is ONE element sweeping across all of it, animating `transform`
- * and nothing else, so it is a single compositor layer sliding rather than
- * forty boxes repainting per frame. See `.wb-code-skeleton-sweep`.
- */
-const SKELETON_LINES = [
-  62, 38, 84, 46, 0, 71, 52, 90, 34, 0, 58, 76, 43, 67, 0, 49, 81, 36, 60, 73,
-]
-const SKELETON_INDENT = [
-  0, 1, 1, 2, 0, 0, 1, 1, 2, 0, 0, 1, 2, 2, 0, 1, 1, 2, 1, 0,
-]
-
-function CodeSkeleton({ dark = false }: { dark?: boolean }) {
-  return (
-    <div
-      aria-hidden
-      className={cn("absolute inset-0 overflow-hidden", dark ? "bg-[#0e0e0e]" : "bg-white")}
-      /* The sweep is white light over a pale skeleton; over a dark one it has
-         to be the same idea in reverse, or it is a white bar crossing a black
-         panel. One variable, set here, read by the class. */
-      style={dark ? ({ "--wb-sweep": "rgba(255,255,255,0.07)" } as React.CSSProperties) : undefined}
-    >
-      <div className="flex h-full">
-        {/* the file list, which is the first thing the real one shows */}
-        <div className={cn("hidden w-44 shrink-0 flex-col gap-2.5 border-r p-3 sm:flex", dark ? "border-white/10" : "border-neutral-100")}>
-          <div className={cn("h-3 w-20 rounded-full", dark ? "bg-white/15" : "bg-neutral-200/80")} />
-          {[76, 58, 84, 64, 48, 70, 54].map((w, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <div className={cn("h-3.5 w-3.5 shrink-0 rounded", dark ? "bg-white/10" : "bg-neutral-100")} />
-              <div className={cn("h-2.5 rounded-full", dark ? "bg-white/10" : "bg-neutral-100")} style={{ width: `${w}%` }} />
-            </div>
-          ))}
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col">
-          {/* the tab strip */}
-          <div className={cn("flex shrink-0 items-center gap-2 border-b px-3 py-2.5", dark ? "border-white/10" : "border-neutral-100")}>
-            <div className={cn("h-3 w-24 rounded-full", dark ? "bg-white/15" : "bg-neutral-200/80")} />
-            <div className={cn("h-3 w-16 rounded-full", dark ? "bg-white/10" : "bg-neutral-100")} />
-          </div>
-          {/* and the code, with its gutter */}
-          <div className="flex min-h-0 flex-1 gap-3 px-3 py-3">
-            <div className="flex w-5 shrink-0 flex-col gap-2.5 pt-0.5">
-              {SKELETON_LINES.map((_, i) => (
-                <div key={i} className={cn("h-2 w-full rounded-full", dark ? "bg-white/10" : "bg-neutral-100")} />
-              ))}
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-2.5 pt-0.5">
-              {SKELETON_LINES.map((w, i) =>
-                /* a blank line is a blank line: skipping it would make the
-                   skeleton denser than any code it stands in for */
-                w === 0 ? (
-                  <div key={i} className="h-2" />
-                ) : (
-                  <div
-                    key={i}
-                    className={cn("h-2 rounded-full", dark ? "bg-white/10" : "bg-neutral-100")}
-                    style={{ width: `${w}%`, marginLeft: `${SKELETON_INDENT[i] * 14}px` }}
-                  />
-                ),
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-      <span className="wb-code-skeleton-sweep" />
-    </div>
-  )
-}
-
 export function CodePane({
   installId,
   visible,
@@ -440,7 +357,11 @@ export function CodePane({
         </div>
       )}
       <div className="relative min-h-0 flex-1">
-        {!loaded && <CodeSkeleton dark={dark} />}
+        {!loaded && (
+          <div className="absolute inset-0 flex items-center justify-center text-neutral-400">
+            <Loader2 className="h-5 w-5 animate-spin" />
+          </div>
+        )}
         <iframe
           ref={frameRef}
           title="Code editor"
