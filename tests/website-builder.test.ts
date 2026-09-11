@@ -39,7 +39,8 @@ import {
 import { looksLikeImage, previousSnapshotPath, SNAPSHOT_BUCKET } from "@/lib/website-builder/snapshot"
 import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition, coverSpecFromSettings } from "@/components/website-builder/theme-cover"
 import { editorHref } from "@/app/app/website-builder/website-builder-client"
-import { STORELIB_SCHEMAS, STORELIB_SECTION_TYPES } from "@/lib/website-builder/storelib-schemas"
+import { STORELIB_SCHEMAS, STORELIB_SECTION_TYPES, addableSections } from "@/lib/website-builder/storelib-schemas"
+import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 
 let passed = 0
 let failed = 0
@@ -438,6 +439,28 @@ section("The SQL")
   check("the migration seeds the same rows", THEME_REGISTRY.every((t) => mig.includes(`'${t.id}'`)))
   check("seeding never overwrites an existing row", /on conflict \(id\) do nothing/.test(run) && /on conflict \(id\) do nothing/.test(mig))
   check("the snapshot columns are added idempotently", /add column if not exists snapshot_url/.test(run) && /add column if not exists snapshot_updated_at/.test(run))
+}
+
+// ===========================================================================
+section("Add Section is derived from the files, one card per preset")
+// ===========================================================================
+{
+  /**
+   * A .storelib section is offered when its schema has a preset and only
+   * then: the preset is what lands on the page. The manifest keeps its say
+   * over the JSON-described sections until they move, and its order.
+   */
+  const fake = (presets: number) => ({ type: "x", name: "X", fields: [], presets: Array.from({ length: presets }, (_, i) => ({ name: `P${i}`, settings: {} })) })
+  const derived = addableSections(["hero", "faq", "nopreset", "cta"], { hero: fake(3), nopreset: fake(0), extra: fake(1) })
+  check("a .storelib section with presets stays where the manifest put it", derived.indexOf("hero") === 0 && derived.indexOf("faq") === 1)
+  check("a .storelib section without presets is not offered, whatever the manifest says", !derived.includes("nopreset"))
+  check("a .storelib section the manifest never heard of is offered after the list", derived.at(-1) === "extra")
+  check("JSON-described sections are untouched", derived.includes("faq") && derived.includes("cta"))
+  check("the real list offers the hero, whose three presets are in its file", ADDABLE_SECTIONS.includes("hero") && (STORELIB_SCHEMAS.hero.presets?.length ?? 0) === 3)
+
+  const editorSrc = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  check("the modal draws one card per preset, named after the preset", /const entries = \(type: string\)/.test(editorSrc) && (editorSrc.match(/visibleSections\.flatMap\(entries\)/g) ?? []).length === 2)
+  check("and the chosen preset is the one that lands on the page", /const addSection = \(type: string, presetIndex = 0\)/.test(editorSrc) && /schema\.presets\?\.\[presetIndex\]/.test(editorSrc))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

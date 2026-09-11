@@ -103,3 +103,22 @@ export const STORELIB_SCHEMAS: Record<string, SectionSchema> = Object.fromEntrie
     return [type, { type, name: type, fields: [] }]
   }),
 )
+
+/**
+ * WHAT ADD SECTION OFFERS, derived from the files. A section that lives in a
+ * .storelib file is addable when its schema has at least one preset, and
+ * only then — a preset is what Add Section puts on the page, and a file
+ * without one has said nothing about how it should first appear. Sections
+ * still described by JSON keep the manifest's say-so until they move.
+ *
+ * The manifest's order is kept for what it lists; .storelib sections it
+ * does not know about go after it. A .storelib section the manifest lists
+ * but that has no presets is dropped: the file wins over the list.
+ */
+export function addableSections(manifestList: readonly string[], storelib: Record<string, SectionSchema>): string[] {
+  const offered = (type: string) => (storelib[type]?.presets?.length ?? 0) > 0
+  const out = manifestList.filter((type) => !(type in storelib) || offered(type))
+  for (const type of Object.keys(storelib)) if (offered(type) && !out.includes(type)) out.push(type)
+  return out
+}
+
