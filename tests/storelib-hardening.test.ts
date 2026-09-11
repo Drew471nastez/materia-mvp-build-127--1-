@@ -172,6 +172,60 @@ function main() {
     check("and the written section opens in the code editor to be read", /onOpenCodeEditor\(written\.path\)/.test(chat))
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  section("Pictures, within the rule that says no server-side transforms")
+  // ═══════════════════════════════════════════════════════════════════════
+  /**
+   * Supabase meters image transformations and this account has already hit
+   * the cap, so resizing on the server is not available at any price anybody
+   * wants to pay — see tests/no-image-transforms.test.ts. What is left is
+   * free and is what browsers are for: say which images matter, say which do
+   * not, and reserve the space either way.
+   */
+  {
+    const dir = join(root, "themes/default/sections")
+    const files = readdirSync(dir).filter((f) => f.endsWith(".storelib"))
+    const withImg = files.filter((f) => /<img/.test(readFileSync(join(dir, f), "utf8")))
+
+    const unsaid = withImg.filter((f) =>
+      (readFileSync(join(dir, f), "utf8").match(/<img[^>]*>/g) ?? []).some((t) => !/loading=/.test(t)),
+    )
+    check("every image says whether it is worth waiting for", unsaid.length === 0, unsaid.join(", "))
+
+    /**
+     * A hero's picture IS the largest paint. Lazy loading it asks the browser
+     * to wait before fetching the one thing the page is measured on, which is
+     * slower, not faster — and the retired hero was doing exactly that.
+     */
+    const heroes = files.filter((f) => /^hero/.test(f))
+    const lazyHero = heroes.filter((f) => {
+      const tags = readFileSync(join(dir, f), "utf8").match(/<img[^>]*>/g) ?? []
+      return tags.some((t) => /loading="lazy"/.test(t))
+    })
+    check("no hero lazy-loads its own picture", lazyHero.length === 0, lazyHero.join(", "))
+    const noPriority = heroes.filter((f) => {
+      const text = readFileSync(join(dir, f), "utf8")
+      return /<img/.test(text) && !/fetchpriority="high"/.test(text)
+    })
+    check("and every hero that has one asks for it first", noPriority.length === 0, noPriority.join(", "))
+
+    check("nothing reaches for a metered transform", !withImg.some((f) => /render\/image\/public/.test(readFileSync(join(dir, f), "utf8"))))
+
+    /**
+     * Measured, not asserted: scripts/check-layout-shift.mjs renders every
+     * section with an image twice, once with the pictures unable to load and
+     * once with them loaded, and compares the heights. 16 of 16 hold at
+     * 1100px and at 390px. Two did not before this: about_timeline grew
+     * 720px, and proof_logos rewrapped by 56px on a phone.
+     */
+    check("the two that used to jump now reserve their space", (() => {
+      const timeline = readFileSync(join(dir, "about_timeline.storelib"), "utf8")
+      const logos = readFileSync(join(dir, "proof_logos.storelib"), "utf8")
+      return /\.tl__img \{[\s\S]*?aspect-ratio: 4 \/ 3/.test(timeline) && /\.lr img \{[\s\S]*?aspect-ratio: 3 \/ 1/.test(logos)
+    })())
+    check("and there is a probe that would catch the next one", /check-layout-shift\.mjs/.test(read("scripts/check-layout-shift.mjs")) && /hold their height when the pictures arrive/.test(read("scripts/check-layout-shift.mjs")))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }

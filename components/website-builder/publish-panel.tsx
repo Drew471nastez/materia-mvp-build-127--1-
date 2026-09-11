@@ -2,7 +2,7 @@
 
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { useEffect, useRef, useState } from "react"
-import { Check, Copy, ExternalLink, Globe, Loader2, ShieldCheck } from "lucide-react"
+import { Check, Copy, ExternalLink, Eye, Globe, Loader2, ShieldCheck } from "lucide-react"
 
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { cn } from "@/lib/utils"
@@ -27,6 +27,8 @@ import { cn } from "@/lib/utils"
 
 export interface PublishPanelProps {
   open: boolean
+  /** Whose drafts a preview link would show. */
+  installId: string
   onOpenChange: (open: boolean) => void
   /** Anchor for the desktop popover. */
   anchorRef: React.RefObject<HTMLElement | null>
@@ -48,6 +50,8 @@ export interface PublishPanelProps {
 export { relativeTime }
 
 function Body({
+  installId,
+  active,
   live,
   pending,
   publishedAt,
@@ -59,8 +63,99 @@ function Body({
 }: Omit<PublishPanelProps, "open" | "onOpenChange" | "anchorRef" | "mobile"> & {
   /** Keep the actions on screen under a scrolling body: the phone's sheet. */
   pinActions?: boolean
+  /** The panel is on screen. On a phone the sheet keeps this mounted while
+      closed, and a closed sheet has no business asking the server anything. */
+  active: boolean
 }) {
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState<"site" | "preview" | null>(null)
+  /**
+   * ═════════════════════════════════════════════════════════════════════
+   *  THE LINK THAT SHOWS UNPUBLISHED WORK
+   * ═════════════════════════════════════════════════════════════════════
+   * Preview used to be an ordinary link to the live address with
+   * `builder_preview=1` on it, and nothing anywhere read that parameter. It
+   * appeared to work because the public pages were serving drafts to
+   * everybody: the preview and the leak were the same behaviour seen from
+   * two sides. With the pages fixed to serve only what was published, this
+   * needs a real answer, and the real answer is a secret in the URL.
+   *
+   * Asked for, never assumed. Opening this panel reads whether a link
+   * exists; it does not create one. The first press of Preview creates it,
+   * and Turn off destroys it, which un-shares every copy already sent.
+   */
+  const [previewToken, setPreviewToken] = useState<string | null>(null)
+  const [previewBusy, setPreviewBusy] = useState(false)
+  const [previewNote, setPreviewNote] = useState<string | null>(null)
+  const asked = useRef(false)
+
+  useEffect(() => {
+    if (!active || asked.current || !installId) return
+    asked.current = true
+    void (async () => {
+      try {
+        const r = await fetch(`/api/website-builder/themes/${installId}/preview`)
+        const j = (await r.json().catch(() => ({}))) as { token?: string | null }
+        if (r.ok && j.token) setPreviewToken(j.token)
+      } catch {
+        /* the link is an extra; not having asked yet is not an error to show */
+      }
+    })()
+  }, [active, installId])
+
+  const previewUrl = previewToken && websiteUrl
+    ? `${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}preview=${previewToken}`
+    : null
+
+  const openPreview = async () => {
+    if (previewUrl) {
+      window.open(previewUrl, "_blank", "noopener")
+      return
+    }
+    /**
+     * The tab is opened now and pointed somewhere after. A window opened on
+     * the far side of an await is not attributable to the press any more,
+     * and every browser blocks it.
+     */
+    const tab = window.open("", "_blank")
+    setPreviewBusy(true)
+    setPreviewNote(null)
+    try {
+      const r = await fetch(`/api/website-builder/themes/${installId}/preview`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ base: websiteUrl }),
+      })
+      const j = (await r.json().catch(() => ({}))) as { token?: string; url?: string; error?: string }
+      if (!r.ok || !j.url || !j.token) {
+        tab?.close()
+        setPreviewNote(j.error ?? "Could not make a preview link.")
+        return
+      }
+      setPreviewToken(j.token)
+      if (tab) tab.location.href = j.url
+      else window.open(j.url, "_blank", "noopener")
+    } catch {
+      tab?.close()
+      setPreviewNote("Could not make a preview link.")
+    } finally {
+      setPreviewBusy(false)
+    }
+  }
+
+  const revokePreview = async () => {
+    setPreviewBusy(true)
+    try {
+      const r = await fetch(`/api/website-builder/themes/${installId}/preview`, { method: "DELETE" })
+      if (r.ok) {
+        setPreviewToken(null)
+        setPreviewNote(null)
+      }
+    } catch {
+      /* left on, and it says so: the row is still there */
+    } finally {
+      setPreviewBusy(false)
+    }
+  }
   // Re-rendered every half minute while visible, so "4 minutes ago" does not
   // still say four after ten. Cheap, and only while the panel is open.
   const [, tick] = useState(0)
@@ -76,11 +171,11 @@ function Body({
       ? `Changes since published${ago ? ` ${ago}` : ""}`
       : `Published${ago ? ` ${ago}` : ""}`
 
-  const copy = async () => {
+  const copy = async (text: string, which: "site" | "preview") => {
     try {
-      await navigator.clipboard.writeText(websiteUrl)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1400)
+      await navigator.clipboard.writeText(text)
+      setCopied(which)
+      window.setTimeout(() => setCopied(null), 1400)
     } catch {
       /* a clipboard that refuses is not worth an error */
     }
@@ -102,15 +197,19 @@ function Body({
           made two buttons for one decision. Here it is the question
           before the answer. */}
       {websiteUrl ? (
-        <a
-          href={`${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}builder_preview=1&show_preview_bar=1`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-white/15 px-4 text-[15px] font-medium text-white/85 transition-colors hover:bg-white/10 hover:text-white"
+        <button
+          type="button"
+          onClick={() => void openPreview()}
+          disabled={previewBusy}
+          className="flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-white/15 px-4 text-[15px] font-medium text-white/85 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
         >
-          <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
+          {previewBusy ? (
+            <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+          ) : (
+            <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
+          )}
           Preview
-        </a>
+        </button>
       ) : null}
       {/**
        * ONE BOX, WHATEVER IT SAYS.
@@ -177,11 +276,11 @@ function Body({
               <span className="min-w-0 flex-1 truncate text-[15px]">{websiteUrlDisplay}</span>
               <button
                 type="button"
-                onClick={copy}
+                onClick={() => void copy(websiteUrl, "site")}
                 className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
                 aria-label="Copy address"
               >
-                {copied ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.75} />}
+                {copied === "site" ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.75} />}
               </button>
               <a
                 href={websiteUrl}
@@ -197,9 +296,37 @@ function Body({
               <Globe className="h-4 w-4 shrink-0 text-white/40" strokeWidth={1.75} />
               {live ? "Visible to anyone with the link" : "Nobody can see it until it is published"}
             </div>
+            {/**
+              * Only once there is one. A row explaining a link that does not
+              * exist is a row about a button three inches away.
+              */}
+            {previewUrl && (
+              <div className="flex items-center gap-3 border-t border-white/10 px-4 py-3 text-[14px]">
+                <Eye className="h-4 w-4 shrink-0 text-white/40" strokeWidth={1.75} />
+                <span className="min-w-0 flex-1 text-white/70">Preview link shows unpublished changes</span>
+                <button
+                  type="button"
+                  onClick={() => void copy(previewUrl, "preview")}
+                  className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                  aria-label="Copy the preview link"
+                >
+                  {copied === "preview" ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.75} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void revokePreview()}
+                  disabled={previewBusy}
+                  className="shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
+                >
+                  Turn off
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
+
+      {previewNote && <p className="text-[14px] text-amber-300/90">{previewNote}</p>}
 
       <div className="flex items-center gap-2.5 text-[14px] text-white/80">
         <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" strokeWidth={1.75} />
@@ -302,7 +429,7 @@ export function PublishPanel(props: PublishPanelProps) {
         layer="raised"
         peekHeight={0}
       >
-        <Body {...props} pinActions />
+        <Body {...props} pinActions active={open} />
       </MobileEditorSheet>
     )
   }
@@ -322,7 +449,7 @@ export function PublishPanel(props: PublishPanelProps) {
           : "pointer-events-none animate-out fade-out-0 zoom-out-95 slide-out-to-top-1 fill-mode-forwards",
       )}
     >
-      <Body {...props} />
+      <Body {...props} active={open} />
     </div>
   )
 }
