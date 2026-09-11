@@ -49,7 +49,7 @@ root.querySelector("a")?.addEventListener("click", () => {
 | Block | Required | What it is | Documented in |
 | --- | --- | --- | --- |
 | `<template>` | yes | The markup, in the template language. | 03 |
-| `<style scoped>` | no | CSS that applies to this section's instances only. | 10 |
+| `<style>` | no | CSS that applies to this section's instances only. `scoped` is accepted and means the same. | 10 |
 | `<script>` | no | Behaviour, run against the section's root. | 09 |
 | `<schema>` | yes | JSON: the section's identity, settings, blocks, presets. | 04 |
 
@@ -62,8 +62,9 @@ root.querySelector("a")?.addEventListener("click", () => {
 - A block that is never closed is refused at the line it opened.
 - A file without `<template>` or `<schema>` is refused: "A section needs a
   `<schema>` block".
-- `<style>` without `scoped` is refused in a section. Global CSS lives in
-  `layout/theme.storelib`, where it is allowed and expected.
+- `<style>` and `<style scoped>` mean the same thing in a section: both are
+  scoped to the section. There is no way to write a section rule that is not,
+  so the word is optional. Global CSS lives in `layout/theme.storelib`.
 - The file is at most 512 KB (`LIMITS.sourceBytes`).
 
 Every error carries the file path and a 1-based line in that file, including

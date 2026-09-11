@@ -27,7 +27,7 @@ import { LIMITS, type CompiledSection, type Result, type ThemeError } from "../t
 import { scopeCss } from "./css"
 import { parseSchemaJson, parseStorelib } from "./parse"
 import { checkScript } from "./script"
-import { compileTemplate, pathsRead, type CompiledTemplate } from "./template"
+import { compileTemplate, pathRefs, pathsRead, type CompiledTemplate } from "./template"
 
 export function sourceHash(source: string): string {
   return createHash("sha256").update(source, "utf8").digest("hex")
@@ -38,6 +38,82 @@ export interface CompileOptions {
   file?: string
   /** When set, the schema's `type` must match the file's name. */
   expectType?: string
+}
+
+/**
+ * ===========================================================================
+ *  A TEMPLATE IS CHECKED AGAINST ITS OWN SCHEMA
+ * ===========================================================================
+ * `{{ settings.headng }}` is a perfectly legal expression that can only ever
+ * be empty, and a section built out of those renders as a shell: the markup
+ * is there, the CSS is there, every word is missing. That was the single
+ * worst thing about writing a section here, because nothing said so — not
+ * the editor, not the preview, not the save.
+ *
+ * So the compiler reads every path the template reads and holds it against
+ * the schema beside it. A name the schema does not declare is an error with
+ * the line that reads it, the same as a syntax error, and the file does not
+ * save until it is a name that exists.
+ *
+ * What is NOT an error: a declared setting that happens to be empty right
+ * now. That is a section with nothing typed into it yet, which is the normal
+ * state of a section somebody just added.
+ */
+const CONTEXT_ROOTS = new Set(["settings", "blocks", "theme", "scheme", "page", "section", "forloop"])
+const SECTION_KEYS = new Set(["id", "type", "settings", "blocks"])
+
+function checkReferences(
+  tpl: CompiledTemplate,
+  schema: { settings: { id: string }[]; blocks?: { type: string; settings: { id: string }[] }[] },
+  file: string,
+  line: number,
+): ThemeError[] {
+  const errors: ThemeError[] = []
+  const at = (l: number) => line + l - 1
+  const declared = new Set(schema.settings.map((s) => s.id))
+  const blockIds = new Set((schema.blocks ?? []).flatMap((b) => b.settings.map((s) => s.id)))
+  const hasBlocks = (schema.blocks ?? []).length > 0
+  const list = (ids: Set<string>) => (ids.size ? [...ids].sort().join(", ") : "none")
+  const seen = new Set<string>()
+  const push = (l: number, message: string) => {
+    const key = `${l}:${message}`
+    if (seen.has(key)) return
+    seen.add(key)
+    errors.push({ stage: "template", file, line: at(l), message })
+  }
+
+  for (const ref of pathRefs(tpl)) {
+    const [root, second, third] = ref.segs
+    const iterates = ref.bound.get(root)
+
+    if (iterates !== undefined) {
+      // A loop variable. Only one over the section's blocks can be checked.
+      if ((iterates === "blocks" || iterates === "section.blocks") && second === "settings" && third) {
+        if (!hasBlocks) push(ref.line, `This section declares no blocks, so "${root}.settings.${third}" is always empty. Add a "blocks" list to the schema.`)
+        else if (!blockIds.has(third)) push(ref.line, `No block setting is called "${third}". This section's blocks have: ${list(blockIds)}.`)
+      }
+      continue
+    }
+
+    if (!CONTEXT_ROOTS.has(root)) {
+      push(ref.line, `"${root}" is not something a section can read. A section reads settings, blocks, theme, scheme, page and section.`)
+      continue
+    }
+    if (root === "section" && second && !SECTION_KEYS.has(second)) {
+      push(ref.line, `A section has id, type, settings and blocks. "section.${second}" is always empty.`)
+      continue
+    }
+    const settingId = root === "settings" ? second : root === "section" && second === "settings" ? third : undefined
+    if (settingId !== undefined && !declared.has(settingId)) {
+      push(ref.line, `No setting is called "${settingId}". This section declares: ${list(declared)}.`)
+      continue
+    }
+    const readsBlocks = root === "blocks" || (root === "section" && second === "blocks")
+    if (readsBlocks && !hasBlocks) {
+      push(ref.line, `This section reads its blocks but declares none, so the list is always empty. Add a "blocks" list to the schema.`)
+    }
+  }
+  return errors
 }
 
 export function compileSection(source: string, opts: CompileOptions = {}): Result<CompiledSection> {
@@ -69,28 +145,29 @@ export function compileSection(source: string, opts: CompileOptions = {}): Resul
 
   const template = compileTemplate(src.template.text, { file, line: src.template.line, capabilities: schema.value.capabilities })
   if (template.ok === false) errors.push(...template.errors)
+  else errors.push(...checkReferences(template.value, schema.value, file, src.template.line))
 
   let css = ""
   let cssTemplate: unknown
   if (src.style.text.trim()) {
-    if (!src.style.scoped) {
-      errors.push({
-        stage: "css",
-        file,
-        line: src.style.line > 0 ? src.style.line - 1 : undefined,
-        message: `A section's <style> must be <style scoped>. Page-wide rules belong in layout/theme.storelib.`,
-      })
-    } else {
-      const scoped = scopeCss(src.style.text, { file, line: src.style.line, type: schema.value.type })
-      if (scoped.ok === true) {
-        css = scoped.value
-        if (css.includes("{{")) {
-          const t = compileTemplate(css, { file, line: src.style.line })
-          if (t.ok === true) cssTemplate = t.value
-          else errors.push(...t.errors.map((e) => ({ ...e, stage: "css" as const })))
-        }
-      } else errors.push(...scoped.errors)
-    }
+    /**
+     * A SECTION'S CSS IS SCOPED, AND WRITING `scoped` IS NOT HOW YOU ASK.
+     * This used to refuse a plain <style> and say the word was required,
+     * which taught the format's one hard rule by throwing away a file. The
+     * rule is real — a section's rules reach that section and nothing else —
+     * but it is the engine's job, not a word the author has to remember. So
+     * both spellings compile, and both are scoped, because there is no such
+     * thing here as a section rule that is not.
+     */
+    const scoped = scopeCss(src.style.text, { file, line: src.style.line, type: schema.value.type })
+    if (scoped.ok === true) {
+      css = scoped.value
+      if (css.includes("{{")) {
+        const t = compileTemplate(css, { file, line: src.style.line })
+        if (t.ok === true) cssTemplate = t.value
+        else errors.push(...t.errors.map((e) => ({ ...e, stage: "css" as const })))
+      }
+    } else errors.push(...scoped.errors)
   }
 
   let script: string | null = null

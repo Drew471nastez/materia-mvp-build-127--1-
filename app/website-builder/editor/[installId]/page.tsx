@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useMemo, useRef, use, memo } from "react"
+import { useEffect, useState, useLayoutEffect, useCallback, useMemo, useRef, use, memo } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
@@ -777,41 +777,63 @@ function buildPreviewSection(type: string, presetIndex = 0, given?: SectionSchem
   }
 }
 
+/**
+ * ===========================================================================
+ *  ONE SECTION, DRAWN SMALL
+ * ===========================================================================
+ * The section is rendered at a desktop width and shrunk to fit the card, so
+ * what you see is the section and not a narrow-screen version of it.
+ *
+ * THE BOX IS A FIXED SHAPE. It used to be as tall as whatever the section
+ * rendered to, which meant every card changed height the moment its preview
+ * appeared, and a grid of them settled in stages — the jumping when the
+ * library opens or a category changes. A ratio known before anything renders
+ * means the grid is its final size on the first frame, and the previews fill
+ * in underneath without moving anything.
+ *
+ * `content-visibility: auto` lets the browser skip the ones scrolled out of
+ * view; `contain-intrinsic-size` is what keeps that from costing a scroll
+ * jump, since the box's size is known whether it has been drawn or not.
+ */
+const PREVIEW_RATIO = 0.5
+
 function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, schema }: { type: string; presetIndex?: number; containerWidth?: number; schema?: SectionSchema }) {
-  const section = buildPreviewSection(type, presetIndex, schema)
+  const section = useMemo(() => buildPreviewSection(type, presetIndex, schema), [type, presetIndex, schema])
+  const height = Math.round(containerWidth * PREVIEW_RATIO)
   if (!section) {
     return (
-      <div className="w-full h-full bg-muted flex items-center justify-center">
+      <div className="w-full flex items-center justify-center bg-muted" style={{ height }}>
         <Layout className="h-8 w-8 text-muted-foreground/30" />
       </div>
     )
   }
   const scale = containerWidth / PREVIEW_RENDER_WIDTH
-  /**
-   * The thumbnail is drawn outside the canvas, so it brings its own renderer:
-   * a .storelib section has no markup until something compiles it, and the
-   * canvas's provider does not reach into this modal. No saved sources here
-   * on purpose — the card shows the section as the theme ships it.
-   */
   return (
-    <StorelibLiveProvider sources={EMPTY_SOURCES}>
     <div
-      className="origin-top-left overflow-hidden"
+      className="relative w-full overflow-hidden"
       style={{
-        width: PREVIEW_RENDER_WIDTH,
-        zoom: scale,
-        pointerEvents: "none",
-        userSelect: "none",
+        height,
+        contentVisibility: "auto",
+        containIntrinsicSize: `${containerWidth}px ${height}px`,
       }}
     >
-      <SectionRenderer
-        section={section}
-        theme={PREVIEW_THEME}
-        isEditing={false}
-        isSelected={false}
-      />
+      <div
+        className="absolute left-0 top-0 origin-top-left"
+        style={{
+          width: PREVIEW_RENDER_WIDTH,
+          transform: `scale(${scale})`,
+          pointerEvents: "none",
+          userSelect: "none",
+        }}
+      >
+        <SectionRenderer
+          section={section}
+          theme={PREVIEW_THEME}
+          isEditing={false}
+          isSelected={false}
+        />
+      </div>
     </div>
-    </StorelibLiveProvider>
   )
 }
 
@@ -836,6 +858,7 @@ const SectionLibraryCard = memo(function SectionLibraryCard({
   presetIndex,
   title,
   schema,
+  width,
   mobile,
   onAdd,
 }: {
@@ -843,22 +866,13 @@ const SectionLibraryCard = memo(function SectionLibraryCard({
   presetIndex: number
   title: string
   schema: SectionSchema
+  /** Measured once by the grid, not thirty times by thirty cards. */
+  width: number
   mobile?: boolean
   onAdd: (type: string, presetIndex: number) => void
 }) {
-  const cardRef = useRef<HTMLButtonElement>(null)
-  const [cardWidth, setCardWidth] = useState(mobile ? 300 : 260)
-  useEffect(() => {
-    if (!cardRef.current) return
-    const ro = new ResizeObserver(([entry]) => {
-      if (entry) setCardWidth(entry.contentRect.width)
-    })
-    ro.observe(cardRef.current)
-    return () => ro.disconnect()
-  }, [])
   return (
     <button
-      ref={cardRef}
       onClick={() => onAdd(type, presetIndex)}
       className={cn(
         "flex flex-col w-full rounded-xl border border-border bg-background overflow-hidden text-left",
@@ -874,7 +888,7 @@ const SectionLibraryCard = memo(function SectionLibraryCard({
         <p className="font-semibold text-sm leading-tight text-foreground">{title}</p>
       </div>
       <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden">
-        <SectionPreviewThumbnail type={type} presetIndex={presetIndex} containerWidth={cardWidth} schema={schema} />
+        <SectionPreviewThumbnail type={type} presetIndex={presetIndex} containerWidth={width} schema={schema} />
       </div>
     </button>
   )
@@ -896,6 +910,7 @@ function AddSectionModal({
   schemas,
   addable,
   ownTypes,
+  sources,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -905,6 +920,8 @@ function AddSectionModal({
   addable: string[]
   /** The ones this creator wrote, which get their own heading. */
   ownTypes: string[]
+  /** Every .storelib file this install has saved, so the cards can draw them. */
+  sources: Record<string, string>
 }) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [query, setQuery] = useState("")
@@ -1045,21 +1062,66 @@ function AddSectionModal({
     </div>
   )
 
+  /**
+   * THE COLUMN IS MEASURED ONCE, BY THE GRID. Every card in a one-column
+   * grid is the width of the grid, so thirty cards measuring themselves was
+   * thirty ResizeObservers agreeing — and each of them reported after the
+   * first paint, so every card drew once at a guessed width and then jumped
+   * to the real one. That is the snap on opening the library and on changing
+   * category.
+   *
+   * Measured here instead, before paint, and kept while the modal is open:
+   * changing category re-uses the width that is already known, so the new
+   * cards are the right size on their first frame. There is nothing to
+   * settle into.
+   */
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [gridWidth, setGridWidth] = useState(0)
+  /**
+   * The card has a 1px border, and the preview sits inside it, so the space
+   * the preview actually has is the column less those two pixels. Scaling to
+   * the column instead put a 2px-wide sliver of every section past the right
+   * edge of its own box, cropped and never seen — small, but it is the
+   * difference between a preview that is the section and one that is nearly
+   * the section.
+   */
+  const previewWidth = Math.max(0, gridWidth - 2)
+  useLayoutEffect(() => {
+    const el = gridRef.current
+    if (!el) return
+    const read = () => setGridWidth(el.getBoundingClientRect().width)
+    read()
+    const ro = new ResizeObserver(read)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [open, isMobileLayout])
+
   const cards = (mobile: boolean) => (
     <>
-      <div className={mobile ? "flex flex-col gap-3" : "grid grid-cols-1 gap-4"}>
-        {visible.map(e => (
-          <SectionLibraryCard
-            key={`${e.type}-${e.presetIndex}`}
-            type={e.type}
-            presetIndex={e.presetIndex}
-            title={e.title}
-            schema={e.schema}
-            mobile={mobile}
-            onAdd={handleAdd}
-          />
-        ))}
-      </div>
+      {/*
+        * ONE PROVIDER, NOT ONE PER CARD — and it carries this install's saved
+        * sources, which is what lets a section the creator wrote draw at all:
+        * it exists only in their files, so a card with no sources had nothing
+        * to render and showed an empty box under its name. It also means a
+        * theme section somebody has edited previews as they edited it, rather
+        * than as it shipped.
+        */}
+      <StorelibLiveProvider sources={sources}>
+        <div ref={gridRef} className={mobile ? "flex flex-col gap-3" : "grid grid-cols-1 gap-4"}>
+          {gridWidth > 0 && visible.map(e => (
+            <SectionLibraryCard
+              key={`${e.type}-${e.presetIndex}`}
+              type={e.type}
+              presetIndex={e.presetIndex}
+              title={e.title}
+              schema={e.schema}
+              width={previewWidth}
+              mobile={mobile}
+              onAdd={handleAdd}
+            />
+          ))}
+        </div>
+      </StorelibLiveProvider>
       {visible.length === 0 && (
         <div className="py-16 text-center text-muted-foreground">
           <p className="text-sm">{empty}</p>
@@ -7362,6 +7424,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         schemas={librarySchemas}
         addable={libraryAddable}
         ownTypes={ownSectionTypes}
+        sources={storelibSources}
       />
 
       {/* ── Add Custom Page Modal ── */}

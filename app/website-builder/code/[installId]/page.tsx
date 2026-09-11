@@ -162,6 +162,75 @@ const CODE_BAR_ICON_BUTTON =
   "hover:bg-[var(--code-hover)] hover:text-[var(--code-text)] active:scale-95 " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--code-focus)]"
 
+/**
+ * ===========================================================================
+ *  YOU NAME THE SECTION. THE PATH IS THE PATH.
+ * ===========================================================================
+ * This field used to hold "sections/my-section.storelib" and ask somebody to
+ * edit the middle of it, which meant the two parts that are not theirs to
+ * choose — the folder a section has to live in, and the extension that makes
+ * it a section — were the two parts easiest to break. Delete a character
+ * from either and the file stops being a section, with nothing said.
+ *
+ * So the folder and the extension are printed either side of the field and
+ * cannot be typed into, and what is typed is the name. It is put into the
+ * shape a file name has to have AS it is typed, rather than refused after
+ * the fact: spaces become hyphens, capitals become lower case, and anything
+ * that is not a letter, a digit, a hyphen or an underscore is dropped.
+ */
+export function fileNameOf(path: string): { dir: string; name: string; ext: string } {
+  const slash = path.lastIndexOf("/")
+  const dir = slash === -1 ? "" : path.slice(0, slash + 1)
+  const rest = path.slice(slash + 1)
+  const dot = rest.indexOf(".")
+  return dot === -1 ? { dir, name: rest, ext: "" } : { dir, name: rest.slice(0, dot), ext: rest.slice(dot) }
+}
+
+export function asFileName(typed: string): string {
+  return typed
+    .toLowerCase()
+    .replace(/[\s.]+/g, "-")
+    .replace(/[^a-z0-9_-]/g, "")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+/, "")
+}
+
+
+function NameField({
+  path,
+  onChange,
+  label,
+  className,
+}: {
+  path: string
+  onChange: (path: string) => void
+  label: string
+  /**
+   * The whole of the field's look, written at the call site as one string.
+   * The two sizes it is drawn at are different, and both are measured by
+   * scripts/check-code-mobile.mjs, so they read where they are set rather
+   * than being assembled here out of pieces.
+   */
+  className: string
+}) {
+  const { dir, name, ext } = fileNameOf(path)
+  return (
+    <div className={cn("flex items-center focus-within:border-[var(--code-text)]/30", className)}>
+      {dir ? <span className="shrink-0 select-none text-[var(--code-faint)]">{dir}</span> : null}
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => onChange(`${dir}${asFileName(e.target.value)}${ext}`)}
+        className="min-w-0 flex-1 bg-transparent px-0 text-inherit text-[var(--code-text)] focus:outline-none"
+        aria-label={label}
+        spellCheck={false}
+        autoComplete="off"
+      />
+      {ext ? <span className="shrink-0 select-none text-[var(--code-faint)]">{ext}</span> : null}
+    </div>
+  )
+}
+
 export default function CodeEditorPage({ params }: { params: Promise<{ installId: string }> }) {
   const { installId } = use(params)
   const router = useRouter()
@@ -550,13 +619,40 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     const node: ThemeFileNode = { path: to, name: to.split("/").pop()!, type: "file", isCustomized: false, language: detectLanguage(to) }
     if (pendingAction.kind === "new") {
       if (flattenTree(fileTree).includes(to)) { toast.error(`${to} already exists`); return }
+      /**
+       * CREATE WRITES THE FILE. It used to only open a tab: the starter was
+       * put in the textarea, the tree drew the name, the preview found the
+       * section — and none of it was anywhere but this browser. Refresh and
+       * the whole thing was gone, with no warning and nothing to recover,
+       * because it had never been saved in the first place.
+       *
+       * Now the starter is saved before the tab opens, so a file that exists
+       * on screen exists in the account. The starter compiles, so this
+       * cannot fail on its own content; if the server refuses it anyway the
+       * tab does not open and the reason is shown.
+       */
+      const starter = starterFor(to)
+      const res = await fetch(`/api/website-builder/themes/${installId}/files`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: to, content: starter }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 422 && Array.isArray(d.errors)) setCompileErrors(d.errors as ThemeError[])
+        toast.error(d.error ?? "Could not create that file")
+        return
+      }
       setPendingAction(null)
-      setSelectedFile(node)
+      setSelectedFile({ ...node, isCustomized: true })
       setCompileErrors([])
-      setFileContent(starterFor(to))
-      setOriginalContent("")
-      setOpenTabs(prev => (prev.find(t => t.path === to) ? prev : [...prev, node]))
+      setFileContent(starter)
+      setOriginalContent(starter)
+      setCustomizedPaths(prev => new Set([...prev, to]))
+      setFileTree(buildThemeFileTree([...customizedPaths, to]))
+      setOpenTabs(prev => (prev.find(t => t.path === to) ? prev : [...prev, { ...node, isCustomized: true }]))
       setShowFiles(false)
+      announceFileChange(to)
+      toast.success(`${node.name} created`)
       return
     }
     if (!selectedFile) return
@@ -1098,15 +1194,28 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                     className="mt-3 flex items-center gap-2"
                     onSubmit={e => { e.preventDefault(); void runPendingAction() }}
                   >
-                    <input
-                      autoFocus
-                      value={pendingAction.path}
-                      onChange={e => setPendingAction({ kind: "new", path: e.target.value })}
-                      onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}
-                      className="h-9 w-72 max-w-full rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[16px] md:h-8 md:text-[12px] text-[var(--code-text)] focus:outline-none"
-                      aria-label="Path of the new file"
-                    />
-                    <button type="submit" className="h-8 rounded-md bg-[#8B56FA] px-3 text-[12px] text-white hover:bg-[#7b46ec]">Create</button>
+                    <div onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}>
+                      <NameField
+                        path={pendingAction.path}
+                        onChange={path => setPendingAction({ kind: "new", path })}
+                        label="Name of the new section"
+                        className="h-9 w-72 max-w-full rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[16px] md:h-8 md:text-[12px]"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={!fileNameOf(pendingAction.path).name}
+                      className="h-9 shrink-0 rounded-md bg-[#111114] px-3 text-[12px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none md:h-8"
+                    >
+                      Create
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPendingAction(null)}
+                      className="h-9 shrink-0 rounded-md px-2.5 text-[12px] font-[550] text-[var(--code-muted)] transition-colors hover:bg-[var(--code-hover)] hover:text-[var(--code-text)] md:h-8"
+                    >
+                      Cancel
+                    </button>
                   </form>
                 )}
               </div>
@@ -1189,26 +1298,27 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                 <span className="shrink-0 text-[11px] text-[var(--code-muted)]">
                   {pendingAction.kind === "new" ? "New file at" : pendingAction.kind === "rename" ? "Rename to" : "Duplicate as"}
                 </span>
-                <input
-                  autoFocus
-                  value={pendingAction.path}
-                  onChange={e => setPendingAction({ ...pendingAction, path: e.target.value })}
-                  onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}
-                  className="h-10 min-w-0 flex-1 rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[16px] md:h-7 md:text-[12px] text-[var(--code-text)] focus:outline-none"
-                  aria-label="Path"
-                />
+                <div className="flex min-w-0 flex-1" onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}>
+                  <NameField
+                    path={pendingAction.path}
+                    onChange={path => setPendingAction({ ...pendingAction, path })}
+                    label={pendingAction.kind === "rename" ? "New name" : "Name"}
+                    className="h-10 min-w-0 flex-1 rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[16px] md:h-7 md:text-[12px]"
+                  />
+                </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="submit"
-                  className="h-10 flex-1 rounded-md bg-[#8B56FA] px-3 text-[13px] font-medium text-white hover:bg-[#7b46ec] md:h-7 md:flex-none md:px-2.5 md:text-[12px]"
+                  disabled={!fileNameOf(pendingAction.path).name}
+                  className="h-10 flex-1 rounded-md bg-[#111114] px-3 text-[13px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none md:h-7 md:flex-none md:px-2.5 md:text-[12px]"
                 >
                   {pendingAction.kind === "new" ? "Create" : pendingAction.kind === "rename" ? "Rename" : "Duplicate"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setPendingAction(null)}
-                  className="h-10 flex-1 rounded-md border border-[var(--code-border)] px-3 text-[13px] font-medium text-[var(--code-muted)] hover:text-[var(--code-text)] md:h-7 md:flex-none md:border-0 md:px-2 md:text-[12px]"
+                  className="h-10 flex-1 rounded-md border border-[var(--code-border)] px-3 text-[13px] font-[550] text-[var(--code-muted)] transition-colors hover:text-[var(--code-text)] md:h-7 md:flex-none md:border-0 md:px-2 md:text-[12px]"
                 >
                   Cancel
                 </button>

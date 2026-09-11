@@ -120,6 +120,38 @@ export async function GET(req: Request, { params }: Params) {
 
 // PUT /api/website-builder/themes/[installId]/files
 // body: { path: string, content: string }
+/**
+ * Every section name this install can see, lower-cased, mapped to the file
+ * that holds it — the theme's own sections and the ones this creator wrote,
+ * with a creator's file shadowing the theme's of the same path. `except` is
+ * the file being saved, which is allowed to keep its own name.
+ */
+async function sectionNamesInUse(
+  supabase: NonNullable<Awaited<ReturnType<typeof getCreatorInstall>>["supabase"]>,
+  installId: string,
+  except: string,
+): Promise<Map<string, string>> {
+  const { data } = await supabase
+    .from("store_theme_custom_files")
+    .select("path, content")
+    .eq("install_id", installId)
+    .like("path", "%.storelib")
+  const sources: Record<string, string> = {}
+  for (const [p, c] of Object.entries(DEFAULT_THEME_SOURCES)) {
+    if (/^sections\/[a-z0-9_-]+\.storelib$/.test(p)) sources[p] = c
+  }
+  for (const row of (data ?? []) as { path: string; content: string }[]) {
+    if (/^sections\/[a-z0-9_-]+\.storelib$/.test(row.path)) sources[row.path] = row.content
+  }
+  const out = new Map<string, string>()
+  for (const [p, c] of Object.entries(sources)) {
+    if (p === except) continue
+    const r = compileSection(c, { file: p })
+    if (r.ok === true) out.set(r.value.schema.name.trim().toLowerCase(), p)
+  }
+  return out
+}
+
 export async function PUT(req: Request, { params }: Params) {
   const { installId } = await params
   const { error, status, supabase } = await getCreatorInstall(installId)
@@ -155,6 +187,24 @@ export async function PUT(req: Request, { params }: Params) {
         { error: `${path} did not compile`, errors: r.errors },
         { status: 422 },
       )
+    }
+    /**
+     * NO TWO SECTIONS SHARE A NAME. The name is what the Add Section
+     * library, the sidebar and the page's own list of sections all show, so
+     * two called "FAQ" are two rows nobody can tell apart — and the one you
+     * meant to edit is a coin toss. Checked here rather than in the editor
+     * because the editor only knows the files it has open.
+     */
+    if (m) {
+      const taken = await sectionNamesInUse(supabase, installId, path)
+      const name = r.value.schema.name.trim()
+      const clash = taken.get(name.toLowerCase())
+      if (clash) {
+        return NextResponse.json(
+          { error: `Another section is already called "${name}". It is ${clash}. Give this one a different name in its schema.` },
+          { status: 409 },
+        )
+      }
     }
   }
 

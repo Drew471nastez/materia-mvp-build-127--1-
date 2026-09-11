@@ -82,6 +82,21 @@ async function main() {
     check(`${name}: theme.json keeps what it had, including keys the engine does not know`, Object.entries(pkg.theme).every(([k, val]) => JSON.stringify(v.theme[k]) === JSON.stringify(val)))
     const second = await buildPackage({ theme: v.theme, files: v.files, assets: v.assets })
     check(`${name}: build → read → build is the same bytes`, Buffer.compare(Buffer.from(first), Buffer.from(second)) === 0, `${first.byteLength} vs ${second.byteLength}`)
+    /**
+     * Including the folder entries, which nobody adds: writing
+     * "sections/notice.storelib" makes the zip create "sections/" too, and
+     * that entry used to take the clock instead of the fixed date. Two
+     * builds then matched only when they fell inside the same two-second
+     * tick, so the check above failed about one run in eight — and a package
+     * that is byte-stable most of the time cannot be compared with an
+     * earlier one to see whether anything really changed. Asserted on the
+     * entries rather than by building twice, so it does not depend on
+     * whether the clock happens to tick.
+     */
+    const zip = await new JSZip().loadAsync(first)
+    const stamped = Object.values(zip.files).map((f) => (f as { name: string; date: Date }).date.getTime())
+    const fixed = Date.UTC(2020, 0, 1)
+    check(`${name}: every entry carries the fixed date, folders included`, stamped.length > 0 && stamped.every((t) => t === fixed), `${stamped.filter((t) => t !== fixed).length} of ${stamped.length} entries are stamped with something else`)
     check(`${name}: the manifest hashes every file and every asset`, Object.keys(v.manifest.files).length === Object.keys(pkg.files).length + 1 && Object.keys(v.manifest.assets).length === Object.keys(pkg.assets).length)
     check(`${name}: every hash in the manifest is the file's own`, Object.entries(v.manifest.files).every(([p, rec]) => rec.sha256 === sha256(v.files[p])) && Object.entries(v.manifest.assets).every(([h, rec]) => rec.size === v.assets[h].bytes.byteLength))
   }

@@ -462,6 +462,78 @@ section("A section somebody wrote is a section, not an unknown type")
   )
 }
 
+// ===========================================================================
+section("Create writes the file, and you name it rather than its path")
+// ===========================================================================
+{
+  const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8")
+
+  /**
+   * Create used to open a tab and nothing else: the starter went in the
+   * textarea, the tree drew the name, and none of it was anywhere but that
+   * browser. A refresh took the lot, silently, because it had never been
+   * saved at all.
+   */
+  const createBlock = codePage.slice(codePage.indexOf('if (pendingAction.kind === "new")'), codePage.indexOf('if (pendingAction.kind === "duplicate")'))
+  check("creating a file saves it before the tab opens", /method: "PUT"/.test(createBlock) && createBlock.indexOf("method: \"PUT\"") < createBlock.indexOf("setOpenTabs"))
+  check("and a refusal opens no tab and says why", /if \(!res\.ok\) \{/.test(createBlock) && createBlock.indexOf("if (!res.ok) {") < createBlock.indexOf("setSelectedFile"))
+  check("and what is saved is what the editor then shows, so it does not open dirty", /setOriginalContent\(starter\)/.test(createBlock))
+
+  // The folder and the extension are what make a file a section; neither is
+  // a choice, so neither is typed.
+  check("the folder and the extension sit outside the field", /export function fileNameOf\(/.test(codePage) && /\{dir \? <span className="shrink-0 select-none/.test(codePage) && /\{ext \? <span className="shrink-0 select-none/.test(codePage))
+  check("the field holds only the name", /value=\{name\}/.test(codePage) && /onChange=\{\(e\) => onChange\(`\$\{dir\}\$\{asFileName\(e\.target\.value\)\}\$\{ext\}`\)\}/.test(codePage))
+  check("and what is typed is made into a file name as it is typed", /export function asFileName\(/.test(codePage) && /toLowerCase\(\)/.test(codePage))
+  /**
+   * Both dialogs: the same weight on both buttons, and the solid one near
+   * black rather than the product's violet, which is for the product's own
+   * actions rather than a file dialog. Their sizes stay where
+   * tests/section-responsive.test.ts measures them.
+   */
+  check("Create and Cancel are the same weight, and Create is the solid one",
+    (codePage.match(/font-\[550\]/g) ?? []).length >= 4
+    && (codePage.match(/rounded-md bg-\[#111114\]/g) ?? []).length === 2
+    && !/bg-\[#8B56FA\][^"]*>Create/.test(codePage))
+  // 16px on a phone in both dialogs, because anything smaller in a focused
+  // field is what makes iOS zoom the page and not zoom back.
+  check("and they stay finger-sized on a phone, with a field iOS will not zoom",
+    /h-10 flex-1 rounded-md bg-\[#111114\][^"]*md:h-7 md:flex-none/.test(codePage)
+    && /h-9 w-72 max-w-full rounded-md border[^"]*text-\[16px\] md:h-8 md:text-\[12px\]/.test(codePage)
+    && /h-10 min-w-0 flex-1 rounded-md border[^"]*text-\[16px\] md:h-7 md:text-\[12px\]/.test(codePage))
+  check("a nameless file cannot be created", (codePage.match(/disabled=\{!fileNameOf\(pendingAction\.path\)\.name\}/g) ?? []).length === 2)
+
+  check("two sections cannot be given the same name", /async function sectionNamesInUse\(/.test(route) && /Another section is already called/.test(route) && /status: 409/.test(route))
+  check("and a section keeps its own name when it is saved again", /if \(p === except\) continue/.test(route))
+  check("the check reads the theme's sections and this creator's together", /DEFAULT_THEME_SOURCES/.test(route) && /store_theme_custom_files/.test(route))
+}
+
+// ===========================================================================
+section("The library draws what you would actually get")
+// ===========================================================================
+{
+  const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  /**
+   * The cards used to render with no sources at all, deliberately, so that
+   * they showed "the section as the theme ships it". A section the creator
+   * wrote does not ship with the theme, so it had nothing to draw from and
+   * arrived as an empty box under its own name.
+   */
+  check("a section you wrote has a preview, because the cards get your files", /<StorelibLiveProvider sources=\{sources\}>/.test(editor) && /sources=\{storelibSources\}/.test(editor))
+  check("and there is one renderer around the grid, not one per card", (editor.match(/<StorelibLiveProvider/g) ?? []).length === 2)
+  /**
+   * Thirty cards measuring themselves was thirty observers agreeing, each
+   * reporting after the first paint — so every card drew once at a guess and
+   * then jumped. Measured once, before paint, and kept across a category
+   * change so the next set of cards is right on its first frame.
+   */
+  check("the column is measured once, by the grid, before it paints", /const gridRef = useRef<HTMLDivElement>\(null\)/.test(editor) && /useLayoutEffect\(\(\) => \{[\s\S]{0,400}new ResizeObserver\(read\)/.test(editor) && !/new ResizeObserver\(\(\[entry\]\) => \{/.test(editor))
+  check("and a card takes that width rather than finding its own", /\/\*\* Measured once by the grid, not thirty times by thirty cards\. \*\//.test(editor) && /width: number/.test(editor))
+  // A box whose height is known before anything renders cannot shift when it does.
+  check("a preview box is a known shape before it draws, so the grid never resettles", /const PREVIEW_RATIO = 0\.5/.test(editor) && /height,\s*\n\s*contentVisibility: "auto"/.test(editor) && /containIntrinsicSize:/.test(editor))
+  check("and it scales with a transform, which costs no layout", /transform: `scale\(\$\{scale\}\)`/.test(editor) && !/zoom: scale/.test(editor))
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
