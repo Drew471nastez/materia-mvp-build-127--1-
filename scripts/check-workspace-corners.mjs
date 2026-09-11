@@ -1,33 +1,32 @@
 /**
  * ===========================================================================
- *  THE SEAM HAS TWO TONES IN IT, NOT THREE
+ *  THE PANELS ARE SPACED, NOT DIVIDED
  * ===========================================================================
- * Eleven rounds went into what to paint in the wedge the canvas's corner opens
- * onto: the bar's dark, the workspace's grey, a second arc curving the other
- * way, the sidebar's white. Every one was rejected, and they were all wrong
- * for the same reason, which was never the fill.
+ * Eleven rounds went into the seam between the sidebar and the canvas: a
+ * hairline down it, and a corner drawn on the arc the canvas turns on, filled
+ * five different ways — the bar's dark, the workspace's grey, a second arc
+ * curving the other way, the sidebar's white, nothing at all.
  *
- * The surround had a tone of its own. Give the space around the panels a
- * colour and the corner where one of them turns MUST open onto a third thing,
- * and no amount of drawing makes a third thing look like it belongs between
- * two panels that are both white.
+ * None of them is here now. Four pixels of the white the panels already sit on
+ * does the same job with nothing drawn: the sidebar rounds away from the
+ * canvas, the canvas rounds away from the sidebar, and what runs between them
+ * is a gap.
  *
- * So the surround is white, the same white as the sidebar beside it and the
- * bar above it. The corner opens onto the sidebar's own colour with nothing
- * painted to make it do so. What is left to draw is the page's edge: a pixel
- * on the arc, and along the top the bar's own border, which already runs the
- * full width.
+ * That is the shape that was rejected over and over — both sides curving away,
+ * which leaves a lens between two arcs. It was rejected for the SURROUND, not
+ * for the shape. Over a colour belonging to neither panel a lens is a wedge;
+ * over the panels' own white it is a gap. Same geometry, and the difference is
+ * one tone.
  *
- * That makes the claim measurable in a way none of the earlier ones were. It
- * is not about the shape of the fill. It is that THE BAR, THE SIDEBAR AND THE
- * WEDGE ARE ONE COLOUR, so the seam holds two tones — that white and the page
- * — and the only thing dividing them is a hairline. This samples all three and
- * compares them, with the grey surround as the control: there they differ, and
- * that difference is the wedge every round was reported for.
+ * So this measures four things, on the real rule rather than on a drawing:
+ *   - the gap exists and is the size it should be, on both seams
+ *   - nothing is drawn in it: the bar, the panels and the gap are one colour,
+ *     and no line crosses it anywhere down its height
+ *   - both sides of it curve, by the same radius
+ *   - and the screen's own corners stay square
  *
- * Then the geometry, which still has to hold: the screen's corners are square,
- * the wedge is the arc's shape and not a square corner, the hairline runs the
- * whole seam, and the page's edge is drawn round the turn.
+ * Controls: the hairline-and-drawn-corner shape this replaces, and a surround
+ * with a tone of its own, which is what made the same geometry a wedge.
  *
  *   node scripts/check-workspace-corners.mjs
  */
@@ -44,33 +43,33 @@ const fail = (m) => {
 }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}. Set CHROMIUM=/path/to/chromium.`)
 
-/** The seam's radius, which is also the card's; the bar, sidebar, viewport. */
-const SEAM_R = 16, BAR = 44, SIDE = 160, W = 560, H = 300
+/** The radius, the gap, the bar, the sidebar, the AI panel, the viewport. */
+const R = 20, GAP = 4, BAR = 44, SIDE = 160, AI = 120, W = 620, H = 300
+/** The page in the canvas: the one thing in the window with a colour. */
+const PAPER = "#dbe4fb"
+
 /**
- * The shapes. `after` is what ships; the rest are controls, each failing one
- * assertion so that assertion is known to be measuring something.
+ * Three shapes.
  *
- *   after       white surround, a dark page: the geometry
- *   light       white surround, a page the SAME white: the edge's whole job
- *   lightbare   the same without the edge: no corner at all
- *   grey        a surround with a tone of its own: the wedge
- *   rounded     both panels curving away, and the chipped screen corners
+ *   after    a 4px gap, both sides rounded, nothing drawn in it
+ *   line     the hairline and the corner drawn on the arc, flush panels
+ *   grey     the same gap over a surround with a tone of its own: the wedge
  */
 const SHAPES = {
-  after: { surround: "#ffffff", paper: "#111827", ring: true, roundRow: false },
-  light: { surround: "#ffffff", paper: "#ffffff", ring: true, roundRow: false },
-  lightbare: { surround: "#ffffff", paper: "#ffffff", ring: false, roundRow: false },
-  grey: { surround: "#eef1f5", paper: "#111827", ring: true, roundRow: false },
-  rounded: { surround: "#eef1f5", paper: "#111827", ring: false, roundRow: true },
+  after: { surround: "#ffffff", gap: GAP, round: true, line: false },
+  line: { surround: "#ffffff", gap: 0, round: true, line: true },
+  grey: { surround: "#eef1f5", gap: GAP, round: true, line: false },
+  /**
+   * The geometry, made visible. The two arcs either side of the gap cannot be
+   * photographed in the shipped tone, because the panel's arc is white curving
+   * away from white — which is the point of the tone, not a fault in it. So
+   * the same layout is rendered once over a colour nothing else uses, purely
+   * to measure the shape. `probeSquare` is its control: the same render with
+   * the radii off.
+   */
+  probe: { surround: "#ff8800", gap: GAP, round: true, line: false },
+  probeSquare: { surround: "#ff8800", gap: GAP, round: false, line: false },
 }
-/**
- * Behind everything, and never meant to be seen: the bar covers the top of it
- * and the row the rest. A colour nothing else in the editor uses, so "is any
- * of the root visible?" is a question a screenshot can answer. It could not be
- * asked while the root was the same grey as the surround, and cannot be asked
- * at all now the surround is the same white as the panels.
- */
-const SENTINEL = [0xff, 0x00, 0xff]
 
 const page = (name) => { const sh = SHAPES[name]; return `<!doctype html><html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box;margin:0}
@@ -83,34 +82,49 @@ const page = (name) => { const sh = SHAPES[name]; return `<!doctype html><html><
  * reports its own rectangle and the assertions sample that.
  */
 html,body{height:100%;overflow:hidden}
-body{background:rgb(${SENTINEL})}
-/* the bar, and its border is the card's top edge: one hairline, full width */
+/* never meant to be seen: the bar covers the top of it and the row the rest */
+body{background:rgb(255,0,255)}
 .bar{position:fixed;left:0;right:0;top:0;height:${BAR}px;background:#fff;
      border-bottom:1px solid #e5e7eb}
-.row{position:fixed;left:0;right:0;top:${BAR}px;bottom:0;
-     display:flex;background:${sh.surround};overflow:hidden}
-.side{width:${SIDE}px;background:#fff;flex:none}
-.divider{position:absolute;left:${SIDE - 1}px;top:0;bottom:0;width:1px;background:#e5e7eb;z-index:10}
-/* square, and the surround's colour: what the card's radius reveals is this */
+.row{position:fixed;left:0;right:0;top:${BAR}px;bottom:0;display:flex;
+     gap:${sh.gap}px;background:${sh.surround};overflow:hidden}
+.side{width:${SIDE}px;background:#fff;flex:none;overflow:hidden}
+.ai{width:${AI}px;background:#fff;flex:none;overflow:hidden}
 .canvas{flex:1;position:relative;background:${sh.surround};overflow:hidden}
-/* the site's own content, dark on purpose: a wedge of the wrong colour beside
-   a page like this is exactly what was reported */
-.card{width:100%;height:100%;background:${sh.paper};border-top-left-radius:${SEAM_R}px}
-.fill{position:absolute;top:0;left:0;width:${SEAM_R}px;height:${SEAM_R}px;z-index:90;
-      border-top:1px solid #e5e7eb;border-left:1px solid #e5e7eb;
-      border-top-left-radius:${SEAM_R}px}
-${sh.ring ? "" : ".fill{display:none}"}
-${sh.roundRow
-    ? `.row{border-radius:${SEAM_R}px}
-       .side{border-top-right-radius:${SEAM_R}px}
-       .canvas{border-top-left-radius:${SEAM_R}px}`
+.card{width:100%;height:100%;background:${PAPER}}
+${sh.round
+    ? `.side{border-top-right-radius:${R}px}
+       .ai{border-top-left-radius:${R}px}
+       .canvas{border-top-left-radius:${R}px;border-top-right-radius:${R}px}`
     : ""}
+${sh.line
+    ? `.hair{position:absolute;top:0;bottom:0;width:1px;background:#e5e7eb;z-index:10}
+       .hair-l{left:${SIDE - 1}px}
+       .hair-r{right:${AI}px}`
+    : `.hair{display:none}`}
 </style></head><body>
 <div class="bar"></div>
-<div class="row"><div class="side"></div><div class="canvas"><div class="card"></div><i class="fill"></i></div><i class="divider"></i></div>
+<div class="row">
+  <div class="side"></div>
+  <div class="canvas"><div class="card"></div></div>
+  <div class="ai"></div>
+  <i class="hair hair-l"></i><i class="hair hair-r"></i>
+</div>
 <script>
 const r = document.querySelector(".row").getBoundingClientRect()
-document.title = JSON.stringify({ left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) })
+const c = document.querySelector(".canvas").getBoundingClientRect()
+const sd = document.querySelector(".side").getBoundingClientRect()
+const ai = document.querySelector(".ai").getBoundingClientRect()
+document.title = JSON.stringify({
+  left: Math.round(r.left), right: Math.round(r.right),
+  top: Math.round(r.top), bottom: Math.round(r.bottom),
+  cl: Math.round(c.left), cr: Math.round(c.right),
+  /* the gap is a layout fact, and in the shipped tone it is white between
+     two whites: there is nothing in a screenshot to measure it with, which
+     is what "nothing is drawn there" means. The screenshot's job is the
+     tone; the rects' job is the distance. */
+  gapL: Math.round(c.left - sd.right), gapR: Math.round(ai.left - c.right),
+})
 </script>
 </body></html>` }
 
@@ -158,140 +172,90 @@ function readPng(path) {
   return { w, h, at: (x, y) => { const o = y * stride + x * ch; return [px[o], px[o + 1], px[o + 2]] } }
 }
 
-const isDivider = (p) => Math.abs(p[0] - 0xe5) < 4 && Math.abs(p[1] - 0xe7) < 4 && Math.abs(p[2] - 0xeb) < 4
-const mean = (vals) => [0, 1, 2].map((c) => Math.round(vals.reduce((a, v) => a + v[c], 0) / vals.length))
+const isPaper = (p) => p[2] > p[0] + 10
+const isSentinel = (p) => p[0] > 200 && p[1] < 60 && p[2] > 200
+const mean = (v) => [0, 1, 2].map((c) => Math.round(v.reduce((a, q) => a + q[c], 0) / v.length))
 const apart = (a, b) => Math.max(...[0, 1, 2].map((c) => Math.abs(a[c] - b[c])))
 
 /**
- * THE THREE SURFACES THAT MEET AT THE CORNER.
+ * NOTHING IS DRAWN IN IT.
  *
- * The wedge is the part of the seam's box the card's radius takes away:
- * further from the arc's centre than its radius, with three pixels of slack so
- * the ring and its antialiasing stay out of it. Beside it, the sidebar. Above
- * it, the bar. Each is sampled well inside itself, and the claim is that the
- * three come back the same.
+ * Two claims in one sample. Every pixel of the gap, all the way down, must be
+ * the same as the bar above it and the panels either side — so no line
+ * crosses it and no surround of its own shows in it. `worst` is the furthest
+ * any pixel in either gap strays from the panels' white.
  */
-function tones(img, box) {
-  const cx = box.left + SIDE + SEAM_R, cy = box.top + SEAM_R
-  const wedgePx = []
-  for (let x = box.left + SIDE; x < box.left + SIDE + SEAM_R; x++) {
-    for (let y = box.top; y < box.top + SEAM_R; y++) {
-      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= SEAM_R + 3) continue
-      wedgePx.push(img.at(x, y))
+function gapTone(img, box) {
+  const ref = mean([img.at(box.left + 20, 10), img.at(box.left + 20, box.top + 60)])
+  let worst = 0, worstAt = null
+  for (let y = box.top + R + 4; y < box.bottom - 4; y++) {
+    for (const x0 of [box.cl - 2, box.right - AI - 2]) {
+      for (let x = x0; x < x0 + 2; x++) {
+        const d = apart(img.at(x, y), ref)
+        if (d > worst) { worst = d; worstAt = [x - box.left, y - box.top] }
+      }
     }
   }
-  const sidePx = [], barPx = []
-  for (let y = box.top + 4; y < box.top + SEAM_R + 4; y++) {
-    for (let x = box.left + SIDE - 40; x < box.left + SIDE - 8; x++) sidePx.push(img.at(x, y))
-  }
-  for (let y = 8; y < BAR - 8; y++) {
-    for (let x = box.left + SIDE + 40; x < box.left + SIDE + 72; x++) barPx.push(img.at(x, y))
-  }
-  const wedge = mean(wedgePx), side = mean(sidePx), bar = mean(barPx)
-  return { wedge, side, bar, count: wedgePx.length, spread: Math.max(apart(wedge, side), apart(wedge, bar), apart(side, bar)) }
+  return { ref, worst, worstAt }
 }
 
 /**
- * Any of the root showing at a screen corner is a chip taken out of the page.
- * The sample is the corner's box minus the quarter disc, so it counts only
- * what falls outside the workspace's shape, and the root is the sentinel:
- * nothing else in the fixture is that colour, so a single pixel of it is the
- * workspace having been cut away from the screen's edge.
+ * BOTH SIDES CURVE, BY THE SAME AMOUNT.
+ *
+ * Measured on the probe, where the surround is a colour nothing else uses and
+ * both edges of the gap are therefore visible. Down each edge, how far it
+ * travels sideways between the top of the row and the bottom of the corner: a
+ * square panel gives 0, a panel rounded by R gives R. The panel's side and the
+ * page's side are read separately, so "both" is a measurement.
  */
-const isSentinel = (p) => p.every((v, i) => Math.abs(v - SENTINEL[i]) < 40)
+const isProbe = (p) => p[0] > 200 && p[1] > 100 && p[1] < 190 && p[2] < 90
+/**
+ * What a corner of radius r ACTUALLY travels when it is read once per row at
+ * the pixel's centre. Not r: the first row's centre is half a pixel below the
+ * top, where the edge has not yet reached its full inset, and the last row's
+ * edge has not quite come back to zero. For r = 20 it is 15.6, and asserting
+ * 20 would have been asserting against a number the geometry never produces.
+ */
+const expectedTravel = (r) => {
+  const at = (dy) => r - Math.sqrt(r * r - (r - dy - 0.5) ** 2)
+  return at(0) - at(r - 1)
+}
+function arcs(img, box) {
+  const panel = [], paper = []
+  // From the row's very first line, where a corner of radius R has pulled the
+  // edge back by the whole R, down to the last line of the corner, where it
+  // has pulled back by none of it. Starting one line lower loses a quarter of
+  // the travel to the curve's own steepness and reports 12 of 20 for an arc
+  // that is exactly right.
+  for (let y = box.top; y < box.top + R; y++) {
+    // how far the sidebar has pulled back from the gap at this row
+    let a = 0
+    while (a < R + 6 && isProbe(img.at(box.cl - GAP - 1 - a, y))) a++
+    panel.push(a)
+    // and how far the page has
+    let b = 0
+    while (b < R + 6 && isProbe(img.at(box.cl + b, y))) b++
+    paper.push(b)
+  }
+  const travel = (v) => Math.max(...v) - Math.min(...v)
+  return { panel: travel(panel), paper: travel(paper) }
+}
+
+/** Any of the root at a screen corner is a chip taken out of the page. */
 function corner(img, box, side, edge) {
-  const x0 = side === "left" ? box.left : box.right - SEAM_R
-  const cx = side === "left" ? box.left + SEAM_R : box.right - SEAM_R
-  const y0 = edge === "top" ? box.top : box.bottom - SEAM_R
-  const cy = edge === "top" ? box.top + SEAM_R : box.bottom - SEAM_R
+  const x0 = side === "left" ? box.left : box.right - R
+  const cx = side === "left" ? box.left + R : box.right - R
+  const y0 = edge === "top" ? box.top : box.bottom - R
+  const cy = edge === "top" ? box.top + R : box.bottom - R
   let bar = 0, total = 0
-  for (let x = x0; x < x0 + SEAM_R; x++) {
-    for (let y = y0; y < y0 + SEAM_R; y++) {
-      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= SEAM_R + 0.5) continue
+  for (let x = x0; x < x0 + R; x++) {
+    for (let y = y0; y < y0 + R; y++) {
+      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= R + 0.5) continue
       total++
       if (isSentinel(img.at(x, y))) bar++
     }
   }
   return { bar, total }
-}
-
-/**
- * And that the wedge is a curve, not a square corner in the right colour.
- * This walks down the junction and records how far the surround reaches into
- * it: against a square corner the number never moves, against the arc it
- * tapers from the full radius to nothing. Read as "not the page", since the
- * surround and the sidebar are now the same colour and the page is not.
- */
-function shellProfile(img, box) {
-  // "not the page", which is the only dark thing at this junction. Testing
-  // for white instead stops on the ring and reports the edge a pixel early.
-  const light = (p) => p.every((v) => v > 120)
-  const edges = []
-  for (let y = box.top; y < box.top + SEAM_R; y++) {
-    let x = 0
-    while (x < SEAM_R && light(img.at(box.left + SIDE + x, y))) x++
-    edges.push(x)
-  }
-  return { edges, travel: Math.max(...edges) - Math.min(...edges) }
-}
-
-/**
- * The hairline runs the whole seam. Counted in the divider's own column over
- * the top rows, stopping three short of the arc's vertical tangent at (0, R),
- * where the arc's own line takes over and the two blend.
- */
-function dividerAtCorner(img, box) {
-  let n = 0
-  for (let y = box.top; y < box.top + SEAM_R - 3; y++) {
-    if (isDivider(img.at(box.left + SIDE - 1, y))) n++
-  }
-  return n
-}
-
-/**
- * THE PAGE'S EDGE, MEASURED WHERE IT MATTERS.
- *
- * This used to ask whether the pixel on the arc was exactly the line's colour.
- * A one pixel light line following a curve is antialiased along both sides of
- * its whole length, so most of it is a blend and never matches exactly: the
- * question was unanswerable, and against a dark page it is also the wrong one,
- * since a dark page shows its own edge by contrast whatever is drawn on it.
- *
- * The edge exists for the page that is the SAME WHITE as the surround, where
- * nothing marks the corner unless something is drawn. So this asks whether
- * anything at all is drawn: the darkest pixel across the arc, at each step
- * round it. On a white page with no edge that is white everywhere and there is
- * no corner to see; with the edge it is the line, blended or not.
- */
-const lum = (p) => 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]
-function arcLine(img, box) {
-  let marked = 0, total = 0, darkest = 255
-  for (let deg = 0; deg <= 90; deg += 3) {
-    const t = (deg * Math.PI) / 180
-    const cx = box.left + SIDE + SEAM_R
-    const cy = box.top + SEAM_R
-    total++
-    // Across the arc, not along x: at the top of the curve a neighbour in x is
-    // another point on the same line and would pass for free.
-    let min = 255
-    for (const d of [-1.5, -0.5, 0.5]) {
-      const r = SEAM_R + d
-      min = Math.min(min, lum(img.at(Math.round(cx - r * Math.cos(t)), Math.round(cy - r * Math.sin(t)))))
-    }
-    if (min < 250) marked++
-    darkest = Math.min(darkest, min)
-  }
-  return { marked, total, darkest: Math.round(darkest) }
-}
-
-/** The bar's border, which is the card's top edge, runs the full width. */
-function topEdge(img, box) {
-  let on = 0, total = 0
-  for (let x = box.left + 4; x < box.right - 4; x++) {
-    total++
-    if (isDivider(img.at(x, box.top - 1)) || isDivider(img.at(x, box.top))) on++
-  }
-  return { on, total }
 }
 
 let broken = 0
@@ -325,36 +289,55 @@ try {
     const img = readPng(png)
     return {
       box,
-      tones: tones(img, box),
+      gap: { left: box.gapL, right: box.gapR },
+      tone: gapTone(img, box),
+      arcs: arcs(img, box),
       topLeft: corner(img, box, "left", "top"),
       topRight: corner(img, box, "right", "top"),
       bottomLeft: corner(img, box, "left", "bottom"),
       bottomRight: corner(img, box, "right", "bottom"),
-      shellProfile: shellProfile(img, box),
-      dividerAtCorner: dividerAtCorner(img, box),
-      arcLine: arcLine(img, box),
-      topEdge: topEdge(img, box),
     }
   }
 
   const after = read("after")
-  const light = read("light")
-  const lightbare = read("lightbare")
+  const line = read("line")
   const grey = read("grey")
-  const rounded = read("rounded")
+  const probe = read("probe")
+  const probeSquare = read("probeSquare")
 
-  console.log("\nthe seam has two tones in it, not three\n")
+  console.log("\nthe panels are spaced, not divided\n")
 
-  // THE CLAIM. Two points of slack is inside the screenshot's own rounding
-  // and nowhere near the eight #eef1f5 sits from white.
-  expect(after.tones.spread <= 2,
-    "the bar, the sidebar and the corner they meet at are one colour",
-    `they are ${after.tones.spread} apart: wedge ${after.tones.wedge}, sidebar ${after.tones.side}, bar ${after.tones.bar}`)
-  expect(grey.tones.spread > 4,
-    "a surround with a tone of its own put a third colour in that corner, so this is a real measurement",
-    `the control's three surfaces were only ${grey.tones.spread} apart`)
+  // The gap, on both seams, where both sides are straight.
+  expect(after.gap.left === GAP && after.gap.right === GAP,
+    `there are ${GAP} pixels between the page and each panel beside it`,
+    `${after.gap.left} on the left and ${after.gap.right} on the right`)
+  expect(line.gap.left === 0 && line.gap.right === 0,
+    "the panels used to be flush, so this is a real measurement",
+    `the control already had ${line.gap.left} and ${line.gap.right}`)
 
-  // Nothing of the root shows at the screen's own corners.
+  // And nothing in it, anywhere down its height.
+  expect(after.tone.worst <= 2,
+    "and nothing is drawn in it: it is the same white as the bar and the panels, the whole way down",
+    `a pixel at ${after.tone.worstAt} is ${after.tone.worst} away from the panels' white`)
+  expect(line.tone.worst > 4, "the hairline did cross it, so this is a real measurement",
+    `the control's worst pixel was only ${line.tone.worst} away`)
+  expect(grey.tone.worst > 4,
+    "and a surround with a tone of its own showed in it, which is what made this shape a wedge",
+    `the control's gap was only ${grey.tone.worst} from the panels' white`)
+
+  // Both sides of the gap curve, by the same radius.
+  const want = expectedTravel(R)
+  expect(Math.abs(probe.arcs.panel - want) <= 1.5 && Math.abs(probe.arcs.paper - want) <= 1.5,
+    `both sides of it curve away, each by ${R}px`,
+    `the panel travels ${probe.arcs.panel}px and the page ${probe.arcs.paper}px, where ${R}px travels ${want.toFixed(1)}`)
+  expect(probe.arcs.panel === probe.arcs.paper,
+    "and by the same radius as each other, so the gap is an even channel",
+    `panel ${probe.arcs.panel}px against page ${probe.arcs.paper}px`)
+  expect(probeSquare.arcs.panel <= 1 && probeSquare.arcs.paper <= 1,
+    "with the radii off neither side moved, so this is a real measurement",
+    `the control travelled ${probeSquare.arcs.panel} and ${probeSquare.arcs.paper}`)
+
+  // And the screen's own corners stay square.
   const OUTER = [
     ["topLeft", "the top left"],
     ["topRight", "the top right"],
@@ -365,40 +348,14 @@ try {
     expect(after[key].bar === 0, `nothing is cut out of the page at ${name}`,
       `${after[key].bar} of ${after[key].total} pixels there are the root showing through a chip`)
   }
-  expect(OUTER.some(([key]) => rounded[key].bar > 0),
-    "the rounded row did cut those chips, so this is a real measurement",
-    "the control had square corners too")
-
-  // And the corner is the card's curve, not a square corner.
-  expect(after.shellProfile.travel >= SEAM_R - 5, "and the corner is the card's curve, not a square corner",
-    `the edge moved ${after.shellProfile.travel}px down the junction, so it is not tracing the arc`)
-
-  // The edge's whole job: a page the same white as everything around it still
-  // has a corner.
-  expect(light.arcLine.marked / light.arcLine.total > 0.9,
-    "a page the same white as the surround still has an edge all the way round the arc",
-    `${light.arcLine.marked} of ${light.arcLine.total} steps round it carry anything at all`)
-  expect(lightbare.arcLine.marked / lightbare.arcLine.total < 0.1,
-    "without it that page has no corner at all, so this is a real measurement",
-    `the control already marked ${lightbare.arcLine.marked} of ${lightbare.arcLine.total}`)
-
-  // Down the seam, and along the top.
-  expect(after.dividerAtCorner >= SEAM_R - 5, "the hairline runs the whole seam rather than starting below the corner",
-    `only ${after.dividerAtCorner} of the top ${SEAM_R - 3} rows carry it`)
-  expect(after.topEdge.on / after.topEdge.total > 0.95, "and the bar's own border is the top edge, full width",
-    `${after.topEdge.on} of ${after.topEdge.total} pixels of it carry the line`)
 
   console.log("")
-  const cols = (m) => `spread ${String(m.tones.spread).padStart(2)}   ` +
-    OUTER.map(([k]) => `${m[k].bar}/${m[k].total}`).join("  ") +
-    `   curve ${m.shellProfile.travel}px of ${SEAM_R}, seam ${m.dividerAtCorner}` +
-    `, arc ${m.arcLine.marked}/${m.arcLine.total} (darkest ${m.arcLine.darkest})` +
-    `, top ${m.topEdge.on}/${m.topEdge.total}`
-  for (const [name, m] of [["after", after], ["light", light], ["lightbare", lightbare], ["grey", grey], ["rounded", rounded]]) {
-    console.log(`  ${name.padEnd(10)}${cols(m)}`)
-  }
-  console.log(`\n  after     wedge ${after.tones.wedge}  sidebar ${after.tones.side}  bar ${after.tones.bar}`)
-  console.log(`  grey      wedge ${grey.tones.wedge}  sidebar ${grey.tones.side}  bar ${grey.tones.bar}\n`)
+  const cols = (m) => `gap ${m.gap.left}/${m.gap.right}   worst in it ${String(m.tone.worst).padStart(3)}` +
+    `   arcs ${m.arcs.panel}/${m.arcs.paper} (${R}px travels ${expectedTravel(R).toFixed(1)})   corners ` +
+    OUTER.map(([k]) => `${m[k].bar}/${m[k].total}`).join(" ")
+  for (const [n, m] of [["after", after], ["line", line], ["grey", grey],
+                        ["probe", probe], ["square", probeSquare]]) console.log(`  ${n.padEnd(8)}${cols(m)}`)
+  console.log("")
 } finally {
   rmSync(out, { recursive: true, force: true })
 }

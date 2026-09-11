@@ -857,93 +857,19 @@ html.capacitor body {
     .wb-loading-line { animation: none }
   }
 
-  /* ── THE CORNER AT THE SEAM ──
-     Eleven rounds went into what to paint in the wedge this corner opens
-     onto: the bar's dark, the workspace's grey, a second arc curving the
-     other way, the sidebar's white. Every one of them was wrong, and they
-     were wrong for the same reason, which was not the fill.
+  /* ── There is nothing at the seam any more ──
+     `.wb-seam-fill` and `.wb-seam-divider` are gone. Between them they were
+     eleven rounds of work: a hairline down the seam, and a corner drawn on
+     the arc the canvas turns on, in five different colours.
 
-     The surround had a tone of its own. Give the space around the panels a
-     colour and the corner where one of them turns MUST open onto a third
-     thing, and no amount of drawing makes a third thing look like it belongs
-     between two panels that are both white.
-
-     So the surround is white now, the same white as the sidebar beside it and
-     the bar above it. The corner opens onto the sidebar's own colour without
-     anything being painted to make it do so, which is what was being asked
-     for all along. What is left to draw is the page's own edge: one pixel on
-     the arc, transparent either side, for the pages too light to show an edge
-     by contrast. Along the top that edge is the bar's own border, which
-     already runs the full width, so there is nothing here for it. */
-  .wb-seam-fill {
-    /**
-     * ANCHORED TO THE CANVAS, NOT TO THE PANEL BESIDE IT.
-     *
-     * This hung off `left: 100%` of the sidebar's wrapper, which is the same
-     * place as the canvas's left edge only for as long as nothing between
-     * them has a border, a sub-pixel width or a resize mid-flight. It is a
-     * child of the canvas now, at its own top left, so it shares an origin
-     * with the arc it is completing. Two shapes cut from one circle cannot
-     * drift apart when they are measured from the same corner.
-     */
-    position: absolute;
-    top: 0;
-    left: 0;
-    /* 16px, the same number the card's radius uses and `rounded-2xl`
-       elsewhere in the product. It was 22 while the corner had to be seen
-       turning: the arc was carrying the whole idea, so it was drawn large.
-       It is not carrying it any more, the surround is, and at 22 the curve
-       reads as a scoop taken out of the page rather than a corner. */
-    width: 16px;
-    height: 16px;
-    pointer-events: none;
-    /* Above the code pane as well as the preview, which is z-80: both are
-       cut to the same arc and both want the same corner completed. */
-    z-index: 90;
-    /**
-     * A BORDER-RADIUS CORNER, NOT A GRADIENT RING.
-     *
-     * This drew the line as a ring inside a radial gradient, which works
-     * while the radius is large and stops working when it is not: the band
-     * was a percentage of the radius, so at 22px it was 0.88 of a pixel and
-     * at 16px it is 0.64, and a sub-pixel band antialiases to a pale blend
-     * that is no longer the line's colour. Measured at 16px, 24 of 31 points
-     * along the arc had lost it.
-     *
-     * A box with two borders and a radius equal to its size is the same
-     * quarter arc, drawn by the browser's own corner rasteriser — the one
-     * that cut the card — at a true one pixel whatever the radius. The
-     * border sits inside the box, so its outer edge is the box's edge, and
-     * the box's top left is the card's top left: the two arcs are the same
-     * arc. Nothing is painted inside it, so the corner shows the white the
-     * sidebar and the bar are already made of.
-     */
-    border-top: 1px solid #e5e7eb;
-    border-left: 1px solid #e5e7eb;
-    border-top-left-radius: 16px;
-  }
-
-  /* ── The divider runs the whole seam ──
-     It used to start below the corner, because the corner was filled with
-     the sidebar's own white and a grey line cutting across that fill read as
-     an edge inside a surface meant to be continuous.
-
-     Nothing fills it now. The line marks where the sidebar ends, and the
-     sidebar ends at the top of the seam as much as at the bottom, so it runs
-     from the bar's own border all the way down. It meets the arc's line at
-     the one point on the arc whose tangent is vertical, which is its own
-     direction: the two read as one line with the page's edge branching off
-     it, not as a line and a corner. */
-  .wb-seam-divider {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background: #e5e7eb;
-    pointer-events: none;
-    z-index: 10;
-  }
+     What replaced them is four pixels of nothing. The panels sit on white,
+     they round away from each other by 20px where they meet, and the gap
+     between them is that same white. No line to get the colour of wrong, no
+     wedge to fill, and the shape is the one that was asked for from the
+     beginning: both sides curving away. That shape was rejected over and over
+     while the surround had a tone of its own, and it was rejected for the
+     tone, not for the shape. Two arcs curving apart over a colour belonging
+     to neither panel is a lens. Over the panels' own white it is a gap. */
 
   /* ── The row in the air ──
      The overlay's job is to look picked up. A shadow and a hair of scale is

@@ -6571,36 +6571,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         </div>
       </div>
 
-      {/* ── Body ──
-          THE WORKSPACE IS ONE ROUNDED SLAB, AND THE SEAM INSIDE IT IS FLAT.
+      {/* ── The panels are spaced, not divided ──
+          There was a hairline down the seam and a corner drawn on it, and
+          between them they were the whole of eleven rounds. Neither is here
+          now. Four pixels of the white the panels are already sitting on does
+          the same job without a mark on the screen: the sidebar rounds away
+          from the canvas, the canvas rounds away from the sidebar, and what
+          runs between them is a gap rather than a line.
 
-          The rounding has been in the wrong place every time. It went on the
-          panels — first one of their corners, then two, then all four of the
-          top ones, on both panels — and every version of that puts an arc in
-          the MIDDLE of the workspace, where the sidebar meets the canvas.
-          Two panels curving away from each other leave a wedge between them
-          that narrows downward, and a wedge is a notch: it reads as a bite
-          taken out of the row, not as a rounded corner.
-
-          ONE ARC IN THE WHOLE EDITOR, AND IT IS THE SEAM.
-
-          This row carried four more, at the screen's corners, and every one
-          of them was a chip taken out of the page. An arc at the edge of the
-          screen has nothing behind it but the root, so against a dark site
-          header it reads as a bright notch bitten out of the top right, and
-          against a light one it reads as nothing at all. That is the whole of
-          "it looks cut and chopped, and the right corner is empty".
-
-          There is nothing at the screen's edges for a corner to turn AWAY
-          from. The one place two surfaces actually meet is the seam, where
-          the canvas curves and the panel beside it fills what that curve
-          leaves. So that is the only radius left, and the row is square.
-
-          `overflow-hidden` here is what does it: everything in the row is cut
-          to this shape, so the panels do not each need their own. Menus and
-          tooltips are portalled to the body and the drag overlay is fixed, so
-          none of them is clipped by it. */}
-      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-white">
+          A gap needs the two arcs to face each other, which is the shape that
+          was rejected over and over while the surround had a tone of its own.
+          It was rejected for that tone, not for the shape: two arcs curving
+          apart over a colour belonging to neither panel is a lens, and over
+          the panels' own white it is a gap. Same geometry, and now there is
+          nothing in it. */}
+      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-white gap-1">
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
           <div className="relative flex-shrink-0 flex h-full overflow-visible">
@@ -6608,13 +6593,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 scrollbar stays inside it. The outer box stays
                 `overflow-visible` for the grab edge that hangs past it.
 
-                Square. The turn at the seam belongs to the canvas, which
-                also carries the line drawn on that turn: see `wb-seam-fill`,
-                a child of the canvas so that it and the arc are measured
-                from the same corner. */}
+                Rounded where it meets the canvas, and square everywhere it
+                meets the screen: an arc at the edge of the window has nothing
+                behind it to turn away from and reads as a chip bitten out of
+                the page. */}
             <div
               ref={sidebarRef}
-              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white"
+              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white rounded-tr-[20px]"
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
               <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
@@ -6623,18 +6608,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
             {/* The grab edge. Wider than it looks, so it can be found; drawn
                 only under the pointer, so it is not a second border. */}
-            {/* The reversed corner. It sits just outside this panel, at the
-                top of the seam, and is white with the canvas's arc cut out
-                of it — so the sidebar flows into the corner the canvas curves
-                away from and the two meet on one curve. `left: 100%` of this
-                wrapper, whose width IS the sidebar's, so it follows the
-                resize without being told. */}
-            {/* The hairline, starting BELOW the arc. Running the full height
-                of the seam it cut across the corner the canvas completes,
-                which is the seam reading as an edge however well the curve
-                itself is made. The corner's own fill lives in the canvas, so
-                that it shares an origin with the arc. */}
-            <span aria-hidden className="wb-seam-divider" />
             <div
               role="separator"
               aria-orientation="vertical"
@@ -6745,14 +6718,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </MobileEditorSheet>
         )}
 
-        {/* The same shape as the sidebar, reversed corner and all: when the
-            AI is open it is the panel the canvas sits beside, so the wedge is
-            its to fill. The clip moves to an inner box, since the filler has
-            to hang outside this one. */}
+        {/* The same shape as the sidebar, mirrored: when the AI is open it is
+            the panel on the canvas's other side, and it rounds away from the
+            canvas exactly as the sidebar does, over the same four pixels. */}
         {!isMobileView && aiOpen && (
           <div className="relative flex-shrink-0" style={{ width: 340 }}>
-            <span aria-hidden className="wb-seam-divider" />
-            <div className="h-full overflow-hidden bg-white">
+            <div className="h-full overflow-hidden bg-white rounded-tl-[20px]">
             <ThemeChat
               installId={installId}
               page={currentPage}
@@ -6783,6 +6754,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             // `relative` so the code pane and the mode switch can sit over
             // the canvas without leaving the flex layout.
             "relative flex-1 min-w-0 overflow-hidden flex justify-center",
+            // The same 20px the panels round by, on the sides that face one.
+            !isMobileView && "rounded-tl-[20px]",
+            !isMobileView && aiOpen && "rounded-tr-[20px]",
             /**
              * LIGHT. THE BUILDER IS A LIGHT PRODUCT.
              *
@@ -6795,11 +6769,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * with a hole in the middle. On a phone preview the hole is most
              * of the screen.
              *
-             * A light grey, far enough from white to give a device preview an
-             * edge to be seen against. SQUARE, on purpose: the radius lives
-             * on the card inside it, so that the reversed corner can be a
-             * child of this box and paint OUTSIDE that arc. Rounding this as
-             * well would clip the very thing it is there to draw.
+             * On a desktop it is WHITE, the same white as the panels beside
+             * it, because the page fills it edge to edge and the four pixels
+             * between them are this surface showing through. A device
+             * preview keeps a light grey: there the canvas is a surface a
+             * card stands on rather than the card itself, and the card needs
+             * something its edge and its shadow can be seen against.
+             *
+             * Rounded now, on the sides that face a panel. It was square for
+             * as long as a corner was being drawn INSIDE it and had to paint
+             * outside its own arc; nothing is drawn there any more, and the
+             * radius belongs on the box whose colour it shapes.
              */
             isMobileView ? "bg-background" : device === "desktop" ? "bg-white" : "bg-[#eef1f5]",
             // On an actual mobile viewport the preview fills the viewport
@@ -6810,13 +6790,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             isMobileView
               ? "items-start p-0"
               /**
-               * NO MAT, AND ONE CORNER OF ITS OWN.
+               * NO MAT, AND A CORNER ON EVERY SIDE THAT FACES A PANEL.
                *
-               * Flush on every side, turning only where it faces the sidebar.
-               * The row around the whole workspace carries the outer radius
-               * and clips this to it, so the other three corners are not this
-               * card's business. A device preview is a card floating in the
-               * canvas instead, so that one is rounded all the way round.
+               * Flush against the screen, turning only where a panel is
+               * beside it: the left always, the right when the AI is open.
+               * An arc at the window's own edge has nothing behind it to turn
+               * away from and reads as a chip bitten out of the page. A
+               * device preview is a card floating in the canvas instead, so
+               * that one is rounded all the way round.
                */
               : device === "desktop" ? "items-stretch p-0" : "items-center py-6 px-6",
           )}
@@ -6829,14 +6810,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
            */
           style={isMobileView ? { paddingBottom: "var(--wb-sheet-peek, 72px)" } : undefined}
         >
-          {/* The card's edge, drawn from the same origin as the card: this
-              box's top left IS the card's top left, so the arc the line sits
-              on and the arc the card is cut to cannot drift. Nothing is
-              painted past it, so what the corner shows is the white the
-              sidebar and the bar are already made of. Along the top the bar's
-              own border is that edge, which is why there is nothing here for
-              it: one hairline under the bar, running the full width. */}
-          {!isMobileView && device === "desktop" && <span aria-hidden className="wb-seam-fill" />}
           <CodePane
             installId={installId}
             visible={previewMode === "code"}
@@ -6874,7 +6847,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full rounded-none"
                 : device === "desktop"
-                  ? "rounded-tl-[16px] w-full"
+                  ? cn("rounded-tl-[20px] w-full", aiOpen && "rounded-tr-[20px]")
                   // A phone or a tablet is a card floating on the canvas, so
                   // it needs the edge and the lift a card has. On the dark
                   // surround the contrast did that job; on a light one it has
