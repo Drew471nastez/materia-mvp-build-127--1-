@@ -5851,6 +5851,54 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }, [leaving])
 
+  /**
+   * ===========================================================================
+   *  COMING BACK TO THE EDITOR, FROM ANYWHERE
+   * ===========================================================================
+   * Put the app in the background with the code editor open and a keyboard
+   * up, come back a minute later, and the canvas would not scroll. The state
+   * that does it is not the editor's: it is whatever inline lock was on the
+   * document when the webview was suspended, still there when it is resumed,
+   * with the layer that set it long gone.
+   *
+   * The builder never locks the document inline — `wb-fullscreen` is a class
+   * and a stylesheet — so an inline `overflow`, `position` or
+   * `pointer-events` on the document at this moment belongs to something that
+   * did not clean up after itself. It goes, unless a layer is genuinely open
+   * right now and means it.
+   *
+   * `visibilitychange` is the app returning to the foreground, in the native
+   * shell and in a browser tab alike. `pageshow` is the back/forward cache.
+   * Both end in a resize, because the canvas measures itself and what it
+   * measured before the suspension may no longer be true.
+   */
+  useEffect(() => {
+    const revive = () => {
+      if (document.visibilityState !== "visible") return
+      const html = document.documentElement
+      const body = document.body
+      const liveLayer = document.querySelector('[data-state="open"], [data-mobile-bottom-sheet], [data-mobile-top-sheet]')
+      if (!liveLayer) {
+        for (const el of [html, body]) {
+          el.style.removeProperty("overflow")
+          el.style.removeProperty("pointer-events")
+          el.style.removeProperty("position")
+          el.style.removeProperty("touch-action")
+        }
+        html.removeAttribute("data-scroll-locked")
+        body.removeAttribute("data-scroll-locked")
+      }
+      window.dispatchEvent(new Event("resize"))
+    }
+    const onPageShow = () => revive()
+    document.addEventListener("visibilitychange", revive)
+    window.addEventListener("pageshow", onPageShow)
+    return () => {
+      document.removeEventListener("visibilitychange", revive)
+      window.removeEventListener("pageshow", onPageShow)
+    }
+  }, [])
+
   /** What leaving would cost right now, if anything. */
   const leaveReason: LeaveReason = {
     draft: isDirty,

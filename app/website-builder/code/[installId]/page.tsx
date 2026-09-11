@@ -533,6 +533,13 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
    */
   const [narrow, setNarrow] = useState(false)
   const [showFiles, setShowFiles] = useState(true)
+  /** Escape closes the drawer, like every other layer in the product. */
+  useEffect(() => {
+    if (!narrow || !showFiles) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setShowFiles(false) }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [narrow, showFiles])
   useEffect(() => {
     const mql = window.matchMedia("(max-width: 767px)")
     const sync = () => setNarrow(mql.matches)
@@ -1376,20 +1383,81 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       </header>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="relative flex flex-1 overflow-hidden">
+        {/*
+          THE FILES ARE A DRAWER ON A PHONE, NOT THE WHOLE SCREEN.
+
+          They used to take turns with the code: the list WAS the screen until
+          you picked a file, and then the code was. Two things were wrong with
+          that. Close the last tab and there is no file selected, so the bar
+          that carries the way back to the list is not rendered either — a
+          dead end with an empty editor and no files, which is what a
+          screenshot of it showed. And taking turns means the list is a
+          navigation rather than a glance: every look at another file threw
+          the code off the screen.
+
+          A drawer over the code answers both. It is always reachable, it
+          never replaces what you were reading, and it closes the moment you
+          pick something.
+        */}
+        {narrow && (
+          <button
+            type="button"
+            aria-label="Close the file list"
+            tabIndex={showFiles ? 0 : -1}
+            onClick={() => setShowFiles(false)}
+            className={cn(
+              "absolute inset-0 z-30 bg-black/40 transition-opacity duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
+              showFiles ? "opacity-100" : "pointer-events-none opacity-0",
+            )}
+          />
+        )}
         {/* ── File explorer ── */}
         <aside
+          aria-hidden={narrow && !showFiles}
           className={cn(
             "bg-[var(--code-panel)] flex flex-col overflow-hidden",
             narrow
-              ? showFiles
-                ? "w-full flex-1 min-w-0"
-                : "hidden"
+              ? [
+                  "absolute inset-y-0 left-0 z-40 w-[86%] max-w-[320px] border-r border-[var(--code-border)] shadow-2xl",
+                  // One property, on the compositor, for the whole 280ms.
+                  "transition-transform duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform",
+                  showFiles ? "translate-x-0" : "-translate-x-full",
+                ]
               : "w-56 shrink-0 border-r border-[var(--code-border)]",
           )}
         >
           <div className="px-3 py-2.5 border-b border-[var(--code-border)] space-y-2">
-            <p className="text-[10px] font-bold text-[var(--code-muted)] uppercase tracking-widest">Explorer</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-bold text-[var(--code-muted)] uppercase tracking-widest">Explorer</p>
+              <div className="flex items-center gap-1">
+                {/*
+                  NEW FILE BELONGS WHERE THE FILES ARE. It used to be a button
+                  in the middle of the empty editor, with its form laid out as
+                  one row of a label, a field and two buttons — about 250px
+                  before the field had a pixel, so on a phone the field ran off
+                  both edges of the screen and Cancel was past the right one.
+                */}
+                <button
+                  type="button"
+                  onClick={() => setPendingAction({ kind: "new", path: "sections/my-section.storelib" })}
+                  aria-label="New file"
+                  className={cn(CODE_BAR_ICON_BUTTON, narrow ? "h-9 w-9" : "h-7 w-7")}
+                >
+                  <FilePlus className={narrow ? "h-4 w-4" : "h-3.5 w-3.5"} />
+                </button>
+                {narrow && (
+                  <button
+                    type="button"
+                    onClick={() => setShowFiles(false)}
+                    aria-label="Close the file list"
+                    className={cn(CODE_BAR_ICON_BUTTON, "h-9 w-9")}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
             {/* Sixty-one files. Scrolling for one is not a way to find it. */}
             <div className="relative">
               <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--code-faint)]" />
@@ -1415,6 +1483,38 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               <p className="text-[10px] text-[var(--code-faint)]">
                 {flattenTree(visibleTree).length} of {flattenTree(fileTree).length} files
               </p>
+            )}
+            {/* Stacked, never a row: a label, a field and two buttons side by
+                side need about 250px before the field has a pixel. */}
+            {pendingAction?.kind === "new" && (
+              <form
+                className="space-y-2 pt-1"
+                onSubmit={e => { e.preventDefault(); void runPendingAction() }}
+                onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}
+              >
+                <NameField
+                  path={pendingAction.path}
+                  onChange={path => setPendingAction({ kind: "new", path })}
+                  label="Name of the new section"
+                  className="h-10 w-full min-w-0 rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[16px] md:h-8 md:text-[12px]"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={!fileNameOf(pendingAction.path).name}
+                    className="h-9 flex-1 rounded-md bg-[#111114] px-3 text-[13px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none md:h-7 md:text-[12px]"
+                  >
+                    Create
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingAction(null)}
+                    className="h-9 flex-1 rounded-md border border-[var(--code-border)] px-3 text-[13px] font-[550] text-[var(--code-muted)] transition-colors hover:text-[var(--code-text)] md:h-7 md:flex-none md:border-0 md:text-[12px]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             )}
           </div>
           <div className="wb-slim-scroll flex-1 overflow-y-auto py-1 px-1">
@@ -1449,7 +1549,8 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
         </aside>
 
         {/* ── Editor area ── */}
-        <div className={cn("flex-1 flex flex-col overflow-hidden min-w-0", narrow && showFiles && "hidden")}>
+        {/* Always here, drawer or no drawer: the code is what this screen is. */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           {/* Tabs */}
           {openTabs.length > 0 && (
             <div className="wb-slim-scroll flex items-end bg-[var(--code-panel)] border-b border-[var(--code-border)] overflow-x-auto shrink-0">
@@ -1522,7 +1623,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                 id: "new",
                 icon: <FilePlus className="h-3.5 w-3.5" />,
                 label: "New file",
-                onClick: () => setPendingAction({ kind: "new", path: `${folder}/new-file${ext}` }),
+                onClick: () => { setShowFiles(true); setPendingAction({ kind: "new", path: `${folder}/new-file${ext}` }) },
               },
               {
                 id: "duplicate",
@@ -1663,48 +1764,38 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
           {/* Code area */}
           {!selectedFile ? (
-            <div className="flex-1 flex items-center justify-center text-[var(--code-faint)]">
+            <div className="flex-1 flex items-center justify-center px-6 text-[var(--code-faint)]">
               <div className="text-center">
                 <Code2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
                 <p className="text-[14px]">Select a file to start editing</p>
                 <p className="text-[12px] mt-1 opacity-60">Customized files are highlighted in blue</p>
-                <button
-                  type="button"
-                  onClick={() => setPendingAction({ kind: "new", path: "sections/my-section.storelib" })}
-                  className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--code-border)] px-3 text-[12px] text-[var(--code-text)] hover:bg-[var(--code-hover)]"
-                >
-                  <FilePlus className="h-3.5 w-3.5" />
-                  New file
-                </button>
-                {pendingAction?.kind === "new" && (
-                  <form
-                    className="mt-3 flex items-center gap-2"
-                    onSubmit={e => { e.preventDefault(); void runPendingAction() }}
-                  >
-                    <div onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}>
-                      <NameField
-                        path={pendingAction.path}
-                        onChange={path => setPendingAction({ kind: "new", path })}
-                        label="Name of the new section"
-                        className="h-9 w-72 max-w-full rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[16px] md:h-8 md:text-[12px]"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={!fileNameOf(pendingAction.path).name}
-                      className="h-9 shrink-0 rounded-md bg-[#111114] px-3 text-[12px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none md:h-8"
-                    >
-                      Create
-                    </button>
+                {/*
+                  THE WAY BACK TO THE FILES, from the one state that had none.
+                  With no file selected the bar above is not rendered, and the
+                  bar is where the Files button lives — so closing the last tab
+                  on a phone left an empty editor with no list and no way to
+                  reach one.
+                */}
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                  {narrow && (
                     <button
                       type="button"
-                      onClick={() => setPendingAction(null)}
-                      className="h-9 shrink-0 rounded-md px-2.5 text-[12px] font-[550] text-[var(--code-muted)] transition-colors hover:bg-[var(--code-hover)] hover:text-[var(--code-text)] md:h-8"
+                      onClick={() => setShowFiles(true)}
+                      className="inline-flex h-10 items-center gap-1.5 rounded-md border border-[var(--code-border)] px-3 text-[13px] text-[var(--code-text)] hover:bg-[var(--code-hover)]"
                     >
-                      Cancel
+                      <Folder className="h-4 w-4" />
+                      Browse files
                     </button>
-                  </form>
-                )}
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setShowFiles(true); setPendingAction({ kind: "new", path: "sections/my-section.storelib" }) }}
+                    className="inline-flex h-10 items-center gap-1.5 rounded-md border border-[var(--code-border)] px-3 text-[13px] text-[var(--code-text)] hover:bg-[var(--code-hover)] md:h-8 md:text-[12px]"
+                  >
+                    <FilePlus className="h-4 w-4 md:h-3.5 md:w-3.5" />
+                    New file
+                  </button>
+                </div>
               </div>
             </div>
           ) : loadingFile ? (
@@ -1840,7 +1931,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               along with the home indicator's inset for when no keyboard is
               up. `padding-bottom` rather than a transform, so the bar grows
               into the gap instead of floating over the editor. */}
-          {pendingAction && selectedFile && (
+          {pendingAction && pendingAction.kind !== "new" && selectedFile && (
             <form
               className="flex flex-col gap-2 border-t border-[var(--code-border)] bg-[var(--code-panel)] px-3 py-2 md:flex-row md:items-center md:px-4"
               style={{
@@ -1851,7 +1942,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
             >
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <span className="shrink-0 text-[11px] text-[var(--code-muted)]">
-                  {pendingAction.kind === "new" ? "New file at" : pendingAction.kind === "rename" ? "Rename to" : "Duplicate as"}
+                  {pendingAction.kind === "rename" ? "Rename to" : "Duplicate as"}
                 </span>
                 <div className="flex min-w-0 flex-1" onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}>
                   <NameField
@@ -1868,7 +1959,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   disabled={!fileNameOf(pendingAction.path).name}
                   className="h-10 flex-1 rounded-md bg-[#111114] px-3 text-[13px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none md:h-7 md:flex-none md:px-2.5 md:text-[12px]"
                 >
-                  {pendingAction.kind === "new" ? "Create" : pendingAction.kind === "rename" ? "Rename" : "Duplicate"}
+                  {pendingAction.kind === "rename" ? "Rename" : "Duplicate"}
                 </button>
                 <button
                   type="button"

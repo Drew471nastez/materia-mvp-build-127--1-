@@ -41,7 +41,7 @@ const PHONE = 390, DESK = 820
 /** Every text field in the code editor, with the classes it ships with. */
 const FIELDS = [
   ["filter", "w-full rounded-md border py-1.5 pl-7 pr-6 text-[16px] md:py-1 md:text-[11.5px]"],
-  ["new-file", "h-9 w-72 max-w-full rounded-md border px-2 font-mono text-[16px] md:h-8 md:text-[12px]"],
+  ["new-file", "h-10 w-full min-w-0 rounded-md border px-2 font-mono text-[16px] md:h-8 md:text-[12px]"],
   ["path", "h-9 min-w-0 flex-1 rounded-md border px-2 font-mono text-[16px] md:h-7 md:text-[12px]"],
   // The control: the filter as it was, which is the field that was reported.
   ["before", "w-full rounded-md border py-1 pl-7 pr-6 text-[11.5px]"],

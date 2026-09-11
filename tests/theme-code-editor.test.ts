@@ -502,7 +502,7 @@ section("Create writes the file, and you name it rather than its path")
   // field is what makes iOS zoom the page and not zoom back.
   check("and they stay finger-sized on a phone, with a field iOS will not zoom",
     /h-10 flex-1 rounded-md bg-\[#111114\][^"]*md:h-7 md:flex-none/.test(codePage)
-    && /h-9 w-72 max-w-full rounded-md border[^"]*text-\[16px\] md:h-8 md:text-\[12px\]/.test(codePage)
+    && /h-10 w-full min-w-0 rounded-md border[^"]*text-\[16px\] md:h-8 md:text-\[12px\]/.test(codePage)
     && /h-10 min-w-0 flex-1 rounded-md border[^"]*text-\[16px\] md:h-7 md:text-\[12px\]/.test(codePage))
   check("a nameless file cannot be created", (codePage.match(/disabled=\{!fileNameOf\(pendingAction\.path\)\.name\}/g) ?? []).length === 2)
 
@@ -734,6 +734,27 @@ section("The code editor on a phone")
     "and a double tap selects a word instead of zooming the file",
     /\.wb-code \{\s*touch-action: manipulation;/.test(css),
   )
+  /**
+   * THE FREEZE ON THE WAY BACK. The editor is an iframe with a text field in
+   * it, and closing the pane hides the frame without blurring what is focused
+   * inside it. iOS keeps the keyboard's offset on its own scroll view, over a
+   * builder whose document is locked and cannot scroll it back, and the
+   * canvas reads as frozen.
+   */
+  check(
+    "closing the code pane blurs what the keyboard was over",
+    /if \(visible\) return/.test(pane) && /contentDocument\?\.activeElement/.test(pane) && /window\.scrollTo\(0, 0\)/.test(pane),
+  )
+  const builder = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  check(
+    "and coming back to the app clears a lock whose owner is gone",
+    // The builder never locks the document inline, so an inline lock at that
+    // moment belongs to something that did not clean up after itself.
+    /document\.addEventListener\("visibilitychange", revive\)/.test(builder) &&
+      /removeProperty\("pointer-events"\)/.test(builder) &&
+      /data-state="open"/.test(builder),
+  )
+
   check(
     "the editor scrolls both ways, and a flick at the end stays in it",
     /\[touch-action:pan-x_pan-y\]/.test(page) && /overscroll-contain/.test(page),

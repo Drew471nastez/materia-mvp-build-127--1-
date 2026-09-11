@@ -1051,7 +1051,9 @@ check(
    */
   ((code) =>
     /py-1\.5 pl-7 pr-6 text-\[16px\] md:py-1 md:text-\[11\.5px\]/.test(code) &&
-    /h-9 w-72 max-w-full rounded-md border[^"]*text-\[16px\] md:h-8 md:text-\[12px\]/.test(code) &&
+    // The new-file field, which lives in the explorer now, and the one the
+    // rename and duplicate row uses.
+    /h-10 w-full min-w-0 rounded-md border[^"]*text-\[16px\] md:h-8 md:text-\[12px\]/.test(code) &&
     /h-10 min-w-0 flex-1 rounded-md border[^"]*text-\[16px\] md:h-7 md:text-\[12px\]/.test(code) &&
     // the code itself was always right, and stays the pattern the rest follow
     /const CODE_TEXT = "text-\[16px\] leading-6 md:text-\[12px\] md:leading-5"/.test(code) &&
@@ -1626,17 +1628,48 @@ section("The code editor, on a phone")
 // ===========================================================================
 
 check(
-  "the files and the code take turns rather than sharing 390 pixels",
+  "the files are a drawer over the code, not the whole of a 390px screen",
   /**
    * A 224px explorer beside an editor works on a desktop and leaves neither
    * usable on a phone: a third of the screen is a list you are not reading,
    * the rest a column of code four words wide.
+   *
+   * Taking turns was the first answer and it had a dead end in it. The way
+   * back to the list lives on the bar that only exists while a file is open,
+   * so closing the last tab left an empty editor, no files, and nothing to
+   * press. A drawer is always reachable and never takes the code away.
    */
   /const \[narrow, setNarrow\] = useState\(false\)/.test(codePage) &&
     /matchMedia\("\(max-width: 767px\)"\)/.test(codePage) &&
-    /narrow\s*\n\s*\? showFiles\s*\n\s*\? "w-full flex-1 min-w-0"\s*\n\s*: "hidden"/.test(codePage) &&
-    /narrow && showFiles && "hidden"/.test(codePage) &&
+    /absolute inset-y-0 left-0 z-40 w-\[86%\] max-w-\[320px\]/.test(codePage) &&
+    /showFiles \? "translate-x-0" : "-translate-x-full"/.test(codePage) &&
+    // one property, on the compositor, for the whole of the movement
+    /transition-transform duration-\[280ms\]/.test(codePage) &&
+    // and three ways to close it: the backdrop, its own button, and Escape
+    /aria-label="Close the file list"/.test(codePage) &&
+    /if \(e\.key === "Escape"\) setShowFiles\(false\)/.test(codePage) &&
     /\/\/ On a phone, picking a file is the gesture that means "show me the code"\.\s*\n\s*setShowFiles\(false\)/.test(codePage),
+)
+
+check(
+  "and the code column is never hidden behind it, so there is no dead end",
+  !/narrow && showFiles && "hidden"/.test(codePage) &&
+    // with no file open, the empty state carries the way back to the list
+    /Browse files/.test(codePage),
+)
+
+check(
+  "New file is in the explorer, where the files are",
+  /**
+   * It was a button in the middle of the empty editor whose form laid a
+   * label, a field and two buttons in one row: about 250px before the field
+   * had a pixel, so on a phone the field ran off both edges and Cancel was
+   * past the right one. A screenshot of that is what reported it.
+   */
+  /aria-label="New file"[\s\S]{0,200}FilePlus/.test(codePage) &&
+    /pendingAction\?\.kind === "new" && \(\s*\n\s*<form/.test(codePage) &&
+    // and the row that could not be one is stacked now
+    /className="space-y-2 pt-1"/.test(codePage),
 )
 
 check(

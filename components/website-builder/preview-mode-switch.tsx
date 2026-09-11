@@ -245,6 +245,43 @@ export function CodePane({
     if (loaded) sendChrome()
   }, [loaded, fullScreen, sendChrome])
 
+  /**
+   * ===========================================================================
+   *  WHAT THE CODE EDITOR LEAVES BEHIND WHEN IT CLOSES
+   * ===========================================================================
+   * The editor is an iframe with a text field in it, and on a phone that
+   * field has the keyboard up. Closing this pane hides the frame; it does not
+   * blur what is focused inside it. iOS then keeps the keyboard's scroll
+   * offset on the WKWebView's own scroll view, over a builder whose document
+   * is locked to the viewport and cannot scroll it back — so the canvas is
+   * displaced, every touch lands somewhere other than where it looks, and the
+   * preview reads as frozen.
+   *
+   * Blurring the field inside the frame and the one out here, then putting
+   * the window back to the top, is what ends that state. Same origin, so the
+   * frame's document is reachable; wrapped anyway, because a frame that has
+   * not loaded has no document at all.
+   */
+  useEffect(() => {
+    if (visible) return
+    const settle = () => {
+      try {
+        const inner = frameRef.current?.contentDocument?.activeElement as HTMLElement | null
+        inner?.blur?.()
+      } catch {
+        /* a frame that is not there yet has nothing focused in it */
+      }
+      const outer = document.activeElement as HTMLElement | null
+      if (outer && outer !== document.body) outer.blur?.()
+      if (window.scrollY !== 0) window.scrollTo(0, 0)
+    }
+    settle()
+    // And again after the close animation, for a keyboard that was still on
+    // its way down when the first one ran.
+    const t = window.setTimeout(settle, 320)
+    return () => window.clearTimeout(t)
+  }, [visible])
+
   const askFrameForTheme = (next: "light" | "dark") => {
     try {
       frameRef.current?.contentWindow?.postMessage(
