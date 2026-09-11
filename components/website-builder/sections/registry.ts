@@ -30,6 +30,7 @@ import { ProductSection } from "./renderers/ProductSection"
 // scripts/check-storelib-hero.mjs measures the engine's output against, and
 // leaves with the next section that moves.
 import { StorelibSection } from "./StorelibSection"
+import { STORELIB_SECTION_TYPES } from "@/lib/website-builder/storelib-schemas"
 import { RichTextSection } from "./renderers/RichTextSection"
 import { ImageBannerSection } from "./renderers/ImageBannerSection"
 import { ImageSection } from "./renderers/ImageSection"
@@ -82,11 +83,11 @@ import { SizeGuideSection } from "./renderers/SizeGuideSection"
 import { CollectionBannerSection } from "./renderers/CollectionBannerSection"
 
 // ── Registry ──────────────────────────────────────────────────
-// Keys MUST match the `type` field in each section's schema
-// JSON under themes/default/sections/<type>.json.
-export const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
+// Keys MUST match the `type` field in each section's schema.
+// These are the sections still described by a JSON schema; the ones that
+// live in a .storelib file are derived below, from the files themselves.
+const BUILT_IN_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
   header: HeaderSection,
-  hero: StorelibSection,
   rich_text: RichTextSection,
   image_banner: ImageBannerSection,
   split_content: SplitContentSection,
@@ -94,9 +95,6 @@ export const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
   slideshow: SlideshowSection,
   product: ProductSection,
   product_list: ProductListSection,
-  // themes/default/sections/testimonials.storelib; the renderer below stays
-  // as the reference scripts/check-storelib-parity.mjs measures against.
-  testimonials: StorelibSection,
   faq: FaqSection,
   cta: CtaSection,
   stats: StatsSection,
@@ -140,3 +138,20 @@ export const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
   size_guide: SizeGuideSection,
   collection_banner: CollectionBannerSection,
 }
+/**
+ * EVERY SECTION THAT LIVES IN A .storelib FILE renders through one
+ * component, and registers itself by existing. Adding a section to the
+ * theme is adding its file; there is no second place to remember, which is
+ * what the fifty hand-written entries above were.
+ *
+ * A `.storelib` wins where a type has both, because the file is the section.
+ */
+const STORELIB_COMPONENTS: Record<string, ComponentType<SectionProps>> = Object.fromEntries(
+  STORELIB_SECTION_TYPES.map((type) => [type, StorelibSection]),
+)
+
+export const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
+  ...BUILT_IN_COMPONENTS,
+  ...STORELIB_COMPONENTS,
+}
+

@@ -252,6 +252,70 @@ template cannot render a React component. A section that draws icons needs
 the icon's SVG reachable from the engine before it can move. Two of the
 thirty are in that position.
 
+### The library, rebuilt
+
+The theme offers thirty sections in ten categories, every one of them a
+`.storelib` file:
+
+| Category | Sections |
+| --- | --- |
+| Hero | Centered Hero, Split Hero, Product Hero |
+| Products | Product Grid, Featured Products, Product Spotlight |
+| Features | Feature Grid, Image + Features, Feature Cards |
+| Content | Rich Text, Image + Text, Two Column Content |
+| Social Proof | Testimonials Grid, Featured Testimonial, Logo / Trust Row |
+| CTA | Simple CTA, CTA + Image, Full Width CTA Banner |
+| Media | Image Gallery, Video Section, Image Collage |
+| About | About + Image, Founder Story, Story / Timeline |
+| FAQ | Accordion FAQ, Two Column FAQ, FAQ + CTA |
+| Marketing | Newsletter Signup, Announcement / Promo, Countdown Offer |
+
+`themes/default/manifest.json` is the library: its `addable_sections` list
+is what Add Section offers and its `categories` list is the order the tabs
+appear in. The files are the authority over the list — a listed section
+whose file has no preset is dropped, because a preset is what lands on the
+page.
+
+**Nothing was deleted.** The forty-eight types the library no longer offers
+are in `retired_sections`: still in `SECTION_SCHEMAS`, still rendering,
+still editable on every page that has one. They are simply not on the Add
+Section list. Deleting a section type empties every page that used it, and
+no library tidy-up is worth that.
+
+None of the thirty needs a script. Two things came out of building them:
+
+- An `<iframe>` is no longer refused outright. A section that shows
+  somebody else's player declares the `embed` capability, and the address
+  has to come from the `embed` filter, which knows five hosts and answers
+  with an empty string for everything else. Video Section is the first to
+  use it.
+- An FAQ accordion is `<details>` and `<summary>`. It opens and closes with
+  no JavaScript at all, which is better than the React one it replaces —
+  that one needed a hydrated component to open a question.
+
+### Sections a creator writes
+
+A `sections/<type>.storelib` saved in the code editor that the theme does
+not ship belongs to the creator. It appears in Add Section under **Created
+by you**, in the sidebar, and on the page, as soon as it compiles and
+declares a preset — the same rule every built-in section answers to. See
+`customSectionSchemas` in `lib/website-builder/storelib-schemas.ts`.
+
+### How the whole library is checked
+
+`scripts/check-library.mjs` renders all thirty at the preset Add Section
+uses, at 1100px and 390px, and refuses: a section that arrives empty, one
+that runs off the side of a phone, text under 4.5:1 against what is behind
+it, and a control under 44px on a phone. `KEEP_SHOT=1` writes the PNGs,
+because the rules say to look at the result.
+
+It earned its place twice over on the first run: it caught every heading in
+the library falling back to the browser's serif, because the sections named
+a font with no stack behind it — and it caught itself, reporting every
+primary button as white on white, because `rgb(0, 0, 0)` ends in ", 0)" and
+the transparency test was reading the end of the string instead of the
+alpha channel.
+
 ### How a section is proved to have migrated
 
 `scripts/check-storelib-parity.mjs <type>` renders the section both ways —

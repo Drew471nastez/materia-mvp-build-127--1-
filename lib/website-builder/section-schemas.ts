@@ -96,10 +96,8 @@ const asSchema = (s: unknown): SectionSchema => s as SectionSchema
 // that iterates `Object.keys(SECTION_SCHEMAS)` observes no change.
 // ============================================================
 
-export const SECTION_SCHEMAS: Record<string, SectionSchema> = {
+const JSON_SCHEMAS: Record<string, SectionSchema> = {
   header: asSchema(header),
-  // From themes/default/sections/hero.storelib: the file's own <schema>, through the engine's validator.
-  hero: STORELIB_SCHEMAS.hero,
   video_hero: asSchema(video_hero),
   rich_text: asSchema(rich_text),
   split_content: asSchema(split_content),
@@ -108,8 +106,6 @@ export const SECTION_SCHEMAS: Record<string, SectionSchema> = {
   product_list: asSchema(product_list),
   feature_grid: asSchema(feature_grid),
   footer: asSchema(footer),
-  // From themes/default/sections/testimonials.storelib.
-  testimonials: STORELIB_SCHEMAS.testimonials,
   faq: asSchema(faq),
   cta: asSchema(cta),
   stats: asSchema(stats),
@@ -151,9 +147,34 @@ export const SECTION_SCHEMAS: Record<string, SectionSchema> = {
   brand_logo: asSchema(brand_logo),
 }
 
+/**
+ * EVERY SECTION THIS THEME HAS. The ones still described by a JSON schema,
+ * and the ones that live in a `.storelib` file — which is where all thirty
+ * the library offers now are. A `.storelib` wins where both exist, because
+ * the file is the section.
+ */
+export const SECTION_SCHEMAS: Record<string, SectionSchema> = { ...JSON_SCHEMAS, ...STORELIB_SCHEMAS }
+
 // ── Ordered list of sections available in the "Add section" panel ──
 // Sourced from the theme manifest so packaged themes can customise order.
+/**
+ * WHAT ADD SECTION OFFERS. The manifest's list is the library: ten
+ * categories of three, all of them `.storelib` files. `addableSections`
+ * then drops anything whose file has no preset, so the files stay the
+ * authority over the list rather than the other way round.
+ *
+ * The types the library no longer offers are in `manifest.retired_sections`.
+ * They are still in SECTION_SCHEMAS and still render: a page built with one
+ * keeps working, it just cannot be added again. Nothing is deleted, because
+ * deleting a section type empties every page that used it.
+ */
 export const ADDABLE_SECTIONS: string[] = addableSections(manifest.addable_sections, STORELIB_SCHEMAS)
+
+export const RETIRED_SECTIONS: string[] = (manifest as { retired_sections?: string[] }).retired_sections ?? []
+
+/** The order the Add Section categories appear in, from the theme. */
+export const SECTION_CATEGORY_ORDER: { id: string; label: string }[] =
+  (manifest as { categories?: { id: string; label: string }[] }).categories ?? []
 
 // ── Structure sections (header/footer) — shown separately at top/bottom of sidebar ──
 export const STRUCTURE_SECTIONS: string[] = manifest.structure_sections

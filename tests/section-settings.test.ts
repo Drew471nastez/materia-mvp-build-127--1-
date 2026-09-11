@@ -79,23 +79,23 @@ for (const m of registry.matchAll(/import\s+\{\s*(\w+)\s*\}\s+from\s+"\.\/render
   componentFile.set(m[1], m[2])
 }
 /**
- * A type that maps to `StorelibSection` has no renderer file: its source is
- * `themes/default/sections/<type>.storelib`, and the audit reads that
- * instead. The template reads a setting as `settings.x`, which `readsOf`
- * already understands, so the contract is the same one the renderers meet:
- * everything the panel offers is read, and nothing is read that it does not
- * offer.
+ * A section that lives in a `.storelib` file has no renderer file: its
+ * source is `themes/default/sections/<type>.storelib`, and the audit reads
+ * that instead. The template reads a setting as `settings.x`, which
+ * `readsOf` already understands, so the contract is the same one the
+ * renderers meet: everything the panel offers is read, and nothing is read
+ * that it does not offer.
+ *
+ * They are not listed in registry.ts one by one — the registry derives them
+ * from the files — so this reads the same list the registry does, and the
+ * check below makes sure the registry really does derive it.
  */
-const STORELIB_COMPONENT = /import\s+\{\s*StorelibSection\s*\}\s+from\s+"\.\/StorelibSection"/.test(registry) ? "StorelibSection" : ""
 const rendererFor = new Map<string, string>()
-const storelibTypes = new Set<string>()
+const storelibTypes = new Set<string>(STORELIB_SECTION_TYPES)
+for (const type of STORELIB_SECTION_TYPES) rendererFor.set(type, `sections/${type}.storelib`)
 for (const m of registry.matchAll(/^\s{2}(\w+):\s*(\w+),?\s*$/gm)) {
   const file = componentFile.get(m[2])
-  if (file) rendererFor.set(m[1], file)
-  else if (STORELIB_COMPONENT && m[2] === STORELIB_COMPONENT) {
-    rendererFor.set(m[1], `sections/${m[1]}.storelib`)
-    storelibTypes.add(m[1])
-  }
+  if (file && !rendererFor.has(m[1])) rendererFor.set(m[1], file)
 }
 
 /**
@@ -223,9 +223,14 @@ section("Every renderer has a schema, and every schema a renderer")
     orphanSchema.join(", "),
   )
   check(
-    "and the registry is read, not guessed — all fifty resolved",
+    "and the registry is read, not guessed — every type resolved",
     rendererFor.size >= types.length,
     `${rendererFor.size} mappings for ${types.length} types`,
+  )
+  check(
+    "a .storelib section registers itself by existing, rather than by a line somebody remembers to add",
+    /STORELIB_SECTION_TYPES\.map\(\(type\) => \[type, StorelibSection\]\)/.test(registry) &&
+      !/^\s{2}(hero|testimonials|hero_centered):\s*StorelibSection,/m.test(registry),
   )
 }
 
