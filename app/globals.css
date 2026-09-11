@@ -902,7 +902,29 @@ html.capacitor body {
     /* Above the code pane as well as the preview, which is z-80: both are
        cut to the same arc and both want the same corner completed. */
     z-index: 90;
-    background: radial-gradient(circle 22px at 100% 100%, rgba(255, 255, 255, 0) 0 98%, #ffffff 100%);
+    /**
+     * THE DIVIDER TURNS THE CORNER WITH IT.
+     *
+     * The hairline down the seam started below the arc, because a straight
+     * line drawn through a curve is a line drawn across it. That left the
+     * divider beginning 22px down for no visible reason — and where the page
+     * in the canvas is light, the arc and the fill are both invisible, so the
+     * only thing anybody could see was a hairline that stopped short. That is
+     * what read as broken.
+     *
+     * The line is a ring in this same gradient, sitting exactly on the arc:
+     * transparent inside the disc, one pixel of the app's divider grey at its
+     * edge, the panel's white outside it. The arc runs from (0, 22) to
+     * (22, 0), and at (0, 22) its tangent is vertical — which is the straight
+     * divider's own direction, so the two join without a corner between them.
+     * One continuous line: down the seam, round the turn, out along the top.
+     */
+    background: radial-gradient(
+      circle 22px at 100% 100%,
+      rgba(255, 255, 255, 0) 0 95%,
+      #e5e7eb 95.6% 99.6%,
+      #ffffff 100%
+    );
   }
 
   /* ── The divider stops short of the corner ──

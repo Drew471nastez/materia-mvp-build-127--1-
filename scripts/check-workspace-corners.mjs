@@ -71,7 +71,7 @@ ${shape === "after"
     ? /* square at the screen's edges; the only arc is the seam's */
       `.card{border-top-left-radius:${SEAM_R}px}
        .fill{position:absolute;top:0;left:0;width:${SEAM_R}px;height:${SEAM_R}px;z-index:90;
-             background:radial-gradient(circle ${SEAM_R}px at 100% 100%, rgba(255,255,255,0) 0 98%, #ffffff 100%)}`
+             background:radial-gradient(circle ${SEAM_R}px at 100% 100%, rgba(255,255,255,0) 0 95%, #e5e7eb 95.6% 99.6%, #ffffff 100%)}`
     : /* the shape it replaces: the two panels curving AWAY from each other,
          which leaves the lens-shaped wedge that was reported as a notch */
       `.row{border-radius:${R}px}
@@ -208,10 +208,38 @@ function seamProfile(img, box) {
 const isDivider = (p) => Math.abs(p[0] - 0xe5) < 4 && Math.abs(p[1] - 0xe7) < 4 && Math.abs(p[2] - 0xeb) < 4
 function dividerInCorner(img, box) {
   let n = 0
-  for (let x = box.left + SIDE - 2; x <= box.left + SIDE + 1; x++) {
-    for (let y = box.top; y < box.top + SEAM_R; y++) if (isDivider(img.at(x, y))) n++
+  // The two columns at the seam itself, and stopping three pixels short of
+  // the arc's vertical tangent at (0, R) — which is the one place the line is
+  // SUPPOSED to be in this column, where it turns into the straight hairline.
+  for (let x = box.left + SIDE - 1; x <= box.left + SIDE; x++) {
+    for (let y = box.top; y < box.top + SEAM_R - 3; y++) if (isDivider(img.at(x, y))) n++
   }
   return n
+}
+
+/**
+ * The divider has to turn the corner, not stop before it. Walking the arc
+ * from its vertical tangent at (0, R) round to its horizontal one at (R, 0),
+ * every step should land on divider grey: that is one continuous line down
+ * the seam and out along the top, with nothing between it and the straight
+ * hairline below.
+ */
+function arcLine(img, box) {
+  let on = 0, total = 0
+  for (let deg = 0; deg <= 90; deg += 3) {
+    const t = (deg * Math.PI) / 180
+    // centre of the arc, in image coordinates
+    const cx = box.left + SIDE + SEAM_R
+    const cy = box.top + SEAM_R
+    const x = Math.round(cx - SEAM_R * Math.cos(t))
+    const y = Math.round(cy - SEAM_R * Math.sin(t))
+    total++
+    // a pixel on the line, or either of its two neighbours across the arc
+    for (const d of [0, -1, 1]) {
+      if (isDivider(img.at(x + d, y))) { on++; break }
+    }
+  }
+  return { on, total }
 }
 
 let broken = 0
@@ -252,6 +280,7 @@ try {
       seamGap: seamFill(img, box),
       seamProfile: seamProfile(img, box),
       cornerDivider: dividerInCorner(img, box),
+      arcLine: arcLine(img, box),
     }
   }
 
@@ -281,8 +310,15 @@ try {
   expect(after.seamProfile.travel >= SEAM_R - 6, "and it fills it along a curve, not as a square corner",
     `the white edge moved ${after.seamProfile.travel}px down the junction, so it is not tracing the arc`)
 
-  expect(after.cornerDivider === 0, "and no hairline runs through the corner it has just drawn",
-    `${after.cornerDivider} divider pixels inside the arc`)
+  expect(after.arcLine.on / after.arcLine.total > 0.9, "and the divider turns the corner with it rather than stopping before it",
+    `${after.arcLine.on} of ${after.arcLine.total} points along the arc carry the line`)
+  expect(before.arcLine.on / before.arcLine.total < 0.2,
+    "the straight-only hairline did not follow the arc, so this is a real measurement",
+    `the control already had ${before.arcLine.on} of ${before.arcLine.total}`)
+  // Two pixels of slack: the arc's own antialiasing reaches the seam column
+  // as it turns into the vertical, and a blended pixel is not a straight line.
+  expect(after.cornerDivider <= 2, "and no straight hairline cuts across the corner",
+    `${after.cornerDivider} straight divider pixels inside the arc`)
   expect(before.cornerDivider > 0, "the full-height hairline did cut across it, so this is a real measurement",
     "the control had no divider in the corner either")
 
@@ -293,7 +329,7 @@ try {
 
   console.log("")
   const cols = (m) => OUTER.map(([k]) => `${m[k].bar}/${m[k].total}`).join("  ") +
-    `   seam gap ${m.seamGap}, curve ${m.seamProfile.travel}px of ${SEAM_R}, divider ${m.cornerDivider}`
+    `   seam gap ${m.seamGap}, curve ${m.seamProfile.travel}px of ${SEAM_R}, across ${m.cornerDivider}, arc ${m.arcLine.on}/${m.arcLine.total}`
   console.log(`  after    ${cols(after)}`)
   console.log(`  before   ${cols(before)}\n`)
 } finally {

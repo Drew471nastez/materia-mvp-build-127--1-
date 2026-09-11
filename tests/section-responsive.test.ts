@@ -935,9 +935,17 @@ check(
    * radius on its CARD and stays square itself: rounding the canvas as well
    * would clip the very thing the fill is there to draw.
    *
-   * And the hairline stops short of it. Running the full height of the seam
-   * it cut across the corner a millimetre from the arc, which is the seam
-   * still reading as an edge however well the curve was made.
+   * AND THE DIVIDER TURNS THE CORNER WITH IT. Starting the hairline below
+   * the arc stops it cutting across the curve, but it also leaves a line that
+   * begins 22px down for no visible reason — and where the page in the canvas
+   * is light, the arc and the fill are both invisible, so a hairline stopping
+   * short is the only thing anybody can see. That is what read as broken.
+   *
+   * The line is a ring in the fill's own gradient, sitting exactly on the
+   * arc. The arc runs from (0, 22) to (22, 0), and at (0, 22) its tangent is
+   * vertical, which is the straight divider's own direction: the two join
+   * with no corner between them. One continuous line, down the seam, round
+   * the turn and out along the top.
    *
    * Measured: 0 pixels of anything showing through at the four screen
    * corners, against 44, 42, 44 and 42 for the rounded row; at the seam, 0
@@ -957,7 +965,7 @@ check(
     !/bg-white border-r border-\[#e5e7eb\]/.test(editor) &&
     ((css) =>
       /\.wb-seam-fill \{[\s\S]{0,1400}?left: 0;/.test(css) &&
-      /\.wb-seam-fill \{[\s\S]{0,1400}?background: radial-gradient\(circle 22px at 100% 100%, rgba\(255, 255, 255, 0\) 0 98%, #ffffff 100%\);/.test(css) &&
+      /rgba\(255, 255, 255, 0\) 0 95%,\s*\n\s*#e5e7eb 95\.6% 99\.6%,\s*\n\s*#ffffff 100%/.test(css) &&
       /\.wb-seam-divider \{[\s\S]{0,300}?top: 22px;/.test(css))(readFileSync(join(root, "app/globals.css"), "utf8")),
 )
 
