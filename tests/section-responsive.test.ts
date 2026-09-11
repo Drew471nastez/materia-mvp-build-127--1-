@@ -871,6 +871,33 @@ check(
 )
 
 check(
+  "the canvas's insert affordance costs the page no height",
+  /**
+   * It was `h-6 w-full` in flow, which is 24px of nothing inserted between
+   * every pair of sections on the page. The canvas is meant to show what the
+   * site looks like, and it was showing a site with a gutter between every
+   * section that the published page does not have; designing against that is
+   * designing against the wrong page.
+   *
+   * Zero pixels in flow now, with the hit area hanging off it across the
+   * boundary: 12px, six either side. Big enough to find, small enough that a
+   * click meant for a section almost never lands in it. Both the line and the
+   * button stay `pointer-events-none`, so the band is the only hover target
+   * and a button taller than its band cannot flicker the hover the way the
+   * sidebar's divider once did.
+   *
+   * Measured: 0px between the sections against 24px before, with a 12px band.
+   * `node scripts/check-canvas-insert.mjs`
+   */
+  /<div className="relative isolate z-20 h-0 w-full">/.test(editor) &&
+    /className="group absolute inset-x-0 -top-1\.5 flex h-3 cursor-pointer select-none items-center justify-center"/.test(editor) &&
+    !/group relative isolate z-20 flex h-6 w-full/.test(editor) &&
+    // the visible parts never take the pointer, so the band owns the hover
+    /pointer-events-none absolute inset-x-0 h-\[2px\]/.test(editor) &&
+    /pointer-events-none relative z-10 flex h-6 w-6/.test(editor),
+)
+
+check(
   "the workspace is one rounded slab, and the seam inside it is flat",
   /**
    * The rounding was in the wrong place every time, and each attempt moved it

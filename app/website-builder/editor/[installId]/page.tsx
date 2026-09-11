@@ -6958,9 +6958,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
  * properties, and a transition naming `transform` animates neither.
  */
 function CanvasInsertStrip({ onClick }: { onClick: () => void }) {
+  /**
+   * ===========================================================================
+   *  IT COSTS THE PAGE NO HEIGHT
+   * ===========================================================================
+   * This was `h-6 w-full` in flow, which is 24px of nothing inserted between
+   * every pair of sections on the page. The canvas is meant to show what the
+   * site looks like, and it was showing a site with a 24px gutter between
+   * every section that the published page does not have. A person designing
+   * against that is designing against the wrong page.
+   *
+   * So the element in flow is zero pixels tall and the hit area hangs off it,
+   * straddling the boundary. Twelve pixels, six either side: enough to find
+   * with a pointer, small enough that a click meant for the section above or
+   * below almost never lands in it. Both the line and the button are
+   * `pointer-events-none`, so the band is the only hover target and the
+   * button being taller than it cannot flicker the hover the way the
+   * sidebar's divider once did.
+   */
   return (
+    <div className="relative isolate z-20 h-0 w-full">
     <div
-      className="group relative isolate z-20 flex h-6 w-full cursor-pointer select-none items-center justify-center"
+      className="group absolute inset-x-0 -top-1.5 flex h-3 cursor-pointer select-none items-center justify-center"
       onClick={(e) => {
         e.stopPropagation()
         onClick()
@@ -6979,6 +6998,7 @@ function CanvasInsertStrip({ onClick }: { onClick: () => void }) {
       <span className="pointer-events-none relative z-10 flex h-6 w-6 -rotate-90 scale-75 items-center justify-center rounded-full bg-[#8B56FA] text-white opacity-0 shadow-[0_2px_10px_-2px_rgba(139,86,250,0.8)] transition-[opacity,rotate,scale] duration-200 ease-out group-hover:rotate-0 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:rotate-0 group-focus-visible:scale-100 group-focus-visible:opacity-100 motion-reduce:transition-none">
         <Plus className="h-3.5 w-3.5" strokeWidth={2.75} />
       </span>
+    </div>
     </div>
   )
 }
