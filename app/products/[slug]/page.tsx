@@ -3,6 +3,8 @@ import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
+import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
+import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 export const dynamic = "force-dynamic"
@@ -170,7 +172,22 @@ export default async function WebsiteBuilderProductPage({ params }: PageProps) {
     ...(footer ? [footer] : []),
   ]
 
+  /**
+   * Rendered here, on the server, once — and as "product", not "index".
+   * A section reads that as `page.template` and `allowed_templates` is
+   * written against it, so the wrong word here hides the right sections.
+   */
+  const prerendered = await prerenderStorelibSections(
+    admin as never,
+    install.id,
+    page,
+    themeSettings,
+    "product",
+  )
+
   return (
-    <ThemePage theme={themeSettings} sections={page} className="min-h-screen" />
+    <StorelibSourcesProvider prerendered={prerendered} page={{ template: "product" }}>
+      <ThemePage theme={themeSettings} sections={page} className="min-h-screen" />
+    </StorelibSourcesProvider>
   )
 }

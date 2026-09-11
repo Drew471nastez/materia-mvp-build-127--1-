@@ -26,6 +26,7 @@
  */
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { readFileSync, readdirSync, existsSync } from "node:fs"
+import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { join } from "node:path"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
@@ -39,7 +40,7 @@ import {
 import { looksLikeImage, previousSnapshotPath, SNAPSHOT_BUCKET } from "@/lib/website-builder/snapshot"
 import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition, coverSpecFromSettings } from "@/components/website-builder/theme-cover"
 import { editorHref } from "@/app/app/website-builder/website-builder-client"
-import { CUSTOM_SECTION_CATEGORY, STORELIB_SCHEMAS, STORELIB_SECTION_TYPES, addableSections } from "@/lib/website-builder/storelib-schemas"
+import { CUSTOM_SECTION_CATEGORY, STORELIB_SCHEMAS, STORELIB_SECTION_TYPES, addableSections, customAddableSections, customSectionSchemas, schemaFromStorelib } from "@/lib/website-builder/storelib-schemas"
 import { ADDABLE_SECTIONS, RETIRED_SECTIONS, SECTION_CATEGORIES, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 
 let passed = 0
@@ -489,6 +490,77 @@ section("Add Section is derived from the files, one card per preset")
   check("the library can be searched across name, category and description", /placeholder="Search sections"/.test(editorSrc) && /haystack: `\$\{name\} \$\{schema\.name\} \$\{label\}/.test(editorSrc) && /words\.every\(w => e\.haystack\.includes\(w\)\)/.test(editorSrc))
   check("and a creator's own sections have their own heading, pinned last", /const mine = counts\.has\(CUSTOM_SECTION_CATEGORY\)/.test(editorSrc) && /ownTypes=\{ownSectionTypes\}/.test(editorSrc))
   check("and the chosen preset is the one that lands on the page", /const addSection = \(type: string, presetIndex = 0\)/.test(editorSrc) && /schema\.presets\?\.\[presetIndex\]/.test(editorSrc))
+}
+
+/**
+ * ===========================================================================
+ *  EVERY PUBLIC ROUTE RENDERS A .storelib SECTION, OR THE VISITOR SEES A GAP
+ * ===========================================================================
+ * A .storelib section becomes markup only when the server renders it. A route
+ * that draws a creator's sections without doing that does not fail loudly:
+ * StorelibSection returns null off the editor, so the section is simply not
+ * there. Measured before this was fixed: the product page produced 0
+ * characters of HTML for a hero that produced 3651 on the storefront.
+ *
+ * So the test is over the routes themselves. Every page that hands sections
+ * to ThemePage must call the one function that does this, and must say which
+ * template it is — "index" from the product page is a wrong answer, not a
+ * harmless default, because allowed_templates is written against it.
+ */
+{
+  console.log("\n  A published page draws the sections a creator wrote")
+  const PUBLIC_ROUTES = [
+    ["app/(marketing)/[sellername]/page.tsx", "index"],
+    ["app/(marketing)/w/[username]/page.tsx", "index"],
+    ["app/products/[slug]/page.tsx", "product"],
+  ] as const
+  for (const [route, template] of PUBLIC_ROUTES) {
+    const src = read(route)
+    check(`${route} renders them on the server`, /await prerenderStorelibSections\(/.test(src))
+    check(`${route} renders them as "${template}"`, new RegExp(`"${template.replace(".", "\\.")}",\\s*\\)`).test(src) && new RegExp(`page=\\{\\{ template: "${template}" \\}\\}`).test(src))
+  }
+  // Named here so a fourth route cannot quietly join the list without one.
+  const walk = (dir: string): string[] => {
+    const full = join(process.cwd(), dir)
+    if (!existsSync(full)) return []
+    return readdirSync(full, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name === "page.tsx" ? [`${dir}/${e.name}`] : [],
+    )
+  }
+  const routesDrawingSections = [...new Set(["app/(marketing)", "app/products"].flatMap(walk))]
+    .filter((f) => /<ThemePage/.test(read(f)))
+  check(
+    "and no other public route hands sections to ThemePage without it",
+    routesDrawingSections.every((f) => /prerenderStorelibSections/.test(read(f))),
+    routesDrawingSections.filter((f) => !/prerenderStorelibSections/.test(read(f))).join(", "),
+  )
+}
+
+
+/**
+ * ===========================================================================
+ *  A SECTION YOU WROTE IS FILED WHERE YOU WILL LOOK FOR IT
+ * ===========================================================================
+ */
+{
+  console.log("\n  Created by you")
+  const mine = customSectionSchemas({
+    // The usual starting point: a copy of one of the theme's own sections,
+    // which carries the theme's category with it.
+    "sections/drewwww.storelib":
+      '<template><div>hi</div></template>\n<schema>{"type":"hero_centered","name":"Drewwww","category":"hero","presets":[{"name":"Drewwww"}],"settings":[]}</schema>',
+    // Editing one of the theme's files is not writing a section of your own.
+    "sections/hero_centered.storelib": DEFAULT_THEME_SOURCES["sections/hero_centered.storelib"] ?? "",
+  })
+  check("a section you wrote is filed under your own heading, whatever its file says", mine["drewwww"]?.category === CUSTOM_SECTION_CATEGORY)
+  check("and editing one of the theme's sections does not make it yours", !("hero_centered" in mine))
+  check("and it is offered in the library, because its file gives it a preset", customAddableSections(mine).includes("drewwww"))
+  // The fixture is a copy of the theme's hero, "type" line and all.
+  check("and the file it was saved as is the section it is, not the one it was copied from", mine["drewwww"]?.type === "drewwww")
+  check("a schema error names the key that is wrong, not just the line", (() => {
+    const r = schemaFromStorelib('<template><div>hi</div></template>\n<schema>{"name":"No type","presets":[],"settings":[]}</schema>', "sections/x.storelib")
+    return r.ok === false && r.errors.some((e) => /type: /.test(e))
+  })())
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
