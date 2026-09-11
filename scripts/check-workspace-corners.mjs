@@ -35,7 +35,7 @@ const fail = (m) => {
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}. Set CHROMIUM=/path/to/chromium.`)
 
 /** `rounded-2xl`, the bar's height, the sidebar's width, the viewport. */
-const R = 16, BAR = 44, SIDE = 160, W = 560, H = 300
+const R = 16, SEAM_R = 22, BAR = 44, SIDE = 160, W = 560, H = 300
 /** The editor root: what the four OUTER arcs open onto. */
 const ROOT = [0xee, 0xf1, 0xf5]
 /** The row between the panels: what the SEAM's arcs open onto. */
@@ -67,16 +67,16 @@ body{background:rgb(${ROOT})}
 ${shape === "after"
     ? /* the row owns the outside, the panels own the seam */
       `.row{border-radius:${R}px}
-       .canvas{border-top-left-radius:${R}px}
-       .card{border-top-left-radius:${R}px}
-       .fill{position:absolute;top:0;left:${SIDE}px;width:${R}px;height:${R}px;z-index:10;
-             background:radial-gradient(circle ${R}px at 100% 100%, rgba(255,255,255,0) 0 98%, #ffffff 100%)}`
+       .canvas{border-top-left-radius:${SEAM_R}px}
+       .card{border-top-left-radius:${SEAM_R}px}
+       .fill{position:absolute;top:0;left:${SIDE}px;width:${SEAM_R}px;height:${SEAM_R}px;z-index:10;
+             background:radial-gradient(circle ${SEAM_R}px at 100% 100%, rgba(255,255,255,0) 0 98%, #ffffff 100%)}`
     : /* the shape it replaces: the two panels curving AWAY from each other,
          which leaves the lens-shaped wedge that was reported as a notch */
       `.row{border-radius:${R}px}
-       .side{border-top-right-radius:${R}px}
-       .canvas{border-top-left-radius:${R}px}
-       .card{border-top-left-radius:${R}px}
+       .side{border-top-right-radius:${SEAM_R}px}
+       .canvas{border-top-left-radius:${SEAM_R}px}
+       .card{border-top-left-radius:${SEAM_R}px}
        .fill{display:none}`}
 </style></head><body>
 <div class="bar"></div>
@@ -177,8 +177,8 @@ function corner(img, box, side, edge) {
  */
 function seamFill(img, box) {
   let n = 0
-  for (let x = box.left + SIDE; x < box.left + SIDE + R; x++) {
-    for (let y = box.top; y < box.top + R; y++) if (isGap(img.at(x, y))) n++
+  for (let x = box.left + SIDE; x < box.left + SIDE + SEAM_R; x++) {
+    for (let y = box.top; y < box.top + SEAM_R; y++) if (isGap(img.at(x, y))) n++
   }
   return n
 }
@@ -186,13 +186,13 @@ function seamFill(img, box) {
 const isWhite = (p) => p.every((v) => v > 250)
 function seamProfile(img, box) {
   const edges = []
-  for (let y = box.top; y < box.top + R; y++) {
+  for (let y = box.top; y < box.top + SEAM_R; y++) {
     // From the seam RIGHTWARDS, which is the direction the fill runs: the
     // white reaches furthest at the top and tapers to nothing at the bottom.
     // Scanning the other way stops on the arc's own antialiasing in the first
     // pixel it tests and reports a straight edge for every row.
     let x = 0
-    while (x < R && isWhite(img.at(box.left + SIDE + x, y))) x++
+    while (x < SEAM_R && isWhite(img.at(box.left + SIDE + x, y))) x++
     edges.push(x)
   }
   return { edges, travel: Math.max(...edges) - Math.min(...edges) }
@@ -258,7 +258,7 @@ try {
   }
   expect(after.seamGap === 0, "the reversed corner fills the wedge the canvas's arc leaves",
     `${after.seamGap} pixels of the row still showing at the junction`)
-  expect(after.seamProfile.travel >= R - 6, "and it fills it along a curve, not as a square corner",
+  expect(after.seamProfile.travel >= SEAM_R - 6, "and it fills it along a curve, not as a square corner",
     `the white edge moved ${after.seamProfile.travel}px down the junction, so it is not tracing the arc`)
 
   // The control: two panels curving away from each other leave the lens that
@@ -277,7 +277,7 @@ try {
   console.log(`\n  root to row:   ${outerSep.toFixed(1)} points of luminance`)
   console.log(`  row to panel:  ${seamSep.toFixed(1)} points`)
   const cols = (m) => OUTER.map(([k]) => `${m[k].bar}/${m[k].total}`).join("  ") +
-    `   seam gap ${m.seamGap}, curve ${m.seamProfile.travel}px`
+    `   seam gap ${m.seamGap}, curve ${m.seamProfile.travel}px of ${SEAM_R}`
   console.log(`  after    ${cols(after)}`)
   console.log(`  before   ${cols(before)}\n`)
 } finally {

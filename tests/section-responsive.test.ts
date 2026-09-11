@@ -671,7 +671,7 @@ check(
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-0 z-\[80\] flex flex-col rounded-tl-2xl/.test(modeSwitch) &&
+    /absolute inset-0 z-\[80\] flex flex-col rounded-tl-\[22px\]/.test(modeSwitch) &&
     // A black panel inside a white builder is a second product bolted on.
     /"overflow-hidden bg-white"/.test(modeSwitch) &&
     !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
@@ -769,7 +769,7 @@ check(
   // no surround at all beyond the strip reserved for the sheet's peek, which
   // takes the sheet's own colour so a one-pixel disagreement is a seam.
   /"relative flex-1 min-w-0 overflow-hidden flex justify-center"/.test(editor) &&
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-tl-2xl",/.test(editor),
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-tl-\[22px\]",/.test(editor),
 )
 
 check(
@@ -803,7 +803,7 @@ check(
   /"relative flex flex-1 min-h-0 overflow-hidden bg-\[#d9dee6\]",/.test(editor) &&
     !/bg-\[#171717\] p-2 gap-2/.test(editor) &&
     // and the preview turns only at the seam, the row cutting its other three
-    /\? "rounded-tl-2xl w-full"/.test(editor) &&
+    /\? "rounded-tl-\[22px\] w-full"/.test(editor) &&
     // the sidebar and the AI: flush, clipped, a hairline instead of a gutter
     /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]"/.test(editor) &&
     /<span aria-hidden className="wb-seam-fill" \/>/.test(editor) &&
@@ -812,7 +812,7 @@ check(
     // and a near-black field around it makes the builder read as two products
     // with a hole between them. On a phone preview the hole is most of the
     // screen, which is what was reported with the screenshot beside it.
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-tl-2xl",/.test(editor) &&
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-tl-\[22px\]",/.test(editor) &&
     !/: "bg-\[#171717\]"/.test(editor) &&
     // a device preview is a card floating on that surround, so it is drawn
     // with the edge and the lift the dark used to give it for free
@@ -938,9 +938,14 @@ check(
    * the flat surface flows into the corner along exactly the curve the
    * canvas turns on and the two meet with nothing between them.
    *
+   * 22px, not 16: sixteen pixels of arc between two panels is a softened
+   * corner, and what was asked for is a corner you can see turning. The
+   * canvas's radius is the same number and has to be, since the two shapes
+   * are halves of one circle and meet on its edge.
+   *
    * Measured: 44/44 at each outer corner; at the seam, 0 pixels of the row
-   * still showing and a white edge that travels 12 of 16px down the junction
-   * — a curve, not a square fill. The shape it replaces left 43 pixels of gap
+   * still showing and a white edge that travels 17 of 22px down the junction
+   * — a curve, not a square fill. The shape it replaces left 91 pixels of gap
    * and an edge that travelled 0. `node scripts/check-workspace-corners.mjs`
    */
   // the outer ring, on the row
@@ -952,11 +957,11 @@ check(
     !/rounded-tr-2xl/.test(editor) &&
     // read here rather than through `editorCss`, which is declared further
     // down the file and is in its temporal dead zone at this point
-    /\.wb-seam-fill \{[\s\S]{0,500}?background: radial-gradient\(circle 16px at 100% 100%, rgba\(255, 255, 255, 0\) 0 98%, #ffffff 100%\);/.test(
+    /\.wb-seam-fill \{[\s\S]{0,900}?background: radial-gradient\(circle 22px at 100% 100%, rgba\(255, 255, 255, 0\) 0 98%, #ffffff 100%\);/.test(
       readFileSync(join(root, "app/globals.css"), "utf8"),
     ) &&
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-tl-2xl",/.test(editor) &&
-    /\? "rounded-tl-2xl w-full"/.test(editor),
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-tl-\[22px\]",/.test(editor) &&
+    /\? "rounded-tl-\[22px\] w-full"/.test(editor),
 )
 
 check(
@@ -2075,7 +2080,7 @@ check(
    * and the unwrapped one is a control that must still fail.
    */
   // The wrapper carries the shape and the clip...
-  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,700}?\? "rounded-tl-2xl w-full"/.test(editor) &&
+  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,700}?\? "rounded-tl-\[22px\] w-full"/.test(editor) &&
     // ...and the scroller inside it is square and fills it, so nothing it
     // paints can reach a corner.
     /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"/.test(

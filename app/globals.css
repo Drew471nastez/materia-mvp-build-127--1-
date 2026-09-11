@@ -882,11 +882,16 @@ html.capacitor body {
     position: absolute;
     top: 0;
     left: 100%;
-    width: 16px;
-    height: 16px;
+    /* 22px, not 16. The curve reads at a glance at this size and did not at
+       the last one: sixteen pixels of arc between two panels is a softened
+       corner, and what it was asked for is a corner you can see turning.
+       The canvas's own radius is the same number, and has to be: the two
+       shapes are halves of one circle and they meet on its edge. */
+    width: 22px;
+    height: 22px;
     pointer-events: none;
     z-index: 10;
-    background: radial-gradient(circle 16px at 100% 100%, rgba(255, 255, 255, 0) 0 98%, #ffffff 100%);
+    background: radial-gradient(circle 22px at 100% 100%, rgba(255, 255, 255, 0) 0 98%, #ffffff 100%);
   }
 
   /* ── The row in the air ──

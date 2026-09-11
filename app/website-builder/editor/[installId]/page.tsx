@@ -6606,7 +6606,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * edge to be seen against, and rounded where it faces the
              * sidebar. Its other three corners are the row's to cut.
              */
-            isMobileView ? "bg-background" : "bg-[#eef1f5] rounded-tl-2xl",
+            isMobileView ? "bg-background" : "bg-[#eef1f5] rounded-tl-[22px]",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6671,7 +6671,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full rounded-none"
                 : device === "desktop"
-                  ? "rounded-tl-2xl w-full"
+                  ? "rounded-tl-[22px] w-full"
                   // A phone or a tablet is a card floating on the canvas, so
                   // it needs the edge and the lift a card has. On the dark
                   // surround the contrast did that job; on a light one it has
