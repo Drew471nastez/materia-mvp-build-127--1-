@@ -747,7 +747,22 @@ const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
 /** A thumbnail draws the theme's own file, never a creator's edit of it. */
 const EMPTY_SOURCES: Record<string, string> = {}
 
+/**
+ * THE WIDTH A PREVIEW IS DRAWN AT, WHICH DECIDES WHAT IT SHOWS.
+ *
+ * Sections ask about the width they are IN, not the width of the window:
+ * `@[768px]:grid-cols-3` is a container query and the section's own wrapper
+ * is what it measures. See SectionRenderer. So the render width is not a
+ * detail of the scaling — it is the question being put to the section, and
+ * 800px asks "what do you look like on a desktop" wherever it is asked.
+ *
+ * A phone got the desktop answer, shrunk. Three columns at a third of their
+ * size, a split hero with two unreadable halves: a picture of a layout the
+ * person holding the phone will never see, offered as the thing they are
+ * about to add. 390 is a phone, so the section answers as a phone.
+ */
 const PREVIEW_RENDER_WIDTH = 800
+const PREVIEW_RENDER_WIDTH_MOBILE = 390
 const PREVIEW_THEME: ThemeSettingsValues = {
   primary_color: "#6366f1",
   secondary_color: "#8b5cf6",
@@ -795,7 +810,15 @@ function buildPreviewSection(type: string, presetIndex = 0, given?: SectionSchem
  * view; `contain-intrinsic-size` is what keeps that from costing a scroll
  * jump, since the box's size is known whether it has been drawn or not.
  */
+/**
+ * And the box is a different shape, because the section is. The same hero
+ * that is 400px tall at 800 wide is most of a screen tall at 390: keeping the
+ * desktop's 2:1 box would crop a phone preview to its first line and a half.
+ * Taller here, though not as tall as the section — a card is a glimpse, and a
+ * list of full-height phone screens is a list you scroll instead of scan.
+ */
 const PREVIEW_RATIO = 0.5
+const PREVIEW_RATIO_MOBILE = 0.75
 
 /**
  * ===========================================================================
@@ -825,10 +848,20 @@ const PREVIEW_RATIO = 0.5
  */
 const PREVIEW_MARKUP = new Map<string, string>()
 
-function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, schema }: { type: string; presetIndex?: number; containerWidth?: number; schema?: SectionSchema }) {
+function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, schema, mobile = false }: { type: string; presetIndex?: number; containerWidth?: number; schema?: SectionSchema; mobile?: boolean }) {
   const section = useMemo(() => buildPreviewSection(type, presetIndex, schema), [type, presetIndex, schema])
-  const height = Math.round(containerWidth * PREVIEW_RATIO)
-  const cacheKey = `${type}:${presetIndex}`
+  const renderWidth = mobile ? PREVIEW_RENDER_WIDTH_MOBILE : PREVIEW_RENDER_WIDTH
+  const height = Math.round(containerWidth * (mobile ? PREVIEW_RATIO_MOBILE : PREVIEW_RATIO))
+  /**
+   * THE WIDTH IS PART OF THE KEY.
+   *
+   * The markup a section produces at 390 is a different document from the one
+   * it produces at 800 — that is the whole point of asking it at 390. Keying
+   * on the type alone would hand a phone the desktop markup it happened to
+   * draw first, or the reverse, depending only on which was opened first in
+   * that session.
+   */
+  const cacheKey = `${type}:${presetIndex}:${renderWidth}`
   const captureRef = useRef<HTMLDivElement>(null)
 
   /**
@@ -861,9 +894,9 @@ function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, 
     )
   }
 
-  const scale = containerWidth / PREVIEW_RENDER_WIDTH
+  const scale = containerWidth / renderWidth
   const inner: CSSProperties = {
-    width: PREVIEW_RENDER_WIDTH,
+    width: renderWidth,
     transform: `scale(${scale})`,
     pointerEvents: "none",
     userSelect: "none",
@@ -880,7 +913,18 @@ function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, 
     >
       {markup === null ? (
         <div ref={captureRef} className="absolute left-0 top-0 origin-top-left" style={inner}>
-          <SectionRenderer section={section} theme={PREVIEW_THEME} isEditing={false} isSelected={false} />
+          {/* `deviceMode` for the header's sake. It is the one section kept
+              out of the container-query wrapper — it positions things `fixed`
+              and containment would make an ancestor their containing block —
+              so it is also the one section that cannot work the width out for
+              itself, and has to be told. */}
+          <SectionRenderer
+            section={section}
+            theme={PREVIEW_THEME}
+            isEditing={false}
+            isSelected={false}
+            deviceMode={mobile ? "mobile" : "desktop"}
+          />
         </div>
       ) : (
         /**
@@ -951,7 +995,7 @@ const SectionLibraryCard = memo(function SectionLibraryCard({
         <p className="font-semibold text-sm leading-tight text-foreground">{title}</p>
       </div>
       <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden">
-        <SectionPreviewThumbnail type={type} presetIndex={presetIndex} containerWidth={width} schema={schema} />
+        <SectionPreviewThumbnail type={type} presetIndex={presetIndex} containerWidth={width} schema={schema} mobile={mobile} />
       </div>
     </button>
   )

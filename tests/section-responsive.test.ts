@@ -1276,6 +1276,43 @@ check(
 )
 
 check(
+  "a preview on a phone is the phone's layout, not the desktop's shrunk",
+  /**
+   * Sections ask about the width they are IN, not the width of the window:
+   * `@[768px]:grid-cols-3` is a container query and the section's own wrapper
+   * is what it measures. So the width a preview is rendered at is not a
+   * detail of the scaling — it is the QUESTION being put to the section, and
+   * 800px asks "what do you look like on a desktop" wherever it is asked.
+   *
+   * A phone card therefore showed the desktop answer, shrunk: three columns
+   * at a third of their size, a split hero with two unreadable halves. A
+   * picture of a layout the person holding the phone will never see, offered
+   * as the thing they are about to add.
+   *
+   * The header is passed `deviceMode` as well. It is the one section kept out
+   * of the container-query wrapper — it positions things `fixed`, and
+   * containment would make an ancestor their containing block — so it is the
+   * one section that cannot work the width out for itself.
+   *
+   * AND THE WIDTH IS PART OF THE CACHE KEY. The markup a section produces at
+   * 390 is a different document from the one it produces at 800; keying on
+   * type alone would hand a phone whichever was drawn first that session.
+   *
+   * Measured: 3 columns and a side-by-side split at 800, 1 column and a
+   * stacked split at 390, in a box that is 240px rather than 160.
+   * `node scripts/check-preview-width.mjs`
+   */
+  /const PREVIEW_RENDER_WIDTH_MOBILE = 390/.test(editor) &&
+    /const PREVIEW_RATIO_MOBILE = 0\.75/.test(editor) &&
+    /const renderWidth = mobile \? PREVIEW_RENDER_WIDTH_MOBILE : PREVIEW_RENDER_WIDTH/.test(editor) &&
+    /const cacheKey = `\$\{type\}:\$\{presetIndex\}:\$\{renderWidth\}`/.test(editor) &&
+    /const scale = containerWidth \/ renderWidth/.test(editor) &&
+    /deviceMode=\{mobile \? "mobile" : "desktop"\}/.test(editor) &&
+    // and the flag reaches the thumbnail from the card that already had it
+    /<SectionPreviewThumbnail type=\{type\} presetIndex=\{presetIndex\} containerWidth=\{width\} schema=\{schema\} mobile=\{mobile\} \/>/.test(editor),
+)
+
+check(
   "a preview is drawn once and is markup after that",
   /**
    * Every card mounted a live `SectionRenderer`: a full React tree per
