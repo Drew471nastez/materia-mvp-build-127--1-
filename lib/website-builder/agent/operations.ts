@@ -26,7 +26,7 @@
  * cannot run in a browser, because half its job happens there.
  */
 
-import { SECTION_SCHEMAS } from "../section-schemas"
+import { nameOf, schemaOf, type SchemaMap } from "./schemas"
 import { THEME_SETTINGS_GROUPS } from "../theme-settings-schema"
 import type { BlockInstance, BlockSchema, SchemaField, SectionInstance } from "../types"
 
@@ -104,8 +104,8 @@ function clampIndex(sections: SectionInstance[], wanted: number): number {
 }
 
 /** A new section, filled from its schema's first preset — as the editor does. */
-export function buildSection(id: string, type: string): SectionInstance | null {
-  const schema = SECTION_SCHEMAS[type]
+export function buildSection(id: string, type: string, schemas?: SchemaMap): SectionInstance | null {
+  const schema = schemaOf(schemas, type)
   if (!schema) return null
   const preset = schema.presets?.[0]
   return {
@@ -127,7 +127,7 @@ export function buildSection(id: string, type: string): SectionInstance | null {
  * browser this is replaying what the server did, and a throw there would take
  * down the editor over a section somebody deleted a second earlier.
  */
-export function applyOp(state: ThemeState, op: ThemeOp): ThemeState {
+export function applyOp(state: ThemeState, op: ThemeOp, schemas?: SchemaMap): ThemeState {
   switch (op.kind) {
     case "add_section": {
       const section = buildSection(op.id, op.sectionType)
@@ -194,9 +194,10 @@ export function applyOp(state: ThemeState, op: ThemeOp): ThemeState {
       return { ...state, settings: { ...state.settings, ...op.settings } }
 
     case "add_block": {
-      const spec = SECTION_SCHEMAS[
-        state.sections.find((s) => s.id === op.sectionId)?.type ?? ""
-      ]?.blocks?.find((b) => b.type === op.blockType)
+      const spec = schemaOf(
+        schemas,
+        state.sections.find((s) => s.id === op.sectionId)?.type ?? "",
+      )?.blocks?.find((b) => b.type === op.blockType)
       if (!spec) return state
       const block: BlockInstance = {
         id: op.blockId,
@@ -286,8 +287,10 @@ function defaultsFor(spec: BlockSchema): Record<string, unknown> {
 }
 
 /** Apply a list, in order. The server's working copy and the browser's agree. */
-export function applyOps(state: ThemeState, ops: ThemeOp[]): ThemeState {
-  return ops.reduce(applyOp, state)
+export function applyOps(state: ThemeState, ops: ThemeOp[], schemas?: SchemaMap): ThemeState {
+  // Not `reduce(applyOp, …)`: reduce hands its callback the index as a third
+  // argument, which would arrive where the schema lookup goes.
+  return ops.reduce((acc, op) => applyOp(acc, op, schemas), state)
 }
 
 /* ========================================================================== */
@@ -305,8 +308,8 @@ export function applyOps(state: ThemeState, ops: ThemeOp[]): ThemeState {
  */
 const NOT_A_SETTING = new Set(["header", "paragraph"])
 
-function writableFields(type: string): SchemaField[] {
-  return (SECTION_SCHEMAS[type]?.fields ?? []).filter((f) => !NOT_A_SETTING.has(f.type))
+function writableFields(type: string, schemas?: SchemaMap): SchemaField[] {
+  return (schemaOf(schemas, type)?.fields ?? []).filter((f) => !NOT_A_SETTING.has(f.type))
 }
 
 function writableBlockFields(sectionType: string, blockType: string): SchemaField[] {
@@ -316,8 +319,8 @@ function writableBlockFields(sectionType: string, blockType: string): SchemaFiel
 }
 
 /** The field ids a section type actually accepts, for validating a write. */
-export function fieldIds(type: string): string[] {
-  return writableFields(type).map((f) => f.id)
+export function fieldIds(type: string, schemas?: SchemaMap): string[] {
+  return writableFields(type, schemas).map((f) => f.id)
 }
 
 /* ========================================================================== */
@@ -524,12 +527,12 @@ export function checkSettings(
 }
 
 /** The block types a section accepts, and how many of them it will take. */
-export function blockSpecs(sectionType: string): BlockSchema[] {
-  return SECTION_SCHEMAS[sectionType]?.blocks ?? []
+export function blockSpecs(sectionType: string, schemas?: SchemaMap): BlockSchema[] {
+  return schemaOf(schemas, sectionType)?.blocks ?? []
 }
 
-export function maxBlocks(sectionType: string): number | undefined {
-  return SECTION_SCHEMAS[sectionType]?.max_blocks
+export function maxBlocks(sectionType: string, schemas?: SchemaMap): number | undefined {
+  return schemaOf(schemas, sectionType)?.max_blocks
 }
 
 /** The field ids one block type accepts, for validating a write. */
@@ -543,11 +546,11 @@ export function describeBlockFields(sectionType: string, blockType: string, inde
 }
 
 /** The controls themselves, for checkSettings. */
-export function fieldsFor(type: string): SchemaField[] {
-  return writableFields(type)
+export function fieldsFor(type: string, schemas?: SchemaMap): SchemaField[] {
+  return writableFields(type, schemas)
 }
 
-export function blockFieldsFor(sectionType: string, blockType: string): SchemaField[] {
+export function blockFieldsFor(sectionType: string, blockType: string, schemas?: SchemaMap): SchemaField[] {
   return writableBlockFields(sectionType, blockType)
 }
 
@@ -560,23 +563,24 @@ export function blockFieldsFor(sectionType: string, blockType: string): SchemaFi
  * would fill the context before the model had read the request. It asks for
  * the ones it needs.
  */
-export function describeTheme(state: ThemeState, page: string): string {
+export function describeTheme(state: ThemeState, page: string, schemas?: SchemaMap): string {
   const lines = state.sections.map((s, i) => {
-    const schema = SECTION_SCHEMAS[s.type]
+    const schema = schemaOf(schemas, s.type)
     const heading =
       typeof s.settings?.heading === "string" && s.settings.heading.trim()
         ? ` — "${String(s.settings.heading).slice(0, 60)}"`
         : ""
     /**
-     * A type with no schema here is almost always a section the creator wrote
-     * themselves: their file lives in their install, and this list is built
-     * from the theme this build ships. Calling it "unknown" told the model to
-     * leave alone something that exists, compiles and is on the page. It can
-     * still be moved, hidden, duplicated and removed — only its settings are
-     * out of reach, because their names are in a file this list cannot see.
+     * A type with no schema here used to be the normal case for a section the
+     * creator wrote: this list was built from the theme the site shipped with,
+     * and their file lives in their install. It is built per request out of
+     * their own files now, so their sections are described like any other and
+     * their settings can be written. What is left here is the genuinely
+     * unknown type — a file deleted since the page was saved — which can still
+     * be moved, hidden, duplicated and removed.
      */
     return `  ${i}. [${s.id}] ${s.type}${s.hidden ? " (hidden)" : ""}${heading}${
-      schema ? "" : "  ← written by the creator; can be moved, hidden, duplicated or removed, but its settings are not listed here"
+      schema ? "" : "  ← no file for this type any more; it can be moved, hidden, duplicated or removed, but not edited"
     }`
   })
 
@@ -595,8 +599,8 @@ export function describeTheme(state: ThemeState, page: string): string {
  * can change a FAQ's heading and its padding while believing it has rewritten
  * the questions. That is what "it changed nothing I can see" looked like.
  */
-export function describeSection(section: SectionInstance): string {
-  const specs = blockSpecs(section.type)
+export function describeSection(section: SectionInstance, schemas?: SchemaMap): string {
+  const specs = blockSpecs(section.type, schemas)
   const cap = maxBlocks(section.type)
   const parts = [
     `${section.type} [${section.id}] "${section.name}"${section.hidden ? " — HIDDEN from the page" : ""}`,
@@ -724,10 +728,10 @@ export function describeStore(facts: StoreFacts): string {
  * model that has to ask what words exist before it can use one spends a turn
  * on something that never changes.
  */
-export function describeSectionTypes(addable: string[]): string {
+export function describeSectionTypes(addable: string[], schemas?: SchemaMap): string {
   return addable
     .map((type) => {
-      const schema = SECTION_SCHEMAS[type]
+      const schema = schemaOf(schemas, type)
       if (!schema) return null
       const purpose = schema.description ? ` — ${schema.description}` : ""
       return `  ${type}: ${schema.name}${purpose}`

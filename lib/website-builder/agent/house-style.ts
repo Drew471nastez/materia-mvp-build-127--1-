@@ -26,7 +26,7 @@
  * PURE, and free of any import that cannot run in a browser.
  */
 
-import { SECTION_SCHEMAS } from "../section-schemas"
+import { schemaOf, type SchemaMap } from "./schemas"
 import type { SectionInstance } from "../types"
 import type { ThemeState } from "./operations"
 import { parseColor } from "./review"
@@ -54,8 +54,8 @@ export interface HouseStyle {
 
 const COLOR_FIELD = /_color$|^color$|^gradient_(from|to)$/
 
-function colorFields(type: string): string[] {
-  return (SECTION_SCHEMAS[type]?.fields ?? [])
+function colorFields(type: string, schemas?: SchemaMap): string[] {
+  return (schemaOf(schemas, type)?.fields ?? [])
     .filter((f) => f.type === "color")
     .map((f) => f.id)
 }
@@ -66,7 +66,7 @@ function colorFields(type: string): string[] {
  * Only the sections that are actually on it, and only values that are actually
  * set — a schema default nobody chose is not a decision the page has made.
  */
-export function readHouseStyle(state: ThemeState, exclude: string[] = []): HouseStyle {
+export function readHouseStyle(state: ThemeState, exclude: string[] = [], schemas?: SchemaMap): HouseStyle {
   const counts = new Map<string, { uses: number; where: Set<string> }>()
   const backgrounds: string[] = []
   const spacing = new Map<number, number>()
@@ -82,9 +82,9 @@ export function readHouseStyle(state: ThemeState, exclude: string[] = []): House
   const skip = new Set(exclude)
 
   for (const section of state.sections) {
-    if (!SECTION_SCHEMAS[section.type] || skip.has(section.id)) continue
+    if (!schemaOf(schemas, section.type) || skip.has(section.id)) continue
 
-    for (const id of colorFields(section.type)) {
+    for (const id of colorFields(section.type, schemas)) {
       const value = section.settings?.[id]
       if (typeof value !== "string" || !parseColor(value)) continue
       const key = value.trim().toLowerCase()
@@ -124,7 +124,7 @@ export function readHouseStyle(state: ThemeState, exclude: string[] = []): House
    * rule and calling it the creator's.
    */
   const established =
-    state.sections.filter((s) => SECTION_SCHEMAS[s.type] && !skip.has(s.id)).length >= 3
+    state.sections.filter((s) => schemaOf(schemas, s.type) && !skip.has(s.id)).length >= 3
 
   return { palette, backgrounds, spacing: usedSpacing, established }
 }

@@ -191,6 +191,29 @@ export function customSectionSchemas(sources: Record<string, string> | undefined
   return out
 }
 
+/**
+ * EVERY SECTION THIS INSTALL'S OWN FILES DEFINE, including the ones that
+ * replace a section the theme ships.
+ *
+ * Not the same question as customSectionSchemas above, which asks "which of
+ * these did the creator WRITE" and rightly says that editing the theme's FAQ
+ * is not writing a section of your own. This asks "what is the truth about
+ * this type here", and a file that shadows the theme's is the truth: a
+ * creator who deleted a setting from their copy of the FAQ has a section
+ * without it, and anything still describing the shipped one is describing a
+ * section that does not exist on their site.
+ */
+export function schemasFromSources(sources: Record<string, string> | undefined): Record<string, SectionSchema> {
+  const out: Record<string, SectionSchema> = {}
+  for (const [path, source] of Object.entries(sources ?? {})) {
+    const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
+    if (!m) continue
+    const r = schemaFromStorelib(source, path)
+    if (r.ok === true) out[m[1]] = { ...r.schema, type: m[1] }
+  }
+  return out
+}
+
 /** Their types, offered only when the file says how the section first appears. */
 export function customAddableSections(custom: Record<string, SectionSchema>): string[] {
   return Object.keys(custom).filter((t) => (custom[t].presets?.length ?? 0) > 0).sort()

@@ -3067,7 +3067,8 @@ check(
   "the model is shown the page's system before it decides anything",
   (() => {
     const loop = readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")
-    const at = loop.indexOf("describeHouseStyle(readHouseStyle(state))")
+    // The call carries this install's own section types now: see ./schemas.
+    const at = loop.indexOf("describeHouseStyle(readHouseStyle(state, [], schemas))")
     const settings = loop.indexOf("`THEME SETTINGS")
     /**
      * `at >= 0` FIRST. Without it, deleting the call entirely made indexOf
