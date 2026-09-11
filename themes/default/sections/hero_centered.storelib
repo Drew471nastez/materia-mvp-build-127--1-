@@ -1,7 +1,7 @@
 <template>
 <section class="s hero" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; {% if settings.background == 'gradient' %}--s-bg: linear-gradient(160deg, {{ settings.gradient_from }} 0%, {{ settings.gradient_to }} 100%);{% elsif settings.background == 'image' and settings.image %}--s-bg: transparent;{% endif %}{% if settings.full_height %}--hero-min: 78vh;{% endif %}">
   {% if settings.background == 'image' and settings.image %}
-    <img class="hero__bg" src="{{ settings.image | asset }}" alt="" loading="eager" decoding="async">
+    <img class="hero__bg" src="{{ settings.image | asset }}" alt="" loading="eager" fetchpriority="high" decoding="async">
     <div class="hero__veil" style="background: {{ settings.overlay_color }}; opacity: {{ settings.overlay_opacity | divided_by: 100 }};"></div>
   {% endif %}
   <div class="s__in s__in--{{ settings.max_width }} hero__in">

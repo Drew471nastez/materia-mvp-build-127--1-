@@ -7,7 +7,7 @@
   {% if settings.bg_type == 'video' and settings.bg_video %}
     <video class="hero__media" src="{{ settings.bg_video | asset }}" autoplay muted loop playsinline></video>
   {% elsif settings.bg_type == 'image' and settings.bg_image %}
-    <img class="hero__media" src="{{ settings.bg_image | asset }}" alt="" loading="lazy" decoding="async">
+    <img class="hero__media" src="{{ settings.bg_image | asset }}" alt="" loading="eager" fetchpriority="high" decoding="async">
   {% endif %}
   {% if settings.bg_type == 'video' and settings.bg_video or settings.bg_type == 'image' and settings.bg_image %}
     <div class="hero__overlay" style="background: {{ settings.bg_overlay_color }}; opacity: {{ settings.bg_overlay_opacity | divided_by: 100 }};"></div>
@@ -35,7 +35,7 @@
       {% endif %}
     </div>
     {% if settings.layout == 'split' and settings.hero_image %}
-      <div class="hero__image"><img src="{{ settings.hero_image | asset }}" alt="" loading="lazy" decoding="async"></div>
+      <div class="hero__image"><img src="{{ settings.hero_image | asset }}" alt="" loading="eager" fetchpriority="high" decoding="async"></div>
     {% endif %}
   </div>
 

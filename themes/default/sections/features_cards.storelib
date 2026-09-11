@@ -16,7 +16,7 @@
           <div class="fc" data-block-id="{{ block.id }}">
 
               {% if settings.marker == 'image' and block.settings.image %}
-                <img class="mark mark--img" src="{{ block.settings.image | asset }}" alt="">
+                <img class="mark mark--img" src="{{ block.settings.image | asset }}" alt="" loading="lazy" decoding="async">
               {% elsif settings.marker == 'number' %}
                 <span class="mark" aria-hidden="true">{{ forloop.index }}</span>
               {% endif %}
