@@ -421,6 +421,37 @@ section("Caches keyed on file content cannot grow without end")
   check("the schema cache is bounded", /createLru<StorelibSchemaResult>\(COMPILE_CACHE_LIMIT\)/.test(schemas) && !/new Map<string, StorelibSchemaResult>/.test(schemas))
 }
 
+// ===========================================================================
+section("A section somebody wrote is a section, not an unknown type")
+// ===========================================================================
+{
+  const renderer = readFileSync(join(root, "components/website-builder/sections/SectionRenderer.tsx"), "utf8")
+  const sectionSrc = readFileSync(join(root, "components/website-builder/sections/StorelibSection.tsx"), "utf8")
+
+  /**
+   * The registry is built at build time from the theme this build ships, so
+   * a type somebody wrote in their own install can never be in it. It was
+   * drawn as "Unknown section type: drewwww" — a red box naming no cause,
+   * about a file that exists and compiles.
+   */
+  // Anchored to the markup, not to the words: the comment above the fix says
+  // "Unknown section type" too, and a guard that matches its own explanation
+  // passes whatever the code does.
+  check(
+    "a type the registry does not name goes to the engine rather than to a red box",
+    /SECTION_COMPONENTS\[props\.section\.type\] \?\? StorelibSection/.test(renderer) &&
+      !/Unknown section type: <code>/.test(renderer),
+  )
+  check(
+    "and when there really is no file, it says which file it wanted",
+    /There is no sections\/\$\{section\.type\}\.storelib in this theme/.test(sectionSrc),
+  )
+  check(
+    "the registry still knows every section the theme itself ships",
+    /STORELIB_SECTION_TYPES\.map\(\(type\) => \[type, StorelibSection\]\)/.test(readFileSync(join(root, "components/website-builder/sections/registry.ts"), "utf8")),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

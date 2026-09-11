@@ -567,8 +567,16 @@ export function describeTheme(state: ThemeState, page: string): string {
       typeof s.settings?.heading === "string" && s.settings.heading.trim()
         ? ` — "${String(s.settings.heading).slice(0, 60)}"`
         : ""
+    /**
+     * A type with no schema here is almost always a section the creator wrote
+     * themselves: their file lives in their install, and this list is built
+     * from the theme this build ships. Calling it "unknown" told the model to
+     * leave alone something that exists, compiles and is on the page. It can
+     * still be moved, hidden, duplicated and removed — only its settings are
+     * out of reach, because their names are in a file this list cannot see.
+     */
     return `  ${i}. [${s.id}] ${s.type}${s.hidden ? " (hidden)" : ""}${heading}${
-      schema ? "" : "  ← unknown type, cannot be edited"
+      schema ? "" : "  ← written by the creator; can be moved, hidden, duplicated or removed, but its settings are not listed here"
     }`
   })
 
