@@ -183,6 +183,17 @@ export async function buildPackage(pkg: ThemePackage, opts: BuildOptions = {}): 
     manifest.assets[hash] = rec
   }
   zip.file("manifest.json", JSON.stringify(manifest, null, 2) + "\n", { date: FIXED_DATE })
+  /**
+   * AND THE FOLDERS, WHICH NOBODY ADDED. Writing "sections/notice.storelib"
+   * makes JSZip create an entry for "sections/" too, and that entry gets the
+   * clock rather than the date the file was given — so two builds of the
+   * same theme were identical except for the timestamp on a folder, and only
+   * when the two happened to fall either side of a two-second tick. That is
+   * a package that is byte-stable seven times out of eight, which is worse
+   * than one that is not: it means an export cannot be compared with an
+   * earlier export to see whether anything actually changed.
+   */
+  for (const entry of Object.values(zip.files)) entry.date = FIXED_DATE
   return zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 6 } })
 }
 

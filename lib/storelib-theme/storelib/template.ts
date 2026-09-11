@@ -516,13 +516,21 @@ function cssValue(s: string): string {
 export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: RenderOptions = {}): string {
   const css = opts.mode === "css"
   const out: string[] = []
+  /**
+   * `settings` and `section.settings` are the same settings, and so are
+   * `blocks` and `section.blocks`. Anybody who has written a theme before
+   * reaches for the longer spelling, and reaching for it used to render
+   * nothing at all: `section` was an object, `.settings` was not on it, and
+   * a missing value is an empty string. One alias costs nothing and removes
+   * a whole class of section that looks right and draws blank.
+   */
   const base: Record<string, unknown> = {
     settings: ctx.settings,
     blocks: ctx.blocks,
     theme: ctx.theme,
     scheme: ctx.scheme,
     page: ctx.page,
-    section: ctx.section,
+    section: { ...ctx.section, settings: ctx.settings, blocks: ctx.blocks },
   }
   const walk = (nodes: Node[], scope: Record<string, unknown>) => {
     for (const n of nodes) {
@@ -557,6 +565,52 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
   }
   walk(tpl.nodes, base)
   return out.join("")
+}
+
+/**
+ * Every path a template reads, with the line that reads it and the loop
+ * variables in scope where it does. This is what lets the compiler tell
+ * `{{ settings.headng }}` from `{{ settings.heading }}`: both are legal
+ * expressions, and only one of them will ever hold anything.
+ *
+ * `over` says what each loop variable iterates, so `block.settings.x` inside
+ * `{% for block in blocks %}` can be checked against the block settings the
+ * schema declares, and a loop over something else is left alone.
+ */
+export interface PathRef {
+  segs: string[]
+  line: number
+  /** Loop variable name → the path it iterates, e.g. "block" → "blocks". */
+  bound: Map<string, string>
+}
+
+export function pathRefs(tpl: CompiledTemplate): PathRef[] {
+  const out: PathRef[] = []
+  const expr = (e: Expr, line: number, bound: Map<string, string>) => {
+    switch (e.t) {
+      case "path": out.push({ segs: e.segs, line, bound }); break
+      case "not": expr(e.e, line, bound); break
+      case "bin": expr(e.l, line, bound); expr(e.r, line, bound); break
+      case "filter": expr(e.e, line, bound); e.args.forEach((a) => expr(a, line, bound)); break
+    }
+  }
+  const walk = (nodes: Node[], bound: Map<string, string>) => {
+    for (const n of nodes) {
+      if (n.kind === "output") expr(n.expr, n.line, bound)
+      else if (n.kind === "if") {
+        n.branches.forEach((b) => { expr(b.cond, n.line, bound); walk(b.body, bound) })
+        if (n.else) walk(n.else, bound)
+      } else if (n.kind === "for") {
+        expr(n.list, n.line, bound)
+        const inner = new Map(bound)
+        inner.set(n.item, n.list.t === "path" ? n.list.segs.join(".") : "")
+        walk(n.body, inner)
+        if (n.else) walk(n.else, bound)
+      }
+    }
+  }
+  walk(tpl.nodes, new Map())
+  return out
 }
 
 /** Every path a template reads, for the AI and for "setting X is unused" warnings. */

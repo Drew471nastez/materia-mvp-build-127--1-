@@ -1253,8 +1253,10 @@ check(
   ((code) =>
     /className="flex flex-col gap-2 border-t border-\[var\(--code-border\)\] bg-\[var\(--code-panel\)\] px-3 py-2 md:flex-row md:items-center md:px-4"/.test(code) &&
     /paddingBottom: `calc\(env\(safe-area-inset-bottom, 0px\) \+ 8px \+ \$\{keyboardInset\}px\)`/.test(code) &&
-    // both actions are a real target on a phone and go back to bar size after
-    /"h-10 flex-1 rounded-md bg-\[#8B56FA\][^"]*md:h-7 md:flex-none/.test(code) &&
+    // both actions are a real target on a phone and go back to bar size after.
+    // The solid one is near-black now, at the owner's request: this row is a
+    // file dialog, and the violet accent is for the product's own actions.
+    /"h-10 flex-1 rounded-md bg-\[#111114\][^"]*md:h-7 md:flex-none/.test(code) &&
     /"h-10 flex-1 rounded-md border border-\[var\(--code-border\)\][^"]*md:h-7 md:flex-none/.test(code) &&
     // and the inset is measured, not guessed
     /const covered = window\.innerHeight - vv\.height - vv\.offsetTop/.test(code) &&

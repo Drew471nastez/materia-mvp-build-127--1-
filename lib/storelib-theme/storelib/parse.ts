@@ -5,7 +5,7 @@
  * A section file is four top-level blocks, in any order:
  *
  *   <template> … </template>        required
- *   <style scoped> … </style>       required (may be empty); `scoped` is the norm
+ *   <style> … </style>              required (may be empty); `scoped` is accepted
  *   <script> … </script>            optional
  *   <schema> … </schema>            required, JSON
  *

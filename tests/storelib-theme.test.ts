@@ -6,7 +6,7 @@
  *   npx tsx tests/storelib-theme.test.ts
  */
 import { themeSourcesModule } from "../scripts/emit-theme-sources"
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 
 import {
@@ -31,6 +31,9 @@ import {
   type RenderContext,
   type SectionSchema,
   type Template,
+  FILTER_NAMES,
+  CAPABILITIES,
+  LIMITS,
 } from "../lib/storelib-theme"
 
 let passed = 0
@@ -279,8 +282,16 @@ const FIXTURE = `<template>
   check("a schema whose type disagrees with its file name is refused", wrongType.ok === false && /file name/.test(wrongType.errors[0].message))
   const badJson = compileSection(FIXTURE.replace(`"name": "Card",`, `"name": "Card"`))
   check("a JSON error in the schema is reported at a line of the .storelib file, not of the JSON", badJson.ok === false && badJson.errors[0].stage === "schema" && (badJson.errors[0].line ?? 0) >= 10)
-  const unscoped = compileSection(FIXTURE.replace("<style scoped>", "<style>"))
-  check("an unscoped <style> in a section is refused and pointed at the layout", unscoped.ok === false && /layout\/theme\.storelib/.test(unscoped.errors[0].message))
+  /**
+   * `scoped` used to be required, and a file that left it out was thrown
+   * away with a message about where page-wide rules belong. The rule it was
+   * defending is real and still holds — every rule below is scoped either
+   * way — but it was a word to remember rather than a decision to make.
+   */
+  const bare = compileSection(FIXTURE.replace("<style scoped>", "<style>"))
+  const withWord = compileSection(FIXTURE)
+  check("a plain <style> compiles", bare.ok === true)
+  check("and is scoped exactly as <style scoped> is", bare.ok === true && withWord.ok === true && bare.value.css === withWord.value.css)
   const cache = createCompileCache()
   cache.compile(FIXTURE, { file: "a" }); cache.compile(FIXTURE, { file: "a" }); cache.compile(FIXTURE + " ", { file: "a" })
   check("the cache is keyed by source hash: same source once, changed source again", cache.size === 2)
@@ -297,7 +308,9 @@ section("Add Section is derived from the files")
   // compile — which made this test fail for a reason that had nothing to
   // do with presets.
   const noPreset = FIXTURE.replace(`"presets": [{ "name": "Card", "blocks": [{ "type": "item" }] }]`, `"presets": []`).replace(`"type": "card"`, `"type": "plain"`)
-  const broken = FIXTURE.replace(`"type": "card"`, `"type": "broken"`).replace("<style scoped>", "<style>")
+  // Broken in the way sections actually break: the template reads a name
+  // the schema does not declare, which can only ever render as nothing.
+  const broken = FIXTURE.replace(`"type": "card"`, `"type": "broken"`).replace("<template>", "<template>\n<p>{{ settings.nope }}</p>")
   const lib = buildLibrary({
     "sections/card.storelib": FIXTURE,
     "sections/plain.storelib": noPreset,
@@ -437,6 +450,164 @@ section("Hero, the first real section")
       nasty.css,
     )
   }
+}
+
+
+// ===========================================================================
+section("A section written the way people write sections")
+// ===========================================================================
+/**
+ * The file this is built from is the one that went wrong in the field: a
+ * plain <style>, Shopify's `section.settings` and `section.blocks`, a loop
+ * over blocks, an accordion made of <details>, a pseudo-element marker, a
+ * keyframe animation and a media query. Every one of those was a way to end
+ * up with a section that draws as an empty shell.
+ */
+{
+  const FAQ = [
+    "<template>",
+    '<section class="faq">',
+    '  <p class="faq__eyebrow">{{ section.settings.eyebrow }}</p>',
+    '  <h2 class="faq__h">{{ section.settings.heading }}</h2>',
+    "  {% for block in section.blocks %}",
+    '  <details class="faq__item" {% if forloop.first %}open{% endif %}>',
+    '    <summary class="faq__q">{{ block.settings.question }}</summary>',
+    '    <div class="faq__a">{{ block.settings.answer }}</div>',
+    "  </details>",
+    "  {% endfor %}",
+    "</section>",
+    "</template>",
+    "",
+    "<style>",
+    ".faq { padding: 72px 24px; }",
+    ".faq__q { list-style: none; position: relative; }",
+    '.faq__q::after { content: "+"; position: absolute; right: 0; }',
+    '.faq__item[open] .faq__q::after { content: "\\2212"; }',
+    ".faq__a { animation: faq-in .18s ease-out; }",
+    "@keyframes faq-in { from { opacity: 0; } to { opacity: 1; } }",
+    "@media (max-width: 749px) { .faq { padding: 48px 16px; } }",
+    "</style>",
+    "",
+    "<schema>",
+    JSON.stringify({
+      type: "faqsection",
+      name: "FAQ that renders",
+      settings: [
+        { type: "text", id: "eyebrow", label: "Eyebrow", default: "FAQ" },
+        { type: "text", id: "heading", label: "Heading", default: "Questions, answered." },
+      ],
+      blocks: [{ type: "item", name: "Question", settings: [
+        { type: "text", id: "question", label: "Q", default: "What is Storelib?" },
+        { type: "textarea", id: "answer", label: "A", default: "A website builder." },
+      ] }],
+      presets: [{ name: "FAQ", blocks: [{ type: "item" }, { type: "item" }] }],
+    }, null, 2),
+    "</schema>",
+    "",
+  ].join("\n")
+
+  const c = compileSection(FAQ, { file: "sections/faqsection.storelib" })
+  check("a plain <style> compiles — `scoped` was a word to remember, not a rule to state", c.ok === true, c.ok === false ? c.errors.map((e) => e.message).join("; ") : "")
+  if (c.ok === true) {
+    const preset = c.value.schema.presets?.[0]
+    const out = renderSection({
+      compiled: c.value,
+      id: "sec-1",
+      instance: { type: "faqsection", settings: {}, blocks: (preset?.blocks ?? []).map((b, i) => ({ id: `b${i}`, type: b.type, settings: b.settings ?? {} })) } as never,
+      theme: {},
+      page: { template: "index" },
+    })
+    check("its text arrives through the Shopify spelling of settings", out.html.includes("Questions, answered.") && out.html.includes("FAQ"))
+    check("its blocks arrive through section.blocks, once each", (out.html.match(/faq__item/g) ?? []).length === 2)
+    check("and forloop.first opens the first one only", (out.html.match(/ open>/g) ?? []).length === 1)
+    check("the block settings render, not the block objects", out.html.includes("What is Storelib?") && out.html.includes("A website builder."))
+
+    // The CSS was never the broken half — but every one of these is a way to
+    // lose a rule silently, so each is held to the output.
+    check("every rule is scoped to this instance and no other", (out.css.match(/\[data-section-id="sec-1"\]/g) ?? []).length >= 4)
+    check("a pseudo-element survives, with its content string", out.css.includes('.faq__q::after { content: "+"'))
+    check("an attribute selector survives", out.css.includes('.faq__item[open]'))
+    check("a media query survives, with its rules scoped inside it", /@media \(max-width: 749px\) \{ \[data-section-id="sec-1"\] \.faq \{/.test(out.css))
+    check("a keyframe survives, renamed so two sections cannot collide", out.css.includes("@keyframes sl-faqsection-faq-in") && out.css.includes("animation: sl-faqsection-faq-in"))
+    check("and nothing in the stylesheet is left global", !/^\s*\.faq/m.test(out.css))
+  }
+}
+
+// ===========================================================================
+section("A name that does not exist is an error, not an empty string")
+// ===========================================================================
+/**
+ * `{{ settings.headng }}` is a legal expression that can only ever be empty.
+ * A section built out of those renders as a shell — markup there, CSS there,
+ * every word missing — and nothing used to say so.
+ */
+{
+  const schema = (extra = "") =>
+    `<schema>{"type":"t","name":"T","settings":[{"type":"text","id":"heading","label":"H"}]${extra}}</schema>`
+  const BLOCKS = ',"blocks":[{"type":"i","name":"I","settings":[{"type":"text","id":"question","label":"Q"}]}]'
+  const refused = (src: string) => {
+    const r = compileSection(src, { file: "sections/t.storelib" })
+    return r.ok === false ? r.errors.map((e) => e.message).join(" ") : ""
+  }
+  check("a mistyped setting is refused, and the message lists the ones there are",
+    /No setting is called "headng"/.test(refused(`<template><h2>{{ settings.headng }}</h2></template>\n${schema()}`))
+    && /declares: heading/.test(refused(`<template><h2>{{ settings.headng }}</h2></template>\n${schema()}`)))
+  check("including through section.settings", /No setting is called "headng"/.test(refused(`<template>{{ section.settings.headng }}</template>\n${schema()}`)))
+  check("a root that is not part of a section is refused by name", /"product" is not something a section can read/.test(refused(`<template>{{ product.title }}</template>\n${schema()}`)))
+  check("so is a key that is not on a section", /"section\.title" is always empty/.test(refused(`<template>{{ section.title }}</template>\n${schema()}`)))
+  check("looping over blocks a section never declared is refused", /declares none/.test(refused(`<template>{% for b in blocks %}{{ b.settings.q }}{% endfor %}</template>\n${schema()}`)))
+  check("and a block setting that does not exist is refused", /No block setting is called "q"/.test(refused(`<template>{% for b in blocks %}{{ b.settings.q }}{% endfor %}</template>\n${schema(BLOCKS)}`)))
+  check("the error carries the line that reads the name", (() => {
+    const r = compileSection(`<template>\n<p>ok</p>\n<h2>{{ settings.nope }}</h2>\n</template>\n${schema()}`, { file: "sections/t.storelib" })
+    return r.ok === false && r.errors.some((e) => e.line === 3)
+  })())
+
+  const allowed = (src: string) => compileSection(src, { file: "sections/t.storelib" }).ok === true
+  check("a declared setting with nothing in it yet is still fine", allowed(`<template>{{ settings.heading }}</template>\n${schema()}`))
+  check("so is the same setting spelled section.settings", allowed(`<template>{{ section.settings.heading }}</template>\n${schema()}`))
+  check("so is a loop over blocks that exist", allowed(`<template>{% for b in section.blocks %}{{ b.settings.question }}{% endfor %}</template>\n${schema(BLOCKS)}`))
+  check("and so are forloop, theme, scheme, page and section itself",
+    allowed(`<template>{% for b in blocks %}{{ forloop.index }}{% endfor %}{{ theme.typography.heading }}{{ scheme.bg }}{{ page.template }}{{ section.id }}</template>\n${schema(BLOCKS)}`))
+
+  // The whole shipped library has to pass the same check, or it is too strict.
+  const dir = join(process.cwd(), "themes/default/sections")
+  const files = readdirSync(dir).filter((f) => f.endsWith(".storelib"))
+  const bad = files.filter((f) => compileSection(readFileSync(join(dir, f), "utf8"), { file: `sections/${f}` }).ok === false)
+  check(`and all ${files.length} sections the theme ships still compile under it`, bad.length === 0, bad.join(", "))
+}
+
+// ===========================================================================
+section("The language reference says what the engine does")
+// ===========================================================================
+/**
+ * A reference somebody writes a section against is worse than none when it
+ * is wrong: they write what it says, the compiler refuses it, and the
+ * document is the reason. Three of its lists came out of this engine, so
+ * they are held against it here and cannot drift from it.
+ */
+{
+  const doc = readFileSync(join(process.cwd(), "docs/storelib-language.md"), "utf8")
+  /** In the document as `name`, or as `name: arg` where it takes one. */
+  const named = (list: readonly string[]) =>
+    list.filter((n) => !new RegExp("`" + n + "(`|:)").test(doc))
+  check("every control type the sidebar can draw is in it", named(CONTROL_TYPES).length === 0, named(CONTROL_TYPES).join(", "))
+  check("and it names no control type that does not exist", (doc.match(/`([a-z_]+_picker|toggle|alignment|divider|richtext|color_scheme)`/g) ?? []).every((m) => CONTROL_TYPES.includes(m.replace(/`/g, "") as never)))
+  const filters = FILTER_NAMES.filter((n) => n !== "escape_once")
+  check("every filter is in it", named(filters).length === 0, named(filters).join(", "))
+  check("every capability is in it", named(CAPABILITIES).length === 0, named(CAPABILITIES).join(", "))
+  check("the file size limit it quotes is the real one", doc.includes(`${LIMITS.sourceBytes / 1024} KB`))
+  // The one that bit: the document showed a syntax the parser refuses.
+  check("the filter syntax it shows is the one that parses", (() => {
+    const shown = doc.match(/\{\{ settings\.heading \| default: "Welcome" \| upcase \}\}/)
+    return !!shown && compileTemplate(shown[0], { file: "f" }).ok === true
+  })())
+  check("and the section it uses as its worked example compiles", (() => {
+    const m = doc.match(/```json\n([\s\S]*?)```/)
+    if (!m) return false
+    const schema = JSON.parse(m[1])
+    const src = `<template><h2>{{ settings.heading }}</h2>{% for block in blocks %}{{ block.settings.question }}{% endfor %}</template>\n<style>.x { color: red; }</style>\n<schema>${JSON.stringify(schema)}</schema>`
+    return compileSection(src, { file: "sections/faq_accordion.storelib", expectType: "faq_accordion" }).ok === true
+  })())
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

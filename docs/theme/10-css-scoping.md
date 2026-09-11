@@ -1,6 +1,6 @@
 # CSS scoping
 
-Every section's `<style scoped>` applies to that section's instances and
+Every section's `<style>` applies to that section's instances and
 nothing else. Two sections that both declare `.title` do not fight; two
 instances of one section do not share a rule that reads a setting.
 
