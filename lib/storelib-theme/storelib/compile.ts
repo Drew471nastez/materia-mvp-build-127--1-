@@ -67,7 +67,7 @@ export function compileSection(source: string, opts: CompileOptions = {}): Resul
     })
   }
 
-  const template = compileTemplate(src.template.text, { file, line: src.template.line })
+  const template = compileTemplate(src.template.text, { file, line: src.template.line, capabilities: schema.value.capabilities })
   if (template.ok === false) errors.push(...template.errors)
 
   let css = ""

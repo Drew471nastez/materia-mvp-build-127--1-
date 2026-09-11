@@ -227,21 +227,71 @@ const FORBIDDEN_MARKUP: [RegExp, string][] = [
   [/<script\b/i, "a <script> tag inside <template>; put behaviour in the section's own <script> block"],
   [/\son[a-z]+\s*=/i, "an on*= attribute; put behaviour in the section's own <script> block"],
   [/javascript:/i, "a javascript: URL"],
-  [/<iframe\b/i, "an <iframe>"],
   [/<object\b|<embed\b/i, "an <object> or <embed>"],
 ]
 
-export function compileTemplate(src: string, opts: { file?: string; line?: number } = {}): Result<CompiledTemplate> {
+/**
+ * ===========================================================================
+ *  THE ONE FRAME A SECTION MAY OPEN
+ * ===========================================================================
+ * An `<iframe>` hands part of the page to somebody else's code, so a section
+ * does not get one by asking nicely: it declares the `embed` capability, and
+ * then every frame it opens has to take its address from the `embed` filter.
+ *
+ * The filter is the guarantee, not the check below. It knows five hosts and
+ * the shape of their player addresses, normalises what people actually paste
+ * (a youtu.be link, a watch?v= link), and answers with an empty string for
+ * everything else — so a setting cannot point a frame at an arbitrary site
+ * whatever anybody types into it.
+ *
+ * The check below is so that a section author finds out at compile time
+ * rather than from a blank rectangle.
+ */
+const EMBED_HOSTS: { test: RegExp; to: (m: RegExpMatchArray) => string }[] = [
+  { test: /^https?:\/\/(?:www\.)?youtube(?:-nocookie)?\.com\/embed\/([\w-]{6,})/i, to: (m) => `https://www.youtube-nocookie.com/embed/${m[1]}` },
+  { test: /^https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([\w-]{6,})/i, to: (m) => `https://www.youtube-nocookie.com/embed/${m[1]}` },
+  { test: /^https?:\/\/youtu\.be\/([\w-]{6,})/i, to: (m) => `https://www.youtube-nocookie.com/embed/${m[1]}` },
+  { test: /^https?:\/\/player\.vimeo\.com\/video\/(\d+)/i, to: (m) => `https://player.vimeo.com/video/${m[1]}` },
+  { test: /^https?:\/\/vimeo\.com\/(\d+)/i, to: (m) => `https://player.vimeo.com/video/${m[1]}` },
+  { test: /^https?:\/\/open\.spotify\.com\/embed\/([\w/]+)/i, to: (m) => `https://open.spotify.com/embed/${m[1]}` },
+  { test: /^https?:\/\/w\.soundcloud\.com\/player\/\?url=(.+)$/i, to: (m) => `https://w.soundcloud.com/player/?url=${encodeURIComponent(decodeURIComponent(m[1]))}` },
+]
+
+/** The hosts the `embed` filter will hand back, for the docs and the editor. */
+export const EMBED_ALLOWED = ["youtube.com", "youtube-nocookie.com", "youtu.be", "vimeo.com", "player.vimeo.com", "open.spotify.com", "w.soundcloud.com"] as const
+
+export function embedUrl(raw: unknown): string {
+  const v = typeof raw === "string" ? raw.trim() : ""
+  if (!v) return ""
+  for (const { test, to } of EMBED_HOSTS) {
+    const m = v.match(test)
+    if (m) return to(m)
+  }
+  return ""
+}
+
+export function compileTemplate(src: string, opts: { file?: string; line?: number; capabilities?: string[] } = {}): Result<CompiledTemplate> {
   const base = (opts.line ?? 1) - 1
   const err = (message: string, line?: number): Result<CompiledTemplate> => ({
     ok: false,
     errors: [{ stage: "template", file: opts.file, line: line !== undefined ? base + line : undefined, message }],
   })
 
+  const lineAt = (index: number) => (src.slice(0, index).match(/\n/g)?.length ?? 0) + 1
+  const mayEmbed = (opts.capabilities ?? []).includes("embed")
+  for (const m of src.matchAll(/<iframe\b[^>]*>/gi)) {
+    if (!mayEmbed) {
+      return err(`The template contains an <iframe>. A section that shows somebody else's player declares the "embed" capability in its schema.`, lineAt(m.index ?? 0))
+    }
+    if (!/\bsrc\s*=\s*"\{\{[^"]*\|\s*embed\s*\}\}"/.test(m[0])) {
+      return err(`This <iframe> takes its address from somewhere other than the embed filter. Write src="{{ settings.x | embed }}", which is what limits it to ${EMBED_ALLOWED.slice(0, 3).join(", ")} and the rest of the allowed players.`, lineAt(m.index ?? 0))
+    }
+  }
+
   for (const [re, what] of FORBIDDEN_MARKUP) {
     const m = src.match(re)
     if (m && m.index !== undefined) {
-      const line = (src.slice(0, m.index).match(/\n/g)?.length ?? 0) + 1
+      const line = lineAt(m.index)
       return err(`The template contains ${what}`, line)
     }
   }
@@ -393,6 +443,8 @@ const FILTERS: Record<string, Filter> = {
   raw: (v) => new Safe(str(v)),
   /** An href that is one of ours or an http(s)/mailto/tel address; anything else becomes "#". */
   url: (v) => { const s = str(v).trim(); return /^(\/(?!\/)|https?:\/\/|mailto:|tel:|#)/i.test(s) ? s : s === "" ? "" : "#" },
+  /** A player address, or nothing. See EMBED_HOSTS. */
+  embed: (v) => embedUrl(v),
   /** asset://… → the URL this account serves it from; a plain URL passes through. */
   asset: (v, _a, ctx) => { const s = str(v); return s.startsWith("asset://") ? (ctx.assets[s] ?? "") : s },
   /** A colour with alpha, for overlays: {{ settings.color | alpha: 0.4 }} */

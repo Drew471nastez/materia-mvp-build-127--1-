@@ -60,12 +60,11 @@ import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type {
   ThemeInstall, SectionInstance, ThemeSettingsValues,
-  PageKey, EditorPanel, SchemaField, ColorSchemeValues, ColorSchemeKey,
-} from "@/lib/website-builder/types"
+  PageKey, EditorPanel, SchemaField, ColorSchemeValues, ColorSchemeKey, SectionSchema } from "@/lib/website-builder/types"
 import { PAGE_META, DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
-import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES } from "@/lib/website-builder/section-schemas"
+import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
-import { schemaFor } from "@/lib/website-builder/storelib-schemas"
+import { customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
@@ -764,8 +763,8 @@ const PREVIEW_THEME: ThemeSettingsValues = {
   font_body: "Inter",
 }
 
-function buildPreviewSection(type: string, presetIndex = 0): SectionInstance | null {
-  const schema = SECTION_SCHEMAS[type]
+function buildPreviewSection(type: string, presetIndex = 0, given?: SectionSchema): SectionInstance | null {
+  const schema = given ?? SECTION_SCHEMAS[type]
   if (!schema) return null
   const preset = schema.presets?.[presetIndex] ?? schema.presets?.[0]
   return {
@@ -778,8 +777,8 @@ function buildPreviewSection(type: string, presetIndex = 0): SectionInstance | n
   }
 }
 
-function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220 }: { type: string; presetIndex?: number; containerWidth?: number }) {
-  const section = buildPreviewSection(type, presetIndex)
+function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, schema }: { type: string; presetIndex?: number; containerWidth?: number; schema?: SectionSchema }) {
+  const section = buildPreviewSection(type, presetIndex, schema)
   if (!section) {
     return (
       <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -821,10 +820,15 @@ function AddSectionModal({
   open,
   onOpenChange,
   onAddSection,
+  schemas,
+  addable,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onAddSection: (type: string, presetIndex?: number) => void
+  /** Every section this install can add: the theme's, and this creator's own. */
+  schemas: Record<string, SectionSchema>
+  addable: string[]
 }) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [isMobileLayout, setIsMobileLayout] = useState(false)
@@ -841,19 +845,28 @@ function AddSectionModal({
     if (open) setActiveCategory(null)
   }, [open])
 
-  const byCategory = ADDABLE_SECTIONS.reduce<Record<string, string[]>>((acc, type) => {
-    const cat = SECTION_SCHEMAS[type]?.category ?? "content"
+  const byCategory = addable.reduce<Record<string, string[]>>((acc, type) => {
+    const cat = schemas[type]?.category ?? "content"
     if (!acc[cat]) acc[cat] = []
     acc[cat].push(type)
     return acc
   }, {})
 
-  const categories = Object.keys(byCategory)
-  const visibleSections = activeCategory ? byCategory[activeCategory] ?? [] : ADDABLE_SECTIONS
+  /**
+   * The theme's own order first, so the tabs read the way the library was
+   * laid out rather than the way an object happened to be built. Anything
+   * with sections in it that the theme did not name goes after — which is
+   * where a creator's own sections land.
+   */
+  const ordered = [
+    ...SECTION_CATEGORY_ORDER.map(c => c.id).filter(id => byCategory[id]?.length),
+    ...Object.keys(byCategory).filter(id => !SECTION_CATEGORY_ORDER.some(c => c.id === id)),
+  ]
+  const visibleSections = activeCategory ? byCategory[activeCategory] ?? [] : addable
 
   const allCategories = [
     { key: "all", label: "All" },
-    ...categories.map(cat => ({ key: cat, label: SECTION_CATEGORIES[cat] ?? cat })),
+    ...ordered.map(cat => ({ key: cat, label: SECTION_CATEGORIES[cat] ?? cat })),
   ]
 
   const handleAdd = (type: string, presetIndex = 0) => {
@@ -868,7 +881,7 @@ function AddSectionModal({
    * one preset, or none declared, is one card named after the section.
    */
   const entries = (type: string): { type: string; presetIndex: number; title: string }[] => {
-    const schema = SECTION_SCHEMAS[type]
+    const schema = schemas[type]
     const presets = schema?.presets ?? []
     if (presets.length <= 1) return [{ type, presetIndex: 0, title: schema?.name ?? type }]
     return presets.map((p, i) => ({ type, presetIndex: i, title: p.name || schema!.name }))
@@ -876,7 +889,7 @@ function AddSectionModal({
 
   // ── Section card (shared between mobile & desktop) ──
   const SectionCard = ({ type, presetIndex = 0, title, mobile }: { type: string; presetIndex?: number; title?: string; mobile?: boolean }) => {
-    const schema = SECTION_SCHEMAS[type]
+    const schema = schemas[type]
     const cardRef = useRef<HTMLButtonElement>(null)
     const [cardWidth, setCardWidth] = useState(mobile ? 300 : 260)
     useEffect(() => {
@@ -908,7 +921,7 @@ function AddSectionModal({
         </div>
         {/* Full-width real section preview */}
         <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden">
-          <SectionPreviewThumbnail type={type} presetIndex={presetIndex} containerWidth={cardWidth} />
+          <SectionPreviewThumbnail type={type} presetIndex={presetIndex} containerWidth={cardWidth} schema={schema} />
         </div>
       </button>
     )
@@ -3674,6 +3687,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }, [installId])
   useEffect(() => { void loadStorelibSources() }, [loadStorelibSources])
+
+  /**
+   * THE LIBRARY THIS INSTALL CAN ADD FROM: the theme's ten categories, plus
+   * whatever this creator wrote themselves in the code editor. A section they
+   * saved is a section like any other — it is in the sidebar, in Add Section
+   * under "Created by you", and on the page — as soon as its file compiles
+   * and declares a preset.
+   */
+  const customSchemas = useMemo(() => customSectionSchemas(storelibSources), [storelibSources])
+  const librarySchemas = useMemo(() => ({ ...SECTION_SCHEMAS, ...customSchemas }), [customSchemas])
+  const libraryAddable = useMemo(
+    () => [...ADDABLE_SECTIONS, ...customAddableSections(customSchemas)],
+    [customSchemas],
+  )
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       // Same-origin only: the frame is our own page and nothing else may
@@ -4802,7 +4829,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const addSection = (type: string, presetIndex = 0) => {
     pushUndo()
-    const schema = SECTION_SCHEMAS[type]
+    const schema = librarySchemas[type]
     if (!schema) return
     const preset = schema.presets?.[presetIndex] ?? schema.presets?.[0]
     const newSection: SectionInstance = {
@@ -5320,7 +5347,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (selectedPanel.type === "section") {
         const section = sections.find(s => s.id === (selectedPanel as any).sectionId)
         if (!section) { setSelectedPanel({ type: "pages" }); return null }
-        const schema = schemaFor(section.type, storelibSources, SECTION_SCHEMAS)
+        const schema = schemaFor(section.type, storelibSources, librarySchemas)
         // This will fall through to the existing SECTION panel code below
       } else {
         // Global theme settings
@@ -5602,7 +5629,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (selectedPanel.type === "section") {
       const section = sections.find(s => s.id === selectedPanel.sectionId)
       if (!section) return null
-      const schema = schemaFor(section.type, storelibSources, SECTION_SCHEMAS)
+      const schema = schemaFor(section.type, storelibSources, librarySchemas)
 
       // Special Header Section UI matching the screenshot
       if (section.type === "header") {
@@ -7062,6 +7089,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           }
         }}
         onAddSection={addSection}
+        schemas={librarySchemas}
+        addable={libraryAddable}
       />
 
       {/* ── Add Custom Page Modal ── */}

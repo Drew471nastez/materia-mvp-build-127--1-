@@ -107,21 +107,21 @@ export const STORELIB_SCHEMAS: Record<string, SectionSchema> = Object.fromEntrie
 )
 
 /**
- * WHAT ADD SECTION OFFERS, derived from the files. A section that lives in a
- * .storelib file is addable when its schema has at least one preset, and
- * only then — a preset is what Add Section puts on the page, and a file
- * without one has said nothing about how it should first appear. Sections
- * still described by JSON keep the manifest's say-so until they move.
+ * WHAT ADD SECTION OFFERS, from the theme's own list and the theme's own
+ * files, which have to agree.
  *
- * The manifest's order is kept for what it lists; .storelib sections it
- * does not know about go after it. A .storelib section the manifest lists
- * but that has no presets is dropped: the file wins over the list.
+ * The manifest decides which of the theme's sections are offered and in what
+ * order: that list is the library, and a theme that ships a section without
+ * listing it has retired it rather than forgotten it. The files decide
+ * whether a listed section can actually be offered: no preset means nothing
+ * to put on the page, so it is dropped however the list reads.
+ *
+ * A section a creator wrote is not the theme's and is not here — see
+ * customSectionSchemas, which files it under "Created by you".
  */
 export function addableSections(manifestList: readonly string[], storelib: Record<string, SectionSchema>): string[] {
-  const offered = (type: string) => (storelib[type]?.presets?.length ?? 0) > 0
-  const out = manifestList.filter((type) => !(type in storelib) || offered(type))
-  for (const type of Object.keys(storelib)) if (offered(type) && !out.includes(type)) out.push(type)
-  return out
+  const hasPreset = (type: string) => (storelib[type]?.presets?.length ?? 0) > 0
+  return manifestList.filter((type) => !(type in storelib) || hasPreset(type))
 }
 
 /**
@@ -139,5 +139,34 @@ export function schemaFor(type: string, sources: Record<string, string> | undefi
     if (r.ok === true) return r.schema
   }
   return fallback[type]
+}
+
+/** Where a section somebody wrote themselves is filed in Add Section. */
+export const CUSTOM_SECTION_CATEGORY = "yours"
+
+/**
+ * The sections this creator wrote. A `sections/<type>.storelib` saved in the
+ * code editor that the theme does not ship is theirs, and it belongs in the
+ * library beside the built-in ones — under its own heading, so it is
+ * findable, and offered only when its schema declares a preset, which is the
+ * same rule every other section answers to.
+ *
+ * A file that does not compile is left out rather than crashing the modal;
+ * the code editor is where its errors belong.
+ */
+export function customSectionSchemas(sources: Record<string, string> | undefined): Record<string, SectionSchema> {
+  const out: Record<string, SectionSchema> = {}
+  for (const [path, source] of Object.entries(sources ?? {})) {
+    const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
+    if (!m || path in DEFAULT_THEME_SOURCES) continue
+    const r = schemaFromStorelib(source, path)
+    if (r.ok === true) out[m[1]] = { ...r.schema, category: r.schema.category || CUSTOM_SECTION_CATEGORY }
+  }
+  return out
+}
+
+/** Their types, offered only when the file says how the section first appears. */
+export function customAddableSections(custom: Record<string, SectionSchema>): string[] {
+  return Object.keys(custom).filter((t) => (custom[t].presets?.length ?? 0) > 0).sort()
 }
 
