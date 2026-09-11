@@ -36,6 +36,7 @@ import { readdirSync, readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import { DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
 import { contrastRatio } from "@/lib/website-builder/agent/review"
+import { STORELIB_SCHEMAS, STORELIB_SECTION_TYPES } from "@/lib/website-builder/storelib-schemas"
 
 const root = process.cwd()
 const SECTIONS = join(root, "themes/default/sections")
@@ -125,9 +126,11 @@ interface Schema {
   presets?: { settings?: Record<string, unknown>; blocks?: unknown[] }[]
 }
 
-const types = readdirSync(SECTIONS)
-  .filter((f) => f.endsWith(".json"))
-  .map((f) => f.replace(".json", ""))
+/** JSON schemas, and .storelib files read through the sidebar's own adapter. */
+const types = [
+  ...readdirSync(SECTIONS).filter((f) => f.endsWith(".json")).map((f) => f.replace(".json", "")),
+  ...STORELIB_SECTION_TYPES,
+]
 
 /** Headings and paragraphs are labels in the panel. Nothing should read them. */
 const isSetting = (f: Field) => f.type !== "header" && f.type !== "paragraph"
@@ -135,7 +138,7 @@ const isSetting = (f: Field) => f.type !== "header" && f.type !== "paragraph"
 const schemas = new Map<string, Schema>()
 const sources = new Map<string, string>()
 for (const type of types) {
-  schemas.set(type, JSON.parse(readFileSync(join(SECTIONS, `${type}.json`), "utf8")))
+  schemas.set(type, (STORELIB_SCHEMAS[type] as Schema | undefined) ?? JSON.parse(readFileSync(join(SECTIONS, `${type}.json`), "utf8")))
   const file = rendererFor.get(type)
   if (storelibTypes.has(type)) {
     // The template and the style are what render; the schema block is the
@@ -354,6 +357,13 @@ section("Colour is controllable on every section")
 
   const wrongOptions = declaresScheme.filter((t) => {
     const field = (schemas.get(t)!.fields ?? []).find((f) => f.id === "color_scheme")!
+    /**
+     * A `color_scheme` control (the registry's type, used by .storelib
+     * schemas) lists every scheme the theme has by construction — FieldEditor
+     * reads them from the theme, not from the field — so it has no options to
+     * check, only a default. A `select` has to spell them all out.
+     */
+    if (field.type === "color_scheme") return !SCHEMES.includes(String(field.default))
     const values = (field.options ?? []).map((o) => o.value)
     return SCHEMES.some((s) => !values.includes(s)) || !SCHEMES.includes(String(field.default))
   })

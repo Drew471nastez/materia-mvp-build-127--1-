@@ -23,6 +23,7 @@ import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { SECTION_COMPONENTS } from "@/components/website-builder/sections/registry"
+import { STORELIB_SCHEMAS, STORELIB_SECTION_TYPES } from "@/lib/website-builder/storelib-schemas"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
@@ -104,9 +105,17 @@ const theme = Object.fromEntries(
       .map((f) => [f.id, f.default]),
   ),
 ) as unknown as ThemeSettingsValues
-const types = readdirSync(SECTIONS)
-  .filter((f) => f.endsWith(".json"))
-  .map((f) => f.replace(".json", ""))
+/**
+ * A section type is a JSON schema in themes/default/sections, or a .storelib
+ * file there whose <schema> the editor reads through the same adapter the
+ * sidebar uses. Both are "the fifty", and both render.
+ */
+const types = [
+  ...readdirSync(SECTIONS).filter((f) => f.endsWith(".json")).map((f) => f.replace(".json", "")),
+  ...STORELIB_SECTION_TYPES,
+]
+const schemaFor = (type: string): Schema =>
+  STORELIB_SCHEMAS[type] ?? (JSON.parse(readFileSync(join(SECTIONS, `${type}.json`), "utf8")) as Schema)
 
 // ===========================================================================
 section("Fifty sections, rendered")
@@ -118,7 +127,7 @@ const rendered = new Map<string, string>()
   const empty: string[] = []
 
   for (const type of types) {
-    const schema: Schema = JSON.parse(readFileSync(join(SECTIONS, `${type}.json`), "utf8"))
+    const schema: Schema = schemaFor(type)
     const Component = SECTION_COMPONENTS[type]
     if (!Component) {
       threw.push(`${type}: no renderer in the registry`)
@@ -228,7 +237,7 @@ section("A page is a page, whichever surface renders it")
  */
 {
   const shipped = (type: string) =>
-    asShipped(type, JSON.parse(readFileSync(join(SECTIONS, `${type}.json`), "utf8")))
+    asShipped(type, schemaFor(type))
 
   /** Saved in the WRONG order, which an editor with drag-and-drop allows. */
   const outOfOrder = [shipped("footer"), shipped("hero"), shipped("header")]
