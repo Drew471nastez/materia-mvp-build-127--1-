@@ -661,6 +661,85 @@ section("Nothing typed into this editor is lost without somebody choosing it")
   check("an older client that sends no version still saves", /if \(parsed\.data\.base_updated_at\) \{/.test(route))
 }
 
+// ===========================================================================
+section("The code editor on a phone")
+// ===========================================================================
+
+{
+  const page = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const pane = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
+  const css = readFileSync(join(root, "app/globals.css"), "utf8")
+
+  /**
+   * ONE LIGHT-AND-DARK SWITCH, WHICHEVER BAR IT IS ON.
+   *
+   * Framed on a phone, the builder's bar carries one and this page carried
+   * another, eight millimetres apart, doing the same thing. The frame says
+   * what it is showing and the page does not repeat it; standalone, nothing
+   * says anything and the page keeps its own.
+   */
+  check(
+    "the frame tells the editor which controls it is already showing",
+    /storelib:code-chrome/.test(pane) && /themeToggle: fullScreenRef\.current/.test(pane),
+  )
+  check(
+    "and tells it again after a reload, since opening a file changes the frame's src",
+    // The page inside announces its theme as it mounts; the answer rides back
+    // on that, so nothing has to track which document is in the frame.
+    /storelib:code-theme"\) return[\s\S]{0,900}sendChrome\(\)/.test(pane),
+  )
+  check(
+    "and the editor drops its own switch rather than showing a second one",
+    /frameChrome\.themeToggle[\s\S]{0,20}\?[\s\S]{0,20}\[\]/.test(page),
+    "the theme action is not conditional on the frame",
+  )
+  check(
+    "there is exactly one place the editor's own switch is built",
+    (page.match(/toggleCodeTheme,?\s*$/gm) ?? []).length === 1,
+  )
+
+  /**
+   * THE ROW THAT DID NOT FIT. Files, the name, nine icons and Save need
+   * about 480px; a phone has 390. Flexbox puts the overflow past the right
+   * edge, and Save was the last thing in the row.
+   */
+  check(
+    "on a narrow screen the icons are a menu, so Save keeps its place in the bar",
+    /narrow \? \(\s*<CodeActionMenu actions=\{actions\} \/>/.test(page) && /function CodeActionMenu/.test(page),
+  )
+  check(
+    "and the menu is fixed, since the column it sits in clips what it contains",
+    /id="wb-code-more"[\s\S]{0,200}className="fixed/.test(page),
+  )
+
+  /**
+   * The guard's last branch cancels every vertical touchmove on a document
+   * that cannot scroll, and this page locks its document. That is the code
+   * not scrolling, the selection handle that cannot be dragged, and the file
+   * list that freezes.
+   */
+  check(
+    "the editor opts out of the bounce guard, like the builder screen it is framed in",
+    /data-wb-no-bounce-guard=""/.test(page),
+  )
+  check(
+    "the keyboard takes the bottom of the editor box rather than covering the file",
+    /marginBottom: keyboardInset/.test(page),
+  )
+  check(
+    "a long press still offers Select All, Copy and Paste",
+    /-webkit-touch-callout: default/.test(css) && /\.wb-code textarea/.test(css) && /select-text/.test(page),
+  )
+  check(
+    "and a double tap selects a word instead of zooming the file",
+    /\.wb-code \{\s*touch-action: manipulation;/.test(css),
+  )
+  check(
+    "the editor scrolls both ways, and a flick at the end stays in it",
+    /\[touch-action:pan-x_pan-y\]/.test(page) && /overscroll-contain/.test(page),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

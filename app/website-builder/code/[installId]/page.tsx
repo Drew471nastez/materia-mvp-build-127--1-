@@ -6,7 +6,7 @@ import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
 import { BuilderLoader } from "@/components/website-builder/builder-loader"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Save, Loader2, File, Folder, FolderOpen, ChevronRight, X, AlertCircle, Check, RotateCcw, Code2, RefreshCw, Search, Copy, Download, Sun, Moon, FilePlus, Pencil, Files, Trash2, History,
+  ArrowLeft, Save, Loader2, File, Folder, FolderOpen, ChevronRight, X, AlertCircle, Check, RotateCcw, Code2, RefreshCw, Search, Copy, Download, Sun, Moon, FilePlus, Pencil, Files, Trash2, History, MoreHorizontal,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -167,6 +167,113 @@ function BarTip({ label, children }: { label: string; children: React.ReactNode 
   )
 }
 
+/**
+ * ===========================================================================
+ *  THE ROW OF ICONS, ON A SCREEN THE ROW DOES NOT FIT
+ * ===========================================================================
+ * The file bar carries Files, the file's name, nine icons and Save. Measured
+ * on a 390px phone that row needs about 480px, and the flexbox answer to not
+ * enough room is to put the overflow past the right edge — where Save was,
+ * behind the edge of the screen, on a surface whose whole point is saving.
+ *
+ * So on a narrow screen the bar keeps the three things somebody came for —
+ * back to the files, which file this is, and Save — and everything else
+ * moves behind one button. The same actions, in the same order, with their
+ * names now written out rather than guessed from an icon.
+ *
+ * `position: fixed`, measured from the trigger: the bar sits inside a column
+ * with `overflow: hidden`, which clips an absolutely positioned menu and
+ * does not clip a fixed one.
+ */
+interface CodeAction {
+  id: string
+  icon: React.ReactNode
+  label: string
+  onClick: () => void
+  danger?: boolean
+  active?: boolean
+  /** Shown beside the icon on a wide screen, where there is room for it. */
+  wideLabel?: string
+}
+
+function CodeActionMenu({ actions }: { actions: CodeAction[] }) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const place = () => {
+      const r = triggerRef.current?.getBoundingClientRect()
+      if (!r) return
+      setPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) })
+    }
+    place()
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (triggerRef.current?.contains(t)) return
+      if (document.getElementById("wb-code-more")?.contains(t)) return
+      setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
+    window.addEventListener("resize", place)
+    window.addEventListener("scroll", place, true)
+    document.addEventListener("mousedown", onDoc)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      window.removeEventListener("resize", place)
+      window.removeEventListener("scroll", place, true)
+      document.removeEventListener("mousedown", onDoc)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open])
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-label="More actions for this file"
+        aria-expanded={open}
+        className={cn(CODE_BAR_ICON_BUTTON, "h-9 w-9", open && "bg-[var(--code-hover)] text-[var(--code-text)]")}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+      {open && pos && (
+        <div
+          id="wb-code-more"
+          className="fixed z-50 min-w-[200px] overflow-hidden rounded-xl border border-[var(--code-border)] bg-[var(--code-panel)] p-1 shadow-2xl"
+          style={{
+            top: pos.top,
+            right: pos.right,
+            animation: "wb-code-more-in 160ms cubic-bezier(0.32,0.72,0,1) both",
+          }}
+        >
+          <style>{`@keyframes wb-code-more-in{from{opacity:0;transform:translateY(-4px) scale(0.98)}to{opacity:1;transform:none}}`}</style>
+          {actions.map(a => (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => { setOpen(false); a.onClick() }}
+              className={cn(
+                "flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-[14px] transition-colors",
+                a.danger
+                  ? "text-red-500 hover:bg-red-500/10"
+                  : "text-[var(--code-text)] hover:bg-[var(--code-hover)]",
+                a.active && "bg-[var(--code-hover)]",
+              )}
+            >
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center">{a.icon}</span>
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
 const CODE_BAR_ICON_BUTTON =
   "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--code-muted)] " +
   "transition-[background-color,color,transform] duration-150 " +
@@ -314,13 +421,28 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     }
   }, [embedded, codeTheme])
 
+  /**
+   * WHICH OF THESE CONTROLS THE FRAME IS ALREADY SHOWING.
+   *
+   * On a phone the builder puts its own bar above this page, and that bar
+   * carries a light-and-dark switch. This page has one too, so both were on
+   * screen at once, eight millimetres apart, doing the same thing. The frame
+   * says what it is showing; whatever it shows, this page does not repeat.
+   */
+  const [frameChrome, setFrameChrome] = useState<{ themeToggle: boolean }>({ themeToggle: false })
+
   useEffect(() => {
     if (!embedded || typeof window === "undefined") return
     const onMessage = (e: MessageEvent) => {
       // Same origin only. A message from anywhere else is not the builder.
       if (e.origin !== window.location.origin) return
-      const data = e.data as { type?: string; theme?: string } | null
-      if (!data || data.type !== "storelib:set-code-theme") return
+      const data = e.data as { type?: string; theme?: string; themeToggle?: boolean } | null
+      if (!data) return
+      if (data.type === "storelib:code-chrome") {
+        setFrameChrome({ themeToggle: data.themeToggle === true })
+        return
+      }
+      if (data.type !== "storelib:set-code-theme") return
       if (data.theme !== "dark" && data.theme !== "light") return
       setCodeTheme(data.theme)
       try {
@@ -1204,6 +1326,22 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     <div
       className="wb-code h-full flex flex-col bg-[var(--code-bg)] text-[var(--code-text)] overflow-hidden"
       data-code-theme={codeTheme}
+      /**
+       * NOT THE BOUNCE GUARD'S SCREEN EITHER.
+       *
+       * This page locks its document with `.wb-fullscreen` — html and body
+       * at `overflow: hidden` — and the guard's last branch cancels EVERY
+       * vertical touchmove on a document that cannot scroll. On this screen
+       * that is three bugs in one: the code will not scroll when the file is
+       * short enough to fit, a selection handle cannot be dragged because
+       * dragging it is a touchmove, and the file list freezes the moment a
+       * touch lands between two of its rows.
+       *
+       * The panels here scroll themselves, with `overscroll-behavior`
+       * keeping each flick inside the panel that started it, which is every
+       * job the guard was going to do.
+       */
+      data-wb-no-bounce-guard=""
     >
       <FullScreenLock />
       {/* ── Top bar ── */}
@@ -1353,13 +1491,87 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               than on the page's top bar, because that bar is hidden whenever
               the theme editor frames this page — which left them unreachable
               exactly where they are needed, since a phone has no Cmd-S. */}
-          {selectedFile && (
+          {selectedFile && (() => {
+            const own = customizedPaths.has(selectedFile.path) && isOwnFile(selectedFile.path)
+            const modified = customizedPaths.has(selectedFile.path)
+            const folder = selectedFile.path.split("/").slice(0, -1).join("/") || "sections"
+            const ext = selectedFile.path.endsWith(".storelib") ? ".storelib" : ".json"
+            /**
+             * Every action the bar offers, named once. The wide bar draws
+             * them as icons with a tooltip; the narrow bar puts the same
+             * list behind one button, with the names written out.
+             */
+            const actions: CodeAction[] = [
+              // Not when the builder's own bar above is already showing one.
+              ...(frameChrome.themeToggle
+                ? []
+                : [{
+                    id: "theme",
+                    icon: codeTheme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />,
+                    label: codeTheme === "dark" ? "Light editor" : "Dark editor",
+                    onClick: toggleCodeTheme,
+                  }]),
+              {
+                id: "copy",
+                icon: copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />,
+                label: copied ? "Copied" : "Copy file content",
+                onClick: () => void copyFile(),
+              },
+              { id: "download", icon: <Download className="h-3.5 w-3.5" />, label: "Download this file", onClick: downloadFile },
+              {
+                id: "new",
+                icon: <FilePlus className="h-3.5 w-3.5" />,
+                label: "New file",
+                onClick: () => setPendingAction({ kind: "new", path: `${folder}/new-file${ext}` }),
+              },
+              {
+                id: "duplicate",
+                icon: <Files className="h-3.5 w-3.5" />,
+                label: "Duplicate this file",
+                onClick: () => setPendingAction({ kind: "duplicate", path: selectedFile.path.replace(/(\.[a-z]+)$/, "-copy$1") }),
+              },
+              ...(own
+                ? [
+                    {
+                      id: "rename",
+                      icon: <Pencil className="h-3.5 w-3.5" />,
+                      label: "Rename this file",
+                      onClick: () => setPendingAction({ kind: "rename", path: selectedFile.path }),
+                    },
+                    {
+                      id: "delete",
+                      icon: <Trash2 className="h-3.5 w-3.5" />,
+                      label: "Delete this file",
+                      onClick: () => void deleteFile(false),
+                      danger: true,
+                    },
+                  ]
+                : []),
+              ...(modified
+                ? [{
+                    id: "revert",
+                    icon: <RotateCcw className="h-3.5 w-3.5" />,
+                    label: "Put this file back to the theme's original",
+                    onClick: revertFile,
+                    wideLabel: "Revert",
+                  }]
+                : []),
+              {
+                id: "history",
+                icon: <History className="h-3.5 w-3.5" />,
+                label: "Every save of this file",
+                onClick: () => { const next = !historyOpen; setHistoryOpen(next); if (next) void loadVersions() },
+                active: historyOpen,
+                wideLabel: "History",
+              },
+            ]
+            return (
             <div className="flex items-center gap-2 border-b border-[var(--code-border)] bg-[var(--code-bg)] px-2 py-1.5 md:px-4">
               {narrow && (
                 <button
                   type="button"
                   onClick={() => setShowFiles(true)}
-                  className="flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-[13px] text-[var(--code-text)] transition-colors hover:bg-[var(--code-active)] hover:text-[var(--code-text)] active:scale-95"
+                  className="flex h-9 shrink-0 items-center gap-1 rounded-md px-2 text-[13px] text-[var(--code-text)] transition-colors hover:bg-[var(--code-active)] hover:text-[var(--code-text)] active:scale-95"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Files
@@ -1376,10 +1588,11 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                     </span>
                   ))
                 )}
-                {customizedPaths.has(selectedFile.path) && (
+                {modified && (
                   <span className="ml-2 shrink-0 text-[10px] text-blue-600">● Modified</span>
                 )}
               </div>
+
               {/*
                 A PLAIN BUTTON, NOT `variant="ghost"`.
                 Ghost's hover is `hover:bg-accent hover:text-accent-foreground`,
@@ -1393,93 +1606,33 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   tooltip waits a second and a half, arrives as an OS box in
                   the OS's own font, and cannot be styled or timed — on a row
                   of unlabelled icons that is the difference between a control
-                  you can identify and one you have to click to find out. */}
-              <BarTip label={codeTheme === "dark" ? "Light editor" : "Dark editor"}>
-                <button
-                  type="button"
-                  onClick={toggleCodeTheme}
-                  aria-label={codeTheme === "dark" ? "Switch to the light editor" : "Switch to the dark editor"}
-                  className={CODE_BAR_ICON_BUTTON}
-                >
-                  {codeTheme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-                </button>
-              </BarTip>
-              <BarTip label={copied ? "Copied" : "Copy file content"}>
-                <button
-                  type="button"
-                  onClick={() => void copyFile()}
-                  aria-label="Copy file content"
-                  className={CODE_BAR_ICON_BUTTON}
-                >
-                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-                </button>
-              </BarTip>
-              <BarTip label="Download this file">
-                <button
-                  type="button"
-                  onClick={downloadFile}
-                  aria-label="Download this file"
-                  className={CODE_BAR_ICON_BUTTON}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </button>
-              </BarTip>
-              <BarTip label="New file">
-                <button
-                  type="button"
-                  onClick={() => setPendingAction({ kind: "new", path: `${selectedFile.path.split("/").slice(0, -1).join("/") || "sections"}/new-file${selectedFile.path.endsWith(".storelib") ? ".storelib" : ".json"}` })}
-                  aria-label="New file"
-                  className={CODE_BAR_ICON_BUTTON}
-                >
-                  <FilePlus className="h-3.5 w-3.5" />
-                </button>
-              </BarTip>
-              <BarTip label="Duplicate this file">
-                <button
-                  type="button"
-                  onClick={() => setPendingAction({ kind: "duplicate", path: selectedFile.path.replace(/(\.[a-z]+)$/, "-copy$1") })}
-                  aria-label="Duplicate this file"
-                  className={CODE_BAR_ICON_BUTTON}
-                >
-                  <Files className="h-3.5 w-3.5" />
-                </button>
-              </BarTip>
-              {customizedPaths.has(selectedFile.path) && isOwnFile(selectedFile.path) && (
-                <>
-                  <BarTip label="Rename this file">
+                  you can identify and one you have to click to find out.
+
+                  On a phone there is no pointer to hover with and no room for
+                  the row, so the same actions are a menu instead. */}
+              {narrow ? (
+                <CodeActionMenu actions={actions} />
+              ) : (
+                actions.map(a => (
+                  <BarTip key={a.id} label={a.label}>
                     <button
                       type="button"
-                      onClick={() => setPendingAction({ kind: "rename", path: selectedFile.path })}
-                      aria-label="Rename this file"
-                      className={CODE_BAR_ICON_BUTTON}
+                      onClick={a.onClick}
+                      aria-label={a.label}
+                      className={cn(
+                        CODE_BAR_ICON_BUTTON,
+                        a.wideLabel && "w-auto gap-1.5 px-2.5 text-[12px]",
+                        a.danger && "hover:text-red-600",
+                        a.active && "bg-[var(--code-hover)] text-[var(--code-text)]",
+                      )}
                     >
-                      <Pencil className="h-3.5 w-3.5" />
+                      {a.icon}
+                      {a.wideLabel && <span className="hidden sm:inline">{a.wideLabel}</span>}
                     </button>
                   </BarTip>
-                  <BarTip label="Delete this file">
-                    <button
-                      type="button"
-                      onClick={() => void deleteFile(false)}
-                      aria-label="Delete this file"
-                      className={cn(CODE_BAR_ICON_BUTTON, "hover:text-red-600")}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </BarTip>
-                </>
+                ))
               )}
-              {customizedPaths.has(selectedFile.path) && (
-                <BarTip label="Put this file back to the theme's original">
-                  <button
-                    type="button"
-                    onClick={revertFile}
-                    className={cn(CODE_BAR_ICON_BUTTON, "w-auto gap-1.5 px-2.5 text-[12px]")}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Revert</span>
-                  </button>
-                </BarTip>
-              )}
+
               {/* Saved and waiting for Publish, which is what a draft is. */}
               {unpublished && !isDirty && (
                 <span className="hidden shrink-0 items-center gap-1.5 rounded-md bg-blue-500/10 px-2 py-1 text-[11px] text-blue-600 sm:inline-flex">
@@ -1487,26 +1640,14 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   Not published yet
                 </span>
               )}
-              <BarTip label="Every save of this file">
-                <button
-                  type="button"
-                  onClick={() => { const next = !historyOpen; setHistoryOpen(next); if (next) void loadVersions() }}
-                  className={cn(
-                    "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[12px] transition-colors",
-                    historyOpen ? "bg-[var(--code-hover)] text-[var(--code-text)]" : "text-[var(--code-muted)] hover:bg-[var(--code-hover)] hover:text-[var(--code-text)]",
-                  )}
-                >
-                  <History className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">History</span>
-                </button>
-              </BarTip>
               <BarTip label={isDirty ? "Save this file" : "No changes to save"}>
                 <Button
                   size="sm"
                   onClick={saveFile}
                   disabled={saving || !isDirty}
                   className={cn(
-                    "h-8 shrink-0 gap-1.5 px-3 text-[12px]",
+                    "shrink-0 gap-1.5 px-3 text-[12px]",
+                    narrow ? "h-9" : "h-8",
                     isDirty
                       ? "bg-[#8B56FA] hover:bg-[#7b46ec] text-white"
                       : "bg-[var(--code-hover)] text-[var(--code-muted)] cursor-default",
@@ -1517,7 +1658,8 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                 </Button>
               </BarTip>
             </div>
-          )}
+            )
+          })()}
 
           {/* Code area */}
           {!selectedFile ? (
@@ -1570,12 +1712,36 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               <Loader2 className="h-5 w-5 animate-spin text-[var(--code-muted)]" />
             </div>
           ) : (
-            <div className="flex-1 overflow-hidden relative">
+            /**
+             * THE KEYBOARD TAKES THE BOTTOM OF THIS BOX, not the bottom of a
+             * page that scrolls. The document is locked to the viewport, so
+             * iOS never moves anything out from under the keyboard: the last
+             * quarter of the file sat beneath it, the caret with it, and
+             * scrolling further did nothing because the textarea had already
+             * reached its end. The covered strip becomes the box's height,
+             * so the text ends where the keyboard begins and the last line
+             * can be scrolled to like any other.
+             */
+            <div
+              className="flex-1 overflow-hidden relative"
+              style={{
+                marginBottom: keyboardInset,
+                transition: "margin-bottom 160ms cubic-bezier(0.32, 0.72, 0, 1)",
+              }}
+            >
               {/* Editable textarea overlaid on the line display */}
               <textarea
                 ref={textareaRef}
                 className={cn(
+                  /**
+                   * `select-text` and `touch-pan-*` are stated rather than
+                   * inherited: this is the one surface in the app where a
+                   * long press has to offer Select All, Copy and Paste, and
+                   * where a drag has to move a selection handle rather than
+                   * be read as a page gesture and cancelled.
+                   */
                   "wb-slim-scroll absolute inset-0 w-full h-full bg-transparent text-transparent caret-[var(--code-text)] font-mono resize-none focus:outline-none px-[2.75rem] py-2 z-10",
+                  "select-text overscroll-contain [touch-action:pan-x_pan-y]",
                   CODE_TEXT,
                 )}
                 value={fileContent}

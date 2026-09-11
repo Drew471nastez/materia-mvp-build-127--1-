@@ -1651,7 +1651,13 @@ check(
   (() => {
     const header = codePage.slice(codePage.indexOf("{!embedded && ("), codePage.indexOf("</header>"))
     const row = codePage.slice(codePage.indexOf("{selectedFile && ("), codePage.indexOf("{/* Code area */}"))
-    return !/onClick=\{saveFile\}/.test(header) && /onClick=\{saveFile\}/.test(row) && /onClick=\{revertFile\}/.test(row)
+    /**
+     * Revert is one of the actions the bar declares once and draws either as
+     * an icon with a tooltip or as a row in the overflow menu, so it is
+     * `onClick: revertFile` now rather than a prop. Save is still its own
+     * button, because it is the one thing that never moves behind a menu.
+     */
+    return !/onClick=\{saveFile\}/.test(header) && /onClick=\{saveFile\}/.test(row) && /onClick: revertFile/.test(row)
   })(),
 )
 
@@ -2009,9 +2015,12 @@ check(
 
 check(
   "a file can be copied and downloaded, as it is in the editor now",
-  /aria-label="Copy file content"/.test(codePage) &&
+  // The label is the action's, and it is what the icon's `aria-label` and its
+  // tooltip and its row in the overflow menu are all drawn from.
+  /label: copied \? "Copied" : "Copy file content"/.test(codePage) &&
     /navigator\.clipboard\.writeText\(fileContent\)/.test(codePage) &&
-    /aria-label="Download this file"/.test(codePage) &&
+    /label: "Download this file"/.test(codePage) &&
+    /aria-label=\{a\.label\}/.test(codePage) &&
     /a\.download = selectedFile\.name/.test(codePage),
 )
 
@@ -2490,7 +2499,14 @@ check(
    */
   /function BarTip\(\{ label, children \}/.test(codePageSrc) &&
     /<Tooltip delayDuration=\{300\}>/.test(codePageSrc) &&
-    (codePageSrc.match(/<BarTip label=/g) ?? []).length >= 5 &&
+    /**
+     * The icons are one list now, each entry carrying its own name, and the
+     * wide bar wraps every one of them in a BarTip. Counting the names is
+     * counting the icons; counting `<BarTip label=` would count the two that
+     * are still written out by hand and call the other seven unlabelled.
+     */
+    /<BarTip key=\{a\.id\} label=\{a\.label\}>/.test(codePageSrc) &&
+    (codePageSrc.match(/^\s+label: /gm) ?? []).length >= 5 &&
     // and the disabled Save still explains itself: Radix cannot hear a
     // pointer over a disabled button, so the trigger wraps a span that can
     /<TooltipTrigger asChild>\s*<span className="inline-flex">/.test(codePageSrc) &&

@@ -777,6 +777,38 @@ html.capacitor body {
     }
   }
 
+  /*
+   * THE CODE EDITOR IS A TOUCH SURFACE, AND THREE BROWSER DEFAULTS WERE
+   * FIGHTING IT.
+   *
+   * `touch-action: manipulation` drops double-tap-to-zoom, which on a phone
+   * is what a double tap to select a word was doing instead: the file jumped
+   * to twice its size and nothing was selected. Pinch is untouched, so
+   * somebody who wants to zoom still can.
+   *
+   * `user-select: text` and `-webkit-touch-callout: default` are stated
+   * rather than assumed: the app disables both on native for its dashboard
+   * surfaces, and one more rule of that shape landing on this screen is the
+   * difference between a long press that offers Select All, Copy and Paste
+   * and a long press that does nothing.
+   *
+   * `overscroll-behavior: contain` keeps a flick that reaches the end of the
+   * file from handing the gesture to the page behind it.
+   */
+  .wb-code {
+    touch-action: manipulation;
+  }
+  .wb-code textarea,
+  .wb-code input {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    /* The editor scrolls both ways: a long line goes off to the right. */
+    touch-action: pan-x pan-y;
+  }
+
   .wb-code {
     --code-bg: #ffffff;
     --code-panel: #fafafa;

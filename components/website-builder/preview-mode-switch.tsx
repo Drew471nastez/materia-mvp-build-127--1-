@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react"
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { ArrowLeft, Code2, Globe, Moon, Settings, Sun } from "lucide-react"
 
@@ -204,16 +204,47 @@ export function CodePane({
       /* storage blocked: light is the default, and the frame will say */
     }
   }, [])
+  /** Read inside `sendChrome`, which can be called from a listener that was
+   *  set up before the bar's own state changed. */
+  const fullScreenRef = useRef(fullScreen)
+  const sendChrome = useCallback(() => {
+    try {
+      frameRef.current?.contentWindow?.postMessage(
+        { type: "storelib:code-chrome", themeToggle: fullScreenRef.current },
+        window.location.origin,
+      )
+    } catch {
+      /* a frame that has not settled yet is told again when it announces */
+    }
+  }, [])
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return
       const data = e.data as { type?: string; theme?: string } | null
       if (!data || data.type !== "storelib:code-theme") return
       if (data.theme === "dark" || data.theme === "light") setCodeTheme(data.theme)
+      /**
+       * The page inside announces its theme as it mounts, which is the one
+       * moment it is certainly listening. Answering here rather than only on
+       * the iframe's load event means a reload — opening a different file
+       * changes the frame's src — is told again without anyone tracking it.
+       */
+      sendChrome()
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
-  }, [])
+  }, [sendChrome])
+  /**
+   * WHAT THIS BAR IS ALREADY SHOWING, so the page inside does not show it
+   * again. The framed editor has a light-and-dark switch of its own; on a
+   * phone this bar carries one too, and both were on screen together. Told
+   * on every load and whenever the bar appears or goes away.
+   */
+  useEffect(() => {
+    fullScreenRef.current = fullScreen
+    if (loaded) sendChrome()
+  }, [loaded, fullScreen, sendChrome])
+
   const askFrameForTheme = (next: "light" | "dark") => {
     try {
       frameRef.current?.contentWindow?.postMessage(
