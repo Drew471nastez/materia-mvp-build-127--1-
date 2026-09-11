@@ -200,6 +200,40 @@ async function main() {
     check("the file a person downloads is a .storelib-theme", /\.storelib-theme`/.test(client) && /accept=".storelib-theme/.test(client))
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A package is judged before it is unpacked")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    /**
+     * Deflate turns a megabyte of one repeated byte into about a kilobyte,
+     * so a package inside every limit on disk can hold gigabytes. Measured
+     * before this was guarded: an 82 KB zip carrying one 80 MB entry took
+     * 519ms and 80 MB of heap before any limit was consulted, and was then
+     * refused for an unrelated reason. Now the zip's own headers are read
+     * first and nothing is decompressed.
+     */
+    const bomb = new JSZip()
+    bomb.file("theme.json", JSON.stringify({ format: "storelib-theme", format_version: 1, name: "B", version: "1", engine: { min: 1 } }))
+    bomb.file("manifest.json", JSON.stringify({ format: "storelib-theme", format_version: 1, files: {}, assets: {} }))
+    bomb.file("sections/big.storelib", "a".repeat(40 * 1024 * 1024))
+    const bytes = await bomb.generateAsync({ type: "uint8array", compression: "DEFLATE" })
+    check("the zip is small enough to pass every size limit on disk", bytes.byteLength < 1024 * 1024, `${bytes.byteLength} bytes`)
+    const started = Date.now()
+    const r = await readPackage(bytes)
+    const took = Date.now() - started
+    check("but an entry that unpacks past the limit is refused by its header", r.ok === false && /unpacks to/.test(errText(r as never)), r.ok === false ? errText(r) : "ACCEPTED")
+    check("and refused without decompressing it", took < 200, `${took}ms`)
+
+    /** Many entries, each inside the per-file limit, are judged together. */
+    const many = new JSZip()
+    many.file("theme.json", JSON.stringify({ format: "storelib-theme", format_version: 1, name: "M", version: "1", engine: { min: 1 } }))
+    many.file("manifest.json", JSON.stringify({ format: "storelib-theme", format_version: 1, files: {}, assets: {} }))
+    for (let i = 0; i < 600; i++) many.file(`snippets/s${i}.storelib`, "b".repeat(500 * 1024))
+    const manyBytes = await many.generateAsync({ type: "uint8array", compression: "DEFLATE" })
+    const rm = await readPackage(manyBytes)
+    check("a package whose entries are each small enough but together are not is refused", rm.ok === false && /unpacks to/.test(errText(rm as never)), rm.ok === false ? errText(rm) : "ACCEPTED")
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) process.exit(1)
 }

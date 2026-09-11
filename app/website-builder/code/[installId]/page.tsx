@@ -296,6 +296,8 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   const [pendingAction, setPendingAction] = useState<{ kind: "new" | "rename" | "duplicate"; path: string } | null>(null)
   /** The delete the server refused, with the pages that use the section. */
   const [deleteBlocked, setDeleteBlocked] = useState<{ path: string; usedBy: string[] } | null>(null)
+  /** The rename it refused, for the same reason. */
+  const [renameBlocked, setRenameBlocked] = useState<{ from: string; to: string; usedBy: string[] } | null>(null)
 
   const loadInstall = useCallback(async () => {
     const res = await fetch(`/api/website-builder/themes/${installId}`)
@@ -467,7 +469,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   }
 
   /** Create, rename or duplicate, once the path field is submitted. */
-  const runPendingAction = async () => {
+  const runPendingAction = async (force = false) => {
     if (!pendingAction) return
     const to = pendingAction.path.trim()
     if (!to || to.includes("..") || to.startsWith("/") || to.includes("\\")) { toast.error("That is not a path inside the theme"); return }
@@ -499,13 +501,17 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       return
     }
     if (pendingAction.kind === "rename") {
-      const res = await fetch(`/api/website-builder/themes/${installId}/files`, {
+      const res = await fetch(`/api/website-builder/themes/${installId}/files${force ? "?force=1" : ""}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ from: selectedFile.path, to }),
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) {
         if (res.status === 422 && Array.isArray(d.errors)) setCompileErrors(d.errors as ThemeError[])
+        // A rename that takes a section's type with it empties the pages that
+        // use it, so it asks first — the same answer, and the same choice, as
+        // a delete.
+        if (res.status === 409 && Array.isArray(d.used_by)) { setRenameBlocked({ from: selectedFile.path, to, usedBy: d.used_by as string[] }); return }
         toast.error(d.error ?? "Could not rename")
         return
       }
@@ -1093,6 +1099,19 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               </button>
               <button type="button" onClick={() => setPendingAction(null)} className="h-7 rounded-md px-2 text-[12px] text-[var(--code-muted)] hover:text-[var(--code-text)]">Cancel</button>
             </form>
+          )}
+
+          {/* The rename it refused, for the same reason and with the same choice. */}
+          {renameBlocked && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-[var(--code-border)] bg-amber-500/10 px-4 py-2 text-[12px] text-[var(--code-text)]">
+              <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              <span>
+                Renaming {renameBlocked.from.split("/").pop()} changes its type. {renameBlocked.usedBy.length === 1 ? "The" : `${renameBlocked.usedBy.length} pages:`} {renameBlocked.usedBy.join(", ")}
+                {renameBlocked.usedBy.length === 1 ? " page uses it" : " use it"}, and those sections would render nothing.
+              </span>
+              <button type="button" onClick={() => { setRenameBlocked(null); void runPendingAction(true) }} className="h-7 rounded-md bg-amber-600 px-2.5 text-[12px] text-white hover:bg-amber-700">Rename anyway</button>
+              <button type="button" onClick={() => { setRenameBlocked(null); setPendingAction(null) }} className="h-7 rounded-md px-2 text-[12px] text-[var(--code-muted)] hover:text-[var(--code-text)]">Keep the name</button>
+            </div>
           )}
 
           {/* The delete the server refused: which pages use the section, and the choice. */}

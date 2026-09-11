@@ -20,9 +20,8 @@
  * broken storefront.
  */
 import { useMemo, type MouseEvent } from "react"
-import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { SectionWrapper, type SectionProps } from "./_shared"
-import { useStorelibSources } from "./storelib-sources"
+import { useStorelibContext } from "./storelib-sources"
 
 export function StorelibSection({
   section,
@@ -35,8 +34,18 @@ export function StorelibSection({
   canvasRoundedTopPx,
   canvasRoundedBottomPx,
 }: SectionProps) {
-  const sources = useStorelibSources()
-  const out = useMemo(() => renderStorelibSection(section, theme, { template: "index" }, sources), [section, theme, sources])
+  /**
+   * Rendered on the server for a published page, or by the editor's live
+   * provider a moment ago. This component holds no engine: see
+   * storelib-sources.tsx for why that matters to a visitor's browser.
+   */
+  const { prerendered, render } = useStorelibContext()
+  const out = useMemo(() => {
+    const ready = prerendered[section.id]
+    if (ready) return { ok: true as const, html: ready.html, css: ready.css }
+    if (render) return render(section, theme)
+    return { ok: false as const, errors: [{ message: `${section.type} was not rendered: no theme sources in this tree` }] }
+  }, [prerendered, render, section, theme])
 
   if (out.ok === false) {
     if (!isEditing && !insideEditor) return null

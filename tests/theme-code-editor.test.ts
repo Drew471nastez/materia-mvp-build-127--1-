@@ -334,11 +334,88 @@ section("Save compiles, errors carry lines, the canvas finds out")
   check("a broken file is not saved and says so", /did not compile — not saved/.test(codePage))
   check("the code editor tells the canvas when a file changed", (codePage.match(/announceFileChange\(/g) ?? []).length >= 5 && /type: "storelib:file-saved"/.test(codePage))
   check("the editor listens and reloads the saved sources", /data\?\.type === "storelib:file-saved"\) void loadStorelibSources\(\)/.test(editor) && /files\?sources=1/.test(editor))
-  check("and hands them to the canvas and the sidebar", /<StorelibSourcesProvider sources=\{sources\}>/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, SECTION_SCHEMAS\)/g) ?? []).length === 2)
-  check("a section renders from the saved source when there is one", /useStorelibSources\(\)/.test(section) && /renderStorelibSection\(section, theme, \{ template: "index" \}, sources\)/.test(section))
-  check("the published page draws the saved sections too, not the bundled ones", /\.from\("store_theme_custom_files"\)/.test(creator) && /<StorelibSourcesProvider sources=\{storelibSources\}>/.test(creator))
+  check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\}/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, SECTION_SCHEMAS\)/g) ?? []).length === 2)
+  check("a section renders from the saved source when there is one", /renderStorelibSection\(section, theme, \{ template \}, sources\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
+  check("the published page draws the saved sections too, not the bundled ones", /\.from\("store_theme_custom_files"\)/.test(creator) && /renderStorelibSection\(section, themeSettings, \{ template: "index" \}, storelibSources\)/.test(creator))
   check("a new section file starts as one that compiles", /const starterFor = \(path: string\)/.test(codePage) && /"<template>",/.test(codePage) && /"<schema>",/.test(codePage))
   check("new, rename, duplicate and delete are there", /kind: "new"/.test(codePage) && /kind: "rename"/.test(codePage) && /kind: "duplicate"/.test(codePage) && /deleteFile\(true\)/.test(codePage))
+}
+
+// ===========================================================================
+section("A rename is a delete, for the pages that use the section")
+// ===========================================================================
+{
+  const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8")
+  const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+
+  /**
+   * Renaming sections/x.storelib to sections/y.storelib takes the type with
+   * it, and every instance of x renders nothing — exactly what DELETE
+   * refuses to do quietly. It went through without a word until this.
+   */
+  check("DELETE and PATCH ask the same question, through one helper", /async function pagesUsingSection\(/.test(route) && (route.match(/pagesUsingSection\(supabase, installId/g) ?? []).length === 2)
+  check("a rename that changes the type is refused with the pages that use it", /fromSection\[1\] !== to\.match/.test(route) && /used_by: usedBy/.test(route))
+  check("and force=1 is what goes through", (route.match(/searchParams\.get\("force"\) !== "1"/g) ?? []).length === 2)
+  check("the code editor asks rather than reporting a failure", /setRenameBlocked\(/.test(codePage) && /Rename anyway/.test(codePage) && /runPendingAction\(true\)/.test(codePage))
+}
+
+// ===========================================================================
+section("The page a section is on is the page it is on")
+// ===========================================================================
+{
+  const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const provider = readFileSync(join(root, "components/website-builder/sections/storelib-sources.tsx"), "utf8")
+  const sectionSrc = readFileSync(join(root, "components/website-builder/sections/StorelibSection.tsx"), "utf8")
+  const creator = readFileSync(join(root, "app/(marketing)/[sellername]/page.tsx"), "utf8")
+
+  /**
+   * `page.template` was the string "index" wherever a section rendered, so a
+   * section on the product page read the home page's name — and
+   * `allowed_templates`, which is written against that name, would have been
+   * answering about the wrong page.
+   */
+  check("the provider carries the template, not just the sources", /export function useStorelibPage/.test(provider) && /page: \{ template: string \}/.test(provider))
+  /**
+   * A PUBLISHED SITE SHIPS NO COMPILER. The section component reads what was
+   * rendered; only the editor's live provider imports the engine. Measured
+   * before this split: postcss, 160 KB of it, in the chunk every visitor of
+   * every creator's site downloaded to recompute CSS the server had already
+   * sent them.
+   */
+  check(
+    "the section component holds no engine at all",
+    !/storelib-runtime|storelib-theme/.test(sectionSrc) && !/storelib-runtime|storelib-theme/.test(provider),
+    sectionSrc.split("\n").filter((l) => l.startsWith("import")).join(" | "),
+  )
+  check(
+    "the editor's live provider is the one thing in the tree that does",
+    /renderStorelibSection/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")),
+  )
+  check(
+    "and the published page renders on the server and hands down the strings",
+    /const prerendered: Record<string, \{ html: string; css: string \}> = \{\}/.test(creator) && /<StorelibSourcesProvider prerendered=\{prerendered\}/.test(creator),
+  )
+  check("and a section reads it instead of assuming index", /useStorelibContext\(\)/.test(sectionSrc) && !/template: "index"/.test(sectionSrc))
+  check("the editor hands it the page being edited", /pageTemplate=\{currentPage === "home" \? "index" : currentPage\}/.test(editor) && /page=\{\{ template: pageTemplate \}\}/.test(editor))
+}
+
+// ===========================================================================
+section("Caches keyed on file content cannot grow without end")
+// ===========================================================================
+{
+  const runtime = readFileSync(join(root, "lib/website-builder/storelib-runtime.ts"), "utf8")
+  const schemas = readFileSync(join(root, "lib/website-builder/storelib-schemas.ts"), "utf8")
+  const compile = readFileSync(join(root, "lib/storelib-theme/storelib/compile.ts"), "utf8")
+
+  /**
+   * The key is the file's text, so every save of every file by every
+   * creator is a new entry, and the value is a compiled template tree. Three
+   * unbounded Maps on a server that lives for days is a heap that only goes
+   * one way.
+   */
+  check("the engine has one bounded cache and the application uses it", /export function createLru<T>\(limit: number\)/.test(compile) && /while \(map\.size > limit\)/.test(compile))
+  check("the section compile cache is bounded", /createLru<Compiled>\(COMPILE_CACHE_LIMIT\)/.test(runtime) && !/new Map<string, Compiled>/.test(runtime))
+  check("the schema cache is bounded", /createLru<StorelibSchemaResult>\(COMPILE_CACHE_LIMIT\)/.test(schemas) && !/new Map<string, StorelibSchemaResult>/.test(schemas))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

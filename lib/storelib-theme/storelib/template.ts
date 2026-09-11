@@ -445,9 +445,18 @@ export interface RenderOptions {
   mode?: "html" | "css"
 }
 
-/** A value on its way into a stylesheet. No braces, no angle brackets, no at-rules. */
+/**
+ * A value on its way into a stylesheet, kept to being a value.
+ *
+ * `{` and `}` would let it close the rule it is in and open one of its own.
+ * `;` would let it end its own declaration and add more to the rule — not an
+ * escape, but enough to add a `background: url(…)` nobody wrote. `<` and `>`
+ * would let it end the <style> element. `@import` would fetch. A real CSS
+ * value contains none of them, so taking them out costs nothing and closes
+ * all four.
+ */
 function cssValue(s: string): string {
-  return s.replace(/[<>{}]/g, "").replace(/@import/gi, "")
+  return s.replace(/[<>{};]/g, "").replace(/@import/gi, "")
 }
 
 export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: RenderOptions = {}): string {
