@@ -40,7 +40,7 @@ import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
 import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-builder/builder-loader"
 import { CanvasScrollbar } from "@/components/website-builder/canvas-scrollbar"
-import { usePhoneChromeTone, type ChromeTone } from "@/components/website-builder/native-chrome"
+import { usePhoneChromeTone } from "@/components/website-builder/native-chrome"
 import { LeaveConfirm, hasSomethingToLose, type LeaveReason } from "@/components/website-builder/leave-confirm"
 import {
   DropdownMenu,
@@ -6010,22 +6010,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const canvasLoaderLingers = useLinger(canvasBusy, 280)
   /** Light chrome on a phone, wherever the clock can still be read. */
   /**
-   * WHITE CHROME ON A DESKTOP, DARK ONLY ON A PHONE.
+   * THE BAR IS DARK, EVERYWHERE.
    *
-   * The bar was dark so it would not be mistaken for the page it frames.
-   * What actually separates them is the hairline under it, and a dark bar
-   * costs something the light one does not: the workspace around the canvas
-   * has to be dark or grey to sit under it, and then the corner where the
-   * canvas turns opens onto a third tone. Every attempt at that corner failed
-   * on the same thing, a wedge of a colour belonging to neither panel.
+   * It was white for one round, on the argument that the surround has to be
+   * the panels' own colour for the corner at the seam to open onto anything
+   * that belongs there, and that the bar should match it.
    *
-   * White bar, white sidebar, white surround: one surface with a hairline
-   * drawn on it, and the page the only thing in the window with a colour of
-   * its own. The phone keeps the dark bar, because there it continues the
-   * status bar rather than framing anything.
+   * Only the first half of that was true. The surround is still white and the
+   * corner still opens onto it; the bar is a separate surface ABOVE all of
+   * that, with its own edge, and nothing at the seam opens onto it. So it can
+   * be what it was: dark, which is what tells you at a glance which part of
+   * the window is the product and which part is the page you are building.
    */
-  const phoneChromeTone = usePhoneChromeTone(isMobileView)
-  const chromeTone: ChromeTone = isMobileView ? phoneChromeTone : "light"
+  const chromeTone = usePhoneChromeTone(isMobileView)
 
   /** What leaving would cost right now, if anything. */
   const leaveReason: LeaveReason = {
@@ -6074,10 +6071,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
          * belonging to neither panel, which is the wedge that kept being
          * reported however it was drawn or filled.
          *
-         * White, all of it: the bar, the sidebar, the surround. What separates
-         * them is a hairline, which is the whole of what a hairline is for,
-         * and the only thing in the window with a colour of its own is the
-         * page somebody is building.
+         * So the surround is white, the same white as the panels standing on
+         * it, and the four pixels between them are that white showing
+         * through. Below the bar the only thing with a colour of its own is
+         * the page somebody is building.
+         *
+         * The BAR is dark, and is not part of this. It sits above the row
+         * with its own edge, and nothing at the seam opens onto it.
          */
         "wb-editor fixed inset-0 flex flex-col bg-white overflow-hidden wb-editor-enter",
         chromeTone === "light" && "wb-chrome-light",

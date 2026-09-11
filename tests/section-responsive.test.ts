@@ -410,14 +410,14 @@ check(
    * colour is not the page's to choose, so a light bar has to negotiate with
    * the clock first. Today it answers dark without asking.
    *
-   * A DESKTOP bar is white, and does not go through the hook. That is not the
-   * light bar this guard is about: there is no status bar over it, the tiles
-   * sit on white rather than on grey, and the surround has to be the panels'
-   * own colour for the corner at the seam to open onto anything that belongs
-   * there. The two answers are separate and both are pinned here.
+   * A desktop bar was white for one round, on the argument that the surround
+   * has to be the panels' own colour for the corner at the seam to open onto
+   * anything that belongs there, and that the bar should match it. Only the
+   * first half was true: the surround is still white, and the bar is a
+   * surface ABOVE the row with its own edge, which nothing at the seam opens
+   * onto. So there is one answer again, and it is dark.
    */
-  /const phoneChromeTone = usePhoneChromeTone\(isMobileView\)/.test(editor) &&
-    /const chromeTone: ChromeTone = isMobileView \? phoneChromeTone : "light"/.test(editor) &&
+  /const chromeTone = usePhoneChromeTone\(isMobileView\)/.test(editor) &&
     /<FullScreenLock tone=\{chromeTone\} \/>/.test(editor) &&
     /export function usePhoneChromeTone\(_phone: boolean\): ChromeTone \{\s*\n\s*return "dark"\s*\n\}/.test(nativeChromeSrc) &&
     /root\.style\.backgroundColor = tone === "light" \? "#ffffff" : "#171717"/.test(readFileSync(join(root, "components/website-builder/full-screen-lock.tsx"), "utf8")) &&
@@ -950,9 +950,9 @@ check(
    * It was rejected for the SURROUND, not for the shape: over a colour
    * belonging to neither panel a lens is a wedge, and over the panels' own
    * white it is a gap. Same geometry, and the difference is one tone. The
-   * white surround and the white bar (`wb-chrome-light` on a desktop; a phone
-   * keeps the dark bar, where it continues the status bar rather than framing
-   * anything) are what make it work, so they are pinned here too.
+   * white surround is what makes it work, so it is pinned here. The BAR is
+   * not part of it: it is dark, it sits above the row with its own edge, and
+   * nothing at the seam opens onto it.
    *
    * Square where the panels meet the SCREEN. An arc at the window's own edge
    * has nothing behind it to turn away from and reads as a chip bitten out of
@@ -967,10 +967,8 @@ check(
    * root at each of the four screen corners.
    * `node scripts/check-workspace-corners.mjs`
    */
-  // white bar on a desktop, dark only on a phone
-  /const phoneChromeTone = usePhoneChromeTone\(isMobileView\)/.test(editor) &&
-    /const chromeTone: ChromeTone = isMobileView \? phoneChromeTone : "light"/.test(editor) &&
-    /"wb-editor fixed inset-0 flex flex-col bg-white overflow-hidden wb-editor-enter"/.test(editor) &&
+  // the surround below the bar is white; the bar itself is not this rule's
+  /"wb-editor fixed inset-0 flex flex-col bg-white overflow-hidden wb-editor-enter"/.test(editor) &&
     // the row spaces its panels over its own white
     /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-white gap-1">/.test(editor) &&
     // both sides of the gap curve, and the AI panel mirrors the sidebar
@@ -987,9 +985,7 @@ check(
     // a phone or tablet preview keeps a mat: there the canvas is a surface a
     // device stands on rather than the device itself
     /isMobileView \? "bg-background" : device === "desktop" \? "bg-white" : "bg-\[#eef1f5\]",/.test(editor) &&
-    ((css) =>
-      !/\.wb-seam-(fill|divider|top) \{/.test(css) &&
-      /\.wb-editor\.wb-chrome-light \{\s*\n\s*--wb-chrome-bg: #ffffff;/.test(css))(readFileSync(join(root, "app/globals.css"), "utf8")),
+    ((css) => !/\.wb-seam-(fill|divider|top) \{/.test(css))(readFileSync(join(root, "app/globals.css"), "utf8")),
 )
 
 check(

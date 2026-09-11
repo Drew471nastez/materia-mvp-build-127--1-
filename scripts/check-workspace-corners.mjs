@@ -20,8 +20,8 @@
  *
  * So this measures four things, on the real rule rather than on a drawing:
  *   - the gap exists and is the size it should be, on both seams
- *   - nothing is drawn in it: the bar, the panels and the gap are one colour,
- *     and no line crosses it anywhere down its height
+ *   - nothing is drawn in it: the panels and the gap are one colour, and no
+ *     line crosses it anywhere down its height
  *   - both sides of it curve, by the same radius
  *   - and the screen's own corners stay square
  *
@@ -84,8 +84,10 @@ const page = (name) => { const sh = SHAPES[name]; return `<!doctype html><html><
 html,body{height:100%;overflow:hidden}
 /* never meant to be seen: the bar covers the top of it and the row the rest */
 body{background:rgb(255,0,255)}
-.bar{position:fixed;left:0;right:0;top:0;height:${BAR}px;background:#fff;
-     border-bottom:1px solid #e5e7eb}
+/* dark, and it is NOT part of the claim below: it is a surface above the row
+   with its own edge, and nothing at the seam opens onto it */
+.bar{position:fixed;left:0;right:0;top:0;height:${BAR}px;background:#171717;
+     border-bottom:1px solid rgba(255,255,255,.1)}
 .row{position:fixed;left:0;right:0;top:${BAR}px;bottom:0;display:flex;
      gap:${sh.gap}px;background:${sh.surround};overflow:hidden}
 .side{width:${SIDE}px;background:#fff;flex:none;overflow:hidden}
@@ -181,12 +183,16 @@ const apart = (a, b) => Math.max(...[0, 1, 2].map((c) => Math.abs(a[c] - b[c])))
  * NOTHING IS DRAWN IN IT.
  *
  * Two claims in one sample. Every pixel of the gap, all the way down, must be
- * the same as the bar above it and the panels either side — so no line
- * crosses it and no surround of its own shows in it. `worst` is the furthest
- * any pixel in either gap strays from the panels' white.
+ * the same as the PANELS either side of it — so no line crosses it and no
+ * surround of its own shows in it. `worst` is the furthest any pixel in
+ * either gap strays from that white.
+ *
+ * The reference is taken from inside the two panels, not from the bar. The
+ * bar is dark and sits above the row with its own edge; it is a different
+ * surface and the gap is not claiming to match it.
  */
 function gapTone(img, box) {
-  const ref = mean([img.at(box.left + 20, 10), img.at(box.left + 20, box.top + 60)])
+  const ref = mean([img.at(box.left + 20, box.top + 60), img.at(box.right - 20, box.top + 60)])
   let worst = 0, worstAt = null
   for (let y = box.top + R + 4; y < box.bottom - 4; y++) {
     for (const x0 of [box.cl - 2, box.right - AI - 2]) {
@@ -317,7 +323,7 @@ try {
 
   // And nothing in it, anywhere down its height.
   expect(after.tone.worst <= 2,
-    "and nothing is drawn in it: it is the same white as the bar and the panels, the whole way down",
+    "and nothing is drawn in it: it is the same white as the panels either side, the whole way down",
     `a pixel at ${after.tone.worstAt} is ${after.tone.worst} away from the panels' white`)
   expect(line.tone.worst > 4, "the hairline did cross it, so this is a real measurement",
     `the control's worst pixel was only ${line.tone.worst} away`)
