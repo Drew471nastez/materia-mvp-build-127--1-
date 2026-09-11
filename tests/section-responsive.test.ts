@@ -678,7 +678,7 @@ check(
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-0 z-\[80\] flex flex-col rounded-tl-\[20px\]/.test(modeSwitch) &&
+    /absolute inset-0 z-\[80\] flex flex-col rounded-t-\[20px\]/.test(modeSwitch) &&
     // A black panel inside a white builder is a second product bolted on.
     /"overflow-hidden bg-white"/.test(modeSwitch) &&
     !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
@@ -769,21 +769,20 @@ check(
 )
 
 check(
-  "the surround is the panels' own white on a desktop, and a mat only where a device stands on it",
+  "the surround is one light tone, and on a phone it is the sheet's own surface",
   // The canvas is the page being worked on, not chrome. A near-black field
   // around it makes the builder read as two products with a hole between
   // them, and in a phone preview the hole is most of the screen. A phone has
   // no surround at all beyond the strip reserved for the sheet's peek, which
   // takes the sheet's own colour so a one-pixel disagreement is a seam.
   //
-  // On a desktop the surround is WHITE, the same white as the sidebar and the
-  // bar, because the canvas fills it edge to edge and its one corner has to
-  // open onto something that belongs to the panels beside it. A phone or
-  // tablet preview is different: there the canvas is a device standing on a
-  // surface rather than being the surface, so it keeps the grey mat that
-  // gives the device's edge and shadow something to sit against.
+  // ONE tone, for both jobs it has on a desktop: the shelf the panels stand
+  // on, seen in the gaps and around their top corners, and the surface a
+  // device preview stands on. It was briefly white, to match a briefly white
+  // bar; a gap of the panels' own colour cannot be seen, which is the whole
+  // reason the shelf has a tone.
   /"relative flex-1 min-w-0 overflow-hidden flex justify-center"/.test(editor) &&
-    /isMobileView \? "bg-background" : device === "desktop" \? "bg-white" : "bg-\[#eef1f5\]",/.test(editor),
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor),
 )
 
 check(
@@ -799,40 +798,23 @@ check(
 )
 
 check(
-  "on a desktop there is no mat behind the panels, only the gap between them",
+  "nothing below the bar is dark, and a device preview is a card with an edge of its own",
   /**
-   * This went back and forth more than once: flush, then a mat, then flush.
-   * The mat was eight pixels of the bar's dark on every side of every panel,
-   * and eight pixels is not enough to read as a frame — it reads as a gap
-   * that failed to close, which is a black gutter down the left of the
-   * sidebar and a black band under the preview. That is what was reported,
-   * with the corner zoomed in on.
+   * This guard used to say the panels were FLUSH, and it said so because a
+   * mat had been tried and reported: eight pixels of the bar's dark on every
+   * side of every panel, which is not enough to read as a frame and reads
+   * instead as a gutter that failed to close.
    *
-   * So the row has no padding, the sidebar and the AI are separated from the
-   * canvas by four pixels of the white they are all sitting on, and there is
-   * nothing dark left anywhere below the bar.
-   *
-   * Four pixels is a gap between panels, not a mat around them: a mat is
-   * space on every side, including the ones facing the screen, and that is
-   * what read as a gutter that failed to close. This row still has no
-   * padding, so nothing separates a panel from the window.
+   * There is a mat again, and the two facts are not in conflict. What failed
+   * was eight pixels of DARK, on four sides. What is here is eight pixels of
+   * the builder's own light grey, on three, with the fourth left open so
+   * there is no band under the page. The shape of that claim is in
+   * "the panels stand on a shelf"; what survives here is the part that was
+   * never about the gap, which is that nothing below the bar is dark and a
+   * device preview carries its own edge because the dark is not there to
+   * give it one.
    */
-  // no mat: no padding, and the row itself is the surface the gap shows
-  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-white gap-1">/.test(editor) &&
-    !/bg-\[#171717\] p-2 gap-2/.test(editor) &&
-    // and the preview turns only where a panel faces it
-    /\? cn\("rounded-tl-\[20px\] w-full", aiOpen && "rounded-tr-\[20px\]"\)/.test(editor) &&
-    // the sidebar and the AI: clipped, and rounding away from the canvas
-    // rather than being ruled off from it
-    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white rounded-tr-\[20px\]"/.test(editor) &&
-    // and what shows in the gap is the panels' OWN WHITE. It was a
-    // light grey for several rounds, on the argument that an arc needs
-    // something of its own to open onto. It does not: a surround with a tone
-    // of its own is a third colour in a corner between two panels that are
-    // both white, which is the wedge that kept being reported however it was
-    // drawn. A device preview still gets the grey, since there the canvas
-    // stands on the surround rather than being it.
-    /isMobileView \? "bg-background" : device === "desktop" \? "bg-white" : "bg-\[#eef1f5\]",/.test(editor) &&
+  !/bg-\[#171717\] p-2 gap-2/.test(editor) &&
     !/: "bg-\[#171717\]"/.test(editor) &&
     // a device preview is a card floating on that surround, so it is drawn
     // with the edge and the lift the dark used to give it for free
@@ -931,60 +913,62 @@ check(
 )
 
 check(
-  "the panels are spaced, not divided",
+  "the panels stand on a shelf",
   /**
-   * Eleven rounds went into the seam between the sidebar and the canvas: a
-   * hairline down it, and a corner drawn on the arc the canvas turns on,
-   * filled five different ways — the bar's dark, the workspace's grey, a
-   * second arc curving the other way, the sidebar's white, nothing at all.
+   * Twelve rounds went into the seam between the sidebar and the canvas. A
+   * hairline down it. A corner drawn on the arc the canvas turns on, filled
+   * five different ways. Then no corner at all and a gap of the panels' own
+   * white, which settled what to draw and opened a smaller question: a gap
+   * you cannot see is not a gap, and on a white page the sidebar, the space
+   * and the canvas were one undifferentiated field.
    *
-   * None of them is here. `wb-seam-fill` and `wb-seam-divider` are both gone,
-   * and what replaced them is four pixels of nothing: the sidebar rounds away
-   * from the canvas by 20px, the canvas rounds away from the sidebar by 20px,
-   * and the gap between them is the same white both panels are sitting on.
-   * The AI panel is the same shape mirrored. No line to get the colour of
-   * wrong, and no wedge to fill.
+   * So the space has a tone. The panels are cards now, inset 8px and rounded
+   * 20px on BOTH top corners, standing on the light grey the builder already
+   * uses for the surface a device preview sits on. One tone below the bar,
+   * doing both jobs, rather than two.
    *
-   * THAT IS THE SHAPE THAT KEPT BEING REJECTED. Both sides curving away leaves
-   * a lens between two arcs, and a lens is what every round was reported for.
-   * It was rejected for the SURROUND, not for the shape: over a colour
-   * belonging to neither panel a lens is a wedge, and over the panels' own
-   * white it is a gap. Same geometry, and the difference is one tone. The
-   * white surround is what makes it work, so it is pinned here. The BAR is
-   * not part of it: it is dark, it sits above the row with its own edge, and
-   * nothing at the seam opens onto it.
+   * THAT GREY IS WHY THIS WORKS WHERE EVERY EARLIER VERSION DID NOT, and the
+   * difference is worth stating exactly, because it was got wrong five times.
+   * A sliver of a third colour between one ROUNDED panel and one FLUSH one is
+   * a wedge. The same sliver between two panels that both curve away from it,
+   * with the same surface running behind both, is a channel. The tone was
+   * never the fault on its own; the tone with only one side curving was.
    *
-   * Square where the panels meet the SCREEN. An arc at the window's own edge
-   * has nothing behind it to turn away from and reads as a chip bitten out of
-   * the page, which is what four outer radii did for several rounds.
+   * Open at the bottom. Padding on three sides is a shelf; padding on four is
+   * a frame, and a band of grey under the page is the gutter that failed to
+   * close, which is what was reported when this was tried in the bar's dark.
    *
-   * Measured: 4 pixels between the page and each panel, against 0 flush; the
-   * worst pixel anywhere down either gap 0 away from the panels' white,
-   * against 36 with the hairline in it and 17 over a surround with a tone of
-   * its own; both edges of the gap travelling 16px, which is what a 20px
-   * radius travels when it is read once per row at the pixel's centre, and
-   * the two equal to each other; 0 with the radii off; 0 of 74 pixels of the
-   * root at each of the four screen corners.
+   * The BAR is not part of any of it. It is dark, it sits above the row with
+   * its own edge, and nothing at the seam opens onto it.
+   *
+   * Measured: 8 pixels between the page and each panel and 8 more around the
+   * outside, against 0 and 0 flush; the gap 17 away from the panels either
+   * side, against 0 for a gap of their own white, and uneven by 0 down its
+   * whole height, against 18 with a hairline crossing it; all three arcs
+   * travelling 16px, which is what 20px travels read once per row at the
+   * pixel's centre, against 0 with the radii off; 0 pixels of the root at any
+   * of the four screen corners.
    * `node scripts/check-workspace-corners.mjs`
    */
-  // the surround below the bar is white; the bar itself is not this rule's
-  /"wb-editor fixed inset-0 flex flex-col bg-white overflow-hidden wb-editor-enter"/.test(editor) &&
-    // the row spaces its panels over its own white
-    /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-white gap-1">/.test(editor) &&
-    // both sides of the gap curve, and the AI panel mirrors the sidebar
-    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white rounded-tr-\[20px\]"/.test(editor) &&
-    /<div className="h-full overflow-hidden bg-white rounded-tl-\[20px\]">/.test(editor) &&
-    /!isMobileView && "rounded-tl-\[20px\]",\s*\n\s*!isMobileView && aiOpen && "rounded-tr-\[20px\]",/.test(editor) &&
-    /\? cn\("rounded-tl-\[20px\] w-full", aiOpen && "rounded-tr-\[20px\]"\)/.test(editor) &&
-    // nothing is drawn at the seam any more, on either side
+  // the shelf, and the cards standing on it
+  /"wb-editor fixed inset-0 flex flex-col bg-\[#eef1f5\] overflow-hidden wb-editor-enter"/.test(editor) &&
+    /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#eef1f5\] gap-2 px-2 pt-2">/.test(editor) &&
+    // open at the bottom: a shelf, not a frame
+    !/pb-2"/.test(editor) &&
+    // both top corners, on all three: a card with one square top corner and
+    // one round one reads as a mistake
+    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white rounded-t-\[20px\]"/.test(editor) &&
+    /<div className="h-full overflow-hidden bg-white rounded-t-\[20px\]">/.test(editor) &&
+    /!isMobileView && "rounded-t-\[20px\]",/.test(editor) &&
+    /\? "rounded-t-\[20px\] w-full"/.test(editor) &&
+    // one tone below the bar, for the shelf and for a device's surface alike
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor) &&
+    // nothing is drawn at either seam any more
     !/wb-seam-fill|wb-seam-divider|wb-seam-top/.test(editor) &&
     !/bg-white border-r border-\[#e5e7eb\]/.test(editor) &&
-    // square where the panels meet the screen
-    !/!isMobileView && "rounded-2xl"/.test(editor) &&
-    !/rounded-tr-2xl/.test(editor) &&
-    // a phone or tablet preview keeps a mat: there the canvas is a surface a
-    // device stands on rather than the device itself
-    /isMobileView \? "bg-background" : device === "desktop" \? "bg-white" : "bg-\[#eef1f5\]",/.test(editor) &&
+    // and the bar stays dark, which is not this rule's business but is what
+    // the surround was briefly changed to match
+    /const chromeTone = usePhoneChromeTone\(isMobileView\)/.test(editor) &&
     ((css) => !/\.wb-seam-(fill|divider|top) \{/.test(css))(readFileSync(join(root, "app/globals.css"), "utf8")),
 )
 
@@ -2104,7 +2088,7 @@ check(
    * and the unwrapped one is a control that must still fail.
    */
   // The wrapper carries the shape and the clip...
-  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,700}?\? cn\("rounded-tl-\[20px\] w-full"/.test(editor) &&
+  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,700}?\? "rounded-t-\[20px\] w-full"/.test(editor) &&
     // ...and the scroller inside it is square and fills it, so nothing it
     // paints can reach a corner.
     /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"/.test(

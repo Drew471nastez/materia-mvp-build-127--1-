@@ -228,7 +228,7 @@ export function CodePane({
             // The same shape as the preview it covers: turning where it
             // faces the sidebar, with its other three corners cut by the
             // workspace row around the whole builder.
-            "absolute inset-0 z-[80] flex flex-col rounded-tl-[20px]",
+            "absolute inset-0 z-[80] flex flex-col rounded-t-[20px]",
         /**
          * It rises AND settles: a short lift with a touch of scale, on the
          * curve a thrown thing lands on, which reads as the canvas turning

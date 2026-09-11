@@ -1,32 +1,32 @@
 /**
  * ===========================================================================
- *  THE PANELS ARE SPACED, NOT DIVIDED
+ *  THE PANELS STAND ON A SHELF
  * ===========================================================================
- * Eleven rounds went into the seam between the sidebar and the canvas: a
- * hairline down it, and a corner drawn on the arc the canvas turns on, filled
- * five different ways — the bar's dark, the workspace's grey, a second arc
- * curving the other way, the sidebar's white, nothing at all.
+ * Twelve rounds went into the seam between the sidebar and the canvas. A
+ * hairline down it. A corner drawn on the arc the canvas turns on, filled five
+ * different ways. Then no corner at all and a gap of the panels' own white,
+ * which settled what to draw and opened a smaller question: a gap you cannot
+ * see is not a gap, and on a white page the sidebar, the space and the canvas
+ * were one undifferentiated field.
  *
- * None of them is here now. Four pixels of the white the panels already sit on
- * does the same job with nothing drawn: the sidebar rounds away from the
- * canvas, the canvas rounds away from the sidebar, and what runs between them
- * is a gap.
+ * So the space has a tone. The panels are cards, inset a little and rounded on
+ * both top corners, standing on the light grey the builder already uses for
+ * the surface a device preview sits on.
  *
- * That is the shape that was rejected over and over — both sides curving away,
- * which leaves a lens between two arcs. It was rejected for the SURROUND, not
- * for the shape. Over a colour belonging to neither panel a lens is a wedge;
- * over the panels' own white it is a gap. Same geometry, and the difference is
- * one tone.
+ * That grey is why this works where every earlier version of it did not, and
+ * the difference is worth stating exactly, because it was got wrong five
+ * times: a sliver of a third colour between one ROUNDED panel and one FLUSH
+ * one is a wedge. The same sliver between two panels that both curve away
+ * from it, with the same surface running behind both, is a channel. The tone
+ * was never the fault on its own. The tone with only one side curving was.
  *
- * So this measures four things, on the real rule rather than on a drawing:
- *   - the gap exists and is the size it should be, on both seams
- *   - nothing is drawn in it: the panels and the gap are one colour, and no
- *     line crosses it anywhere down its height
- *   - both sides of it curve, by the same radius
- *   - and the screen's own corners stay square
- *
- * Controls: the hairline-and-drawn-corner shape this replaces, and a surround
- * with a tone of its own, which is what made the same geometry a wedge.
+ * So this measures, with a control for each:
+ *   - the gap between the cards, and the shelf showing around them
+ *   - that the gap can be SEEN against the panels, which is the claim that
+ *     reversed, and that it is even the whole way down
+ *   - that both sides of it curve by the same radius, and that the sidebar
+ *     rounds on its outer corner too
+ *   - and that nothing behind the shelf shows anywhere
  *
  *   node scripts/check-workspace-corners.mjs
  */
@@ -44,7 +44,7 @@ const fail = (m) => {
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}. Set CHROMIUM=/path/to/chromium.`)
 
 /** The radius, the gap, the bar, the sidebar, the AI panel, the viewport. */
-const R = 20, GAP = 4, BAR = 44, SIDE = 160, AI = 120, W = 620, H = 300
+const R = 20, GAP = 8, PAD = 8, BAR = 44, SIDE = 160, AI = 120, W = 620, H = 300
 /** The page in the canvas: the one thing in the window with a colour. */
 const PAPER = "#dbe4fb"
 
@@ -56,9 +56,15 @@ const PAPER = "#dbe4fb"
  *   grey     the same gap over a surround with a tone of its own: the wedge
  */
 const SHAPES = {
-  after: { surround: "#ffffff", gap: GAP, round: true, line: false },
-  line: { surround: "#ffffff", gap: 0, round: true, line: true },
-  grey: { surround: "#eef1f5", gap: GAP, round: true, line: false },
+  after: { surround: "#eef1f5", gap: GAP, pad: PAD, round: true, line: false },
+  line: { surround: "#eef1f5", gap: 0, pad: 0, round: true, line: true },
+  /**
+   * The shape shipped one round before this: the same gap, over the panels'
+   * own white. It closed the argument about what to draw at the seam and
+   * opened a smaller one, which is that a gap you cannot see is not a gap.
+   * It is the control for the tone.
+   */
+  white: { surround: "#ffffff", gap: GAP, pad: PAD, round: true, line: false },
   /**
    * The geometry, made visible. The two arcs either side of the gap cannot be
    * photographed in the shipped tone, because the panel's arc is white curving
@@ -67,8 +73,8 @@ const SHAPES = {
    * to measure the shape. `probeSquare` is its control: the same render with
    * the radii off.
    */
-  probe: { surround: "#ff8800", gap: GAP, round: true, line: false },
-  probeSquare: { surround: "#ff8800", gap: GAP, round: false, line: false },
+  probe: { surround: "#ff8800", gap: GAP, pad: PAD, round: true, line: false },
+  probeSquare: { surround: "#ff8800", gap: GAP, pad: PAD, round: false, line: false },
 }
 
 const page = (name) => { const sh = SHAPES[name]; return `<!doctype html><html><head><meta charset="utf-8"><style>
@@ -89,15 +95,14 @@ body{background:rgb(255,0,255)}
 .bar{position:fixed;left:0;right:0;top:0;height:${BAR}px;background:#171717;
      border-bottom:1px solid rgba(255,255,255,.1)}
 .row{position:fixed;left:0;right:0;top:${BAR}px;bottom:0;display:flex;
-     gap:${sh.gap}px;background:${sh.surround};overflow:hidden}
+     gap:${sh.gap}px;padding:${sh.pad}px ${sh.pad}px 0;background:${sh.surround};overflow:hidden}
 .side{width:${SIDE}px;background:#fff;flex:none;overflow:hidden}
 .ai{width:${AI}px;background:#fff;flex:none;overflow:hidden}
 .canvas{flex:1;position:relative;background:${sh.surround};overflow:hidden}
 .card{width:100%;height:100%;background:${PAPER}}
 ${sh.round
-    ? `.side{border-top-right-radius:${R}px}
-       .ai{border-top-left-radius:${R}px}
-       .canvas{border-top-left-radius:${R}px;border-top-right-radius:${R}px}`
+    ? /* cards on a shelf: both top corners, every one of them */
+      `.side,.ai,.canvas{border-top-left-radius:${R}px;border-top-right-radius:${R}px}`
     : ""}
 ${sh.line
     ? `.hair{position:absolute;top:0;bottom:0;width:1px;background:#e5e7eb;z-index:10}
@@ -126,6 +131,9 @@ document.title = JSON.stringify({
      is what "nothing is drawn there" means. The screenshot's job is the
      tone; the rects' job is the distance. */
   gapL: Math.round(c.left - sd.right), gapR: Math.round(ai.left - c.right),
+  /* and the shelf showing around the outside of the cards */
+  padL: Math.round(sd.left - r.left), padR: Math.round(r.right - ai.right),
+  padT: Math.round(sd.top - r.top),
 })
 </script>
 </body></html>` }
@@ -180,29 +188,38 @@ const mean = (v) => [0, 1, 2].map((c) => Math.round(v.reduce((a, q) => a + q[c],
 const apart = (a, b) => Math.max(...[0, 1, 2].map((c) => Math.abs(a[c] - b[c])))
 
 /**
- * NOTHING IS DRAWN IN IT.
+ * THE GAP CAN BE SEEN, AND IT IS EVEN.
  *
- * Two claims in one sample. Every pixel of the gap, all the way down, must be
- * the same as the PANELS either side of it — so no line crosses it and no
- * surround of its own shows in it. `worst` is the furthest any pixel in
- * either gap strays from that white.
+ * Two claims from one sample, and the first one is the reverse of what this
+ * script asserted a round ago. A gap of the panels' own white settled the
+ * question of what to draw at the seam, and left a gap nobody can see: on a
+ * white page the sidebar, the space and the canvas were one field. So the
+ * shelf has a tone, and `separation` is how far the gap sits from the panels
+ * either side of it — the thing that has to be non-zero now.
  *
- * The reference is taken from inside the two panels, not from the bar. The
- * bar is dark and sits above the row with its own edge; it is a different
- * surface and the gap is not claiming to match it.
+ * `worst` is the second claim and is unchanged: every pixel down the gap must
+ * be the same as every other, so nothing crosses it and it reads as a channel
+ * rather than a stripe with a line in it.
+ *
+ * The reference is taken inside the two panels, never from the bar. The bar
+ * is dark and sits above the row with its own edge; it is a different surface
+ * and the gap is not claiming to match it.
  */
 function gapTone(img, box) {
-  const ref = mean([img.at(box.left + 20, box.top + 60), img.at(box.right - 20, box.top + 60)])
+  const ref = mean([img.at(box.left + PAD + 20, box.top + PAD + 60), img.at(box.right - PAD - 20, box.top + PAD + 60)])
+  const px = []
   let worst = 0, worstAt = null
-  for (let y = box.top + R + 4; y < box.bottom - 4; y++) {
-    for (const x0 of [box.cl - 2, box.right - AI - 2]) {
-      for (let x = x0; x < x0 + 2; x++) {
-        const d = apart(img.at(x, y), ref)
-        if (d > worst) { worst = d; worstAt = [x - box.left, y - box.top] }
-      }
+  for (let y = box.top + PAD + R + 4; y < box.bottom - 4; y++) {
+    for (const x0 of [box.cl - GAP + 2, box.right - PAD - AI - GAP + 2]) {
+      for (let x = x0; x < x0 + GAP - 4; x++) px.push(img.at(x, y))
     }
   }
-  return { ref, worst, worstAt }
+  const seen = mean(px)
+  for (const p of px) {
+    const d = apart(p, seen)
+    if (d > worst) { worst = d; worstAt = p }
+  }
+  return { ref, seen, worst, worstAt, separation: apart(seen, ref) }
 }
 
 /**
@@ -228,12 +245,16 @@ const expectedTravel = (r) => {
 }
 function arcs(img, box) {
   const panel = [], paper = []
-  // From the row's very first line, where a corner of radius R has pulled the
-  // edge back by the whole R, down to the last line of the corner, where it
-  // has pulled back by none of it. Starting one line lower loses a quarter of
-  // the travel to the curve's own steepness and reports 12 of 20 for an arc
-  // that is exactly right.
-  for (let y = box.top; y < box.top + R; y++) {
+  // From the CARD's very first line, where a corner of radius R has pulled
+  // the edge back by the whole R, down to the last line of the corner, where
+  // it has pulled back by none of it.
+  //
+  // The card's line, not the row's: the shelf pads the row, so the rows above
+  // the card are shelf all the way across and a scan started there runs to its
+  // own limit and reports the limit as travel. Starting one line too LOW is
+  // the other trap, and loses a quarter of the travel to the curve's own
+  // steepness: it reported 12 of a true 15.5 that way.
+  for (let y = box.top + PAD; y < box.top + PAD + R; y++) {
     // how far the sidebar has pulled back from the gap at this row
     let a = 0
     while (a < R + 6 && isProbe(img.at(box.cl - GAP - 1 - a, y))) a++
@@ -245,6 +266,24 @@ function arcs(img, box) {
   }
   const travel = (v) => Math.max(...v) - Math.min(...v)
   return { panel: travel(panel), paper: travel(paper) }
+}
+
+/**
+ * THE SIDEBAR ROUNDS ON ITS OTHER TOP CORNER TOO.
+ *
+ * It is a card standing on the shelf, not a panel butted against the window,
+ * so the grey runs behind it on the left as well as in the gap. Measured on
+ * the probe, where the shelf is a colour nothing else uses: how far the card's
+ * left edge travels between the row's first line and the bottom of its corner.
+ */
+function outerArc(img, box) {
+  const edges = []
+  for (let y = box.top + PAD; y < box.top + PAD + R; y++) {
+    let a = 0
+    while (a < R + 6 && isProbe(img.at(box.left + PAD + a, y))) a++
+    edges.push(a)
+  }
+  return Math.max(...edges) - Math.min(...edges)
 }
 
 /** Any of the root at a screen corner is a chip taken out of the page. */
@@ -296,6 +335,8 @@ try {
     return {
       box,
       gap: { left: box.gapL, right: box.gapR },
+      pad: { left: box.padL, right: box.padR, top: box.padT },
+      outerArc: outerArc(img, box),
       tone: gapTone(img, box),
       arcs: arcs(img, box),
       topLeft: corner(img, box, "left", "top"),
@@ -307,43 +348,57 @@ try {
 
   const after = read("after")
   const line = read("line")
-  const grey = read("grey")
+  const white = read("white")
   const probe = read("probe")
   const probeSquare = read("probeSquare")
 
-  console.log("\nthe panels are spaced, not divided\n")
+  console.log("\nthe panels stand on a shelf\n")
 
-  // The gap, on both seams, where both sides are straight.
+  // The shelf, seen between the cards and around them.
   expect(after.gap.left === GAP && after.gap.right === GAP,
     `there are ${GAP} pixels between the page and each panel beside it`,
     `${after.gap.left} on the left and ${after.gap.right} on the right`)
-  expect(line.gap.left === 0 && line.gap.right === 0,
+  expect(after.pad.left === PAD && after.pad.right === PAD && after.pad.top === PAD,
+    `and ${PAD} more around the outside of them, so they are cards rather than panels butted against the window`,
+    `left ${after.pad.left}, right ${after.pad.right}, top ${after.pad.top}`)
+  expect(line.gap.left === 0 && line.gap.right === 0 && line.pad.left === 0,
     "the panels used to be flush, so this is a real measurement",
-    `the control already had ${line.gap.left} and ${line.gap.right}`)
+    `the control already had a gap of ${line.gap.left} and a margin of ${line.pad.left}`)
 
-  // And nothing in it, anywhere down its height.
+  // THE CLAIM THAT REVERSED. It has to be visible.
+  expect(after.tone.separation >= 4,
+    "the gap is a tone of its own, so it can be seen against the panels either side",
+    `it is only ${after.tone.separation} from the panels: gap ${after.tone.seen}, panels ${after.tone.ref}`)
+  expect(white.tone.separation <= 2,
+    "a gap of the panels' own white could not be, so this is a real measurement",
+    `the control's gap was already ${white.tone.separation} from its panels`)
+
+  // And it is an even channel, with nothing crossing it.
   expect(after.tone.worst <= 2,
-    "and nothing is drawn in it: it is the same white as the panels either side, the whole way down",
-    `a pixel at ${after.tone.worstAt} is ${after.tone.worst} away from the panels' white`)
+    "and it is even the whole way down, with nothing drawn across it",
+    `a pixel in it is ${after.tone.worst} from the rest: ${after.tone.worstAt}`)
   expect(line.tone.worst > 4, "the hairline did cross it, so this is a real measurement",
     `the control's worst pixel was only ${line.tone.worst} away`)
-  expect(grey.tone.worst > 4,
-    "and a surround with a tone of its own showed in it, which is what made this shape a wedge",
-    `the control's gap was only ${grey.tone.worst} from the panels' white`)
 
-  // Both sides of the gap curve, by the same radius.
+  // Both sides of the gap curve, by the same radius, and so does the far side
+  // of the sidebar: these are cards, and a card with one square top corner and
+  // one round one reads as a mistake.
   const want = expectedTravel(R)
   expect(Math.abs(probe.arcs.panel - want) <= 1.5 && Math.abs(probe.arcs.paper - want) <= 1.5,
-    `both sides of it curve away, each by ${R}px`,
+    `both sides of the gap curve away, each by ${R}px`,
     `the panel travels ${probe.arcs.panel}px and the page ${probe.arcs.paper}px, where ${R}px travels ${want.toFixed(1)}`)
   expect(probe.arcs.panel === probe.arcs.paper,
     "and by the same radius as each other, so the gap is an even channel",
     `panel ${probe.arcs.panel}px against page ${probe.arcs.paper}px`)
-  expect(probeSquare.arcs.panel <= 1 && probeSquare.arcs.paper <= 1,
-    "with the radii off neither side moved, so this is a real measurement",
-    `the control travelled ${probeSquare.arcs.panel} and ${probeSquare.arcs.paper}`)
+  expect(Math.abs(probe.outerArc - want) <= 1.5,
+    `and the sidebar rounds by ${R}px on its outer corner too, not just the one facing the gap`,
+    `its left edge travels ${probe.outerArc}px, where ${R}px travels ${want.toFixed(1)}`)
+  expect(probeSquare.arcs.panel <= 1 && probeSquare.arcs.paper <= 1 && probeSquare.outerArc <= 1,
+    "with the radii off none of the three moved, so these are real measurements",
+    `the control travelled ${probeSquare.arcs.panel}, ${probeSquare.arcs.paper} and ${probeSquare.outerArc}`)
 
-  // And the screen's own corners stay square.
+  // And nothing of the root shows anywhere: the shelf is meant to be seen,
+  // what is behind it is not.
   const OUTER = [
     ["topLeft", "the top left"],
     ["topRight", "the top right"],
@@ -351,15 +406,16 @@ try {
     ["bottomRight", "the bottom right"],
   ]
   for (const [key, name] of OUTER) {
-    expect(after[key].bar === 0, `nothing is cut out of the page at ${name}`,
-      `${after[key].bar} of ${after[key].total} pixels there are the root showing through a chip`)
+    expect(after[key].bar === 0, `nothing behind the shelf shows at ${name}`,
+      `${after[key].bar} of ${after[key].total} pixels there are the root`)
   }
 
   console.log("")
-  const cols = (m) => `gap ${m.gap.left}/${m.gap.right}   worst in it ${String(m.tone.worst).padStart(3)}` +
-    `   arcs ${m.arcs.panel}/${m.arcs.paper} (${R}px travels ${expectedTravel(R).toFixed(1)})   corners ` +
-    OUTER.map(([k]) => `${m[k].bar}/${m[k].total}`).join(" ")
-  for (const [n, m] of [["after", after], ["line", line], ["grey", grey],
+  const cols = (m) => `gap ${m.gap.left}/${m.gap.right}  pad ${m.pad.left}/${m.pad.right}/${m.pad.top}` +
+    `   seen ${String(m.tone.separation).padStart(3)} from the panels, uneven by ${String(m.tone.worst).padStart(3)}` +
+    `   arcs ${m.arcs.panel}/${m.arcs.paper}/${m.outerArc} (${R}px travels ${expectedTravel(R).toFixed(1)})` +
+    `   root ` + OUTER.map(([k]) => m[k].bar).join("")
+  for (const [n, m] of [["after", after], ["line", line], ["white", white],
                         ["probe", probe], ["square", probeSquare]]) console.log(`  ${n.padEnd(8)}${cols(m)}`)
   console.log("")
 } finally {
