@@ -33,7 +33,7 @@ export interface SectionProps {
    *  that is what `insideEditor` is for (see below). */
   isEditing?: boolean
   isSelected?: boolean
-  onClick?: () => void
+  onClick?: (e: React.MouseEvent<HTMLElement>) => void
   /**
    * Which device the editor is previewing. Layout no longer hangs off this —
    * every section is a container query now — but the header is excluded from
@@ -332,7 +332,7 @@ export function SectionWrapper({
   bgColor?: string
   isEditing?: boolean
   isSelected?: boolean
-  onClick?: () => void
+  onClick?: (e: React.MouseEvent<HTMLElement>) => void
   className?: string
   style?: CSSProperties
   forwardRef?: React.Ref<HTMLDivElement>

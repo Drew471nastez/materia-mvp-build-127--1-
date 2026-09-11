@@ -3982,6 +3982,55 @@ function HeaderSectionSettings({
 type Panel = EditorPanel
 
 // ── Main editor ──────────────────────────────────────────────
+/**
+ * ===========================================================================
+ *  WHAT A BLOCK IS WHEN IT ARRIVES, AND WHETHER THERE IS ROOM FOR IT
+ * ===========================================================================
+ * Two limits, and they mean different things. `max_blocks` is how many blocks
+ * a section will hold at all; `limit` on a block type is how many of THAT
+ * kind it will hold. A slideshow that takes eight slides and one caption
+ * needs both. Neither was enforced: the schema declared them, the sidebar hid
+ * the Add button on one of them, and nothing checked either when a block was
+ * actually added, so a section could be pushed past what its own template was
+ * written for.
+ */
+function blockDefaults(schema: SectionSchema | undefined, blockType: string): Record<string, unknown> {
+  const def = (schema?.blocks ?? []).find((b) => b.type === blockType)
+  const out: Record<string, unknown> = {}
+  for (const f of def?.fields ?? []) if (f.default !== undefined) out[f.id] = f.default
+  return out
+}
+
+function blockRoom(
+  schema: SectionSchema | undefined,
+  blocks: { type: string }[],
+  blockType: string,
+): { ok: true } | { ok: false; reason: string } {
+  if (!schema) return { ok: true }
+  const max = schema.max_blocks
+  if (max && blocks.length >= max) {
+    return { ok: false, reason: `${schema.name} holds ${max} block${max === 1 ? "" : "s"}.` }
+  }
+  const def = (schema.blocks ?? []).find((b) => b.type === blockType)
+  const limit = def?.limit
+  if (limit && blocks.filter((b) => b.type === blockType).length >= limit) {
+    const name = def?.name ?? blockType
+    return { ok: false, reason: `${schema.name} holds ${limit} ${name}${limit === 1 ? "" : "s"}.` }
+  }
+  return { ok: true }
+}
+
+/**
+ * Unique for the life of the page, and unique against a block copied from
+ * another section: two blocks with one id are two rows the canvas, the
+ * sidebar and every remove and reorder cannot tell apart.
+ */
+let blockSeq = 0
+function newBlockId(): string {
+  blockSeq += 1
+  return `block-${Date.now().toString(36)}-${blockSeq}-${Math.random().toString(36).slice(2, 7)}`
+}
+
 export default function StoreEditorPage({ params }: { params: Promise<{ installId: string }> }) {
   const { installId } = use(params)
   const router = useRouter()
@@ -3996,6 +4045,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return "home"
   })
   const [selectedPanel, setSelectedPanel] = useState<Panel>({ type: "pages" })
+  /**
+   * WHICH BLOCK IS BEING EDITED. A section with twelve FAQ entries is twelve
+   * near-identical rows in the sidebar and twelve near-identical rows on the
+   * canvas, and until now nothing connected the two: clicking the third
+   * question on the page selected the section, and finding that question
+   * again in the sidebar meant counting. Clicking a block on the canvas now
+   * selects the block, and the sidebar brings it into view and rings it.
+   */
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [device, setDevice] = useState<DeviceMode>("desktop")
   // Inspector mode — when ON, hovering/clicking a section shows the blue
   // selection rectangle and opens its settings panel. When OFF the canvas
@@ -5112,8 +5170,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setIsDirty(true)
   }
 
-  // Block settings change
+  /**
+   * ===========================================================================
+   *  BLOCKS
+   * ===========================================================================
+   * The repeatable part of a section: FAQ entries, slides, logos, team
+   * members. Every one of these records an undo step, because none of them
+   * used to — adding, deleting or reordering a block simply could not be
+   * taken back, and Undo went past them to whatever edit had last bothered to
+   * record itself, which is worse than not offering it at all. That was fixed
+   * for sections once and never for the blocks inside them.
+   */
+
+  // Block settings change (debounced undo push, as for a section's own)
   const updateBlockSetting = (sectionId: string, blockId: string, key: string, value: unknown) => {
+    debouncedPushUndo()
     setSections(prev => prev.map(s =>
       s.id === sectionId
         ? { ...s, blocks: s.blocks?.map(b => b.id === blockId ? { ...b, settings: { ...b.settings, [key]: value } } : b) }
@@ -5123,14 +5194,53 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   const addBlock = (sectionId: string, blockType: string, initialSettings: Record<string, unknown> = {}) => {
-    const newBlock = { id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, type: blockType, settings: initialSettings }
+    const section = sectionsRef.current.find(s => s.id === sectionId)
+    if (!section) return
+    const schema = schemaFor(section.type, storelibSources, librarySchemas)
+    const room = blockRoom(schema, section.blocks ?? [], blockType)
+    if (!room.ok) { toast.error(room.reason); return }
+    pushUndo()
+    /**
+     * A NEW BLOCK ARRIVES FILLED IN. Its defaults come from the block's own
+     * schema, the same way a section's do when it is added. Without this the
+     * preset blocks had their question and answer and a block you added by
+     * hand was blank, which reads as the section being broken rather than as
+     * a row waiting to be typed into.
+     */
+    const newBlock = {
+      id: newBlockId(),
+      type: blockType,
+      settings: { ...blockDefaults(schema, blockType), ...initialSettings },
+    }
     setSections(prev => prev.map(s =>
       s.id === sectionId ? { ...s, blocks: [...(s.blocks ?? []), newBlock] } : s
     ))
+    setSelectedBlockId(newBlock.id)
+    setIsDirty(true)
+  }
+
+  /** The same block again, right below it, with its own id and its own copy. */
+  const duplicateBlock = (sectionId: string, blockId: string) => {
+    const section = sectionsRef.current.find(s => s.id === sectionId)
+    const source = (section?.blocks ?? []).find(b => b.id === blockId)
+    if (!section || !source) return
+    const schema = schemaFor(section.type, storelibSources, librarySchemas)
+    const room = blockRoom(schema, section.blocks ?? [], source.type)
+    if (!room.ok) { toast.error(room.reason); return }
+    pushUndo()
+    const copy = { ...source, id: newBlockId(), settings: { ...source.settings } }
+    setSections(prev => prev.map(s => {
+      if (s.id !== sectionId) return s
+      const blocks = [...(s.blocks ?? [])]
+      blocks.splice(blocks.findIndex(b => b.id === blockId) + 1, 0, copy)
+      return { ...s, blocks }
+    }))
+    setSelectedBlockId(copy.id)
     setIsDirty(true)
   }
 
   const reorderBlocks = (sectionId: string, blocks: { id: string; type: string; settings: Record<string, unknown> }[]) => {
+    pushUndo()
     setSections(prev => prev.map(s =>
       s.id === sectionId ? { ...s, blocks } : s
     ))
@@ -5138,6 +5248,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   const removeBlock = (sectionId: string, blockId: string) => {
+    pushUndo()
     setSections(prev => prev.map(s => {
       if (s.id !== sectionId) return s
       // Cascade-delete: also drop any children whose parent_id === blockId
@@ -5147,6 +5258,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       )
       return { ...s, blocks: keep }
     }))
+    setSelectedBlockId(prev => (prev === blockId ? null : prev))
     setIsDirty(true)
   }
 
@@ -5174,7 +5286,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const idx = sections.findIndex(s => s.id === sectionId)
     if (idx === -1) return
     const orig = sections[idx]
-    const copy: SectionInstance = { ...orig, id: `${orig.type}-${Date.now()}`, name: `${orig.name} (copy)` }
+    /**
+     * ITS BLOCKS ARE COPIED, NOT SHARED. A spread copies the reference to the
+     * blocks array and every block object inside it, so the duplicate and the
+     * original were the same twelve blocks under the same twelve ids: a
+     * `data-block-id` that matched two places on the page, and a click on
+     * either selecting whichever the canvas found first.
+     */
+    const copy: SectionInstance = {
+      ...orig,
+      id: `${orig.type}-${Date.now()}`,
+      name: `${orig.name} (copy)`,
+      blocks: (orig.blocks ?? []).map((b) => ({ ...b, id: newBlockId(), settings: { ...b.settings } })),
+    }
     const next = [...sections]
     next.splice(idx + 1, 0, copy)
     setSections(next)
@@ -5522,12 +5646,30 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * Neither closes over a section, so neither has a reason to be rebuilt.
    */
   const selectSectionFromCanvas = useCallback(
-    (sectionId: string) => {
+    (sectionId: string, blockId?: string | null) => {
       setSelectedPanel({ type: "section", sectionId })
+      setSelectedBlockId(blockId ?? null)
       scrollToSection(sectionId)
     },
     [scrollToSection],
   )
+  /**
+   * AND THE SIDEBAR GOES TO IT. Selecting the ninth FAQ entry on the canvas
+   * is only half an answer if its row is four screens down a list of twelve
+   * that all look alike. The row opens, takes the ring, and is brought into
+   * view; `nearest` rather than `center`, so a row already on screen does not
+   * move under the cursor.
+   */
+  useEffect(() => {
+    if (!selectedBlockId) return
+    const row = document.querySelector(`[data-block-row="${window.CSS.escape(selectedBlockId)}"]`)
+    if (!row) return
+    const id = requestAnimationFrame(() =>
+      row.scrollIntoView({ block: "nearest", behavior: "smooth" }),
+    )
+    return () => cancelAnimationFrame(id)
+  }, [selectedBlockId])
+
   const openAddSection = useCallback(() => setAddSectionOpen(true), [])
 
   /**
@@ -6126,7 +6268,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   {(section.blocks ?? []).map(block => {
                     const blockSchema = schema.blocks?.find(b => b.type === block.type)
                     return (
-                      <details key={block.id} className="group border border-border rounded-lg overflow-hidden">
+                      <details
+                        key={block.id}
+                        data-block-row={block.id}
+                        open={selectedBlockId === block.id ? true : undefined}
+                        onToggle={e => { if ((e.currentTarget as HTMLDetailsElement).open) setSelectedBlockId(block.id) }}
+                        className={cn(
+                          "group border rounded-lg overflow-hidden transition-colors",
+                          selectedBlockId === block.id
+                            ? "border-foreground/40 ring-1 ring-foreground/15"
+                            : "border-border",
+                        )}
+                      >
                         <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer list-none bg-muted/30 hover:bg-muted/50">
                           <span className="text-sm font-medium">
                             {blockSchema?.name ?? block.type}
@@ -6142,11 +6295,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                                 next.splice(to, 0, block)
                                 reorderBlocks(section.id, next)
                               }
-                              const copy = () => {
-                                const next = [...list]
-                                next.splice(at + 1, 0, { ...block, id: `${block.type}-${Date.now()}`, settings: { ...block.settings } })
-                                reorderBlocks(section.id, next)
-                              }
+                              // The real one: it checks there is room, gives
+                              // the copy its own id, and records an undo step.
+                              const copy = () => duplicateBlock(section.id, block.id)
                               return (
                                 <>
                                   <button type="button" aria-label="Move up" disabled={at <= 0} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-muted disabled:opacity-30" onClick={e => { e.preventDefault(); move(at - 1) }}>
@@ -8102,13 +8253,13 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   /** The canvas card's top radius, so a ring inside it is cut to match. */
   canvasRadiusPx: number
   bodyCount: number
-  onSelectSection: (sectionId: string) => void
+  onSelectSection: (sectionId: string, blockId?: string | null) => void
   onAddSection: () => void
   onAddSectionAt: (at: number) => void
   onEditorNavigate: (href: string) => void
 }) {
   return (
-    <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }}>
+    <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor>
     <ThemePage
       theme={theme}
       sections={sections}
@@ -8136,7 +8287,21 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
           insideEditor: true,
           isEditing: inspectorEnabled,
           isSelected: inspectorEnabled && selectedSectionId === section.id,
-          onClick: inspectorEnabled ? () => onSelectSection(section.id) : undefined,
+          /**
+           * CLICKING A BLOCK SELECTS THE BLOCK. Every section that has blocks
+           * marks each one with `data-block-id`, so the nearest one above the
+           * click is the block that was clicked; anywhere else in the section
+           * is the section. Without this, the third question in an FAQ and the
+           * twelfth were the same click, and finding that question again in
+           * the sidebar meant counting rows.
+           */
+          onClick: inspectorEnabled
+            ? (e: React.MouseEvent<HTMLElement>) => {
+                const hit = (e.target as HTMLElement | null)?.closest?.("[data-block-id]")
+                const id = hit?.getAttribute("data-block-id") ?? null
+                onSelectSection(section.id, id)
+              }
+            : undefined,
           deviceMode: device,
           onEditorNavigate,
         }

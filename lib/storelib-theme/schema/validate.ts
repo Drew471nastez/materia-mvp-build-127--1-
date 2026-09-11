@@ -16,6 +16,7 @@
 import { z } from "zod"
 
 import { CONTROL_TYPES, controlFor, holdsValue, resolveControlType } from "../controls/registry"
+import { readLanguageVersion } from "../language"
 import { LIMITS, SECTION_SCHEMA_VERSION, type Result, type SectionSchema, type ThemeError } from "../types"
 
 const ID = /^[a-z][a-z0-9_]*$/
@@ -61,6 +62,7 @@ const preset = z
 export const sectionSchemaShape = z
   .object({
     schema_version: z.number().int().optional(),
+    language_version: z.number().int().optional(),
     type: z.string(),
     name: z.string().min(1).max(80),
     category: z.string().optional(),
@@ -129,6 +131,17 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
     return { ok: false, errors }
   }
   const s = parsed.data
+
+  /**
+   * Which language the file is written in, as distinct from which shape its
+   * schema is. A file that names a version this engine does not have is
+   * refused rather than guessed at: better "this theme is newer than this
+   * Storelib" than a section that renders almost right.
+   */
+  {
+    const lang = readLanguageVersion((s as { language_version?: number }).language_version)
+    if (lang.ok === false) err("language_version", lang.message)
+  }
 
   if (s.schema_version !== undefined && s.schema_version > SECTION_SCHEMA_VERSION) {
     err("schema_version", `schema_version ${s.schema_version} is newer than this engine understands (${SECTION_SCHEMA_VERSION})`)

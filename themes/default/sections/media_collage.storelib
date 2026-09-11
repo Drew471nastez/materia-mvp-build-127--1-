@@ -9,7 +9,7 @@
       </div>
     {% endif %}
     {% if blocks.size == 0 %}
-      <p class="empty">Add pictures in the sidebar</p>
+      {% if page.in_editor %}<p class="empty">Add pictures in the sidebar</p>{% endif %}
     {% else %}
       <div class="col2 col2--{{ settings.big_side }}" style="--gap: {{ settings.gap }}px;">
         {% for block in blocks %}

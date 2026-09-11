@@ -3,7 +3,7 @@
   <div class="s__in s__in--{{ settings.max_width }}">
     {% if settings.heading %}<p class="lr__title">{{ settings.heading }}</p>{% endif %}
     {% if blocks.size == 0 %}
-      <p class="empty">Add logos in the sidebar</p>
+      {% if page.in_editor %}<p class="empty">Add logos in the sidebar</p>{% endif %}
     {% else %}
       <ul class="lr" style="--lr-op: {{ settings.opacity | divided_by: 100 }}; --lr-h: {{ settings.logo_height }}px;">
         {% for block in blocks %}

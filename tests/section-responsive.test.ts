@@ -2090,7 +2090,10 @@ check(
     /<EditorCanvasPage\s*\n\s*theme=\{activeThemeSettings\}/.test(editor) &&
     /const selectSectionFromCanvas = useCallback\(/.test(editor) &&
     /const openAddSection = useCallback\(\(\) => setAddSectionOpen\(true\), \[\]\)/.test(editor) &&
-    /onClick: inspectorEnabled \? \(\) => onSelectSection\(section\.id\) : undefined,/.test(editor),
+    // Still one stable callback from the parent, now carrying which block
+    // was clicked as well as which section: see selectSectionFromCanvas.
+    /onClick: inspectorEnabled\s*\n\s*\? \(e: React\.MouseEvent<HTMLElement>\) => \{/.test(editor) &&
+    /onSelectSection\(section\.id, id\)/.test(editor),
 )
 
 check(

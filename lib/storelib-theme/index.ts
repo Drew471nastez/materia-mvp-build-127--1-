@@ -20,3 +20,13 @@ export { buildLibrary, allowedOn, templatesUsing, sectionTypeFromPath } from "./
 export type { Library, LibraryEntry } from "./discovery"
 export { buildPackage, readPackage, templateFromSections, sectionsFromTemplate, sha256, assetPath, mimeForExt, isSafeThemePath, assetRefsIn } from "./package"
 export type { ThemePackage, PackageAsset, PackageManifest, ReadPackage } from "./package"
+
+export {
+  LANGUAGE_VERSION,
+  DEFAULT_LANGUAGE_VERSION,
+  MIGRATIONS,
+  migrationPath,
+  migrateSource,
+  readLanguageVersion,
+  type LanguageMigration,
+} from "./language"

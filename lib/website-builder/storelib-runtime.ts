@@ -97,7 +97,7 @@ export type StorelibRendered =
 export function renderStorelibSection(
   section: SectionInstance,
   theme: ThemeSettingsValues,
-  page: { template: string } = { template: "index" },
+  page: { template: string; in_editor?: boolean } = { template: "index" },
   overrides?: Record<string, string>,
 ): StorelibRendered {
   const c = compiledSection(section.type, overrides)

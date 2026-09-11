@@ -33,7 +33,8 @@ import {
   STRUCTURE_SECTIONS,
 } from "@/lib/website-builder/section-schemas"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync } from "node:fs"
+import { completionsAt, documentationAt, undeclaredNames } from "@/lib/website-builder/storelib-complete"
 import { join } from "node:path"
 import { DEFAULT_THEME_SOURCES } from "../themes/default/sources.generated"
 import { isStorelibSection } from "@/lib/website-builder/storelib-runtime"
@@ -336,9 +337,9 @@ section("Save compiles, errors carry lines, the canvas finds out")
   check("the editor listens and reloads the saved sources", /data\?\.type === "storelib:file-saved"\) void loadStorelibSources\(\)/.test(editor) && /files\?sources=1/.test(editor))
   // The sidebar reads the library, which is the theme's sections and this
   // creator's own together — see librarySchemas in the editor.
-  check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\}/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, librarySchemas\)/g) ?? []).length === 2)
+  check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\} page=\{\{ template: pageTemplate \}\} inEditor>/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, librarySchemas\)/g) ?? []).length >= 2)
   check("a section this creator wrote is in the library too", /customSectionSchemas\(storelibSources\)/.test(editor) && /customAddableSections\(customSchemas\)/.test(editor) && /addable=\{libraryAddable\}/.test(editor))
-  check("a section renders from the saved source when there is one", /renderStorelibSection\(section, theme, \{ template \}, sources\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
+  check("a section renders from the saved source when there is one", /renderStorelibSection\(section, theme, \{ template, in_editor: inEditor === true \}, sources\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
   // Done in one place now, for every public route rather than the storefront
   // alone: see prerenderStorelibSections, and the route list in
   // tests/website-builder.test.ts.
@@ -493,7 +494,7 @@ section("Create writes the file, and you name it rather than its path")
    */
   check("Create and Cancel are the same weight, and Create is the solid one",
     (codePage.match(/font-\[550\]/g) ?? []).length >= 4
-    && (codePage.match(/rounded-md bg-\[#111114\]/g) ?? []).length === 2
+    && (codePage.match(/rounded-md bg-\[#111114\]/g) ?? []).length >= 2
     && !/bg-\[#8B56FA\][^"]*>Create/.test(codePage))
   // 16px on a phone in both dialogs, because anything smaller in a focused
   // field is what makes iOS zoom the page and not zoom back.
@@ -537,5 +538,129 @@ section("The library draws what you would actually get")
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
+  process.exit(1)
+}
+
+// ===========================================================================
+section("The editor knows what is in the file in front of it")
+// ===========================================================================
+{
+  const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const complete = readFileSync(join(root, "lib/website-builder/storelib-complete.ts"), "utf8")
+
+  const FILE = [
+    "<template>",
+    "<h2>{{ settings.heading }}</h2>",
+    "{% for block in blocks %}<p>{{ block.settings.question }}</p>{% endfor %}",
+    "</template>",
+    "<schema>",
+    JSON.stringify({
+      type: "faq", name: "FAQ",
+      settings: [
+        { type: "text", id: "heading", label: "Heading", default: "Questions" },
+        { type: "checkbox", id: "open_first", label: "Open first" },
+        { type: "header", id: "hdr", label: "Layout" },
+      ],
+      blocks: [{ type: "qa", name: "Question", settings: [{ type: "text", id: "question", label: "Q" }, { type: "richtext", id: "answer", label: "A" }] }],
+    }),
+    "</schema>",
+  ].join("\n")
+
+  const after = (marker: string, typed: string) => {
+    const src = FILE.replace(marker, marker + typed)
+    return completionsAt(src, src.indexOf(marker) + marker.length + typed.length).items
+  }
+  const labels = (items: { label: string }[]) => items.map((i) => i.label)
+
+  check("after `settings.` it offers this file's own settings", (() => {
+    const l = labels(after("<h2>{{", " settings."))
+    return l.includes("heading") && l.includes("open_first") && !l.includes("hdr")
+  })(), "a header draws a divider and holds no value, so it is not a name to type")
+  check("and narrows as you type", labels(after("<h2>{{", " settings.o")).join() === "open_first")
+  check("after `block.settings.` it offers the block's settings", (() => {
+    const l = labels(after("<p>{{", " block.settings."))
+    return l.includes("question") && l.includes("answer")
+  })())
+  check("after a pipe it offers filters", labels(after("<h2>{{", " settings.heading | ")).includes("raw"))
+  check("inside a tag it offers tags", labels(after("{%", " e")).includes("endfor"))
+  check("after `theme.` it offers the theme's tokens", labels(after("<h2>{{", " theme.")).includes("typography.heading"))
+  check("and outside an expression it offers nothing", completionsAt(FILE, 3).items.length === 0)
+
+  check("a name the schema does not declare is marked while typing", (() => {
+    const bad = FILE.replace("settings.heading", "settings.headng")
+    const d = undeclaredNames(bad)
+    return d.length === 1 && d[0].line === 2 && /No setting is called "headng"/.test(d[0].message)
+  })())
+  check("and so is a block setting that does not exist", (() => {
+    const bad = FILE.replace("block.settings.question", "block.settings.q")
+    return undeclaredNames(bad).some((d) => /No block setting is called "q"/.test(d.message))
+  })())
+  /**
+   * The one thing a checker must never do. A word boundary sits happily after
+   * the dot in `block.settings.question`, so every block setting was read as
+   * a section setting that does not exist, and a correct file lit up amber.
+   */
+  check("a file with nothing wrong with it is marked with nothing", undeclaredNames(FILE).length === 0)
+  check("and every section the theme ships is clean under it", (() => {
+    const dir = join(root, "themes/default/sections")
+    const bad = readdirSync(dir)
+      .filter((f) => f.endsWith(".storelib"))
+      .filter((f) => undeclaredNames(readFileSync(join(dir, f), "utf8")).length > 0)
+    return bad.length === 0
+  })())
+
+  check("the caret's token is explained", (() => {
+    const d = documentationAt(FILE, FILE.indexOf("settings.heading") + 3)
+    return d?.title === "settings.heading" && /text/.test(d.detail) && /Questions/.test(d.detail)
+  })())
+  check("and so is a filter", documentationAt("{{ a | upcase }}", 12)?.title === "| upcase")
+
+  // The popup, in the editor itself.
+  check("the list is drawn at the caret, over a measured character", /const \[charBox, setCharBox\] = useState/.test(codePage) && /probe\.getBoundingClientRect\(\)\.width \/ 50/.test(codePage) && /caretPoint\.col \* charBox\.w/.test(codePage))
+  check("arrows move it, Enter and Tab take it, Escape drops it", /e\.key === "ArrowDown"/.test(codePage) && /e\.key === "Enter" \|\| e\.key === "Tab"/.test(codePage) && /e\.key === "Escape"/.test(codePage))
+  check("and it can be asked for", /e\.key === " " && \(e\.ctrlKey \|\| e\.metaKey\)/.test(codePage))
+  check("picking one with the mouse works, which needs mousedown", /onMouseDown=\{e => \{ e\.preventDefault\(\); applyCompletion/.test(codePage), "the textarea blurs on click, and the popup would be gone before the click landed")
+  check("an undeclared name marks its line without claiming the file failed", /data-warning-line=/.test(codePage) && /hasWarning \? "text-amber-500"/.test(codePage))
+  check("it is read from this file's schema and nothing else", /export function schemaOfSource/.test(complete) && /catch \{\s*\n\s*return empty/.test(complete))
+}
+
+// ===========================================================================
+section("Nothing typed into this editor is lost without somebody choosing it")
+// ===========================================================================
+{
+  const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8")
+
+  /**
+   * Clicking another file in the tree used to discard everything typed into
+   * the current one. The code said so: "in production you'd show a confirm
+   * dialog; for now just save silently" — and it did neither.
+   */
+  check("switching files keeps the edit rather than dropping it", /setDrafts\(prev => \(\{ \.\.\.prev, \[selectedFile\.path\]: \{ content: fileContent, saved: originalContent \} \}\)\)/.test(codePage))
+  check("and switching back puts it in front of you again", /const held = drafts\[node\.path\]/.test(codePage) && /setFileContent\(held\.content\)/.test(codePage))
+  check("there is no confirm dialog, because there is nothing to decide", !/window\.confirm/.test(codePage))
+
+  check("an edit outlives the tab it was typed in", /window\.localStorage\.setItem\(draftKey/.test(codePage) && /const draftKey = `wb:code-drafts:\$\{installId\}`/.test(codePage))
+  check("and is offered on the way back in rather than applied", /setRecovered\(\{ path: selectedFile\.path, content: held\.content \}\)/.test(codePage) && /Restore them/.test(codePage) && /Discard them/.test(codePage))
+  check("a full or blocked store does not stop the editing", (codePage.match(/catch \{\s*\n\s*\/\* a full or blocked store/g) ?? []).length === 1)
+  check("saving clears the recovery copy, because it has done its job", /setDrafts\(prev => \{ const n = \{ \.\.\.prev \}; delete n\[selectedFile\.path\]; return n \}\)/.test(codePage))
+  /**
+   * The line that keeps this honest: the recovery copy is in this browser and
+   * nowhere else, and only Save puts anything on the account — where it is
+   * compiled first.
+   */
+  check("and nothing reaches the account without compiling first", route.indexOf("compileSection(content") < route.indexOf('.upsert({ install_id: installId, path, content }'))
+
+  // Two tabs, one file.
+  check("a save carries what this editor loaded", /base_updated_at: savedAt \?\? undefined/.test(codePage) && /base_updated_at: z\.string\(\)\.optional\(\)/.test(route))
+  check("and the server refuses one that would overwrite a newer file", /current\.updated_at !== parsed\.data\.base_updated_at/.test(route) && /status: 409/.test(route))
+  check("the refusal carries the other version, so neither is lost", /conflict: \{ updated_at: current\.updated_at, content: current\.content \}/.test(route) && /setConflict\(\{ path: selectedFile\.path/.test(codePage))
+  check("and whoever is here chooses between them", /Show theirs/.test(codePage) && /Keep mine and save/.test(codePage))
+  check("an older client that sends no version still saves", /if \(parsed\.data\.base_updated_at\) \{/.test(route))
+}
+
+console.log(`\n${passed} passed, ${failed} failed`)
+if (failed > 0) {
+  console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
   process.exit(1)
 }

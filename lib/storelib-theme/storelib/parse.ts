@@ -43,6 +43,23 @@ export function parseStorelib(source: string, file = "section.storelib"): Result
   const lines = source.split("\n")
   let i = 0
   while (i < lines.length) {
+    /**
+     * `{# … #}` at the top of a file, above the blocks, is where a section
+     * explains itself: what it is for, what it demonstrates, what the next
+     * person should not change. It is read and thrown away, so none of it
+     * reaches a page. Skipped here rather than in the template lexer because
+     * up here it is between the blocks, not inside one.
+     */
+    if (lines[i].trimStart().startsWith("{#")) {
+      const from = i
+      while (i < lines.length && !lines[i].includes("#}")) i++
+      if (i >= lines.length) {
+        errors.push({ stage: "parse", file, line: from + 1, message: `"{#" on line ${from + 1} is never closed with "#}"` })
+        break
+      }
+      i++
+      continue
+    }
     const open = lines[i].match(/^\s*<(template|style|script|schema)(\s[^>]*)?>\s*(.*)$/)
     if (!open) {
       if (lines[i].trim() !== "" && !lines[i].trim().startsWith("<!--")) {

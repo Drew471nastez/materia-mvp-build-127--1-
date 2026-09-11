@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
+import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
 import { BuilderLoader } from "@/components/website-builder/builder-loader"
 import { useRouter } from "next/navigation"
@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { completionsAt, documentationAt, undeclaredNames } from "@/lib/website-builder/storelib-complete"
 import type { ThemeInstall, ThemeFileNode } from "@/lib/website-builder/types"
 import { buildThemeFileTree, flattenTree, detectLanguage } from "@/lib/website-builder/theme-file-tree"
 import { toast } from "sonner"
@@ -113,10 +114,20 @@ function FileTreeNode({
 const CODE_TEXT = "text-[16px] leading-6 md:text-[12px] md:leading-5"
 
 // ── Syntax: very simple line coloring for JSON ────────────────
-function CodeLine({ line, lineNumber, hasError }: { line: string; lineNumber: number; hasError?: boolean }) {
+/**
+ * A line, its number, and how it is doing. An ERROR is the compiler's: the
+ * file did not save. A WARNING is a name the schema does not declare, found
+ * while typing — the compiler will refuse it too, but knowing now beats
+ * knowing on save.
+ */
+function CodeLine({ line, lineNumber, hasError, hasWarning }: { line: string; lineNumber: number; hasError?: boolean; hasWarning?: boolean }) {
   return (
-    <div className={cn("flex hover:bg-[var(--code-hover)] group", hasError && "bg-red-500/10")} data-error-line={hasError ? "" : undefined}>
-      <span className={cn("w-10 shrink-0 text-right pr-4 select-none", hasError ? "text-red-500" : "text-[var(--code-faint)] group-hover:text-[var(--code-muted)]", CODE_TEXT)}>
+    <div
+      className={cn("flex hover:bg-[var(--code-hover)] group", hasError && "bg-red-500/10", !hasError && hasWarning && "bg-amber-500/10")}
+      data-error-line={hasError ? "" : undefined}
+      data-warning-line={!hasError && hasWarning ? "" : undefined}
+    >
+      <span className={cn("w-10 shrink-0 text-right pr-4 select-none", hasError ? "text-red-500" : hasWarning ? "text-amber-500" : "text-[var(--code-faint)] group-hover:text-[var(--code-muted)]", CODE_TEXT)}>
         {lineNumber}
       </span>
       <span className={cn("flex-1 font-mono whitespace-pre text-[var(--code-text)]", CODE_TEXT)}>
@@ -423,6 +434,27 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
    * button that puts the caret on its line, and the line is marked in the
    * gutter. Cleared by a save that goes through or by opening another file.
    */
+  /**
+   * ===========================================================================
+   *  EDITS THAT HAVE NOT BEEN SAVED YET
+   * ===========================================================================
+   * Held per path while the editor is open, so moving between files loses
+   * nothing, and mirrored into this browser's storage so that closing the tab
+   * or losing the container does not either. It is NOT an autosave: nothing
+   * reaches the account until Save, because a file that does not compile must
+   * not be stored and a half-written section is the normal state of one being
+   * written. It is a recovery copy, and it is offered rather than applied,
+   * since the file on the account may have moved on in the meantime.
+   */
+  const [drafts, setDrafts] = useState<Record<string, { content: string; saved: string }>>({})
+  /** What the file's row said when it was loaded, for spotting a conflict. */
+  const [savedAt, setSavedAt] = useState<string | null>(null)
+  const [recovered, setRecovered] = useState<{ path: string; content: string } | null>(null)
+  /** A save refused because the file had moved on. Both versions are kept. */
+  const [conflict, setConflict] = useState<{ path: string; theirs: string; at: string } | null>(null)
+
+  const draftKey = `wb:code-drafts:${installId}`
+
   const [compileErrors, setCompileErrors] = useState<ThemeError[]>([])
   const errorLines = new Set(compileErrors.map((e) => e.line).filter((l): l is number => typeof l === "number"))
   const goToLine = (line: number) => {
@@ -467,22 +499,42 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   const openFile = async (node: ThemeFileNode) => {
     if (node.type !== "file") return
 
-    // Warn if current file is dirty
-    if (isDirty && selectedFile?.path !== node.path) {
-      // In production you'd show a confirm dialog; for now just save silently
+    /**
+     * UNSAVED WORK IS KEPT, NOT THROWN AWAY OR ASKED ABOUT.
+     *
+     * This used to read "in production you'd show a confirm dialog; for now
+     * just save silently", and it did neither: clicking another file in the
+     * tree discarded everything typed into this one, with no dialog and no
+     * save. A dialog would have been the wrong fix anyway. The edit is put
+     * aside under its own path, so switching away and back brings it straight
+     * back, and the tab keeps its dirty dot the whole time. Nothing to decide
+     * and nothing lost.
+     */
+    if (selectedFile && selectedFile.path !== node.path && fileContent !== originalContent) {
+      setDrafts(prev => ({ ...prev, [selectedFile.path]: { content: fileContent, saved: originalContent } }))
     }
 
     setSelectedFile(node)
     setCompileErrors([])
-    setLoadingFile(true)
     // On a phone, picking a file is the gesture that means "show me the code".
     setShowFiles(false)
 
+    const held = drafts[node.path]
+    if (held) {
+      setFileContent(held.content)
+      setOriginalContent(held.saved)
+      setLoadingFile(false)
+      setOpenTabs(prev => (prev.find(t => t.path === node.path) ? prev : [...prev, node]))
+      return
+    }
+
+    setLoadingFile(true)
     const res = await fetch(`/api/website-builder/themes/${installId}/files?path=${encodeURIComponent(node.path)}`)
     if (res.ok) {
       const data = await res.json()
       setFileContent(data.content ?? "")
       setOriginalContent(data.content ?? "")
+      setSavedAt(typeof data.updated_at === "string" ? data.updated_at : null)
     }
     setLoadingFile(false)
 
@@ -539,12 +591,19 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     const res = await fetch(`/api/website-builder/themes/${installId}/files`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: selectedFile.path, content: fileContent }),
+      // What this editor loaded, so the server can tell whether the file has
+      // moved on since. See the conflict answer below.
+      body: JSON.stringify({ path: selectedFile.path, content: fileContent, base_updated_at: savedAt ?? undefined }),
     })
 
     if (res.ok) {
+      const saved = await res.json().catch(() => ({}))
+      if (saved?.file?.updated_at) setSavedAt(saved.file.updated_at as string)
       setOriginalContent(fileContent)
       setCompileErrors([])
+      // Saved is saved: the recovery copy for this file has done its job.
+      setDrafts(prev => { const n = { ...prev }; delete n[selectedFile.path]; return n })
+      setRecovered(null)
       setDirtyPaths(prev => { const n = new Set(prev); n.delete(selectedFile.path); return n })
       setCustomizedPaths(prev => new Set([...prev, selectedFile.path]))
       setFileTree(buildThemeFileTree([...customizedPaths, selectedFile.path]))
@@ -555,6 +614,15 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       if (res.status === 422 && Array.isArray(d.errors)) {
         setCompileErrors(d.errors as ThemeError[])
         toast.error(`${selectedFile.name} did not compile — not saved`)
+      } else if (res.status === 409 && d.conflict) {
+        /**
+         * Somebody else's save landed while this one was being written.
+         * Neither version is thrown away: this one stays in the editor, the
+         * other is offered, and whoever is here decides. Overwriting quietly
+         * is how an hour's work disappears with nobody able to say when.
+         */
+        setConflict({ path: selectedFile.path, theirs: String(d.conflict.content ?? ""), at: String(d.conflict.updated_at ?? "") })
+        toast.error("This file was saved somewhere else while you were editing it")
       } else {
         toast.error(d.error ?? "Failed to save")
       }
@@ -752,6 +820,48 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
    * threw the edit away silently. The browser's own confirmation is the only
    * one that can block a navigation it initiated.
    */
+  /**
+   * THE RECOVERY COPY. Written a beat after typing stops, so a crashed tab, a
+   * closed laptop or a container that went away leaves the work findable. It
+   * is this browser's storage, so it never leaves the machine and never
+   * reaches the account: only Save does that, and only a file that compiles.
+   */
+  useEffect(() => {
+    if (!selectedFile || typeof window === "undefined") return
+    const t = setTimeout(() => {
+      const all = { ...drafts }
+      if (fileContent !== originalContent) all[selectedFile.path] = { content: fileContent, saved: originalContent }
+      else delete all[selectedFile.path]
+      try {
+        if (Object.keys(all).length === 0) window.localStorage.removeItem(draftKey)
+        else window.localStorage.setItem(draftKey, JSON.stringify(all))
+      } catch {
+        /* a full or blocked store is not a reason to stop editing */
+      }
+    }, 700)
+    return () => clearTimeout(t)
+  }, [fileContent, originalContent, selectedFile, drafts, draftKey])
+
+  /**
+   * And found again on the way back in. OFFERED, not applied: the file on the
+   * account may have been saved from somewhere else since, and quietly
+   * replacing it with an older draft is the same bug in the other direction.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined" || !selectedFile || loadingFile) return
+    if (recovered || fileContent !== originalContent) return
+    try {
+      const raw = window.localStorage.getItem(draftKey)
+      if (!raw) return
+      const all = JSON.parse(raw) as Record<string, { content: string; saved: string }>
+      const held = all[selectedFile.path]
+      if (!held || held.content === fileContent) return
+      setRecovered({ path: selectedFile.path, content: held.content })
+    } catch {
+      /* unreadable is the same as none */
+    }
+  }, [selectedFile, loadingFile, fileContent, originalContent, recovered, draftKey])
+
   const codeDirty = isDirty || dirtyPaths.size > 0
 
   useEffect(() => {
@@ -860,6 +970,99 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
         setDirtyPaths(prev => { const n = new Set(prev); n.delete(selectedFile.path); return n })
       }
     }
+  }
+
+  /**
+   * ===========================================================================
+   *  THE EDITOR KNOWS WHAT IS IN THE FILE IN FRONT OF IT
+   * ===========================================================================
+   * Completions, the names the schema does not declare, and a line about
+   * whatever the caret is sitting on. All of it comes from the file's own
+   * `<schema>`, read out of the text as it is typed, so the list is this
+   * section's settings and not a generic one.
+   *
+   * The popup is placed by arithmetic over a MEASURED character: the layer is
+   * monospace, so one character's width and one line's height are enough to
+   * put a box under the caret, and both are read from the rendered element
+   * rather than assumed. A guessed 8px is how a popup ends up under the wrong
+   * word at a different zoom.
+   */
+  const [caret, setCaret] = useState(0)
+  const [completeOpen, setCompleteOpen] = useState(false)
+  const [completeIndex, setCompleteIndex] = useState(0)
+  const [charBox, setCharBox] = useState({ w: 7.2, h: 20 })
+
+  useLayoutEffect(() => {
+    const ta = textareaRef.current
+    if (!ta) return
+    const probe = document.createElement("span")
+    const cs = window.getComputedStyle(ta)
+    probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${cs.font};letter-spacing:${cs.letterSpacing}`
+    probe.textContent = "0".repeat(50)
+    document.body.append(probe)
+    const w = probe.getBoundingClientRect().width / 50
+    probe.remove()
+    const h = parseFloat(cs.lineHeight) || 20
+    if (w > 0) setCharBox({ w, h })
+  }, [selectedFile?.path, loadingFile])
+
+  const completion = useMemo(
+    () => (selectedFile?.path.endsWith(".storelib") ? completionsAt(fileContent, caret) : { items: [], from: caret, to: caret }),
+    [fileContent, caret, selectedFile?.path],
+  )
+  const docs = useMemo(
+    () => (selectedFile?.path.endsWith(".storelib") ? documentationAt(fileContent, caret) : null),
+    [fileContent, caret, selectedFile?.path],
+  )
+  /**
+   * The same answer the compiler gives on save, while typing. Recomputed on
+   * every keystroke because it is string work over one file, and measured at
+   * well under a frame for the largest section in the theme.
+   */
+  const warnings = useMemo(
+    () => (selectedFile?.path.endsWith(".storelib") ? undeclaredNames(fileContent) : []),
+    [fileContent, selectedFile?.path],
+  )
+  const warningLines = useMemo(() => new Set(warnings.map((w) => w.line)), [warnings])
+
+  const visibleCompletions = completeOpen ? completion.items.slice(0, 8) : []
+
+  /** Where the caret is on screen, for the popup. */
+  const caretPoint = useMemo(() => {
+    const upto = fileContent.slice(0, completion.from)
+    const line = upto.split("\n").length
+    const col = completion.from - (upto.lastIndexOf("\n") + 1)
+    return { line, col }
+  }, [fileContent, completion.from])
+
+  const applyCompletion = (value: string) => {
+    const next = fileContent.slice(0, completion.from) + value + fileContent.slice(completion.to)
+    handleContentChange(next)
+    setCompleteOpen(false)
+    const at = completion.from + value.length
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current
+      if (!ta) return
+      ta.focus()
+      ta.setSelectionRange(at, at)
+      setCaret(at)
+    })
+  }
+
+  const onEditorKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (visibleCompletions.length > 0) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setCompleteIndex((i) => (i + 1) % visibleCompletions.length); return }
+      if (e.key === "ArrowUp") { e.preventDefault(); setCompleteIndex((i) => (i - 1 + visibleCompletions.length) % visibleCompletions.length); return }
+      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); applyCompletion(visibleCompletions[completeIndex]?.value ?? ""); return }
+      if (e.key === "Escape") { e.preventDefault(); setCompleteOpen(false); return }
+    }
+    // Ctrl/Cmd+Space asks for the list where typing alone would not offer it.
+    if (e.key === " " && (e.ctrlKey || e.metaKey)) { e.preventDefault(); setCompleteOpen(true); setCompleteIndex(0) }
+  }
+
+  const syncCaret = (el: HTMLTextAreaElement) => {
+    setCaret(el.selectionStart)
+    setCompleteIndex(0)
   }
 
   const lines = fileContent.split("\n")
@@ -1234,7 +1437,16 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   CODE_TEXT,
                 )}
                 value={fileContent}
-                onChange={e => handleContentChange(e.target.value)}
+                onChange={e => {
+                  handleContentChange(e.target.value)
+                  setCaret(e.target.selectionStart)
+                  setCompleteIndex(0)
+                  setCompleteOpen(true)
+                }}
+                onKeyDown={onEditorKeyDown}
+                onKeyUp={e => syncCaret(e.currentTarget)}
+                onClick={e => { syncCaret(e.currentTarget); setCompleteOpen(false) }}
+                onBlur={() => setCompleteOpen(false)}
                 /*
                   The scroll position of the layer somebody TYPES in is the one
                   that matters; the rendered copy follows it. Doing it the other
@@ -1252,11 +1464,46 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                 autoCorrect="off"
                 autoCapitalize="off"
               />
+              {/*
+                * WHAT COULD GO HERE. Placed under the caret by arithmetic over
+                * a measured character, because the layer is monospace: see
+                * charBox. The list is this file's own settings, its own block
+                * settings, the roots, the filters and the tags.
+                */}
+              {visibleCompletions.length > 0 && (
+                <div
+                  data-completions=""
+                  className="absolute z-30 w-[19rem] max-w-[calc(100%-3rem)] overflow-hidden rounded-lg border border-[var(--code-border)] bg-[var(--code-panel)] shadow-xl"
+                  style={{
+                    top: caretPoint.line * charBox.h + 8 + charBox.h,
+                    left: Math.min(caretPoint.col * charBox.w + 44, 520),
+                  }}
+                >
+                  {visibleCompletions.map((c, i) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      // mousedown, not click: the textarea blurs on click and
+                      // the popup would be gone before the click landed.
+                      onMouseDown={e => { e.preventDefault(); applyCompletion(c.value) }}
+                      onMouseEnter={() => setCompleteIndex(i)}
+                      className={cn(
+                        "flex w-full items-baseline gap-2 px-2.5 py-1.5 text-left font-mono text-[12px]",
+                        i === completeIndex ? "bg-[var(--code-hover)]" : "",
+                      )}
+                    >
+                      <span className="shrink-0 text-[var(--code-text)]">{c.label}</span>
+                      <span className="truncate text-[11px] text-[var(--code-faint)]">{c.detail}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Visual display with line numbers */}
               <div ref={displayRef} className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="py-2 min-h-full">
                   {lines.map((line, i) => (
-                    <CodeLine key={i} line={line} lineNumber={i + 1} hasError={errorLines.has(i + 1)} />
+                    <CodeLine key={i} line={line} lineNumber={i + 1} hasError={errorLines.has(i + 1)} hasWarning={warningLines.has(i + 1)} />
                   ))}
                 </div>
               </div>
@@ -1349,6 +1596,90 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               </span>
               <button type="button" onClick={() => void deleteFile(true)} className="h-7 rounded-md bg-red-600 px-2.5 text-[12px] text-white hover:bg-red-700">Delete anyway</button>
               <button type="button" onClick={() => setDeleteBlocked(null)} className="h-7 rounded-md px-2 text-[12px] text-[var(--code-muted)] hover:text-[var(--code-text)]">Keep it</button>
+            </div>
+          )}
+
+          {/*
+            * THE NAMES THIS SECTION DOES NOT HAVE, found while typing rather
+            * than on save, and one line about whatever the caret is on. Both
+            * come out of the file's own schema.
+            */}
+          {selectedFile?.path.endsWith(".storelib") && (warnings.length > 0 || docs) && compileErrors.length === 0 && (
+            <div className="shrink-0 border-t border-[var(--code-border)] bg-[var(--code-panel)] px-4 py-1.5">
+              {warnings.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => goToLine(warnings[0].line)}
+                  className="flex w-full items-center gap-2 text-left text-[11px] text-amber-600"
+                >
+                  <AlertCircle className="h-3 w-3 shrink-0" />
+                  <span className="truncate">
+                    {warnings.length === 1 ? "" : `${warnings.length} names not in this schema — `}
+                    line {warnings[0].line}: {warnings[0].message}
+                  </span>
+                </button>
+              ) : docs ? (
+                <p className="truncate text-[11px] text-[var(--code-muted)]">
+                  <span className="font-mono text-[var(--code-text)]">{docs.title}</span>
+                  <span className="mx-1.5 opacity-40">·</span>
+                  {docs.detail}
+                </p>
+              ) : null}
+            </div>
+          )}
+
+          {/* Two versions of one file, and nobody's work thrown away. */}
+          {conflict && conflict.path === selectedFile?.path && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-[var(--code-border)] bg-amber-500/10 px-4 py-2 text-[12px] text-[var(--code-text)]">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+              <span>Saved somewhere else while you were editing. Your version is still here.</span>
+              <button
+                type="button"
+                onClick={() => { handleContentChange(conflict.theirs); setSavedAt(conflict.at); setConflict(null) }}
+                className="h-7 shrink-0 rounded-md border border-[var(--code-border)] px-2.5 text-[12px] font-[550] text-[var(--code-text)] hover:bg-[var(--code-hover)]"
+              >
+                Show theirs
+              </button>
+              <button
+                type="button"
+                onClick={() => { setSavedAt(conflict.at); setConflict(null); void saveFile() }}
+                className="h-7 shrink-0 rounded-md bg-[#111114] px-2.5 text-[12px] font-[550] text-white hover:bg-[#26262c]"
+              >
+                Keep mine and save
+              </button>
+            </div>
+          )}
+
+          {/* An edit that outlived the tab it was typed in. */}
+          {recovered && recovered.path === selectedFile?.path && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-[var(--code-border)] bg-blue-500/10 px-4 py-2 text-[12px] text-[var(--code-text)]">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+              <span>There are unsaved changes to this file from a previous visit.</span>
+              <button
+                type="button"
+                onClick={() => { handleContentChange(recovered.content); setRecovered(null) }}
+                className="h-7 shrink-0 rounded-md bg-[#111114] px-2.5 text-[12px] font-[550] text-white hover:bg-[#26262c]"
+              >
+                Restore them
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRecovered(null)
+                  setDrafts(prev => { const n = { ...prev }; delete n[recovered.path]; return n })
+                  try {
+                    const raw = window.localStorage.getItem(draftKey)
+                    if (raw) {
+                      const all = JSON.parse(raw) as Record<string, unknown>
+                      delete all[recovered.path]
+                      window.localStorage.setItem(draftKey, JSON.stringify(all))
+                    }
+                  } catch { /* nothing to clear */ }
+                }}
+                className="h-7 shrink-0 rounded-md px-2 text-[12px] font-[550] text-[var(--code-muted)] hover:text-[var(--code-text)]"
+              >
+                Discard them
+              </button>
             </div>
           )}
 

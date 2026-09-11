@@ -64,7 +64,16 @@ four blocks is refused with the line it is on.
 
 ## 3. The template language
 
-Two forms. `{{ … }}` prints a value. `{% … %}` is a tag.
+Three forms. `{{ … }}` prints a value, `{% … %}` is a tag, and `{# … #}` is
+a comment that is read and thrown away. A comment may sit above the blocks at
+the top of the file, which is where a section explains itself; an HTML comment
+would have been sent to every visitor instead.
+
+**This is not Vue, React or Liquid-with-extras.** `v-if`, `v-for`, `@click`,
+`:class` and the rest are refused by name, with the line and what to write
+instead, because an HTML parser would otherwise accept them as oddly named
+attributes and the section would render every branch at once and do nothing on
+click.
 
 Output is HTML-escaped. There is no `eval` anywhere in the engine: a template
 is parsed once into a tree and that tree is walked. A section cannot reach
@@ -83,10 +92,27 @@ the page, the server, another section, or anything not handed to it.
 | `theme` | the theme's own settings: `theme.typography.heading`, colours, spacing |
 | `scheme` | the colours of the colour scheme this section is set to |
 | `page.template` | `"index"`, `"product"`, `"page.about"` |
+| `page.in_editor` | true only while the builder is drawing |
 | `forloop` | inside a `{% for %}`: `.index`, `.index0`, `.first`, `.last`, `.length` |
 
 `settings` and `section.settings` are the same object, as are `blocks` and
 `section.blocks`. Write whichever reads better.
+
+`page.in_editor` is the one sanctioned difference between the editor and a
+published page. A section with no blocks yet has to tell the person adding
+them and say nothing at all to a visitor:
+
+```storelib
+{% for block in blocks %}
+  …
+{% else %}
+  {% if page.in_editor %}<p>Add questions in the sidebar</p>{% endif %}
+{% endfor %}
+```
+
+Everything else about a render is identical on both surfaces, which
+`tests/storelib-parity.test.ts` holds them to across every section in the
+library.
 
 ### Tags
 
@@ -173,6 +199,12 @@ has no control, and a control you want is a setting you declare.
 }
 ```
 
+`language_version` says which version of this language the file is written in.
+A file that says nothing is version 1, permanently, rather than "whatever is
+current": that default is the promise that an existing valid file never
+changes behaviour under a newer engine. A file naming a version this Storelib
+does not have is refused rather than guessed at.
+
 `type` must match the file name. `presets` are how the section first appears
 when it is added; one preset is one card in the Add Section library, so a
 section with two presets is offered twice, each with its own preview. A
@@ -205,8 +237,9 @@ the sidebar itself reads, so it cannot drift from what the editor shows.
 
 Blocks are the repeatable part of a section: FAQ entries, slides, logos. The
 schema declares the block types and their settings; the instance holds the
-blocks somebody actually added, in the order they dragged them. `limit` caps
-how many. A block's own id is `block.id`, which is worth putting on the
+blocks somebody actually added, in the order they dragged them. `limit` caps how many of that
+kind, and `max_blocks` caps how many in total; both are enforced when a block
+is added or duplicated, not only described. A block's own id is `block.id`, which is worth putting on the
 element if the script needs to find it.
 
 ## 5. CSS

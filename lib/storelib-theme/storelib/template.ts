@@ -69,10 +69,23 @@ function tokenize(src: string): Tok[] {
   while (i < src.length) {
     const out = src.indexOf("{{", i)
     const tag = src.indexOf("{%", i)
+    /**
+     * `{# … #}` is a comment: it is read and thrown away, and nothing about
+     * it reaches the page. An HTML comment would have been sent to every
+     * visitor of every site using the section, so a note to the next person
+     * editing the file cost bytes on the wire and told a stranger how the
+     * thing works. This costs nothing and can say as much as it needs to.
+     */
+    const note = src.indexOf("{#", i)
     let next = -1
-    let kind: "output" | "tag" = "output"
-    if (out >= 0 && (tag < 0 || out < tag)) { next = out; kind = "output" }
-    else if (tag >= 0) { next = tag; kind = "tag" }
+    let kind: "output" | "tag" | "comment" = "output"
+    const first = [
+      out >= 0 ? { at: out, kind: "output" as const } : null,
+      tag >= 0 ? { at: tag, kind: "tag" as const } : null,
+      note >= 0 ? { at: note, kind: "comment" as const } : null,
+    ].filter((x): x is { at: number; kind: "output" | "tag" | "comment" } => x !== null)
+      .sort((a, b) => a.at - b.at)[0]
+    if (first) { next = first.at; kind = first.kind }
     if (next < 0) {
       push({ kind: "text", value: src.slice(i), line })
       break
@@ -82,11 +95,11 @@ function tokenize(src: string): Tok[] {
       push({ kind: "text", value: text, line })
       line += (text.match(/\n/g) ?? []).length
     }
-    const closer = kind === "output" ? "}}" : "%}"
+    const closer = kind === "output" ? "}}" : kind === "tag" ? "%}" : "#}"
     const end = src.indexOf(closer, next + 2)
     if (end < 0) throw new TemplateError(`"${src.slice(next, next + 2)}" on line ${line} is never closed`, line)
     const inner = src.slice(next + 2, end)
-    push({ kind, value: inner.trim(), line })
+    if (kind !== "comment") push({ kind, value: inner.trim(), line })
     line += (inner.match(/\n/g) ?? []).length
     i = end + 2
   }
@@ -278,6 +291,50 @@ export function compileTemplate(src: string, opts: { file?: string; line?: numbe
   })
 
   const lineAt = (index: number) => (src.slice(0, index).match(/\n/g)?.length ?? 0) + 1
+
+  /**
+   * ===========================================================================
+   *  THIS IS NOT VUE, AND SAYING SO IS CHEAPER THAN LETTING IT LOOK LIKE IT IS
+   * ===========================================================================
+   * `v-if`, `@click` and `:class` are not syntax here. They are also not
+   * errors to an HTML parser: they are attributes with unusual names, so a
+   * template written in Vue used to compile, save and render, with every
+   * directive passed through to the browser as dead markup. The section then
+   * showed every branch of its own `v-if` at once and did nothing on click,
+   * and there was nothing anywhere to say why.
+   *
+   * Anyone arriving from a framework tries these first. So each one is
+   * refused by name, with the line and the thing to write instead, which is
+   * the cheapest documentation there is: it arrives exactly when it is needed.
+   */
+  const DIRECTIVES: [RegExp, string][] = [
+    [/\sv-if\s*=/i, `{% if … %} … {% endif %}`],
+    [/\sv-else-if\s*=/i, `{% elsif … %}`],
+    [/\sv-else(\s|=|>)/i, `{% else %}`],
+    [/\sv-for\s*=/i, `{% for item in list %} … {% endfor %}`],
+    [/\sv-show\s*=/i, `{% if … %} … {% endif %}`],
+    [/\sv-bind:/i, `an attribute written out: href="{{ settings.link }}"`],
+    [/\sv-model\s*=/i, `a setting in the schema; a section does not hold state`],
+    [/\sv-html\s*=/i, `{{ settings.body | raw }}, for a richtext setting`],
+    [/\sv-text\s*=/i, `{{ settings.text }}`],
+    [/\sv-on:/i, `a <script> block, which receives the section's own root`],
+    [/\s@click\s*=/i, `a <script> block, which receives the section's own root`],
+    [/\s:key\s*=/i, `nothing: a {% for %} needs no key`],
+    [/\s:([a-z-]+)\s*=/i, `the attribute itself, with the value in it`],
+  ]
+  for (const [re, instead] of DIRECTIVES) {
+    const m = re.exec(src)
+    if (!m) continue
+    const found = m[0].trim().replace(/=$/, "").replace(/[>\s]$/, "")
+    // `:style="x"` is `style="{{ x }}"`, and saying so with the author's own
+    // attribute name beats a worked example of a different one.
+    const say = m[1] ? `${instead}: ${m[1]}="{{ settings.… }}"` : instead
+    return err(
+      `"${found}" is Vue, and a section is not a Vue component. Write ${say}.`,
+      lineAt(m.index),
+    )
+  }
+
   const mayEmbed = (opts.capabilities ?? []).includes("embed")
   for (const m of src.matchAll(/<iframe\b[^>]*>/gi)) {
     if (!mayEmbed) {
