@@ -409,8 +409,15 @@ check(
    * native shell the status bar is drawn by iOS OVER the page and its text
    * colour is not the page's to choose, so a light bar has to negotiate with
    * the clock first. Today it answers dark without asking.
+   *
+   * A DESKTOP bar is white, and does not go through the hook. That is not the
+   * light bar this guard is about: there is no status bar over it, the tiles
+   * sit on white rather than on grey, and the surround has to be the panels'
+   * own colour for the corner at the seam to open onto anything that belongs
+   * there. The two answers are separate and both are pinned here.
    */
-  /const chromeTone = usePhoneChromeTone\(isMobileView\)/.test(editor) &&
+  /const phoneChromeTone = usePhoneChromeTone\(isMobileView\)/.test(editor) &&
+    /const chromeTone: ChromeTone = isMobileView \? phoneChromeTone : "light"/.test(editor) &&
     /<FullScreenLock tone=\{chromeTone\} \/>/.test(editor) &&
     /export function usePhoneChromeTone\(_phone: boolean\): ChromeTone \{\s*\n\s*return "dark"\s*\n\}/.test(nativeChromeSrc) &&
     /root\.style\.backgroundColor = tone === "light" \? "#ffffff" : "#171717"/.test(readFileSync(join(root, "components/website-builder/full-screen-lock.tsx"), "utf8")) &&
@@ -671,7 +678,7 @@ check(
   // `flex flex-col` on the card is load-bearing: the iframe's wrapper is
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
-    /absolute inset-0 z-\[80\] flex flex-col rounded-tl-\[22px\]/.test(modeSwitch) &&
+    /absolute inset-0 z-\[80\] flex flex-col rounded-tl-\[16px\]/.test(modeSwitch) &&
     // A black panel inside a white builder is a second product bolted on.
     /"overflow-hidden bg-white"/.test(modeSwitch) &&
     !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
@@ -762,14 +769,21 @@ check(
 )
 
 check(
-  "the surround is light on a desktop and the sheet's own surface on a phone",
+  "the surround is the panels' own white on a desktop, and a mat only where a device stands on it",
   // The canvas is the page being worked on, not chrome. A near-black field
   // around it makes the builder read as two products with a hole between
   // them, and in a phone preview the hole is most of the screen. A phone has
   // no surround at all beyond the strip reserved for the sheet's peek, which
   // takes the sheet's own colour so a one-pixel disagreement is a seam.
+  //
+  // On a desktop the surround is WHITE, the same white as the sidebar and the
+  // bar, because the canvas fills it edge to edge and its one corner has to
+  // open onto something that belongs to the panels beside it. A phone or
+  // tablet preview is different: there the canvas is a device standing on a
+  // surface rather than being the surface, so it keeps the grey mat that
+  // gives the device's edge and shadow something to sit against.
   /"relative flex-1 min-w-0 overflow-hidden flex justify-center"/.test(editor) &&
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor),
+    /isMobileView \? "bg-background" : device === "desktop" \? "bg-white" : "bg-\[#eef1f5\]",/.test(editor),
 )
 
 check(
@@ -800,19 +814,21 @@ check(
    * sliver inside the preview's one rounded corner.
    */
   // no mat: no padding, no gap, and the row itself is the light surface
-  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#eef1f5\]">/.test(editor) &&
+  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-white">/.test(editor) &&
     !/bg-\[#171717\] p-2 gap-2/.test(editor) &&
     // and the preview turns only at the seam, the row cutting its other three
-    /\? "rounded-tl-\[22px\] w-full"/.test(editor) &&
+    /\? "rounded-tl-\[16px\] w-full"/.test(editor) &&
     // the sidebar and the AI: flush, clipped, a hairline instead of a gutter
     /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white"/.test(editor) &&
     /<span aria-hidden className="wb-seam-fill" \/>/.test(editor) &&
-    // and what shows through that one arc is a LIGHT surround: the bar is
-    // chrome and is meant to be dark, the canvas is the page being worked on,
-    // and a near-black field around it makes the builder read as two products
-    // with a hole between them. On a phone preview the hole is most of the
-    // screen, which is what was reported with the screenshot beside it.
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor) &&
+    // and what shows through that one arc is the panels' OWN WHITE. It was a
+    // light grey for several rounds, on the argument that an arc needs
+    // something of its own to open onto. It does not: a surround with a tone
+    // of its own is a third colour in a corner between two panels that are
+    // both white, which is the wedge that kept being reported however it was
+    // drawn. A device preview still gets the grey, since there the canvas
+    // stands on the surround rather than being it.
+    /isMobileView \? "bg-background" : device === "desktop" \? "bg-white" : "bg-\[#eef1f5\]",/.test(editor) &&
     !/: "bg-\[#171717\]"/.test(editor) &&
     // a device preview is a card floating on that surround, so it is drawn
     // with the edge and the lift the dark used to give it for free
@@ -911,82 +927,82 @@ check(
 )
 
 check(
-  "the corner at the seam shows the workspace, not the sidebar",
+  "the seam has two tones in it, not three",
   /**
-   * The workspace carried four more arcs at the screen's edges, and every one
-   * of them was a chip taken out of the page. An arc at the edge of the
-   * screen has nothing behind it but the root: against a dark site header it
-   * reads as a bright notch bitten out of the top right, against a light one
-   * as nothing at all. There is nothing there for a corner to turn away FROM.
+   * Eleven rounds went into what to paint in the wedge the canvas's corner
+   * opens onto: the bar's dark, the workspace's grey, a second arc curving
+   * the other way, the sidebar's white. Every one was rejected, and they were
+   * all wrong for the same reason, which was never the fill.
    *
-   * The one place two surfaces meet is the seam, and the question that took
-   * eleven rounds to answer is what is on the other side of that arc.
+   * THE SURROUND HAD A TONE OF ITS OWN. Give the space around the panels a
+   * colour and the corner where one of them turns MUST open onto a third
+   * thing, and no amount of drawing makes a third thing look like it belongs
+   * between two panels that are both white. The builder carried three tones
+   * on purpose — a grey root, a darker row, white panels — on the argument
+   * that an arc is only visible if what it opens onto differs from what is
+   * beside it. That is true, and it was the wrong conclusion: the corner at
+   * the seam is not there to be seen, it is there so the page has a shape.
    *
-   * The answer that kept being wrong was "the sidebar's white". Flowing one
-   * panel's surface into the next around a reversed curve is a real technique
-   * and it works where the two surfaces are close in tone. Here the surface
-   * past the arc is whatever site somebody is building, so a white wedge
-   * wired between a dark top bar and a dark site header reads as a chip of
-   * the sidebar broken off into the page. Five fills were tried in that
-   * wedge and each was wrong for a different page.
+   * So the surround is white, and so is the bar: `wb-chrome-light` on a
+   * desktop, the palette that was already there for phones. The corner opens
+   * onto the sidebar's own colour with nothing painted to make it do so,
+   * which is what was being asked for all along. A phone keeps the dark bar,
+   * where it continues the status bar rather than framing anything.
    *
-   * Nothing fills it. The page is a card with a rounded corner, and a rounded
-   * corner reveals what the card sits on, which is the workspace: the same
-   * grey as the bar above it, so the corner reads as the bar's own surface
-   * turning down into the seam, and it is right whatever colour the page is.
-   * What is drawn there is one pixel on the arc, transparent either side,
-   * which is the card's edge for the pages light enough to need one.
+   * What is left to draw is the page's edge. Down the seam it is
+   * `wb-seam-divider`, running the whole height now rather than starting
+   * below the corner, because the line marks where the sidebar ends and the
+   * sidebar ends at the top of the seam as much as at the bottom. Round the
+   * turn it is `wb-seam-fill`, and along the top it is the bar's own border,
+   * which already runs the full width, so there is nothing else for it.
    *
-   * The fill is a CHILD OF THE CANVAS. It hung off `left: 100%` of the
-   * sidebar's wrapper, which is the same place as the canvas's left edge only
-   * for as long as nothing between them has a border, a sub-pixel width or a
-   * resize in flight. Sharing an origin with the arc is the only way two
-   * shapes cut from one circle cannot drift apart, so the canvas keeps the
-   * radius on its CARD and stays square itself: rounding the canvas as well
-   * would clip the very thing the fill is there to draw.
+   * `wb-seam-fill` IS A BORDER-RADIUS CORNER, NOT A GRADIENT RING. It drew
+   * the line as a ring inside a radial gradient, a band measured as a
+   * percentage of the radius: 0.88 of a pixel at 22px and 0.64 at 16, and a
+   * sub-pixel band antialiases to a pale blend that is no longer the line's
+   * colour. Measured at 16px, 24 of 31 steps round the arc had lost it. A box
+   * with two borders and a radius equal to its size is the same quarter arc
+   * drawn by the browser's own corner rasteriser, at a true one pixel
+   * whatever the radius. It is a CHILD OF THE CANVAS, sharing an origin with
+   * the card, which is the only way two arcs cut from one circle cannot
+   * drift; the canvas keeps the radius on its CARD and stays square itself,
+   * since rounding the canvas would clip the very thing this draws.
    *
-   * AND IT CARRIES ON ACROSS THE TOP. The line turns from vertical to
-   * horizontal and then used to stop, 22px in, which is the same orphan the
-   * hairline was when it started 22px down. `wb-seam-top` takes it the rest
-   * of the way, beginning at the arc's horizontal tangent, so what is drawn
-   * is one edge: down the seam, round the turn, along the top of the card.
-   *
-   * AND THE HAIRLINE RUNS THE WHOLE SEAM. It started 22px down so as not to
-   * cut across the white fill. With nothing in the wedge there is no surface
-   * to interrupt: up there the sidebar's white meets the workspace's grey,
-   * the same two tones it meets all the way down, and the same line belongs
-   * between them. It ends at the arc's vertical tangent at (0, 22), which is
-   * its own direction, so the two read as one line with a curve branching off
-   * rather than as a line and a corner.
-   *
-   * Measured: 0 pixels showing through at the four screen corners against 44,
-   * 42, 44 and 42 for the rounded row; in the wedge 40 of 40 pixels the
-   * workspace and 0 the sidebar, against 40 white for the fill it replaces;
-   * the edge travelling 16 of 22px down the curve; 31 of 31 points on the arc
-   * carrying the line against 6 for a straight-only hairline; 377 of 377
-   * pixels of the card's top edge carrying it against 0 before; and 19 of the
-   * top 19 rows of the seam carrying it against 0 before.
+   * Measured: the wedge, the sidebar and the bar 0 apart, against 17 for a
+   * surround with a tone of its own; 0 pixels of the root at each of the four
+   * screen corners, against 44 for the rounded row; the corner travelling 15
+   * of 16px round the curve; 29 of 31 steps round the arc carrying an edge on
+   * a page the same white as the surround, against 0 without it, which is the
+   * case the edge exists for; 13 of the top 13 rows of the seam carrying the
+   * hairline; 552 of 552 pixels of the bar's border carrying the top edge.
    * `node scripts/check-workspace-corners.mjs`
    */
-  // square at the screen's edges
-  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#eef1f5\]">/.test(editor) &&
+  // one tone: the bar is white on a desktop, dark only on a phone
+  /const chromeTone: ChromeTone = isMobileView \? phoneChromeTone : "light"/.test(editor) &&
+    /"wb-editor fixed inset-0 flex flex-col bg-white overflow-hidden wb-editor-enter"/.test(editor) &&
+    /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-white">/.test(editor) &&
+    // a phone or tablet preview keeps a mat: there the canvas stands on the
+    // surround rather than being it
+    /isMobileView \? "bg-background" : device === "desktop" \? "bg-white" : "bg-\[#eef1f5\]",/.test(editor) &&
+    // square at the screen's edges, and the one arc on the card
     !/!isMobileView && "rounded-2xl"/.test(editor) &&
-    // the seam's arc, on the card, with the fill beside it in the same box
-    /\? "rounded-tl-\[22px\] w-full"/.test(editor) &&
-    /<span aria-hidden className="wb-seam-fill" \/>\s*\n\s*<span aria-hidden className="wb-seam-top" \/>/.test(editor) &&
-    /\{!isMobileView && device === "desktop" && \(/.test(editor) &&
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor) &&
     !/rounded-tr-2xl/.test(editor) &&
-    // and the hairline beside it
+    /\? "rounded-tl-\[16px\] w-full"/.test(editor) &&
+    /\{!isMobileView && device === "desktop" && <span aria-hidden className="wb-seam-fill" \/>\}/.test(editor) &&
+    // the top edge is the bar's own border, so nothing draws a second one
+    !/wb-seam-top/.test(editor) &&
+    /<header className="wb-editor-topbar[^"]*border-b border-\[var\(--wb-chrome-line\)\]/.test(editor) &&
+    // and the hairline down the seam
     /<span aria-hidden className="wb-seam-divider" \/>/.test(editor) &&
     !/bg-white border-r border-\[#e5e7eb\]/.test(editor) &&
     ((css) =>
-      /\.wb-seam-fill \{[\s\S]{0,1800}?left: 0;/.test(css) &&
-      // transparent past the ring: the workspace shows, nothing is painted on it
-      /rgba\(255, 255, 255, 0\) 0 95%,\s*\n\s*#e5e7eb 95\.6% 99\.6%,\s*\n\s*rgba\(255, 255, 255, 0\) 100%/.test(css) &&
-      !/#ffffff 100%/.test(css) &&
-      /\.wb-seam-top \{[\s\S]{0,200}?left: 22px;[\s\S]{0,200}?background: #e5e7eb;/.test(css) &&
-      /\.wb-seam-divider \{[\s\S]{0,300}?top: 0;/.test(css))(readFileSync(join(root, "app/globals.css"), "utf8")),
+      // the arc is a real corner at a true pixel, not a fraction of a radius
+      /\.wb-seam-fill \{[\s\S]{0,2400}?border-top: 1px solid #e5e7eb;\s*\n\s*border-left: 1px solid #e5e7eb;\s*\n\s*border-top-left-radius: 16px;/.test(css) &&
+      !/\.wb-seam-fill \{[\s\S]{0,2400}?radial-gradient/.test(css) &&
+      !/wb-seam-top/.test(css) &&
+      /\.wb-seam-divider \{[\s\S]{0,300}?top: 0;/.test(css) &&
+      // the light palette the desktop bar now runs on
+      /\.wb-editor\.wb-chrome-light \{\s*\n\s*--wb-chrome-bg: #ffffff;/.test(css))(readFileSync(join(root, "app/globals.css"), "utf8")),
 )
 
 check(
@@ -2105,7 +2121,7 @@ check(
    * and the unwrapped one is a control that must still fail.
    */
   // The wrapper carries the shape and the clip...
-  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,700}?\? "rounded-tl-\[22px\] w-full"/.test(editor) &&
+  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,700}?\? "rounded-tl-\[16px\] w-full"/.test(editor) &&
     // ...and the scroller inside it is square and fills it, so nothing it
     // paints can reach a corner.
     /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"/.test(

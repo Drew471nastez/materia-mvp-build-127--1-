@@ -40,7 +40,7 @@ import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
 import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-builder/builder-loader"
 import { CanvasScrollbar } from "@/components/website-builder/canvas-scrollbar"
-import { usePhoneChromeTone } from "@/components/website-builder/native-chrome"
+import { usePhoneChromeTone, type ChromeTone } from "@/components/website-builder/native-chrome"
 import { LeaveConfirm, hasSomethingToLose, type LeaveReason } from "@/components/website-builder/leave-confirm"
 import {
   DropdownMenu,
@@ -6009,7 +6009,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const canvasBusy = loading || canvasLoading
   const canvasLoaderLingers = useLinger(canvasBusy, 280)
   /** Light chrome on a phone, wherever the clock can still be read. */
-  const chromeTone = usePhoneChromeTone(isMobileView)
+  /**
+   * WHITE CHROME ON A DESKTOP, DARK ONLY ON A PHONE.
+   *
+   * The bar was dark so it would not be mistaken for the page it frames.
+   * What actually separates them is the hairline under it, and a dark bar
+   * costs something the light one does not: the workspace around the canvas
+   * has to be dark or grey to sit under it, and then the corner where the
+   * canvas turns opens onto a third tone. Every attempt at that corner failed
+   * on the same thing, a wedge of a colour belonging to neither panel.
+   *
+   * White bar, white sidebar, white surround: one surface with a hairline
+   * drawn on it, and the page the only thing in the window with a colour of
+   * its own. The phone keeps the dark bar, because there it continues the
+   * status bar rather than framing anything.
+   */
+  const phoneChromeTone = usePhoneChromeTone(isMobileView)
+  const chromeTone: ChromeTone = isMobileView ? phoneChromeTone : "light"
 
   /** What leaving would cost right now, if anything. */
   const leaveReason: LeaveReason = {
@@ -6045,23 +6061,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         // nothing to the document. FullScreenLock below zeroes that padding
         // so nothing else can put the scroll back.
         /**
-         * THREE TONES, BECAUSE THERE ARE THREE PLACES A CORNER CAN TURN.
+         * ONE TONE, BECAUSE THERE IS ONLY ONE THING IN HERE WITH A COLOUR.
          *
-         * An arc is only visible if what it opens onto differs from what is
-         * beside it, and this builder has two rings of corners: the four on
-         * the outside of the workspace, and the ones where the panels meet
-         * each other. Each ring needs its own backdrop, so:
+         * This carried three: a grey root, a darker row between the panels,
+         * and white panels on top of them. The idea was that an arc is only
+         * visible if what it opens onto differs from what is beside it, so
+         * each ring of corners got its own backdrop.
          *
-         *   #eef1f5   here, and inside the canvas: the light the outer arcs
-         *             open onto, and the canvas's own surround
-         *   #d9dee6   the row between the panels: what the seam's arcs open
-         *             onto, and the only part of the row ever seen
-         *   #ffffff   the panels themselves
+         * It is true and it was the wrong conclusion. The corner at the seam
+         * is not there to be seen, it is there so the page has a shape. Give
+         * the surround a tone of its own and that corner opens onto a colour
+         * belonging to neither panel, which is the wedge that kept being
+         * reported however it was drawn or filled.
          *
-         * Nothing of this root is visible except inside those four outer
-         * arcs: the bar covers the top of it and the rounded row the rest.
+         * White, all of it: the bar, the sidebar, the surround. What separates
+         * them is a hairline, which is the whole of what a hairline is for,
+         * and the only thing in the window with a colour of its own is the
+         * page somebody is building.
          */
-        "wb-editor fixed inset-0 flex flex-col bg-[#eef1f5] overflow-hidden wb-editor-enter",
+        "wb-editor fixed inset-0 flex flex-col bg-white overflow-hidden wb-editor-enter",
         chromeTone === "light" && "wb-chrome-light",
         // Leaving fades the editor while the next page is fetched, so the
         // hand-off is a dissolve rather than a hard cut when it lands.
@@ -6582,7 +6600,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           to this shape, so the panels do not each need their own. Menus and
           tooltips are portalled to the body and the drag overlay is fixed, so
           none of them is clipped by it. */}
-      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-[#eef1f5]">
+      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-white">
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
           <div className="relative flex-shrink-0 flex h-full overflow-visible">
@@ -6783,7 +6801,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * child of this box and paint OUTSIDE that arc. Rounding this as
              * well would clip the very thing it is there to draw.
              */
-            isMobileView ? "bg-background" : "bg-[#eef1f5]",
+            isMobileView ? "bg-background" : device === "desktop" ? "bg-white" : "bg-[#eef1f5]",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6814,15 +6832,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           {/* The card's edge, drawn from the same origin as the card: this
               box's top left IS the card's top left, so the arc the line sits
               on and the arc the card is cut to cannot drift. Nothing is
-              painted past it, so what the corner shows is the workspace the
-              card is sitting on. The top edge carries the same line out to
-              the far side, so it does not stop 22px in for no reason. */}
-          {!isMobileView && device === "desktop" && (
-            <>
-              <span aria-hidden className="wb-seam-fill" />
-              <span aria-hidden className="wb-seam-top" />
-            </>
-          )}
+              painted past it, so what the corner shows is the white the
+              sidebar and the bar are already made of. Along the top the bar's
+              own border is that edge, which is why there is nothing here for
+              it: one hairline under the bar, running the full width. */}
+          {!isMobileView && device === "desktop" && <span aria-hidden className="wb-seam-fill" />}
           <CodePane
             installId={installId}
             visible={previewMode === "code"}
@@ -6860,7 +6874,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               isMobileView
                 ? "w-full rounded-none"
                 : device === "desktop"
-                  ? "rounded-tl-[22px] w-full"
+                  ? "rounded-tl-[16px] w-full"
                   // A phone or a tablet is a card floating on the canvas, so
                   // it needs the edge and the lift a card has. On the dark
                   // surround the contrast did that job; on a light one it has

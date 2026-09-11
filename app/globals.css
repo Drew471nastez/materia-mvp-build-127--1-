@@ -858,26 +858,23 @@ html.capacitor body {
   }
 
   /* ── THE CORNER AT THE SEAM ──
-     The canvas turns where it meets the sidebar, and this draws the line that
-     turn needs plus nothing else.
+     Eleven rounds went into what to paint in the wedge this corner opens
+     onto: the bar's dark, the workspace's grey, a second arc curving the
+     other way, the sidebar's white. Every one of them was wrong, and they
+     were wrong for the same reason, which was not the fill.
 
-     It used to paint the SIDEBAR'S WHITE into the corner, a reversed curve
-     flowing one panel's surface into the other. That is a real technique and
-     it works where the two surfaces are close in tone. Here the surface on
-     the other side of the arc is whatever page somebody is building, and a
-     white wedge tucked between a dark top bar and a dark site header reads as
-     a chip of the sidebar broken off into the page. Five different fills have
-     been tried in that wedge now — the bar's dark, the workspace's grey, a
-     second arc curving the other way, the sidebar's white — and each one is
-     wrong for a different page.
+     The surround had a tone of its own. Give the space around the panels a
+     colour and the corner where one of them turns MUST open onto a third
+     thing, and no amount of drawing makes a third thing look like it belongs
+     between two panels that are both white.
 
-     So nothing fills it. The corner shows the workspace's own surface, which
-     is what a page tucked into a rounded corner is supposed to reveal, and it
-     is right whatever colour the page is. What this draws is the line: one
-     pixel of the app's divider grey sitting exactly on the arc, transparent
-     either side of it. The arc runs from (0, 22) to (22, 0), and at (0, 22)
-     its tangent is vertical, which is the straight divider's own direction —
-     so the two join with no corner between them. */
+     So the surround is white now, the same white as the sidebar beside it and
+     the bar above it. The corner opens onto the sidebar's own colour without
+     anything being painted to make it do so, which is what was being asked
+     for all along. What is left to draw is the page's own edge: one pixel on
+     the arc, transparent either side, for the pages too light to show an edge
+     by contrast. Along the top that edge is the bar's own border, which
+     already runs the full width, so there is nothing here for it. */
   .wb-seam-fill {
     /**
      * ANCHORED TO THE CANVAS, NOT TO THE PANEL BESIDE IT.
@@ -892,52 +889,51 @@ html.capacitor body {
     position: absolute;
     top: 0;
     left: 0;
-    /* 22px, not 16. The curve reads at a glance at this size and did not at
-       the last one: sixteen pixels of arc between two panels is a softened
-       corner, and what it was asked for is a corner you can see turning.
-       The canvas's own radius is the same number, and has to be. */
-    width: 22px;
-    height: 22px;
+    /* 16px, the same number the card's radius uses and `rounded-2xl`
+       elsewhere in the product. It was 22 while the corner had to be seen
+       turning: the arc was carrying the whole idea, so it was drawn large.
+       It is not carrying it any more, the surround is, and at 22 the curve
+       reads as a scoop taken out of the page rather than a corner. */
+    width: 16px;
+    height: 16px;
     pointer-events: none;
     /* Above the code pane as well as the preview, which is z-80: both are
        cut to the same arc and both want the same corner completed. */
     z-index: 90;
-    background: radial-gradient(
-      circle 22px at 100% 100%,
-      rgba(255, 255, 255, 0) 0 95%,
-      #e5e7eb 95.6% 99.6%,
-      rgba(255, 255, 255, 0) 100%
-    );
-  }
-
-  /* ── And out along the top ──
-     The line on the arc turns from vertical to horizontal and then stopped,
-     22px in, which is the same orphan the hairline used to be when it started
-     22px down. This carries it the rest of the way across, so what is drawn
-     is one edge: down the seam, round the turn, along the top of the card.
-     It begins where the arc's line ends, at the arc's horizontal tangent. */
-  .wb-seam-top {
-    position: absolute;
-    top: 0;
-    left: 22px;
-    right: 0;
-    height: 1px;
-    background: #e5e7eb;
-    pointer-events: none;
-    z-index: 90;
+    /**
+     * A BORDER-RADIUS CORNER, NOT A GRADIENT RING.
+     *
+     * This drew the line as a ring inside a radial gradient, which works
+     * while the radius is large and stops working when it is not: the band
+     * was a percentage of the radius, so at 22px it was 0.88 of a pixel and
+     * at 16px it is 0.64, and a sub-pixel band antialiases to a pale blend
+     * that is no longer the line's colour. Measured at 16px, 24 of 31 points
+     * along the arc had lost it.
+     *
+     * A box with two borders and a radius equal to its size is the same
+     * quarter arc, drawn by the browser's own corner rasteriser — the one
+     * that cut the card — at a true one pixel whatever the radius. The
+     * border sits inside the box, so its outer edge is the box's edge, and
+     * the box's top left is the card's top left: the two arcs are the same
+     * arc. Nothing is painted inside it, so the corner shows the white the
+     * sidebar and the bar are already made of.
+     */
+    border-top: 1px solid #e5e7eb;
+    border-left: 1px solid #e5e7eb;
+    border-top-left-radius: 16px;
   }
 
   /* ── The divider runs the whole seam ──
-     It used to start 22px down, because the corner was filled with the
-     sidebar's own white and a grey line cutting across that fill read as an
-     edge inside a surface that was meant to be continuous.
+     It used to start below the corner, because the corner was filled with
+     the sidebar's own white and a grey line cutting across that fill read as
+     an edge inside a surface meant to be continuous.
 
-     Nothing fills the corner now, so there is no continuous surface to
-     interrupt: the sidebar's white meets the workspace's grey up there, the
-     same two tones it meets all the way down, and the same hairline belongs
-     between them. It ends where the arc's own line begins, which is the one
-     point on the arc whose tangent is vertical, so the two read as one line
-     with a curve branching off it rather than as a line and a corner. */
+     Nothing fills it now. The line marks where the sidebar ends, and the
+     sidebar ends at the top of the seam as much as at the bottom, so it runs
+     from the bar's own border all the way down. It meets the arc's line at
+     the one point on the arc whose tangent is vertical, which is its own
+     direction: the two read as one line with the page's edge branching off
+     it, not as a line and a corner. */
   .wb-seam-divider {
     position: absolute;
     right: 0;
