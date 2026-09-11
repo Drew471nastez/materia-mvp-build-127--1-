@@ -20,6 +20,7 @@
  * Run with:  npm run test:push
  */
 
+import { DRAWER_EASING, DRAWER_MS, drawerRelease } from "@/lib/website-builder/drawer-drag"
 import {
   buildThemeFileTree,
   flattenTree,
@@ -753,6 +754,54 @@ section("The code editor on a phone")
     /document\.addEventListener\("visibilitychange", revive\)/.test(builder) &&
       /removeProperty\("pointer-events"\)/.test(builder) &&
       /data-state="open"/.test(builder),
+  )
+
+  /**
+   * THE DRAWER IS DRAGGED, like the bottom sheet it sits beside. The
+   * thresholds are the part with judgement in them, so they are numbers here
+   * rather than something you can only check by holding a phone.
+   */
+  {
+    const W = 320
+    const nudge = drawerRelease({ offset: -20, width: W, velocity: -0.1 })
+    check("a nudge springs back rather than closing", !nudge.closing && nudge.target === 0)
+    const past = drawerRelease({ offset: -140, width: W, velocity: -0.1 })
+    check("past a third of its width, a release closes it", past.closing && past.target === -W)
+    const flick = drawerRelease({ offset: -20, width: W, velocity: -1.2 })
+    check(
+      "and a fast flick closes it however far it got",
+      // Distance alone ignores a short fast push, which is how a drawer ends
+      // up feeling stuck: the finger says go and the panel argues.
+      flick.closing && flick.target === -W,
+    )
+    check(
+      "a flick finishes quickly and a slow push finishes gently",
+      flick.ms < past.ms && flick.ms >= 140 && past.ms <= DRAWER_MS,
+      `${flick.ms}ms against ${past.ms}ms`,
+    )
+    check(
+      "nothing takes longer than the sheet it sits beside, or less than a frame or two",
+      [drawerRelease({ offset: -1, width: W, velocity: 0 }), drawerRelease({ offset: -319, width: W, velocity: -8 })]
+        .every((r) => r.ms >= 140 && r.ms <= DRAWER_MS),
+    )
+    check(
+      "a drag past the edge cannot send it further than its own width",
+      drawerRelease({ offset: -9999, width: W, velocity: 0 }).target === -W,
+    )
+    check("and the sheet's own curve, not a second one", DRAWER_EASING === "cubic-bezier(0.32, 0.72, 0, 1)")
+  }
+
+  check(
+    "the drawer follows the finger, and a vertical gesture is the file list's",
+    /el\.style\.transform = `translateX\(\$\{px\}px\)`/.test(page) &&
+      /if \(Math\.abs\(dy\) >= Math\.abs\(dx\)\) \{ active = false; return \}/.test(page) &&
+      // not passive, or preventDefault is ignored and the page scrolls sideways
+      /"touchmove", onMove, \{ passive: false \}/.test(page) &&
+      /\[touch-action:pan-y\]/.test(page),
+  )
+  check(
+    "and nothing animates before the phone layout has been painted once",
+    /drawerReady && "transition-transform/.test(page) && /requestAnimationFrame\(\(\) => setDrawerReady\(true\)\)/.test(page),
   )
 
   check(

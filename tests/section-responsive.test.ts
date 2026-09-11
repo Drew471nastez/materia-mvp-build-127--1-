@@ -1655,8 +1655,9 @@ check(
     /matchMedia\("\(max-width: 767px\)"\)/.test(codePage) &&
     /absolute inset-y-0 left-0 z-40 w-\[86%\] max-w-\[320px\]/.test(codePage) &&
     /showFiles \? "translate-x-0" : "-translate-x-full"/.test(codePage) &&
-    // one property, on the compositor, for the whole of the movement
-    /transition-transform duration-\[280ms\]/.test(codePage) &&
+    // one property, on the compositor, for the whole of the movement, on the
+    // same curve and duration as the builder's bottom sheet
+    /transition-transform duration-\[360ms\] ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\]/.test(codePage) &&
     // and three ways to close it: the backdrop, its own button, and Escape
     /aria-label="Close the file list"/.test(codePage) &&
     /if \(e\.key === "Escape"\) setShowFiles\(false\)/.test(codePage) &&

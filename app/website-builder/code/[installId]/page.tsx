@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils"
 import { completionsAt, documentationAt, undeclaredNames } from "@/lib/website-builder/storelib-complete"
 import type { ThemeInstall, ThemeFileNode } from "@/lib/website-builder/types"
+import { DRAWER_EASING, drawerRelease } from "@/lib/website-builder/drawer-drag"
 import { buildThemeFileTree, flattenTree, detectLanguage } from "@/lib/website-builder/theme-file-tree"
 import { toast } from "sonner"
 import type { ThemeError } from "@/lib/storelib-theme/types"
@@ -540,6 +541,145 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [narrow, showFiles])
+
+  /**
+   * =========================================================================
+   *  THE DRAWER MOVES LIKE THE REST OF THE PRODUCT
+   * =========================================================================
+   * The bottom sheet in the builder is dragged: the panel is under the thumb
+   * while the finger is down, and when it lifts it carries on at the speed it
+   * was going. A drawer that only knows "open" and "closed" next to it feels
+   * like a different product, and a 280ms slide with no way to push it around
+   * is what "not smooth" means.
+   *
+   * So: the same curve and the same idea. While a finger is on it the
+   * transform is written straight to the element and the transition is off,
+   * because React re-rendering sixty times a second to move one element is
+   * both slower and jerkier than setting the property. When the finger lifts,
+   * the transition goes back on for as long as the remaining distance and the
+   * speed it was released at say it should — a flick finishes quickly, a slow
+   * push finishes gently, and a fixed duration does neither.
+   *
+   * A gesture that is mostly vertical is the file list's, and is left alone.
+   */
+  const drawerRef = useRef<HTMLElement>(null)
+  const backdropRef = useRef<HTMLButtonElement>(null)
+  const showFilesRef = useRef(showFiles)
+  useEffect(() => { showFilesRef.current = showFiles }, [showFiles])
+
+  /**
+   * Nothing animates until the phone layout has been painted once. Arriving
+   * on a file — the assistant's "open it" link does exactly that — closes the
+   * drawer during mount, and without this the first thing the screen does is
+   * play a slide nobody asked for.
+   */
+  const [drawerReady, setDrawerReady] = useState(false)
+  useEffect(() => {
+    if (!narrow) { setDrawerReady(false); return }
+    const id = requestAnimationFrame(() => setDrawerReady(true))
+    return () => cancelAnimationFrame(id)
+  }, [narrow])
+
+  useEffect(() => {
+    const el = drawerRef.current
+    if (!el || !narrow) return
+
+    let active = false
+    let decided = false
+    let startX = 0
+    let startY = 0
+    let width = 0
+    let x = 0
+    let lastX = 0
+    let lastT = 0
+    let velocity = 0
+
+    const paint = (px: number) => {
+      el.style.transform = `translateX(${px}px)`
+      const b = backdropRef.current
+      if (b && width) b.style.opacity = String(Math.max(0, Math.min(1, 1 + px / width)))
+    }
+
+    const onStart = (e: TouchEvent) => {
+      if (!showFilesRef.current || e.touches.length !== 1) return
+      active = true
+      decided = false
+      width = el.getBoundingClientRect().width || 1
+      startX = e.touches[0].clientX
+      startY = e.touches[0].clientY
+      x = 0
+      lastX = startX
+      lastT = e.timeStamp
+      velocity = 0
+    }
+
+    const onMove = (e: TouchEvent) => {
+      if (!active || e.touches.length !== 1) return
+      const t = e.touches[0]
+      const dx = t.clientX - startX
+      const dy = t.clientY - startY
+      if (!decided) {
+        // Under eight pixels nobody has said which way they meant yet.
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+        if (Math.abs(dy) >= Math.abs(dx)) { active = false; return }
+        decided = true
+        el.style.transition = "none"
+        const b = backdropRef.current
+        if (b) b.style.transition = "none"
+      }
+      // Leftward closes. Pulling right does nothing: the drawer is already
+      // against the edge, and stretching it past that is a rubber band with
+      // nothing behind it.
+      x = Math.min(0, dx)
+      const dt = e.timeStamp - lastT
+      if (dt > 0) {
+        velocity = (t.clientX - lastX) / dt
+        lastX = t.clientX
+        lastT = e.timeStamp
+      }
+      paint(x)
+      // The page must not scroll sideways under the drawer while it moves.
+      e.preventDefault()
+    }
+
+    const onEnd = () => {
+      if (!active) return
+      active = false
+      if (!decided) return
+      // Where it goes and how long it takes: lib/website-builder/drawer-drag.ts,
+      // so the thresholds are numbers the suite can argue with.
+      const { closing, target, ms } = drawerRelease({ offset: x, width, velocity })
+      el.style.transition = `transform ${ms}ms ${DRAWER_EASING}`
+      const b = backdropRef.current
+      if (b) b.style.transition = `opacity ${ms}ms ${DRAWER_EASING}`
+      paint(target)
+      window.setTimeout(() => {
+        // The class says the same thing the inline style does by now, so
+        // handing it back is invisible. State first, then the handover on the
+        // frame after React has painted it, or the drawer flicks open for one
+        // frame on its way to being closed.
+        if (closing) setShowFiles(false)
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          el.style.transform = ""
+          el.style.transition = ""
+          if (b) { b.style.opacity = ""; b.style.transition = "" }
+        }))
+      }, ms)
+    }
+
+    el.addEventListener("touchstart", onStart, { passive: true })
+    // Not passive: `preventDefault` is what stops the browser scrolling the
+    // page sideways while the drawer is under a finger.
+    el.addEventListener("touchmove", onMove, { passive: false })
+    el.addEventListener("touchend", onEnd, { passive: true })
+    el.addEventListener("touchcancel", onEnd, { passive: true })
+    return () => {
+      el.removeEventListener("touchstart", onStart)
+      el.removeEventListener("touchmove", onMove)
+      el.removeEventListener("touchend", onEnd)
+      el.removeEventListener("touchcancel", onEnd)
+    }
+  }, [narrow])
   useEffect(() => {
     const mql = window.matchMedia("(max-width: 767px)")
     const sync = () => setNarrow(mql.matches)
@@ -1402,26 +1542,32 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
         */}
         {narrow && (
           <button
+            ref={backdropRef}
             type="button"
             aria-label="Close the file list"
             tabIndex={showFiles ? 0 : -1}
             onClick={() => setShowFiles(false)}
             className={cn(
-              "absolute inset-0 z-30 bg-black/40 transition-opacity duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
+              "absolute inset-0 z-30 bg-black/40",
+              drawerReady && "transition-opacity duration-[360ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
               showFiles ? "opacity-100" : "pointer-events-none opacity-0",
             )}
           />
         )}
         {/* ── File explorer ── */}
         <aside
+          ref={drawerRef}
           aria-hidden={narrow && !showFiles}
           className={cn(
             "bg-[var(--code-panel)] flex flex-col overflow-hidden",
             narrow
               ? [
                   "absolute inset-y-0 left-0 z-40 w-[86%] max-w-[320px] border-r border-[var(--code-border)] shadow-2xl",
-                  // One property, on the compositor, for the whole 280ms.
-                  "transition-transform duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform",
+                  // One property, on the compositor, for the whole 360ms. The
+                  // transition waits for the first painted frame so arriving
+                  // on a file does not play a slide nobody asked for.
+                  "will-change-transform [touch-action:pan-y]",
+                  drawerReady && "transition-transform duration-[360ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
                   showFiles ? "translate-x-0" : "-translate-x-full",
                 ]
               : "w-56 shrink-0 border-r border-[var(--code-border)]",
