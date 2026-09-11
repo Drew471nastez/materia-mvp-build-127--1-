@@ -61,16 +61,15 @@ body{background:rgb(${ROOT})}
      display:flex;background:rgb(${GAP});overflow:hidden}
 .side{width:${SIDE}px;background:#fff;flex:none}
 .divider{position:absolute;left:${SIDE - 1}px;top:${SEAM_R}px;bottom:0;width:1px;background:#e5e7eb;z-index:10}
-.canvas{flex:1;background:rgb(${CANVAS})}
+.canvas{flex:1;position:relative;background:rgb(${CANVAS});overflow:hidden}
 /* the site's own content: dark on purpose, so the boundary between the
    reversed corner's white and the page it meets is unambiguous */
 .card{width:100%;height:100%;background:#111827}
 ${shape === "after"
     ? /* the row owns the outside, the panels own the seam */
       `.row{border-radius:${R}px}
-       .canvas{border-top-left-radius:${SEAM_R}px}
        .card{border-top-left-radius:${SEAM_R}px}
-       .fill{position:absolute;top:0;left:${SIDE}px;width:${SEAM_R}px;height:${SEAM_R}px;z-index:10;
+       .fill{position:absolute;top:0;left:0;width:${SEAM_R}px;height:${SEAM_R}px;z-index:90;
              background:radial-gradient(circle ${SEAM_R}px at 100% 100%, rgba(255,255,255,0) 0 98%, #ffffff 100%)}`
     : /* the shape it replaces: the two panels curving AWAY from each other,
          which leaves the lens-shaped wedge that was reported as a notch */
@@ -82,7 +81,7 @@ ${shape === "after"
        .divider{top:0}`}
 </style></head><body>
 <div class="bar"></div>
-<div class="row"><div class="side"></div><div class="canvas"><div class="card"></div></div><i class="fill"></i><i class="divider"></i></div>
+<div class="row"><div class="side"></div><div class="canvas"><div class="card"></div><i class="fill"></i></div><i class="divider"></i></div>
 <script>
 const r = document.querySelector(".row").getBoundingClientRect()
 document.title = JSON.stringify({ left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) })

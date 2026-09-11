@@ -879,18 +879,29 @@ html.capacitor body {
      meets, and the transparent stop is white-with-no-alpha rather than
      `transparent`, which is black-with-no-alpha and fringes the blend grey. */
   .wb-seam-fill {
+    /**
+     * ANCHORED TO THE CANVAS, NOT TO THE PANEL BESIDE IT.
+     *
+     * This hung off `left: 100%` of the sidebar's wrapper, which is the same
+     * place as the canvas's left edge only for as long as nothing between
+     * them has a border, a sub-pixel width or a resize mid-flight. It is a
+     * child of the canvas now, at its own top left, so it shares an origin
+     * with the arc it is completing. Two shapes cut from one circle cannot
+     * drift apart when they are measured from the same corner.
+     */
     position: absolute;
     top: 0;
-    left: 100%;
+    left: 0;
     /* 22px, not 16. The curve reads at a glance at this size and did not at
        the last one: sixteen pixels of arc between two panels is a softened
        corner, and what it was asked for is a corner you can see turning.
-       The canvas's own radius is the same number, and has to be: the two
-       shapes are halves of one circle and they meet on its edge. */
+       The canvas's own radius is the same number, and has to be. */
     width: 22px;
     height: 22px;
     pointer-events: none;
-    z-index: 10;
+    /* Above the code pane as well as the preview, which is z-80: both are
+       cut to the same arc and both want the same corner completed. */
+    z-index: 90;
     background: radial-gradient(circle 22px at 100% 100%, rgba(255, 255, 255, 0) 0 98%, #ffffff 100%);
   }
 

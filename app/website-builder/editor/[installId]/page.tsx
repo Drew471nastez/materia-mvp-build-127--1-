@@ -6420,10 +6420,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 scrollbar stays inside it. The outer box stays
                 `overflow-visible` for the grab edge that hangs past it.
 
-                Square. The turn at the seam belongs to the canvas, and what
-                this contributes is the REVERSED corner beside it: see
-                `wb-seam-fill` below, which flows this panel's white into the
-                wedge the canvas's arc leaves behind. */}
+                Square. The turn at the seam belongs to the canvas, which
+                also carries the reversed corner that completes it: see
+                `wb-seam-fill`, a child of the canvas so that it and the arc
+                are measured from the same corner. */}
             <div
               ref={sidebarRef}
               className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white"
@@ -6441,11 +6441,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 away from and the two meet on one curve. `left: 100%` of this
                 wrapper, whose width IS the sidebar's, so it follows the
                 resize without being told. */}
-            <span aria-hidden className="wb-seam-fill" />
-            {/* The hairline, starting BELOW the arc. On the panel it would run
-                the full height of the seam and cut across the corner the fill
-                has just drawn, which is the seam reading as an edge however
-                well the curve is made. */}
+            {/* The hairline, starting BELOW the arc. Running the full height
+                of the seam it cut across the corner the canvas completes,
+                which is the seam reading as an edge however well the curve
+                itself is made. The corner's own fill lives in the canvas, so
+                that it shares an origin with the arc. */}
             <span aria-hidden className="wb-seam-divider" />
             <div
               role="separator"
@@ -6563,7 +6563,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             to hang outside this one. */}
         {!isMobileView && aiOpen && (
           <div className="relative flex-shrink-0" style={{ width: 340 }}>
-            <span aria-hidden className="wb-seam-fill" />
             <span aria-hidden className="wb-seam-divider" />
             <div className="h-full overflow-hidden bg-white">
             <ThemeChat
@@ -6609,10 +6608,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * of the screen.
              *
              * A light grey, far enough from white to give a device preview an
-             * edge to be seen against, and rounded where it faces the
-             * sidebar. Its other three corners are the row's to cut.
+             * edge to be seen against. SQUARE, on purpose: the radius lives
+             * on the card inside it, so that the reversed corner can be a
+             * child of this box and paint OUTSIDE that arc. Rounding this as
+             * well would clip the very thing it is there to draw.
              */
-            isMobileView ? "bg-background" : "bg-[#eef1f5] rounded-tl-[22px]",
+            isMobileView ? "bg-background" : "bg-[#eef1f5]",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -6640,6 +6641,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
            */
           style={isMobileView ? { paddingBottom: "var(--wb-sheet-peek, 72px)" } : undefined}
         >
+          {/* The reversed corner, completing the card's arc from the same
+              origin: this box's top left IS the card's top left, so the two
+              cannot drift. White, because the panel on the other side of the
+              seam is white whether that is the sidebar or the AI. */}
+          {!isMobileView && device === "desktop" && <span aria-hidden className="wb-seam-fill" />}
           <CodePane
             installId={installId}
             visible={previewMode === "code"}

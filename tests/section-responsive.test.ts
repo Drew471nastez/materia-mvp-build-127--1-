@@ -769,7 +769,7 @@ check(
   // no surround at all beyond the strip reserved for the sheet's peek, which
   // takes the sheet's own colour so a one-pixel disagreement is a seam.
   /"relative flex-1 min-w-0 overflow-hidden flex justify-center"/.test(editor) &&
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-tl-\[22px\]",/.test(editor),
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor),
 )
 
 check(
@@ -812,7 +812,7 @@ check(
     // and a near-black field around it makes the builder read as two products
     // with a hole between them. On a phone preview the hole is most of the
     // screen, which is what was reported with the screenshot beside it.
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-tl-\[22px\]",/.test(editor) &&
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor) &&
     !/: "bg-\[#171717\]"/.test(editor) &&
     // a device preview is a card floating on that surround, so it is drawn
     // with the edge and the lift the dark used to give it for free
@@ -943,6 +943,14 @@ check(
    * canvas's radius is the same number and has to be, since the two shapes
    * are halves of one circle and meet on its edge.
    *
+   * The fill is a CHILD OF THE CANVAS. It hung off `left: 100%` of the
+   * sidebar's wrapper, which is the same place as the canvas's left edge only
+   * for as long as nothing between them has a border, a sub-pixel width or a
+   * resize in flight. Sharing an origin with the arc is the only way two
+   * shapes cut from one circle cannot drift apart, so the canvas keeps the
+   * radius on its CARD and stays square itself: rounding the canvas as well
+   * would clip the very thing the fill is there to draw.
+   *
    * AND THE HAIRLINE STOPS SHORT OF IT. The divider between the two panels
    * ran the full height of the seam, so it ran straight up through the
    * corner as well: the white flowed around the curve and a grey line cut
@@ -962,7 +970,10 @@ check(
     /"wb-editor fixed inset-0 flex flex-col bg-\[#eef1f5\] overflow-hidden wb-editor-enter"/.test(editor) &&
     // the seam ring: the canvas turns, and the panel beside it FILLS the
     // wedge that turn leaves rather than curving away from it as well
-    /<span aria-hidden className="wb-seam-fill" \/>/.test(editor) &&
+    // the fill is a CHILD OF THE CANVAS, so it and the arc it completes are
+    // measured from the same corner and cannot drift apart
+    /\{!isMobileView && device === "desktop" && <span aria-hidden className="wb-seam-fill" \/>\}/.test(editor) &&
+    /\.wb-seam-fill \{[\s\S]{0,900}?left: 0;/.test(readFileSync(join(root, "app/globals.css"), "utf8")) &&
     !/rounded-tr-2xl/.test(editor) &&
     // and the hairline starts BELOW the arc, rather than running the full
     // height of the seam and cutting across the corner the fill just drew
@@ -971,10 +982,10 @@ check(
     !/bg-white border-r border-\[#e5e7eb\]/.test(editor) &&
     // read here rather than through `editorCss`, which is declared further
     // down the file and is in its temporal dead zone at this point
-    /\.wb-seam-fill \{[\s\S]{0,900}?background: radial-gradient\(circle 22px at 100% 100%, rgba\(255, 255, 255, 0\) 0 98%, #ffffff 100%\);/.test(
+    /\.wb-seam-fill \{[\s\S]{0,1400}?background: radial-gradient\(circle 22px at 100% 100%, rgba\(255, 255, 255, 0\) 0 98%, #ffffff 100%\);/.test(
       readFileSync(join(root, "app/globals.css"), "utf8"),
     ) &&
-    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-tl-\[22px\]",/.test(editor) &&
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor) &&
     /\? "rounded-tl-\[22px\] w-full"/.test(editor),
 )
 
