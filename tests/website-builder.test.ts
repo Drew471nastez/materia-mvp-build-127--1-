@@ -24,6 +24,7 @@
  *
  * Run with:  npm run test:push
  */
+import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { readFileSync, readdirSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import { createElement } from "react"
@@ -254,6 +255,30 @@ section("The page")
   check("the marketplace filters by industry, searches, previews and adds", /THEME_INDUSTRIES\.map/.test(market) && /Search themes/.test(market) && /ThemeDetailDialog/.test(market) && /themes\/add/.test(market))
   check("the marketplace draws covers too — no storefront is mounted there either", !/SectionRenderer|ThemePage/.test(market) && /ThemeCoverPair/.test(market) && /ThemePhoneCover/.test(market))
   check("the marketplace has a real back button and no paragraph of explanation", /ChevronLeft/.test(market) && !/Every theme is free/.test(market))
+}
+
+// ── The canvas insert gaps ──────────────────────────────────────────────
+section("Adding a section where you are pointing")
+{
+  const S = (id: string, type: string) => ({ id, type, name: id, settings: {}, blocks: [] }) as never
+  const page = [S("h", "header"), S("a", "hero"), S("b", "features"), S("c", "faq"), S("f", "footer")]
+
+  // Gap 0 is above the first BODY section, which is index 1 in the list.
+  check("the gap above the first body section lands under the header, not above it", bodyGapToListIndex(page, 0) === 1)
+  check("a gap between two body sections lands between them", bodyGapToListIndex(page, 1) === 2 && bodyGapToListIndex(page, 2) === 3)
+  // Gap 3 is below the last body section: index 4, which is where the footer
+  // is — splicing there puts the new section BEFORE the footer, correctly.
+  check("the gap below the last body section lands above the footer", bodyGapToListIndex(page, 3) === 4)
+  check("a gap past the end still lands above the footer rather than after it", bodyGapToListIndex(page, 99) === 4)
+
+  const noChrome = [S("a", "hero"), S("b", "faq")]
+  check("without a header the first gap is the top of the list", bodyGapToListIndex(noChrome, 0) === 0)
+  check("and without a footer the last gap is the end of it", bodyGapToListIndex(noChrome, 2) === 2)
+
+  // A page that is nothing but chrome has no body gap to speak of, and the
+  // editor falls back to appending rather than splicing at a made-up index.
+  check("a page with only chrome reports no gap", bodyGapToListIndex([S("h", "header"), S("f", "footer")], 0) === null)
+  check("an empty page reports no gap", bodyGapToListIndex([], 0) === null)
 }
 
 check("the editor deep link carries the creator slug and the pane", editorHref("mara", "abc", "code") === "/store/mara/themes/abc/editor?previewPath=%2F&view=code")

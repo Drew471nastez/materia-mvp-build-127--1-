@@ -64,6 +64,7 @@ import type {
 } from "@/lib/website-builder/types"
 import { PAGE_META, DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES } from "@/lib/website-builder/section-schemas"
+import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
@@ -3578,6 +3579,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // Set when the user clicks an "insert between" divider in the sidebar.
   // null = append before the footer (default).
   const [pendingInsertIndex, setPendingInsertIndex] = useState<number | null>(null)
+  /** A gap in the CANVAS, counted in body sections rather than in the list. */
+  const [canvasInsertAt, setCanvasInsertAt] = useState<number | null>(null)
   /** The AI panel, docked beside the sidebar. Closed until asked for. */
   const [aiOpen, setAiOpen] = useState(false)
   /**
@@ -4629,16 +4632,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       hidden: false,
     }
     const next = [...sections]
-    if (pendingInsertIndex != null) {
+    /**
+     * A canvas gap counts body sections, so it is turned into a list index
+     * here — where the list is — rather than in the canvas, which does not
+     * know how much chrome is above it. The clamp below then applies to both
+     * kinds of insert.
+     */
+    const insertAt =
+      canvasInsertAt != null ? bodyGapToListIndex(sections, canvasInsertAt) : pendingInsertIndex
+    if (insertAt != null) {
       // Clamp into the body range (between header and footer) so an insert
       // divider can never land above the header or below the footer.
       const headerIdx = sections.findIndex(s => s.type === "header")
       const footerIdx = sections.findIndex(s => s.type === "footer")
       const minIdx = headerIdx !== -1 ? headerIdx + 1 : 0
       const maxIdx = footerIdx !== -1 ? footerIdx : sections.length
-      const clamped = Math.max(minIdx, Math.min(maxIdx, pendingInsertIndex))
+      const clamped = Math.max(minIdx, Math.min(maxIdx, insertAt))
       next.splice(clamped, 0, newSection)
       setPendingInsertIndex(null)
+      setCanvasInsertAt(null)
     } else {
       // Default — append before footer if it exists
       const footerIdx = sections.findIndex(s => s.type === "footer")
@@ -4949,6 +4961,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [scrollToSection],
   )
   const openAddSection = useCallback(() => setAddSectionOpen(true), [])
+  /**
+   * Insert at a gap in the canvas. `at` counts BODY sections — 0 is above the
+   * first — and `addSection` clamps whatever lands here into the range
+   * between the header and the footer, so this does not need to know where
+   * the chrome is. Stable, for the same reason as the two above.
+   */
+  const openAddSectionAt = useCallback((at: number) => {
+    setPendingInsertIndex(null)
+    setCanvasInsertAt(at)
+    setAddSectionOpen(true)
+  }, [])
 
   // Narrow the selected section id safely
   const selectedSectionId: string | null =
@@ -6752,6 +6775,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 bodyCount={bodyCount}
                 onSelectSection={selectSectionFromCanvas}
                 onAddSection={openAddSection}
+                onAddSectionAt={openAddSectionAt}
                 onEditorNavigate={handleEditorNavigate}
               />
               </div>
@@ -6793,7 +6817,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         open={addSectionOpen}
         onOpenChange={(o) => {
           setAddSectionOpen(o)
-          if (!o) setPendingInsertIndex(null)
+          if (!o) {
+            setPendingInsertIndex(null)
+            setCanvasInsertAt(null)
+          }
         }}
         onAddSection={addSection}
       />
@@ -6876,6 +6903,53 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 // A 16px tall hover target that reveals a thin line + plus button
 // exactly between two sections. Clicking it opens the Add Section
 // library with the insert position pre-set.
+/**
+ * ===========================================================================
+ *  THE SAME THING, IN THE CANVAS
+ * ===========================================================================
+ * The sidebar has had an insert strip between its rows for a while. The
+ * canvas had none, so adding a section in the middle of a page meant finding
+ * the two rows it belongs between in a list on the left, rather than
+ * pointing at the gap on the page where you want it.
+ *
+ * A full-width strip in the flow, so it takes its own space and cannot
+ * overlap the sections on either side of it — the mistake the sidebar's own
+ * version documents. At rest it is nothing at all: a page being designed
+ * should not have a row of dotted lines running down it. Under the pointer a
+ * line draws itself and a button turns in.
+ *
+ * The plus ROTATES rather than appearing: it comes in from -90°, which is
+ * the quarter turn that reads as a control arriving rather than a graphic
+ * being switched on. `rotate` and `scale` are named in the transition, not
+ * `transform` — Tailwind v4 compiles those utilities to the standalone
+ * properties, and a transition naming `transform` animates neither.
+ */
+function CanvasInsertStrip({ onClick }: { onClick: () => void }) {
+  return (
+    <div
+      className="group relative isolate z-20 flex h-6 w-full cursor-pointer select-none items-center justify-center"
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label="Add a section here"
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" && e.key !== " ") return
+        e.preventDefault()
+        e.stopPropagation()
+        onClick()
+      }}
+    >
+      <span className="pointer-events-none absolute inset-x-0 h-[2px] origin-center scale-x-0 bg-[#8B56FA] opacity-0 transition-[opacity,scale] duration-200 ease-out group-hover:scale-x-100 group-hover:opacity-100 group-focus-visible:scale-x-100 group-focus-visible:opacity-100 motion-reduce:transition-none" />
+      <span className="pointer-events-none relative z-10 flex h-6 w-6 -rotate-90 scale-75 items-center justify-center rounded-full bg-[#8B56FA] text-white opacity-0 shadow-[0_2px_10px_-2px_rgba(139,86,250,0.8)] transition-[opacity,rotate,scale] duration-200 ease-out group-hover:rotate-0 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:rotate-0 group-focus-visible:scale-100 group-focus-visible:opacity-100 motion-reduce:transition-none">
+        <Plus className="h-3.5 w-3.5" strokeWidth={2.75} />
+      </span>
+    </div>
+  )
+}
+
 function InsertSectionDivider({ onClick }: { onClick: () => void }) {
   /**
    * ===========================================================================
@@ -7119,7 +7193,23 @@ function SectionToolbar({
       // Above the sections (9998) and the badge (9999), below the editor's
       // own chrome. It belongs to the editor, not to the page.
       className={cn(
-        "wb-section-toolbar absolute z-[60] flex items-center gap-0.5 rounded-xl border border-neutral-200/80 bg-white/95 p-1 shadow-[0_8px_28px_-10px_rgba(15,23,42,0.35)] backdrop-blur",
+        /**
+         * BELOW THE CHROME, ABOVE THE CANVAS.
+         *
+         * This was `z-[60]`, and it outranked the editor's own top bar — so
+         * with the Publish panel open, the toolbar and its tooltip painted
+         * across it. The numbers looked safe and were not: `z-index` only
+         * ranks things inside one stacking context, and `<main>` has
+         * `position: relative` with NO z-index of its own, which creates no
+         * context. So this was never being compared with its neighbours in
+         * the canvas — it was competing directly with `<header>`'s `z-50` in
+         * the editor's root context, and 60 beats 50.
+         *
+         * 30 puts it over the card (isolated) and the canvas scrollbar (20),
+         * and under every piece of chrome. A tooltip cannot cover the panel
+         * either once the button it belongs to is behind it.
+         */
+        "wb-section-toolbar absolute z-30 flex items-center gap-0.5 rounded-xl border border-neutral-200/80 bg-white/95 p-1 shadow-[0_8px_28px_-10px_rgba(15,23,42,0.35)] backdrop-blur",
         /**
          * Opacity and transform only, and NOT `top`. It tracks its section
          * on every scrolled frame, so a transition on the position would
@@ -7205,6 +7295,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   bodyCount,
   onSelectSection,
   onAddSection,
+  onAddSectionAt,
   onEditorNavigate,
 }: {
   theme: ThemeSettingsValues
@@ -7215,12 +7306,19 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   bodyCount: number
   onSelectSection: (sectionId: string) => void
   onAddSection: () => void
+  onAddSectionAt: (at: number) => void
   onEditorNavigate: (href: string) => void
 }) {
   return (
     <ThemePage
       theme={theme}
       sections={sections}
+      /**
+       * The strip you hover to add a section right there. Only with the
+       * inspector on: with it off the canvas is a plain preview, and nothing
+       * in it is meant to be a control.
+       */
+      renderGap={inspectorEnabled ? (at) => <CanvasInsertStrip onClick={() => onAddSectionAt(at)} /> : undefined}
       /**
        * `atTop` says whether this header has any chrome above it.
        * ThemePage answers that because ThemePage draws the chrome;
