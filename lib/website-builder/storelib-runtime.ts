@@ -1,0 +1,103 @@
+/**
+ * ===========================================================================
+ *  WHERE THE OLD BUILDER MEETS THE NEW ENGINE
+ * ===========================================================================
+ * The editor and the published page hold a section as `SectionInstance`
+ * (`{ id, type, name, settings, blocks: [] }`) and the theme as
+ * `ThemeSettingsValues`. The engine in lib/storelib-theme holds a section as
+ * `SectionInstanceData` (`{ type, settings, blocks: {}, block_order }`) and
+ * the theme as plain settings. This file is the only place that knows both
+ * shapes, so the engine stays free of the application and the application
+ * changes one file when the storage shape moves.
+ *
+ * It also owns the compiled sections. A `.storelib` file compiles once per
+ * source text and every instance of it renders from the same compiled tree;
+ * a change to an instance's settings never recompiles anything.
+ */
+import {
+  compileSection,
+  renderSection,
+  type CompiledSection,
+  type SectionInstanceData,
+  type ThemeError,
+} from "@/lib/storelib-theme"
+import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
+import type { SectionInstance, ThemeSettingsValues } from "./types"
+
+/** `sections/<type>.storelib`, the path a section's source lives at. */
+export function sectionSourcePath(type: string): string {
+  return `sections/${type}.storelib`
+}
+
+/**
+ * The source a section type renders from. The default theme's files are in
+ * the bundle; a custom file saved from the code editor (Phase C) will be
+ * consulted first, here, and nowhere else.
+ */
+export function sectionSource(type: string, overrides?: Record<string, string>): string | null {
+  const path = sectionSourcePath(type)
+  return overrides?.[path] ?? DEFAULT_THEME_SOURCES[path] ?? null
+}
+
+/** Whether this section type is rendered by the engine rather than a React renderer. */
+export function isStorelibSection(type: string, overrides?: Record<string, string>): boolean {
+  return sectionSource(type, overrides) !== null
+}
+
+type Compiled = { ok: true; value: CompiledSection } | { ok: false; errors: ThemeError[] }
+
+/** One compile per distinct source text. The key is the text itself, so an edited file is a new entry and an unchanged one is a hit. */
+const compiled = new Map<string, Compiled>()
+
+export function compiledSection(type: string, overrides?: Record<string, string>): Compiled {
+  const source = sectionSource(type, overrides)
+  if (source === null) {
+    return { ok: false, errors: [{ stage: "package", message: `There is no ${sectionSourcePath(type)}`, file: sectionSourcePath(type) }] }
+  }
+  const hit = compiled.get(source)
+  if (hit) return hit
+  const r = compileSection(source, { file: sectionSourcePath(type), expectType: type })
+  const out: Compiled = r.ok === true ? { ok: true, value: r.value } : { ok: false, errors: r.errors }
+  compiled.set(source, out)
+  return out
+}
+
+/** The editor's shape → the engine's. Blocks keep their ids and their order. */
+export function toInstanceData(section: SectionInstance): SectionInstanceData {
+  const blocks = section.blocks ?? []
+  return {
+    type: section.type,
+    settings: section.settings,
+    blocks: Object.fromEntries(blocks.map((b) => [b.id, { type: b.type, settings: b.settings }])),
+    block_order: blocks.map((b) => b.id),
+    hidden: section.hidden,
+    name: section.name,
+  }
+}
+
+export type StorelibRendered =
+  | { ok: true; html: string; css: string }
+  | { ok: false; errors: ThemeError[] }
+
+/**
+ * An instance to markup and scoped CSS. Pure: the same section and theme
+ * give the same strings on the server and in the browser, which is what
+ * lets React hydrate the result without a mismatch.
+ */
+export function renderStorelibSection(
+  section: SectionInstance,
+  theme: ThemeSettingsValues,
+  page: { template: string } = { template: "index" },
+  overrides?: Record<string, string>,
+): StorelibRendered {
+  const c = compiledSection(section.type, overrides)
+  if (c.ok === false) return c
+  const r = renderSection({
+    compiled: c.value,
+    id: section.id,
+    instance: toInstanceData(section),
+    theme: theme as unknown as Record<string, unknown>,
+    page,
+  })
+  return { ok: true, html: r.html, css: r.css }
+}

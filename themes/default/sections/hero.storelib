@@ -2,7 +2,7 @@
 <section
   class="hero hero--{{ settings.layout }}{% if settings.full_height %} hero--full{% endif %}"
   data-scheme="{{ settings.color_scheme }}"
-  style="{% if settings.bg_type == 'gradient' %}background: {{ settings.bg_gradient | default: 'linear-gradient(135deg, ' | append: settings.bg_color | append: ' 0%, ' | append: theme.colors.primary | append: ' 100%)' }};{% elsif settings.bg_type == 'color' %}background: {{ settings.bg_color | default: scheme.bg }};{% endif %} --hero-text: {{ settings.text_color | default: scheme.heading }}; --hero-para: {{ settings.text_color | default: scheme.paragraph }}; --hero-heading-size: {{ settings.font_size_heading }}px; --hero-pad-top: {{ settings.padding_top }}px; --hero-pad-bottom: {{ settings.padding_bottom }}px;"
+  style="{% if settings.bg_type == 'gradient' %}background: {% if settings.bg_gradient %}{{ settings.bg_gradient }}{% else %}linear-gradient(135deg, {{ settings.bg_color | default: scheme.bg }} 0%, {{ scheme.primary_btn_bg }} 100%){% endif %};{% elsif settings.bg_type == 'color' %}background: {{ settings.bg_color | default: scheme.bg }};{% endif %} --hero-text: {{ settings.text_color | default: scheme.heading }}; --hero-para: {{ settings.text_color | default: scheme.paragraph }}; --hero-heading-size: {{ settings.font_size_heading }}px; --hero-pad-top: {{ settings.padding_top }}px; --hero-pad-bottom: {{ settings.padding_bottom }}px;"
 >
   {% if settings.bg_type == 'video' and settings.bg_video %}
     <video class="hero__media" src="{{ settings.bg_video | asset }}" autoplay muted loop playsinline></video>
@@ -17,7 +17,7 @@
     <div class="hero__content">
       {% if settings.eyebrow %}<span class="hero__eyebrow">{{ settings.eyebrow }}</span>{% endif %}
       {% if settings.badge_text %}
-        <span class="hero__badge" style="background: {{ settings.button_color | default: theme.colors.primary | alpha: 0.14 }}; color: {{ settings.button_color | default: theme.colors.primary }};">{{ settings.badge_text }}</span>
+        <span class="hero__badge" style="background: {{ settings.button_color | default: scheme.primary_btn_bg | alpha: 0.14 }}; color: {{ settings.button_color | default: scheme.primary_btn_bg }};">{{ settings.badge_text }}</span>
       {% endif %}
       {% if settings.heading %}
         <h1 class="hero__heading{% if settings.animate_heading %} hero__heading--animate{% endif %}" style="font-family: {{ theme.typography.heading }};">{{ settings.heading }}</h1>
@@ -26,7 +26,7 @@
       {% if settings.button_text or settings.button2_text %}
         <div class="hero__actions">
           {% if settings.button_text %}
-            <a class="hero__button hero__button--{{ settings.button_style }}" href="{{ settings.button_url | default: '#' | url }}" style="--btn: {{ settings.button_color | default: theme.colors.primary }}; --btn-text: {{ settings.button_text_color | default: '#ffffff' }}; border-radius: {{ settings.button_border_radius }}px;">{{ settings.button_text }}</a>
+            <a class="hero__button hero__button--{{ settings.button_style }}" href="{{ settings.button_url | default: '#' | url }}" style="--btn: {{ settings.button_color | default: scheme.primary_btn_bg }}; --btn-text: {{ settings.button_text_color | default: scheme.primary_btn_text }}; border-radius: {{ settings.button_border_radius }}px;">{{ settings.button_text }}</a>
           {% endif %}
           {% if settings.button2_text %}
             <a class="hero__button hero__button--{{ settings.button2_style }}" href="{{ settings.button2_url | default: '#' | url }}" style="--btn: {{ settings.text_color | default: scheme.heading }}; --btn-text: {{ settings.bg_color | default: scheme.bg }}; border-radius: {{ settings.button_border_radius }}px;">{{ settings.button2_text }}</a>
@@ -72,11 +72,11 @@
   gap: 40px;
   width: 100%;
   margin: 0 auto;
-  padding: var(--hero-pad-top) 32px var(--hero-pad-bottom);
+  padding: calc(var(--hero-pad-top) * var(--theme-spacing-scale, 1)) 32px calc(var(--hero-pad-bottom) * var(--theme-spacing-scale, 1));
 }
 .hero__inner--narrow { max-width: 720px; }
 .hero__inner--medium { max-width: 960px; }
-.hero__inner--wide { max-width: 1200px; }
+.hero__inner--wide { max-width: var(--theme-page-width, 1230px); }
 .hero__inner--full { max-width: none; }
 .hero--full .hero__inner { min-height: 80vh; }
 .hero--split .hero__inner { flex-direction: column; }
@@ -96,6 +96,7 @@
 .hero--right .hero__content { align-items: flex-end; text-align: right; }
 .hero__eyebrow {
   font-size: 12px;
+  line-height: calc(1 / 0.75);
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -108,6 +109,7 @@
   border-radius: 9999px;
   padding: 4px 12px;
   font-size: 12px;
+  line-height: calc(1 / 0.75);
   font-weight: 500;
 }
 .hero__heading {
@@ -115,7 +117,10 @@
   max-width: 48rem;
   font-size: 36px;
   font-weight: 700;
-  line-height: 1.08;
+  /* What the React hero shipped: its `leading-[1.08]` never reached the
+     stylesheet, so the heading has always had text-4xl's 2.5/2.25. Matching
+     the pixels people see, not the class they never saw. */
+  line-height: calc(2.5 / 2.25);
 }
 @container (min-width: 640px) {
   .hero__heading { font-size: var(--hero-heading-size); }
@@ -131,7 +136,7 @@
   margin: 0;
   max-width: 36rem;
   font-size: 18px;
-  line-height: 1.6;
+  line-height: 1.625;
   color: var(--hero-para);
 }
 .hero__actions { display: flex; flex-wrap: wrap; gap: 12px; }

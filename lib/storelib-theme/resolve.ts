@@ -166,11 +166,11 @@ export function stripDefaults(defs: SettingDefinition[], values: Record<string, 
  * theme's own `color_schemes` setting overrides any of them by name.
  */
 export const DEFAULT_SCHEMES: Record<string, Record<string, string>> = {
-  white: { bg: "#ffffff", text: "#5C5B63", heading: "#0f172a", paragraph: "#5C5B63", border: "#e2e8f0" },
-  light: { bg: "#f8fafc", text: "#0f172a", heading: "#0f172a", paragraph: "#475569", border: "#e2e8f0" },
-  dark: { bg: "#1f2937", text: "#f8fafc", heading: "#ffffff", paragraph: "#cbd5e1", border: "#374151" },
-  black: { bg: "#000000", text: "#ffffff", heading: "#ffffff", paragraph: "#cbd5e1", border: "#1f2937" },
-  highlight: { bg: "#fde2e4", text: "#1f2937", heading: "#1f2937", paragraph: "#475569", border: "#fbcfd1" },
+  white: { bg: "#ffffff", text: "#5C5B63", heading: "#0f172a", paragraph: "#5C5B63", border: "#e2e8f0", link: "#0f172a", accent: "#1f2937", primary_btn_bg: "#000000", primary_btn_text: "#ffffff", secondary_btn_bg: "#ffffff", secondary_btn_text: "#0f172a" },
+  light: { bg: "#f8fafc", text: "#0f172a", heading: "#0f172a", paragraph: "#475569", border: "#e2e8f0", link: "#0f172a", accent: "#1f2937", primary_btn_bg: "#0f172a", primary_btn_text: "#ffffff", secondary_btn_bg: "#ffffff", secondary_btn_text: "#0f172a" },
+  dark: { bg: "#1f2937", text: "#f8fafc", heading: "#ffffff", paragraph: "#cbd5e1", border: "#374151", link: "#f8fafc", accent: "#e5e7eb", primary_btn_bg: "#ffffff", primary_btn_text: "#0f172a", secondary_btn_bg: "transparent", secondary_btn_text: "#ffffff" },
+  black: { bg: "#000000", text: "#ffffff", heading: "#ffffff", paragraph: "#cbd5e1", border: "#1f2937", link: "#ffffff", accent: "#e5e7eb", primary_btn_bg: "#ffffff", primary_btn_text: "#000000", secondary_btn_bg: "transparent", secondary_btn_text: "#ffffff" },
+  highlight: { bg: "#fde2e4", text: "#1f2937", heading: "#1f2937", paragraph: "#475569", border: "#fbcfd1", link: "#1f2937", accent: "#0f172a", primary_btn_bg: "#1f2937", primary_btn_text: "#fde2e4", secondary_btn_bg: "transparent", secondary_btn_text: "#1f2937" },
 }
 
 export function themeTokens(settings: Record<string, unknown>): Record<string, unknown> {

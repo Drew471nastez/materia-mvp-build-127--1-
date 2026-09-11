@@ -2,8 +2,15 @@
 
 /**
  * ===========================================================================
- *  THE HERO
+ *  THE HERO, AS A REACT COMPONENT — NO LONGER REGISTERED
  * ===========================================================================
+ * The hero renders from themes/default/sections/hero.storelib through the
+ * theme engine now (see ../StorelibSection.tsx and the registry). This file
+ * stays as the reference that scripts/check-storelib-hero.mjs measures the
+ * engine's output against — text, heights, colours, font sizes, buttons —
+ * and goes when the next section moves and the measurement no longer needs a
+ * React hero to compare with.
+ *
  * The schema described a good hero: an eyebrow, a badge, two buttons with
  * their own styles and colours, four background types including a gradient
  * and a video, an overlay, a heading size, a split layout with its own image,
