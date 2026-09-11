@@ -1,25 +1,31 @@
 /**
  * ===========================================================================
- *  ONE ARC IN THE WHOLE EDITOR, AND IT IS THE SEAM
+ *  THE CORNER AT THE SEAM SHOWS THE WORKSPACE, NOT THE SIDEBAR
  * ===========================================================================
- * The workspace carried four corners at the screen's edges as well, and every
- * one of them was a chip taken out of the page. An arc at the edge of the
- * screen has nothing behind it but the root: against a dark site header it
- * reads as a bright notch bitten out of the top right, and against a light one
- * it reads as nothing at all. There is nothing there for a corner to turn away
- * FROM.
+ * There is one arc in the editor. It is where the sidebar ends and the page
+ * begins, and the question that took eleven attempts to answer is what is on
+ * the other side of it.
  *
- * The one place two surfaces actually meet is the seam, where the sidebar ends
- * and the canvas begins. The canvas turns there, and the panel beside it fills
- * what that turn leaves behind with a REVERSED corner: a box of its own colour
- * with the arc's own circle taken out of it, so the flat surface flows into
- * the corner along exactly the curve the canvas turns on. Rounding the second
- * panel instead would not close the gap, it would double it, and two arcs
- * curving away from each other leave a lens.
+ * The answer that kept being wrong was "the sidebar's white". Flowing one
+ * panel's surface into another around a reversed curve is a real technique and
+ * it works where the two surfaces are close in tone. Here the surface past the
+ * arc is whatever site somebody is building, so a white wedge wired between a
+ * dark top bar and a dark site header reads as a chip of the sidebar broken
+ * off into the page. Five fills were tried in that wedge and each one was
+ * wrong for a different page.
  *
- * So this measures the seam three ways — the gap is closed, the fill traces a
- * curve rather than filling a square, and no hairline cuts across it — and the
- * screen's corners are square. The control is the shape it replaces.
+ * Nothing fills it. The page is a card with a rounded corner, and a rounded
+ * corner reveals what the card is sitting on, which is the workspace. That is
+ * the same grey as the bar above it, so the corner reads as the bar's own
+ * surface turning down into the seam, and it is right whatever colour the page
+ * is. What is drawn there is a line: one pixel on the arc, transparent either
+ * side, which is the card's edge for the pages light enough to need one.
+ *
+ * So this measures four things — the screen's corners are square, the wedge is
+ * the workspace and not the sidebar, the wedge traces the arc rather than
+ * squaring off, and the hairline runs the whole seam and meets the arc where
+ * the arc is already vertical. Two controls: the white fill this replaces, and
+ * the two-panels-curving-away shape before that.
  *
  *   node scripts/check-workspace-corners.mjs
  */
@@ -36,15 +42,18 @@ const fail = (m) => {
 }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}. Set CHROMIUM=/path/to/chromium.`)
 
-/** `rounded-2xl`, the bar's height, the sidebar's width, the viewport. */
+/** `rounded-2xl`, the seam's radius, the bar's height, the sidebar, the viewport. */
 const R = 16, SEAM_R = 22, BAR = 44, SIDE = 160, W = 560, H = 300
-/** The workspace, which is also the root: nothing is cut away from it now. */
-const ROOT = [0xee, 0xf1, 0xf5]
-/** What a gap at the seam would show, if the reversed corner left one. */
-const GAP = [0xee, 0xf1, 0xf5]
-/** The canvas panel, beside the white sidebar. */
-const CANVAS = [0xee, 0xf1, 0xf5]
+/** The workspace, which is also the root and what the corner should reveal. */
+const SHELL = [0xee, 0xf1, 0xf5]
 
+/**
+ * Three shapes.
+ *
+ *   after     nothing in the wedge, a line on the arc, a full-height hairline
+ *   white     the reversed corner: the sidebar's white flowed into the wedge
+ *   rounded   both panels curving away from each other, which leaves a lens
+ */
 const page = (shape) => `<!doctype html><html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box;margin:0}
 /**
@@ -56,30 +65,35 @@ const page = (shape) => `<!doctype html><html><head><meta charset="utf-8"><style
  * reports its own rectangle and the assertions sample that.
  */
 html,body{height:100%;overflow:hidden}
-/* the editor root: only ever seen inside the four outer arcs */
-body{background:rgb(${ROOT})}
+body{background:rgb(${SHELL})}
 .bar{position:fixed;left:0;right:0;top:0;height:${BAR}px;background:#171717}
 .row{position:fixed;left:0;right:0;top:${BAR}px;bottom:0;
-     display:flex;background:rgb(${ROOT});overflow:hidden}
+     display:flex;background:rgb(${SHELL});overflow:hidden}
 .side{width:${SIDE}px;background:#fff;flex:none}
-.divider{position:absolute;left:${SIDE - 1}px;top:${SEAM_R}px;bottom:0;width:1px;background:#e5e7eb;z-index:10}
-.canvas{flex:1;position:relative;background:rgb(${CANVAS});overflow:hidden}
-/* the site's own content: dark on purpose, so the boundary between the
-   reversed corner's white and the page it meets is unambiguous */
-.card{width:100%;height:100%;background:#111827}
+.divider{position:absolute;left:${SIDE - 1}px;top:0;bottom:0;width:1px;background:#e5e7eb;z-index:10}
+/* the canvas is square and the workspace's colour: what the card's radius
+   reveals is this, and it is the same grey as the bar's surroundings */
+.canvas{flex:1;position:relative;background:rgb(${SHELL});overflow:hidden}
+/* the site's own content, dark on purpose: a wedge of the wrong colour beside
+   a page like this is exactly what was reported */
+.card{width:100%;height:100%;background:#111827;border-top-left-radius:${SEAM_R}px}
+.fill{position:absolute;top:0;left:0;width:${SEAM_R}px;height:${SEAM_R}px;z-index:90}
 ${shape === "after"
-    ? /* square at the screen's edges; the only arc is the seam's */
-      `.card{border-top-left-radius:${SEAM_R}px}
-       .fill{position:absolute;top:0;left:0;width:${SEAM_R}px;height:${SEAM_R}px;z-index:90;
-             background:radial-gradient(circle ${SEAM_R}px at 100% 100%, rgba(255,255,255,0) 0 95%, #e5e7eb 95.6% 99.6%, #ffffff 100%)}`
-    : /* the shape it replaces: the two panels curving AWAY from each other,
-         which leaves the lens-shaped wedge that was reported as a notch */
+    ? /* the wedge is left alone and only the card's edge is drawn on it */
+      `.fill{background:radial-gradient(circle ${SEAM_R}px at 100% 100%,
+         rgba(255,255,255,0) 0 95%, #e5e7eb 95.6% 99.6%, rgba(255,255,255,0) 100%)}`
+    : shape === "white"
+    ? /* the reversed corner: the same ring, but the sidebar's white past it,
+         and the hairline held back so as not to cut the fill */
+      `.fill{background:radial-gradient(circle ${SEAM_R}px at 100% 100%,
+         rgba(255,255,255,0) 0 95%, #e5e7eb 95.6% 99.6%, #ffffff 100%)}
+       .divider{top:${SEAM_R}px}`
+    : /* both panels curving away, plus the outer radius that chipped the
+         screen's own corners */
       `.row{border-radius:${R}px}
        .side{border-top-right-radius:${SEAM_R}px}
        .canvas{border-top-left-radius:${SEAM_R}px}
-       .card{border-top-left-radius:${SEAM_R}px}
-       .fill{display:none}
-       .divider{top:0}`}
+       .fill{display:none}`}
 </style></head><body>
 <div class="bar"></div>
 <div class="row"><div class="side"></div><div class="canvas"><div class="card"></div><i class="fill"></i></div><i class="divider"></i></div>
@@ -134,19 +148,18 @@ function readPng(path) {
 }
 
 /**
- * Tight on purpose. The sidebar's own right border is #e5e7eb, a couple of
- * points from the row's #e3e7ed: at a loose tolerance the border column
- * counts as the row showing through, and a square corner with a hairline
- * beside it scores out of forty-four for nothing. Two points is inside the
- * arc's own antialiasing and outside the border.
+ * Tight on purpose. The divider is #e5e7eb, a few points from the shell's
+ * #eef1f5: at a loose tolerance the hairline column counts as shell and a
+ * square corner with a line beside it scores for nothing.
  */
-const isGap = (p) => p.every((v, i) => Math.abs(v - GAP[i]) < 2)
-const isRoot = (p) => p.every((v, i) => Math.abs(v - ROOT[i]) < 2)
+const isShell = (p) => p.every((v, i) => Math.abs(v - SHELL[i]) < 2)
+const isWhite = (p) => p.every((v) => v > 250)
+const isDivider = (p) => Math.abs(p[0] - 0xe5) < 4 && Math.abs(p[1] - 0xe7) < 4 && Math.abs(p[2] - 0xeb) < 4
 
 /**
- * Of the pixels an arc at this corner should have cut away, how many show the
- * backdrop. The sample is the corner's bounding box minus the quarter disc,
- * so it counts only what falls outside the workspace's shape.
+ * Of the pixels an arc at a screen corner would cut away, how many show the
+ * root. The sample is the corner's bounding box minus the quarter disc, so it
+ * counts only what falls outside the workspace's shape.
  */
 function corner(img, box, side, edge) {
   const x0 = side === "left" ? box.left : box.right - R
@@ -158,83 +171,78 @@ function corner(img, box, side, edge) {
     for (let y = y0; y < y0 + R; y++) {
       if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= R + 0.5) continue
       total++
-      if (isRoot(img.at(x, y))) bar++
+      if (isShell(img.at(x, y))) bar++
     }
   }
   return { bar, total }
 }
 
 /**
- * THE SEAM, MEASURED TWO WAYS.
+ * WHAT IS IN THE WEDGE.
  *
- * `wedge` is how much of the row shows through the junction: a rounded panel
- * curving away leaves a gap, and the reversed corner beside it fills that gap
- * with the flat panel's own colour, so the answer has to be zero.
- *
- * `isArc` is the other half, and it is the one that matters. Zero gap is also
- * what a plain square corner gives, so filling it proves nothing on its own.
- * This walks down the junction row by row and records where the white ends:
- * against a square corner that x never moves, and against a reversed one it
- * traces the same curve the canvas arcs away on.
+ * The wedge is the part of the seam's 22px box that the card's radius takes
+ * away: everything further from the arc's centre than its radius. Three
+ * pixels of slack keeps the ring and its antialiasing out of the count, so
+ * this is about the surface past the arc and not about the line on it.
  */
-function seamFill(img, box) {
-  let n = 0
+function wedge(img, box) {
+  const cx = box.left + SIDE + SEAM_R, cy = box.top + SEAM_R
+  let shell = 0, white = 0, total = 0
   for (let x = box.left + SIDE; x < box.left + SIDE + SEAM_R; x++) {
-    for (let y = box.top; y < box.top + SEAM_R; y++) if (isGap(img.at(x, y))) n++
+    for (let y = box.top; y < box.top + SEAM_R; y++) {
+      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= SEAM_R + 3) continue
+      total++
+      if (isShell(img.at(x, y))) shell++
+      else if (isWhite(img.at(x, y))) white++
+    }
   }
-  return n
+  return { shell, white, total }
 }
 
-const isWhite = (p) => p.every((v) => v > 250)
-function seamProfile(img, box) {
+/**
+ * And that it is a curve, not a square corner painted the right colour. This
+ * walks down the junction and records how far the workspace reaches into it:
+ * against a square corner that number never moves, and against the arc it
+ * tapers from the full radius to nothing.
+ */
+function shellProfile(img, box) {
   const edges = []
   for (let y = box.top; y < box.top + SEAM_R; y++) {
-    // From the seam RIGHTWARDS, which is the direction the fill runs: the
-    // white reaches furthest at the top and tapers to nothing at the bottom.
-    // Scanning the other way stops on the arc's own antialiasing in the first
-    // pixel it tests and reports a straight edge for every row.
     let x = 0
-    while (x < SEAM_R && isWhite(img.at(box.left + SIDE + x, y))) x++
+    while (x < SEAM_R && isShell(img.at(box.left + SIDE + x, y))) x++
     edges.push(x)
   }
   return { edges, travel: Math.max(...edges) - Math.min(...edges) }
 }
 
 /**
- * The hairline must not run through the corner. Counted as divider-coloured
- * pixels in the top SEAM_R rows of the junction, where one surface is curving
- * into the other and there is nothing to divide.
+ * The hairline runs the whole seam. Counted in the divider's own column over
+ * the top 22 rows, stopping three short of the arc's vertical tangent at
+ * (0, R), where the arc's own line takes over and the two blend.
  */
-const isDivider = (p) => Math.abs(p[0] - 0xe5) < 4 && Math.abs(p[1] - 0xe7) < 4 && Math.abs(p[2] - 0xeb) < 4
-function dividerInCorner(img, box) {
+function dividerAtCorner(img, box) {
   let n = 0
-  // The two columns at the seam itself, and stopping three pixels short of
-  // the arc's vertical tangent at (0, R) — which is the one place the line is
-  // SUPPOSED to be in this column, where it turns into the straight hairline.
-  for (let x = box.left + SIDE - 1; x <= box.left + SIDE; x++) {
-    for (let y = box.top; y < box.top + SEAM_R - 3; y++) if (isDivider(img.at(x, y))) n++
+  for (let y = box.top; y < box.top + SEAM_R - 3; y++) {
+    if (isDivider(img.at(box.left + SIDE - 1, y))) n++
   }
   return n
 }
 
 /**
- * The divider has to turn the corner, not stop before it. Walking the arc
- * from its vertical tangent at (0, R) round to its horizontal one at (R, 0),
- * every step should land on divider grey: that is one continuous line down
- * the seam and out along the top, with nothing between it and the straight
- * hairline below.
+ * The card's edge is drawn on the arc. Walking from the arc's vertical
+ * tangent at (0, R) round to its horizontal one at (R, 0), every step should
+ * land on the line: one continuous edge that leaves the straight hairline
+ * where the hairline is already going the same way.
  */
 function arcLine(img, box) {
   let on = 0, total = 0
   for (let deg = 0; deg <= 90; deg += 3) {
     const t = (deg * Math.PI) / 180
-    // centre of the arc, in image coordinates
     const cx = box.left + SIDE + SEAM_R
     const cy = box.top + SEAM_R
     const x = Math.round(cx - SEAM_R * Math.cos(t))
     const y = Math.round(cy - SEAM_R * Math.sin(t))
     total++
-    // a pixel on the line, or either of its two neighbours across the arc
     for (const d of [0, -1, 1]) {
       if (isDivider(img.at(x + d, y))) { on++; break }
     }
@@ -277,21 +285,19 @@ try {
       topRight: corner(img, box, "right", "top"),
       bottomLeft: corner(img, box, "left", "bottom"),
       bottomRight: corner(img, box, "right", "bottom"),
-      seamGap: seamFill(img, box),
-      seamProfile: seamProfile(img, box),
-      cornerDivider: dividerInCorner(img, box),
+      wedge: wedge(img, box),
+      shellProfile: shellProfile(img, box),
+      dividerAtCorner: dividerAtCorner(img, box),
       arcLine: arcLine(img, box),
     }
   }
 
   const after = read("after")
-  const before = read("before")
+  const white = read("white")
+  const rounded = read("rounded")
 
-  console.log("\none arc in the whole editor, and it is the seam\n")
+  console.log("\nthe corner at the seam shows the workspace, not the sidebar\n")
 
-  // Antialiasing blends the boundary ring, so a pixel or two on the arc is
-  // not a square corner. Most of the wedge has to be what it opens onto.
-  const ratio = (m) => m.bar / m.total
   const OUTER = [
     ["topLeft", "the top left"],
     ["topRight", "the top right"],
@@ -302,36 +308,44 @@ try {
     expect(after[key].bar === 0, `nothing is cut out of the page at ${name}`,
       `${after[key].bar} of ${after[key].total} pixels there are the root showing through a chip`)
   }
-  expect(OUTER.some(([key]) => before[key].bar > 0),
+  expect(OUTER.some(([key]) => rounded[key].bar > 0),
     "the rounded row did cut those chips, so this is a real measurement",
     "the control had square corners too")
-  expect(after.seamGap === 0, "the reversed corner fills the wedge the canvas's arc leaves",
-    `${after.seamGap} pixels of the row still showing at the junction`)
-  expect(after.seamProfile.travel >= SEAM_R - 6, "and it fills it along a curve, not as a square corner",
-    `the white edge moved ${after.seamProfile.travel}px down the junction, so it is not tracing the arc`)
 
-  expect(after.arcLine.on / after.arcLine.total > 0.9, "and the divider turns the corner with it rather than stopping before it",
+  // The whole point. What is past the arc is the workspace, and none of it is
+  // the panel beside it.
+  expect(after.wedge.white === 0, "no part of the sidebar is left sitting in the page's corner",
+    `${after.wedge.white} of ${after.wedge.total} pixels there are the sidebar's white`)
+  expect(after.wedge.shell / after.wedge.total > 0.9, "the corner shows the workspace, the same surface as the bar above it",
+    `only ${after.wedge.shell} of ${after.wedge.total} pixels are the workspace`)
+  expect(white.wedge.white > 0, "the fill did put the sidebar's white there, so this is a real measurement",
+    "the control had no white in the corner either")
+
+  // And it is the arc's shape, not a square corner in the right colour.
+  expect(after.shellProfile.travel >= SEAM_R - 6, "and it is the card's curve, not a square corner painted grey",
+    `the edge moved ${after.shellProfile.travel}px down the junction, so it is not tracing the arc`)
+
+  // The card's own edge, for pages too light to show one by contrast.
+  expect(after.arcLine.on / after.arcLine.total > 0.9, "the card's edge is drawn all the way round the arc",
     `${after.arcLine.on} of ${after.arcLine.total} points along the arc carry the line`)
-  expect(before.arcLine.on / before.arcLine.total < 0.2,
+  expect(rounded.arcLine.on / rounded.arcLine.total < 0.2,
     "the straight-only hairline did not follow the arc, so this is a real measurement",
-    `the control already had ${before.arcLine.on} of ${before.arcLine.total}`)
-  // Two pixels of slack: the arc's own antialiasing reaches the seam column
-  // as it turns into the vertical, and a blended pixel is not a straight line.
-  expect(after.cornerDivider <= 2, "and no straight hairline cuts across the corner",
-    `${after.cornerDivider} straight divider pixels inside the arc`)
-  expect(before.cornerDivider > 0, "the full-height hairline did cut across it, so this is a real measurement",
-    "the control had no divider in the corner either")
+    `the control already had ${rounded.arcLine.on} of ${rounded.arcLine.total}`)
 
-  // The control: two panels curving away from each other leave the lens that
-  // was reported as a notch.
-  expect(before.seamGap > 0, "two panels curving away from each other left a gap, so this is a real measurement",
-    "the control had no gap either")
+  // The hairline divides the two panels for the whole of the seam, including
+  // the part of it beside the corner, because up there they still meet.
+  expect(after.dividerAtCorner >= SEAM_R - 5, "and the hairline runs the whole seam rather than starting below the corner",
+    `only ${after.dividerAtCorner} of the top ${SEAM_R - 3} rows carry it`)
+  expect(white.dividerAtCorner === 0, "it used to start below the corner, so this is a real measurement",
+    `the control already ran ${white.dividerAtCorner} rows up`)
 
   console.log("")
   const cols = (m) => OUTER.map(([k]) => `${m[k].bar}/${m[k].total}`).join("  ") +
-    `   seam gap ${m.seamGap}, curve ${m.seamProfile.travel}px of ${SEAM_R}, across ${m.cornerDivider}, arc ${m.arcLine.on}/${m.arcLine.total}`
-  console.log(`  after    ${cols(after)}`)
-  console.log(`  before   ${cols(before)}\n`)
+    `   wedge ${m.wedge.shell} shell / ${m.wedge.white} white of ${m.wedge.total}` +
+    `, curve ${m.shellProfile.travel}px of ${SEAM_R}, seam ${m.dividerAtCorner}, arc ${m.arcLine.on}/${m.arcLine.total}`
+  console.log(`  after     ${cols(after)}`)
+  console.log(`  white     ${cols(white)}`)
+  console.log(`  rounded   ${cols(rounded)}\n`)
 } finally {
   rmSync(out, { recursive: true, force: true })
 }

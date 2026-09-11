@@ -911,21 +911,31 @@ check(
 )
 
 check(
-  "one arc in the whole editor, and it is the seam",
+  "the corner at the seam shows the workspace, not the sidebar",
   /**
-   * The workspace carried four more at the screen's edges, and every one of
-   * them was a chip taken out of the page. An arc at the edge of the screen
-   * has nothing behind it but the root: against a dark site header it reads
-   * as a bright notch bitten out of the top right, against a light one as
-   * nothing at all. There is nothing there for a corner to turn away FROM.
+   * The workspace carried four more arcs at the screen's edges, and every one
+   * of them was a chip taken out of the page. An arc at the edge of the
+   * screen has nothing behind it but the root: against a dark site header it
+   * reads as a bright notch bitten out of the top right, against a light one
+   * as nothing at all. There is nothing there for a corner to turn away FROM.
    *
-   * The one place two surfaces actually meet is the seam. The canvas turns
-   * there, and the panel beside it fills what that turn leaves behind with a
-   * REVERSED corner: a box of its own colour with the arc's own circle taken
-   * out of it, so the flat surface flows into the corner along exactly the
-   * curve the canvas turns on. Rounding the second panel instead does not
-   * close the gap, it doubles it — two arcs curving away from each other
-   * leave a lens, which is the notch that kept being reported.
+   * The one place two surfaces meet is the seam, and the question that took
+   * eleven rounds to answer is what is on the other side of that arc.
+   *
+   * The answer that kept being wrong was "the sidebar's white". Flowing one
+   * panel's surface into the next around a reversed curve is a real technique
+   * and it works where the two surfaces are close in tone. Here the surface
+   * past the arc is whatever site somebody is building, so a white wedge
+   * wired between a dark top bar and a dark site header reads as a chip of
+   * the sidebar broken off into the page. Five fills were tried in that
+   * wedge and each was wrong for a different page.
+   *
+   * Nothing fills it. The page is a card with a rounded corner, and a rounded
+   * corner reveals what the card sits on, which is the workspace: the same
+   * grey as the bar above it, so the corner reads as the bar's own surface
+   * turning down into the seam, and it is right whatever colour the page is.
+   * What is drawn there is one pixel on the arc, transparent either side,
+   * which is the card's edge for the pages light enough to need one.
    *
    * The fill is a CHILD OF THE CANVAS. It hung off `left: 100%` of the
    * sidebar's wrapper, which is the same place as the canvas's left edge only
@@ -935,22 +945,21 @@ check(
    * radius on its CARD and stays square itself: rounding the canvas as well
    * would clip the very thing the fill is there to draw.
    *
-   * AND THE DIVIDER TURNS THE CORNER WITH IT. Starting the hairline below
-   * the arc stops it cutting across the curve, but it also leaves a line that
-   * begins 22px down for no visible reason — and where the page in the canvas
-   * is light, the arc and the fill are both invisible, so a hairline stopping
-   * short is the only thing anybody can see. That is what read as broken.
+   * AND THE HAIRLINE RUNS THE WHOLE SEAM. It started 22px down so as not to
+   * cut across the white fill. With nothing in the wedge there is no surface
+   * to interrupt: up there the sidebar's white meets the workspace's grey,
+   * the same two tones it meets all the way down, and the same line belongs
+   * between them. It ends at the arc's vertical tangent at (0, 22), which is
+   * its own direction, so the two read as one line with a curve branching off
+   * rather than as a line and a corner.
    *
-   * The line is a ring in the fill's own gradient, sitting exactly on the
-   * arc. The arc runs from (0, 22) to (22, 0), and at (0, 22) its tangent is
-   * vertical, which is the straight divider's own direction: the two join
-   * with no corner between them. One continuous line, down the seam, round
-   * the turn and out along the top.
-   *
-   * Measured: 0 pixels of anything showing through at the four screen
-   * corners, against 44, 42, 44 and 42 for the rounded row; at the seam, 0
-   * gap, a white edge travelling 17 of 22px down the curve, and 0 divider
-   * pixels inside it. `node scripts/check-workspace-corners.mjs`
+   * Measured: 0 pixels showing through at the four screen corners against 44,
+   * 42, 44 and 42 for the rounded row; in the wedge 40 of 40 pixels the
+   * workspace and 0 the sidebar, against 40 white for the fill it replaces;
+   * the edge travelling 16 of 22px down the curve; 31 of 31 points on the arc
+   * carrying the line against 6 for a straight-only hairline; and 19 of the
+   * top 19 rows of the seam carrying it against 0 before.
+   * `node scripts/check-workspace-corners.mjs`
    */
   // square at the screen's edges
   /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#eef1f5\]">/.test(editor) &&
@@ -960,13 +969,15 @@ check(
     /\{!isMobileView && device === "desktop" && <span aria-hidden className="wb-seam-fill" \/>\}/.test(editor) &&
     /isMobileView \? "bg-background" : "bg-\[#eef1f5\]",/.test(editor) &&
     !/rounded-tr-2xl/.test(editor) &&
-    // and the hairline that starts below it
+    // and the hairline beside it
     /<span aria-hidden className="wb-seam-divider" \/>/.test(editor) &&
     !/bg-white border-r border-\[#e5e7eb\]/.test(editor) &&
     ((css) =>
-      /\.wb-seam-fill \{[\s\S]{0,1400}?left: 0;/.test(css) &&
-      /rgba\(255, 255, 255, 0\) 0 95%,\s*\n\s*#e5e7eb 95\.6% 99\.6%,\s*\n\s*#ffffff 100%/.test(css) &&
-      /\.wb-seam-divider \{[\s\S]{0,300}?top: 22px;/.test(css))(readFileSync(join(root, "app/globals.css"), "utf8")),
+      /\.wb-seam-fill \{[\s\S]{0,1800}?left: 0;/.test(css) &&
+      // transparent past the ring: the workspace shows, nothing is painted on it
+      /rgba\(255, 255, 255, 0\) 0 95%,\s*\n\s*#e5e7eb 95\.6% 99\.6%,\s*\n\s*rgba\(255, 255, 255, 0\) 100%/.test(css) &&
+      !/#ffffff 100%/.test(css) &&
+      /\.wb-seam-divider \{[\s\S]{0,300}?top: 0;/.test(css))(readFileSync(join(root, "app/globals.css"), "utf8")),
 )
 
 check(

@@ -857,27 +857,27 @@ html.capacitor body {
     .wb-loading-line { animation: none }
   }
 
-  /* ── THE REVERSED CORNER ──
-     Where a rounded panel meets a flat one, the panel's arc leaves a small
-     wedge behind it and the surface underneath shows through. Rounding the
-     other panel to match only doubles the wedge: two arcs curving away from
-     each other leave a lens, which is the notch that kept being reported.
+  /* ── THE CORNER AT THE SEAM ──
+     The canvas turns where it meets the sidebar, and this draws the line that
+     turn needs plus nothing else.
 
-     This is the corner turned the other way. A square of the flat panel's
-     own colour sits in that wedge with the quarter disc masked out of it, so
-     the flat surface flows INTO the corner along exactly the arc the rounded
-     panel curves away on. The two meet on the same curve and there is no gap
-     left to see.
+     It used to paint the SIDEBAR'S WHITE into the corner, a reversed curve
+     flowing one panel's surface into the other. That is a real technique and
+     it works where the two surfaces are close in tone. Here the surface on
+     the other side of the arc is whatever page somebody is building, and a
+     white wedge tucked between a dark top bar and a dark site header reads as
+     a chip of the sidebar broken off into the page. Five different fills have
+     been tried in that wedge now — the bar's dark, the workspace's grey, a
+     second arc curving the other way, the sidebar's white — and each one is
+     wrong for a different page.
 
-     It is a BACKGROUND, not a mask. A radial gradient centred on the arc's
-     own centre — the bottom right of this 16px box, which is 16px right and
-     16px down from the junction — painting nothing inside the radius and the
-     panel's colour outside it. A mask draws the same shape and was measured
-     doing so, but it costs a compositing pass and two vendor spellings for a
-     result a background gets for free. 98% rather than 100% so the boundary
-     has a pixel of blend and the join does not alias against the arc it
-     meets, and the transparent stop is white-with-no-alpha rather than
-     `transparent`, which is black-with-no-alpha and fringes the blend grey. */
+     So nothing fills it. The corner shows the workspace's own surface, which
+     is what a page tucked into a rounded corner is supposed to reveal, and it
+     is right whatever colour the page is. What this draws is the line: one
+     pixel of the app's divider grey sitting exactly on the arc, transparent
+     either side of it. The arc runs from (0, 22) to (22, 0), and at (0, 22)
+     its tangent is vertical, which is the straight divider's own direction —
+     so the two join with no corner between them. */
   .wb-seam-fill {
     /**
      * ANCHORED TO THE CANVAS, NOT TO THE PANEL BESIDE IT.
@@ -902,46 +902,29 @@ html.capacitor body {
     /* Above the code pane as well as the preview, which is z-80: both are
        cut to the same arc and both want the same corner completed. */
     z-index: 90;
-    /**
-     * THE DIVIDER TURNS THE CORNER WITH IT.
-     *
-     * The hairline down the seam started below the arc, because a straight
-     * line drawn through a curve is a line drawn across it. That left the
-     * divider beginning 22px down for no visible reason — and where the page
-     * in the canvas is light, the arc and the fill are both invisible, so the
-     * only thing anybody could see was a hairline that stopped short. That is
-     * what read as broken.
-     *
-     * The line is a ring in this same gradient, sitting exactly on the arc:
-     * transparent inside the disc, one pixel of the app's divider grey at its
-     * edge, the panel's white outside it. The arc runs from (0, 22) to
-     * (22, 0), and at (0, 22) its tangent is vertical — which is the straight
-     * divider's own direction, so the two join without a corner between them.
-     * One continuous line: down the seam, round the turn, out along the top.
-     */
     background: radial-gradient(
       circle 22px at 100% 100%,
       rgba(255, 255, 255, 0) 0 95%,
       #e5e7eb 95.6% 99.6%,
-      #ffffff 100%
+      rgba(255, 255, 255, 0) 100%
     );
   }
 
-  /* ── The divider stops short of the corner ──
-     The hairline between two panels ran the full height of the seam, which
-     means it ran straight up through the reversed corner as well: the white
-     flowed around the curve and a grey line cut across it, a millimetre from
-     the arc, which is the seam still reading as an edge no matter how well
-     the corner was drawn.
+  /* ── The divider runs the whole seam ──
+     It used to start 22px down, because the corner was filled with the
+     sidebar's own white and a grey line cutting across that fill read as an
+     edge inside a surface that was meant to be continuous.
 
-     A divider divides the panels. There are no panels to divide in the top
-     22px, because that is where one surface curves into the other, so it
-     starts below the arc and the corner is uninterrupted. Same number as the
-     radius, and it has to be. */
+     Nothing fills the corner now, so there is no continuous surface to
+     interrupt: the sidebar's white meets the workspace's grey up there, the
+     same two tones it meets all the way down, and the same hairline belongs
+     between them. It ends where the arc's own line begins, which is the one
+     point on the arc whose tangent is vertical, so the two read as one line
+     with a curve branching off it rather than as a line and a corner. */
   .wb-seam-divider {
     position: absolute;
     right: 0;
-    top: 22px;
+    top: 0;
     bottom: 0;
     width: 1px;
     background: #e5e7eb;
