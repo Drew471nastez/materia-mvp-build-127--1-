@@ -186,7 +186,16 @@ function WebsiteCover({
   )
 }
 
-function CopyUrlPill({ url, display }: { url: string; display: string }) {
+/**
+ * The site's address, under the title, the way a host puts it there.
+ *
+ * It was a bordered box with an icon in it and a second square button welded
+ * to its right, which is the shape of a text input — so the first thing the
+ * page did was offer you something to type into that you cannot type into.
+ * It is a link now: the address, the mark that says it opens away, and a
+ * quiet copy button. Nothing is drawn around it.
+ */
+function SiteAddress({ url, display }: { url: string; display: string }) {
   const [copied, setCopied] = React.useState(false)
   const copy = async () => {
     try {
@@ -198,65 +207,35 @@ function CopyUrlPill({ url, display }: { url: string; display: string }) {
     }
   }
   return (
-    <div className="inline-flex h-9 max-w-full items-stretch overflow-hidden rounded-lg border border-[#e5e7eb] bg-white text-[13px] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-      <button
-        type="button"
-        onClick={copy}
-        className="flex min-w-0 items-center gap-2 px-3 font-medium text-[#1a1a2e] transition-colors hover:bg-[#f8f9fa]"
-        title="Copy address"
-      >
-        <span className="truncate">{display}</span>
-        <span className="relative h-3.5 w-3.5 shrink-0 text-[#9ca3af]">
-          <Copy className={cn("absolute inset-0 h-3.5 w-3.5 transition-opacity duration-150", copied && "opacity-0")} />
-          <Check className={cn("absolute inset-0 h-3.5 w-3.5 text-emerald-600 transition-opacity duration-150", !copied && "opacity-0")} />
-        </span>
-      </button>
+    <div className="mt-1.5 flex min-w-0 items-center gap-0.5">
       <a
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center border-l border-[#e5e7eb] px-2.5 text-[#6b7280] transition-colors hover:bg-[#f8f9fa] hover:text-[#1a1a2e]"
-        title="Open"
+        className="group inline-flex min-w-0 items-center gap-1.5 rounded-md text-[14px] text-[#6b7280] transition-colors hover:text-[#1a1a2e]"
       >
-        <ArrowUpRight className="h-3.5 w-3.5" />
+        <span className="truncate">{display}</span>
+        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-[#9ca3af] transition-colors group-hover:text-[#1a1a2e]" />
       </a>
+      <button
+        type="button"
+        onClick={copy}
+        aria-label={copied ? "Address copied" : "Copy address"}
+        className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#9ca3af] transition-colors hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
+      >
+        <Copy className={cn("h-3.5 w-3.5 transition-opacity duration-150", copied && "opacity-0")} />
+        <Check className={cn("absolute h-3.5 w-3.5 text-emerald-600 transition-opacity duration-150", !copied && "opacity-0")} />
+      </button>
     </div>
   )
 }
 
-function IconAction({
-  label,
-  href,
-  onClick,
-  children,
-  busy,
-}: {
-  label: string
-  href?: string
-  onClick?: () => void
-  children: React.ReactNode
-  busy?: boolean
-}) {
-  const cls =
-    "flex h-9 w-9 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-[background-color,color,transform] duration-150 hover:bg-[#f8f9fa] hover:text-[#1a1a2e] active:scale-95"
-  const inner = busy ? <Loader2 className="h-4 w-4 animate-spin" /> : children
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        {href ? (
-          <a href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className={cls}>
-            {inner}
-          </a>
-        ) : (
-          <button type="button" onClick={onClick} aria-label={label} className={cls}>
-            {inner}
-          </button>
-        )}
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="text-[12px]">{label}</TooltipContent>
-    </Tooltip>
-  )
-}
+/**
+ * The second rank of button: same height and shape as the primary above it,
+ * white instead of near-black. 44px, because it is the size a thumb hits.
+ */
+const SECONDARY_ACTION =
+  "inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#e5e7eb] bg-white text-[13.5px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f3f4f6]"
 
 function SectionHeading({
   title,
@@ -268,12 +247,15 @@ function SectionHeading({
   children?: React.ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2.5">
+    // `flex-wrap`, and the actions kept together in their own box: the row
+    // had a title, a counter and two buttons on one unwrapping line, and on a
+    // phone the last button ran off the right-hand gutter.
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <div className="flex min-w-0 items-baseline gap-2.5">
         <h2 className="text-[16px] font-semibold tracking-tight text-[#1a1a2e]">{title}</h2>
         {aside}
       </div>
-      {children && <div className="flex items-center gap-2">{children}</div>}
+      {children && <div className="flex shrink-0 items-center gap-2">{children}</div>}
     </div>
   )
 }
@@ -411,10 +393,15 @@ export function WebsiteBuilderClient({
     if (fileInput.current) fileInput.current.value = ""
   }
 
-  const menuFor = (i: WebsiteSummary, opts: { publish?: boolean; preview?: boolean } = {}): ActionMenuItem[] => {
+  /**
+   * `preview` is gone from here. It added a "View live site" row, and the
+   * live card now has that as a button of its own standing beside this
+   * menu — which was the duplication the card was rewritten to remove, so
+   * leaving the option in would have left the trap set.
+   */
+  const menuFor = (i: WebsiteSummary, opts: { publish?: boolean } = {}): ActionMenuItem[] => {
     const items: ActionMenuItem[] = []
     if (opts.publish) items.push({ label: "Publish", icon: <Rocket className="h-4 w-4" />, onClick: () => setPublishing(i) })
-    if (opts.preview && siteUrl) items.push({ label: "View live site", icon: <ExternalLink className="h-4 w-4" />, href: siteUrl, target: "_blank" })
     items.push(
       { label: "Rename", icon: <Pencil className="h-4 w-4" />, onClick: () => setRenaming(i), separatorBefore: items.length > 0 },
       { label: "Duplicate", icon: <Layers className="h-4 w-4" />, onClick: () => void duplicate(i) },
@@ -441,26 +428,28 @@ export function WebsiteBuilderClient({
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
       <div className="app-page-enter mx-auto max-w-[1200px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
-        {/* ── Header ─────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[26px]">Website</h1>
-          <div className="flex flex-wrap items-center gap-2">
-            {siteUrl && <CopyUrlPill url={siteUrl} display={siteDisplay} />}
-            <Button
-              asChild
-              variant="outline"
-              className="h-9 rounded-lg border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:bg-[#f8f9fa]"
-            >
-              <Link href="/app/website-builder/themes" onClick={() => startNavigationLoading()}>
-                <Plus className="h-4 w-4" />
-                Browse themes
-              </Link>
-            </Button>
-          </div>
+        {/* ── Header ─────────────────────────────────────────────────
+            A title and the address under it, which is the shape every other
+            page in /app already uses and the shape a host uses: the first
+            thing you want here is where your site lives.
+
+            There is no button on this row any more. It held "Browse themes",
+            which went to exactly the same page as "Add theme" in the Library
+            heading below — two buttons, two labels, one destination — and it
+            wore a plus, which is the mark for adding rather than browsing.
+            The page's own first action is Edit website, immediately beneath
+            this, and it does not need company. */}
+        <div className="min-w-0">
+          <h1 className="text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">Website</h1>
+          {siteUrl && <SiteAddress url={siteUrl} display={siteDisplay} />}
         </div>
 
-        {/* ── Live website ───────────────────────────────────────── */}
-        <section aria-labelledby="live-heading">
+        {/* ── Live website ─────────────────────────────────────────
+            `data-page-block` marks the three blocks that have to sit on the
+            page's own two gutters. scripts/check-website-page.mjs reads them
+            and compares the left inset to the right, which is the complaint
+            that started this rewrite: things on this page did not line up. */}
+        <section aria-labelledby="live-heading" data-page-block>
           <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {live ? (
               <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
@@ -485,45 +474,66 @@ export function WebsiteBuilderClient({
                     <span className="mx-1.5 text-[#d1d5db]">·</span>
                     Edited {since(live.saved_at)}
                   </p>
-                  {live.theme && (
+                  {/* The theme line, ONLY when it is not the site's name over
+                      again. A website starts out named after the theme it was
+                      built from, so for anybody who has not renamed theirs
+                      this printed the same words twice, one line apart, in two
+                      sizes of grey. It earns its place once they diverge. */}
+                  {live.theme && live.theme.name !== live.name && (
                     <p className="mt-0.5 text-[12.5px] text-[#9ca3af]">
                       {live.theme.name} <span className="text-[#d1d5db]">v{live.theme.version}</span>
                     </p>
                   )}
-                  <div className="mt-5 flex flex-col gap-2.5">
+                  {/* ── What you can do to it ────────────────────────────
+                      This was a row of five identical bordered squares with a
+                      glyph in each and no words anywhere: view, code,
+                      settings, export, more. Four of the five opened
+                      something that was ALSO a row of the menu standing right
+                      beside them, so the row was the menu again, drawn wider
+                      and without its labels. And a tooltip is the only thing
+                      that ever named them, which on a phone is nothing at
+                      all — five grey squares you have to press to find out.
+
+                      Two buttons now, both of which say what they are. View
+                      site is the one action that is not about editing, so it
+                      keeps its place; everything else is in the menu, which
+                      had it already. */}
+                  <div className="mt-5 space-y-2">
                     <Button
                       onClick={() => go(editorHref(username, live.id))}
-                      className="h-10 rounded-lg bg-[#1a1a2e] text-[13.5px] font-semibold text-white hover:bg-[#2d2d44]"
+                      className="h-11 w-full rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white hover:bg-[#2d2d44]"
                     >
                       Edit website
-                      <ArrowRight className="h-4 w-4" />
                     </Button>
-                    <div className="flex items-center gap-2">
-                      {siteUrl && (
-                        <IconAction label="View live site" href={siteUrl}>
-                          <ExternalLink className="h-4 w-4" />
-                        </IconAction>
+                    <div className="grid grid-cols-2 gap-2">
+                      {siteUrl ? (
+                        <a
+                          href={siteUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={SECONDARY_ACTION}
+                        >
+                          <ExternalLink className="h-4 w-4 text-[#6b7280]" strokeWidth={1.9} />
+                          View site
+                        </a>
+                      ) : (
+                        <span />
                       )}
-                      <IconAction label="Edit code" onClick={() => go(editorHref(username, live.id, "code"))}>
-                        <Code2 className="h-4 w-4" />
-                      </IconAction>
-                      <IconAction label="Project settings" onClick={() => go(editorHref(username, live.id, "settings"))}>
-                        <Settings2 className="h-4 w-4" />
-                      </IconAction>
-                      <IconAction label="Export .zip" onClick={() => void exportTheme(live)} busy={busy === `${live.id}:export`}>
-                        <Download className="h-4 w-4" />
-                      </IconAction>
                       <ResponsiveActionMenu
                         title={live.name}
-                        items={menuFor(live, { preview: true })}
+                        // No `preview`: View site is its own button now, and a
+                        // menu row repeating the button above it is the thing
+                        // this block was rewritten to stop doing.
+                        items={menuFor(live)}
                         menuWidth="w-52"
                         trigger={
-                          <button
-                            type="button"
-                            aria-label="More"
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-[background-color,color,transform] duration-150 hover:bg-[#f8f9fa] hover:text-[#1a1a2e] active:scale-95"
-                          >
-                            {busy?.startsWith(live.id) && busy !== `${live.id}:export` ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+                          <button type="button" className={SECONDARY_ACTION}>
+                            {busy?.startsWith(live.id) ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-[#6b7280]" />
+                            ) : (
+                              <MoreHorizontal className="h-4 w-4 text-[#6b7280]" strokeWidth={1.9} />
+                            )}
+                            More
                           </button>
                         }
                       />
@@ -544,12 +554,20 @@ export function WebsiteBuilderClient({
         </section>
 
         {/* ── Library ────────────────────────────────────────────── */}
-        <section aria-labelledby="library-heading" className="space-y-3">
+        <section aria-labelledby="library-heading" className="space-y-3" data-page-block>
           <SectionHeading
             title="Library"
+            /**
+             * "2 left", or "Full". It was a fraction — and a fraction whose
+             * top can be larger than its bottom, because the limit came in
+             * after some libraries were already over it. "5/3" is not a
+             * count anybody reads as a count; it reads as a broken meter.
+             * What somebody actually wants to know here is whether they can
+             * add another one.
+             */
             aside={
-              <span className="rounded-md bg-[#eef0f3] px-1.5 py-0.5 text-[11.5px] font-semibold tabular-nums text-[#6b7280]" title={`Up to ${THEME_INSTALL_LIMIT} websites, including the live one`}>
-                {slotsUsed}/{THEME_INSTALL_LIMIT}
+              <span className="text-[12.5px] font-medium tabular-nums text-[#9ca3af]" title={`Up to ${THEME_INSTALL_LIMIT} websites, including the live one`}>
+                {slotsLeft > 0 ? `${slotsLeft} left` : "Full"}
               </span>
             }
           >
@@ -563,19 +581,22 @@ export function WebsiteBuilderClient({
                 if (f) void importZip(f)
               }}
             />
+            {/* 44px, like every other button on the page. These were 36,
+                which is under the size a thumb reliably hits and left the
+                heading row looking like a caption with two chips after it. */}
             <Button
               variant="ghost"
               onClick={() => fileInput.current?.click()}
               disabled={busy === "import" || slotsLeft === 0}
-              className="h-9 rounded-lg px-2.5 text-[13px] font-medium text-[#4b5563] hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
+              className="h-11 rounded-xl px-3 text-[13px] font-medium text-[#4b5563] hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
             >
               {busy === "import" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              <span className="hidden sm:inline">Upload .zip</span>
+              Upload .zip
             </Button>
             <Button
               asChild
               variant="outline"
-              className="h-9 rounded-lg border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f8f9fa]"
+              className="h-11 rounded-xl border-[#e5e7eb] bg-white px-3.5 text-[13px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:bg-[#f8f9fa]"
             >
               <Link href="/app/website-builder/themes" onClick={() => startNavigationLoading()}>
                 <Plus className="h-4 w-4" />
@@ -667,8 +688,8 @@ export function WebsiteBuilderClient({
         </section>
 
         {/* ── Explore ────────────────────────────────────────────── */}
-        <section aria-labelledby="explore-heading" className="space-y-3 pb-6">
-          <SectionHeading title="Explore themes">
+        <section aria-labelledby="explore-heading" className="space-y-3 pb-6" data-page-block>
+          <SectionHeading title="Browse themes">
             <Link
               href="/app/website-builder/themes"
               onClick={() => startNavigationLoading()}
@@ -678,7 +699,7 @@ export function WebsiteBuilderClient({
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </SectionHeading>
-          <h2 id="explore-heading" className="sr-only">Explore themes</h2>
+          <h2 id="explore-heading" className="sr-only">Browse themes</h2>
           {/* A row you can flick through on a phone; a grid where there is room. */}
           {/* `scroll-px-4` matters as much as `px-4` here. A snap container's
               snapport starts at its PADDING BOX, so a `snap-start` card is

@@ -2208,6 +2208,96 @@ check(
     /@keyframes wb-leaving-content \{\s*from \{ opacity: 0; translate: 0 6px \}/.test(editorCss),
 )
 
+// ===========================================================================
+section("The Website page: one address, one primary action, labelled buttons")
+// ===========================================================================
+
+const wbLoading = readFileSync(join(root, "app/app/website-builder/loading.tsx"), "utf8")
+
+check(
+  "the site's address is a link under the title, not a box you cannot type into",
+  /**
+   * It was a bordered field with an icon in it and a second square button
+   * welded to its right, which is the shape of a text input — so the first
+   * thing the page offered was somewhere to type that takes no typing.
+   */
+  /function SiteAddress\(\{ url, display \}/.test(wbPage) &&
+    !/function CopyUrlPill/.test(wbPage) &&
+    // no border, no card, no field: an anchor, a mark, and a copy button
+    /<a\s*\n\s*href=\{url\}\s*\n\s*target="_blank"[\s\S]{0,200}?text-\[14px\] text-\[#6b7280\]/.test(wbPage) &&
+    !/inline-flex h-9 max-w-full items-stretch overflow-hidden rounded-lg border/.test(wbPage),
+)
+
+check(
+  "one way to reach the theme catalogue, not two with different names",
+  /**
+   * The header carried "Browse themes" and the Library heading carried "Add
+   * theme". Same href, two labels, and the header's wore a plus, which is the
+   * mark for adding rather than browsing.
+   */
+  (wbPage.match(/href="\/app\/website-builder\/themes"/g) ?? []).length === 2 &&
+    // one button, one "see all" link — and the section is named for it
+    /<SectionHeading title="Browse themes">/.test(wbPage) &&
+    !/Browse themes\s*\n\s*<\/Link>/.test(wbPage),
+)
+
+check(
+  "the live website's actions say what they are",
+  /**
+   * This was five identical bordered squares with a glyph in each and no
+   * words anywhere. Four of the five opened something that was also a row of
+   * the menu standing beside them, so the row was the menu again, drawn
+   * wider and without its labels — and a tooltip was the only thing that
+   * ever named them, which on a phone is nothing at all.
+   */
+  /Edit website\s*\n\s*<\/Button>/.test(wbPage) &&
+    /View site\s*\n\s*<\/a>/.test(wbPage) &&
+    /More\s*\n\s*<\/button>/.test(wbPage) &&
+    // the icon-square component is gone, not merely unused
+    !/function IconAction\(/.test(wbPage) &&
+    // and View site is not also a row of the menu beside it
+    /items=\{menuFor\(live\)\}/.test(wbPage) &&
+    !/menuFor\(live, \{ preview: true \}\)/.test(wbPage),
+)
+
+check(
+  "the theme's name is not printed twice when it is also the site's name",
+  // A website starts out named after the theme it was built from, so for
+  // anybody who has not renamed theirs this printed the same words twice,
+  // one line apart, in two sizes of grey.
+  /\{live\.theme && live\.theme\.name !== live\.name && \(/.test(wbPage),
+)
+
+check(
+  "the library says how much room is left, rather than showing a fraction that can read as broken",
+  // The limit came in after some libraries were already over it, so the
+  // counter could say "5/3" — not a count anybody reads as a count.
+  /slotsLeft > 0 \? `\$\{slotsLeft\} left` : "Full"/.test(wbPage) &&
+    !/\{slotsUsed\}\/\{THEME_INSTALL_LIMIT\}/.test(wbPage),
+)
+
+check(
+  "the page's blocks are marked so their gutters can be measured, and the skeleton is the page's real shape",
+  /**
+   * Geometry claims are measured, not asserted: scripts/check-website-page.mjs
+   * renders this page at 390 and at 1280 and checks that nothing scrolls
+   * sideways, that all three blocks sit on the same two gutters, and that
+   * every button is a 44px touch target at touch widths.
+   *
+   * The skeleton has to match, or a slow load shows one layout and then
+   * jumps to another. It was still drawing two buttons beside the title and
+   * five little squares under the primary action.
+   */
+  // Matched where it is USED, closing bracket and all. Counting the bare
+  // word found four: the three sections, and the comment above them naming
+  // the attribute. An assertion that reads its own documentation is an
+  // assertion that passes when the code is deleted and the comment stays.
+  (wbPage.match(/data-page-block>/g) ?? []).length === 3 &&
+    /h-11 rounded-xl bg-\[#e9ebee\]/.test(wbLoading) &&
+    /grid grid-cols-2 gap-2/.test(wbLoading) &&
+    !/\[0, 1, 2, 3, 4\]\.map/.test(wbLoading),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
