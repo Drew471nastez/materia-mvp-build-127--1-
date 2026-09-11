@@ -47,16 +47,41 @@ function isPlain(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v)
 }
 
-/** Fill a responsive value downwards: mobile ← tablet ← desktop. */
+/**
+ * Fill a responsive value downwards: mobile ← tablet ← desktop.
+ *
+ * THE DEFAULT MAY ITSELF BE PER BREAKPOINT, and for a while this did not
+ * know that. A schema saying `"default": { "desktop": 3, "mobile": 1 }` and
+ * an instance that had never touched the setting produced
+ * `{ desktop: {desktop:3,mobile:1}, tablet: {…}, mobile: {…} }` — the whole
+ * object at every breakpoint. A template writing that into a custom property
+ * gets `--cols-d: {"desktop":3,...}`, `grid-template-columns` fails to parse,
+ * and the grid quietly collapses to one column at every width. It looks like
+ * a section that is very responsive.
+ *
+ * So the fallback is expanded first, by the same downward rule.
+ */
 export function fillResponsive<T>(v: unknown, fallback: T): ResponsiveValue<T> {
+  const fb: ResponsiveValue<T> =
+    isPlain(fallback) && BREAKPOINTS.some((b) => b in fallback)
+      ? (() => {
+          const d = (fallback as Record<string, unknown>).desktop as T
+          const t = ((fallback as Record<string, unknown>).tablet ?? d) as T
+          const m = ((fallback as Record<string, unknown>).mobile ?? t) as T
+          return { desktop: d, tablet: t, mobile: m }
+        })()
+      : { desktop: fallback, tablet: fallback, mobile: fallback }
+
   if (isPlain(v) && BREAKPOINTS.some((b) => b in v)) {
-    const desktop = (v.desktop ?? fallback) as T
-    const tablet = (v.tablet ?? desktop) as T
-    const mobile = (v.mobile ?? tablet) as T
+    // A value set at one breakpoint still carries down to the ones below it,
+    // which is what somebody means by setting only the desktop number.
+    const desktop = (v.desktop ?? fb.desktop) as T
+    const tablet = (v.tablet ?? v.desktop ?? fb.tablet) as T
+    const mobile = (v.mobile ?? v.tablet ?? v.desktop ?? fb.mobile) as T
     return { desktop, tablet, mobile }
   }
-  const one = (v === undefined ? fallback : v) as T
-  return { desktop: one, tablet: one, mobile: one }
+  if (v === undefined) return fb
+  return { desktop: v as T, tablet: v as T, mobile: v as T }
 }
 
 function resolveAsset(v: unknown, kind: ValueKind, assets: Record<string, string>): unknown {
@@ -145,7 +170,10 @@ export function stripDefaults(defs: SettingDefinition[], values: Record<string, 
     if (v === undefined) continue
     if (def.responsive && isPlain(v)) {
       const f = fillResponsive(v, fallback)
-      if (f.desktop === fallback && f.tablet === fallback && f.mobile === fallback) continue
+      // Compared against the default AS FILLED, so a per-breakpoint default
+      // strips as cleanly as a scalar one.
+      const d = fillResponsive(undefined, fallback)
+      if (f.desktop === d.desktop && f.tablet === d.tablet && f.mobile === d.mobile) continue
       // Collapse a value that is the same at every breakpoint.
       out[k] = f.desktop === f.tablet && f.tablet === f.mobile ? f.desktop : { desktop: f.desktop, tablet: f.tablet, mobile: f.mobile }
       continue

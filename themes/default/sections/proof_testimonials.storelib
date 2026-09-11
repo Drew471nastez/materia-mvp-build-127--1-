@@ -156,7 +156,7 @@
       "type": "range",
       "id": "columns",
       "label": "Columns",
-      "default": 3,
+      "default": { "desktop": 3, "tablet": 2, "mobile": 1 },
       "min": 1,
       "max": 4,
       "step": 1,

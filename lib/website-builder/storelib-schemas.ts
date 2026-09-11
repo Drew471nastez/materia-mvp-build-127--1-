@@ -31,6 +31,7 @@ function field(s: SettingDefinition): SchemaField {
   if (s.unit !== undefined) f.unit = s.unit
   if (s.placeholder !== undefined) f.placeholder = s.placeholder
   if (s.info !== undefined) f.info = s.info
+  if (s.responsive) f.responsive = true
   return f
 }
 
