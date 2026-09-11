@@ -340,9 +340,12 @@ section("Save compiles, errors carry lines, the canvas finds out")
   check("the editor listens and reloads the saved sources", /data\?\.type === "storelib:file-saved"\) void loadStorelibSources\(\)/.test(editor) && /files\?sources=1/.test(editor))
   // The sidebar reads the library, which is the theme's sections and this
   // creator's own together — see librarySchemas in the editor.
-  check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\} page=\{\{ template: pageTemplate \}\} inEditor>/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, librarySchemas\)/g) ?? []).length >= 2)
+  check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\} page=\{\{ template: pageTemplate \}\} inEditor products=\{shopCards\}>/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, librarySchemas\)/g) ?? []).length >= 2)
   check("a section this creator wrote is in the library too", /customSectionSchemas\(storelibSources\)/.test(editor) && /customAddableSections\(customSchemas\)/.test(editor) && /addable=\{libraryAddable\}/.test(editor))
-  check("a section renders from the saved source when there is one", /renderStorelibSection\(section, theme, \{ template, in_editor: inEditor === true \}, sources\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
+  // The call grew a products argument when sections learned to draw the
+  // shop. What this guard is about is unchanged: the SAVED sources are what
+  // the canvas renders from.
+  check("a section renders from the saved source when there is one", /renderStorelibSection\(section, theme, \{ template, in_editor: inEditor === true \}, sources, products\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
   // Done in one place now, for every public route rather than the storefront
   // alone: see prerenderStorelibSections, and the route list in
   // tests/website-builder.test.ts.
@@ -350,7 +353,7 @@ section("Save compiles, errors carry lines, the canvas finds out")
   check(
     "the published page draws the saved sections too, not the bundled ones",
     /\.from\("store_theme_custom_files"\)/.test(prerender)
-      && /renderStorelibSection\(section, theme, \{ template \}, sources\)/.test(prerender)
+      && /renderStorelibSection\(section, theme, \{ template \}, sources, products\)/.test(prerender)
       && /prerenderStorelibSections\(/.test(creator),
   )
   check("a new section file starts as one that compiles", /const starterFor = \(path: string\)/.test(codePage) && /"<template>",/.test(codePage) && /"<schema>",/.test(codePage))

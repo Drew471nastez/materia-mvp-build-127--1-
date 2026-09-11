@@ -282,6 +282,20 @@ export interface RenderContext {
   settings: Record<string, unknown>
   /** This instance's blocks, in order, each with resolved settings. */
   blocks: { id: string; type: string; settings: Record<string, unknown> }[]
+  /**
+   * THE CREATOR'S ACTUAL PRODUCTS, newest first, in the same shape a block
+   * has, so `{% for block in products %}` takes the body a section already
+   * wrote for `{% for block in blocks %}`. The language has no `assign` and
+   * no partials, and this is the cheapest way to offer a section both
+   * without asking it to keep two copies of one card.
+   *
+   * OPTIONAL, and empty when absent. A surface that has no catalogue to
+   * offer is a normal thing — the export, a test fixture, a thumbnail — and
+   * a section reading `products` there draws nothing rather than something
+   * wrong. Only published products belonging to THIS creator ever appear
+   * here; see lib/website-builder/shop-products.ts.
+   */
+  products?: { id: string; type: string; settings: Record<string, unknown> }[]
   /** Theme tokens: colors, typography, radius, spacing, schemes, and the raw settings. */
   theme: Record<string, unknown>
   /**

@@ -49,6 +49,7 @@ const SUITES = [
   "tests/storelib-parity.test.ts",
   "tests/preview-link.test.ts",
   "tests/published-site.test.ts",
+  "tests/shop-products.test.ts",
   "tests/contrast.test.ts",
   "tests/responsive-settings.test.ts",
   "tests/storelib-security.test.ts",

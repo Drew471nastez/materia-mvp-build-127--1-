@@ -584,6 +584,8 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
   const base: Record<string, unknown> = {
     settings: ctx.settings,
     blocks: ctx.blocks,
+    // Block-shaped, so a template loops over it with the body it already has.
+    products: ctx.products ?? [],
     theme: ctx.theme,
     scheme: ctx.scheme,
     page: ctx.page,

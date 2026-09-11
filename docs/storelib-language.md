@@ -85,6 +85,7 @@ the page, the server, another section, or anything not handed to it.
 | --- | --- |
 | `settings.<id>` | this instance's settings, by the ids the schema declares |
 | `blocks` | this instance's blocks, in order |
+| `products` | the creator's published products, newest first, **shaped like blocks**: `product.id`, `product.settings.title`, `.price`, `.compare_price`, `.image`, `.url`, `.tag` |
 | `section.id` | the instance's id, unique on the page |
 | `section.type` | the section's type |
 | `section.settings` | the same as `settings` |
@@ -94,6 +95,32 @@ the page, the server, another section, or anything not handed to it.
 | `page.template` | `"index"`, `"product"`, `"page.about"` |
 | `page.in_editor` | true only while the builder is drawing |
 | `forloop` | inside a `{% for %}`: `.index`, `.index0`, `.first`, `.last`, `.length` |
+
+#### Drawing the shop
+
+`products` is block-shaped on purpose. The language has no `assign` and no
+partials, so a section that offers both a hand-picked list and the real
+catalogue would otherwise need two copies of one card. Shaped like a block,
+the same body serves both loops:
+
+```
+{% if settings.source == 'shop' %}
+  {% for block in products %}{{ block.settings.title }}{% endfor %}
+{% else %}
+  {% for block in blocks %}{{ block.settings.title }}{% endfor %}
+{% endif %}
+```
+
+Prices arrive formatted (`"$48.00"`), because the language has no
+arithmetic and `price_cents` is an integer. A product with no price has an
+empty one rather than `$0.00`; a "was" price appears only when it is
+actually more than the price; `tag` is `"Sold out"` or empty, from the
+shop's own state rather than typed.
+
+`products` holds only what a card draws, and only **published** products
+belonging to **this** creator. It is empty on any surface that did not
+supply a catalogue — the section library's thumbnails, an exported theme —
+and a section reading it there draws nothing rather than something wrong.
 
 `settings` and `section.settings` are the same object, as are `blocks` and
 `section.blocks`. Write whichever reads better.

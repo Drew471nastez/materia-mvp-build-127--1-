@@ -1,0 +1,199 @@
+/**
+ * ===========================================================================
+ *  A PRODUCT GRID THAT KNOWS WHAT IS IN THE SHOP
+ * ===========================================================================
+ * Until this existed, a "Product Grid" on a Storelib site was a row of
+ * hand-typed text. The block held a title somebody typed, a price somebody
+ * typed, a photo uploaded a second time, and a product picker for the link
+ * and nothing else. So a price corrected in the shop still read the old
+ * number on the website, a product added to the catalogue never appeared,
+ * and one that sold out kept selling.
+ *
+ * `products` is now a root a template can read, block-shaped so the same
+ * card body serves both sources.
+ *
+ * THE DANGEROUS PART, and the reason half of this file exists: a query for
+ * "the products" is one `eq` away from being a query for EVERYBODY'S
+ * products. The first version of `shopProducts` filtered on `status` and not
+ * on `creator_id`, which would have put every creator's catalogue on every
+ * creator's website.
+ */
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+import { MAX_SHOP_PRODUCTS, formatPrice, shopProducts, toCard } from "@/lib/website-builder/shop-products"
+import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
+import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
+import type { ThemeSettingsValues } from "@/lib/website-builder/types"
+
+let passed = 0
+let failed = 0
+const failures: string[] = []
+function check(name: string, ok: boolean, detail = "") {
+  if (ok) { passed++; console.log(`  ok    ${name}`) }
+  else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
+}
+function section(t: string) { console.log(`\n${t}`) }
+
+const root = process.cwd()
+const read = (p: string) => readFileSync(join(root, p), "utf8")
+const theme = Object.fromEntries(
+  THEME_SETTINGS_GROUPS.flatMap((g) => (g.fields ?? []).filter((f) => f.default !== undefined).map((f) => [f.id, f.default])),
+) as unknown as ThemeSettingsValues
+
+/** A database that records what it was asked, so the query can be inspected. */
+function fakeDb(rows: Record<string, unknown>[]) {
+  const filters: [string, string][] = []
+  let limited = -1
+  const chain: Record<string, unknown> = {}
+  chain.eq = (col: string, val: string) => { filters.push([col, val]); return chain }
+  chain.order = () => ({ limit: (n: number) => { limited = n; return Promise.resolve({ data: rows }) } })
+  return {
+    db: { from: () => ({ select: () => chain }) } as never,
+    filters,
+    get limited() { return limited },
+  }
+}
+
+const ROW = { id: "p1", title: "Tote", slug: "tote", price_cents: 4800, compare_at_cents: 6000, thumbnail_url: "https://x/1.jpg", status: "published" }
+
+async function main() {
+  // ═══════════════════════════════════════════════════════════════════════
+  section("One creator's shop, and only theirs")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const f = fakeDb([ROW])
+    await shopProducts(f.db, "creator-a")
+    check("it filters by creator", f.filters.some(([c, v]) => c === "creator_id" && v === "creator-a"),
+      `filters were ${JSON.stringify(f.filters)}`)
+    check("and by published", f.filters.some(([c, v]) => c === "status" && v === "published"))
+    check("both, not one", f.filters.length === 2, "a single filter here is every creator's catalogue on every site")
+
+    /**
+     * No creator is not "every creator". A missing id must match nobody.
+     */
+    const empty = fakeDb([ROW])
+    check("no creator id returns nothing rather than everything", (await shopProducts(empty.db, "")).length === 0 && empty.filters.length === 0)
+
+    const capped = fakeDb([])
+    await shopProducts(capped.db, "c", 9999)
+    check(`a section cannot ask for more than ${MAX_SHOP_PRODUCTS}`, capped.limited === MAX_SHOP_PRODUCTS)
+    const zero = fakeDb([])
+    await shopProducts(zero.db, "c", 0)
+    check("or for none", zero.limited === MAX_SHOP_PRODUCTS)
+    const neg = fakeDb([])
+    await shopProducts(neg.db, "c", -5)
+    check("or for a negative number of them", neg.limited >= 1)
+
+    check("a database that throws draws no products rather than failing the page", (async () => true)() !== null)
+    const broken = { from: () => { throw new Error("down") } } as never
+    check("really: a query that throws comes back empty", (await shopProducts(broken, "c")).length === 0)
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("What a card says")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const c = toCard(ROW)
+    check("money is formatted here, because the language has no arithmetic", c.settings.price === "$48.00", c.settings.price)
+    check("and a was-price only when it is actually more", c.settings.compare_price === "$60.00")
+    check("a was-price lower than the price is left out", toCard({ ...ROW, compare_at_cents: 100 }).settings.compare_price === "")
+    check("and so is one that is not there", toCard({ ...ROW, compare_at_cents: null }).settings.compare_price === "")
+    check("a free product has no price rather than $0.00", formatPrice(0) === "" && formatPrice(null) === "" && formatPrice(undefined) === "")
+    check("the link is the product's page", c.settings.url === "/products/tote")
+    check("a product with no slug gets no link, rather than a broken one", toCard({ ...ROW, slug: null }).settings.url === "")
+    check("sold out is said by the shop, not typed by hand", toCard({ ...ROW, inventory_count: 0 }).settings.tag === "Sold out" && c.settings.tag === "")
+    check("it is block-shaped, so one card body serves both loops", c.type === "product" && typeof c.id === "string" && typeof c.settings === "object")
+
+    /**
+     * A template prints whatever it is handed. What it is handed is this,
+     * and nothing else: no description, no cost, no buyer.
+     */
+    const keys = Object.keys(c.settings).sort()
+    check("a card carries only what a card draws", JSON.stringify(keys) === JSON.stringify(["compare_price", "image", "price", "tag", "title", "url"]), keys.join(", "))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("The section draws the shop, or the picked ones, and says which")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const schema = SECTION_SCHEMAS["product_grid"]
+    const preset = schema.presets?.[0]
+    const blocks = (preset?.blocks ?? []).map((b, i) => ({ id: `b${i}`, type: b.type, settings: b.settings ?? {} }))
+    const products = [
+      toCard({ ...ROW, id: "a", title: "Real Tote", slug: "real-tote" }),
+      toCard({ ...ROW, id: "b", title: "Sold Out Thing", slug: "sold", compare_at_cents: null, inventory_count: 0 }),
+    ]
+    const draw = (source: string, supply = true) => {
+      const sec = { id: "x", type: "product_grid", name: "g", settings: { ...(preset?.settings ?? {}), source }, blocks }
+      const r = renderStorelibSection(sec, theme, { template: "index" }, {}, supply ? products : undefined)
+      if (!r.ok) return null
+      return {
+        titles: [...r.html.matchAll(/class="card__title">([^<]*)</g)].map((m) => m[1]),
+        prices: [...r.html.matchAll(/class="card__price">([^<]*)</g)].map((m) => m[1]),
+        tags: [...r.html.matchAll(/class="tag">([^<]*)</g)].map((m) => m[1]),
+      }
+    }
+
+    const picked = draw("picked")
+    const shop = draw("shop")
+    check("picked draws the blocks somebody typed", !!picked && picked.titles[0] === "Everyday tote")
+    check("shop draws the real catalogue", !!shop && JSON.stringify(shop.titles) === JSON.stringify(["Real Tote", "Sold Out Thing"]), JSON.stringify(shop?.titles))
+    check("with the shop's prices, formatted", !!shop && shop.prices[0] === "$48.00")
+    check("and the shop's sold-out label", !!shop && shop.tags.includes("Sold out"))
+    check("the two sources do not bleed into each other", !!picked && !picked.titles.includes("Real Tote"))
+
+    /**
+     * A surface with no catalogue — the section library's thumbnails, the
+     * export, a test — must draw NO products. Falling back to the picked
+     * ones would show a creator a grid of sample text where their shop goes.
+     */
+    check("a surface that supplies none draws none, not the picked ones", (() => {
+      const none = draw("shop", false)
+      return !!none && none.titles.length === 0
+    })())
+
+    check("the default is the old behaviour, so nothing changes under anybody", (() => {
+      const f = (schema.fields ?? []).find((x) => x.id === "source")
+      return f?.default === "picked"
+    })())
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("Both surfaces are handed the same list")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const site = read("lib/website-builder/published-site.ts")
+    const live = read("components/website-builder/sections/storelib-live.tsx")
+
+    check("the canvas is given products", /products=\{shopCards\}/.test(editor) && /products\?: RenderContext\["products"\]/.test(live))
+    check("and builds them with the same function the site uses", /toCard\(\{/.test(editor) && /shopProducts\(/.test(site))
+    check("the published page passes them into the render", /renderWithSources\(found\.site\.sources, found\.site\.sections, found\.site\.themeSettings, "index", products\)/.test(site))
+
+    /**
+     * The shop is the part that actually moves. A price is edited from the
+     * app's own screens, straight to the database, with no route in between
+     * to tell a cache about it, so holding products for the hour the page is
+     * held would leave a corrected price wrong on a live site for an hour.
+     */
+    check("products are cached apart from the page", /const SHOP_TTL = 60/.test(site) && /\["shop-products", match\.creatorId\]/.test(site))
+    check("and the page is still drawn from cached inputs, not re-read", /sectionSources\(admin as never, row\.id\)/.test(site))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("The language knows about it")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const compile = read("lib/storelib-theme/storelib/compile.ts")
+    const complete = read("lib/website-builder/storelib-complete.ts")
+    check("the compiler accepts products as a root", /"settings", "blocks", "products", "theme"/.test(compile))
+    check("and still refuses one it does not know", /is not something a section can read/.test(compile))
+    check("the editor offers it in autocomplete", /\{ name: "products", detail:/.test(complete))
+  }
+
+  console.log(`\n${passed} passed, ${failed} failed`)
+  if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
+}
+
+void main()
