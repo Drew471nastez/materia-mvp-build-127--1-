@@ -759,12 +759,12 @@ const PREVIEW_THEME: ThemeSettingsValues = {
   font_body: "Inter",
 }
 
-function buildPreviewSection(type: string): SectionInstance | null {
+function buildPreviewSection(type: string, presetIndex = 0): SectionInstance | null {
   const schema = SECTION_SCHEMAS[type]
   if (!schema) return null
-  const preset = schema.presets?.[0]
+  const preset = schema.presets?.[presetIndex] ?? schema.presets?.[0]
   return {
-    id: `preview-${type}`,
+    id: `preview-${type}-${presetIndex}`,
     type,
     name: schema.name,
     settings: preset?.settings ?? {},
@@ -773,8 +773,8 @@ function buildPreviewSection(type: string): SectionInstance | null {
   }
 }
 
-function SectionPreviewThumbnail({ type, containerWidth = 220 }: { type: string; containerWidth?: number }) {
-  const section = buildPreviewSection(type)
+function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220 }: { type: string; presetIndex?: number; containerWidth?: number }) {
+  const section = buildPreviewSection(type, presetIndex)
   if (!section) {
     return (
       <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -811,7 +811,7 @@ function AddSectionModal({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onAddSection: (type: string) => void
+  onAddSection: (type: string, presetIndex?: number) => void
 }) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [isMobileLayout, setIsMobileLayout] = useState(false)
@@ -843,13 +843,26 @@ function AddSectionModal({
     ...categories.map(cat => ({ key: cat, label: SECTION_CATEGORIES[cat] ?? cat })),
   ]
 
-  const handleAdd = (type: string) => {
-    onAddSection(type)
+  const handleAdd = (type: string, presetIndex = 0) => {
+    onAddSection(type, presetIndex)
     onOpenChange(false)
   }
 
+  /**
+   * ONE CARD PER PRESET. A section's presets are the different things it can
+   * first appear as — the hero's dark centred, light split and gradient —
+   * and each is drawn as its own card with its own preview. A section with
+   * one preset, or none declared, is one card named after the section.
+   */
+  const entries = (type: string): { type: string; presetIndex: number; title: string }[] => {
+    const schema = SECTION_SCHEMAS[type]
+    const presets = schema?.presets ?? []
+    if (presets.length <= 1) return [{ type, presetIndex: 0, title: schema?.name ?? type }]
+    return presets.map((p, i) => ({ type, presetIndex: i, title: p.name || schema!.name }))
+  }
+
   // ── Section card (shared between mobile & desktop) ──
-  const SectionCard = ({ type, mobile }: { type: string; mobile?: boolean }) => {
+  const SectionCard = ({ type, presetIndex = 0, title, mobile }: { type: string; presetIndex?: number; title?: string; mobile?: boolean }) => {
     const schema = SECTION_SCHEMAS[type]
     const cardRef = useRef<HTMLButtonElement>(null)
     const [cardWidth, setCardWidth] = useState(mobile ? 300 : 260)
@@ -865,7 +878,7 @@ function AddSectionModal({
     return (
       <button
         ref={cardRef}
-        onClick={() => handleAdd(type)}
+        onClick={() => handleAdd(type, presetIndex)}
         className={cn(
           "flex flex-col w-full rounded-xl border border-border bg-background overflow-hidden text-left",
           "transition-all duration-200 ease-out will-change-transform",
@@ -878,11 +891,11 @@ function AddSectionModal({
       >
         {/* Title above the preview */}
         <div className="px-4 pt-3 pb-2.5 shrink-0">
-          <p className="font-semibold text-sm leading-tight text-foreground">{schema.name}</p>
+          <p className="font-semibold text-sm leading-tight text-foreground">{title ?? schema.name}</p>
         </div>
         {/* Full-width real section preview */}
         <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden">
-          <SectionPreviewThumbnail type={type} containerWidth={cardWidth} />
+          <SectionPreviewThumbnail type={type} presetIndex={presetIndex} containerWidth={cardWidth} />
         </div>
       </button>
     )
@@ -943,8 +956,8 @@ function AddSectionModal({
           {/* Section list — single column */}
           <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overscroll-contain px-4 pt-3 pb-8">
             <div className="flex flex-col gap-3">
-              {visibleSections.map((type) => (
-                <SectionCard key={type} type={type} mobile />
+              {visibleSections.flatMap(entries).map(e => (
+                <SectionCard key={`${e.type}-${e.presetIndex}`} type={e.type} presetIndex={e.presetIndex} title={e.title} mobile />
               ))}
             </div>
             {visibleSections.length === 0 && (
@@ -998,8 +1011,8 @@ function AddSectionModal({
           {/* Right: 1-column grid */}
           <div className="flex-1 overflow-y-auto wb-slim-scroll overscroll-contain p-5">
             <div className="grid grid-cols-1 gap-4">
-              {visibleSections.map((type) => (
-                <SectionCard key={type} type={type} />
+              {visibleSections.flatMap(entries).map(e => (
+                <SectionCard key={`${e.type}-${e.presetIndex}`} type={e.type} presetIndex={e.presetIndex} title={e.title} />
               ))}
             </div>
             {visibleSections.length === 0 && (
@@ -4752,11 +4765,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     })
   }
 
-  const addSection = (type: string) => {
+  const addSection = (type: string, presetIndex = 0) => {
     pushUndo()
     const schema = SECTION_SCHEMAS[type]
     if (!schema) return
-    const preset = schema.presets?.[0]
+    const preset = schema.presets?.[presetIndex] ?? schema.presets?.[0]
     const newSection: SectionInstance = {
       id: `${type}-${Date.now()}`,
       type,
