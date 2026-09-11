@@ -65,6 +65,8 @@ import type {
 import { PAGE_META, DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES } from "@/lib/website-builder/section-schemas"
 import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
+import { schemaFor } from "@/lib/website-builder/storelib-schemas"
+import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget } from "@/components/website-builder/link-picker"
@@ -3640,17 +3642,39 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [pendingExit, setPendingExit] = useState<string | null>(null)
   /** Reported by the code editor in its frame; see its postMessage. */
   const [codeDirty, setCodeDirty] = useState(false)
+  /**
+   * THE SECTIONS THIS PERSON SAVED IN THE CODE EDITOR, path to source. The
+   * canvas renders a .storelib section from these before the bundled
+   * default, and the sidebar draws that section's panel from the saved
+   * schema. Loaded once, and again whenever the code editor's frame says a
+   * file was saved, reverted, renamed or deleted — the compile cache is
+   * keyed by source text, so a changed file compiles once and an unchanged
+   * one is a hit.
+   */
+  const [storelibSources, setStorelibSources] = useState<Record<string, string>>({})
+  const loadStorelibSources = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`)
+      if (!res.ok) return
+      const d = (await res.json()) as { files?: Record<string, string> }
+      setStorelibSources(d.files ?? {})
+    } catch {
+      /* the bundled sources still render; the next save reloads */
+    }
+  }, [installId])
+  useEffect(() => { void loadStorelibSources() }, [loadStorelibSources])
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       // Same-origin only: the frame is our own page and nothing else may
       // tell the builder what its unsaved state is.
       if (e.origin !== window.location.origin) return
-      const data = e.data as { type?: string; dirty?: boolean } | null
+      const data = e.data as { type?: string; dirty?: boolean; path?: string } | null
       if (data?.type === "storelib:code-dirty") setCodeDirty(Boolean(data.dirty))
+      if (data?.type === "storelib:file-saved") void loadStorelibSources()
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
-  }, [])
+  }, [loadStorelibSources])
   /** `document` exists only after the first client render, and the leaving
    *  screen is portalled into it. */
   const [portalReady, setPortalReady] = useState(false)
@@ -5285,7 +5309,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (selectedPanel.type === "section") {
         const section = sections.find(s => s.id === (selectedPanel as any).sectionId)
         if (!section) { setSelectedPanel({ type: "pages" }); return null }
-        const schema = SECTION_SCHEMAS[section.type]
+        const schema = schemaFor(section.type, storelibSources, SECTION_SCHEMAS)
         // This will fall through to the existing SECTION panel code below
       } else {
         // Global theme settings
@@ -5567,7 +5591,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (selectedPanel.type === "section") {
       const section = sections.find(s => s.id === selectedPanel.sectionId)
       if (!section) return null
-      const schema = SECTION_SCHEMAS[section.type]
+      const schema = schemaFor(section.type, storelibSources, SECTION_SCHEMAS)
 
       // Special Header Section UI matching the screenshot
       if (section.type === "header") {
@@ -6981,6 +7005,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                */}
               <EditorCanvasPage
                 theme={activeThemeSettings}
+                sources={storelibSources}
                 sections={sections}
                 inspectorEnabled={inspectorEnabled}
                 selectedSectionId={selectedSectionId}
@@ -7526,6 +7551,7 @@ function SectionToolbar({
 const EditorCanvasPage = memo(function EditorCanvasPage({
   theme,
   sections,
+  sources,
   inspectorEnabled,
   selectedSectionId,
   device,
@@ -7537,6 +7563,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
 }: {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
+  /** Saved .storelib files, path to source; see storelibSources in the editor. */
+  sources: Record<string, string>
   inspectorEnabled: boolean
   selectedSectionId: string | null
   device: DeviceMode
@@ -7547,6 +7575,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   onEditorNavigate: (href: string) => void
 }) {
   return (
+    <StorelibSourcesProvider sources={sources}>
     <ThemePage
       theme={theme}
       sections={sections}
@@ -7626,6 +7655,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
         </div>
       )}
     </ThemePage>
+    </StorelibSourcesProvider>
   )
 })
 
