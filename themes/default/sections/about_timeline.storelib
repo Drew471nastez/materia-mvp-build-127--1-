@@ -77,7 +77,20 @@
 .tl__when { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--s-accent); }
 .tl__what { margin: 6px 0 0; font-size: 17px; font-weight: 600; color: var(--s-heading); }
 .tl__text { margin: 6px 0 0; font-size: 14px; line-height: 1.6; color: var(--s-para); max-width: 34rem; }
-.tl__img { margin-top: 14px; width: 100%; max-width: 320px; border-radius: var(--s-radius); display: block; }
+/* A shape before the picture arrives. Without the ratio this was the one
+   section in the theme that grew when its images loaded: measured at +720px
+   on a three-moment timeline, which is the page moving under a thumb on any
+   connection slow enough to notice. `object-fit` keeps the crop honest. */
+.tl__img {
+  margin-top: 14px;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--s-radius);
+  display: block;
+  background: var(--s-border);
+}
 .empty { margin: 0; text-align: center; font-size: 14px; color: var(--s-para); opacity: 0.55; }
 </style>
 

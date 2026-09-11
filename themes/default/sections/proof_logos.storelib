@@ -64,7 +64,20 @@
 
 .lr__title { margin: 0 0 22px; text-align: center; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--s-para); opacity: 0.75; }
 .lr { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 28px 44px; }
-.lr img { display: block; height: var(--lr-h); width: auto; max-width: 160px; object-fit: contain; opacity: var(--lr-op); }
+/* The height was fixed and the width was not, so an unloaded logo took no
+   width at all and the row packed tight: once the pictures arrived it
+   rewrapped, measured at +56px on a phone. The ratio reserves a plausible
+   width until the real one is known, after which the logo's own ratio wins
+   because the width is still auto. */
+.lr img {
+  display: block;
+  height: var(--lr-h);
+  width: auto;
+  aspect-ratio: 3 / 1;
+  max-width: 160px;
+  object-fit: contain;
+  opacity: var(--lr-op);
+}
 .lr__word { font-size: 17px; font-weight: 600; letter-spacing: 0.01em; color: var(--s-heading); opacity: var(--lr-op); }
 .empty { margin: 0; text-align: center; font-size: 14px; color: var(--s-para); opacity: 0.55; }
 </style>
