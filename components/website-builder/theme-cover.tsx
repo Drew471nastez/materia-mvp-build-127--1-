@@ -435,7 +435,11 @@ export function ThemeCoverPair({
     <div className={cn("relative h-full w-full overflow-hidden", className)}>
       <ThemeCover spec={spec} className="h-full w-full" title={title} />
       {phone && (
-        <div className="absolute -bottom-[7%] right-[4%] w-[19%] overflow-hidden rounded-[9%/4.5%] border-[2px] border-[#1a1a2e] bg-white shadow-[0_10px_24px_-8px_rgba(15,23,42,0.45)]">
+        // Wholly inside the cover. It used to hang 7% off the bottom, and
+        // the parent clips, so what it drew was a phone with its lower edge
+        // sliced flat across — which reads as a picture that failed to load
+        // rather than as a deliberate bleed.
+        <div className="absolute bottom-[5%] right-[4%] w-[18%] overflow-hidden rounded-[9%/4.5%] border-[2px] border-[#1a1a2e] bg-white shadow-[0_10px_24px_-8px_rgba(15,23,42,0.45)]">
           <div className="aspect-[390/780]">
             <ThemePhoneCover spec={spec} className="h-full w-full" />
           </div>

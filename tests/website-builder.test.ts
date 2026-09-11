@@ -235,7 +235,14 @@ section("The page")
   check("mutations refresh the server's view rather than patching a client copy", /router\.refresh\(\)/.test(client) && /useTransition/.test(client))
   check("the page uses the shared action menu, dialogs and buttons", /ResponsiveActionMenu/.test(client) && /AlertDialog/.test(client) && /from "@\/components\/ui\/button"/.test(client))
   check("the primary action is Storelib dark, not a purple button", /Edit website/.test(client) && !/bg-\[#8b5cf6\]/.test(client))
-  check("the live link is a real anchor that opens a new tab", /<a href=\{href\} target="_blank" rel="noopener noreferrer"/.test(client) && /href: siteUrl, target: "_blank"/.test(client))
+  /**
+   * The rule is that the live site opens in a new tab from a REAL anchor —
+   * never `window.open`, which a pop-up blocker eats and a middle-click
+   * cannot use. It used to be satisfied by an icon-only square and a row of
+   * the menu beside it; it is one labelled button now, so the shape it is
+   * checked in changed while the rule did not.
+   */
+  check("the live link is a real anchor that opens a new tab", /href=\{siteUrl\}\s*\n\s*target="_blank"\s*\n\s*rel="noopener noreferrer"/.test(client) && !/window\.open\(siteUrl/.test(client))
   check("covers show the theme on a desktop and a phone", /ThemeCoverPair/.test(client) && /phone/.test(client))
   check("publishing over a live website asks first and says what happens to the old one", /Publish “\{publishing\?\.name\}”\?/.test(client) && /It replaces “\{live\.name\}”/.test(client))
   check("every install action is still here: rename, duplicate, code, settings, export, publish, unpublish, delete, import, add", [
