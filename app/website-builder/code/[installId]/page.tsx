@@ -6,14 +6,15 @@ import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
 import { BuilderLoader } from "@/components/website-builder/builder-loader"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Save, Loader2, File, Folder, FolderOpen, ChevronRight, X, AlertCircle, Check, RotateCcw, Code2, RefreshCw, Search, Copy, Download, Sun, Moon,
+  ArrowLeft, Save, Loader2, File, Folder, FolderOpen, ChevronRight, X, AlertCircle, Check, RotateCcw, Code2, RefreshCw, Search, Copy, Download, Sun, Moon, FilePlus, Pencil, Files, Trash2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { ThemeInstall, ThemeFileNode } from "@/lib/website-builder/types"
-import { buildThemeFileTree, flattenTree } from "@/lib/website-builder/theme-file-tree"
+import { buildThemeFileTree, flattenTree, detectLanguage } from "@/lib/website-builder/theme-file-tree"
 import { toast } from "sonner"
+import type { ThemeError } from "@/lib/storelib-theme/types"
 
 // ── File tree node ────────────────────────────────────────────
 function FileTreeNode({
@@ -112,10 +113,10 @@ function FileTreeNode({
 const CODE_TEXT = "text-[16px] leading-6 md:text-[12px] md:leading-5"
 
 // ── Syntax: very simple line coloring for JSON ────────────────
-function CodeLine({ line, lineNumber }: { line: string; lineNumber: number }) {
+function CodeLine({ line, lineNumber, hasError }: { line: string; lineNumber: number; hasError?: boolean }) {
   return (
-    <div className="flex hover:bg-[var(--code-hover)] group">
-      <span className={cn("w-10 shrink-0 text-right pr-4 text-[var(--code-faint)] select-none group-hover:text-[var(--code-muted)]", CODE_TEXT)}>
+    <div className={cn("flex hover:bg-[var(--code-hover)] group", hasError && "bg-red-500/10")} data-error-line={hasError ? "" : undefined}>
+      <span className={cn("w-10 shrink-0 text-right pr-4 select-none", hasError ? "text-red-500" : "text-[var(--code-faint)] group-hover:text-[var(--code-muted)]", CODE_TEXT)}>
         {lineNumber}
       </span>
       <span className={cn("flex-1 font-mono whitespace-pre text-[var(--code-text)]", CODE_TEXT)}>
@@ -272,6 +273,30 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
   const isDirty = fileContent !== originalContent
 
+  /**
+   * WHAT THE COMPILER SAID. A .storelib file is compiled on the server when
+   * it is saved; if it does not compile it is not saved and the errors come
+   * back with their lines. They are shown under the editor, each one a
+   * button that puts the caret on its line, and the line is marked in the
+   * gutter. Cleared by a save that goes through or by opening another file.
+   */
+  const [compileErrors, setCompileErrors] = useState<ThemeError[]>([])
+  const errorLines = new Set(compileErrors.map((e) => e.line).filter((l): l is number => typeof l === "number"))
+  const goToLine = (line: number) => {
+    const ta = textareaRef.current
+    if (!ta) return
+    const offset = fileContent.split("\n").slice(0, line - 1).reduce((n, l) => n + l.length + 1, 0)
+    ta.focus()
+    ta.setSelectionRange(offset, offset)
+    const lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20
+    ta.scrollTop = Math.max(0, (line - 4) * lineHeight)
+  }
+
+  /** New, rename, duplicate: one inline path field, not a dialog. */
+  const [pendingAction, setPendingAction] = useState<{ kind: "new" | "rename" | "duplicate"; path: string } | null>(null)
+  /** The delete the server refused, with the pages that use the section. */
+  const [deleteBlocked, setDeleteBlocked] = useState<{ path: string; usedBy: string[] } | null>(null)
+
   const loadInstall = useCallback(async () => {
     const res = await fetch(`/api/website-builder/themes/${installId}`)
     if (!res.ok) return
@@ -303,6 +328,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     }
 
     setSelectedFile(node)
+    setCompileErrors([])
     setLoadingFile(true)
     // On a phone, picking a file is the gesture that means "show me the code".
     setShowFiles(false)
@@ -373,16 +399,153 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
     if (res.ok) {
       setOriginalContent(fileContent)
+      setCompileErrors([])
       setDirtyPaths(prev => { const n = new Set(prev); n.delete(selectedFile.path); return n })
       setCustomizedPaths(prev => new Set([...prev, selectedFile.path]))
       setFileTree(buildThemeFileTree([...customizedPaths, selectedFile.path]))
       toast.success("File saved")
+      announceFileChange(selectedFile.path)
     } else {
-      const d = await res.json()
-      toast.error(d.error ?? "Failed to save")
+      const d = await res.json().catch(() => ({}))
+      if (res.status === 422 && Array.isArray(d.errors)) {
+        setCompileErrors(d.errors as ThemeError[])
+        toast.error(`${selectedFile.name} did not compile — not saved`)
+      } else {
+        toast.error(d.error ?? "Failed to save")
+      }
     }
     setSaving(false)
   }
+
+  /**
+   * THE CANVAS FINDS OUT. Inside the editor's frame, a saved, reverted,
+   * renamed or deleted section file changes what the canvas should draw;
+   * the editor listens for this and reloads its sources. Same-origin only,
+   * like the dirty flag it sits beside.
+   */
+  const announceFileChange = (path: string) => {
+    if (!embedded || typeof window === "undefined") return
+    try {
+      window.parent?.postMessage({ type: "storelib:file-saved", path }, window.location.origin)
+    } catch {
+      /* a parent on another origin cannot be told, and does not need to be */
+    }
+  }
+
+  /** What a new file starts as: a section that compiles, or an empty object. */
+  const starterFor = (path: string): string => {
+    const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
+    if (m) {
+      const type = m[1]
+      const name = type.replace(/[-_]+/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+      return [
+        "<template>",
+        `<section class="${type}">`,
+        "  <h2>{{ settings.heading }}</h2>",
+        "</section>",
+        "</template>",
+        "",
+        "<style scoped>",
+        `.${type} { padding: 48px 24px; text-align: center; }`,
+        "</style>",
+        "",
+        "<schema>",
+        JSON.stringify({
+          type,
+          name,
+          category: "content",
+          settings: [{ type: "text", id: "heading", label: "Heading", default: name }],
+          presets: [{ name }],
+        }, null, 2),
+        "</schema>",
+        "",
+      ].join("\n")
+    }
+    if (path.endsWith(".storelib")) return "<template>\n</template>\n\n<style scoped>\n</style>\n"
+    if (path.endsWith(".json")) return "{}\n"
+    return ""
+  }
+
+  /** Create, rename or duplicate, once the path field is submitted. */
+  const runPendingAction = async () => {
+    if (!pendingAction) return
+    const to = pendingAction.path.trim()
+    if (!to || to.includes("..") || to.startsWith("/") || to.includes("\\")) { toast.error("That is not a path inside the theme"); return }
+    const node: ThemeFileNode = { path: to, name: to.split("/").pop()!, type: "file", isCustomized: false, language: detectLanguage(to) }
+    if (pendingAction.kind === "new") {
+      if (flattenTree(fileTree).includes(to)) { toast.error(`${to} already exists`); return }
+      setPendingAction(null)
+      setSelectedFile(node)
+      setCompileErrors([])
+      setFileContent(starterFor(to))
+      setOriginalContent("")
+      setOpenTabs(prev => (prev.find(t => t.path === to) ? prev : [...prev, node]))
+      setShowFiles(false)
+      return
+    }
+    if (!selectedFile) return
+    if (pendingAction.kind === "duplicate") {
+      const res = await fetch(`/api/website-builder/themes/${installId}/files`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: to, content: fileContent }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(d.error ?? "Could not duplicate"); return }
+      setPendingAction(null)
+      setCustomizedPaths(prev => new Set([...prev, to]))
+      setFileTree(buildThemeFileTree([...customizedPaths, to]))
+      announceFileChange(to)
+      await openFile({ ...node, isCustomized: true })
+      return
+    }
+    if (pendingAction.kind === "rename") {
+      const res = await fetch(`/api/website-builder/themes/${installId}/files`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: selectedFile.path, to }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 422 && Array.isArray(d.errors)) setCompileErrors(d.errors as ThemeError[])
+        toast.error(d.error ?? "Could not rename")
+        return
+      }
+      setPendingAction(null)
+      const from = selectedFile.path
+      setCustomizedPaths(prev => { const n = new Set(prev); n.delete(from); n.add(to); return n })
+      setFileTree(buildThemeFileTree([...customizedPaths].filter(p => p !== from).concat(to)))
+      setOpenTabs(prev => prev.filter(t => t.path !== from))
+      announceFileChange(from)
+      announceFileChange(to)
+      await openFile({ ...node, isCustomized: true })
+    }
+  }
+
+  /**
+   * Delete a file the default theme does not have. The server refuses with
+   * the pages that use the section; a second call with force goes through.
+   */
+  const deleteFile = async (force = false) => {
+    if (!selectedFile) return
+    const res = await fetch(
+      `/api/website-builder/themes/${installId}/files?path=${encodeURIComponent(selectedFile.path)}${force ? "&force=1" : ""}`,
+      { method: "DELETE" },
+    )
+    const d = await res.json().catch(() => ({}))
+    if (res.status === 409 && Array.isArray(d.used_by)) { setDeleteBlocked({ path: selectedFile.path, usedBy: d.used_by as string[] }); return }
+    if (!res.ok) { toast.error(d.error ?? "Could not delete"); return }
+    setDeleteBlocked(null)
+    const gone = selectedFile.path
+    setCustomizedPaths(prev => { const n = new Set(prev); n.delete(gone); return n })
+    setFileTree(buildThemeFileTree([...customizedPaths].filter(p => p !== gone)))
+    setOpenTabs(prev => prev.filter(t => t.path !== gone))
+    setSelectedFile(null)
+    setFileContent("")
+    setOriginalContent("")
+    announceFileChange(gone)
+    toast.success(`Deleted ${gone.split("/").pop()}`)
+  }
+  /** A file the default theme has can be reverted, not deleted. */
+  const isOwnFile = (path: string) => !flattenTree(buildThemeFileTree([])).includes(path)
 
   /**
    * ⌘S / Ctrl+S.
@@ -461,6 +624,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       setFileTree(buildThemeFileTree(Array.from(customizedPaths).filter(p => p !== selectedFile.path)))
       // Reload default content
       await openFile(selectedFile)
+      announceFileChange(selectedFile.path)
       toast.success("Reverted to default")
     }
   }
@@ -756,6 +920,50 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   <Download className="h-3.5 w-3.5" />
                 </button>
               </BarTip>
+              <BarTip label="New file">
+                <button
+                  type="button"
+                  onClick={() => setPendingAction({ kind: "new", path: `${selectedFile.path.split("/").slice(0, -1).join("/") || "sections"}/new-file${selectedFile.path.endsWith(".storelib") ? ".storelib" : ".json"}` })}
+                  aria-label="New file"
+                  className={CODE_BAR_ICON_BUTTON}
+                >
+                  <FilePlus className="h-3.5 w-3.5" />
+                </button>
+              </BarTip>
+              <BarTip label="Duplicate this file">
+                <button
+                  type="button"
+                  onClick={() => setPendingAction({ kind: "duplicate", path: selectedFile.path.replace(/(\.[a-z]+)$/, "-copy$1") })}
+                  aria-label="Duplicate this file"
+                  className={CODE_BAR_ICON_BUTTON}
+                >
+                  <Files className="h-3.5 w-3.5" />
+                </button>
+              </BarTip>
+              {customizedPaths.has(selectedFile.path) && isOwnFile(selectedFile.path) && (
+                <>
+                  <BarTip label="Rename this file">
+                    <button
+                      type="button"
+                      onClick={() => setPendingAction({ kind: "rename", path: selectedFile.path })}
+                      aria-label="Rename this file"
+                      className={CODE_BAR_ICON_BUTTON}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </BarTip>
+                  <BarTip label="Delete this file">
+                    <button
+                      type="button"
+                      onClick={() => void deleteFile(false)}
+                      aria-label="Delete this file"
+                      className={cn(CODE_BAR_ICON_BUTTON, "hover:text-red-600")}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </BarTip>
+                </>
+              )}
               {customizedPaths.has(selectedFile.path) && (
                 <BarTip label="Put this file back to the theme's original">
                   <button
@@ -794,6 +1002,30 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                 <Code2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
                 <p className="text-[14px]">Select a file to start editing</p>
                 <p className="text-[12px] mt-1 opacity-60">Customized files are highlighted in blue</p>
+                <button
+                  type="button"
+                  onClick={() => setPendingAction({ kind: "new", path: "sections/my-section.storelib" })}
+                  className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--code-border)] px-3 text-[12px] text-[var(--code-text)] hover:bg-[var(--code-hover)]"
+                >
+                  <FilePlus className="h-3.5 w-3.5" />
+                  New file
+                </button>
+                {pendingAction?.kind === "new" && (
+                  <form
+                    className="mt-3 flex items-center gap-2"
+                    onSubmit={e => { e.preventDefault(); void runPendingAction() }}
+                  >
+                    <input
+                      autoFocus
+                      value={pendingAction.path}
+                      onChange={e => setPendingAction({ kind: "new", path: e.target.value })}
+                      onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}
+                      className="h-8 w-72 rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[12px] text-[var(--code-text)] focus:outline-none"
+                      aria-label="Path of the new file"
+                    />
+                    <button type="submit" className="h-8 rounded-md bg-[#8B56FA] px-3 text-[12px] text-white hover:bg-[#7b46ec]">Create</button>
+                  </form>
+                )}
               </div>
             </div>
           ) : loadingFile ? (
@@ -832,10 +1064,70 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               <div ref={displayRef} className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="py-2 min-h-full">
                   {lines.map((line, i) => (
-                    <CodeLine key={i} line={line} lineNumber={i + 1} />
+                    <CodeLine key={i} line={line} lineNumber={i + 1} hasError={errorLines.has(i + 1)} />
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* One path field for new, rename and duplicate; Enter runs it, Esc drops it. */}
+          {pendingAction && selectedFile && (
+            <form
+              className="flex items-center gap-2 border-t border-[var(--code-border)] bg-[var(--code-panel)] px-4 py-2"
+              onSubmit={e => { e.preventDefault(); void runPendingAction() }}
+            >
+              <span className="text-[11px] text-[var(--code-muted)] shrink-0">
+                {pendingAction.kind === "new" ? "New file at" : pendingAction.kind === "rename" ? "Rename to" : "Duplicate as"}
+              </span>
+              <input
+                autoFocus
+                value={pendingAction.path}
+                onChange={e => setPendingAction({ ...pendingAction, path: e.target.value })}
+                onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}
+                className="h-7 min-w-0 flex-1 rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[12px] text-[var(--code-text)] focus:outline-none"
+                aria-label="Path"
+              />
+              <button type="submit" className="h-7 rounded-md bg-[#8B56FA] px-2.5 text-[12px] text-white hover:bg-[#7b46ec]">
+                {pendingAction.kind === "new" ? "Create" : pendingAction.kind === "rename" ? "Rename" : "Duplicate"}
+              </button>
+              <button type="button" onClick={() => setPendingAction(null)} className="h-7 rounded-md px-2 text-[12px] text-[var(--code-muted)] hover:text-[var(--code-text)]">Cancel</button>
+            </form>
+          )}
+
+          {/* The delete the server refused: which pages use the section, and the choice. */}
+          {deleteBlocked && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-[var(--code-border)] bg-amber-500/10 px-4 py-2 text-[12px] text-[var(--code-text)]">
+              <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              <span>
+                {deleteBlocked.path.split("/").pop()} is on {deleteBlocked.usedBy.length === 1 ? "the" : `${deleteBlocked.usedBy.length} pages:`} {deleteBlocked.usedBy.join(", ")}
+                {deleteBlocked.usedBy.length === 1 ? " page" : ""}. Delete it and those sections render nothing.
+              </span>
+              <button type="button" onClick={() => void deleteFile(true)} className="h-7 rounded-md bg-red-600 px-2.5 text-[12px] text-white hover:bg-red-700">Delete anyway</button>
+              <button type="button" onClick={() => setDeleteBlocked(null)} className="h-7 rounded-md px-2 text-[12px] text-[var(--code-muted)] hover:text-[var(--code-text)]">Keep it</button>
+            </div>
+          )}
+
+          {/* What the compiler said, one line each, each one a jump to its line. */}
+          {compileErrors.length > 0 && (
+            <div className="max-h-40 overflow-y-auto border-t border-red-500/30 bg-red-500/5 px-4 py-2" data-compile-errors="">
+              <p className="text-[11px] font-semibold text-red-600">
+                {compileErrors.length === 1 ? "1 error" : `${compileErrors.length} errors`} — the file was not saved
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {compileErrors.map((err, i) => (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      onClick={() => { if (typeof err.line === "number") goToLine(err.line) }}
+                      className="flex w-full items-baseline gap-2 rounded px-1 py-0.5 text-left font-mono text-[12px] text-[var(--code-text)] hover:bg-red-500/10"
+                    >
+                      <span className="w-14 shrink-0 text-red-600">{typeof err.line === "number" ? `line ${err.line}` : err.stage}</span>
+                      <span className="min-w-0 flex-1 break-words">{err.message}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 

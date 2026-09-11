@@ -122,3 +122,20 @@ export function addableSections(manifestList: readonly string[], storelib: Recor
   return out
 }
 
+/**
+ * The schema the sidebar should draw for a type: the person's saved
+ * sections/<type>.storelib when there is one, else the default theme's, else
+ * the JSON schema. A saved file that does not validate falls back to the
+ * default rather than to nothing, so a half-edited schema does not empty
+ * the panel; the code editor is where its errors are shown.
+ */
+export function schemaFor(type: string, sources: Record<string, string> | undefined, fallback: Record<string, SectionSchema>): SectionSchema | undefined {
+  const path = `sections/${type}.storelib`
+  const saved = sources?.[path]
+  if (saved !== undefined) {
+    const r = schemaFromStorelib(saved, path)
+    if (r.ok === true) return r.schema
+  }
+  return fallback[type]
+}
+

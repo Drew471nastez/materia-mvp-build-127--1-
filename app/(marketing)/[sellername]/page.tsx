@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
+import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
@@ -226,6 +227,20 @@ export default async function SellerWebsitePage({ params }: PageProps) {
 
   const sections: SectionInstance[] = pageData?.sections ?? pageData?.draft_sections ?? []
 
+  /**
+   * THE SECTIONS THIS CREATOR SAVED IN THE CODE EDITOR. A .storelib section
+   * renders from its source, and a saved file is the source; without these
+   * the live site would draw the bundled hero while the editor drew the
+   * edited one. Path to content, into the same provider the editor uses.
+   */
+  const { data: savedFiles } = await publicAdmin
+    .from("store_theme_custom_files")
+    .select("path, content")
+    .eq("install_id", install.id)
+    .like("path", "%.storelib")
+  const storelibSources: Record<string, string> = {}
+  for (const row of savedFiles ?? []) storelibSources[row.path] = row.content
+
   // NOTE on the "black gap" bug:
   // Previously this page used `min-h-screen flex flex-col` + `flex-1` on
   // the body container to pin the footer to the bottom of the viewport on
@@ -240,10 +255,12 @@ export default async function SellerWebsitePage({ params }: PageProps) {
   // Fix: let sections flow naturally. No fake vertical filler. If the
   // user has a short page, the page is short — no gap is fabricated.
   return (
-    <ThemePage
-      theme={themeSettings}
-      sections={sections}
-      emptyDetail="Check back soon!"
-    />
+    <StorelibSourcesProvider sources={storelibSources}>
+      <ThemePage
+        theme={themeSettings}
+        sections={sections}
+        emptyDetail="Check back soon!"
+      />
+    </StorelibSourcesProvider>
   )
 }

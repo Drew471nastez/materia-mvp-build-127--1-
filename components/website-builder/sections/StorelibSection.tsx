@@ -22,6 +22,7 @@
 import { useMemo, type MouseEvent } from "react"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { SectionWrapper, type SectionProps } from "./_shared"
+import { useStorelibSources } from "./storelib-sources"
 
 export function StorelibSection({
   section,
@@ -34,7 +35,8 @@ export function StorelibSection({
   canvasRoundedTopPx,
   canvasRoundedBottomPx,
 }: SectionProps) {
-  const out = useMemo(() => renderStorelibSection(section, theme), [section, theme])
+  const sources = useStorelibSources()
+  const out = useMemo(() => renderStorelibSection(section, theme, { template: "index" }, sources), [section, theme, sources])
 
   if (out.ok === false) {
     if (!isEditing && !insideEditor) return null
