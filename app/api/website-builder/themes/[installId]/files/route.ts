@@ -1,3 +1,4 @@
+import { LIMITS } from "@/lib/storelib-theme/types"
 import { NextResponse } from "next/server"
 import { editorContent, hasUnpublishedEdit, listVersions, recordVersion, saveDraft } from "@/lib/website-builder/theme-file-drafts"
 import { z } from "zod"
@@ -290,6 +291,36 @@ export async function PUT(req: Request, { params }: Params) {
    * can be undone this afternoon. Neither depends on the migration having
    * been run — see lib/website-builder/theme-file-drafts.ts.
    */
+  /**
+   * HOW MANY FILES ONE THEME HOLDS. Enforced when a package was imported and
+   * never on the path a person uses, so an install could be grown one file at
+   * a time past what an export will accept — which turns into a theme that
+   * cannot be backed up, found at the moment somebody tries.
+   *
+   * Only counted when the file is a new one: editing the two-thousandth file
+   * is not what the limit is for.
+   */
+  {
+    const { data: existingRow } = await supabase
+      .from("store_theme_custom_files")
+      .select("path")
+      .eq("install_id", installId)
+      .eq("path", path)
+      .maybeSingle()
+    if (!existingRow) {
+      const { count } = await supabase
+        .from("store_theme_custom_files")
+        .select("path", { count: "exact", head: true })
+        .eq("install_id", installId)
+      if ((count ?? 0) >= LIMITS.filesPerPackage) {
+        return NextResponse.json(
+          { error: `A theme holds ${LIMITS.filesPerPackage} files. Delete one to add another.` },
+          { status: 413 },
+        )
+      }
+    }
+  }
+
   const saved = await saveDraft(supabase, installId, path, content)
   if (saved.ok === false) return NextResponse.json({ error: saved.error }, { status: 500 })
   await recordVersion(supabase, installId, path, content, "save")

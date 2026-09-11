@@ -42,6 +42,7 @@ const SUITES = [
   "tests/website-builder.test.ts",
   "tests/storelib-theme.test.ts",
   "tests/storelib-package.test.ts",
+  "tests/storelib-hardening.test.ts",
   "tests/agent-own-sections.test.ts",
   "tests/theme-file-drafts.test.ts",
   "tests/storelib-blocks.test.ts",
