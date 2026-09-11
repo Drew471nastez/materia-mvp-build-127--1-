@@ -6258,8 +6258,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           tried and it reads as a hole punched between two white panels: the
           arcs are small, and a small dark shape surrounded by white is a gap,
           not a frame. In the workspace's own light grey the same arcs read as
-          the surface the panels are sitting on, which is what they are. */}
-      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-[#eceef1]">
+          the surface the panels are sitting on, which is what they are.
+
+          AND IT IS A STEP DEEPER THAN IT WAS. At #eceef1 the surround was
+          nineteen points off white, which is plenty where it runs beside a
+          panel for the height of the screen and nothing at all inside a 16px
+          arc: the corners at the screen's left and right edges were rounded
+          and could not be seen, which is what was reported. #e3e7ed is half
+          as far again from white, still unmistakably light, and enough for an
+          arc that size to read as a curve rather than as a corner. */}
+      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-[#e3e7ed]">
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
           <div className="relative flex-shrink-0 flex h-full overflow-visible">
@@ -6440,12 +6448,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * with a hole in the middle. On a phone preview the hole is most
              * of the screen.
              *
-             * So the surround is a light grey, one step down from white
-             * rather than the app's own page colour, which is what gives the
-             * white preview an edge to be seen against and its corners
-             * something to be rounded away from.
+             * So the surround is a light grey, and far enough from white to
+             * be seen inside a 16px arc: that is what gives the preview an
+             * edge and its corners something to be rounded away from. The
+             * row behind this paints the same grey, so the two arcs at the
+             * seam open onto one continuous surface.
              */
-            isMobileView ? "bg-background" : "bg-[#eceef1] rounded-t-2xl",
+            isMobileView ? "bg-background" : "bg-[#e3e7ed] rounded-t-2xl",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred
@@ -7314,8 +7323,56 @@ function SidebarSectionRow({
           </span>
         )}
         <span className="flex-1 text-sm font-medium truncate">{section.name}</span>
-        {section.hidden && (
-          <EyeOff className={cn("h-3 w-3 shrink-0", isSelected ? "opacity-60" : "opacity-40")} />
+
+        {/**
+         * ===================================================================
+         *  THE EYE IS A BUTTON, AND FOR THE HEADER IT IS THE ONLY ONE
+         * ===================================================================
+         * This was a static icon: a row that had been hidden said so and gave
+         * you nothing to do about it. For an ordinary section that was merely
+         * a detour, since the three dots beside it carry Show. For the header
+         * and the footer it was a dead end — they are chrome, so they have no
+         * three dots, and their settings panel is a bespoke one with no
+         * Hide/Show in it. Hiding the header was therefore a one-way door:
+         * the row greyed out, the site lost its header, and there was no
+         * control anywhere in the editor to bring it back.
+         *
+         * So the eye toggles. It is drawn at rest whenever the row is hidden,
+         * because that is the row that needs a way out, and under the pointer
+         * on the header and the footer, which have nothing else.
+         */}
+        {(section.hidden || isStructure) && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={section.hidden ? `Show ${section.name}` : `Hide ${section.name}`}
+                aria-pressed={section.hidden}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleHide()
+                }}
+                className={cn(
+                  "h-6 w-6 shrink-0 rounded-md flex items-center justify-center",
+                  // `scale`, not `transform`: Tailwind v4 compiles `scale-90`
+                  // to the standalone `scale` property, so a transition naming
+                  // `transform` animates nothing and the press just snaps.
+                  "transition-[opacity,background-color,scale] duration-150 active:scale-90",
+                  section.hidden || isSelected
+                    ? "opacity-100"
+                    : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+                  isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10",
+                )}
+              >
+                {section.hidden ? (
+                  <EyeOff className="h-3.5 w-3.5" strokeWidth={1.75} />
+                ) : (
+                  <Eye className="h-3.5 w-3.5" strokeWidth={1.75} />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{section.hidden ? "Show" : "Hide"}</TooltipContent>
+          </Tooltip>
         )}
 
         {/* One button under the pointer, and the choices in a menu, rather

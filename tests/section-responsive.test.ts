@@ -769,7 +769,7 @@ check(
   // no surround at all beyond the strip reserved for the sheet's peek, which
   // takes the sheet's own colour so a one-pixel disagreement is a seam.
   /"relative flex-1 min-w-0 overflow-hidden flex justify-center"/.test(editor) &&
-    /isMobileView \? "bg-background" : "bg-\[#eceef1\] rounded-t-2xl"/.test(editor),
+    /isMobileView \? "bg-background" : "bg-\[#e3e7ed\] rounded-t-2xl"/.test(editor),
 )
 
 check(
@@ -800,7 +800,7 @@ check(
    * sliver inside the preview's one rounded corner.
    */
   // no mat: no padding, no gap, and the row itself is the light surface
-  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#eceef1\]">/.test(editor) &&
+  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#e3e7ed\]">/.test(editor) &&
     !/bg-\[#171717\] p-2 gap-2/.test(editor) &&
     // both top corners on the preview, matching the sidebar beside it
     /\? "rounded-t-2xl w-full"/.test(editor) &&
@@ -812,12 +812,34 @@ check(
     // and a near-black field around it makes the builder read as two products
     // with a hole between them. On a phone preview the hole is most of the
     // screen, which is what was reported with the screenshot beside it.
-    /isMobileView \? "bg-background" : "bg-\[#eceef1\] rounded-t-2xl"/.test(editor) &&
+    /isMobileView \? "bg-background" : "bg-\[#e3e7ed\] rounded-t-2xl"/.test(editor) &&
     !/: "bg-\[#171717\]"/.test(editor) &&
     // a device preview is a card floating on that surround, so it is drawn
     // with the edge and the lift the dark used to give it for free
     /"rounded-2xl ring-1 ring-black\/\[0\.06\] shadow-\[0_18px_50px_-20px_rgba\(15,23,42,0\.28\)\]"/.test(editor) &&
     /height: "100%"/.test(editor),
+)
+
+check(
+  "the header and the footer can be brought back, because the eye is a button",
+  /**
+   * It was a static icon: a row that had been hidden said so and gave you
+   * nothing to do about it. For an ordinary section that is a detour, since
+   * the three dots beside it carry Show. For the header and the footer it was
+   * a dead end — they are chrome, so they have no three dots, and the header's
+   * settings panel is a bespoke one with no Hide/Show in it. Hiding the header
+   * was a one-way door: the row greyed out, the site lost its header, and no
+   * control anywhere in the editor brought it back.
+   */
+  /aria-label=\{section\.hidden \? `Show \$\{section\.name\}` : `Hide \$\{section\.name\}`\}/.test(editor) &&
+    /\{\(section\.hidden \|\| isStructure\) && \(/.test(editor) &&
+    /onToggleHide\(\)\s*\n\s*\}\}/.test(editor) &&
+    // drawn at rest when the row is hidden, since that is the row that needs
+    // a way out, and under the pointer on the two rows with nothing else
+    /section\.hidden \|\| isSelected\s*\n\s*\? "opacity-100"\s*\n\s*: "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"/.test(editor) &&
+    // and the header row is still given the handler in the first place
+    /onToggleHide=\{\(\) => toggleSectionHidden\(header\.id\)\}/.test(editor) &&
+    /onToggleHide=\{\(\) => toggleSectionHidden\(footer\.id\)\}/.test(editor),
 )
 
 check(
@@ -840,17 +862,25 @@ check(
    * on, which is what they are.
    *
    * Measured, counting only the pixels each arc should have cut away: 44 of
-   * 44 at the left edge, 44 and 42 at the two sides of the seam, 44 at the
+   * 44 at the left edge, 44 and 40 at the two sides of the seam, 44 at the
    * right, against 0 of 44 for the sidebar's side of the seam in the shape it
-   * replaces. `node scripts/check-workspace-corners.mjs`
+   * replaces.
+   *
+   * AND THE SURROUND IS A STEP DEEPER, because an arc that is present and
+   * cannot be seen draws the same complaint as one that is missing. At
+   * #eceef1 it was 18.7 points of luminance off white: plenty where it runs
+   * beside a panel for the height of the screen, nothing at all inside a 16px
+   * curve, so the corners at the screen's two edges were rounded and read as
+   * square. #e3e7ed is 24.4 points, still unmistakably light.
+   * `node scripts/check-workspace-corners.mjs`
    */
-  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#eceef1\]">/.test(editor) &&
+  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#e3e7ed\]">/.test(editor) &&
     !/bg-\[var\(--wb-chrome-bg\)\]">/.test(editor) &&
     // the sidebar turns on both of its top corners, and so does the AI column
     /overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-t-2xl"/.test(editor) &&
     /overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-t-2xl" style=\{\{ width: 340 \}\}/.test(editor) &&
     // and so does the canvas, and the card inside it
-    /"bg-\[#eceef1\] rounded-t-2xl"/.test(editor) &&
+    /"bg-\[#e3e7ed\] rounded-t-2xl"/.test(editor) &&
     /\? "rounded-t-2xl w-full"/.test(editor),
 )
 

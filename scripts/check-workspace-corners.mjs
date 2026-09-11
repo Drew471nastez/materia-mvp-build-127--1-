@@ -39,7 +39,7 @@ if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}. Set CHROMIUM=/path/t
 /** `rounded-2xl`, the bar's height, the sidebar's width, the viewport. */
 const R = 16, BAR = 44, SIDE = 160, W = 560, H = 300
 /** The workspace's own surface, which is what every arc opens onto. */
-const GAP = [0xec, 0xee, 0xf1]
+const GAP = [0xe3, 0xe7, 0xed]
 
 const page = (shape) => `<!doctype html><html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box;margin:0}html,body{height:100%;overflow:hidden}
@@ -110,12 +110,13 @@ function readPng(path) {
 }
 
 /**
- * Tight on purpose. The sidebar's own right border is #e5e7eb, which is
- * within seven of the row's #eceef1: at a loose tolerance the border column
+ * Tight on purpose. The sidebar's own right border is #e5e7eb, a couple of
+ * points from the row's #e3e7ed: at a loose tolerance the border column
  * counts as the row showing through, and a square corner with a hairline
- * beside it scores ten out of forty-four for nothing.
+ * beside it scores out of forty-four for nothing. Two points is inside the
+ * arc's own antialiasing and outside the border.
  */
-const isGap = (p) => p.every((v, i) => Math.abs(v - GAP[i]) < 5)
+const isGap = (p) => p.every((v, i) => Math.abs(v - GAP[i]) < 2)
 
 /**
  * Of the pixels an arc at this corner should have cut away, how many are the
@@ -206,6 +207,18 @@ try {
   expect(ratio(before.seamSide) < 0.1,
     "the shape it replaces left the sidebar square at the seam, so this is a real measurement",
     `the control's sidebar seam was already ${before.seamSide.bar}/${before.seamSide.total}`)
+
+  /**
+   * An arc that is present and cannot be seen is the same complaint as an arc
+   * that is missing, and that is what a 16px curve onto a surround nineteen
+   * points off white looked like at the screen's edges. So the colours are
+   * measured too, not just the geometry.
+   */
+  const lum = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b
+  const separation = lum([255, 255, 255]) - lum(GAP)
+  expect(separation >= 24, "and the surround is far enough from the panels for a 16px arc to read",
+    `only ${separation.toFixed(1)} points of luminance between them`)
+  console.log(`\n  panel to surround: ${separation.toFixed(1)} points of luminance (was 18.7 at #eceef1)`)
 
   const cols = (m) => `left ${m.left.bar}/${m.left.total}   seam ${m.seamSide.bar}/${m.seamSide.total} | ${m.seamCanvas.bar}/${m.seamCanvas.total}   right ${m.right.bar}/${m.right.total}`
   console.log(`\n  after    ${cols(after)}`)
