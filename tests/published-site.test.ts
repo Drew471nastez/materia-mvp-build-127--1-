@@ -183,6 +183,21 @@ function main() {
     check("the purge outlives what it is purging", /revalidateTag\(creatorSiteTag\(creatorId\), \{ expire: SITE_TTL \}\)/.test(cache))
 
     /**
+     * THE ONE LINE THAT WOULD TURN ALL OF THIS OFF WITHOUT SAYING SO. Read
+     * out of Next's own source rather than assumed: `unstable_cache` gates
+     * on `workStore.fetchCache === "force-no-store"`, and that is set only
+     * by an explicit `export const fetchCache` in the module.
+     * `force-dynamic` does not set it, which is why the route can be both
+     * dynamic and cached. Exporting it here would put every visitor back on
+     * eight round trips, and nothing would look broken.
+     */
+    // Anchored to the start of a line: the paragraph above this one in the
+    // route NAMES the export it is warning about, and a loose match reads
+    // the warning as the thing being warned about.
+    check("the route does not opt out of the data cache", !/^export const fetchCache\s*=\s*["'](force-no-store|only-no-store)["']/m.test(store))
+    check("and says why being force-dynamic is not the same thing", /unstable_cache` gates on/.test(store))
+
+    /**
      * The tag has to name the creator. A tag fixed at module level would be
      * one tag for everybody, and one publish would throw away every site.
      */
