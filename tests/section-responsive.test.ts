@@ -679,9 +679,14 @@ check(
     // `flex-1`, which resolves to nothing in a block container, and the
     // iframe then falls back to its 150px HTML default.
     /absolute inset-0 z-\[80\] flex flex-col rounded-t-\[20px\]/.test(modeSwitch) &&
-    // A black panel inside a white builder is a second product bolted on.
-    /"overflow-hidden bg-white"/.test(modeSwitch) &&
-    !/bg-\[#0e0e0e\]/.test(modeSwitch) &&
+    // A black panel inside a white builder is a second product bolted on —
+    // so the pane is the EDITOR'S surface, whichever of the two that is,
+    // rather than a fixed white with a dark panel dropped into it.
+    /"overflow-hidden transition-colors duration-200",\s*\n\s*dark \? "bg-\[#0e0e0e\]" : "bg-white",/.test(modeSwitch) &&
+    // The dark is #0e0e0e and ONLY under `dark`: the pane never picks a
+    // surface of its own, it takes whichever one the editor is set to. A
+    // literal dark anywhere else here would be a second opinion about it.
+    !/(?<!dark \? )"bg-\[#0e0e0e\]"(?! : "bg-white")/.test(modeSwitch) &&
     /fixed inset-0 z-\[120\] flex flex-col/.test(modeSwitch) &&
     /**
      * It rises and settles on the curve a thrown thing lands on. Longer than
@@ -1038,8 +1043,8 @@ check(
    * gutter and the first code column landing within 0px of the real
    * editor's. `node scripts/check-code-skeleton.mjs`
    */
-  /function CodeSkeleton\(\)/.test(modeSwitch) &&
-    /\{!loaded && <CodeSkeleton \/>\}/.test(modeSwitch) &&
+  /function CodeSkeleton\(\{ dark = false \}/.test(modeSwitch) &&
+    /\{!loaded && <CodeSkeleton dark=\{dark\} \/>\}/.test(modeSwitch) &&
     !/\bLoader2\b[^\n]*from "lucide-react"/.test(modeSwitch) &&
     !/<Loader2\b/.test(modeSwitch) &&
     ((css) =>
@@ -1068,7 +1073,7 @@ check(
   ((code) =>
     /py-1\.5 pl-7 pr-6 text-\[16px\] md:py-1 md:text-\[11\.5px\]/.test(code) &&
     /h-9 w-72 max-w-full rounded-md border[^"]*text-\[16px\] md:h-8 md:text-\[12px\]/.test(code) &&
-    /h-9 min-w-0 flex-1 rounded-md border[^"]*text-\[16px\] md:h-7 md:text-\[12px\]/.test(code) &&
+    /h-10 min-w-0 flex-1 rounded-md border[^"]*text-\[16px\] md:h-7 md:text-\[12px\]/.test(code) &&
     // the code itself was always right, and stays the pattern the rest follow
     /const CODE_TEXT = "text-\[16px\] leading-6 md:text-\[12px\] md:leading-5"/.test(code) &&
     // and the legend is desktop furniture
@@ -1172,6 +1177,90 @@ check(
    * `node scripts/check-mobile-sheets.mjs`
    */
   /<div className="sticky bottom-0 z-10 shrink-0 border-t border-\[#e5e7eb\] bg-white px-3 pt-3 pb-3\.5 flex gap-2">/.test(editor),
+)
+
+check(
+  "the code editor's bar wears the code editor's theme, and carries the switch",
+  /**
+   * On a phone the code editor is a full-screen page with a bar of its own,
+   * and that bar belongs to the BUILDER: it is outside the frame the editor
+   * runs in. So it was `bg-neutral-50` whatever the editor was set to — a
+   * white bar with a back button sitting on a #0e0e0e editor, one seam
+   * straight across the top of the screen. The skeleton behind it and the
+   * frame's own background had the same problem: white, always.
+   *
+   * Same origin, so the two just talk. The page inside the frame stays the
+   * source of truth — it owns the setting and its storage — and says so over
+   * the channel it already uses for the dirty flag. The bar reads storage
+   * once for the first paint (same origin, same key, so it is the value the
+   * frame is about to report) and follows the frame after that. The switch
+   * asks the frame to change rather than changing a copy of its own, so
+   * there is nothing that can drift.
+   *
+   * The switch is RIGHT-ALIGNED and 36px. On a phone this is the only way to
+   * reach the setting: the editor's own icon row is behind an overflow menu
+   * at that width. The two ends of a bar are where a thumb reaches, and
+   * everything between them here is a label.
+   *
+   * Measured: the bar 5 points from the light editor's surface and 7 from
+   * the dark one, against 250 for a bar that ignored the theme.
+   * `node scripts/check-code-bar.mjs`
+   */
+  ((mode) =>
+    /const \[codeTheme, setCodeTheme\] = useState<"light" \| "dark">\("light"\)/.test(mode) &&
+    /data\.type !== "storelib:code-theme"/.test(mode) &&
+    /type: "storelib:set-code-theme", theme: next/.test(mode) &&
+    /if \(e\.origin !== window\.location\.origin\) return/.test(mode) &&
+    // the bar, both themes, and the switch pushed to the end of it
+    /dark \? "border-white\/10 bg-\[#151515\] text-white" : "border-neutral-200 bg-neutral-50 text-neutral-900"/.test(mode) &&
+    /"ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-lg/.test(mode) &&
+    // and nothing behind it flashes white on a dark editor
+    /dark \? "bg-\[#0e0e0e\]" : "bg-white"/.test(mode) &&
+    /<CodeSkeleton dark=\{dark\} \/>/.test(mode))(modeSwitch) &&
+    ((code) =>
+      /type: "storelib:code-theme", theme: codeTheme/.test(code) &&
+      /data\.type !== "storelib:set-code-theme"/.test(code))(
+        readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"),
+      ),
+)
+
+check(
+  "the path row wraps rather than squeezing, and clears the keyboard",
+  /**
+   * "Duplicate as", a field and two buttons on one line. The label does not
+   * shrink, the buttons do not shrink, and with the gaps and the padding that
+   * is about 250px committed before the field has a pixel. Measured in a
+   * 320px viewport: the field collapses to 68px, which is not a path field.
+   *
+   * It stacks instead — label and field on one line, the actions on their own
+   * and each half the width so both are a real target — and is one row again
+   * from `md` up. Measured: 220px of field at 320, 290 at 390, and one line
+   * at 900.
+   *
+   * AND IT CLEARS WHAT IS UNDER IT. The field autofocuses, so the keyboard is
+   * up the moment the row appears, and the page is `height: 100%` inside a
+   * document that does not scroll — iOS never moves it, so the row was simply
+   * behind the keyboard. `visualViewport` reports the covered strip, inside a
+   * frame as well, and it is added to the safe-area inset as PADDING rather
+   * than a transform, so the row grows into the gap instead of floating over
+   * the editor.
+   *
+   * The iframes in the check are not incidental: headless Chromium refuses a
+   * window under 500px, so both phone widths were quietly being measured at
+   * 500 — where the row fits, and the control passed while proving nothing.
+   * `node scripts/check-code-bar.mjs`
+   */
+  ((code) =>
+    /className="flex flex-col gap-2 border-t border-\[var\(--code-border\)\] bg-\[var\(--code-panel\)\] px-3 py-2 md:flex-row md:items-center md:px-4"/.test(code) &&
+    /paddingBottom: `calc\(env\(safe-area-inset-bottom, 0px\) \+ 8px \+ \$\{keyboardInset\}px\)`/.test(code) &&
+    // both actions are a real target on a phone and go back to bar size after
+    /"h-10 flex-1 rounded-md bg-\[#8B56FA\][^"]*md:h-7 md:flex-none/.test(code) &&
+    /"h-10 flex-1 rounded-md border border-\[var\(--code-border\)\][^"]*md:h-7 md:flex-none/.test(code) &&
+    // and the inset is measured, not guessed
+    /const covered = window\.innerHeight - vv\.height - vv\.offsetTop/.test(code) &&
+    /vv\.addEventListener\("resize", measure\)/.test(code))(
+      readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8"),
+    ),
 )
 
 check(

@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { ArrowLeft, Code2, Globe, Settings } from "lucide-react"
+import { ArrowLeft, Code2, Globe, Moon, Settings, Sun } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -176,31 +176,38 @@ const SKELETON_INDENT = [
   0, 1, 1, 2, 0, 0, 1, 1, 2, 0, 0, 1, 2, 2, 0, 1, 1, 2, 1, 0,
 ]
 
-function CodeSkeleton() {
+function CodeSkeleton({ dark = false }: { dark?: boolean }) {
   return (
-    <div aria-hidden className="absolute inset-0 overflow-hidden bg-white">
+    <div
+      aria-hidden
+      className={cn("absolute inset-0 overflow-hidden", dark ? "bg-[#0e0e0e]" : "bg-white")}
+      /* The sweep is white light over a pale skeleton; over a dark one it has
+         to be the same idea in reverse, or it is a white bar crossing a black
+         panel. One variable, set here, read by the class. */
+      style={dark ? ({ "--wb-sweep": "rgba(255,255,255,0.07)" } as React.CSSProperties) : undefined}
+    >
       <div className="flex h-full">
         {/* the file list, which is the first thing the real one shows */}
-        <div className="hidden w-44 shrink-0 flex-col gap-2.5 border-r border-neutral-100 p-3 sm:flex">
-          <div className="h-3 w-20 rounded-full bg-neutral-200/80" />
+        <div className={cn("hidden w-44 shrink-0 flex-col gap-2.5 border-r p-3 sm:flex", dark ? "border-white/10" : "border-neutral-100")}>
+          <div className={cn("h-3 w-20 rounded-full", dark ? "bg-white/15" : "bg-neutral-200/80")} />
           {[76, 58, 84, 64, 48, 70, 54].map((w, i) => (
             <div key={i} className="flex items-center gap-2">
-              <div className="h-3.5 w-3.5 shrink-0 rounded bg-neutral-100" />
-              <div className="h-2.5 rounded-full bg-neutral-100" style={{ width: `${w}%` }} />
+              <div className={cn("h-3.5 w-3.5 shrink-0 rounded", dark ? "bg-white/10" : "bg-neutral-100")} />
+              <div className={cn("h-2.5 rounded-full", dark ? "bg-white/10" : "bg-neutral-100")} style={{ width: `${w}%` }} />
             </div>
           ))}
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           {/* the tab strip */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-neutral-100 px-3 py-2.5">
-            <div className="h-3 w-24 rounded-full bg-neutral-200/80" />
-            <div className="h-3 w-16 rounded-full bg-neutral-100" />
+          <div className={cn("flex shrink-0 items-center gap-2 border-b px-3 py-2.5", dark ? "border-white/10" : "border-neutral-100")}>
+            <div className={cn("h-3 w-24 rounded-full", dark ? "bg-white/15" : "bg-neutral-200/80")} />
+            <div className={cn("h-3 w-16 rounded-full", dark ? "bg-white/10" : "bg-neutral-100")} />
           </div>
           {/* and the code, with its gutter */}
           <div className="flex min-h-0 flex-1 gap-3 px-3 py-3">
             <div className="flex w-5 shrink-0 flex-col gap-2.5 pt-0.5">
               {SKELETON_LINES.map((_, i) => (
-                <div key={i} className="h-2 w-full rounded-full bg-neutral-100" />
+                <div key={i} className={cn("h-2 w-full rounded-full", dark ? "bg-white/10" : "bg-neutral-100")} />
               ))}
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-2.5 pt-0.5">
@@ -212,7 +219,7 @@ function CodeSkeleton() {
                 ) : (
                   <div
                     key={i}
-                    className="h-2 rounded-full bg-neutral-100"
+                    className={cn("h-2 rounded-full", dark ? "bg-white/10" : "bg-neutral-100")}
                     style={{ width: `${w}%`, marginLeft: `${SKELETON_INDENT[i] * 14}px` }}
                   />
                 ),
@@ -246,6 +253,57 @@ export function CodePane({
   const [loaded, setLoaded] = useState(false)
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
+
+  /**
+   * THE BAR WEARS THE EDITOR'S THEME.
+   *
+   * On a phone this bar is the code editor's own top bar, and it is OUTSIDE
+   * the frame: it belongs to the builder. So it was `bg-neutral-50` whatever
+   * the editor was set to, which put a white bar with a back button on top of
+   * a #0e0e0e editor. One seam, across the top of the screen.
+   *
+   * The page inside the frame owns the setting and its storage, and says so
+   * over the same same-origin channel it already uses for the dirty flag.
+   * This reads `localStorage` once for the first paint — same origin, same
+   * key, so it is the same value the frame is about to report — and then
+   * follows what the frame says. Nothing here is a second copy that can
+   * drift: the button below asks the frame to change, and the bar only
+   * repaints when the frame answers.
+   */
+  const [codeTheme, setCodeTheme] = useState<"light" | "dark">("light")
+  const frameRef = useRef<HTMLIFrameElement>(null)
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("wb:code-theme")
+      if (saved === "dark" || saved === "light") setCodeTheme(saved)
+    } catch {
+      /* storage blocked: light is the default, and the frame will say */
+    }
+  }, [])
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return
+      const data = e.data as { type?: string; theme?: string } | null
+      if (!data || data.type !== "storelib:code-theme") return
+      if (data.theme === "dark" || data.theme === "light") setCodeTheme(data.theme)
+    }
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [])
+  const askFrameForTheme = (next: "light" | "dark") => {
+    try {
+      frameRef.current?.contentWindow?.postMessage(
+        { type: "storelib:set-code-theme", theme: next },
+        window.location.origin,
+      )
+    } catch {
+      /* the frame has not loaded yet; it reads the same storage on mount */
+    }
+    // Answered by the frame in a moment, but the press should not wait a
+    // round trip to look like it registered.
+    setCodeTheme(next)
+  }
+  const dark = codeTheme === "dark"
 
   /**
    * WARMED, NOT LOADED ON DEMAND.
@@ -292,9 +350,14 @@ export function CodePane({
   const body = (
     <div
       className={cn(
-        // Light, like the rest of the app. A black panel inside a white
-        // builder is a second product bolted to the side of the first.
-        "overflow-hidden bg-white",
+        /**
+         * The editor's own surface, so nothing white shows around a dark
+         * panel while it loads or as it slides. This was a flat `bg-white`,
+         * which is right for the light editor and is a frame of white behind
+         * the dark one on every open.
+         */
+        "overflow-hidden transition-colors duration-200",
+        dark ? "bg-[#0e0e0e]" : "bg-white",
         fullScreen
           ? "fixed inset-0 z-[120] flex flex-col"
           : // `flex flex-col` is not decoration: the iframe's wrapper below is
@@ -325,29 +388,61 @@ export function CodePane({
     >
       {fullScreen && (
         /* Its own bar, because it covers the editor's. Back is the first
-           thing on it. */
+           thing on it, and the theme switch is the last: the two ends of a
+           bar are where a thumb reaches, and everything between them here is
+           a label. */
         <div
-          className="flex shrink-0 items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-2 py-1.5 text-neutral-900"
+          className={cn(
+            "flex shrink-0 items-center gap-2 border-b px-2 py-1.5 transition-colors duration-200",
+            dark ? "border-white/10 bg-[#151515] text-white" : "border-neutral-200 bg-neutral-50 text-neutral-900",
+          )}
           style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 6px)" }}
         >
           <button
             type="button"
             onClick={onClose}
             aria-label="Back to the editor"
-            className="flex h-9 items-center gap-1.5 rounded-lg px-2 text-[15px] font-medium text-neutral-700 transition-[background-color,scale] duration-150 hover:bg-neutral-200 hover:text-neutral-900 active:scale-95"
+            className={cn(
+              "flex h-9 items-center gap-1.5 rounded-lg px-2 text-[15px] font-medium transition-[background-color,color,scale] duration-150 active:scale-95",
+              dark
+                ? "text-white/80 hover:bg-white/10 hover:text-white"
+                : "text-neutral-700 hover:bg-neutral-200 hover:text-neutral-900",
+            )}
           >
             <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
             Editor
           </button>
-          <span className="ml-1 flex items-center gap-1.5 text-[15px] font-medium text-neutral-500">
+          <span
+            className={cn(
+              "ml-1 flex items-center gap-1.5 text-[15px] font-medium transition-colors duration-200",
+              dark ? "text-white/55" : "text-neutral-500",
+            )}
+          >
             <Code2 className="h-4 w-4" strokeWidth={1.75} />
             Code
           </span>
+          {/* Right-aligned, and a 36px target: on a phone this is the only
+              way to reach the setting, since the editor's own icon row is
+              behind an overflow menu at that width. */}
+          <button
+            type="button"
+            onClick={() => askFrameForTheme(dark ? "light" : "dark")}
+            aria-label={dark ? "Switch to the light editor" : "Switch to the dark editor"}
+            className={cn(
+              "ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-[background-color,color,scale] duration-150 active:scale-90",
+              dark
+                ? "text-white/80 hover:bg-white/10 hover:text-white"
+                : "text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900",
+            )}
+          >
+            {dark ? <Sun className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <Moon className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+          </button>
         </div>
       )}
       <div className="relative min-h-0 flex-1">
-        {!loaded && <CodeSkeleton />}
+        {!loaded && <CodeSkeleton dark={dark} />}
         <iframe
+          ref={frameRef}
           title="Code editor"
           src={`/website-builder/code/${installId}?embedded=1`}
           onLoad={() => setLoaded(true)}

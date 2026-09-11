@@ -892,11 +892,13 @@ html.capacitor body {
     position: absolute;
     inset: 0;
     pointer-events: none;
+    /* The bright band. A variable, because the same sweep has to cross a
+       dark skeleton as well, where white at 72% is a searchlight. */
     background: linear-gradient(
       100deg,
-      rgba(255, 255, 255, 0) 30%,
-      rgba(255, 255, 255, 0.72) 50%,
-      rgba(255, 255, 255, 0) 70%
+      transparent 30%,
+      var(--wb-sweep, rgba(255, 255, 255, 0.72)) 50%,
+      transparent 70%
     );
     /* Wider than the box and started off its left edge, so the bright band
        is fully outside before the loop repeats and there is no seam. */

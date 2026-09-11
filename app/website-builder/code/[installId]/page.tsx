@@ -203,6 +203,80 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     })
   }
 
+  /**
+   * THE FRAME AROUND THIS PAGE WEARS THE SAME THEME.
+   *
+   * On a phone the code editor is a full-screen page with a bar of its own,
+   * and that bar belongs to the BUILDER, not to this page: it is outside the
+   * frame. So it was `bg-neutral-50` whatever happened in here — a white bar
+   * with a back button sitting on top of a #0e0e0e editor, which is the one
+   * seam in the whole screen.
+   *
+   * Same origin, so the two can just talk. This page stays the source of
+   * truth (it owns the setting and the storage); it says what the theme is
+   * whenever that changes, and accepts being told to change it. The bar's
+   * button posts the second message, this effect answers with the first, and
+   * neither side keeps a copy that can drift.
+   */
+  useEffect(() => {
+    if (!embedded || typeof window === "undefined") return
+    try {
+      window.parent?.postMessage({ type: "storelib:code-theme", theme: codeTheme }, window.location.origin)
+    } catch {
+      /* a parent on another origin cannot be told, and does not need to be */
+    }
+  }, [embedded, codeTheme])
+
+  useEffect(() => {
+    if (!embedded || typeof window === "undefined") return
+    const onMessage = (e: MessageEvent) => {
+      // Same origin only. A message from anywhere else is not the builder.
+      if (e.origin !== window.location.origin) return
+      const data = e.data as { type?: string; theme?: string } | null
+      if (!data || data.type !== "storelib:set-code-theme") return
+      if (data.theme !== "dark" && data.theme !== "light") return
+      setCodeTheme(data.theme)
+      try {
+        window.localStorage.setItem("wb:code-theme", data.theme)
+      } catch {
+        /* storage blocked: it still applies for this session */
+      }
+    }
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [embedded])
+
+  /**
+   * HOW MUCH OF THE SCREEN THE KEYBOARD IS OVER.
+   *
+   * The page is `height: 100%` inside a document that does not scroll, which
+   * is right for an editor and wrong for the one row pinned to its bottom:
+   * iOS does not shrink the layout viewport for the keyboard, so the path
+   * field's own action bar ended up underneath it. `visualViewport` is what
+   * reports the covered strip, and it reports it inside a frame too.
+   *
+   * Published as a variable rather than applied to one element, so the bar
+   * that needs it and anything else pinned down there agree on the number.
+   */
+  const [keyboardInset, setKeyboardInset] = useState(0)
+  useEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : undefined
+    if (!vv) return
+    const measure = () => {
+      const covered = window.innerHeight - vv.height - vv.offsetTop
+      // Rounded away from a sub-pixel: a 0.5px "keyboard" is a rounding
+      // artefact on every resize, and moving the bar by it is a twitch.
+      setKeyboardInset(covered > 1 ? Math.round(covered) : 0)
+    }
+    measure()
+    vv.addEventListener("resize", measure)
+    vv.addEventListener("scroll", measure)
+    return () => {
+      vv.removeEventListener("resize", measure)
+      vv.removeEventListener("scroll", measure)
+    }
+  }, [])
+
   useEffect(() => {
     if (!embedded) return
     const html = document.documentElement
@@ -1080,27 +1154,65 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
             </div>
           )}
 
-          {/* One path field for new, rename and duplicate; Enter runs it, Esc drops it. */}
+          {/* ── One path field for new, rename and duplicate ──
+              Enter runs it, Esc drops it.
+
+              THE ROW WAS A SINGLE LINE THAT COULD NOT BE ONE. A label that
+              does not shrink ("Duplicate as"), two buttons that do not
+              shrink, three gaps and the padding come to about 250px before
+              the field has a pixel — so on a 390px phone the field was down
+              to a hundred and something, and on anything narrower the
+              buttons were pushed into each other. That is the overlap.
+
+              It stacks instead: label and field on one line, the actions on
+              their own, each half the width so both are a real target. One
+              row again from `md` up, where there has always been room.
+
+              AND IT CLEARS WHAT IS UNDER IT. The field autofocuses, which
+              means the keyboard is up the moment this appears — and the page
+              is `height: 100%` in a document that does not scroll, so iOS
+              never moves it: the bar was simply behind the keyboard. The
+              covered strip is measured from `visualViewport` and added here,
+              along with the home indicator's inset for when no keyboard is
+              up. `padding-bottom` rather than a transform, so the bar grows
+              into the gap instead of floating over the editor. */}
           {pendingAction && selectedFile && (
             <form
-              className="flex items-center gap-2 border-t border-[var(--code-border)] bg-[var(--code-panel)] px-4 py-2"
+              className="flex flex-col gap-2 border-t border-[var(--code-border)] bg-[var(--code-panel)] px-3 py-2 md:flex-row md:items-center md:px-4"
+              style={{
+                paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 8px + ${keyboardInset}px)`,
+                transition: "padding-bottom 160ms cubic-bezier(0.32, 0.72, 0, 1)",
+              }}
               onSubmit={e => { e.preventDefault(); void runPendingAction() }}
             >
-              <span className="text-[11px] text-[var(--code-muted)] shrink-0">
-                {pendingAction.kind === "new" ? "New file at" : pendingAction.kind === "rename" ? "Rename to" : "Duplicate as"}
-              </span>
-              <input
-                autoFocus
-                value={pendingAction.path}
-                onChange={e => setPendingAction({ ...pendingAction, path: e.target.value })}
-                onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}
-                className="h-9 min-w-0 flex-1 rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[16px] md:h-7 md:text-[12px] text-[var(--code-text)] focus:outline-none"
-                aria-label="Path"
-              />
-              <button type="submit" className="h-7 rounded-md bg-[#8B56FA] px-2.5 text-[12px] text-white hover:bg-[#7b46ec]">
-                {pendingAction.kind === "new" ? "Create" : pendingAction.kind === "rename" ? "Rename" : "Duplicate"}
-              </button>
-              <button type="button" onClick={() => setPendingAction(null)} className="h-7 rounded-md px-2 text-[12px] text-[var(--code-muted)] hover:text-[var(--code-text)]">Cancel</button>
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <span className="shrink-0 text-[11px] text-[var(--code-muted)]">
+                  {pendingAction.kind === "new" ? "New file at" : pendingAction.kind === "rename" ? "Rename to" : "Duplicate as"}
+                </span>
+                <input
+                  autoFocus
+                  value={pendingAction.path}
+                  onChange={e => setPendingAction({ ...pendingAction, path: e.target.value })}
+                  onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}
+                  className="h-10 min-w-0 flex-1 rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[16px] md:h-7 md:text-[12px] text-[var(--code-text)] focus:outline-none"
+                  aria-label="Path"
+                />
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="submit"
+                  className="h-10 flex-1 rounded-md bg-[#8B56FA] px-3 text-[13px] font-medium text-white hover:bg-[#7b46ec] md:h-7 md:flex-none md:px-2.5 md:text-[12px]"
+                >
+                  {pendingAction.kind === "new" ? "Create" : pendingAction.kind === "rename" ? "Rename" : "Duplicate"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingAction(null)}
+                  className="h-10 flex-1 rounded-md border border-[var(--code-border)] px-3 text-[13px] font-medium text-[var(--code-muted)] hover:text-[var(--code-text)] md:h-7 md:flex-none md:border-0 md:px-2 md:text-[12px]"
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
           )}
 
