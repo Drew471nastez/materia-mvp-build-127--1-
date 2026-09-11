@@ -346,4 +346,15 @@ appear against their lines. If it does, the canvas reloads and the section is
 in the Add Section library under **Created by you**, with a preview drawn
 from the file you just wrote.
 
+**Saving is not publishing.** A saved file goes into its draft half and the
+live site carries on showing what was published, the same as a section's
+settings. The toolbar says "Not published yet" until you publish, and Publish
+moves every waiting file across at once.
+
+**Every save is kept.** History in the toolbar lists them, newest first, with
+what each was: a save, a publish, or a restore. Opening an old one puts it in
+the editor as an unsaved change rather than writing over anything, so it goes
+back out through the same compile and the same conflict check as anything you
+type.
+
 `docs/theme/14-creating-a-section.md` walks through one from an empty file.

@@ -6,7 +6,7 @@ import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
 import { BuilderLoader } from "@/components/website-builder/builder-loader"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Save, Loader2, File, Folder, FolderOpen, ChevronRight, X, AlertCircle, Check, RotateCcw, Code2, RefreshCw, Search, Copy, Download, Sun, Moon, FilePlus, Pencil, Files, Trash2,
+  ArrowLeft, Save, Loader2, File, Folder, FolderOpen, ChevronRight, X, AlertCircle, Check, RotateCcw, Code2, RefreshCw, Search, Copy, Download, Sun, Moon, FilePlus, Pencil, Files, Trash2, History,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -453,6 +453,36 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   /** A save refused because the file had moved on. Both versions are kept. */
   const [conflict, setConflict] = useState<{ path: string; theirs: string; at: string } | null>(null)
 
+  /**
+   * ===========================================================================
+   *  EVERY SAVE OF THIS FILE, AND WHETHER IT IS LIVE YET
+   * ===========================================================================
+   * A save goes into the file's draft half and the site keeps showing what
+   * was published, the same way a section's settings do. Two things follow
+   * from that, and both have to be visible: whether this file has an edit
+   * waiting to be published, and what it looked like before each save.
+   *
+   * Restoring is not a button that overwrites anything. The old version is
+   * loaded into the editor as an unsaved change, so it goes back out through
+   * the same compile and the same conflict check as anything typed by hand.
+   */
+  const [unpublished, setUnpublished] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [versions, setVersions] = useState<{ id: string; content: string; kind: string; created_at: string }[]>([])
+  const [loadingVersions, setLoadingVersions] = useState(false)
+
+  const loadVersions = async () => {
+    if (!selectedFile) return
+    setLoadingVersions(true)
+    try {
+      const res = await fetch(`/api/website-builder/themes/${installId}/files?versions=1&path=${encodeURIComponent(selectedFile.path)}`)
+      const d = await res.json().catch(() => ({}))
+      setVersions(Array.isArray(d.versions) ? d.versions : [])
+    } finally {
+      setLoadingVersions(false)
+    }
+  }
+
   const draftKey = `wb:code-drafts:${installId}`
 
   const [compileErrors, setCompileErrors] = useState<ThemeError[]>([])
@@ -516,6 +546,8 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
     setSelectedFile(node)
     setCompileErrors([])
+    setHistoryOpen(false)
+    setVersions([])
     // On a phone, picking a file is the gesture that means "show me the code".
     setShowFiles(false)
 
@@ -535,6 +567,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       setFileContent(data.content ?? "")
       setOriginalContent(data.content ?? "")
       setSavedAt(typeof data.updated_at === "string" ? data.updated_at : null)
+      setUnpublished(data.unpublished === true)
     }
     setLoadingFile(false)
 
@@ -599,6 +632,11 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     if (res.ok) {
       const saved = await res.json().catch(() => ({}))
       if (saved?.file?.updated_at) setSavedAt(saved.file.updated_at as string)
+      // `drafted: false` means this install has no draft column yet and the
+      // save went straight to the live site. Saying so beats implying it did
+      // not.
+      setUnpublished(saved?.drafted !== false)
+      if (historyOpen) void loadVersions()
       setOriginalContent(fileContent)
       setCompileErrors([])
       // Saved is saved: the recovery copy for this file has done its job.
@@ -607,7 +645,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       setDirtyPaths(prev => { const n = new Set(prev); n.delete(selectedFile.path); return n })
       setCustomizedPaths(prev => new Set([...prev, selectedFile.path]))
       setFileTree(buildThemeFileTree([...customizedPaths, selectedFile.path]))
-      toast.success("File saved")
+      toast.success(saved?.drafted === false ? "Saved and live" : "Saved. Publish to put it on the site")
       announceFileChange(selectedFile.path)
     } else {
       const d = await res.json().catch(() => ({}))
@@ -1358,6 +1396,26 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   </button>
                 </BarTip>
               )}
+              {/* Saved and waiting for Publish, which is what a draft is. */}
+              {unpublished && !isDirty && (
+                <span className="hidden shrink-0 items-center gap-1.5 rounded-md bg-blue-500/10 px-2 py-1 text-[11px] text-blue-600 sm:inline-flex">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  Not published yet
+                </span>
+              )}
+              <BarTip label="Every save of this file">
+                <button
+                  type="button"
+                  onClick={() => { const next = !historyOpen; setHistoryOpen(next); if (next) void loadVersions() }}
+                  className={cn(
+                    "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[12px] transition-colors",
+                    historyOpen ? "bg-[var(--code-hover)] text-[var(--code-text)]" : "text-[var(--code-muted)] hover:bg-[var(--code-hover)] hover:text-[var(--code-text)]",
+                  )}
+                >
+                  <History className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">History</span>
+                </button>
+              </BarTip>
               <BarTip label={isDirty ? "Save this file" : "No changes to save"}>
                 <Button
                   size="sm"
@@ -1625,6 +1683,51 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   {docs.detail}
                 </p>
               ) : null}
+            </div>
+          )}
+
+          {/* Every save of this file, newest first. */}
+          {historyOpen && selectedFile && (
+            <div className="max-h-56 shrink-0 overflow-y-auto border-t border-[var(--code-border)] bg-[var(--code-panel)]">
+              {loadingVersions ? (
+                <p className="px-4 py-3 text-[12px] text-[var(--code-muted)]">Reading this file's history…</p>
+              ) : versions.length === 0 ? (
+                <p className="px-4 py-3 text-[12px] text-[var(--code-muted)]">
+                  No saves recorded for this file yet. Every save from here on is kept.
+                </p>
+              ) : (
+                <ul>
+                  {versions.map((v, i) => (
+                    <li key={v.id} className="flex items-center gap-3 border-b border-[var(--code-border)] px-4 py-2 last:border-b-0">
+                      <span className="w-[5.5rem] shrink-0 text-[11px] text-[var(--code-muted)]">
+                        {v.kind === "publish" ? "Published" : v.kind === "restore" ? "Restored" : "Saved"}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--code-text)]">
+                        {new Date(v.created_at).toLocaleString()}
+                        {i === 0 && <span className="ml-2 text-[11px] text-[var(--code-faint)]">most recent</span>}
+                      </span>
+                      <span className="shrink-0 text-[11px] text-[var(--code-faint)]">
+                        {(v.content.length / 1024).toFixed(1)}KB
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Into the editor as an unsaved change, not over the
+                          // file: it goes back out through the same compile and
+                          // the same conflict check as anything typed by hand.
+                          handleContentChange(v.content)
+                          setHistoryOpen(false)
+                          toast.success("Loaded into the editor. Save it to keep it.")
+                        }}
+                        disabled={v.content === fileContent}
+                        className="h-7 shrink-0 rounded-md border border-[var(--code-border)] px-2 text-[11px] font-[550] text-[var(--code-text)] transition-colors hover:bg-[var(--code-hover)] disabled:opacity-40 disabled:pointer-events-none"
+                      >
+                        {v.content === fileContent ? "This one" : "Open it"}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 

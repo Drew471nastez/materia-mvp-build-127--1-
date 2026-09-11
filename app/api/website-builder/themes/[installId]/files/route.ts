@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { editorContent, hasUnpublishedEdit, listVersions, recordVersion, saveDraft } from "@/lib/website-builder/theme-file-drafts"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { getDefaultFileContent } from "@/lib/website-builder/theme-file-tree"
@@ -89,13 +90,24 @@ export async function GET(req: Request, { params }: Params) {
    * edited draws the way they edited it. Bounded by MAX_FILE_BYTES per row.
    */
   if (searchParams.get("sources") === "1") {
-    const { data } = await supabase!
+    /**
+     * THE EDITOR SEES DRAFTS; A VISITOR SEES WHAT IS PUBLISHED. This is the
+     * canvas, so it takes the draft where there is one — otherwise somebody
+     * editing a section would be shown the version they have not saved over
+     * yet. The storefront reads `content` and only `content`.
+     */
+    const { data, error: readErr } = await supabase!
       .from("store_theme_custom_files")
-      .select("path, content")
+      .select("path, content, draft_content")
       .eq("install_id", installId)
       .like("path", "%.storelib")
+    const rows = readErr
+      ? ((await supabase!.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
+      : (data ?? [])
     const files: Record<string, string> = {}
-    for (const row of data ?? []) files[row.path] = row.content
+    for (const row of rows as { path: string; content: string; draft_content?: string | null }[]) {
+      files[row.path] = editorContent(row)
+    }
     return NextResponse.json({ files })
   }
 
@@ -109,16 +121,46 @@ export async function GET(req: Request, { params }: Params) {
     return NextResponse.json({ customized_paths: data?.map(f => f.path) ?? [] })
   }
 
+  /**
+   * EVERY SAVE OF THIS FILE, newest first, for the history panel.
+   * `?versions=1&path=…`.
+   */
+  if (searchParams.get("versions") === "1") {
+    return NextResponse.json({ versions: await listVersions(supabase, installId, path) })
+  }
+
   // Try custom file first
-  const { data: customFile } = await supabase
-    .from("store_theme_custom_files")
-    .select("content, updated_at")
-    .eq("install_id", installId)
-    .eq("path", path)
-    .maybeSingle()
+  let customFile: { content: string; updated_at?: string | null; draft_content?: string | null } | null = null
+  {
+    const withDraft = await supabase
+      .from("store_theme_custom_files")
+      .select("content, updated_at, draft_content")
+      .eq("install_id", installId)
+      .eq("path", path)
+      .maybeSingle()
+    if (withDraft.error) {
+      const plain = await supabase
+        .from("store_theme_custom_files")
+        .select("content, updated_at")
+        .eq("install_id", installId)
+        .eq("path", path)
+        .maybeSingle()
+      customFile = plain.data
+    } else {
+      customFile = withDraft.data
+    }
+  }
 
   if (customFile) {
-    return NextResponse.json({ path, content: customFile.content, is_custom: true })
+    return NextResponse.json({
+      path,
+      // The draft where there is one: this is the editor asking.
+      content: editorContent(customFile),
+      is_custom: true,
+      updated_at: customFile.updated_at ?? null,
+      /** Saved and not yet published, so the editor can say so. */
+      unpublished: hasUnpublishedEdit(customFile),
+    })
   }
 
   // Fallback to default content
@@ -239,15 +281,24 @@ export async function PUT(req: Request, { params }: Params) {
     }
   }
 
-  // Upsert
-  const { data, error: upsertErr } = await supabase
-    .from("store_theme_custom_files")
-    .upsert({ install_id: installId, path, content }, { onConflict: "install_id,path" })
-    .select()
-    .single()
+  /**
+   * SAVED, NOT SHIPPED. The file goes into its draft half and the live site
+   * carries on showing what was published, the same way a section's settings
+   * do. Publish is what puts it in front of visitors.
+   *
+   * And the save is kept: a row per version, so a mistake made this morning
+   * can be undone this afternoon. Neither depends on the migration having
+   * been run — see lib/website-builder/theme-file-drafts.ts.
+   */
+  const saved = await saveDraft(supabase, installId, path, content)
+  if (saved.ok === false) return NextResponse.json({ error: saved.error }, { status: 500 })
+  await recordVersion(supabase, installId, path, content, "save")
 
-  if (upsertErr) return NextResponse.json({ error: upsertErr.message }, { status: 500 })
-  return NextResponse.json({ file: data })
+  return NextResponse.json({
+    file: saved.row,
+    /** False when this install has no draft column yet: the save went live. */
+    drafted: saved.drafts,
+  })
 }
 
 // DELETE /api/website-builder/themes/[installId]/files?path=...

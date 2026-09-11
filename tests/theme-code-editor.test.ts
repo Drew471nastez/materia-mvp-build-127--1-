@@ -321,7 +321,9 @@ section("Save compiles, errors carry lines, the canvas finds out")
   )
   check(
     "and the compile runs before the upsert, so a broken file never reaches a row",
-    route.indexOf("compileSection(content, { file: path, expectType") < route.indexOf('.upsert({ install_id: installId, path, content }'),
+    // The write is saveDraft now, which puts it in the file's draft half.
+    // Same property: nothing is stored until it has compiled.
+    route.indexOf("compileSection(content, { file: path, expectType") < route.indexOf("const saved = await saveDraft("),
   )
   check(
     "DELETE of a section file the theme does not have is refused with the pages that use it",
@@ -649,7 +651,7 @@ section("Nothing typed into this editor is lost without somebody choosing it")
    * nowhere else, and only Save puts anything on the account — where it is
    * compiled first.
    */
-  check("and nothing reaches the account without compiling first", route.indexOf("compileSection(content") < route.indexOf('.upsert({ install_id: installId, path, content }'))
+  check("and nothing reaches the account without compiling first", route.indexOf("compileSection(content") < route.indexOf("const saved = await saveDraft("))
 
   // Two tabs, one file.
   check("a save carries what this editor loaded", /base_updated_at: savedAt \?\? undefined/.test(codePage) && /base_updated_at: z\.string\(\)\.optional\(\)/.test(route))
