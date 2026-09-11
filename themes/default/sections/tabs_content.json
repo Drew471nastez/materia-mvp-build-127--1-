@@ -121,46 +121,81 @@
       "type": "header"
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text color",
       "type": "color",
-      "default": "#0f172a"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "tab_active_color",
       "label": "Active tab color",
       "type": "color",
-      "default": "#6366f1"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "tab_inactive_color",
       "label": "Inactive tab color",
       "type": "color",
-      "default": "#64748b"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "tab_bg_color",
       "label": "Tab bar background",
       "type": "color",
-      "default": "#f8fafc"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "content_bg_color",
       "label": "Content panel background",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "border_color",
       "label": "Border color",
       "type": "color",
-      "default": "#e2e8f0"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "border_radius",
@@ -303,12 +338,10 @@
         "tab_position": "top",
         "tab_style": "underline",
         "alignment": "left",
-        "bg_color": "#ffffff",
-        "text_color": "#0f172a",
-        "tab_active_color": "#6366f1",
         "animation": "fade",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "white"
       },
       "blocks": [
         {

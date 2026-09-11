@@ -1133,7 +1133,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
            */
           style={{
             background: str(s.cta_color) || theme.primary_color || "#6366f1",
-            color: str(s.cta_text_color, "#ffffff"),
+            color: str(s.cta_text_color) || scheme.primary_btn_text,
             ...buttonRadiusStyle(theme),
           }}
           onClick={e => {

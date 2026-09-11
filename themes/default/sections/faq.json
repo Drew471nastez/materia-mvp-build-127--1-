@@ -193,10 +193,9 @@
         "expanded_first": true,
         "show_count": false,
         "icon_style": "chevron",
-        "bg_color": "#ffffff",
-        "text_color": "#111827",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "white"
       },
       "blocks": [
         {

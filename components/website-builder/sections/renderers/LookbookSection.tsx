@@ -4,7 +4,7 @@
 // an optional mood / overlay treatment.
 
 import { cn } from "@/lib/utils"
-import { str, SectionWrapper, hexToRgba, type SectionProps } from "../_shared"
+import { sectionColors, str, SectionWrapper, hexToRgba, type SectionProps } from "../_shared"
 
 /**
  * The six moods, as typography. A lookbook's mood is carried by how the
@@ -21,12 +21,13 @@ const MOOD: Record<string, string> = {
   bohemian: "text-5xl @[768px]:text-7xl font-serif tracking-wide",
 }
 
-export function LookbookSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function LookbookSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
-  const bg = str(s.bg_color, "#f5f0eb")
+  const c = sectionColors(section, theme)
+  const bg = str(s.bg_color) || c.bg
   const textColor = str(s.text_color, "#ffffff")
   const headingColor = str(s.heading_color, "#ffffff")
-  const accent = str(s.accent_color, "#d4a96a")
+  const accent = str(s.accent_color) || c.accent
   const overlayStyle = str(s.overlay_style, "dark")
   const overlayColor = overlayStyle === "dark" ? "#000000"
     : overlayStyle === "light" ? "#ffffff"
@@ -41,8 +42,8 @@ export function LookbookSection({ section, isEditing, isSelected, onClick }: Sec
   const imgObjectPos = imgPos === "top" ? "center top" : imgPos === "bottom" ? "center bottom" : "center center"
   const ctaStyle = str(s.cta_style, "outline")
   const mood = str(s.mood_style, "minimal")
-  const ctaColor = str(s.cta_color, "#ffffff")
-  const ctaTextColor = str(s.cta_text_color, "#111111")
+  const ctaColor = str(s.cta_color) || c.primary_btn_bg
+  const ctaTextColor = str(s.cta_text_color) || c.primary_btn_text
 
   const posMap: Record<string, string> = {
     "top-left": "items-start justify-start text-left",

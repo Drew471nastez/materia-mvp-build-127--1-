@@ -103,9 +103,9 @@
         "image_url": "",
         "caption": "",
         "aspect_ratio": "auto",
-        "bg_color": "#ffffff",
         "padding_top": 40,
-        "padding_bottom": 40
+        "padding_bottom": 40,
+        "color_scheme": "white"
       }
     }
   ]

@@ -3,7 +3,7 @@
 // Video embed — renders a YouTube, Vimeo, or self-hosted video inside
 // an aspect-ratio'd container. Heading + subheading float above.
 
-import { str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
 function toEmbedUrl(raw: string, provider: string, opts: { autoplay: boolean; mute: boolean; loop: boolean; controls: boolean }): string {
   if (!raw) return ""
@@ -35,10 +35,11 @@ function toEmbedUrl(raw: string, provider: string, opts: { autoplay: boolean; mu
   }
 }
 
-export function VideoEmbedSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function VideoEmbedSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#111111")
+  const c = sectionColors(section, theme)
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 60
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 60
   const maxWidth = typeof s.max_width_video === "number" ? s.max_width_video : 800

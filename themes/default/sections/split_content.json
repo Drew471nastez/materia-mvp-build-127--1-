@@ -264,14 +264,11 @@
         "button_text": "Discover more",
         "button_url": "/about",
         "button_style": "filled",
-        "button_color": "#6366f1",
-        "button_text_color": "#ffffff",
         "image_position": "right",
         "image_aspect_ratio": "square",
-        "bg_color": "#ffffff",
-        "text_color": "#0f172a",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "white"
       }
     },
     {
@@ -283,14 +280,11 @@
         "button_text": "Discover more",
         "button_url": "/about",
         "button_style": "outline",
-        "button_color": "#6366f1",
-        "button_text_color": "#6366f1",
         "image_position": "left",
         "image_aspect_ratio": "portrait",
-        "bg_color": "#f8fafc",
-        "text_color": "#0f172a",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "light"
       }
     }
   ]

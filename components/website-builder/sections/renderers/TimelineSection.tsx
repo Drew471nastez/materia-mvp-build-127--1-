@@ -4,15 +4,16 @@
 // center-aligned, or alternating layouts with a connector line and
 // per-item highlight color.
 
-import { str, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, SectionWrapper, type SectionProps } from "../_shared"
 
-export function TimelineSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function TimelineSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const blocks = section.blocks ?? []
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#111111")
-  const connector = str(s.connector_color, "#d0d0d0")
-  const dotColor = str(s.dot_color, "#111111")
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
+  const connector = str(s.connector_color) || c.border
+  const dotColor = str(s.dot_color) || c.accent
   const connectorStyle = str(s.connector_style, "line")
   const dotSize = typeof s.dot_size === "number" ? s.dot_size : 16
   const layout = str(s.layout, "alternating")

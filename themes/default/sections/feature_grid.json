@@ -242,13 +242,10 @@
         "heading": "Why choose us",
         "subheading": "Built to grow with your business",
         "columns": "3",
-        "bg_color": "#ffffff",
-        "text_color": "#0f172a",
-        "icon_color": "#6366f1",
-        "card_bg_color": "#f8fafc",
         "alignment": "left",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "white"
       },
       "blocks": [
         {
@@ -285,13 +282,10 @@
       "settings": {
         "heading": "Everything you need",
         "columns": "4",
-        "bg_color": "#f8fafc",
-        "text_color": "#0f172a",
-        "icon_color": "#0ea5e9",
-        "card_bg_color": "#ffffff",
         "alignment": "center",
         "padding_top": 80,
-        "padding_bottom": 80
+        "padding_bottom": 80,
+        "color_scheme": "light"
       },
       "blocks": [
         {

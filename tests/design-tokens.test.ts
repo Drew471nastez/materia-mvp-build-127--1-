@@ -240,6 +240,89 @@ section("Typography compiles to tokens at three widths")
 }
 
 // ===========================================================================
+section("Every section has a colour scheme, and it is the one that paints it")
+// ===========================================================================
+
+{
+  const dir = join(root, "themes/default/sections")
+  const files = readdirSync(dir)
+  const types: { type: string; hasScheme: boolean }[] = []
+  for (const f of files) {
+    if (f.endsWith(".json")) {
+      const d = JSON.parse(readFileSync(join(dir, f), "utf8")) as { fields?: { id: string }[] }
+      types.push({ type: f.slice(0, -5), hasScheme: (d.fields ?? []).some((x) => x.id === "color_scheme") })
+    } else if (f.endsWith(".storelib")) {
+      const src = readFileSync(join(dir, f), "utf8")
+      types.push({ type: f.slice(0, -9), hasScheme: src.slice(src.indexOf("<schema>")).includes('"color_scheme"') })
+    }
+  }
+  const without = types.filter((t) => !t.hasScheme).map((t) => t.type)
+  check(
+    `every one of the ${types.length} sections offers a colour scheme`,
+    /**
+     * Twenty-two did not. They had their own bg_color and text_color with a
+     * literal default, so the scheme picker was absent and the colours were
+     * whatever the section was born with. A theme whose schemes reach
+     * fifty-eight sections out of eighty is not a theme.
+     */
+    without.length === 0,
+    without.join(", "),
+  )
+
+  const renderers = join(root, "components/website-builder/sections/renderers")
+  const rendererFiles = readdirSync(renderers).filter((f) => f.endsWith(".tsx"))
+  const blind = rendererFiles.filter((f) => {
+    const src = stripComments(readFileSync(join(renderers, f), "utf8"))
+    if (!/\bs\.(bg_color|text_color)\b/.test(src)) return false
+    return !/sectionColors\(|resolveScheme\(/.test(src)
+  })
+  check("and no renderer reads a background or text colour without a scheme behind it", blind.length === 0, blind.join(", "))
+
+  /**
+   * Text drawn ON TOP of an image or a video is the one exemption. Its
+   * legibility comes from the scrim under it, not from the scheme, and a
+   * dark scheme's dark heading over a photograph is unreadable. Four
+   * sections put text over media, and they say so here rather than being
+   * quietly skipped.
+   */
+  const OVER_MEDIA = new Set(["CollectionBannerSection.tsx", "LookbookSection.tsx", "VideoHeroSection.tsx", "ImageBannerSection.tsx"])
+  const literal = rendererFiles.filter((f) => {
+    const src = stripComments(readFileSync(join(renderers, f), "utf8"))
+    const fields = OVER_MEDIA.has(f) ? "bg_color|border_color|accent_color|button_color" : "bg_color|text_color|border_color|accent_color|button_color"
+    return new RegExp(`str\\(s\\.(${fields})\\s*,\\s*"#`).test(src)
+  })
+  check("and none falls back to a hard-coded hex instead of the scheme", literal.length === 0, literal.join(", "))
+
+  /**
+   * A preset that bakes a colour makes the scheme picker do nothing on a
+   * section somebody just added, which is the moment they are most likely to
+   * try it. Colours a scheme does not own (an overlay scrim, a rating star,
+   * a tick and a cross) are allowed to stay literal.
+   */
+  const SCHEME_FREE = new Set(["overlay_color", "star_color", "check_color", "cross_color", "highlight_color", "gradient_from", "gradient_to", "bg_overlay_color"])
+  const baked: string[] = []
+  const onScheme: string[] = []
+  for (const f of files.filter((x) => x.endsWith(".json"))) {
+    const d = JSON.parse(readFileSync(join(dir, f), "utf8")) as { presets?: { name: string; settings?: Record<string, unknown> }[] }
+    for (const p of d.presets ?? []) {
+      const settings = p.settings ?? {}
+      // The same exemption as above: a preset that puts its own image, video
+      // or gradient behind the words may name the colour of the words.
+      const overMedia = ["image_url", "video_url", "image", "bg_image", "poster", "video_poster"].some((k) => settings[k]) ||
+        settings.bg_type === "gradient" || settings.background === "gradient" || settings.overlay_color !== undefined
+      for (const [k, v] of Object.entries(settings)) {
+        if (typeof v !== "string" || !v.startsWith("#") || !k.includes("color") || SCHEME_FREE.has(k)) continue
+        if (overMedia && (k === "text_color" || k === "heading_color")) continue
+        baked.push(`${f.slice(0, -5)}.${p.name}.${k}`)
+      }
+      if (typeof settings.color_scheme === "string") onScheme.push(f)
+    }
+  }
+  check("and a preset that wants a darker look says which scheme, rather than a hex", onScheme.length >= 30, `${onScheme.length} presets name a scheme`)
+  check("a section somebody just added is on its scheme, not on a baked colour", baked.length === 0, baked.slice(0, 8).join(", "))
+}
+
+// ===========================================================================
 section("The panel is simple, and the settings match the model")
 // ===========================================================================
 

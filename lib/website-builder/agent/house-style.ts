@@ -26,6 +26,7 @@
  * PURE, and free of any import that cannot run in a browser.
  */
 
+import { resolveSectionColors } from "@/lib/storelib-theme/color-schemes"
 import { schemaOf, type SchemaMap } from "./schemas"
 import type { SectionInstance } from "../types"
 import type { ThemeState } from "./operations"
@@ -83,6 +84,25 @@ export function readHouseStyle(state: ThemeState, exclude: string[] = [], schema
 
   for (const section of state.sections) {
     if (!schemaOf(schemas, section.type) || skip.has(section.id)) continue
+
+    /**
+     * THE COLOURS THE PAGE ACTUALLY DRAWS, which are mostly its colour
+     * schemes. A section that sets nothing is not a section with no colours:
+     * it is a section painted in the scheme it picked, and a model that
+     * cannot see those colours invents a fourth grey beside them. Counted
+     * first so the scheme is what the page "already uses".
+     */
+    const scheme = resolveSectionColors(state.settings, section.settings).scheme
+    for (const key of ["background", "background_secondary", "text", "heading", "accent", "border", "primary_button_background"] as const) {
+      const value = scheme[key]
+      if (typeof value !== "string" || !parseColor(value)) continue
+      const key2 = value.trim().toLowerCase()
+      const entry = counts.get(key2) ?? { uses: 0, where: new Set<string>() }
+      entry.uses++
+      entry.where.add(`${section.type}.scheme`)
+      counts.set(key2, entry)
+    }
+    if (parseColor(scheme.background)) backgrounds.push(scheme.background.trim().toLowerCase())
 
     for (const id of colorFields(section.type, schemas)) {
       const value = section.settings?.[id]

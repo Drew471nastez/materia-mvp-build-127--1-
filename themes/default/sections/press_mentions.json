@@ -108,22 +108,53 @@
       "type": "header"
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text color",
       "type": "color",
-      "default": "#0f172a"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "logo_color",
       "label": "Logo tint color",
       "type": "color",
-      "default": "#94a3b8"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "grayscale",
@@ -141,13 +172,15 @@
       "id": "card_bg_color",
       "label": "Quote card background",
       "type": "color",
-      "default": "#f8fafc"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "accent_color",
       "label": "Quote accent color",
       "type": "color",
-      "default": "#6366f1"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "hdr_padding",
@@ -220,11 +253,11 @@
         "heading": "Featured in the press",
         "layout": "logos_only",
         "columns": "5",
-        "bg_color": "#ffffff",
         "grayscale": true,
         "hover_color": true,
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "white"
       },
       "blocks": [
         {
@@ -281,12 +314,11 @@
         "heading": "What the media says",
         "layout": "featured",
         "columns": "4",
-        "bg_color": "#f8fafc",
         "grayscale": false,
         "hover_color": true,
-        "accent_color": "#6366f1",
         "padding_top": 80,
-        "padding_bottom": 80
+        "padding_bottom": 80,
+        "color_scheme": "light"
       }
     }
   ]

@@ -110,8 +110,12 @@
       "id": "style_preset",
       "label": "Style Preset",
       "type": "select",
-      "default": "brand",
+      "default": "scheme",
       "options": [
+        {
+          "label": "Follow color scheme",
+          "value": "scheme"
+        },
         {
           "label": "Info (Blue)",
           "value": "info"
@@ -139,28 +143,60 @@
       ]
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background Color",
       "type": "color",
-      "default": "#1a1a1a"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text Color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "border_color",
       "label": "Border Color",
       "type": "color",
-      "default": "#333333"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "accent_color",
       "label": "Accent Color",
       "type": "color",
-      "default": "#f59e0b"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "border_radius",
@@ -210,14 +246,11 @@
         "cta_text": "Shop Now",
         "cta_url": "#",
         "cta_style": "filled",
-        "style_preset": "brand",
-        "bg_color": "#1a1a1a",
-        "text_color": "#ffffff",
-        "border_color": "#333333",
-        "accent_color": "#f59e0b",
+        "style_preset": "scheme",
         "border_radius": 8,
         "padding_top": 16,
-        "padding_bottom": 16
+        "padding_bottom": 16,
+        "color_scheme": "black"
       }
     }
   ]

@@ -217,10 +217,9 @@
         "toggle_billing": true,
         "style": "cards",
         "highlight_color": "#4f46e5",
-        "bg_color": "#f9fafb",
-        "text_color": "#111827",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "light"
       },
       "blocks": [
         {

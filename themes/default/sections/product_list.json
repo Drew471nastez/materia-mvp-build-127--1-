@@ -306,10 +306,9 @@
         "show_sort": false,
         "show_filter": false,
         "pagination_style": "loadmore",
-        "bg_color": "#ffffff",
-        "text_color": "#0f172a",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "white"
       }
     },
     {
@@ -328,10 +327,9 @@
         "show_sort": true,
         "show_filter": true,
         "pagination_style": "pagination",
-        "bg_color": "#f8fafc",
-        "text_color": "#0f172a",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "light"
       }
     }
   ]

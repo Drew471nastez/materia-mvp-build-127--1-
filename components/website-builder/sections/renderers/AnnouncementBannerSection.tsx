@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react"
 import { Megaphone, Bell, Star, Info, AlertTriangle, X, type LucideIcon } from "lucide-react"
-import { bool, num, str, useCountdown, SectionWrapper, type SectionProps } from "../_shared"
+import { bool, num, sectionColors, str, useCountdown, SectionWrapper, type SectionProps } from "../_shared"
 
 const ICONS: Record<string, LucideIcon> = {
   megaphone: Megaphone,
@@ -36,8 +36,9 @@ const PRESETS: Record<string, { bg: string; text: string; accent: string; border
   },
 }
 
-export function AnnouncementBannerSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function AnnouncementBannerSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const [dismissed, setDismissed] = useState(false)
 
   /**
@@ -47,7 +48,16 @@ export function AnnouncementBannerSection({ section, isEditing, isSelected, onCl
    * wins, so somebody who picked "Warning" and then changed the background
    * keeps their background.
    */
-  const preset = PRESETS[str(s.style_preset, "brand")] ?? PRESETS.brand
+  /**
+   * "Scheme" is the seventh look and the default: the banner takes its
+   * colours from the section's colour scheme like every other section, and
+   * the six status looks stay for a banner that is saying something a
+   * status colour says better than the theme can.
+   */
+  const chosen = str(s.style_preset, "scheme")
+  const preset = chosen === "scheme"
+    ? { bg: c.bg, text: c.text, accent: c.accent, border: c.border }
+    : PRESETS[chosen] ?? PRESETS.brand
   const bg = str(s.bg_color) || preset.bg
   const text = str(s.text_color) || preset.text
   const accent = str(s.accent_color) || preset.accent

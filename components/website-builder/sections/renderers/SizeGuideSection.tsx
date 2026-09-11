@@ -7,7 +7,7 @@
 
 import { cn } from "@/lib/utils"
 import { useState } from "react"
-import { str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
 const SIZES_METRIC = [
   { label: "XS", chest: "81–86", waist: "61–66", hips: "86–91" },
@@ -24,13 +24,14 @@ const SIZES_IMPERIAL = [
   { label: "XL", chest: "41–44", waist: "33–37", hips: "43–47" },
 ]
 
-export function SizeGuideSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function SizeGuideSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const [units, setUnits] = useState<"metric" | "imperial">(str(s.unit_system, "metric") as "metric" | "imperial")
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#1a1a1a")
-  const headerBg = str(s.header_bg_color, "#f5f5f5")
-  const borderColor = str(s.border_color, "#e0e0e0")
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
+  const headerBg = str(s.header_bg_color) || c.background_secondary
+  const borderColor = str(s.border_color) || c.border
   const showToggle = bool(s.show_unit_toggle, true)
   const chartStyle = str(s.chart_style, "bordered-table")
   // The size the guide recommends, if the creator named one. The Highlight

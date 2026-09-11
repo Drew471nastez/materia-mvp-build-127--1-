@@ -6,7 +6,7 @@
 // table).
 
 import { Check, X } from "lucide-react"
-import { str, bool, SectionWrapper, maxWidth, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, maxWidth, type SectionProps } from "../_shared"
 
 function isYes(v: string): boolean | null {
   const t = v.trim().toLowerCase()
@@ -15,18 +15,19 @@ function isYes(v: string): boolean | null {
   return null
 }
 
-export function ComparisonTableSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function ComparisonTableSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const blocks = section.blocks ?? []
   const columns = blocks.filter(b => b.type === "comparison_column")
   const rows = blocks.filter(b => b.type === "comparison_row")
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#0f172a")
-  const headerBg = str(s.header_bg_color, "#f8fafc")
-  const highlightBg = str(s.highlight_bg_color, "#6366f1")
-  const highlightText = str(s.highlight_text_color, "#ffffff")
-  const rowAlt = str(s.row_alt_bg_color, "#f8fafc")
-  const border = str(s.border_color, "#e2e8f0")
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
+  const headerBg = str(s.header_bg_color) || c.background_secondary
+  const highlightBg = str(s.highlight_bg_color) || c.primary_btn_bg
+  const highlightText = str(s.highlight_text_color) || c.primary_btn_text
+  const rowAlt = str(s.row_alt_bg_color) || c.background_secondary
+  const border = str(s.border_color) || c.border
   const checkColor = str(s.check_color, "#22c55e")
   const crossColor = str(s.cross_color, "#ef4444")
   const radius = typeof s.border_radius === "number" ? s.border_radius : 12

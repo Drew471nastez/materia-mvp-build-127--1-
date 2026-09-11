@@ -24,7 +24,7 @@
       "label": "Incentive / offer text",
       "type": "text",
       "default": "Get 10% off your first order when you subscribe.",
-      "placeholder": "e.g. Get 10% off…"
+      "placeholder": "e.g. Get 10% off\u2026"
     },
     {
       "id": "placeholder",
@@ -98,16 +98,46 @@
       "type": "header"
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background color",
       "type": "color",
-      "default": "#1e1b4b"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "padding_top",
@@ -144,10 +174,9 @@
         "success_message": "You're in! Check your inbox for a confirmation.",
         "layout": "centered",
         "bg_overlay_opacity": 40,
-        "bg_color": "#1e1b4b",
-        "text_color": "#ffffff",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "dark"
       }
     }
   ]

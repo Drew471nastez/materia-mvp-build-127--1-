@@ -61,7 +61,7 @@ export function ImageBannerSection({ section, theme, isEditing, isSelected, onCl
       <div style={sectionPadding(s, 0)}>
         <div
           className={cn("relative w-full overflow-hidden", aspect)}
-          style={{ background: str(s.bg_color, "#111827") }}
+          style={{ background: str(s.bg_color) || c.bg }}
         >
           {image ? (
             <img
@@ -72,7 +72,7 @@ export function ImageBannerSection({ section, theme, isEditing, isSelected, onCl
               decoding="async"
             />
           ) : (
-            <div className="absolute inset-0" style={{ background: str(s.bg_color, "#111827") }} />
+            <div className="absolute inset-0" style={{ background: str(s.bg_color) || c.bg }} />
           )}
           <div
             className="absolute inset-0"

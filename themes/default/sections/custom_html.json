@@ -24,16 +24,46 @@
       "info": "Custom code is rendered as-is. Use <style> tags for CSS and <script> tags for JavaScript. Changes take effect on save and preview. Note: some scripts may conflict with the editor, so test in preview mode."
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background Color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text Color",
       "type": "color",
-      "default": "#111111"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "hdr_padding",
@@ -66,10 +96,9 @@
       "name": "Custom HTML",
       "settings": {
         "html_content": "",
-        "bg_color": "#ffffff",
-        "text_color": "#111111",
         "padding_top": 40,
-        "padding_bottom": 40
+        "padding_bottom": 40,
+        "color_scheme": "white"
       }
     }
   ]

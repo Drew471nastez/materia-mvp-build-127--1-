@@ -5,11 +5,12 @@
 // responsibility of a separate `collection_list` or `product_list`
 // section placed below.
 
-import { str, bool, SectionWrapper, hexToRgba, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, hexToRgba, type SectionProps } from "../_shared"
 
-export function CollectionBannerSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function CollectionBannerSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
-  const bg = str(s.bg_color, "#f8f8f8")
+  const c = sectionColors(section, theme)
+  const bg = str(s.bg_color) || c.bg
   const textColor = str(s.text_color, "#ffffff")
   const overlayColor = str(s.overlay_color, "#000000")
   const overlayOp = typeof s.overlay_opacity === "number" ? s.overlay_opacity : 30
@@ -20,8 +21,8 @@ export function CollectionBannerSection({ section, isEditing, isSelected, onClic
   const position = str(s.text_position, "center")
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 0
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 0
-  const badgeBg = str(s.badge_color, "#111111")
-  const badgeText = str(s.badge_text_color, "#ffffff")
+  const badgeBg = str(s.badge_color) || c.primary_btn_bg
+  const badgeText = str(s.badge_text_color) || c.primary_btn_text
 
   const bannerContent = (
     <div className="relative w-full overflow-hidden" style={{ minHeight: height }}>

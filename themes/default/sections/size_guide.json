@@ -21,7 +21,7 @@
       "id": "description",
       "label": "Description",
       "type": "textarea",
-      "default": "Use our size guide to find your ideal fit. Sizes are based on body measurements \u2014 if you're between sizes, we recommend sizing up for a relaxed fit.",
+      "default": "Use our size guide to find your ideal fit. Sizes are based on body measurements. If you are between sizes we recommend sizing up for a relaxed fit.",
       "placeholder": "Introductory description"
     },
     {
@@ -120,28 +120,60 @@
       "type": "header"
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background Color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text Color",
       "type": "color",
-      "default": "#1a1a1a"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "header_bg_color",
       "label": "Table Header Background",
       "type": "color",
-      "default": "#f5f5f5"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "border_color",
       "label": "Border Color",
       "type": "color",
-      "default": "#e0e0e0"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "highlight_size",
@@ -149,7 +181,7 @@
       "type": "text",
       "default": "",
       "placeholder": "M",
-      "info": "The row to pick out \u2014 usually the size you recommend most. Leave empty for none."
+      "info": "The row to pick out, usually the size you recommend most. Leave empty for none."
     },
     {
       "id": "highlight_color",
@@ -188,7 +220,7 @@
       "name": "Size Guide",
       "settings": {
         "heading": "Find Your Perfect Fit",
-        "description": "Use our size guide to find your ideal fit. Sizes are based on body measurements \u2014 if you're between sizes, we recommend sizing up for a relaxed fit.",
+        "description": "Use our size guide to find your ideal fit. Sizes are based on body measurements. If you are between sizes we recommend sizing up for a relaxed fit.",
         "note_text": "Measurements are in cm unless toggled to inches.",
         "unit_system": "metric",
         "show_unit_toggle": true,
@@ -197,13 +229,10 @@
         "fit_guide_text": "Chest: Measure around the fullest part of your chest, keeping the tape horizontal.\n\nWaist: Measure around your natural waistline.",
         "show_model_measurements": true,
         "model_info": "Model is 5'9\" (175 cm) and wears size S",
-        "bg_color": "#ffffff",
-        "text_color": "#1a1a1a",
-        "header_bg_color": "#f5f5f5",
-        "border_color": "#e0e0e0",
         "highlight_color": "#fff3e0",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "white"
       }
     }
   ]

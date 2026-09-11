@@ -189,11 +189,9 @@
         "layout": "grid",
         "show_icon": true,
         "animate_numbers": true,
-        "divider_color": "#e5e7eb",
-        "bg_color": "#ffffff",
-        "text_color": "#111827",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "white"
       },
       "blocks": [
         {

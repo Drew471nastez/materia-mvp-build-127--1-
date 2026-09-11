@@ -54,16 +54,46 @@
       "type": "header"
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text color",
       "type": "color",
-      "default": "#374151"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "padding_top",
@@ -154,10 +184,9 @@
         "heading": "Shop with confidence",
         "layout": "row",
         "style": "icon-text",
-        "bg_color": "#ffffff",
-        "text_color": "#374151",
         "padding_top": 40,
-        "padding_bottom": 40
+        "padding_bottom": 40,
+        "color_scheme": "white"
       },
       "blocks": [
         {

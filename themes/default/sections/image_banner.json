@@ -269,15 +269,14 @@
         "button_text": "Shop Now",
         "button_url": "/products",
         "button_style": "filled",
-        "button_color": "#ffffff",
-        "button_text_color": "#0f172a",
         "overlay_color": "#000000",
         "overlay_opacity": 35,
         "text_color": "#ffffff",
         "aspect_ratio": "3:1",
         "alignment": "center",
         "padding_top": 0,
-        "padding_bottom": 0
+        "padding_bottom": 0,
+        "color_scheme": "dark"
       }
     }
   ]

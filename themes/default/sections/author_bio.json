@@ -168,22 +168,53 @@
       "default": true
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background Color",
       "type": "color",
-      "default": "#f9f6f1"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text Color",
       "type": "color",
-      "default": "#1a1a1a"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "accent_color",
       "label": "Accent Color",
       "type": "color",
-      "default": "#c0813a"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "hdr_padding",
@@ -228,11 +259,9 @@
         "layout": "left",
         "show_stats": true,
         "show_social": true,
-        "bg_color": "#f9f6f1",
-        "text_color": "#1a1a1a",
-        "accent_color": "#c0813a",
         "padding_top": 80,
-        "padding_bottom": 80
+        "padding_bottom": 80,
+        "color_scheme": "light"
       }
     }
   ]

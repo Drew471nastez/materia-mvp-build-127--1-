@@ -100,7 +100,7 @@
       "id": "hours",
       "label": "Opening hours",
       "type": "textarea",
-      "placeholder": "Mon–Fri: 9am–6pm\nSat: 10am–4pm\nSun: Closed"
+      "placeholder": "Mon\u2013Fri: 9am\u20136pm\nSat: 10am\u20134pm\nSun: Closed"
     },
     {
       "id": "directions_url",
@@ -144,28 +144,60 @@
       ]
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text color",
       "type": "color",
-      "default": "#0f172a"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "panel_bg_color",
       "label": "Info panel background",
       "type": "color",
-      "default": "#f8fafc"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "accent_color",
       "label": "Accent color",
       "type": "color",
-      "default": "#6366f1"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "border_radius",
@@ -217,15 +249,12 @@
         "country": "United States",
         "phone": "+1 (555) 000-0000",
         "email": "hello@mystore.com",
-        "hours": "Mon–Fri: 9am–6pm\nSat: 10am–4pm\nSun: Closed",
+        "hours": "Mon\u2013Fri: 9am\u20136pm\nSat: 10am\u20134pm\nSun: Closed",
         "directions_text": "Get directions",
-        "bg_color": "#ffffff",
-        "text_color": "#0f172a",
-        "panel_bg_color": "#f8fafc",
-        "accent_color": "#6366f1",
         "border_radius": 12,
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "white"
       }
     },
     {
@@ -235,10 +264,10 @@
         "show_info_panel": false,
         "map_height": 500,
         "layout": "full",
-        "bg_color": "#ffffff",
         "border_radius": 0,
         "padding_top": 0,
-        "padding_bottom": 0
+        "padding_bottom": 0,
+        "color_scheme": "white"
       }
     }
   ]

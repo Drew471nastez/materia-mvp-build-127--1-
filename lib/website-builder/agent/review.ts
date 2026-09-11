@@ -27,6 +27,7 @@
  * findings can be shown in the editor later without a round trip.
  */
 
+import { resolveSectionColors, type SchemeColorKey } from "@/lib/storelib-theme/color-schemes"
 import { houseStyleFindings, readHouseStyle } from "./house-style"
 import { schemaOf, type SchemaMap } from "./schemas"
 import type { SchemaField, SectionInstance } from "../types"
@@ -161,9 +162,42 @@ function readableColor(section: SectionInstance, id: string, theme: Record<strin
   // this has to do to be talking about the same pixels.
   const shipped = shippedValue(section.type, id)
   if (typeof shipped === "string" && shipped.trim()) return shipped
+  /**
+   * And then to the section's colour scheme, which is where a colour comes
+   * from when nothing else names one. Since the presets stopped baking
+   * colours this is the usual case rather than the unusual one: `text_color`
+   * unset means the scheme's text, and that is the pixel the reader sees.
+   */
+  const fromScheme = SCHEME_FALLBACK[id]
+  if (fromScheme) {
+    const scheme = resolveSectionColors(theme, section.settings).scheme
+    const value = scheme[fromScheme]
+    if (typeof value === "string" && value.trim() && value !== "transparent") return value
+  }
   if (id === "bg_color" && typeof theme.background_color === "string") return theme.background_color
   if (id === "text_color" && typeof theme.text_color === "string") return theme.text_color
   return null
+}
+
+/** Which of the scheme's seventeen a section field falls back to. */
+const SCHEME_FALLBACK: Record<string, SchemeColorKey> = {
+  bg_color: "background",
+  content_bg_color: "background",
+  card_bg_color: "background_secondary",
+  header_bg_color: "background_secondary",
+  text_color: "text",
+  heading_color: "heading",
+  button_color: "primary_button_background",
+  button_text_color: "primary_button_text",
+  cta_color: "primary_button_background",
+  cta_text_color: "primary_button_text",
+  badge_color: "primary_button_background",
+  badge_text_color: "primary_button_text",
+  highlight_bg_color: "primary_button_background",
+  highlight_text_color: "primary_button_text",
+  buy_button_color: "primary_button_background",
+  buy_button_text_color: "primary_button_text",
+  nav_link_color: "text",
 }
 
 /**

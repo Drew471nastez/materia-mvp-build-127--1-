@@ -5,7 +5,7 @@
 // publication logos.
 
 import { Star, Shield, CheckCircle, Users } from "lucide-react"
-import { str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
 function Stars({ value, color }: { value: number; color: string }) {
   const full = Math.floor(value)
@@ -27,13 +27,14 @@ function Stars({ value, color }: { value: number; color: string }) {
   )
 }
 
-export function SocialProofBarSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function SocialProofBarSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
-  const bg = str(s.bg_color, "#f8fafc")
-  const color = str(s.text_color, "#0f172a")
+  const c = sectionColors(section, theme)
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
   const starColor = str(s.star_color, "#f59e0b")
-  const iconColor = str(s.icon_color, "#6366f1")
-  const dividerColor = str(s.divider_color, "#e2e8f0")
+  const iconColor = str(s.icon_color) || c.accent
+  const dividerColor = str(s.divider_color) || c.border
   const showDividers = bool(s.show_dividers, true)
   const align = str(s.alignment, "center")
   const justify = align === "left" ? "justify-start" : align === "right" ? "justify-end" : "justify-center"

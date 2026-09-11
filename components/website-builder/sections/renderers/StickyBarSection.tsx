@@ -8,15 +8,16 @@
 import { useState } from "react"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { str, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, SectionWrapper, type SectionProps } from "../_shared"
 
-export function StickyBarSection({ section, isEditing, isSelected, onClick, insideEditor }: SectionProps) {
+export function StickyBarSection({ section, theme, isEditing, isSelected, onClick, insideEditor }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const [dismissed, setDismissed] = useState(false)
   if (dismissed && !isEditing) return null
 
-  const bg = str(s.bg_color, "#111111")
-  const color = str(s.text_color, "#ffffff")
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
   const padY = typeof s.padding_y === "number" ? s.padding_y : 12
   const showClose = s.show_close !== false
   /**

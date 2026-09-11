@@ -59,16 +59,46 @@
       ]
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "button_color",
       "label": "Button color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "button_text_color",
       "label": "Button text color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "button_border_radius",
@@ -144,8 +174,8 @@
       "id": "bg_color",
       "label": "Background",
       "type": "color",
-      "default": "#111827",
-      "info": "Shown behind the media, and on its own before an image is chosen."
+      "default": "",
+      "info": "Shown behind the media, and on its own before an image is chosen. Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
@@ -253,8 +283,6 @@
         "button_text": "Shop the Collection",
         "button_url": "/products",
         "button_style": "outline",
-        "button_color": "#ffffff",
-        "button_text_color": "#ffffff",
         "autoplay": true,
         "loop_video": true,
         "mute_video": true,
@@ -265,7 +293,8 @@
         "alignment": "center",
         "full_height": true,
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "dark"
       }
     }
   ]

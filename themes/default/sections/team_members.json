@@ -65,16 +65,46 @@
       "type": "header"
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text color",
       "type": "color",
-      "default": "#111827"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "padding_top",
@@ -134,28 +164,28 @@
           "label": "Twitter / X URL",
           "type": "link",
           "default": "",
-          "placeholder": "https://twitter.com/…"
+          "placeholder": "https://twitter.com/\u2026"
         },
         {
           "id": "social_linkedin",
           "label": "LinkedIn URL",
           "type": "link",
           "default": "",
-          "placeholder": "https://linkedin.com/in/…"
+          "placeholder": "https://linkedin.com/in/\u2026"
         },
         {
           "id": "social_instagram",
           "label": "Instagram URL",
           "type": "link",
           "default": "",
-          "placeholder": "https://instagram.com/…"
+          "placeholder": "https://instagram.com/\u2026"
         },
         {
           "id": "social_url",
           "label": "Personal website URL",
           "type": "link",
           "default": "",
-          "placeholder": "https://…"
+          "placeholder": "https://\u2026"
         }
       ]
     }
@@ -169,10 +199,9 @@
         "subheading": "The passionate people behind our product.",
         "layout": "grid",
         "columns": "3",
-        "bg_color": "#ffffff",
-        "text_color": "#111827",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "white"
       },
       "blocks": [
         {

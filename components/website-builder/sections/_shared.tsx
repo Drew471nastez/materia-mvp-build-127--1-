@@ -14,7 +14,7 @@
 // ============================================================
 
 import type { SectionInstance, ThemeSettingsValues, ColorSchemeValues } from "@/lib/website-builder/types"
-import { resolveSectionColors } from "@/lib/storelib-theme/color-schemes"
+import { resolveSectionColors, type ColorScheme } from "@/lib/storelib-theme/color-schemes"
 import { sectionTypography } from "@/lib/storelib-theme/typography"
 // `Zap` alone, and only as the fallback for a name no theme should be using.
 import { Zap } from "lucide-react"
@@ -80,16 +80,26 @@ export interface SectionProps {
  * own `color_overrides` are already applied, so a renderer reading `c.bg`
  * gets the override without knowing there is one.
  */
-export function resolveScheme(theme: ThemeSettingsValues, key: string | undefined): ColorSchemeValues {
-  return resolveSectionColors(theme as Record<string, unknown>, { color_scheme: key }).legacy as unknown as ColorSchemeValues
+export type SectionPalette = ColorSchemeValues & ColorScheme
+
+export function resolveScheme(theme: ThemeSettingsValues, key: string | undefined): SectionPalette {
+  const r = resolveSectionColors(theme as Record<string, unknown>, { color_scheme: key })
+  return { ...r.legacy, ...r.scheme } as unknown as SectionPalette
 }
 
 // Single entry point every section uses to resolve its effective colors.
 // Reads section.settings.color_scheme and color_overrides and returns the
 // merged scheme.
-export function sectionColors(section: SectionInstance, theme: ThemeSettingsValues): ColorSchemeValues {
+export function sectionColors(section: SectionInstance, theme: ThemeSettingsValues): SectionPalette {
   const chosen = { color_scheme: section.settings.color_scheme, color_overrides: section.settings.color_overrides }
-  return resolveSectionColors(theme as Record<string, unknown>, chosen).legacy as unknown as ColorSchemeValues
+  const r = resolveSectionColors(theme as Record<string, unknown>, chosen)
+  /**
+   * Both vocabularies. The legacy slot names every renderer was written
+   * against (`c.bg`, `c.primary_btn_bg`) and the seventeen semantic names
+   * (`c.background`, `c.input_background`, `c.text_muted`), which are what a
+   * renderer written today should reach for.
+   */
+  return { ...r.legacy, ...r.scheme } as unknown as SectionPalette
 }
 
 /**

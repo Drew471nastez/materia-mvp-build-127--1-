@@ -3,14 +3,15 @@
 // Process steps — horizontal, vertical, or zigzag layout of numbered
 // steps with optional icon + image per step.
 
-import { str, bool, SectionWrapper, DynamicIcon, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, DynamicIcon, type SectionProps } from "../_shared"
 
-export function ProcessStepsSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function ProcessStepsSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const blocks = section.blocks ?? []
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#111827")
-  const connector = str(s.connector_color, "#e5e7eb")
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
+  const connector = str(s.connector_color) || c.border
   const showNumbers = bool(s.show_numbers, true)
   const layout = str(s.layout, "horizontal")
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 60

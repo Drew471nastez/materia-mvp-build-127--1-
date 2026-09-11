@@ -84,46 +84,81 @@
       "type": "header"
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text color",
       "type": "color",
-      "default": "#0f172a"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "header_bg_color",
       "label": "Column header background",
       "type": "color",
-      "default": "#f8fafc"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "highlight_bg_color",
       "label": "Highlighted column background",
       "type": "color",
-      "default": "#6366f1"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "highlight_text_color",
       "label": "Highlighted column text color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "row_alt_bg_color",
       "label": "Alternate row color",
       "type": "color",
-      "default": "#f8fafc"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "border_color",
       "label": "Border color",
       "type": "color",
-      "default": "#e2e8f0"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "check_color",
@@ -275,13 +310,10 @@
         "show_cta_row": true,
         "sticky_header": true,
         "show_check_icons": true,
-        "bg_color": "#ffffff",
-        "text_color": "#0f172a",
-        "highlight_bg_color": "#6366f1",
-        "highlight_text_color": "#ffffff",
         "border_radius": 12,
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "white"
       },
       "blocks": [
         {

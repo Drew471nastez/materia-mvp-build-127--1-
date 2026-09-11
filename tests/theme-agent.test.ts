@@ -2987,7 +2987,15 @@ const reviewOf = (state: ThemeState, written: string[]) =>
   )
   check(
     "though a dark background under dark text is still unreadable, and still reported",
-    findings.some((f) => /1\.04:1/.test(f.message)),
+    /**
+     * 2.54:1, not the 1.04:1 this asked for before. The number moved because
+     * the FAQ's text colour moved: its preset used to bake #111827 and now it
+     * names a colour scheme, so the text is the scheme's #5c5b63. Both are
+     * unreadable on #1a1a2e and both are reported; the check is that the
+     * reviewer reads the colour the page actually draws.
+     */
+    findings.some((f) => /2\.54:1/.test(f.message)),
+    JSON.stringify(findings),
   )
 }
 

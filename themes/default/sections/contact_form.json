@@ -117,40 +117,74 @@
       "default": ""
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background Color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text Color",
       "type": "color",
-      "default": "#111111"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "input_bg_color",
       "label": "Input Background Color",
       "type": "color",
-      "default": "#f9f9f9"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "input_border_color",
       "label": "Input Border Color",
       "type": "color",
-      "default": "#d0d0d0"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "button_color",
       "label": "Button Color",
       "type": "color",
-      "default": "#111111"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "button_text_color",
       "label": "Button Text Color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "hdr_padding",
@@ -194,14 +228,9 @@
         "show_message": true,
         "subject_prefix": "[Contact Form]",
         "layout": "centered",
-        "bg_color": "#ffffff",
-        "text_color": "#111111",
-        "input_bg_color": "#f9f9f9",
-        "input_border_color": "#d0d0d0",
-        "button_color": "#111111",
-        "button_text_color": "#ffffff",
         "padding_top": 80,
-        "padding_bottom": 80
+        "padding_bottom": 80,
+        "color_scheme": "white"
       }
     }
   ]

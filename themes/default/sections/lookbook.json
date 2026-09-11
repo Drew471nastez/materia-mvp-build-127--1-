@@ -104,16 +104,46 @@
       ]
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "cta_color",
       "label": "CTA Button Color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "cta_text_color",
       "label": "CTA Text Color",
       "type": "color",
-      "default": "#111111"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "hdr_mood",
@@ -200,7 +230,8 @@
       "id": "bg_color",
       "label": "Background Color",
       "type": "color",
-      "default": "#26221f"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
@@ -218,7 +249,8 @@
       "id": "accent_color",
       "label": "Accent Color",
       "type": "color",
-      "default": "#d4a96a"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_position",
@@ -286,19 +318,16 @@
         "cta_text": "Explore the Collection",
         "cta_url": "#",
         "cta_style": "outline",
-        "cta_color": "#ffffff",
-        "cta_text_color": "#111111",
         "mood_style": "minimal",
         "overlay_style": "dark",
         "overlay_color": "#000000",
         "overlay_opacity": 35,
-        "bg_color": "#26221f",
         "text_color": "#ffffff",
         "heading_color": "#ffffff",
-        "accent_color": "#d4a96a",
         "text_position": "bottom-left",
         "padding_top": 0,
-        "padding_bottom": 0
+        "padding_bottom": 0,
+        "color_scheme": "dark"
       }
     }
   ]

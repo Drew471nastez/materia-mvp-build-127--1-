@@ -70,28 +70,60 @@
       "type": "header"
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "bg_color",
       "label": "Background Color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text Color",
       "type": "color",
-      "default": "#111111"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "connector_color",
       "label": "Connector Color",
       "type": "color",
-      "default": "#d0d0d0"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "dot_color",
       "label": "Dot Color",
       "type": "color",
-      "default": "#111111"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "dot_size",
@@ -195,13 +227,10 @@
         "subheading": "From a small workshop to a global brand. Here's how it happened.",
         "layout": "alternating",
         "connector_style": "line",
-        "bg_color": "#ffffff",
-        "text_color": "#111111",
-        "connector_color": "#d0d0d0",
-        "dot_color": "#111111",
         "dot_size": 16,
         "padding_top": 80,
-        "padding_bottom": 80
+        "padding_bottom": 80,
+        "color_scheme": "white"
       },
       "blocks": [
         {

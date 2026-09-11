@@ -6,14 +6,15 @@
 // when it chooses to adopt this section.
 
 import { useState } from "react"
-import { str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 import { hexToRgba } from "../_shared"
 
-export function NewsletterSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function NewsletterSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const [submitted, setSubmitted] = useState(false)
-  const bg = str(s.bg_color, "#1e1b4b")
-  const color = str(s.text_color, "#ffffff")
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 60
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 60
   const layout = str(s.layout, "centered")

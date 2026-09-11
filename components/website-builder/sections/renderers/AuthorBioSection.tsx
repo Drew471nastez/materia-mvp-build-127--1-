@@ -4,13 +4,14 @@
 // Matches the schema's 3 layouts: photo-left, photo-right, centered.
 
 import { Twitter, Instagram, Linkedin, Globe, BookOpen, ShoppingCart } from "lucide-react"
-import { str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
-export function AuthorBioSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function AuthorBioSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
-  const bg = str(s.bg_color, "#f9f6f1")
-  const color = str(s.text_color, "#1a1a1a")
-  const accent = str(s.accent_color, "#c0813a")
+  const c = sectionColors(section, theme)
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
+  const accent = str(s.accent_color) || c.accent
   const layout = str(s.layout, "left")
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 80
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 80

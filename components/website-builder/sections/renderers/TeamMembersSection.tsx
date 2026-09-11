@@ -4,13 +4,14 @@
 // name, role, bio, and up to 4 social links.
 
 import { Twitter, Linkedin, Instagram, Globe } from "lucide-react"
-import { str, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, SectionWrapper, type SectionProps } from "../_shared"
 
-export function TeamMembersSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function TeamMembersSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const blocks = section.blocks ?? []
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#111827")
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
   const cols = str(s.columns, "3")
   const layout = str(s.layout, "grid")
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 60

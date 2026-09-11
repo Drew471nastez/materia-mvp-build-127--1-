@@ -6,12 +6,13 @@
 // embed codes, script tags, etc.). This is safe because the install is
 // scoped to the creator who authored it.
 
-import { str, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, SectionWrapper, type SectionProps } from "../_shared"
 
-export function CustomHtmlSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function CustomHtmlSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#111111")
+  const c = sectionColors(section, theme)
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 40
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 40
   const html = str(s.html_content)

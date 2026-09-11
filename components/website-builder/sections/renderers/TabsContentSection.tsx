@@ -6,19 +6,20 @@
 
 import { cn } from "@/lib/utils"
 import { useState } from "react"
-import { str, SectionWrapper, type SectionProps, DynamicIcon } from "../_shared"
+import { sectionColors, str, SectionWrapper, type SectionProps, DynamicIcon } from "../_shared"
 
-export function TabsContentSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function TabsContentSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const blocks = section.blocks ?? []
   const [active, setActive] = useState(0)
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#0f172a")
-  const tabActive = str(s.tab_active_color, "#6366f1")
-  const tabInactive = str(s.tab_inactive_color, "#64748b")
-  const tabBg = str(s.tab_bg_color, "#f8fafc")
-  const contentBg = str(s.content_bg_color, "#ffffff")
-  const border = str(s.border_color, "#e2e8f0")
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
+  const tabActive = str(s.tab_active_color) || c.accent
+  const tabInactive = str(s.tab_inactive_color) || c.text_muted
+  const tabBg = str(s.tab_bg_color) || c.background_secondary
+  const contentBg = str(s.content_bg_color) || c.bg
+  const border = str(s.border_color) || c.border
   const radius = typeof s.border_radius === "number" ? s.border_radius : 8
   const style = str(s.tab_style, "underline")
   const position = str(s.tab_position, "top")

@@ -63,8 +63,8 @@
       "id": "format_tags",
       "label": "Format Tags",
       "type": "text",
-      "default": "PDF · EPUB · MOBI",
-      "placeholder": "e.g. PDF · EPUB · MOBI"
+      "default": "PDF \u00b7 EPUB \u00b7 MOBI",
+      "placeholder": "e.g. PDF \u00b7 EPUB \u00b7 MOBI"
     },
     {
       "id": "book_cover_image",
@@ -206,16 +206,46 @@
       "placeholder": "https://..."
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "buy_button_color",
       "label": "Buy Button Color",
       "type": "color",
-      "default": "#1a1a1a"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "buy_button_text_color",
       "label": "Buy Button Text Color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "sample_button_text",
@@ -276,19 +306,22 @@
       "id": "bg_color",
       "label": "Background Color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text Color",
       "type": "color",
-      "default": "#111111"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "accent_color",
       "label": "Accent Color",
       "type": "color",
-      "default": "#e67e22"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "hdr_padding",
@@ -327,7 +360,7 @@
         "price_text": "$27",
         "original_price": "$49",
         "badge_text": "Bestseller",
-        "format_tags": "PDF · EPUB · MOBI",
+        "format_tags": "PDF \u00b7 EPUB \u00b7 MOBI",
         "mockup_style": "perspective",
         "show_mockup_shadow": true,
         "page_count": 280,
@@ -343,17 +376,13 @@
         "show_stars": true,
         "buy_button_text": "Buy Now for $27",
         "buy_button_url": "#",
-        "buy_button_color": "#1a1a1a",
-        "buy_button_text_color": "#ffffff",
         "sample_button_text": "Read Free Sample",
         "sample_button_url": "#",
         "sample_button_style": "outline",
         "layout": "left",
-        "bg_color": "#ffffff",
-        "text_color": "#111111",
-        "accent_color": "#e67e22",
         "padding_top": 80,
-        "padding_bottom": 80
+        "padding_bottom": 80,
+        "color_scheme": "white"
       }
     }
   ]

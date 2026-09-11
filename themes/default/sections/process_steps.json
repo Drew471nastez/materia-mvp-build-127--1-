@@ -46,10 +46,39 @@
       "default": true
     },
     {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    },
+    {
       "id": "connector_color",
       "label": "Connector line color",
       "type": "color",
-      "default": "#e5e7eb"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "hdr_padding",
@@ -60,13 +89,15 @@
       "id": "bg_color",
       "label": "Background color",
       "type": "color",
-      "default": "#ffffff"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "text_color",
       "label": "Text color",
       "type": "color",
-      "default": "#111827"
+      "default": "",
+      "info": "Leave empty to use the section's color scheme."
     },
     {
       "id": "padding_top",
@@ -139,11 +170,9 @@
         "subheading": "Get up and running in three simple steps.",
         "layout": "horizontal",
         "show_numbers": true,
-        "connector_color": "#e5e7eb",
-        "bg_color": "#ffffff",
-        "text_color": "#111827",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "white"
       },
       "blocks": [
         {

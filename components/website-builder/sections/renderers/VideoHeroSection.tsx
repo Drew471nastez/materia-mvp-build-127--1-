@@ -3,10 +3,11 @@
 // Video hero — full-width hero with a background video (self-hosted or
 // poster image fallback) and an overlay text/CTA block on top.
 
-import { str, bool, SectionWrapper, hexToRgba, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, hexToRgba, type SectionProps } from "../_shared"
 
-export function VideoHeroSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function VideoHeroSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const fullHeight = bool(s.full_height, true)
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 60
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 60
@@ -21,14 +22,14 @@ export function VideoHeroSection({ section, isEditing, isSelected, onClick }: Se
    * the default scheme is white on white: an empty-looking section the
    * second somebody clicks Add.
    */
-  const bg = str(s.bg_color) || (str(s.video_poster) ? "#000" : "#111")
+  const bg = str(s.bg_color) || (str(s.video_poster) ? "#000" : c.bg)
   const maxWidthMap: Record<string, string> = { narrow: "max-w-xl", medium: "max-w-3xl", wide: "max-w-5xl", full: "max-w-none" }
   const mw = maxWidthMap[str(s.max_width, "medium")] ?? "max-w-3xl"
   const videoUrl = str(s.video_url)
   const poster = str(s.video_poster)
   const btnStyle = str(s.button_style, "outline")
-  const btnColor = str(s.button_color, "#ffffff")
-  const btnText = str(s.button_text_color, "#ffffff")
+  const btnColor = str(s.button_color) || c.primary_btn_bg
+  const btnText = str(s.button_text_color) || c.primary_btn_text
   const btnRadius = typeof s.button_border_radius === "number" ? s.button_border_radius : 8
 
   const alignClass = alignment === "left" ? "items-start text-left" : alignment === "right" ? "items-end text-right" : "items-center text-center"

@@ -7,7 +7,7 @@ import type { CSSProperties }  from "react"
 // quote + logo row layout.
 
 import { cn } from "@/lib/utils"
-import { str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
 /**
  * A press logo, optionally tinted to one colour.
@@ -59,13 +59,14 @@ function Logo({
   )
 }
 
-export function PressMentionsSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function PressMentionsSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const blocks = section.blocks ?? []
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#0f172a")
-  const accent = str(s.accent_color, "#6366f1")
-  const cardBg = str(s.card_bg_color, "#f8fafc")
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
+  const accent = str(s.accent_color) || c.accent
+  const cardBg = str(s.card_bg_color) || c.background_secondary
   const layout = str(s.layout, "logos_only")
   const cols = str(s.columns, "4")
   const grayscale = bool(s.grayscale, true)

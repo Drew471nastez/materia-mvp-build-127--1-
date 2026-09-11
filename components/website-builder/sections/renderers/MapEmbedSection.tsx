@@ -5,14 +5,15 @@
 // comes from the creator's own settings.
 
 import { MapPin, Phone, Mail, Clock } from "lucide-react"
-import { str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
-export function MapEmbedSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function MapEmbedSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#0f172a")
-  const panelBg = str(s.panel_bg_color, "#f8fafc")
-  const accent = str(s.accent_color, "#6366f1")
+  const c = sectionColors(section, theme)
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
+  const panelBg = str(s.panel_bg_color) || c.background_secondary
+  const accent = str(s.accent_color) || c.accent
   const height = typeof s.map_height === "number" ? s.map_height : 450
   const radius = typeof s.border_radius === "number" ? s.border_radius : 12
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 60

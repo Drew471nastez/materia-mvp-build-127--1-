@@ -5,17 +5,18 @@
 // responsible for wiring the POST target if it wants real submissions.
 
 import { useState } from "react"
-import { str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
-export function ContactFormSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function ContactFormSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const [state, setState] = useState<"idle" | "success" | "error">("idle")
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#111111")
-  const inputBg = str(s.input_bg_color, "#f9f9f9")
-  const inputBorder = str(s.input_border_color, "#d0d0d0")
-  const btnBg = str(s.button_color, "#111111")
-  const btnText = str(s.button_text_color, "#ffffff")
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
+  const inputBg = str(s.input_bg_color) || c.input_background
+  const inputBorder = str(s.input_border_color) || c.input_border
+  const btnBg = str(s.button_color) || c.primary_btn_bg
+  const btnText = str(s.button_text_color) || c.primary_btn_text
   const layout = str(s.layout, "centered")
   const splitImage = str(s.split_image)
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 80

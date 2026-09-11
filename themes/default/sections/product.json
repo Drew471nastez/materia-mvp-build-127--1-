@@ -246,7 +246,6 @@
         "show_reviews_summary": false,
         "reviews_position": "above_title",
         "format": "standard",
-        "bg_color": "#ffffff",
         "color_scheme": "white",
         "image_width": "55%",
         "multiple_images_layout": "stacked",
@@ -257,7 +256,6 @@
         "show_social_icons": false,
         "show_whats_included": true,
         "show_share_button": true,
-        "text_color": "#0f172a",
         "padding_top": 48,
         "padding_bottom": 48
       }

@@ -209,7 +209,8 @@
         "countdown": false,
         "text_color": "#ffffff",
         "padding_top": 80,
-        "padding_bottom": 80
+        "padding_bottom": 80,
+        "color_scheme": "black"
       }
     }
   ]

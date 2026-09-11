@@ -4,13 +4,14 @@
 // ratings, table of contents, and primary/secondary CTAs.
 
 import { Star } from "lucide-react"
-import { str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
-export function EbookShowcaseSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function EbookShowcaseSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#111111")
-  const accent = str(s.accent_color, "#e67e22")
+  const c = sectionColors(section, theme)
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
+  const accent = str(s.accent_color) || c.accent
   const layout = str(s.layout, "left")
   const mockup = str(s.mockup_style, "perspective")
   const showShadow = bool(s.show_mockup_shadow, true)
@@ -79,7 +80,7 @@ export function EbookShowcaseSection({ section, isEditing, isSelected, onClick }
           <a
             href={str(s.buy_button_url, "#")}
             className="px-6 py-3 rounded font-semibold"
-            style={{ background: str(s.buy_button_color, "#1a1a1a"), color: str(s.buy_button_text_color, "#ffffff") }}
+            style={{ background: str(s.buy_button_color) || c.primary_btn_bg, color: str(s.buy_button_text_color) || c.primary_btn_text }}
           >
             {str(s.buy_button_text)}
           </a>

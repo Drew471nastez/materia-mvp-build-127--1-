@@ -4,13 +4,14 @@
 // gate, reading progress bar, and primary CTA.
 
 import { Lock, Clock, FileText } from "lucide-react"
-import { str, bool, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
-export function ChapterPreviewSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function ChapterPreviewSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#1a1a1a")
-  const borderColor = str(s.border_color, "#e5e5e5")
+  const c = sectionColors(section, theme)
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
+  const borderColor = str(s.border_color) || c.border
   const fontFamily = str(s.font_family, "Georgia, serif")
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 60
   const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 60

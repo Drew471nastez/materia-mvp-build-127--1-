@@ -3,7 +3,7 @@
 // Trust badges — block-driven row/grid of reassurance badges.
 
 import { Shield, Lock, CheckCircle, Star, Truck, RefreshCw } from "lucide-react"
-import { str, SectionWrapper, type SectionProps } from "../_shared"
+import { sectionColors, str, SectionWrapper, type SectionProps } from "../_shared"
 
 const BADGE_ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   shield: Shield,
@@ -14,11 +14,12 @@ const BADGE_ICONS: Record<string, React.ComponentType<{ className?: string; styl
   refresh: RefreshCw,
 }
 
-export function TrustBadgesSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+export function TrustBadgesSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const blocks = section.blocks ?? []
-  const bg = str(s.bg_color, "#ffffff")
-  const color = str(s.text_color, "#374151")
+  const bg = str(s.bg_color) || c.bg
+  const color = str(s.text_color) || c.text
   const style = str(s.style, "icon-text")
   const layout = str(s.layout, "row")
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 40
@@ -52,7 +53,7 @@ export function TrustBadgesSection({ section, isEditing, isSelected, onClick }: 
         <div className={containerClass}>
           {blocks.map(b => {
             const Icon = BADGE_ICONS[str(b.settings.icon, "shield")] ?? Shield
-            const iconColor = str(b.settings.color, "#4f46e5")
+            const iconColor = str(b.settings.color) || c.accent
             return (
               <div key={b.id} className="flex items-center gap-3">
                 <Icon className="w-8 h-8 shrink-0" style={{ color: iconColor }} />

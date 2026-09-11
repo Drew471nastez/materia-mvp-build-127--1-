@@ -9,7 +9,7 @@
       "id": "heading",
       "label": "Heading",
       "type": "text",
-      "default": "Sale ends in…",
+      "default": "Sale ends in\u2026",
       "placeholder": "Section heading"
     },
     {
@@ -239,18 +239,16 @@
     {
       "name": "Dark countdown banner",
       "settings": {
-        "heading": "Flash sale ends in…",
+        "heading": "Flash sale ends in\u2026",
         "subheading": "Up to 40% off sitewide. Today only.",
         "end_date": "",
         "timezone": "UTC",
         "style": "boxes",
         "show_labels": true,
         "expired_text": "This offer has ended.",
-        "bg_color": "#111827",
-        "text_color": "#ffffff",
-        "accent_color": "#4f46e5",
         "padding_top": 60,
-        "padding_bottom": 60
+        "padding_bottom": 60,
+        "color_scheme": "dark"
       }
     }
   ]
