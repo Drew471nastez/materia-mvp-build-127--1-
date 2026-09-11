@@ -38,8 +38,10 @@ if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}. Set CHROMIUM=/path/t
 
 /** `rounded-2xl`, the bar's height, the sidebar's width, the viewport. */
 const R = 16, BAR = 44, SIDE = 160, W = 560, H = 300
-/** The workspace's own surface, which is what every arc opens onto. */
-const GAP = [0xe3, 0xe7, 0xed]
+/** The row behind the panels: what every arc in the row opens onto. */
+const GAP = [0xd9, 0xde, 0xe6]
+/** The canvas's own surround, which curves away onto the row. */
+const CANVAS = [0xee, 0xf1, 0xf5]
 
 const page = (shape) => `<!doctype html><html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box;margin:0}html,body{height:100%;overflow:hidden}
@@ -49,7 +51,7 @@ body{background:#888}
    arcs open onto are all of it that is ever seen */
 .row{display:flex;height:${H - BAR}px;background:rgb(${GAP})}
 .side{width:${SIDE}px;background:#fff;border-right:1px solid #e5e7eb;overflow:hidden;flex:none}
-.canvas{flex:1;background:rgb(${GAP});overflow:hidden}
+.canvas{flex:1;background:rgb(${CANVAS});overflow:hidden}
 .card{width:100%;height:100%;background:#fff}
 ${shape === "after"
     ? `.side{border-top-left-radius:${R}px;border-top-right-radius:${R}px}
@@ -215,10 +217,19 @@ try {
    * measured too, not just the geometry.
    */
   const lum = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b
-  const separation = lum([255, 255, 255]) - lum(GAP)
-  expect(separation >= 24, "and the surround is far enough from the panels for a 16px arc to read",
-    `only ${separation.toFixed(1)} points of luminance between them`)
-  console.log(`\n  panel to surround: ${separation.toFixed(1)} points of luminance (was 18.7 at #eceef1)`)
+  const fromWhite = lum([255, 255, 255]) - lum(GAP)
+  const fromCanvas = lum(CANVAS) - lum(GAP)
+  expect(fromWhite >= 24, "the sidebar's arcs are far enough from the row to read",
+    `only ${fromWhite.toFixed(1)} points of luminance between them`)
+  /**
+   * The one that was actually wrong. The row and the canvas were the SAME
+   * grey, so the canvas's corners revealed the colour already beside them:
+   * clipped correctly, and invisible. An arc needs somewhere to open onto.
+   */
+  expect(fromCanvas >= 12, "and the canvas's arcs are far enough from the row to read",
+    `only ${fromCanvas.toFixed(1)} points between the canvas and the row it curves onto`)
+  console.log(`\n  row to white:  ${fromWhite.toFixed(1)} points of luminance`)
+  console.log(`  row to canvas: ${fromCanvas.toFixed(1)} points (was 0.0, which is why the canvas read square)`)
 
   const cols = (m) => `left ${m.left.bar}/${m.left.total}   seam ${m.seamSide.bar}/${m.seamSide.total} | ${m.seamCanvas.bar}/${m.seamCanvas.total}   right ${m.right.bar}/${m.right.total}`
   console.log(`\n  after    ${cols(after)}`)

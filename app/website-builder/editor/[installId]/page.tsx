@@ -3763,34 +3763,70 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [newPageTitle, setNewPageTitle] = useState("")
   const [addingPage, setAddingPage] = useState(false)
 
-  // Undo / Redo history
+  /**
+   * ===========================================================================
+   *  UNDO AND REDO, TAKEN FROM REFS SO THEY ARE NEVER STALE
+   * ===========================================================================
+   * `pushUndo` used to close over `sections` and `settingsDraft`, so it was a
+   * new function on every keystroke — and any handler that wanted to call it
+   * had to list it as a dependency or capture an old one that would snapshot
+   * an old page. Several handlers did neither: they simply did not call it,
+   * which is why hiding a section, dragging one, or nudging one up or down
+   * could not be undone at all. Undo went back past them to whatever edit had
+   * last bothered to record itself, which is worse than not offering it.
+   *
+   * Reading the latest values out of refs makes all three stable, so a
+   * mutation can record itself without dragging a dependency chain behind it,
+   * and every mutation below does.
+   */
   const [undoStack, setUndoStack] = useState<{ sections: SectionInstance[]; settings: ThemeSettingsValues }[]>([])
   const [redoStack, setRedoStack] = useState<{ sections: SectionInstance[]; settings: ThemeSettingsValues }[]>([])
 
+  const sectionsRef = useRef(sections)
+  sectionsRef.current = sections
+  const settingsRef = useRef(settingsDraft)
+  settingsRef.current = settingsDraft
+  const undoRef = useRef(undoStack)
+  undoRef.current = undoStack
+  const redoRef = useRef(redoStack)
+  redoRef.current = redoStack
+
+  /** The page as it is right now, deep copied so a later edit cannot reach it. */
+  const snapshotNow = useCallback(
+    () => ({
+      sections: JSON.parse(JSON.stringify(sectionsRef.current)) as SectionInstance[],
+      settings: JSON.parse(JSON.stringify(settingsRef.current)) as ThemeSettingsValues,
+    }),
+    [],
+  )
+
+  /** Thirty steps. Anything a person can remember doing, they can undo. */
   const pushUndo = useCallback(() => {
-    setUndoStack(prev => [...prev.slice(-30), { sections: JSON.parse(JSON.stringify(sections)), settings: JSON.parse(JSON.stringify(settingsDraft)) }])
+    setUndoStack(prev => [...prev.slice(-30), snapshotNow()])
     setRedoStack([])
-  }, [sections, settingsDraft])
+  }, [snapshotNow])
 
   const handleUndo = useCallback(() => {
-    if (undoStack.length === 0) return
-    const last = undoStack[undoStack.length - 1]
-    setRedoStack(prev => [...prev, { sections: JSON.parse(JSON.stringify(sections)), settings: JSON.parse(JSON.stringify(settingsDraft)) }])
+    const stack = undoRef.current
+    if (stack.length === 0) return
+    const last = stack[stack.length - 1]
+    setRedoStack(prev => [...prev, snapshotNow()])
     setSections(last.sections)
     setSettingsDraft(last.settings)
     setUndoStack(prev => prev.slice(0, -1))
     setIsDirty(true)
-  }, [undoStack, sections, settingsDraft])
+  }, [snapshotNow])
 
   const handleRedo = useCallback(() => {
-    if (redoStack.length === 0) return
-    const last = redoStack[redoStack.length - 1]
-    setUndoStack(prev => [...prev, { sections: JSON.parse(JSON.stringify(sections)), settings: JSON.parse(JSON.stringify(settingsDraft)) }])
+    const stack = redoRef.current
+    if (stack.length === 0) return
+    const last = stack[stack.length - 1]
+    setUndoStack(prev => [...prev, snapshotNow()])
     setSections(last.sections)
     setSettingsDraft(last.settings)
     setRedoStack(prev => prev.slice(0, -1))
     setIsDirty(true)
-  }, [redoStack, sections, settingsDraft])
+  }, [snapshotNow])
 
   // dnd-kit sensors
   /**
@@ -3878,6 +3914,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     hapticTap("light")
     const { active, over } = event
     if (!over || active.id === over.id) return
+    // After the no-op check, so a drag that lands back where it started is
+    // not an undo step that undoes nothing.
+    pushUndo()
     setSections(prev => {
       const header = prev.find(s => s.type === "header")
       const footer = prev.find(s => s.type === "footer")
@@ -3893,7 +3932,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       ]
     })
     setIsDirty(true)
-  }, [])
+  }, [pushUndo])
 
   /**
    * Move a body section one place. The header and the footer are chrome and
@@ -3902,6 +3941,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * that throws would be a guard for a case that cannot happen.
    */
   const moveSectionBy = useCallback((sectionId: string, step: -1 | 1) => {
+    /**
+     * Recorded BEFORE the move, and only when there is a move to record: the
+     * buttons are disabled at the ends, but a keyboard or a stale render can
+     * still ask for a step past one, and an undo entry for a no-op is an undo
+     * press that appears to do nothing.
+     */
+    const body = sectionsRef.current.filter((x) => x.type !== "header" && x.type !== "footer")
+    const from = body.findIndex((x) => x.id === sectionId)
+    const to = from + step
+    if (from === -1 || to < 0 || to >= body.length) return
+    pushUndo()
     hapticTap("light")
     setSections((prev) => {
       const header = prev.find((x) => x.type === "header")
@@ -3913,7 +3963,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return [...(header ? [header] : []), ...arrayMove(body, from, to), ...(footer ? [footer] : [])]
     })
     setIsDirty(true)
-  }, [])
+  }, [pushUndo])
 
   // Returns sections array — callers can inject product data before setting state
   // Home is the source of truth for header/footer across the entire site.
@@ -4530,6 +4580,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   const toggleSectionHidden = (sectionId: string) => {
+    // Hiding a section changes the page as much as deleting one does, and it
+    // was the one change Undo could not take back.
+    pushUndo()
     setSections(prev => prev.map(s =>
       s.id === sectionId ? { ...s, hidden: !s.hidden } : s
     ))
@@ -6260,14 +6313,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           not a frame. In the workspace's own light grey the same arcs read as
           the surface the panels are sitting on, which is what they are.
 
-          AND IT IS A STEP DEEPER THAN IT WAS. At #eceef1 the surround was
-          nineteen points off white, which is plenty where it runs beside a
-          panel for the height of the screen and nothing at all inside a 16px
-          arc: the corners at the screen's left and right edges were rounded
-          and could not be seen, which is what was reported. #e3e7ed is half
-          as far again from white, still unmistakably light, and enough for an
-          arc that size to read as a curve rather than as a corner. */}
-      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-[#e3e7ed]">
+          THIS ROW IS DARKER THAN THE CANVAS, AND THAT IS THE WHOLE TRICK.
+
+          Every arc in the row opens onto this colour, so it has to differ
+          from BOTH things that curve away from it: the white of the sidebar
+          and the light grey of the canvas. It was the same grey as the
+          canvas, which meant the canvas's own corners revealed exactly the
+          colour already beside them — present, correctly clipped, and
+          invisible. That is why the canvas kept reading as square under the
+          bar while the sidebar beside it read as round.
+
+          #d9dee6 is 33 points of luminance from white and 19 from the canvas,
+          so both curves are visible, and the canvas itself gets LIGHTER at
+          the same time rather than darker. None of this colour is ever seen
+          except inside those four arcs. */}
+      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-[#d9dee6]">
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
           <div className="relative flex-shrink-0 flex h-full overflow-visible">
@@ -6448,13 +6508,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * with a hole in the middle. On a phone preview the hole is most
              * of the screen.
              *
-             * So the surround is a light grey, and far enough from white to
-             * be seen inside a 16px arc: that is what gives the preview an
-             * edge and its corners something to be rounded away from. The
-             * row behind this paints the same grey, so the two arcs at the
-             * seam open onto one continuous surface.
+             * So the surround is a light grey, far enough from white to give
+             * the preview an edge, and its own corners curve away onto the
+             * row behind it — which is a step darker again, so they can be
+             * seen. When this and the row were the same grey, the canvas's
+             * corners revealed the colour already beside them and read as
+             * square however correctly they were clipped.
              */
-            isMobileView ? "bg-background" : "bg-[#e3e7ed] rounded-t-2xl",
+            isMobileView ? "bg-background" : "bg-[#eef1f5] rounded-t-2xl",
             // On an actual mobile viewport the preview fills the viewport
             // (no gray gutter, no phone-chrome) — it IS the phone. On desktop
             // the tablet and phone buttons render a device-width card centred

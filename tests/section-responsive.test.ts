@@ -769,7 +769,7 @@ check(
   // no surround at all beyond the strip reserved for the sheet's peek, which
   // takes the sheet's own colour so a one-pixel disagreement is a seam.
   /"relative flex-1 min-w-0 overflow-hidden flex justify-center"/.test(editor) &&
-    /isMobileView \? "bg-background" : "bg-\[#e3e7ed\] rounded-t-2xl"/.test(editor),
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-t-2xl"/.test(editor),
 )
 
 check(
@@ -800,7 +800,7 @@ check(
    * sliver inside the preview's one rounded corner.
    */
   // no mat: no padding, no gap, and the row itself is the light surface
-  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#e3e7ed\]">/.test(editor) &&
+  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#d9dee6\]">/.test(editor) &&
     !/bg-\[#171717\] p-2 gap-2/.test(editor) &&
     // both top corners on the preview, matching the sidebar beside it
     /\? "rounded-t-2xl w-full"/.test(editor) &&
@@ -812,12 +812,40 @@ check(
     // and a near-black field around it makes the builder read as two products
     // with a hole between them. On a phone preview the hole is most of the
     // screen, which is what was reported with the screenshot beside it.
-    /isMobileView \? "bg-background" : "bg-\[#e3e7ed\] rounded-t-2xl"/.test(editor) &&
+    /isMobileView \? "bg-background" : "bg-\[#eef1f5\] rounded-t-2xl"/.test(editor) &&
     !/: "bg-\[#171717\]"/.test(editor) &&
     // a device preview is a card floating on that surround, so it is drawn
     // with the edge and the lift the dark used to give it for free
     /"rounded-2xl ring-1 ring-black\/\[0\.06\] shadow-\[0_18px_50px_-20px_rgba\(15,23,42,0\.28\)\]"/.test(editor) &&
     /height: "100%"/.test(editor),
+)
+
+check(
+  "every change to the page records itself, so Undo goes back one step and not three",
+  /**
+   * `pushUndo` closed over `sections` and `settingsDraft`, so it was a new
+   * function on every keystroke, and a handler that wanted to call it had to
+   * list it as a dependency or capture an old one that would snapshot an old
+   * page. Three handlers did neither and simply never called it: hiding a
+   * section, dragging one, and nudging one up or down. Undo skipped straight
+   * past those to whatever edit had last bothered to record itself, which is
+   * worse than not offering it.
+   *
+   * Reading the latest values out of refs makes pushUndo, handleUndo and
+   * handleRedo all stable, so a mutation can record itself without dragging a
+   * dependency chain behind it.
+   */
+  /const snapshotNow = useCallback\(/.test(editor) &&
+    /sectionsRef\.current = sections/.test(editor) &&
+    /settingsRef\.current = settingsDraft/.test(editor) &&
+    /const pushUndo = useCallback\(\(\) => \{\s*\n\s*setUndoStack\(prev => \[\.\.\.prev\.slice\(-30\), snapshotNow\(\)\]\)/.test(editor) &&
+    // the three that were missing
+    /pushUndo\(\)\s*\n\s*setSections\(prev => prev\.map\(s =>\s*\n\s*s\.id === sectionId \? \{ \.\.\.s, hidden: !s\.hidden \}/.test(editor) &&
+    /if \(from === -1 \|\| to < 0 \|\| to >= body\.length\) return\s*\n\s*pushUndo\(\)/.test(editor) &&
+    /if \(!over \|\| active\.id === over\.id\) return\s*\n[\s\S]{0,180}?pushUndo\(\)/.test(editor) &&
+    // and both handlers read the stack from a ref rather than a stale closure
+    /const stack = undoRef\.current/.test(editor) &&
+    /const stack = redoRef\.current/.test(editor),
 )
 
 check(
@@ -866,21 +894,25 @@ check(
    * right, against 0 of 44 for the sidebar's side of the seam in the shape it
    * replaces.
    *
-   * AND THE SURROUND IS A STEP DEEPER, because an arc that is present and
-   * cannot be seen draws the same complaint as one that is missing. At
-   * #eceef1 it was 18.7 points of luminance off white: plenty where it runs
-   * beside a panel for the height of the screen, nothing at all inside a 16px
-   * curve, so the corners at the screen's two edges were rounded and read as
-   * square. #e3e7ed is 24.4 points, still unmistakably light.
-   * `node scripts/check-workspace-corners.mjs`
+   * AND THE ROW IS DARKER THAN THE CANVAS, which is the part that was
+   * actually wrong. Every arc opens onto the row, so the row has to differ
+   * from BOTH things curving away from it: the sidebar's white and the
+   * canvas's grey. It was the same grey as the canvas, so the canvas's
+   * corners revealed the exact colour already beside them — clipped
+   * correctly, and invisible. That is why the canvas read as square under the
+   * bar while the sidebar beside it read as round.
+   *
+   * The row is 33.5 points of luminance from white and 19.1 from the canvas,
+   * against 0.0 before; and the canvas itself gets LIGHTER in the process
+   * rather than darker. `node scripts/check-workspace-corners.mjs`
    */
-  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#e3e7ed\]">/.test(editor) &&
+  /<div className="relative flex flex-1 min-h-0 overflow-hidden bg-\[#d9dee6\]">/.test(editor) &&
     !/bg-\[var\(--wb-chrome-bg\)\]">/.test(editor) &&
     // the sidebar turns on both of its top corners, and so does the AI column
     /overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-t-2xl"/.test(editor) &&
     /overflow-hidden bg-white border-r border-\[#e5e7eb\] rounded-t-2xl" style=\{\{ width: 340 \}\}/.test(editor) &&
     // and so does the canvas, and the card inside it
-    /"bg-\[#e3e7ed\] rounded-t-2xl"/.test(editor) &&
+    /"bg-\[#eef1f5\] rounded-t-2xl"/.test(editor) &&
     /\? "rounded-t-2xl w-full"/.test(editor),
 )
 
