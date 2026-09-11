@@ -805,7 +805,7 @@ check(
     // and the preview turns only at the seam, the row cutting its other three
     /\? "rounded-tl-\[22px\] w-full"/.test(editor) &&
     // the sidebar and the AI: flush, clipped, a hairline instead of a gutter
-    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-\[#e5e7eb\]"/.test(editor) &&
+    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white"/.test(editor) &&
     /<span aria-hidden className="wb-seam-fill" \/>/.test(editor) &&
     // and what shows through that one arc is a LIGHT surround: the bar is
     // chrome and is meant to be dark, the canvas is the page being worked on,
@@ -943,10 +943,19 @@ check(
    * canvas's radius is the same number and has to be, since the two shapes
    * are halves of one circle and meet on its edge.
    *
+   * AND THE HAIRLINE STOPS SHORT OF IT. The divider between the two panels
+   * ran the full height of the seam, so it ran straight up through the
+   * corner as well: the white flowed around the curve and a grey line cut
+   * across it a millimetre from the arc, which is the seam still reading as
+   * an edge however well the corner was drawn. A divider divides panels, and
+   * in the top 22px there are no panels to divide — one surface is curving
+   * into the other — so it starts below the arc.
+   *
    * Measured: 44/44 at each outer corner; at the seam, 0 pixels of the row
-   * still showing and a white edge that travels 17 of 22px down the junction
-   * — a curve, not a square fill. The shape it replaces left 91 pixels of gap
-   * and an edge that travelled 0. `node scripts/check-workspace-corners.mjs`
+   * still showing, a white edge that travels 17 of 22px down the junction,
+   * and 0 divider pixels inside the arc. The shape it replaces left 91
+   * pixels of gap, an edge that travelled 0, and 23 pixels of hairline
+   * cutting through the corner. `node scripts/check-workspace-corners.mjs`
    */
   // the outer ring, on the row
   /"relative flex flex-1 min-h-0 overflow-hidden bg-\[#d9dee6\]",\s*\n[\s\S]{0,200}?!isMobileView && "rounded-2xl",/.test(editor) &&
@@ -955,6 +964,11 @@ check(
     // wedge that turn leaves rather than curving away from it as well
     /<span aria-hidden className="wb-seam-fill" \/>/.test(editor) &&
     !/rounded-tr-2xl/.test(editor) &&
+    // and the hairline starts BELOW the arc, rather than running the full
+    // height of the seam and cutting across the corner the fill just drew
+    /<span aria-hidden className="wb-seam-divider" \/>/.test(editor) &&
+    /\.wb-seam-divider \{[\s\S]{0,300}?top: 22px;/.test(readFileSync(join(root, "app/globals.css"), "utf8")) &&
+    !/bg-white border-r border-\[#e5e7eb\]/.test(editor) &&
     // read here rather than through `editorCss`, which is declared further
     // down the file and is in its temporal dead zone at this point
     /\.wb-seam-fill \{[\s\S]{0,900}?background: radial-gradient\(circle 22px at 100% 100%, rgba\(255, 255, 255, 0\) 0 98%, #ffffff 100%\);/.test(

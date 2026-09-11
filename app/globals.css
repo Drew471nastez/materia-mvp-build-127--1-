@@ -894,6 +894,28 @@ html.capacitor body {
     background: radial-gradient(circle 22px at 100% 100%, rgba(255, 255, 255, 0) 0 98%, #ffffff 100%);
   }
 
+  /* ── The divider stops short of the corner ──
+     The hairline between two panels ran the full height of the seam, which
+     means it ran straight up through the reversed corner as well: the white
+     flowed around the curve and a grey line cut across it, a millimetre from
+     the arc, which is the seam still reading as an edge no matter how well
+     the corner was drawn.
+
+     A divider divides the panels. There are no panels to divide in the top
+     22px, because that is where one surface curves into the other, so it
+     starts below the arc and the corner is uninterrupted. Same number as the
+     radius, and it has to be. */
+  .wb-seam-divider {
+    position: absolute;
+    right: 0;
+    top: 22px;
+    bottom: 0;
+    width: 1px;
+    background: #e5e7eb;
+    pointer-events: none;
+    z-index: 10;
+  }
+
   /* ── The row in the air ──
      The overlay's job is to look picked up. A shadow and a hair of scale is
      the whole of that: it is on its own compositor layer already, so the

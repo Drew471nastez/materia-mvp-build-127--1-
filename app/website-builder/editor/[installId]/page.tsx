@@ -6426,7 +6426,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 wedge the canvas's arc leaves behind. */}
             <div
               ref={sidebarRef}
-              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white border-r border-[#e5e7eb]"
+              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white"
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
               <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
@@ -6442,6 +6442,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 wrapper, whose width IS the sidebar's, so it follows the
                 resize without being told. */}
             <span aria-hidden className="wb-seam-fill" />
+            {/* The hairline, starting BELOW the arc. On the panel it would run
+                the full height of the seam and cut across the corner the fill
+                has just drawn, which is the seam reading as an edge however
+                well the curve is made. */}
+            <span aria-hidden className="wb-seam-divider" />
             <div
               role="separator"
               aria-orientation="vertical"
@@ -6559,7 +6564,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         {!isMobileView && aiOpen && (
           <div className="relative flex-shrink-0" style={{ width: 340 }}>
             <span aria-hidden className="wb-seam-fill" />
-            <div className="h-full overflow-hidden bg-white border-r border-[#e5e7eb]">
+            <span aria-hidden className="wb-seam-divider" />
+            <div className="h-full overflow-hidden bg-white">
             <ThemeChat
               installId={installId}
               page={currentPage}

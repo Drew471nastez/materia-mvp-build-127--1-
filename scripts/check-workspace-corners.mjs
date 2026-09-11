@@ -59,7 +59,8 @@ body{background:rgb(${ROOT})}
 .bar{position:fixed;left:0;right:0;top:0;height:${BAR}px;background:#171717}
 .row{position:fixed;left:0;right:0;top:${BAR}px;bottom:0;
      display:flex;background:rgb(${GAP});overflow:hidden}
-.side{width:${SIDE}px;background:#fff;border-right:1px solid #e5e7eb;flex:none}
+.side{width:${SIDE}px;background:#fff;flex:none}
+.divider{position:absolute;left:${SIDE - 1}px;top:${SEAM_R}px;bottom:0;width:1px;background:#e5e7eb;z-index:10}
 .canvas{flex:1;background:rgb(${CANVAS})}
 /* the site's own content: dark on purpose, so the boundary between the
    reversed corner's white and the page it meets is unambiguous */
@@ -77,10 +78,11 @@ ${shape === "after"
        .side{border-top-right-radius:${SEAM_R}px}
        .canvas{border-top-left-radius:${SEAM_R}px}
        .card{border-top-left-radius:${SEAM_R}px}
-       .fill{display:none}`}
+       .fill{display:none}
+       .divider{top:0}`}
 </style></head><body>
 <div class="bar"></div>
-<div class="row"><div class="side"></div><div class="canvas"><div class="card"></div></div><i class="fill"></i></div>
+<div class="row"><div class="side"></div><div class="canvas"><div class="card"></div></div><i class="fill"></i><i class="divider"></i></div>
 <script>
 const r = document.querySelector(".row").getBoundingClientRect()
 document.title = JSON.stringify({ left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) })
@@ -198,6 +200,20 @@ function seamProfile(img, box) {
   return { edges, travel: Math.max(...edges) - Math.min(...edges) }
 }
 
+/**
+ * The hairline must not run through the corner. Counted as divider-coloured
+ * pixels in the top SEAM_R rows of the junction, where one surface is curving
+ * into the other and there is nothing to divide.
+ */
+const isDivider = (p) => Math.abs(p[0] - 0xe5) < 4 && Math.abs(p[1] - 0xe7) < 4 && Math.abs(p[2] - 0xeb) < 4
+function dividerInCorner(img, box) {
+  let n = 0
+  for (let x = box.left + SIDE - 2; x <= box.left + SIDE + 1; x++) {
+    for (let y = box.top; y < box.top + SEAM_R; y++) if (isDivider(img.at(x, y))) n++
+  }
+  return n
+}
+
 let broken = 0
 const expect = (ok, what, got = "") => {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${what}${ok ? "" : `   ${got}`}`)
@@ -235,6 +251,7 @@ try {
       bottomRight: corner(img, box, "right", "bottom"),
       seamGap: seamFill(img, box),
       seamProfile: seamProfile(img, box),
+      cornerDivider: dividerInCorner(img, box),
     }
   }
 
@@ -261,6 +278,11 @@ try {
   expect(after.seamProfile.travel >= SEAM_R - 6, "and it fills it along a curve, not as a square corner",
     `the white edge moved ${after.seamProfile.travel}px down the junction, so it is not tracing the arc`)
 
+  expect(after.cornerDivider === 0, "and no hairline runs through the corner it has just drawn",
+    `${after.cornerDivider} divider pixels inside the arc`)
+  expect(before.cornerDivider > 0, "the full-height hairline did cut across it, so this is a real measurement",
+    "the control had no divider in the corner either")
+
   // The control: two panels curving away from each other leave the lens that
   // was reported as a notch.
   expect(before.seamGap > 0, "two panels curving away from each other left a gap, so this is a real measurement",
@@ -277,7 +299,7 @@ try {
   console.log(`\n  root to row:   ${outerSep.toFixed(1)} points of luminance`)
   console.log(`  row to panel:  ${seamSep.toFixed(1)} points`)
   const cols = (m) => OUTER.map(([k]) => `${m[k].bar}/${m[k].total}`).join("  ") +
-    `   seam gap ${m.seamGap}, curve ${m.seamProfile.travel}px of ${SEAM_R}`
+    `   seam gap ${m.seamGap}, curve ${m.seamProfile.travel}px of ${SEAM_R}, divider ${m.cornerDivider}`
   console.log(`  after    ${cols(after)}`)
   console.log(`  before   ${cols(before)}\n`)
 } finally {
