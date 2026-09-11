@@ -39,8 +39,8 @@ import {
 import { looksLikeImage, previousSnapshotPath, SNAPSHOT_BUCKET } from "@/lib/website-builder/snapshot"
 import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition, coverSpecFromSettings } from "@/components/website-builder/theme-cover"
 import { editorHref } from "@/app/app/website-builder/website-builder-client"
-import { STORELIB_SCHEMAS, STORELIB_SECTION_TYPES, addableSections } from "@/lib/website-builder/storelib-schemas"
-import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
+import { CUSTOM_SECTION_CATEGORY, STORELIB_SCHEMAS, STORELIB_SECTION_TYPES, addableSections } from "@/lib/website-builder/storelib-schemas"
+import { ADDABLE_SECTIONS, RETIRED_SECTIONS, SECTION_CATEGORIES, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 
 let passed = 0
 let failed = 0
@@ -456,9 +456,24 @@ section("Add Section is derived from the files, one card per preset")
   const derived = addableSections(["hero", "faq", "nopreset", "cta"], { hero: fake(3), nopreset: fake(0), extra: fake(1) })
   check("a .storelib section with presets stays where the manifest put it", derived.indexOf("hero") === 0 && derived.indexOf("faq") === 1)
   check("a .storelib section without presets is not offered, whatever the manifest says", !derived.includes("nopreset"))
-  check("a .storelib section the manifest never heard of is offered after the list", derived.at(-1) === "extra")
+  /**
+   * The manifest is the library. A .storelib the theme ships and does not
+   * list has been retired from Add Section — it still renders, and every
+   * page using it keeps working, but it is not offered again. A section a
+   * creator wrote is not the theme's and comes in under "Created by you".
+   */
+  check("a .storelib the theme ships but does not list is retired, not auto-added", !derived.includes("extra"))
   check("JSON-described sections are untouched", derived.includes("faq") && derived.includes("cta"))
-  check("the real list offers the hero, whose three presets are in its file", ADDABLE_SECTIONS.includes("hero") && (STORELIB_SCHEMAS.hero.presets?.length ?? 0) === 3)
+  /**
+   * The library is ten categories of three, every one of them a .storelib
+   * file with at least one preset. The hero the engine was first proved on
+   * is retired — three heroes replaced it — which is what retirement is
+   * supposed to look like: gone from the list, still on the pages using it.
+   */
+  check("the library is thirty sections across ten categories", ADDABLE_SECTIONS.length === 30 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 10, `${ADDABLE_SECTIONS.length} sections`)
+  check("every one of them is a .storelib file with a preset", ADDABLE_SECTIONS.every((t) => STORELIB_SCHEMAS[t] && (STORELIB_SCHEMAS[t].presets?.length ?? 0) > 0))
+  check("the sections it retired still render, so no page using one goes blank", RETIRED_SECTIONS.length > 0 && RETIRED_SECTIONS.every((t) => !!SECTION_SCHEMAS[t]) && !RETIRED_SECTIONS.some((t) => ADDABLE_SECTIONS.includes(t)))
+  check("a creator's own section is filed under its own heading", CUSTOM_SECTION_CATEGORY === "yours" && SECTION_CATEGORIES.yours === "Created by you")
 
   const editorSrc = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   check("the modal draws one card per preset, named after the preset", /const entries = \(type: string\)/.test(editorSrc) && (editorSrc.match(/visibleSections\.flatMap\(entries\)/g) ?? []).length === 2)

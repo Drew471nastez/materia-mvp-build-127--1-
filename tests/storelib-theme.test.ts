@@ -359,7 +359,18 @@ section("Hero, the first real section")
       page: { template: "home" },
       assets: { "asset://abcdef1234567890": "https://cdn/bg.webp" },
     })
-    check("renders the heading escaped, in the theme's heading font", out.html.includes(`Welcome &lt;3`) && out.html.includes(`font-family: Georgia`))
+    /**
+     * The family moved from an inline attribute to the stylesheet, where it
+     * can carry a fallback stack: a bare family name that is not loaded
+     * falls back to the browser's serif, which is how every heading in the
+     * library came out in Times until it was looked at.
+     */
+    check("renders the heading escaped", out.html.includes(`Welcome &lt;3`))
+    check(
+      "and sets it in the theme's heading font, with something to fall back to",
+      /font-family: var\(--theme-font-heading, Georgia\), ui-sans-serif, system-ui, sans-serif/.test(out.css),
+      out.css.slice(0, 200),
+    )
     check("the button links where it was told", out.html.includes(`href="/shop"`) && out.html.includes(`>Go</a>`))
     check("the background image resolves from an asset reference", out.html.includes(`src="https://cdn/bg.webp"`) && out.html.includes(`hero__overlay`))
     check("a default the person never touched is applied: 56px heading", out.html.includes(`--hero-heading-size: 56px`))

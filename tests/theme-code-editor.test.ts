@@ -334,7 +334,10 @@ section("Save compiles, errors carry lines, the canvas finds out")
   check("a broken file is not saved and says so", /did not compile — not saved/.test(codePage))
   check("the code editor tells the canvas when a file changed", (codePage.match(/announceFileChange\(/g) ?? []).length >= 5 && /type: "storelib:file-saved"/.test(codePage))
   check("the editor listens and reloads the saved sources", /data\?\.type === "storelib:file-saved"\) void loadStorelibSources\(\)/.test(editor) && /files\?sources=1/.test(editor))
-  check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\}/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, SECTION_SCHEMAS\)/g) ?? []).length === 2)
+  // The sidebar reads the library, which is the theme's sections and this
+  // creator's own together — see librarySchemas in the editor.
+  check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\}/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, librarySchemas\)/g) ?? []).length === 2)
+  check("a section this creator wrote is in the library too", /customSectionSchemas\(storelibSources\)/.test(editor) && /customAddableSections\(customSchemas\)/.test(editor) && /addable=\{libraryAddable\}/.test(editor))
   check("a section renders from the saved source when there is one", /renderStorelibSection\(section, theme, \{ template \}, sources\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
   check("the published page draws the saved sections too, not the bundled ones", /\.from\("store_theme_custom_files"\)/.test(creator) && /renderStorelibSection\(section, themeSettings, \{ template: "index" \}, storelibSources\)/.test(creator))
   check("a new section file starts as one that compiles", /const starterFor = \(path: string\)/.test(codePage) && /"<template>",/.test(codePage) && /"<schema>",/.test(codePage))

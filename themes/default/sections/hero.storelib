@@ -20,7 +20,7 @@
         <span class="hero__badge" style="background: {{ settings.button_color | default: scheme.primary_btn_bg | alpha: 0.14 }}; color: {{ settings.button_color | default: scheme.primary_btn_bg }};">{{ settings.badge_text }}</span>
       {% endif %}
       {% if settings.heading %}
-        <h1 class="hero__heading{% if settings.animate_heading %} hero__heading--animate{% endif %}" style="font-family: {{ theme.typography.heading }};">{{ settings.heading }}</h1>
+        <h1 class="hero__heading{% if settings.animate_heading %} hero__heading--animate{% endif %}">{{ settings.heading }}</h1>
       {% endif %}
       {% if settings.subheading %}<p class="hero__sub">{{ settings.subheading }}</p>{% endif %}
       {% if settings.button_text or settings.button2_text %}
@@ -120,6 +120,7 @@
 }
 .hero__heading {
   margin: 0;
+  font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif;
   max-width: 48rem;
   font-size: 36px;
   font-weight: 700;

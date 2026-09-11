@@ -7,7 +7,7 @@ export { CONTROLS, CONTROL_TYPES, LEGACY_TYPE_ALIASES, controlFor, controlsAsJso
 export type { ControlDefinition, ControlType, ValueKind } from "./controls/registry"
 export { validateSectionSchema } from "./schema/validate"
 export { parseSchemaJson, parseStorelib } from "./storelib/parse"
-export { compileTemplate, renderTemplate, pathsRead, FILTER_NAMES } from "./storelib/template"
+export { compileTemplate, renderTemplate, pathsRead, FILTER_NAMES, embedUrl, EMBED_ALLOWED } from "./storelib/template"
 export type { CompiledTemplate } from "./storelib/template"
 export { scopeCss, cssForInstance, scopeSelector, SCOPE_PLACEHOLDER } from "./storelib/css"
 export { checkScript, CAPABILITIES, FORBIDDEN_IDENTIFIERS, SCRIPT_CONTEXT } from "./storelib/script"
