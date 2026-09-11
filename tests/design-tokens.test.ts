@@ -235,8 +235,15 @@ section("Typography compiles to tokens at three widths")
 
   const dir = join(root, "themes/default/sections")
   const storelib = readdirSync(dir).filter((f: string) => f.endsWith(".storelib"))
-  const reading = storelib.filter((f: string) => /--section-heading-size/.test(readFileSync(join(dir, f), "utf8")))
-  check("the theme's own sections read the section heading style", reading.length >= 30, `${reading.length}`)
+  const notReading = storelib.filter((f: string) => !/--section-heading-size/.test(readFileSync(join(dir, f), "utf8")))
+  check(
+    "every one of the theme's own sections reads the section heading style",
+    // The hero is the exception and says so in its schema: it has a heading
+    // size slider of its own, so it declares supports_typography_overrides
+    // false rather than offering two controls for one size.
+    notReading.length === 1 && notReading[0] === "hero.storelib",
+    notReading.join(", "),
+  )
 }
 
 // ===========================================================================
