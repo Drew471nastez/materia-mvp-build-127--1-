@@ -916,6 +916,56 @@ html.capacitor body {
     .wb-code-skeleton-sweep { animation: none; opacity: 0.35; }
   }
 
+  /* ── A row of chips settles where you let go ──
+     A horizontally scrolling row of categories with no snap stops wherever
+     momentum runs out, which is usually with a chip cut in half at the edge.
+     Snapping to the start of the nearest one costs nothing and means the row
+     always ends up reading as a row.
+
+     `proximity`, not `mandatory`: mandatory refuses to stop between stops, so
+     a small deliberate nudge is yanked to the next chip and the row feels
+     like it is arguing. Proximity only helps a throw that was nearly there. */
+  .wb-chip-row {
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .wb-chip-row::-webkit-scrollbar {
+    display: none;
+  }
+  .wb-chip-row .wb-chip {
+    scroll-snap-align: start;
+    scroll-margin-left: 16px;
+  }
+
+  /* ── A new list arrives rather than appearing ──
+     Switching a category replaced the whole list between two frames, which
+     reads as a flicker: the eye gets no signal that the thing it was reading
+     has been swapped for a different thing.
+
+     A short rise and fade says it. `translate3d` and `opacity` only, so it is
+     one compositor layer and costs no paint; 200ms, which is long enough to
+     register and short enough not to be a wait. It runs on the SCROLLER,
+     once, rather than on every card: forty cards each with their own
+     animation is forty layers promoted at the moment a list is already doing
+     its most expensive work. */
+  .wb-cards-enter {
+    animation: wb-cards-in 200ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  @keyframes wb-cards-in {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 6px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-cards-enter { animation: none; }
+  }
+
   /* ── The row in the air ──
      The overlay's job is to look picked up. A shadow and a hair of scale is
      the whole of that: it is on its own compositor layer already, so the

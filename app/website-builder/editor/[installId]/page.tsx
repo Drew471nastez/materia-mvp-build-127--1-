@@ -994,9 +994,21 @@ function AddSectionModal({
     return allEntries.filter(e => (own.has(e.type) ? CUSTOM_SECTION_CATEGORY : e.schema.category ?? "content") === activeCategory)
   }, [allEntries, query, activeCategory, own])
 
+  /**
+   * CLOSE FIRST, ADD ON THE NEXT FRAME.
+   *
+   * Adding a section mounts a section's worth of DOM in the canvas and
+   * scrolls to it, which is a hundred milliseconds of main thread. Doing it
+   * in the same tick as the close means the browser may never commit the
+   * sheet's starting style before that work begins, and a transition whose
+   * start is never committed does not run: the sheet vanishes instead of
+   * sliding. One frame is all it takes to have the transition committed and
+   * handed to the compositor, which then finishes it whatever the main
+   * thread is doing.
+   */
   const handleAdd = useCallback((type: string, presetIndex = 0) => {
-    onAddSection(type, presetIndex)
     onOpenChange(false)
+    requestAnimationFrame(() => onAddSection(type, presetIndex))
   }, [onAddSection, onOpenChange])
 
   const empty = searching
@@ -1014,7 +1026,11 @@ function AddSectionModal({
         onChange={e => setQuery(e.target.value)}
         placeholder="Search sections"
         aria-label="Search sections"
-        className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-neutral-300 [&::-webkit-search-cancel-button]:hidden"
+        /* 16px on a phone. iOS zooms the page when a field under that takes
+           focus and does not zoom back, which inside a bottom sheet leaves
+           the sheet wider than the screen with its own content off to one
+           side. `md:text-sm` puts it back for the desktop modal. */
+        className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-8 text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-neutral-300 md:h-9 md:text-sm [&::-webkit-search-cancel-button]:hidden"
       />
       {searching && (
         <button
@@ -1053,62 +1069,100 @@ function AddSectionModal({
   )
 
   // ── Mobile: bottom sheet ──
+  /**
+   * THE SAME SHEET AS PUBLISH, NOT A SECOND ONE.
+   *
+   * This was Radix's `Sheet` with `enableDragToClose`, which is a different
+   * thing wearing the same shape: it opens and closes on its own curve, its
+   * drag is a gesture handler bolted to a static panel, and it sat beside a
+   * sheet — the publish card, the menu, the AI — that does all of that
+   * properly. Two bottom sheets in one product that do not move alike is
+   * something you feel before you can name it.
+   *
+   * `MobileEditorSheet` is that other one: the drag writes `transform`
+   * imperatively while the finger is down so the sheet is under the thumb on
+   * the same frame, the release settles to a detent on the curve a thrown
+   * thing lands on, and the whole of it is a compositor transform that keeps
+   * running when the main thread is busy — which is exactly the moment a
+   * section is being added.
+   *
+   * NO CLOSE BUTTON. The handle is the affordance, dragging down is the
+   * gesture, and the scrim takes a tap. An X in the corner of a sheet is a
+   * third way to do what two gestures already do, and it is the one that
+   * needs a 44px target in the corner furthest from the thumb.
+   */
   if (isMobileLayout) {
     return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent
-          side="bottom"
-          hideCloseButton
-          enableDragToClose
-          onDragClose={() => onOpenChange(false)}
-          className="p-0 rounded-t-[28px] overflow-hidden flex flex-col gap-0"
-          style={{ height: "80dvh" }}
-        >
-          <div className="flex justify-center pt-3 pb-0 shrink-0" data-drag-handle="true">
-            <div className="w-10 h-1.5 rounded-full bg-foreground/10" />
-          </div>
-
-          <div className="flex items-center justify-between px-5 pt-3 pb-3 shrink-0" data-drag-handle="true">
-            <h2 className="text-base font-semibold text-foreground">Add Section</h2>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="h-8 w-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/80 active:scale-95 transition-all"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
+      <MobileEditorSheet
+        open={open}
+        onOpenChange={onOpenChange}
+        /* A library is a thing you browse: half a screen of it is a peephole,
+           and making somebody drag first is a step with one answer. */
+        openFull
+        detents={[0.92]}
+        /* Over the sections sheet it was opened from, not under it. */
+        layer="raised"
+        peekHeight={0}
+      >
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="shrink-0 px-5 pb-3 pt-0.5">
+            <h2 className="text-[17px] font-semibold tracking-tight text-foreground">Add section</h2>
           </div>
 
           <div className="shrink-0 px-4 pb-3">{search}</div>
 
           {!searching && (
-            <div className="shrink-0 px-4 pb-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              <div className="flex gap-2 w-max">
-                {categories.map(cat => (
-                  <button
-                    key={cat.key}
-                    onClick={() => setActiveCategory(cat.key === "all" ? null : cat.key)}
-                    className={cn(
-                      "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200",
-                      (cat.key === "all" && !activeCategory) || activeCategory === cat.key
-                        ? "bg-foreground text-background shadow-sm"
-                        : "bg-muted text-muted-foreground hover:bg-muted/70 active:scale-95",
-                    )}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
+            <div className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3">
+              <div className="flex w-max gap-2">
+                {categories.map(cat => {
+                  const on = (cat.key === "all" && !activeCategory) || activeCategory === cat.key
+                  return (
+                    <button
+                      key={cat.key}
+                      type="button"
+                      onClick={() => setActiveCategory(cat.key === "all" ? null : cat.key)}
+                      className={cn(
+                        /**
+                         * Named properties, not `transition-all`. Tailwind v4
+                         * compiles `active:scale-95` to the standalone
+                         * `scale:` property, so `transition-all` covers it —
+                         * but it also covers `width`, and a chip row that
+                         * transitions width re-lays-out the row on every
+                         * press. These three are colour and a compositor
+                         * transform, and nothing else moves.
+                         */
+                        "wb-chip shrink-0 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap",
+                        "transition-[background-color,color,scale] duration-200 ease-out active:scale-[0.96]",
+                        on
+                          ? "bg-foreground text-background"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {cat.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
 
-          <div className="w-full h-px bg-border/60 shrink-0" />
+          <div className="h-px w-full shrink-0 bg-border/60" />
 
-          <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overscroll-contain px-4 pt-3 pb-8">
+          {/**
+            * Keyed on the category, so switching one REPLACES the list and
+            * the new list arrives rather than appearing. Not keyed on the
+            * query as well: an entrance animation on every keystroke is a
+            * list that flickers while you type.
+            */}
+          <div
+            key={activeCategory ?? "all"}
+            data-sheet-scroll
+            className="wb-cards-enter wb-slim-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-3"
+          >
             {cards(true)}
           </div>
-        </SheetContent>
-      </Sheet>
+        </div>
+      </MobileEditorSheet>
     )
   }
 
@@ -5960,7 +6014,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               position is the only thing left telling a destructive action
               apart from a duplicate, so the colour arrives at the moment the
               hand is on it and not before. */}
-          <div className="shrink-0 border-t border-[#e5e7eb] bg-white px-3 pt-3 pb-3.5 flex gap-2">
+          {/* ── AND IT STAYS ON SCREEN ──
+              On a desktop this row is the last flex child of a column that
+              fills the sidebar, so it has always been at the bottom. On a
+              phone the same panel is inside the sheet's own scroller, and
+              the sheet can be at any height its detents allow: at anything
+              short of full, the row was below the fold and the only way to
+              reach Hide, Duplicate or Delete was to drag the sheet all the
+              way up and then scroll a settings panel to its end. Three
+              destructive-adjacent controls that far from where you selected
+              the thing is how somebody deletes the wrong section.
+
+              `sticky` rather than `fixed`: it belongs to the panel, so it
+              leaves with the panel when you go back to the list, and it is
+              bounded by the panel's own box rather than by the viewport —
+              nothing to undo when a different sheet opens over it. It costs
+              nothing where the column already fits, because an element
+              already at the bottom of its scrollport has nowhere to stick
+              to. */}
+          <div className="sticky bottom-0 z-10 shrink-0 border-t border-[#e5e7eb] bg-white px-3 pt-3 pb-3.5 flex gap-2">
             <button
               type="button"
               className={cn(

@@ -1078,6 +1078,103 @@ check(
 )
 
 check(
+  "Add Section is the same sheet as Publish, not a second one that moves differently",
+  /**
+   * It was Radix's `Sheet` with `enableDragToClose`: a different thing
+   * wearing the same shape. It opened and closed on its own curve, its drag
+   * was a gesture handler bolted to a static panel, and it sat beside a sheet
+   * — the publish card, the menu, the AI — that does all of that properly.
+   * Two bottom sheets in one product that do not move alike is something you
+   * feel before you can name it.
+   *
+   * `MobileEditorSheet` is that other one: the drag writes `transform`
+   * imperatively while the finger is down, so the sheet is under the thumb on
+   * the same frame; the release settles to a detent; and the whole of it is a
+   * compositor transform that keeps running when the main thread is busy,
+   * which is exactly the moment a section is being added.
+   *
+   * NO CLOSE BUTTON. The handle is the affordance, dragging down is the
+   * gesture, the scrim takes a tap. An X is a third way to do what two
+   * gestures already do, and the one needing a 44px target in the corner
+   * furthest from the thumb.
+   *
+   * CLOSE FIRST, ADD ON THE NEXT FRAME. Adding a section mounts a section's
+   * worth of DOM and scrolls to it. In the same tick as the close, the
+   * browser may never commit the sheet's starting style — and a transition
+   * whose start is not committed does not run, so the sheet vanishes instead
+   * of sliding. One frame hands it to the compositor first.
+   */
+  /<MobileEditorSheet\s*\n\s*open=\{open\}\s*\n\s*onOpenChange=\{onOpenChange\}/.test(editor) &&
+    /openFull\s*\n\s*detents=\{\[0\.92\]\}/.test(editor) &&
+    /layer="raised"\s*\n\s*peekHeight=\{0\}/.test(editor) &&
+    // the sheet brings its own handle, and nothing brings a close button
+    !/aria-label="Close"/.test(editor) &&
+    !/\n\s*enableDragToClose\n/.test(editor) &&
+    /onOpenChange\(false\)\s*\n\s*requestAnimationFrame\(\(\) => onAddSection\(type, presetIndex\)\)/.test(editor) &&
+    // and its search field does not zoom the page out from under the sheet
+    /pl-9 pr-8 text-\[16px\][^"]*md:h-9 md:text-sm/.test(editor),
+)
+
+check(
+  "the category chips settle, and pressing one lays out nothing",
+  /**
+   * `transition-all duration-200` on a chip. Tailwind v4 compiles
+   * `active:scale-95` to the standalone `scale:` property, so `all` does
+   * cover it — and covers `width` with it, which means pressing one chip
+   * transitions the width of every chip and re-lays-out the row mid-press.
+   *
+   * Named properties instead: two colours and a transform, none of which
+   * forces layout. Measured from `getComputedStyle().transitionProperty`,
+   * which is what the browser resolved: [background-color, color, scale]
+   * against [all] before. And the row snaps by proximity, so a throw that
+   * was nearly at a chip finishes there rather than leaving one cut in half
+   * at the edge — proximity and not mandatory, which refuses to stop between
+   * stops and makes a small deliberate nudge feel like an argument.
+   * `node scripts/check-mobile-sheets.mjs`
+   */
+  /"wb-chip shrink-0 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap"/.test(editor) &&
+    /"transition-\[background-color,color,scale\] duration-200 ease-out active:scale-\[0\.96\]"/.test(editor) &&
+    /<div className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3">/.test(editor) &&
+    // a new list arrives rather than appearing, keyed on the category only:
+    // an entrance animation per keystroke is a list that flickers as you type
+    /key=\{activeCategory \?\? "all"\}/.test(editor) &&
+    /className="wb-cards-enter wb-slim-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain/.test(editor) &&
+    ((css) =>
+      /\.wb-chip-row \{[\s\S]{0,200}?scroll-snap-type: x proximity;/.test(css) &&
+      /\.wb-cards-enter \{\s*\n\s*animation: wb-cards-in 200ms/.test(css) &&
+      /@keyframes wb-cards-in \{[\s\S]{0,200}?transform: translate3d\(0, 6px, 0\);/.test(css) &&
+      /\.wb-cards-enter \{ animation: none; \}/.test(css))(
+        readFileSync(join(root, "app/globals.css"), "utf8"),
+      ),
+)
+
+check(
+  "Hide, Duplicate and Delete stay on screen at any sheet height",
+  /**
+   * On a desktop this row is the last child of a column that fills the
+   * sidebar, so it has always been at the bottom of it. On a phone the same
+   * panel goes inside the sheet's own scroller, and the sheet can be at any
+   * height its detents allow: at anything short of full the row was below the
+   * fold, and reaching Hide, Duplicate or Delete meant dragging the sheet all
+   * the way up and then scrolling a settings panel to its end. Three
+   * destructive-adjacent controls that far from where the section was
+   * selected is how somebody deletes the wrong one.
+   *
+   * `sticky`, not `fixed`: it belongs to the panel, so it leaves with the
+   * panel when you go back to the list, and it is bounded by the panel's box
+   * rather than the viewport, so there is nothing to undo when another sheet
+   * opens over it. It costs nothing where the column already fits, since an
+   * element already at the bottom of its scrollport has nowhere to stick to.
+   *
+   * Measured with the sheet at 50% and the panel scrolled to the top: 67 of
+   * the row's 67 pixels inside the sheet, against 0 of 67 without it — the
+   * control's row starting 607px below the sheet's bottom edge.
+   * `node scripts/check-mobile-sheets.mjs`
+   */
+  /<div className="sticky bottom-0 z-10 shrink-0 border-t border-\[#e5e7eb\] bg-white px-3 pt-3 pb-3\.5 flex gap-2">/.test(editor),
+)
+
+check(
   "the header and the footer wear a black badge, because they are the two rows that are different",
   /**
    * Quietened to grey for one round on the argument that two black squares
