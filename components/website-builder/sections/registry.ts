@@ -94,7 +94,9 @@ export const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
   slideshow: SlideshowSection,
   product: ProductSection,
   product_list: ProductListSection,
-  testimonials: TestimonialsSection,
+  // themes/default/sections/testimonials.storelib; the renderer below stays
+  // as the reference scripts/check-storelib-parity.mjs measures against.
+  testimonials: StorelibSection,
   faq: FaqSection,
   cta: CtaSection,
   stats: StatsSection,

@@ -2,7 +2,7 @@
 <section
   class="hero hero--{{ settings.layout }}{% if settings.full_height %} hero--full{% endif %}"
   data-scheme="{{ settings.color_scheme }}"
-  style="{% if settings.bg_type == 'gradient' %}background: {% if settings.bg_gradient %}{{ settings.bg_gradient }}{% else %}linear-gradient(135deg, {{ settings.bg_color | default: scheme.bg }} 0%, {{ scheme.primary_btn_bg }} 100%){% endif %};{% elsif settings.bg_type == 'color' %}background: {{ settings.bg_color | default: scheme.bg }};{% endif %} --hero-text: {{ settings.text_color | default: scheme.heading }}; --hero-para: {{ settings.text_color | default: scheme.paragraph }}; --hero-heading-size: {{ settings.font_size_heading }}px; --hero-pad-top: {{ settings.padding_top }}px; --hero-pad-bottom: {{ settings.padding_bottom }}px;"
+  style="{% if settings.bg_type == 'gradient' %}background: {% if settings.bg_gradient %}{{ settings.bg_gradient }}{% else %}linear-gradient(135deg, {{ settings.bg_color | default: scheme.bg }} 0%, {{ scheme.primary_btn_bg }} 100%){% endif %};{% elsif settings.bg_type == 'color' %}background: {{ settings.bg_color | default: scheme.bg }};{% endif %} --hero-text: {{ settings.text_color | default: scheme.heading }}; --hero-para: {{ settings.text_color | default: scheme.paragraph }}; --hero-ring: {{ settings.text_color | default: scheme.heading | alpha: 0.55 }}; --hero-heading-size: {{ settings.font_size_heading }}px; --hero-pad-top: {{ settings.padding_top }}px; --hero-pad-bottom: {{ settings.padding_bottom }}px;"
 >
   {% if settings.bg_type == 'video' and settings.bg_video %}
     <video class="hero__media" src="{{ settings.bg_video | asset }}" autoplay muted loop playsinline></video>
@@ -79,7 +79,13 @@
 .hero__inner--wide { max-width: var(--theme-page-width, 1230px); }
 .hero__inner--full { max-width: none; }
 .hero--full .hero__inner { min-height: 80vh; }
-.hero--split .hero__inner { flex-direction: column; }
+/*
+  `justify-content: center` belongs to the stacked layouts only. The React
+  hero applied it when the layout was NOT split; left on in split it centres
+  the single content column in the row and moves everything 259px right,
+  which is what the parity probe measured.
+*/
+.hero--split .hero__inner { flex-direction: column; justify-content: flex-start; }
 @container (min-width: 820px) {
   .hero--split .hero__inner { flex-direction: row; align-items: center; }
   .hero--split .hero__content, .hero--split .hero__image { width: 50%; }
@@ -106,7 +112,7 @@
   display: inline-flex;
   width: fit-content;
   align-items: center;
-  border-radius: 9999px;
+  border-radius: 3.40282e38px;
   padding: 4px 12px;
   font-size: 12px;
   line-height: calc(1 / 0.75);
@@ -166,9 +172,14 @@
   display: block;
   width: 20px;
   height: 32px;
-  border: 2px solid var(--hero-text);
-  border-radius: 9999px;
-  opacity: 0.55;
+  /*
+    The React hero drew this ring as a 2px border at 55% alpha, not as a
+    fully opaque border on a 55%-opaque element. Those look the same on a
+    ring and measure differently, and the parity probe reads the measurement
+    — so the border carries the alpha, as it always did.
+  */
+  border: 2px solid var(--hero-ring);
+  border-radius: 3.40282e38px;
 }
 @media (prefers-reduced-motion: no-preference) {
   .hero__scroll span { animation: bounce 1s infinite; }
