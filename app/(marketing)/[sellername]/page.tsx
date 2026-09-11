@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
+import { isStorelibSection, renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
@@ -254,8 +255,22 @@ export default async function SellerWebsitePage({ params }: PageProps) {
   //
   // Fix: let sections flow naturally. No fake vertical filler. If the
   // user has a short page, the page is short — no gap is fabricated.
+  /**
+   * RENDERED HERE, ONCE. A .storelib section becomes markup and a scoped
+   * stylesheet on the server; the visitor's browser receives both and never
+   * needs the compiler. A section whose file does not compile renders
+   * nothing on a published page, which is the rule for a broken section
+   * (docs/theme/12) and not an exception made here.
+   */
+  const prerendered: Record<string, { html: string; css: string }> = {}
+  for (const section of sections) {
+    if (!isStorelibSection(section.type, storelibSources)) continue
+    const out = renderStorelibSection(section, themeSettings, { template: "index" }, storelibSources)
+    if (out.ok) prerendered[section.id] = { html: out.html, css: out.css }
+  }
+
   return (
-    <StorelibSourcesProvider sources={storelibSources}>
+    <StorelibSourcesProvider prerendered={prerendered} page={{ template: "index" }}>
       <ThemePage
         theme={themeSettings}
         sections={sections}

@@ -366,5 +366,64 @@ section("Hero, the first real section")
   }
 }
 
+{
+  /**
+   * EVERY EXPRESSION, NOT JUST THE FIRST. The mask that hides `{{ … }}` from
+   * postcss was padded with zeros, and the index was read back with `\d+`,
+   * which swallowed the padding: expression 1 resolved to `exprs[1000000]`,
+   * came back undefined, and was left in the stylesheet as `--sl-x100000000`
+   * — a value no browser accepts, so every rule after the first one lost its
+   * declaration. Three expressions, because two would have passed by luck.
+   */
+  const many = scopeCss(".a { color: {{ settings.one }} } .b { background: {{ settings.two }} } .c { border-color: {{ settings.three }} }", { file: "f", line: 1, type: "t" })
+  check(
+    "every expression in a stylesheet survives scoping, not just the first",
+    many.ok === true && ["one", "two", "three"].every((n) => many.value.includes(`{{ settings.${n} }}`)) && !/--sl-x/.test(many.value),
+    many.ok === true ? many.value : "",
+  )
+
+  // And they arrive, filled, on the instance.
+  const src = [
+    "<template>", '<div class="box">{{ settings.label }}</div>', "</template>", "",
+    "<style scoped>", ".box { color: {{ settings.fg }}; background: {{ settings.bg }}; }", "</style>", "",
+    "<schema>",
+    JSON.stringify({ type: "box", name: "Box", settings: [
+      { type: "text", id: "label", label: "L", default: "hi" },
+      { type: "color", id: "fg", label: "F", default: "#111111" },
+      { type: "color", id: "bg", label: "B", default: "#eeeeee" },
+    ], presets: [{ name: "Box" }] }),
+    "</schema>", "",
+  ].join("\n")
+  const c = compileSection(src, { file: "sections/box.storelib", expectType: "box" })
+  check("a style block that reads two settings compiles", c.ok === true, c.ok === false ? c.errors.map((e) => e.message).join(" | ") : "")
+  if (c.ok === true) {
+    const out = renderSection({ compiled: c.value, id: "b1", instance: { type: "box", settings: {} }, theme: {}, page: { template: "index" } })
+    check("and both reach the instance's stylesheet", out.css.includes("color: #111111") && out.css.includes("background: #eeeeee"), out.css)
+
+    /**
+     * A setting cannot end its own declaration and start a rule of its own.
+     * Braces and angle brackets come out of a value on the way into CSS.
+     */
+    const nasty = renderSection({
+      compiled: c.value,
+      id: "b2",
+      instance: { type: "box", settings: { fg: "red } body { display: none } .x { color: blue", bg: "#fff; background-image: url(https://elsewhere/pixel)" } },
+      theme: {},
+      page: { template: "index" },
+    })
+    const body = nasty.css.slice(nasty.css.indexOf(".box {") + 6, nasty.css.lastIndexOf("}"))
+    check(
+      "a setting stays inside its own declaration: no braces and no angle brackets reach the stylesheet",
+      !/[{}<>]/.test(body),
+      nasty.css,
+    )
+    check(
+      "and no semicolon of its own, so the rule still has exactly the two declarations the author wrote",
+      (body.match(/;/g) ?? []).length === 2 && !/;\s*background-image/.test(body),
+      nasty.css,
+    )
+  }
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed) { console.log("Failed:\n" + failures.map((f) => "  - " + f).join("\n")); process.exit(1) }

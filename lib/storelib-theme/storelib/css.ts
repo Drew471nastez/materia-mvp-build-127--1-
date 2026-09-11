@@ -55,19 +55,27 @@ export interface ScopeOptions {
  */
 const EXPR = /\{\{[\s\S]*?\}\}/g
 
+/**
+ * The padding is `_`, not a digit, and that is the whole reason this works.
+ * Padding with zeros made the mask for expression 1 read `--sl-x1000000`,
+ * and `(\d+)` swallowed the padding as part of the index: everything after
+ * the first expression in a stylesheet resolved to `exprs[1000000]`, came
+ * back undefined, and was left in the CSS as garbage the browser dropped.
+ * A non-digit pad cannot be confused with the index.
+ */
 function maskExpressions(css: string): { masked: string; exprs: string[] } {
   const exprs: string[] = []
   const masked = css.replace(EXPR, (m) => {
     const token = `--sl-x${exprs.length}`
     exprs.push(m)
-    // Same shape wherever it lands: a value, a selector fragment, a name.
-    return token.padEnd(Math.max(m.length, token.length), "0")
+    // Same length wherever it lands, so postcss reports the real columns.
+    return token.padEnd(Math.max(m.length, token.length), "_")
   })
   return { masked, exprs }
 }
 
 function unmaskExpressions(css: string, exprs: string[]): string {
-  return css.replace(/--sl-x(\d+)0*/g, (m, i) => exprs[Number(i)] ?? m)
+  return css.replace(/--sl-x(\d+)_*/g, (m, i) => exprs[Number(i)] ?? m)
 }
 
 export function scopeCss(css: string, opts: ScopeOptions): Result<string> {

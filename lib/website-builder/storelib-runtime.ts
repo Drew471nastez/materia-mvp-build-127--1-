@@ -14,13 +14,19 @@
  * source text and every instance of it renders from the same compiled tree;
  * a change to an instance's settings never recompiles anything.
  */
-import {
-  compileSection,
-  renderSection,
-  type CompiledSection,
-  type SectionInstanceData,
-  type ThemeError,
-} from "@/lib/storelib-theme"
+/**
+ * FROM THE MODULES, NOT FROM THE BARREL.
+ *
+ * `@/lib/storelib-theme` re-exports the packager, the packager needs jszip,
+ * and a client component that imports the barrel therefore ships jszip to
+ * every visitor of every published site — measured at 96 KB in the chunk
+ * that carries this file, for code that packages a theme for download and
+ * can never run on a storefront. Importing the two modules this file
+ * actually uses keeps the graph honest.
+ */
+import { COMPILE_CACHE_LIMIT, compileSection, createLru } from "@/lib/storelib-theme/storelib/compile"
+import { renderSection } from "@/lib/storelib-theme/render"
+import type { CompiledSection, SectionInstanceData, ThemeError } from "@/lib/storelib-theme/types"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import type { SectionInstance, ThemeSettingsValues } from "./types"
 
@@ -46,8 +52,12 @@ export function isStorelibSection(type: string, overrides?: Record<string, strin
 
 type Compiled = { ok: true; value: CompiledSection } | { ok: false; errors: ThemeError[] }
 
-/** One compile per distinct source text. The key is the text itself, so an edited file is a new entry and an unchanged one is a hit. */
-const compiled = new Map<string, Compiled>()
+/**
+ * One compile per distinct source text. The key is the text itself, so an
+ * edited file is a new entry and an unchanged one is a hit — and because
+ * every save of every file is a new key, it is bounded: see createLru.
+ */
+const compiled = createLru<Compiled>(COMPILE_CACHE_LIMIT)
 
 export function compiledSection(type: string, overrides?: Record<string, string>): Compiled {
   const source = sectionSource(type, overrides)
