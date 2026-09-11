@@ -6306,6 +6306,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 </Button>
                 <PublishPanel
                   open={publishOpen}
+                  installId={installId}
                   onOpenChange={setPublishOpen}
                   anchorRef={publishBtnRef}
                   mobile={isMobileView}

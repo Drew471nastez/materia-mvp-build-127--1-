@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
+import { pageSections } from "@/lib/website-builder/preview-link"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 export const dynamic = "force-dynamic"
@@ -122,15 +123,14 @@ export default async function WebsiteBuilderProductPage({ params }: PageProps) {
       .maybeSingle(),
   ])
 
-  const rawSections: SectionInstance[] =
-    (pageData?.sections as SectionInstance[] | null) ??
-    (pageData?.draft_sections as SectionInstance[] | null) ??
-    []
-
-  const homeSections: SectionInstance[] =
-    (homeData?.sections as SectionInstance[] | null) ??
-    (homeData?.draft_sections as SectionInstance[] | null) ??
-    []
+  /**
+   * PUBLISHED ONLY. Both of them: the product page's own sections, and the
+   * home page whose header and footer this page borrows. Falling back to the
+   * drafts meant a product page edited but not published was already live,
+   * and so was a header being worked on.
+   */
+  const rawSections: SectionInstance[] = pageSections<SectionInstance[]>(pageData, false) ?? []
+  const homeSections: SectionInstance[] = pageSections<SectionInstance[]>(homeData, false) ?? []
 
   const homeHeader = homeSections.find(s => s.type === "header")
   const homeFooter = homeSections.find(s => s.type === "footer")
