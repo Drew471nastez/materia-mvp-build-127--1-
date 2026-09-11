@@ -23,7 +23,7 @@
  * Registered by scripts/run-push-tests.mjs, which passes the compile output
  * directory in PUSH_TEST_OUT.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, statSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 
@@ -77,7 +77,10 @@ const EXTENSIONS = [".js", ".mjs", ".cjs"]
 
 /** The first of `p`, `p.js`, `p/index.js` that is on disk. */
 function existingFile(path) {
-  if (existsSync(path) && !path.endsWith("/")) return path
+  // A bare path that names a directory is a barrel import (`lib/x` for
+  // `lib/x/index.ts`), not a file: fall through to the index lookup below,
+  // or Node reads the directory and dies with EISDIR.
+  if (existsSync(path) && !path.endsWith("/") && statSync(path).isFile()) return path
   for (const ext of EXTENSIONS) if (existsSync(path + ext)) return path + ext
   for (const ext of EXTENSIONS) if (existsSync(join(path, `index${ext}`))) return join(path, `index${ext}`)
   return null
