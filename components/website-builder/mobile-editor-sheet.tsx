@@ -765,6 +765,40 @@ export function MobileEditorSheet({
    * leave, so it is rendered into `document.body`, where the layers it
    * declares are the layers it gets.
    */
+  /**
+   * ===========================================================================
+   *  WHILE A FINGER IS ON IT, THE FINGER IS THE TRUTH
+   * ===========================================================================
+   * The drag writes `transform` straight to the element, once per frame, and
+   * turns the transition off while it does. React was writing the same two
+   * properties from state on every render — so ANY re-render landing in the
+   * middle of a drag put the sheet back where state believed it was and
+   * switched the 360ms transition back on, which is a sheet that jumps out
+   * from under the finger and then eases after it.
+   *
+   * And re-renders land there constantly on a phone: iOS fires
+   * `visualViewport.scroll` while a sheet is being dragged, the content-fit
+   * measurement can resolve at any moment, the browser's chrome gap is
+   * re-probed on resize. None of those have anything to do with the gesture.
+   *
+   * So the rendered values MIRROR the drag rather than competing with it.
+   * Mid-gesture React writes exactly what the imperative path already wrote,
+   * which is a no-op; at rest it writes the state's position with the
+   * transition back on, which is how a sheet opens and closes.
+   */
+  const dragging = drag.current.active
+  const closedOffset = offsets[offsets.length - 1] ?? 0
+  const renderY = dragging ? drag.current.currentY : open ? openY : closedY
+  const renderOpacity = dragging
+    ? closedOffset > 0
+      ? Math.max(0, Math.min(1, 1 - renderY / closedOffset))
+      : 0
+    : open
+      ? 1
+      : 0
+  const motion = dragging ? "none" : `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}`
+  const fade = dragging ? "none" : `opacity ${SNAP_DURATION_MS}ms ${SNAP_EASING}`
+
   return createPortal(
     <>
       <div
@@ -774,9 +808,9 @@ export function MobileEditorSheet({
         className="fixed inset-0 bg-black/30"
         style={{
           zIndex: layer === "raised" ? 70 : 40,
-          opacity: open ? 1 : 0,
+          opacity: renderOpacity,
           pointerEvents: open ? "auto" : "none",
-          transition: `opacity ${SNAP_DURATION_MS}ms ${SNAP_EASING}`,
+          transition: fade,
           // Its own layer, so fading it is a compositor job and not a repaint
           // of everything under it on every frame.
           willChange: "opacity",
@@ -806,8 +840,8 @@ export function MobileEditorSheet({
            */
           zIndex: layer === "raised" ? 80 : 50,
           height: `${height}px`,
-          transform: `translateY(${open ? openY : closedY}px)`,
-          transition: `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}`,
+          transform: `translateY(${renderY}px)`,
+          transition: motion,
           willChange: "transform",
           /**
            * Painted on its own, so moving it never repaints the canvas under

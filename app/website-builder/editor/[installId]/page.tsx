@@ -3828,6 +3828,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * @dnd-kit/modifiers, since the whole of it is "throw away x".
    */
   const restrictToVerticalAxis: Modifier = useCallback(({ transform }) => ({ ...transform, x: 0 }), [])
+  // One array, not a fresh literal on every render: DndContext compares the
+  // list it is given, and a new array every time is a new list every time.
+  const dragModifiers = useMemo(() => [restrictToVerticalAxis], [restrictToVerticalAxis])
 
   /** The row currently in the air, drawn by the overlay. */
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -5206,7 +5209,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
-                modifiers={[restrictToVerticalAxis]}
+                modifiers={dragModifiers}
                 /**
                  * Re-measure the rows while the drag is in flight.
                  *

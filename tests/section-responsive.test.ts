@@ -1481,7 +1481,8 @@ check(
     /useSensor\(TouchSensor, \{ activationConstraint: \{ delay: 220, tolerance: 10 \} \}\)/.test(editor) &&
     /<DragOverlay>/.test(editor) &&
     /measuring=\{\{ droppable: \{ strategy: MeasuringStrategy\.Always \} \}\}/.test(editor) &&
-    /modifiers=\{\[restrictToVerticalAxis\]\}/.test(editor) &&
+    /modifiers=\{dragModifiers\}/.test(editor) &&
+    /const dragModifiers = useMemo\(\(\) => \[restrictToVerticalAxis\], \[restrictToVerticalAxis\]\)/.test(editor) &&
     /const restrictToVerticalAxis: Modifier = useCallback\(\(\{ transform \}\) => \(\{ \.\.\.transform, x: 0 \}\), \[\]\)/.test(editor) &&
     // the tick fires on a change of target, not once per animation frame
     /if \(over === lastOverId\.current\) return/.test(editor) &&
@@ -1654,6 +1655,66 @@ check(
     /data-mobile-bottom-sheet/.test(
       readFileSync(join(root, "components/platform/capacitor-bounce-guard.tsx"), "utf8"),
     ),
+)
+
+check(
+  "the publish action is one box, whatever it says",
+  /**
+   * Four labels — Publish, Publish changes, Published, Publishing — and the
+   * button was sized by whichever one it was showing, with `transition-all`
+   * animating the change. Measured: 102, 178, 123 and 153px, so pressing it
+   * started a 51px width animation in the same moment its contents were
+   * replaced, inside a sheet that is a `contain: paint` layer being
+   * transformed. What came out of that on a phone was a slab of purple
+   * painted for one width with the spinner and the word stranded beside it.
+   *
+   * A 180px floor is wider than the widest state, so the geometry never
+   * changes and there is nothing to tear. The row wraps rather than squeezes
+   * on a 320px phone, where Preview and the button cannot share a line.
+   * Colours still transition; nothing about the box does.
+   *
+   * `node scripts/check-publish-button.mjs`
+   */
+  /min-w-\[180px\] shrink-0 items-center justify-center gap-2 rounded-xl px-5/.test(publishPanel) &&
+    /bg-\[#8B56FA\] transition-colors duration-150 hover:bg-\[#7b46ec\]/.test(publishPanel) &&
+    // and the width no longer animates: `transition-all` on a button whose
+    // label changes is a width tween nobody asked for
+    !/font-semibold text-white transition-all/.test(publishPanel) &&
+    /<div className="flex flex-wrap items-center gap-3">/.test(publishPanel) &&
+    // busy is not disabled-looking: a button that fades the instant you use
+    // it reads as one that did not take the press
+    /aria-busy=\{busy\}/.test(publishPanel) &&
+    /busy \? "cursor-default" : "disabled:cursor-default disabled:opacity-40"/.test(publishPanel),
+)
+
+check(
+  "while a finger is on a sheet, the finger is the truth",
+  /**
+   * The drag writes `transform` straight to the element once per frame and
+   * turns the transition off while it does. React was writing the same two
+   * properties from state on every render, so ANY re-render landing mid-drag
+   * put the sheet back where state believed it was and switched the 360ms
+   * transition back on: a sheet that jumps out from under the finger and
+   * then eases after it.
+   *
+   * Re-renders land there constantly on a phone. iOS fires
+   * `visualViewport.scroll` while a sheet is being dragged, the content-fit
+   * measurement can resolve at any moment, the browser chrome gap is
+   * re-probed on resize. None of them have anything to do with the gesture.
+   *
+   * So the rendered values mirror the drag rather than compete with it:
+   * mid-gesture React writes exactly what the imperative path already wrote.
+   */
+  /const dragging = drag\.current\.active/.test(sheetSrc) &&
+    /const renderY = dragging \? drag\.current\.currentY : open \? openY : closedY/.test(sheetSrc) &&
+    /const motion = dragging \? "none" : `transform \$\{SNAP_DURATION_MS\}ms \$\{SNAP_EASING\}`/.test(sheetSrc) &&
+    /transform: `translateY\(\$\{renderY\}px\)`/.test(sheetSrc) &&
+    /transition: motion,/.test(sheetSrc) &&
+    /opacity: renderOpacity,/.test(sheetSrc) &&
+    /transition: fade,/.test(sheetSrc) &&
+    // and the imperative path still owns the frame-by-frame write
+    /const value = on \? `transform \$\{ms\}ms \$\{SNAP_EASING\}` : "none"/.test(sheetSrc) &&
+    /rafId\.current = requestAnimationFrame/.test(sheetSrc),
 )
 
 check(

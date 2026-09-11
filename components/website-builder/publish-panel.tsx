@@ -87,7 +87,16 @@ function Body({
   }
 
   const actions = (
-    <div className="flex items-center justify-between gap-3">
+    /**
+     * Wrapping, and the primary action pushed right by its own margin rather
+     * than by `justify-between`. Measured at 15px/600, "Publish changes"
+     * wants 178px inside its padding and the Preview link wants 116, which
+     * with the gap is 306 — more than a 320px phone has once the card's own
+     * padding is off it. `justify-between` cannot wrap without stranding the
+     * button on the left of its new line; `ml-auto` holds it to the right on
+     * one line or two.
+     */
+    <div className="flex flex-wrap items-center gap-3">
       {/* Preview: the draft as a visitor would see it, with the builder's
           bar over it. It was a button on the bar next to Publish, which
           made two buttons for one decision. Here it is the question
@@ -97,24 +106,51 @@ function Body({
           href={`${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}builder_preview=1&show_preview_bar=1`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex h-10 items-center gap-2 rounded-xl border border-white/15 px-4 text-[15px] font-medium text-white/85 transition-colors hover:bg-white/10 hover:text-white"
+          className="flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-white/15 px-4 text-[15px] font-medium text-white/85 transition-colors hover:bg-white/10 hover:text-white"
         >
           <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
           Preview
         </a>
-      ) : (
-        <span />
-      )}
+      ) : null}
+      {/**
+       * ONE BOX, WHATEVER IT SAYS.
+       *
+       * This button has four labels — Publish, Publish changes, Published,
+       * Publishing — and it was sized by whichever one it was showing, with
+       * `transition-all` animating the change. So pressing it started a width
+       * animation at the same moment its contents were replaced, inside a
+       * sheet that is itself a `contain: paint` layer being transformed. What
+       * came out of that on a phone was a button whose purple had been
+       * painted for one width while its spinner and its word sat at another:
+       * a slab of colour with the label stranded beside it.
+       *
+       * A fixed floor wide enough for the longest label removes the animation
+       * rather than smoothing it. 180px: "Publish changes" is the widest of
+       * the four at 137.7px, which is 178 inside the button's padding, and
+       * "Publishing" with its spinner is 153. Nothing about the box changes
+       * when the state does, so there is no resize to tear, and the label
+       * swap is the only thing that moves. Colours still transition; the
+       * geometry does not.
+       *
+       * Busy is not disabled-looking. The press is refused while a publish is
+       * in flight, but a button that fades out the instant you use it reads
+       * as one that did not take the press. It stays lit and says what it is
+       * doing; only the genuinely unavailable state — live with nothing to
+       * publish — is dimmed.
+       */}
       <button
         type="button"
         onClick={onPublish}
         disabled={busy || (live && !pending)}
+        aria-busy={busy}
         className={cn(
-          "flex h-10 items-center gap-2 rounded-xl px-5 text-[15px] font-semibold text-white transition-all",
-          "bg-[#8B56FA] hover:bg-[#7b46ec] disabled:cursor-default disabled:opacity-40",
+          "ml-auto flex h-10 min-w-[180px] shrink-0 items-center justify-center gap-2 rounded-xl px-5",
+          "text-[15px] font-semibold whitespace-nowrap text-white",
+          "bg-[#8B56FA] transition-colors duration-150 hover:bg-[#7b46ec]",
+          busy ? "cursor-default" : "disabled:cursor-default disabled:opacity-40",
         )}
       >
-        {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+        {busy && <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
         {busy ? "Publishing" : live ? (pending ? "Publish changes" : "Published") : "Publish"}
       </button>
     </div>
