@@ -64,7 +64,7 @@ import type {
 import { PAGE_META, DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
-import { customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
+import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
@@ -816,12 +816,86 @@ function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, 
 }
 
 // ── Add Section Modal ────────────────────────────────────────
+/**
+ * ===========================================================================
+ *  ONE CARD IN THE ADD SECTION LIBRARY
+ * ===========================================================================
+ * Declared here, at the top level, and not inside the modal — which is where
+ * it used to be. A component declared inside another component is a NEW
+ * component type on every render of its parent, so React unmounts and
+ * remounts every card whenever anything in the modal changes: each card's
+ * width state resets to its guess, each ResizeObserver re-attaches, and every
+ * preview redraws. That is the flicker you see on picking a category, and it
+ * would have been one flicker per keystroke once there was a search box.
+ *
+ * `memo` then does what it is meant to: a card whose props have not changed
+ * does not re-render at all.
+ */
+const SectionLibraryCard = memo(function SectionLibraryCard({
+  type,
+  presetIndex,
+  title,
+  schema,
+  mobile,
+  onAdd,
+}: {
+  type: string
+  presetIndex: number
+  title: string
+  schema: SectionSchema
+  mobile?: boolean
+  onAdd: (type: string, presetIndex: number) => void
+}) {
+  const cardRef = useRef<HTMLButtonElement>(null)
+  const [cardWidth, setCardWidth] = useState(mobile ? 300 : 260)
+  useEffect(() => {
+    if (!cardRef.current) return
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setCardWidth(entry.contentRect.width)
+    })
+    ro.observe(cardRef.current)
+    return () => ro.disconnect()
+  }, [])
+  return (
+    <button
+      ref={cardRef}
+      onClick={() => onAdd(type, presetIndex)}
+      className={cn(
+        "flex flex-col w-full rounded-xl border border-border bg-background overflow-hidden text-left",
+        "transition-all duration-200 ease-out will-change-transform",
+        mobile
+          ? "rounded-2xl active:scale-[0.98] active:opacity-80 shadow-sm"
+          : "hover:border-foreground/25 hover:shadow-lg hover:shadow-black/8 hover:-translate-y-0.5 active:scale-[0.99] active:shadow-sm",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
+        "group cursor-pointer",
+      )}
+    >
+      <div className="px-4 pt-3 pb-2.5 shrink-0">
+        <p className="font-semibold text-sm leading-tight text-foreground">{title}</p>
+      </div>
+      <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden">
+        <SectionPreviewThumbnail type={type} presetIndex={presetIndex} containerWidth={cardWidth} schema={schema} />
+      </div>
+    </button>
+  )
+})
+
+interface LibraryEntry {
+  type: string
+  presetIndex: number
+  title: string
+  schema: SectionSchema
+  /** Everything somebody might type to find this, lower-cased once. */
+  haystack: string
+}
+
 function AddSectionModal({
   open,
   onOpenChange,
   onAddSection,
   schemas,
   addable,
+  ownTypes,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -829,8 +903,11 @@ function AddSectionModal({
   /** Every section this install can add: the theme's, and this creator's own. */
   schemas: Record<string, SectionSchema>
   addable: string[]
+  /** The ones this creator wrote, which get their own heading. */
+  ownTypes: string[]
 }) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const [query, setQuery] = useState("")
   const [isMobileLayout, setIsMobileLayout] = useState(false)
 
   useEffect(() => {
@@ -840,92 +917,140 @@ function AddSectionModal({
     return () => window.removeEventListener("resize", check)
   }, [])
 
-  // Reset category when modal opens
+  /** A fresh open starts at everything, with nothing typed. */
   useEffect(() => {
-    if (open) setActiveCategory(null)
+    if (open) { setActiveCategory(null); setQuery("") }
   }, [open])
 
-  const byCategory = addable.reduce<Record<string, string[]>>((acc, type) => {
-    const cat = schemas[type]?.category ?? "content"
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push(type)
-    return acc
-  }, {})
-
-  /**
-   * The theme's own order first, so the tabs read the way the library was
-   * laid out rather than the way an object happened to be built. Anything
-   * with sections in it that the theme did not name goes after — which is
-   * where a creator's own sections land.
-   */
-  const ordered = [
-    ...SECTION_CATEGORY_ORDER.map(c => c.id).filter(id => byCategory[id]?.length),
-    ...Object.keys(byCategory).filter(id => !SECTION_CATEGORY_ORDER.some(c => c.id === id)),
-  ]
-  const visibleSections = activeCategory ? byCategory[activeCategory] ?? [] : addable
-
-  const allCategories = [
-    { key: "all", label: "All" },
-    ...ordered.map(cat => ({ key: cat, label: SECTION_CATEGORIES[cat] ?? cat })),
-  ]
-
-  const handleAdd = (type: string, presetIndex = 0) => {
-    onAddSection(type, presetIndex)
-    onOpenChange(false)
-  }
+  const own = useMemo(() => new Set(ownTypes), [ownTypes])
 
   /**
    * ONE CARD PER PRESET. A section's presets are the different things it can
-   * first appear as — the hero's dark centred, light split and gradient —
-   * and each is drawn as its own card with its own preview. A section with
-   * one preset, or none declared, is one card named after the section.
+   * first appear as — the centred hero on a colour and the same hero on an
+   * image — and each is its own card with its own preview. A section with one
+   * preset, or none declared, is one card named after the section.
    */
-  const entries = (type: string): { type: string; presetIndex: number; title: string }[] => {
-    const schema = schemas[type]
-    const presets = schema?.presets ?? []
-    if (presets.length <= 1) return [{ type, presetIndex: 0, title: schema?.name ?? type }]
-    return presets.map((p, i) => ({ type, presetIndex: i, title: p.name || schema!.name }))
-  }
+  const allEntries = useMemo<LibraryEntry[]>(() => {
+    const out: LibraryEntry[] = []
+    for (const type of addable) {
+      const schema = schemas[type]
+      if (!schema) continue
+      const category = own.has(type) ? CUSTOM_SECTION_CATEGORY : schema.category ?? "content"
+      const label = SECTION_CATEGORIES[category] ?? category
+      const presets = schema.presets ?? []
+      const many = presets.length > 1
+      const list = many ? presets.map((p, i) => ({ i, name: p.name || schema.name })) : [{ i: 0, name: schema.name }]
+      for (const { i, name } of list) {
+        out.push({
+          type,
+          presetIndex: i,
+          title: name,
+          schema,
+          haystack: `${name} ${schema.name} ${label} ${schema.description ?? ""} ${type}`.toLowerCase(),
+        })
+      }
+    }
+    return out
+  }, [addable, schemas, own])
 
-  // ── Section card (shared between mobile & desktop) ──
-  const SectionCard = ({ type, presetIndex = 0, title, mobile }: { type: string; presetIndex?: number; title?: string; mobile?: boolean }) => {
-    const schema = schemas[type]
-    const cardRef = useRef<HTMLButtonElement>(null)
-    const [cardWidth, setCardWidth] = useState(mobile ? 300 : 260)
-    useEffect(() => {
-      if (!cardRef.current) return
-      const ro = new ResizeObserver(([entry]) => {
-        if (entry) setCardWidth(entry.contentRect.width)
-      })
-      ro.observe(cardRef.current)
-      return () => ro.disconnect()
-    }, [])
-    if (!schema) return null
-    return (
-      <button
-        ref={cardRef}
-        onClick={() => handleAdd(type, presetIndex)}
-        className={cn(
-          "flex flex-col w-full rounded-xl border border-border bg-background overflow-hidden text-left",
-          "transition-all duration-200 ease-out will-change-transform",
-          mobile
-            ? "rounded-2xl active:scale-[0.98] active:opacity-80 shadow-sm"
-            : "hover:border-foreground/25 hover:shadow-lg hover:shadow-black/8 hover:-translate-y-0.5 active:scale-[0.99] active:shadow-sm",
-          "focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
-          "group cursor-pointer"
-        )}
-      >
-        {/* Title above the preview */}
-        <div className="px-4 pt-3 pb-2.5 shrink-0">
-          <p className="font-semibold text-sm leading-tight text-foreground">{title ?? schema.name}</p>
+  /**
+   * The theme's own order first, so the tabs read the way the library was
+   * laid out rather than the way an object happened to be built. A creator's
+   * own sections go last, under their own heading, which is the one tab that
+   * is not the theme's.
+   */
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const e of allEntries) {
+      const cat = own.has(e.type) ? CUSTOM_SECTION_CATEGORY : e.schema.category ?? "content"
+      counts.set(cat, (counts.get(cat) ?? 0) + 1)
+    }
+    const themeOrder = SECTION_CATEGORY_ORDER.map(c => c.id).filter(id => counts.has(id))
+    const rest = [...counts.keys()].filter(id => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY)
+    const mine = counts.has(CUSTOM_SECTION_CATEGORY) ? [CUSTOM_SECTION_CATEGORY] : []
+    return [
+      { key: "all", label: "All", count: allEntries.length },
+      ...[...themeOrder, ...rest, ...mine].map(id => ({
+        key: id,
+        label: SECTION_CATEGORIES[id] ?? id,
+        count: counts.get(id) ?? 0,
+      })),
+    ]
+  }, [allEntries, own])
+
+  /**
+   * Typing searches the whole library rather than the category in front of
+   * you: somebody looking for "countdown" should not have to know it is
+   * filed under Marketing first.
+   */
+  const searching = query.trim().length > 0
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    if (needle) {
+      const words = needle.split(/\s+/)
+      return allEntries.filter(e => words.every(w => e.haystack.includes(w)))
+    }
+    if (!activeCategory) return allEntries
+    return allEntries.filter(e => (own.has(e.type) ? CUSTOM_SECTION_CATEGORY : e.schema.category ?? "content") === activeCategory)
+  }, [allEntries, query, activeCategory, own])
+
+  const handleAdd = useCallback((type: string, presetIndex = 0) => {
+    onAddSection(type, presetIndex)
+    onOpenChange(false)
+  }, [onAddSection, onOpenChange])
+
+  const empty = searching
+    ? `Nothing matches “${query.trim()}”`
+    : activeCategory === CUSTOM_SECTION_CATEGORY
+      ? "Write a section in the code editor and it appears here"
+      : "No sections in this category"
+
+  const search = (
+    <div className="relative">
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <input
+        type="search"
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder="Search sections"
+        aria-label="Search sections"
+        className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-neutral-300 [&::-webkit-search-cancel-button]:hidden"
+      />
+      {searching && (
+        <button
+          type="button"
+          onClick={() => setQuery("")}
+          aria-label="Clear the search"
+          className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  )
+
+  const cards = (mobile: boolean) => (
+    <>
+      <div className={mobile ? "flex flex-col gap-3" : "grid grid-cols-1 gap-4"}>
+        {visible.map(e => (
+          <SectionLibraryCard
+            key={`${e.type}-${e.presetIndex}`}
+            type={e.type}
+            presetIndex={e.presetIndex}
+            title={e.title}
+            schema={e.schema}
+            mobile={mobile}
+            onAdd={handleAdd}
+          />
+        ))}
+      </div>
+      {visible.length === 0 && (
+        <div className="py-16 text-center text-muted-foreground">
+          <p className="text-sm">{empty}</p>
         </div>
-        {/* Full-width real section preview */}
-        <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden">
-          <SectionPreviewThumbnail type={type} presetIndex={presetIndex} containerWidth={cardWidth} schema={schema} />
-        </div>
-      </button>
-    )
-  }
+      )}
+    </>
+  )
 
   // ── Mobile: bottom sheet ──
   if (isMobileLayout) {
@@ -939,58 +1064,48 @@ function AddSectionModal({
           className="p-0 rounded-t-[28px] overflow-hidden flex flex-col gap-0"
           style={{ height: "80dvh" }}
         >
-          {/* Drag handle */}
           <div className="flex justify-center pt-3 pb-0 shrink-0" data-drag-handle="true">
             <div className="w-10 h-1.5 rounded-full bg-foreground/10" />
           </div>
 
-          {/* Mobile header */}
           <div className="flex items-center justify-between px-5 pt-3 pb-3 shrink-0" data-drag-handle="true">
-            <div>
-              <h2 className="text-base font-semibold text-foreground">Add Section</h2>
-            </div>
+            <h2 className="text-base font-semibold text-foreground">Add Section</h2>
             <button
               onClick={() => onOpenChange(false)}
               className="h-8 w-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/80 active:scale-95 transition-all"
+              aria-label="Close"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          {/* Horizontal category pills */}
-          <div className="shrink-0 px-4 pb-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="flex gap-2 w-max">
-              {allCategories.map((cat) => (
-                <button
-                  key={cat.key}
-                  onClick={() => setActiveCategory(cat.key === "all" ? null : cat.key)}
-                  className={cn(
-                    "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200",
-                    (cat.key === "all" && !activeCategory) || activeCategory === cat.key
-                      ? "bg-foreground text-background shadow-sm"
-                      : "bg-muted text-muted-foreground hover:bg-muted/70 active:scale-95"
-                  )}
-                >
-                  {cat.label}
-                </button>
-              ))}
+          <div className="shrink-0 px-4 pb-3">{search}</div>
+
+          {!searching && (
+            <div className="shrink-0 px-4 pb-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <div className="flex gap-2 w-max">
+                {categories.map(cat => (
+                  <button
+                    key={cat.key}
+                    onClick={() => setActiveCategory(cat.key === "all" ? null : cat.key)}
+                    className={cn(
+                      "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200",
+                      (cat.key === "all" && !activeCategory) || activeCategory === cat.key
+                        ? "bg-foreground text-background shadow-sm"
+                        : "bg-muted text-muted-foreground hover:bg-muted/70 active:scale-95",
+                    )}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="w-full h-px bg-border/60 shrink-0" />
 
-          {/* Section list — single column */}
           <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overscroll-contain px-4 pt-3 pb-8">
-            <div className="flex flex-col gap-3">
-              {visibleSections.flatMap(entries).map(e => (
-                <SectionCard key={`${e.type}-${e.presetIndex}`} type={e.type} presetIndex={e.presetIndex} title={e.title} mobile />
-              ))}
-            </div>
-            {visibleSections.length === 0 && (
-              <div className="py-16 text-center text-muted-foreground">
-                <p className="text-sm">No sections in this category</p>
-              </div>
-            )}
+            {cards(true)}
           </div>
         </SheetContent>
       </Sheet>
@@ -1005,47 +1120,48 @@ function AddSectionModal({
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
           "w-[min(735px,calc(100vw-2rem))] !max-w-[calc(100vw-2rem)]",
-          "max-h-[88vh]"
+          "max-h-[88vh]",
         )}
       >
-        {/* Header */}
-        <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
-          <DialogTitle className="text-lg font-semibold">Add New Section</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">Choose a section type to add to your page</DialogDescription>
+        <DialogHeader className="px-6 py-4 border-b border-border shrink-0 space-y-3">
+          <div>
+            <DialogTitle className="text-lg font-semibold">Add New Section</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">Choose a section type to add to your page</DialogDescription>
+          </div>
+          {search}
         </DialogHeader>
 
-        {/* Body: sidebar + grid */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          {/* Left categories sidebar */}
           <nav className="w-[150px] sm:w-[180px] border-r border-border shrink-0 overflow-y-auto wb-slim-scroll py-2 bg-muted/20">
-            {allCategories.map((cat) => (
-              <button
-                key={cat.key}
-                onClick={() => setActiveCategory(cat.key === "all" ? null : cat.key)}
-                className={cn(
-                  "w-full text-left px-4 py-2.5 text-sm font-medium transition-all relative",
-                  (cat.key === "all" && !activeCategory) || activeCategory === cat.key
-                    ? "text-foreground bg-background border-l-2 border-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/60"
-                )}
-              >
-                {cat.label}
-              </button>
-            ))}
+            {categories.map(cat => {
+              const on = (cat.key === "all" && !activeCategory) || activeCategory === cat.key
+              return (
+                <button
+                  key={cat.key}
+                  onClick={() => { setQuery(""); setActiveCategory(cat.key === "all" ? null : cat.key) }}
+                  className={cn(
+                    "w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm font-medium transition-all relative",
+                    on && !searching
+                      ? "text-foreground bg-background border-l-2 border-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/60",
+                  )}
+                >
+                  <span className="truncate">{cat.label}</span>
+                  {cat.key === CUSTOM_SECTION_CATEGORY && (
+                    <span className="ml-auto rounded-full bg-muted px-1.5 text-[11px] tabular-nums">{cat.count}</span>
+                  )}
+                </button>
+              )
+            })}
           </nav>
 
-          {/* Right: 1-column grid */}
           <div className="flex-1 overflow-y-auto wb-slim-scroll overscroll-contain p-5">
-            <div className="grid grid-cols-1 gap-4">
-              {visibleSections.flatMap(entries).map(e => (
-                <SectionCard key={`${e.type}-${e.presetIndex}`} type={e.type} presetIndex={e.presetIndex} title={e.title} />
-              ))}
-            </div>
-            {visibleSections.length === 0 && (
-              <div className="py-16 text-center text-muted-foreground">
-                <p className="text-sm">No sections in this category</p>
-              </div>
+            {searching && (
+              <p className="mb-3 text-xs text-muted-foreground">
+                {visible.length === 1 ? "1 section" : `${visible.length} sections`} matching “{query.trim()}”
+              </p>
             )}
+            {cards(false)}
           </div>
         </div>
       </DialogContent>
@@ -3697,9 +3813,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const customSchemas = useMemo(() => customSectionSchemas(storelibSources), [storelibSources])
   const librarySchemas = useMemo(() => ({ ...SECTION_SCHEMAS, ...customSchemas }), [customSchemas])
+  const ownSectionTypes = useMemo(() => customAddableSections(customSchemas), [customSchemas])
   const libraryAddable = useMemo(
-    () => [...ADDABLE_SECTIONS, ...customAddableSections(customSchemas)],
-    [customSchemas],
+    () => [...ADDABLE_SECTIONS, ...ownSectionTypes],
+    [ownSectionTypes],
   )
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
@@ -7122,6 +7239,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         onAddSection={addSection}
         schemas={librarySchemas}
         addable={libraryAddable}
+        ownTypes={ownSectionTypes}
       />
 
       {/* ── Add Custom Page Modal ── */}

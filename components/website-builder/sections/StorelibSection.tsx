@@ -44,7 +44,13 @@ export function StorelibSection({
     const ready = prerendered[section.id]
     if (ready) return { ok: true as const, html: ready.html, css: ready.css }
     if (render) return render(section, theme)
-    return { ok: false as const, errors: [{ message: `${section.type} was not rendered: no theme sources in this tree` }] }
+    return {
+      ok: false as const,
+      errors: [{
+        file: `sections/${section.type}.storelib`,
+        message: `There is no sections/${section.type}.storelib in this theme. Write one in the code editor, or change this section's type.`,
+      }],
+    }
   }, [prerendered, render, section, theme])
 
   if (out.ok === false) {
@@ -52,7 +58,7 @@ export function StorelibSection({
     return (
       <SectionWrapper isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
         <div className="px-6 py-5 text-[13px] leading-5 text-[#991b1b] bg-[#fef2f2] border-y border-[#fecaca]">
-          <p className="font-semibold">{section.name || section.type} did not compile</p>
+          <p className="font-semibold">{section.name || section.type} could not be drawn</p>
           <ul className="mt-1 font-mono text-[12px]">
             {out.errors.map((e, i) => (
               <li key={i}>

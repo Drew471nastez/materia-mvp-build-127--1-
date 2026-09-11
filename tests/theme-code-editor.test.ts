@@ -339,7 +339,16 @@ section("Save compiles, errors carry lines, the canvas finds out")
   check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\}/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, librarySchemas\)/g) ?? []).length === 2)
   check("a section this creator wrote is in the library too", /customSectionSchemas\(storelibSources\)/.test(editor) && /customAddableSections\(customSchemas\)/.test(editor) && /addable=\{libraryAddable\}/.test(editor))
   check("a section renders from the saved source when there is one", /renderStorelibSection\(section, theme, \{ template \}, sources\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
-  check("the published page draws the saved sections too, not the bundled ones", /\.from\("store_theme_custom_files"\)/.test(creator) && /renderStorelibSection\(section, themeSettings, \{ template: "index" \}, storelibSources\)/.test(creator))
+  // Done in one place now, for every public route rather than the storefront
+  // alone: see prerenderStorelibSections, and the route list in
+  // tests/website-builder.test.ts.
+  const prerender = readFileSync(join(root, "lib/website-builder/storefront-render.ts"), "utf8")
+  check(
+    "the published page draws the saved sections too, not the bundled ones",
+    /\.from\("store_theme_custom_files"\)/.test(prerender)
+      && /renderStorelibSection\(section, theme, \{ template \}, sources\)/.test(prerender)
+      && /prerenderStorelibSections\(/.test(creator),
+  )
   check("a new section file starts as one that compiles", /const starterFor = \(path: string\)/.test(codePage) && /"<template>",/.test(codePage) && /"<schema>",/.test(codePage))
   check("new, rename, duplicate and delete are there", /kind: "new"/.test(codePage) && /kind: "rename"/.test(codePage) && /kind: "duplicate"/.test(codePage) && /deleteFile\(true\)/.test(codePage))
 }
@@ -396,7 +405,8 @@ section("The page a section is on is the page it is on")
   )
   check(
     "and the published page renders on the server and hands down the strings",
-    /const prerendered: Record<string, \{ html: string; css: string \}> = \{\}/.test(creator) && /<StorelibSourcesProvider prerendered=\{prerendered\}/.test(creator),
+    /Promise<Record<string, RenderedSection>>/.test(readFileSync(join(root, "lib/website-builder/storefront-render.ts"), "utf8"))
+      && /<StorelibSourcesProvider prerendered=\{prerendered\}/.test(creator),
   )
   check("and a section reads it instead of assuming index", /useStorelibContext\(\)/.test(sectionSrc) && !/template: "index"/.test(sectionSrc))
   check("the editor hands it the page being edited", /pageTemplate=\{currentPage === "home" \? "index" : currentPage\}/.test(editor) && /page=\{\{ template: pageTemplate \}\}/.test(editor))
@@ -419,6 +429,37 @@ section("Caches keyed on file content cannot grow without end")
   check("the engine has one bounded cache and the application uses it", /export function createLru<T>\(limit: number\)/.test(compile) && /while \(map\.size > limit\)/.test(compile))
   check("the section compile cache is bounded", /createLru<Compiled>\(COMPILE_CACHE_LIMIT\)/.test(runtime) && !/new Map<string, Compiled>/.test(runtime))
   check("the schema cache is bounded", /createLru<StorelibSchemaResult>\(COMPILE_CACHE_LIMIT\)/.test(schemas) && !/new Map<string, StorelibSchemaResult>/.test(schemas))
+}
+
+// ===========================================================================
+section("A section somebody wrote is a section, not an unknown type")
+// ===========================================================================
+{
+  const renderer = readFileSync(join(root, "components/website-builder/sections/SectionRenderer.tsx"), "utf8")
+  const sectionSrc = readFileSync(join(root, "components/website-builder/sections/StorelibSection.tsx"), "utf8")
+
+  /**
+   * The registry is built at build time from the theme this build ships, so
+   * a type somebody wrote in their own install can never be in it. It was
+   * drawn as "Unknown section type: drewwww" — a red box naming no cause,
+   * about a file that exists and compiles.
+   */
+  // Anchored to the markup, not to the words: the comment above the fix says
+  // "Unknown section type" too, and a guard that matches its own explanation
+  // passes whatever the code does.
+  check(
+    "a type the registry does not name goes to the engine rather than to a red box",
+    /SECTION_COMPONENTS\[props\.section\.type\] \?\? StorelibSection/.test(renderer) &&
+      !/Unknown section type: <code>/.test(renderer),
+  )
+  check(
+    "and when there really is no file, it says which file it wanted",
+    /There is no sections\/\$\{section\.type\}\.storelib in this theme/.test(sectionSrc),
+  )
+  check(
+    "the registry still knows every section the theme itself ships",
+    /STORELIB_SECTION_TYPES\.map\(\(type\) => \[type, StorelibSection\]\)/.test(readFileSync(join(root, "components/website-builder/sections/registry.ts"), "utf8")),
+  )
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

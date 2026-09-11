@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
-import { isStorelibSection, renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
+import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
@@ -228,20 +228,6 @@ export default async function SellerWebsitePage({ params }: PageProps) {
 
   const sections: SectionInstance[] = pageData?.sections ?? pageData?.draft_sections ?? []
 
-  /**
-   * THE SECTIONS THIS CREATOR SAVED IN THE CODE EDITOR. A .storelib section
-   * renders from its source, and a saved file is the source; without these
-   * the live site would draw the bundled hero while the editor drew the
-   * edited one. Path to content, into the same provider the editor uses.
-   */
-  const { data: savedFiles } = await publicAdmin
-    .from("store_theme_custom_files")
-    .select("path, content")
-    .eq("install_id", install.id)
-    .like("path", "%.storelib")
-  const storelibSources: Record<string, string> = {}
-  for (const row of savedFiles ?? []) storelibSources[row.path] = row.content
-
   // NOTE on the "black gap" bug:
   // Previously this page used `min-h-screen flex flex-col` + `flex-1` on
   // the body container to pin the footer to the bottom of the viewport on
@@ -262,12 +248,13 @@ export default async function SellerWebsitePage({ params }: PageProps) {
    * nothing on a published page, which is the rule for a broken section
    * (docs/theme/12) and not an exception made here.
    */
-  const prerendered: Record<string, { html: string; css: string }> = {}
-  for (const section of sections) {
-    if (!isStorelibSection(section.type, storelibSources)) continue
-    const out = renderStorelibSection(section, themeSettings, { template: "index" }, storelibSources)
-    if (out.ok) prerendered[section.id] = { html: out.html, css: out.css }
-  }
+  const prerendered = await prerenderStorelibSections(
+    publicAdmin as never,
+    install.id,
+    sections,
+    themeSettings,
+    "index",
+  )
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "index" }}>

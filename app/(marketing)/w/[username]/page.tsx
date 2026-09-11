@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
+import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
+import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
@@ -135,12 +137,27 @@ export default async function WebsitePublicPage({ params }: PageProps) {
 
   const sections: SectionInstance[] = pageData?.sections ?? pageData?.draft_sections ?? []
 
+  /**
+   * Rendered here, on the server, once. Without this a .storelib section
+   * draws nothing at all on this route: measured at 0 characters of HTML
+   * against 3651 for the same section on the storefront.
+   */
+  const prerendered = await prerenderStorelibSections(
+    publicAdmin as never,
+    install.id,
+    sections,
+    themeSettings,
+    "index",
+  )
+
   // No min-h-screen / flex-1 filler — see [sellername]/page.tsx for rationale.
   return (
-    <ThemePage
-      theme={themeSettings}
-      sections={sections}
-      emptyDetail="Check back soon!"
-    />
+    <StorelibSourcesProvider prerendered={prerendered} page={{ template: "index" }}>
+      <ThemePage
+        theme={themeSettings}
+        sections={sections}
+        emptyDetail="Check back soon!"
+      />
+    </StorelibSourcesProvider>
   )
 }

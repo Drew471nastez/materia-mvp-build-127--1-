@@ -23,6 +23,7 @@
 import { memo } from "react"
 import type { SectionProps } from "./_shared"
 import { SECTION_COMPONENTS } from "./registry"
+import { StorelibSection } from "./StorelibSection"
 
 /**
  * ============================================================
@@ -61,14 +62,22 @@ const NO_CONTAINER = new Set(["header"])
 // ── Public API ────────────────────────────────────────────────
 export function renderSection(props: SectionProps) {
   if (props.section.hidden) return null
-  const Component = SECTION_COMPONENTS[props.section.type]
-  if (!Component) {
-    return (
-      <div className="p-4 bg-red-50 text-red-500 text-sm text-center border border-red-200">
-        Unknown section type: <code>{props.section.type}</code>
-      </div>
-    )
-  }
+  /**
+   * A TYPE THE REGISTRY DOES NOT KNOW IS NOT AN UNKNOWN SECTION.
+   *
+   * The registry is built at build time: the JSON-described sections, and
+   * every `.storelib` the theme ships. A section somebody wrote themselves
+   * lives in their own install, so it can never be in there — and it was
+   * being drawn as "Unknown section type", which is a lie about a file that
+   * exists and compiles.
+   *
+   * Anything the registry does not name goes to StorelibSection, which is
+   * the component that renders from source. It finds the person's file in
+   * the sources the editor loaded, and if there really is nothing to render
+   * it says so with the file and the line rather than with a red box that
+   * names no cause.
+   */
+  const Component = SECTION_COMPONENTS[props.section.type] ?? StorelibSection
   /**
    * The header takes `wrapperId` itself — the id has to land on its own
    * SectionWrapper root or `position: sticky` gets a containing block exactly

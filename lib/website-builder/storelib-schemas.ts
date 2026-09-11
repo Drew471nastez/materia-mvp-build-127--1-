@@ -70,7 +70,14 @@ const cache = createLru<StorelibSchemaResult>(COMPILE_CACHE_LIMIT)
 export function schemaFromStorelib(source: string, file: string): StorelibSchemaResult {
   const hit = cache.get(source)
   if (hit) return hit
-  const describe = (errors: { line?: number; message: string }[]) => errors.map((e) => `${file}${e.line ? `:${e.line}` : ""} ${e.message}`)
+  /**
+   * `file:line key message`. The key matters: zod says "Required" and means
+   * one particular missing field, and without its path a creator reading
+   * "sections/hero.storelib:2 Required" is told a line that holds the whole
+   * schema and not which key is missing from it.
+   */
+  const describe = (errors: { line?: number; path?: string; message: string }[]) =>
+    errors.map((e) => `${file}${e.line ? `:${e.line}` : ""} ${e.path && e.path !== "(root)" ? `${e.path}: ` : ""}${e.message}`)
   let result: StorelibSchemaResult
   const parsed = parseStorelib(source, file)
   if (parsed.ok === false) result = { ok: false, errors: describe(parsed.errors) }
@@ -160,7 +167,22 @@ export function customSectionSchemas(sources: Record<string, string> | undefined
     const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
     if (!m || path in DEFAULT_THEME_SOURCES) continue
     const r = schemaFromStorelib(source, path)
-    if (r.ok === true) out[m[1]] = { ...r.schema, category: r.schema.category || CUSTOM_SECTION_CATEGORY }
+    /**
+     * Filed under "Created by you" whatever the file says. A creator's first
+     * section is usually a copy of one of the theme's, and that copy carries
+     * `category: "hero"` — which would file the thing they just wrote in
+     * among the thirty they did not, in the one place they are looking for
+     * it. The declared category is the theme's way of organising its own
+     * sections; whose section it is comes first.
+     */
+    /**
+     * And the filename is the type. What a page stores is the name of the
+     * file that draws it, so a copy of hero_centered.storelib saved as
+     * drewwww.storelib is a section called drewwww — even though the line
+     * `"type": "hero_centered"` came along with the copy. Taking the file at
+     * its word there would give two different sections the same name.
+     */
+    if (r.ok === true) out[m[1]] = { ...r.schema, type: m[1], category: CUSTOM_SECTION_CATEGORY }
   }
   return out
 }
