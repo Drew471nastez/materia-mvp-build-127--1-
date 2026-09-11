@@ -224,6 +224,58 @@ The preview moves into a sandboxed iframe; scripts declare capabilities and
 network access is an allowlist or a proxy; a strict CSP is the design
 constraint rather than an afterthought.
 
+### What can migrate today, measured
+
+Counted across the fifty renderers on 2026-09-11, by whether the component
+uses a React hook or attaches a handler of its own (the editor's own
+`onClick={onClick}` does not count):
+
+| | Count | What it means |
+| --- | --- | --- |
+| No behaviour of its own | 30 | Can move to `.storelib` now. The hero and the testimonials have. |
+| Needs behaviour in the browser | 20 | A `<script>` block is checked and stored but not executed until Phase D, so these wait — or are rewritten to need no script. |
+
+The twenty: announcement_banner, collection_list, contact_form,
+countdown_timer, counter, cta, faq, footer, gallery, header,
+image_comparison, newsletter, pricing, product, products_carousel,
+size_guide, slideshow, stats, sticky_bar, tabs_content.
+
+Some of them need less than they look. An FAQ accordion is
+`<details>`/`<summary>` and no script at all; a carousel is scroll snapping.
+Rewriting one that way is a change to how the section behaves, so it is a
+decision to take per section rather than a mechanical conversion, and it is
+not counted as "can migrate today" above.
+
+One thing the format does not have yet, and the count above hides: an
+`icon_picker` setting resolves to a React component from `ICON_MAP`, and a
+template cannot render a React component. A section that draws icons needs
+the icon's SVG reachable from the engine before it can move. Two of the
+thirty are in that position.
+
+### How a section is proved to have migrated
+
+`scripts/check-storelib-parity.mjs <type>` renders the section both ways —
+the renderer it is leaving and the `.storelib` file it is becoming — at
+1100px and 380px, for the shipped defaults, every preset, and a
+scheme-only instance. It compares, for each pair: the text in order, the
+section's height, the heading's size, colour and family, the subheading's
+colour, every button's background, colour, border and radius, the surface,
+every element that paints a background or a border (its rectangle, colour
+and radius), and every image, video or SVG with its size. A control run
+enlarges one size by 10px in the engine's copy and the script fails if that
+goes unnoticed.
+
+The section names the renderer it is migrating from in `BEFORE` in
+`scripts/render-storelib-parity-probe.tsx`; the renderer stays in the tree,
+unregistered, until the probe no longer needs it.
+
+It earns its place. Measured on the two sections that have moved, it found:
+buttons falling back to the wrong scheme colour, a gradient preset losing
+its gradient, three line-box mismatches, a scroll indicator whose ring was
+drawn with element opacity instead of border alpha, and a split hero whose
+content was centred 259px to the right of where it belonged — the last two
+only after the painted-box comparison was added.
+
 ### What migrates, and in what order
 
 1. types, 2. registry, 3. validator, 4. parser and compiler — Phase A.

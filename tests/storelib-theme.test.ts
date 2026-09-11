@@ -153,6 +153,9 @@ check("the asset filter resolves references through the context", render(`{{ set
 check("the alpha filter", render(`{{ "#6366f1" | alpha: 0.5 }}`) === "rgba(99, 102, 241, 0.5)")
 check("theme tokens are readable", render(`{{ theme.colors.primary }}`) === "#6366f1")
 check("array size / first / last", render(`{{ blocks.size }}{{ blocks.first.id }}`, { blocks: [{ id: "a", type: "x", settings: {} }] }) === "1a")
+// An initial is the first letter of a name, and a name is a string. `first`
+// answering `undefined` for one made an avatar fallback render nothing.
+check("first and last read a string too, so an initial is one filter", render(`{{ settings.name | first }}{{ settings.name | last }}`, { settings: { name: "Jane" } }) === "Je")
 check("__proto__ and constructor are unreachable", render(`[{{ settings.__proto__ }}][{{ settings.constructor }}][{{ settings.constructor.prototype }}]`, { settings: {} }) === "[][][]")
 check("a function in the context is never called or printed", render(`[{{ settings.f }}]`, { settings: { f: () => "boom" } }) === "[]")
 {
