@@ -476,7 +476,18 @@ section("Add Section is derived from the files, one card per preset")
   check("a creator's own section is filed under its own heading", CUSTOM_SECTION_CATEGORY === "yours" && SECTION_CATEGORIES.yours === "Created by you")
 
   const editorSrc = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
-  check("the modal draws one card per preset, named after the preset", /const entries = \(type: string\)/.test(editorSrc) && (editorSrc.match(/visibleSections\.flatMap\(entries\)/g) ?? []).length === 2)
+  // The entries are built once, in a memo, rather than per render of the list.
+  check("the modal draws one card per preset, named after the preset", /const allEntries = useMemo<LibraryEntry\[\]>/.test(editorSrc) && /title: name,/.test(editorSrc))
+  /**
+   * A component declared inside another component is a new type on every
+   * render of its parent, so every card unmounts and remounts — the width
+   * state resets, the ResizeObserver re-attaches, and the previews redraw.
+   * That was the flicker on picking a category, and it would have been one
+   * flicker per keystroke once there was a search box.
+   */
+  check("the cards are declared once, at the top level, and memoised", /^const SectionLibraryCard = memo\(function SectionLibraryCard\(/m.test(editorSrc) && !/^\s+const SectionCard = \(/m.test(editorSrc))
+  check("the library can be searched across name, category and description", /placeholder="Search sections"/.test(editorSrc) && /haystack: `\$\{name\} \$\{schema\.name\} \$\{label\}/.test(editorSrc) && /words\.every\(w => e\.haystack\.includes\(w\)\)/.test(editorSrc))
+  check("and a creator's own sections have their own heading, pinned last", /const mine = counts\.has\(CUSTOM_SECTION_CATEGORY\)/.test(editorSrc) && /ownTypes=\{ownSectionTypes\}/.test(editorSrc))
   check("and the chosen preset is the one that lands on the page", /const addSection = \(type: string, presetIndex = 0\)/.test(editorSrc) && /schema\.presets\?\.\[presetIndex\]/.test(editorSrc))
 }
 

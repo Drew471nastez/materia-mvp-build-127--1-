@@ -13,8 +13,6 @@
             <button class="s__btn s__btn--primary nl__go" type="submit">{{ settings.button_text }}</button>
           </div>
         </form>
-      {% else %}
-        <p class="nl__setup">Add the address your mailing list gives you, in the sidebar, and this becomes a working form.</p>
       {% endif %}
       {% if settings.note %}<p class="s__note">{{ settings.note }}</p>{% endif %}
     </div>
@@ -72,7 +70,6 @@
 .nl__input::placeholder { color: var(--s-para); opacity: 0.7; }
 .nl__input:focus { outline: 2px solid var(--s-accent); outline-offset: 1px; }
 .nl__go { flex: none; }
-.nl__setup { margin: 24px 0 0; font-size: 14px; color: var(--s-para); opacity: 0.7; }
 </style>
 
 <schema>
@@ -81,7 +78,7 @@
   "type": "promo_newsletter",
   "name": "Newsletter Signup",
   "category": "marketing",
-  "description": "An address box that posts straight to your mailing list. No script.",
+  "description": "An address box that posts straight to your mailing list, with no script. The box appears once you add the address.",
   "version": "1.0.0",
   "icon": "mail",
   "settings": [
@@ -152,7 +149,7 @@
       "id": "action",
       "label": "Form address",
       "default": "",
-      "info": "The address your mailing list gives you for its signup form. Mailchimp, Buttondown and Kit all show one."
+      "info": "The address your mailing list gives you for its signup form. Mailchimp, Buttondown and Kit all show one. Until you add it the box stays hidden, so nothing half-working reaches your visitors."
     },
     {
       "type": "text",
