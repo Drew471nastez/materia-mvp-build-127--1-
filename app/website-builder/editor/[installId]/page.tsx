@@ -67,6 +67,7 @@ import { PAGE_META } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
+import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
@@ -4079,6 +4080,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => window.removeEventListener("beforeunload", handler)
   }, [isDirty])
 
+  /**
+   * THE SAME LIST THE PUBLISHED PAGE IS GIVEN. The canvas draws a section
+   * set to "my shop" from this, and the storefront draws it from
+   * `shopProducts`; both go through `toCard`, so the two surfaces cannot
+   * disagree about a price or a sold-out label. Mapped rather than passed
+   * raw for exactly that reason.
+   *
+   * `slug || id` above means a product with no slug gets a link to an id
+   * that is not a page, so the card is drawn without one here.
+   */
+  const shopCards = useMemo(
+    () => products.map((p) => toCard({
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      price_cents: p.price_cents,
+      compare_at_cents: p.compare_at_cents,
+      thumbnail_url: p.thumbnail_url,
+      status: "published",
+    })),
+    [products],
+  )
+
   // Fetch products and collections for page browser
   const loadProducts = useCallback(async () => {
     setProductsLoading(true)
@@ -7029,6 +7053,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 onAddSection={openAddSection}
                 onAddSectionAt={openAddSectionAt}
                 onEditorNavigate={handleEditorNavigate}
+                shopCards={shopCards}
               />
               </div>
             )}
@@ -7580,6 +7605,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   onAddSection,
   onAddSectionAt,
   onEditorNavigate,
+  shopCards,
 }: {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
@@ -7597,9 +7623,15 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   onAddSection: () => void
   onAddSectionAt: (at: number) => void
   onEditorNavigate: (href: string) => void
+  /**
+   * The creator's real products, for a section set to draw the shop. The
+   * same list the published page gets, mapped through the same `toCard`, so
+   * the canvas and the site cannot disagree about a price.
+   */
+  shopCards: ProductCard[]
 }) {
   return (
-    <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor>
+    <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor products={shopCards}>
     <ThemePage
       theme={theme}
       sections={sections}

@@ -60,7 +60,7 @@ export interface CompileOptions {
  * now. That is a section with nothing typed into it yet, which is the normal
  * state of a section somebody just added.
  */
-const CONTEXT_ROOTS = new Set(["settings", "blocks", "theme", "scheme", "page", "section", "forloop"])
+const CONTEXT_ROOTS = new Set(["settings", "blocks", "products", "theme", "scheme", "page", "section", "forloop"])
 const SECTION_KEYS = new Set(["id", "type", "settings", "blocks"])
 
 function checkReferences(
@@ -97,7 +97,7 @@ function checkReferences(
     }
 
     if (!CONTEXT_ROOTS.has(root)) {
-      push(ref.line, `"${root}" is not something a section can read. A section reads settings, blocks, theme, scheme, page and section.`)
+      push(ref.line, `"${root}" is not something a section can read. A section reads settings, blocks, products, theme, scheme, page and section.`)
       continue
     }
     if (root === "section" && second && !SECTION_KEYS.has(second)) {

@@ -30,6 +30,11 @@ export interface RenderInput {
   page: RenderContext["page"]
   /** asset://… → URL for this account. */
   assets?: Record<string, string>
+  /**
+   * The creator's published products, block-shaped. Absent means the surface
+   * did not supply any, and a section that asks for them draws none.
+   */
+  products?: RenderContext["products"]
 }
 
 export interface Rendered {
@@ -60,6 +65,7 @@ export function renderSection(input: RenderInput): Rendered {
     theme,
     scheme: { ...colors.legacy, ...colors.scheme },
     page: input.page,
+    products: input.products ?? [],
     section: { id, type: compiled.type },
     assets,
   }

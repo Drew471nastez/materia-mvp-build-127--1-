@@ -39,18 +39,27 @@
  */
 import { unstable_cache, revalidateTag } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
+import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
+import { shopProducts } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 /** What Publish invalidates. One creator, every address they answer on. */
 export const creatorSiteTag = (creatorId: string) => `published-site:${creatorId}`
+/** The shop half, held apart because it goes stale for its own reasons. */
+export const creatorShopTag = (creatorId: string) => `shop-products:${creatorId}`
 
 /** Held until Publish says otherwise; the hour is only a backstop. */
 const SITE_TTL = 3600
 /** The name map: short, because nothing announces a signup or a rename. */
 const NAME_TTL = 60
+/**
+ * The shop: short, for the same reason. A price is edited from the app's own
+ * screens, straight to the database, with no route in between to tell this
+ * cache about it.
+ */
+const SHOP_TTL = 60
 
 export interface PublishedSite {
   creatorId: string
@@ -60,11 +69,21 @@ export interface PublishedSite {
   installName: string
   themeSettings: ThemeSettingsValues
   sections: SectionInstance[]
+  /**
+   * The creator's saved .storelib files. Cached with the rest, because they
+   * change when somebody publishes. The render happens per request from
+   * these, which is arithmetic and costs nothing.
+   */
+  sources: Record<string, string>
+}
+
+/** A site, with its sections drawn. What a page actually needs. */
+export interface DrawnSite extends PublishedSite {
   prerendered: Record<string, RenderedSection>
 }
 
 export type SiteLookup =
-  | { kind: "site"; site: PublishedSite }
+  | { kind: "site"; site: DrawnSite }
   /** A creator, but nothing published yet. */
   | { kind: "unpublished"; displayName: string }
   /** The name was renamed; here is where it went. */
@@ -133,7 +152,13 @@ async function renamedTo(name: string): Promise<string | null> {
  * Everything the published site is, for one creator. Published only: this
  * never looks at a draft, so there is no shape of this value that leaks one.
  */
-async function buildSite(creatorId: string, displayName: string): Promise<SiteLookup> {
+/**
+ * What the cached half returns: a site with its inputs, not yet drawn. The
+ * drawing happens outside the cache, with the products.
+ */
+type BuiltLookup = { kind: "site"; site: PublishedSite } | Exclude<SiteLookup, { kind: "site" }>
+
+async function buildSite(creatorId: string, displayName: string): Promise<BuiltLookup> {
   const admin = createAdminClient()
 
   const { data: install } = await admin
@@ -163,7 +188,7 @@ async function buildSite(creatorId: string, displayName: string): Promise<SiteLo
     .maybeSingle()
 
   const sections = pageSections<SectionInstance[]>(pageData as never, false) ?? []
-  const prerendered = await prerenderStorelibSections(admin as never, row.id, sections, themeSettings, "index")
+  const sources = await sectionSources(admin as never, row.id)
 
   return {
     kind: "site",
@@ -174,7 +199,7 @@ async function buildSite(creatorId: string, displayName: string): Promise<SiteLo
       installName: row.name ?? "",
       themeSettings,
       sections,
-      prerendered,
+      sources,
     },
   }
 }
@@ -201,11 +226,36 @@ export async function publishedSiteByName(name: string): Promise<SiteLookup> {
     return to ? { kind: "renamed", to } : { kind: "missing" }
   }
 
-  return unstable_cache(
+  const found = await unstable_cache(
     () => buildSite(match.creatorId, match.displayName),
     ["published-site", match.creatorId],
     { tags: [creatorSiteTag(match.creatorId)], revalidate: SITE_TTL },
   )()
+  if (found.kind !== "site") return found
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  PRODUCTS ARE THE PART THAT IS ACTUALLY DYNAMIC
+   * ═════════════════════════════════════════════════════════════════════════
+   * The page changes when somebody presses Publish. The shop changes when
+   * somebody edits a price, adds a product or sells the last one, and those
+   * writes happen from the app's own screens with no server route to hang an
+   * invalidation on. Holding them for an hour alongside the page would mean
+   * a corrected price sitting wrong on a live site for an hour.
+   *
+   * So they are cached apart and briefly, and the page is drawn per request
+   * from the two. Drawing is arithmetic — no database, and the compiler
+   * keeps its own cache of the files — so this costs single-digit
+   * milliseconds and buys a shop that is never more than a minute behind.
+   */
+  const products = await unstable_cache(
+    () => shopProducts(createAdminClient() as never, match.creatorId),
+    ["shop-products", match.creatorId],
+    { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
+  )()
+
+  const prerendered = renderWithSources(found.site.sources, found.site.sections, found.site.themeSettings, "index", products)
+  return { kind: "site", site: { ...found.site, prerendered } }
 }
 
 /**
