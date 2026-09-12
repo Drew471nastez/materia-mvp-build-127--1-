@@ -73,7 +73,7 @@ const CONSUMERS = [
   "components/website-builder/sections/_shared.tsx",
   "components/website-builder/sections/renderers/HeaderSection.tsx",
   "components/website-builder/sections/renderers/FooterSection.tsx",
-  "app/(marketing)/w/[username]/page.tsx",
+  "app/(marketing)/w/[username]/render-site.tsx",
   "app/(marketing)/[sellername]/page.tsx",
   "app/products/[slug]/page.tsx",
 ]
@@ -242,7 +242,7 @@ section("One page, four surfaces")
   // draws no theme. The website is `<name>.storelib.com`, served by /w.
   const surfaces = [
     "app/website-builder/editor/[installId]/page.tsx",
-    "app/(marketing)/w/[username]/page.tsx",
+    "app/(marketing)/w/[username]/render-site.tsx",
     "app/products/[slug]/page.tsx",
   ]
   const sources = surfaces.map((f) => [f, readFileSync(join(root, f), "utf8")] as const)

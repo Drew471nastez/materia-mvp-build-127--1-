@@ -37,7 +37,16 @@ const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
 
 const cache = read("lib/website-builder/published-site.ts")
-const store = read("app/(marketing)/w/[username]/page.tsx")
+/**
+ * The website is two routes over one renderer: `/w/[username]` is the front
+ * page, `/w/[username]/[page]` is every other page, and both call
+ * render-site.tsx. Read together, because a rule about what the website does
+ * could be broken in either half.
+ */
+const store =
+  read("app/(marketing)/w/[username]/page.tsx") +
+  read("app/(marketing)/w/[username]/[page]/page.tsx") +
+  read("app/(marketing)/w/[username]/render-site.tsx")
 const publish = read("app/api/website-builder/themes/[installId]/publish/route.ts")
 
 function main() {

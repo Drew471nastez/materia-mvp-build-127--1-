@@ -43,6 +43,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
 import { shopProducts } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
+import { templateForPage } from "@/lib/website-builder/site-pages"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
@@ -69,7 +70,19 @@ export interface PublishedSite {
   installId: string
   installName: string
   themeSettings: ThemeSettingsValues
+  /** The page that was asked for. Home unless a path said otherwise. */
   sections: SectionInstance[]
+  /**
+   * EVERY PUBLISHED PAGE, by key. The builder has always let somebody make
+   * an About page, a Contact page and pages of their own, and only the home
+   * page was ever served: the other keys were read by nothing, so the work
+   * was invisible to visitors and the header's own "About" link, which
+   * ships pointing at /about, was a 404 on every site.
+   *
+   * Held together in one cache entry because they are published together
+   * and invalidated together.
+   */
+  pages: Record<string, SectionInstance[]>
   /**
    * The creator's saved .storelib files. Cached with the rest, because they
    * change when somebody publishes. The render happens per request from
@@ -181,19 +194,24 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
   // `false` is the whole point: published values only, never the drafts.
   const themeSettings = (themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues
 
-  const { data: pageData } = await admin
+  const { data: pageRows } = await admin
     .from("store_theme_pages")
-    .select("sections, draft_sections")
+    .select("page_key, sections, draft_sections")
     .eq("install_id", row.id)
-    .eq("page_key", "home")
-    .maybeSingle()
 
   /**
    * And again on the way out. The database already holds rich text saved
    * before anything sanitised it, and rows can arrive from an import. The
    * save path is the authority; this covers what is already there.
    */
-  const sections = sanitizeSections(pageSections<SectionInstance[]>(pageData as never, false) ?? [])
+  const pages: Record<string, SectionInstance[]> = {}
+  for (const r of (pageRows ?? []) as { page_key: string; sections: unknown; draft_sections: unknown }[]) {
+    const published = pageSections<SectionInstance[]>(r as never, false)
+    // A page that has never been published is not a page a visitor can see.
+    if (!published || published.length === 0) continue
+    pages[r.page_key] = sanitizeSections(published)
+  }
+  const sections = pages.home ?? []
   const sources = await sectionSources(admin as never, row.id)
 
   return {
@@ -205,6 +223,7 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
       installName: row.name ?? "",
       themeSettings,
       sections,
+      pages,
       sources,
     },
   }
@@ -218,7 +237,13 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
  * every creator could only ever carry one tag for all of them, and one
  * publish would throw away everybody's.
  */
-export async function publishedSiteByName(name: string): Promise<SiteLookup> {
+/**
+ * `pageKey` is which page of the site to draw. "home" is the site's front
+ * page; "about", "contact" and any key the creator made are the rest. A key
+ * the site has not published comes back as `missing`, so the route can 404
+ * rather than quietly serving the home page under another address.
+ */
+export async function publishedSiteByName(name: string, pageKey = "home"): Promise<SiteLookup> {
   const lower = name.toLowerCase()
 
   const match = await unstable_cache(
@@ -260,8 +285,14 @@ export async function publishedSiteByName(name: string): Promise<SiteLookup> {
     { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
   )()
 
-  const prerendered = renderWithSources(found.site.sources, found.site.sections, found.site.themeSettings, "index", products)
-  return { kind: "site", site: { ...found.site, prerendered } }
+  const sections = found.site.pages[pageKey] ?? (pageKey === "home" ? found.site.sections : undefined)
+  if (!sections) return { kind: "missing" }
+
+  // "index" for the front page, `page.<key>` for the rest: the name a
+  // section reads as `page.template` and writes `allowed_templates` against.
+  const template = templateForPage(pageKey)
+  const prerendered = renderWithSources(found.site.sources, sections, found.site.themeSettings, template, products)
+  return { kind: "site", site: { ...found.site, sections, prerendered } }
 }
 
 /**

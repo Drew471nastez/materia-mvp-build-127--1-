@@ -102,7 +102,9 @@ function main() {
      * and the product page; the apex route must carry none of that data path.
      */
     const seller = read("app/(marketing)/[sellername]/page.tsx")
-    const w = read("app/(marketing)/w/[username]/page.tsx")
+    // Both /w routes hand their work to this one file, so the website's
+    // rules live here rather than in either route.
+    const w = read("app/(marketing)/w/[username]/render-site.tsx")
     const product = read("app/products/[slug]/page.tsx")
     check("the apex path is the creator page, not the website", /from "\.\.\/u\/\[username\]\/page"/.test(seller) && !/pageSections|draft_sections|ThemePage/.test(seller))
     const api = read("app/api/website-builder/themes/[installId]/preview/route.ts")

@@ -61,6 +61,13 @@ function section(title: string) {
   console.log(`\n${title}`)
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+/**
+ * The built website's own renderer. `/w/[username]/page.tsx` is the front
+ * page and `/w/[username]/[page]/page.tsx` is every other page of the site;
+ * both hand the work to this one file, so this is where the site's rendering
+ * is asserted.
+ */
+const RENDER_SITE = "app/(marketing)/w/[username]/render-site.tsx"
 const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1")
 
 // ── Section schemas, as the editor reads them ───────────────────────────
@@ -512,7 +519,6 @@ section("Add Section is derived from the files, one card per preset")
   // The apex route is the creator page now and draws no sections; the
   // website is `<name>.storelib.com`, served by /w.
   const PUBLIC_ROUTES = [
-    ["app/(marketing)/w/[username]/page.tsx", "index"],
     ["app/products/[slug]/page.tsx", "product"],
   ] as const
   for (const [route, template] of PUBLIC_ROUTES) {
@@ -521,12 +527,36 @@ section("Add Section is derived from the files, one card per preset")
     // The call may carry the creator's products after the template name.
     check(`${route} renders them as "${template}"`, new RegExp(`"${template.replace(".", "\\.")}"(,\\s*products)?\\s*\\)`).test(src) && new RegExp(`page=\\{\\{ template: "${template}" \\}\\}`).test(src))
   }
+
+  /**
+   * The website serves more than one page, so its template is the page it is
+   * drawing rather than a constant: "index" for the front page and
+   * `page.<key>` for the rest, which is what `allowed_templates` is written
+   * against. Both the render and the provider must be handed the same one,
+   * or a section is compiled for one template and told it is on another.
+   */
+  {
+    const site = read("app/(marketing)/w/[username]/render-site.tsx")
+    check("the website renders its sections on the server", /await prerenderStorelibSections\(/.test(site))
+    check(
+      "and names the template after the page it is drawing",
+      /const template = templateForPage\(pageKey\)/.test(site),
+    )
+    check(
+      "handing the same name to the render and to the provider",
+      /prerenderStorelibSections\([^)]*\btemplate, products\)/.test(site) &&
+        /page=\{\{ template \}\}/.test(site),
+    )
+  }
   // Named here so a fourth route cannot quietly join the list without one.
+  // Every .tsx under the public routes, not only `page.tsx`: a route may
+  // hand its work to a component beside it, and that component draws the
+  // page just the same.
   const walk = (dir: string): string[] => {
     const full = join(process.cwd(), dir)
     if (!existsSync(full)) return []
     return readdirSync(full, { withFileTypes: true }).flatMap((e) =>
-      e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name === "page.tsx" ? [`${dir}/${e.name}`] : [],
+      e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name.endsWith(".tsx") ? [`${dir}/${e.name}`] : [],
     )
   }
   const routesDrawingSections = [...new Set(["app/(marketing)", "app/products"].flatMap(walk))]
@@ -648,9 +678,12 @@ section("A form that says it worked, did")
 
   check(
     "the section is told whose site it is on",
+    // The built website is served from the subdomain, which is
+    // app/(marketing)/w/[username]. storelib.com/<name> is the creator's
+    // profile page and renders no theme sections.
     /storefront\?: Storefront/.test(themePage) &&
-      /storefront=\{\{ creatorId: creator\.id \}\}/.test(read("app/(marketing)/w/[username]/page.tsx")) &&
-      /storefront=\{\{ creatorId: site\.creatorId/.test(read("app/(marketing)/[sellername]/page.tsx")),
+      /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId \}\}/.test(read(RENDER_SITE)) &&
+      /storefront=\{\{ creatorId, installId: row\.id \}\}/.test(read(RENDER_SITE)),
   )
 
   check(

@@ -43,14 +43,15 @@ function main() {
     check("with the creator page's own metadata", /storefrontMetadata\(/.test(apex))
     check("and no website logic left in it", !/ThemePage|pageSections|store_theme_installs/.test(apex))
 
-    const w = read("app/(marketing)/w/[username]/page.tsx")
-    check("the website route serves from the cache", /await publishedSiteByName\(username\)/.test(w))
+    // The front page and every sub-page hand their work to one renderer.
+    const w = read("app/(marketing)/w/[username]/render-site.tsx")
+    check("the website route serves from the cache", /await publishedSiteByName\(username, pageKey\)/.test(w))
     check("nothing published sends the visitor to the creator page, never to a placeholder", /found\.kind === "unpublished"\) redirect\(`https:\/\/\$\{getMainDomain\(\)\}\/\$\{username\.toLowerCase\(\)\}`\)/.test(w) && !/Coming Soon/.test(w))
     check("a renamed creator's site follows them to the new subdomain", /found\.kind === "renamed"\) redirect\(`https:\/\/\$\{found\.to\}\.\$\{getMainDomain\(\)\}`\)/.test(w))
     check("its metadata reads published settings only", /const settings: ThemeSettingsValues = settingsRow\.settings \?\? \{\}/.test(w) && !/settingsRow\.draft_settings/.test(w))
     check("the preview path draws the shop too", /shopProducts\(admin as never, creatorId\)/.test(w))
 
-    for (const f of ["app/(marketing)/w/[username]/page.tsx", "app/(marketing)/[sellername]/page.tsx", "app/products/[slug]/page.tsx"]) {
+    for (const f of ["app/(marketing)/w/[username]/render-site.tsx", "app/(marketing)/[sellername]/page.tsx", "app/products/[slug]/page.tsx"]) {
       check(`${f.split("/").slice(-2, -1)[0]}: no "Coming Soon"`, !/Coming Soon/.test(read(f)))
     }
   }

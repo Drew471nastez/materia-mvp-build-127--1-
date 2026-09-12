@@ -196,3 +196,41 @@ export async function PUT(req: Request, { params }: Params) {
 
   return NextResponse.json({ page: result })
 }
+
+/**
+ * ===========================================================================
+ *  DELETE /api/website-builder/themes/[installId]/sections?page=<key>
+ * ===========================================================================
+ * Removing a page a creator made. The editor had a delete button that only
+ * took the page out of React state: the row stayed, so the page came back on
+ * the next reload, and on a published site it stayed up at its address. A
+ * delete that does not delete is worse than no delete at all.
+ *
+ * `home` and `product` are the theme's own pages and are not removable. The
+ * live columns change here, so the published site is invalidated for the
+ * same reason `mode: "publish"` does it above.
+ */
+export async function DELETE(req: Request, { params }: Params) {
+  const { installId } = await params
+  const { error, status, supabase, creatorId } = await getCreatorInstall(installId)
+  if (error || !supabase) return NextResponse.json({ error }, { status })
+
+  const { searchParams } = new URL(req.url)
+  const pageKey = (searchParams.get("page") ?? "").toLowerCase()
+  if (!pageKey) return NextResponse.json({ error: "Which page?" }, { status: 400 })
+  if (pageKey === "home" || pageKey === "product") {
+    return NextResponse.json({ error: "The home and product pages are part of the theme." }, { status: 400 })
+  }
+
+  const { error: deleteErr } = await supabase
+    .from("store_theme_pages")
+    .delete()
+    .eq("install_id", installId)
+    .eq("page_key", pageKey)
+
+  if (deleteErr) return NextResponse.json({ error: deleteErr.message }, { status: 500 })
+
+  if (creatorId) revalidatePublishedSite(creatorId)
+
+  return NextResponse.json({ ok: true })
+}

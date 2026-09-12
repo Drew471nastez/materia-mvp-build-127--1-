@@ -64,6 +64,7 @@ import type {
 import { ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/website-builder/editor/design-panels"
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { PAGE_META } from "@/lib/website-builder/types"
+import { BUILT_IN_PAGE_KEYS, pageTitleFromKey } from "@/lib/website-builder/site-pages"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
@@ -4010,6 +4011,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setInstall(inst)
     if (data.username) setUsername(data.username)
 
+    /**
+     * ═════════════════════════════════════════════════════════════════════
+     *  THE PAGES A CREATOR MADE THEMSELVES
+     * ═════════════════════════════════════════════════════════════════════
+     * `customPages` was React state and nothing else: a page made in this
+     * session showed up in the switcher, and on the next reload it was gone
+     * from the list while its sections sat in the database, reachable by
+     * nothing. The rows were always here in the response, and ignored.
+     *
+     * The four keys below are the theme's own. Everything else in the table
+     * is a page a person made, and its name comes from its key because that
+     * is what a key is: "size-guide" was typed as "Size guide".
+     */
+    const restored = (inst.pages ?? [])
+      .map((pg) => String(pg.page_key))
+      .filter((key) => key && !BUILT_IN_PAGE_KEYS.has(key))
+      .sort((a, b) => a.localeCompare(b))
+      .map((key) => ({ id: key, name: pageTitleFromKey(key), key: key as PageKey }))
+    setCustomPages(restored)
+
     // Load settings
     const settings = inst.settings
     const loadedSettings = settings?.draft_settings ?? settings?.settings ?? {}
@@ -4748,6 +4769,38 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSections(defaultSections)
     setSectionsLoading(false)
   }
+
+  /**
+   * ===========================================================================
+   *  DELETING A PAGE SOMEBODY MADE
+   * ===========================================================================
+   * The row is taken out of the list AND out of the database. It used to be
+   * only the list: the page came back on the next reload, and if the site had
+   * been published it stayed live at its own address with no way to reach it
+   * from the editor. The switcher asks before calling this.
+   *
+   * If the page being deleted is the one on screen, the editor goes home
+   * first, because the alternative is editing a page that no longer exists.
+   */
+  const handleDeletePage = useCallback(async (key: string) => {
+    const before = customPages
+    // Out of the list at once: the click has to land, and the request is the
+    // slow part. Put back below if the server refuses.
+    setCustomPages(prev => prev.filter(p => p.key !== key))
+    if (currentPage === key) await handlePageChange("home")
+
+    try {
+      const res = await fetch(
+        `/api/website-builder/themes/${installId}/sections?page=${encodeURIComponent(key)}`,
+        { method: "DELETE" },
+      )
+      if (!res.ok) throw new Error(String(res.status))
+      showNotification("Page deleted")
+    } catch {
+      setCustomPages(before)
+      showNotification("That page could not be deleted. Try again.", "error")
+    }
+  }, [customPages, currentPage, handlePageChange, installId, showNotification])
 
   // Keyboard shortcuts for undo/redo
   useEffect(() => {
@@ -6420,7 +6473,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             current={currentPage}
             onSelect={(key) => { void handlePageChange(key as PageKey) }}
             onCreate={() => setAddPageOpen(true)}
-            onDelete={(key) => setCustomPages((prev) => prev.filter((p) => p.key !== key))}
+            onDelete={(key) => { void handleDeletePage(key) }}
             onReload={() => { void handlePageChange(currentPage) }}
             reloading={sectionsLoading}
             disabled={sectionsLoading}

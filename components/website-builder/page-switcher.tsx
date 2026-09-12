@@ -86,6 +86,13 @@ export function PageSwitcher({
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
+  /**
+   * Which page is being asked about. Deleting a page used to only take it
+   * out of the list until the next reload, so a stray click cost nothing;
+   * it now deletes the page and its sections for good, so it asks first.
+   * In the row rather than in a dialog, because the row is the thing.
+   */
+  const [confirming, setConfirming] = useState<string | null>(null)
   const [yoursOpen, setYoursOpen] = useState(true)
   const [productsOpen, setProductsOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -99,6 +106,7 @@ export function PageSwitcher({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false)
     }
+    setConfirming(null)
     document.addEventListener("pointerdown", onDown)
     document.addEventListener("keydown", onKey)
     return () => {
@@ -159,17 +167,49 @@ export function PageSwitcher({
           <span className="min-w-0 flex-1 truncate">{p.path}</span>
         </button>
         {p.custom && onDelete && !active && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              onDelete(p.key)
-            }}
-            className="absolute right-1.5 top-1/2 hidden -translate-y-1/2 rounded-md p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white group-hover/row:block"
-            aria-label={`Delete ${p.name}`}
-          >
-            <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-          </button>
+          confirming === p.key ? (
+            <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setConfirming(null)
+                  onDelete(p.key)
+                }}
+                className="rounded-md bg-[#e5484d] px-2 py-1 text-[12px] font-medium text-white transition-colors hover:bg-[#d43b40]"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setConfirming(null)
+                }}
+                className="rounded-md px-2 py-1 text-[12px] text-white/60 transition-colors hover:text-white"
+              >
+                Keep
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setConfirming(p.key)
+              }}
+              /**
+               * Shown on hover on a pointer, and always on a touch screen.
+               * It was hover-only everywhere, which on a phone is a button
+               * with no way to reach it: custom pages could not be deleted
+               * there at all.
+               */
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-white/50 opacity-100 transition-[color,background-color,opacity] hover:bg-white/10 hover:text-white focus-visible:opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100"
+              aria-label={`Delete ${p.name}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </button>
+          )
         )}
       </div>
     )
