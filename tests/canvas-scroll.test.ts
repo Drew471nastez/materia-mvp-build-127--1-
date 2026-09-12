@@ -36,8 +36,12 @@ function fakeScroller(opts: { scrollHeight: number; clientHeight: number; scroll
     set scrollTop(v: number) { if (!opts.frozen) top = v },
     scrollHeight: opts.scrollHeight,
     clientHeight: opts.clientHeight,
+    toggled: 0,
+    get offsetHeight() { return opts.clientHeight },
     style: {
-      overflowY: "auto",
+      _o: "auto",
+      get overflowY() { return this._o },
+      set overflowY(v: string) { this._o = v; el.toggled++ },
       removeProperty(n: string) { inline.delete(n) },
       setProperty(n: string, v: string) { inline.set(n, v) },
     },
@@ -66,7 +70,13 @@ function main() {
     const frames: (() => void)[] = []
     reviveScroller(el, (cb) => frames.push(cb))
     check("an inline lock is removed", !el.inline.has("pointer-events") && !el.inline.has("touch-action"))
-    check("the layer is dropped for one frame", el.style.overflowY === "hidden" && frames.length === 1)
+    /**
+     * The toggle still happens — hidden, then auto — but in ONE task with a
+     * forced layout between, never across a frame. A frame is not a promise:
+     * it does not come while the tab is hidden, and leaving the scroller
+     * hidden until one arrives is the freeze this was supposed to prevent.
+     */
+    check("the layer is re-created without waiting for a frame", el.style.overflowY === "auto" && (el as unknown as { toggled: number }).toggled >= 2)
     frames[0]()
     check("and asked for again on the next", el.style.overflowY === "auto" && el.inline.get("-webkit-overflow-scrolling") === "touch")
     check("the position comes back nudged off the top", el.scrollTop === 1)
@@ -163,6 +173,34 @@ function main() {
     check("the transition is tracked so a revive fires on the way OUT, not in", /const wasCovered = coveredRef\.current\n\s+coveredRef\.current = covered\n\s+if \(wasCovered && !covered\)/.test(editor))
   }
 
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A frame that never comes cannot leave the scroller hidden")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    /**
+     * THE FREEZE THIS FILE'S OWN FIX WAS CAUSING. `reviveScroller` set
+     * `overflow-y: hidden` and restored `auto` in a requestAnimationFrame. A
+     * frame does not come while the tab is hidden or the app is in the
+     * background — and one caller is `visibilitychange`, which fires as the
+     * page goes HIDDEN. So the canvas was set to hidden and nothing ever set
+     * it back. A script could still scroll it; a person could not, until a
+     * reload. Measured by scripts/check-editor-scroll.mjs on the real editor:
+     * "back from project settings: overflow=hidden".
+     */
+    const never = fakeScroller({ scrollHeight: 3000, clientHeight: 800, scrollTop: 400 })
+    reviveScroller(never, () => { /* the frame never comes */ })
+    check("the overflow is back to auto before any frame is asked for", never.style.overflowY === "auto")
+
+    const late = fakeScroller({ scrollHeight: 3000, clientHeight: 800, scrollTop: 400 })
+    const frames: (() => void)[] = []
+    reviveScroller(late, (cb) => frames.push(cb))
+    check("it is auto the moment revive returns, not a frame later", late.style.overflowY === "auto")
+    late.style.overflowY = "hidden" // something else got in between
+    frames[0]()
+    check("and the frame, when it does come, puts it back too", late.style.overflowY === "auto")
+    check("the layer is still re-created: the toggle happened", (never as unknown as { toggled: number }).toggled >= 2)
+  }
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
