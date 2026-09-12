@@ -26,7 +26,7 @@
  */
 import { COMPILE_CACHE_LIMIT, compileSection, createLru } from "@/lib/storelib-theme/storelib/compile"
 import { renderSection } from "@/lib/storelib-theme/render"
-import type { CompiledSection, SectionInstanceData, ThemeError } from "@/lib/storelib-theme/types"
+import type { CompiledSection, RenderContext, SectionInstanceData, ThemeError } from "@/lib/storelib-theme/types"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import type { SectionInstance, ThemeSettingsValues } from "./types"
 
@@ -99,6 +99,13 @@ export function renderStorelibSection(
   theme: ThemeSettingsValues,
   page: { template: string; in_editor?: boolean } = { template: "index" },
   overrides?: Record<string, string>,
+  /**
+   * The creator's published products, block-shaped, for a section that draws
+   * the catalogue rather than hand-typed cards. Last and optional so every
+   * existing caller is unchanged, and absent means a section that asks for
+   * products draws none — which is what the export and a thumbnail want.
+   */
+  products?: RenderContext["products"],
 ): StorelibRendered {
   const c = compiledSection(section.type, overrides)
   if (c.ok === false) return c
@@ -108,6 +115,7 @@ export function renderStorelibSection(
     instance: toInstanceData(section),
     theme: theme as unknown as Record<string, unknown>,
     page,
+    products,
   })
   return { ok: true, html: r.html, css: r.css }
 }

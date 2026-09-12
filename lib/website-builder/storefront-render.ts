@@ -1,6 +1,7 @@
 import { isStorelibSection, renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import type { ProductCard } from "@/lib/website-builder/shop-products"
 
 /**
  * ===========================================================================
@@ -38,6 +39,12 @@ export async function prerenderStorelibSections(
    * the product page is not a harmless default, it is a wrong answer.
    */
   template: string,
+  /**
+   * The creator's published products, block-shaped, for sections that draw
+   * the catalogue. Optional: a route that does not pass them renders every
+   * section exactly as before, and a section asking for products draws none.
+   */
+  products?: ProductCard[],
 ): Promise<Record<string, RenderedSection>> {
   const prerendered: Record<string, RenderedSection> = {}
   /**
@@ -54,6 +61,19 @@ export async function prerenderStorelibSections(
    * them the live site draws the bundled hero while the editor draws the
    * edited one.
    */
+  const sources = await sectionSources(db, installId)
+  return renderWithSources(sources, sections, theme, template, products)
+}
+
+/**
+ * The files half, on its own, because it is the half worth caching. It is a
+ * database read that changes when somebody publishes; the render below is
+ * arithmetic that changes when a product does.
+ */
+export async function sectionSources(
+  db: Parameters<typeof prerenderStorelibSections>[0],
+  installId: string,
+): Promise<Record<string, string>> {
   const { data: savedFiles } = await db
     .from("store_theme_custom_files")
     .select("path, content")
@@ -61,10 +81,28 @@ export async function prerenderStorelibSections(
     .like("path", "%.storelib")
   const sources: Record<string, string> = {}
   for (const row of savedFiles ?? []) sources[row.path] = row.content
+  return sources
+}
 
+/**
+ * The render half, on its own, because it touches no database at all. Thirty
+ * sections come out in single-digit milliseconds once their files are
+ * compiled, and the compiler keeps its own cache, so a page can be rendered
+ * per request from cached inputs rather than held whole. That is what lets
+ * a price change in the shop reach a published site in a minute while the
+ * page around it stays cached until somebody publishes.
+ */
+export function renderWithSources(
+  sources: Record<string, string>,
+  sections: SectionInstance[],
+  theme: ThemeSettingsValues,
+  template: string,
+  products?: ProductCard[],
+): Record<string, RenderedSection> {
+  const prerendered: Record<string, RenderedSection> = {}
   for (const section of sections) {
     if (!isStorelibSection(section.type, sources)) continue
-    const out = renderStorelibSection(section, theme, { template }, sources)
+    const out = renderStorelibSection(section, theme, { template }, sources, products)
     if (out.ok) prerendered[section.id] = { html: out.html, css: out.css }
   }
   return prerendered

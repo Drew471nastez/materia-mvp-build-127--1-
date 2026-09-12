@@ -94,18 +94,28 @@ function main() {
   section("The routes, and the one that offers the link")
   // ═══════════════════════════════════════════════════════════════════════
   {
+    /**
+     * TWO ADDRESSES, TWO THINGS. `<name>.storelib.com` is the website and
+     * lives at /w; `storelib.com/<name>` is the creator's page and the apex
+     * route is a thin door onto the storefront. The website's rules — no
+     * draft fallback, the preview token, noindex on a preview — belong to /w
+     * and the product page; the apex route must carry none of that data path.
+     */
     const seller = read("app/(marketing)/[sellername]/page.tsx")
     const w = read("app/(marketing)/w/[username]/page.tsx")
     const product = read("app/products/[slug]/page.tsx")
+    check("the apex path is the creator page, not the website", /from "\.\.\/u\/\[username\]\/page"/.test(seller) && !/pageSections|draft_sections|ThemePage/.test(seller))
     const api = read("app/api/website-builder/themes/[installId]/preview/route.ts")
     const sql = read("supabase/sql/RUN_THEME_PREVIEW_LINK.sql")
 
-    for (const [name, src] of [["the storefront", seller], ["/w/username", w], ["the product page", product]] as const) {
+    for (const [name, src] of [["the website", w], ["the product page", product]] as const) {
       check(`${name} no longer falls back to a draft`, !/\?\?\s*pageData\?\.draft_sections/.test(src) && !/draft_sections as SectionInstance\[\] \| null\)/.test(src))
       check(`${name} goes through the one rule`, /pageSections</.test(src))
     }
-    check("only the storefront takes a preview token", /previewTokenFrom\(/.test(seller) && !/previewTokenFrom\(/.test(w) && !/previewTokenFrom\(/.test(product))
-    check("a preview is told not to be indexed", /robots: \{ index: false, follow: false \}/.test(seller))
+    // The website moved to its own address: `<name>.storelib.com` is /w, and
+    // the apex path is the creator page. The token belongs where the website is.
+    check("only the website takes a preview token", /previewTokenFrom\(/.test(w) && !/previewTokenFrom\(/.test(seller) && !/previewTokenFrom\(/.test(product))
+    check("a preview is told not to be indexed", /robots: \{ index: false, follow: false \}/.test(w))
 
     check("the link can be asked about, made and taken away", /export async function GET/.test(api) && /export async function POST/.test(api) && /export async function DELETE/.test(api))
     check("and there is no rotate, because off then on is the same thing", !/export async function PUT/.test(api))

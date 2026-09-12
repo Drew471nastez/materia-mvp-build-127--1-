@@ -19,7 +19,7 @@
 import { isNativeApp } from "@/lib/platform-utils"
 
 // Main domain from environment or default
-const getMainDomain = () => process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+export const getMainDomain = () => process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
 
 // Site URL from environment (used for fallback)
 const getSiteUrl = () => process.env.NEXT_PUBLIC_SITE_URL || "https://storelib.com"
@@ -399,13 +399,14 @@ export function isLinksPage(pathname: string, host?: string): boolean {
 }
 
 // ── Website Builder URL Helpers ────────────────────────────────
-// Website pages live at: storelib.com/sellername (path-based, NOT subdomain)
-// Store pages keep: sellername.storelib.com (subdomain-based)
+// TWO ADDRESSES, TWO THINGS.
+//   <name>.storelib.com  -> the WEBSITE built in the website builder
+//   storelib.com/<name>  -> the creator's PAGE: profile, products, follow
 
 /**
  * Get the URL for a seller's website page (path-based format)
  * @param username - The seller's username
- * @returns Full URL like "https://storelib.com/username"
+ * @returns Full URL like "https://username.storelib.com"
  */
 export function getWebsiteUrl(username: string): string {
   if (!username) return getSiteUrl()
@@ -430,7 +431,15 @@ export function getWebsiteUrl(username: string): string {
     return `${getSiteUrl()}/w/${sanitizedUsername}`
   }
 
-  return `https://${mainDomain}/${sanitizedUsername}`
+  /**
+   * TWO ADDRESSES, TWO THINGS. `<name>.storelib.com` is the creator's
+   * WEBSITE, the one built in the website builder. `storelib.com/<name>` is
+   * the creator's PAGE: profile, products, follow. They were the other way
+   * round, with the apex path serving the website and the subdomain
+   * bouncing to it, and everything that printed "your website is at" printed
+   * the page's address.
+   */
+  return `https://${sanitizedUsername}.${mainDomain}`
 }
 
 /**
@@ -455,13 +464,13 @@ export function getWebsiteShareUrl(username: string): string {
     return `${getSiteUrl()}/w/${sanitizedUsername}`
   }
 
-  return `https://${mainDomain}/${sanitizedUsername}`
+  return `https://${sanitizedUsername}.${mainDomain}`
 }
 
 /**
  * Get website URL display string
  * @param username - The seller's username
- * @returns Display string like "storelib.com/username"
+ * @returns Display string like "username.storelib.com"
  */
 export function getWebsiteUrlDisplay(username: string): string {
   if (!username) return getMainDomain()
@@ -472,14 +481,14 @@ export function getWebsiteUrlDisplay(username: string): string {
     return `${mainDomain}/w/${username}`
   }
 
-  return `${mainDomain}/${username.toLowerCase()}`
+  return `${username.toLowerCase()}.${mainDomain}`
 }
 
 /**
  * Get website page URL (for sub-pages of a website)
  * @param username - The seller's username
  * @param pageSlug - The page slug
- * @returns Full URL like "https://storelib.com/username/about"
+ * @returns Full URL like "https://username.storelib.com/about"
  */
 export function getWebsitePageUrl(username: string, pageSlug: string): string {
   if (!pageSlug) return getWebsiteUrl(username)
@@ -494,5 +503,5 @@ export function getWebsitePageUrl(username: string, pageSlug: string): string {
     return `https://${mainDomain}/${pageSlug}`
   }
 
-  return `https://${mainDomain}/${username.toLowerCase()}/${pageSlug}`
+  return `https://${username.toLowerCase()}.${mainDomain}/${pageSlug}`
 }

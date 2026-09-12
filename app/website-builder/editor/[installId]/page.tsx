@@ -67,6 +67,8 @@ import { PAGE_META } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
+import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
+import { reviveScroller, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
@@ -4135,6 +4137,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => window.removeEventListener("beforeunload", handler)
   }, [isDirty])
 
+  /**
+   * THE SAME LIST THE PUBLISHED PAGE IS GIVEN. The canvas draws a section
+   * set to "my shop" from this, and the storefront draws it from
+   * `shopProducts`; both go through `toCard`, so the two surfaces cannot
+   * disagree about a price or a sold-out label. Mapped rather than passed
+   * raw for exactly that reason.
+   *
+   * `slug || id` above means a product with no slug gets a link to an id
+   * that is not a page, so the card is drawn without one here.
+   */
+  const shopCards = useMemo(
+    () => products.map((p) => toCard({
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      price_cents: p.price_cents,
+      compare_at_cents: p.compare_at_cents,
+      thumbnail_url: p.thumbnail_url,
+      status: "published",
+    })),
+    [products],
+  )
+
   // Fetch products and collections for page browser
   const loadProducts = useCallback(async () => {
     setProductsLoading(true)
@@ -6038,6 +6063,51 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }, [])
 
+  /**
+   * ===========================================================================
+   *  THE CANVAS SCROLLER PUTS ITSELF RIGHT
+   * ===========================================================================
+   * Every layer that has ever covered the canvas and left it frozen on the
+   * way out — the leaving scrim, the code pane, project settings, a keyboard
+   * — has been given its own fix, and the report keeps coming back. So the
+   * scroller no longer depends on each cause being found: whenever a layer
+   * that covered it goes away it is put back into a known-good state, and on
+   * a phone it watches for the failure itself and recovers on the very next
+   * drag. See lib/website-builder/canvas-scroll.ts for what "known-good"
+   * means and why the layer is re-created.
+   */
+  const reviveCanvas = useCallback(() => {
+    const el = document.getElementById("wb-preview-root")
+    if (!el) return
+    reviveScroller(el, (cb) => window.requestAnimationFrame(cb))
+    // A keyboard that was up inside the code frame leaves its scroll offset
+    // on the webview; nothing the builder owns can scroll it back but this.
+    if (window.scrollY !== 0) window.scrollTo(0, 0)
+  }, [])
+
+  // Coming back from the code pane or from project settings.
+  const coveredRef = useRef(false)
+  useEffect(() => {
+    const covered = previewMode === "code" || projectSettingsOpen
+    const wasCovered = coveredRef.current
+    coveredRef.current = covered
+    if (wasCovered && !covered) {
+      // After the pane's own close transition, and once more for a keyboard
+      // that was still on its way down.
+      const a = window.setTimeout(reviveCanvas, 340)
+      const b = window.setTimeout(reviveCanvas, 900)
+      return () => { window.clearTimeout(a); window.clearTimeout(b) }
+    }
+  }, [previewMode, projectSettingsOpen, reviveCanvas])
+
+  // And the watchdog, on a phone: a real drag that moves nothing is a freeze.
+  useEffect(() => {
+    if (!isMobileView) return
+    const el = document.getElementById("wb-preview-root")
+    if (!el) return
+    return watchForStuckScroll(el, reviveCanvas)
+  }, [isMobileView, reviveCanvas])
+
   /** What leaving would cost right now, if anything. */
   const leaveReason: LeaveReason = {
     draft: isDirty,
@@ -6900,7 +6970,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               "relative overflow-hidden transition-all duration-300",
               // Fading the whole card, not just the scroller, so the corner
               // clip goes with it.
-              previewMode === "code" && "opacity-0 pointer-events-none",
+              //
+              // NOT ON A PHONE. There the code pane is a full-screen opaque
+              // page over this, so the fade buys nothing, and it costs the
+              // canvas: WebKit can drop the scrolling layer of a
+              // `-webkit-overflow-scrolling: touch` scroller whose ancestor
+              // animated opacity to zero and back, after which the preview
+              // takes no touch input until layout is rebuilt. That is one of
+              // the ways "the preview will not scroll after the code editor"
+              // happens, and the one every earlier fix left in place.
+              previewMode === "code" && !isMobileView && "opacity-0 pointer-events-none",
               isMobileView
                 ? "w-full rounded-none"
                 : device === "desktop"
@@ -7083,6 +7162,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 onAddSection={openAddSection}
                 onAddSectionAt={openAddSectionAt}
                 onEditorNavigate={handleEditorNavigate}
+                shopCards={shopCards}
               />
               </div>
             )}
@@ -7634,6 +7714,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   onAddSection,
   onAddSectionAt,
   onEditorNavigate,
+  shopCards,
 }: {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
@@ -7651,9 +7732,15 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   onAddSection: () => void
   onAddSectionAt: (at: number) => void
   onEditorNavigate: (href: string) => void
+  /**
+   * The creator's real products, for a section set to draw the shop. The
+   * same list the published page gets, mapped through the same `toCard`, so
+   * the canvas and the site cannot disagree about a price.
+   */
+  shopCards: ProductCard[]
 }) {
   return (
-    <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor>
+    <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor products={shopCards}>
     <ThemePage
       theme={theme}
       sections={sections}

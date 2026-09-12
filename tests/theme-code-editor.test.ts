@@ -313,7 +313,9 @@ section("Save compiles, errors carry lines, the canvas finds out")
   const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8")
   const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
   const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
-  const creator = readFileSync(join(root, "app/(marketing)/[sellername]/page.tsx"), "utf8")
+  // `<name>.storelib.com` is the website and lives at /w; the apex path is
+  // the creator page and draws no sections.
+  const creator = readFileSync(join(root, "app/(marketing)/w/[username]/page.tsx"), "utf8")
   const section = readFileSync(join(root, "components/website-builder/sections/StorelibSection.tsx"), "utf8")
 
   check(
@@ -340,9 +342,12 @@ section("Save compiles, errors carry lines, the canvas finds out")
   check("the editor listens and reloads the saved sources", /data\?\.type === "storelib:file-saved"\) void loadStorelibSources\(\)/.test(editor) && /files\?sources=1/.test(editor))
   // The sidebar reads the library, which is the theme's sections and this
   // creator's own together — see librarySchemas in the editor.
-  check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\} page=\{\{ template: pageTemplate \}\} inEditor>/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, librarySchemas\)/g) ?? []).length >= 2)
+  check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\} page=\{\{ template: pageTemplate \}\} inEditor products=\{shopCards\}>/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, librarySchemas\)/g) ?? []).length >= 2)
   check("a section this creator wrote is in the library too", /customSectionSchemas\(storelibSources\)/.test(editor) && /customAddableSections\(customSchemas\)/.test(editor) && /addable=\{libraryAddable\}/.test(editor))
-  check("a section renders from the saved source when there is one", /renderStorelibSection\(section, theme, \{ template, in_editor: inEditor === true \}, sources\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
+  // The call grew a products argument when sections learned to draw the
+  // shop. What this guard is about is unchanged: the SAVED sources are what
+  // the canvas renders from.
+  check("a section renders from the saved source when there is one", /renderStorelibSection\(section, theme, \{ template, in_editor: inEditor === true \}, sources, products\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
   // Done in one place now, for every public route rather than the storefront
   // alone: see prerenderStorelibSections, and the route list in
   // tests/website-builder.test.ts.
@@ -350,7 +355,7 @@ section("Save compiles, errors carry lines, the canvas finds out")
   check(
     "the published page draws the saved sections too, not the bundled ones",
     /\.from\("store_theme_custom_files"\)/.test(prerender)
-      && /renderStorelibSection\(section, theme, \{ template \}, sources\)/.test(prerender)
+      && /renderStorelibSection\(section, theme, \{ template \}, sources, products\)/.test(prerender)
       && /prerenderStorelibSections\(/.test(creator),
   )
   check("a new section file starts as one that compiles", /const starterFor = \(path: string\)/.test(codePage) && /"<template>",/.test(codePage) && /"<schema>",/.test(codePage))
@@ -382,7 +387,9 @@ section("The page a section is on is the page it is on")
   const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   const provider = readFileSync(join(root, "components/website-builder/sections/storelib-sources.tsx"), "utf8")
   const sectionSrc = readFileSync(join(root, "components/website-builder/sections/StorelibSection.tsx"), "utf8")
-  const creator = readFileSync(join(root, "app/(marketing)/[sellername]/page.tsx"), "utf8")
+  // `<name>.storelib.com` is the website and lives at /w; the apex path is
+  // the creator page and draws no sections.
+  const creator = readFileSync(join(root, "app/(marketing)/w/[username]/page.tsx"), "utf8")
 
   /**
    * `page.template` was the string "index" wherever a section rendered, so a
@@ -505,7 +512,9 @@ section("Create writes the file, and you name it rather than its path")
     /h-10 flex-1 rounded-md bg-\[#111114\][^"]*md:h-7 md:flex-none/.test(codePage)
     && /h-10 w-full min-w-0 rounded-md border[^"]*text-\[16px\] md:h-8 md:text-\[12px\]/.test(codePage)
     && /h-10 min-w-0 flex-1 rounded-md border[^"]*text-\[16px\] md:h-7 md:text-\[12px\]/.test(codePage))
-  check("a nameless file cannot be created", (codePage.match(/disabled=\{!fileNameOf\(pendingAction\.path\)\.name\}/g) ?? []).length === 2)
+  // Two buttons guard the name. Create also refuses while a create is in
+  // flight, which is the extra clause on the first.
+  check("a nameless file cannot be created", (codePage.match(/disabled=\{!fileNameOf\(pendingAction\.path\)\.name \|\| creating\}/g) ?? []).length === 1 && (codePage.match(/disabled=\{!fileNameOf\(pendingAction\.path\)\.name\}/g) ?? []).length === 1)
 
   check("two sections cannot be given the same name", /async function sectionNamesInUse\(/.test(route) && /Another section is already called/.test(route) && /status: 409/.test(route))
   check("and a section keeps its own name when it is saved again", /if \(p === except\) continue/.test(route))
