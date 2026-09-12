@@ -16,6 +16,8 @@ import type { ThemeInstall, ThemeFileNode } from "@/lib/website-builder/types"
 import { DRAWER_EASING, drawerRelease } from "@/lib/website-builder/drawer-drag"
 import { buildThemeFileTree, flattenTree, detectLanguage } from "@/lib/website-builder/theme-file-tree"
 import { toast } from "sonner"
+import { reviveScroller } from "@/lib/website-builder/canvas-scroll"
+import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { StorelibMark } from "@/components/storelib-mark"
 import type { ThemeError } from "@/lib/storelib-theme/types"
 
@@ -700,6 +702,22 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
    * section file is two hundred lines.
    */
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  /**
+   * THE KEYBOARD LEAVES THE WINDOW SCROLLED, and this page owns its own
+   * window: when the builder frames it, the iframe's document is the one
+   * iOS scrolls to lift the textarea above the keyboard, and the builder
+   * outside cannot see or fix that. So the code editor puts itself right
+   * when the keyboard goes: window back to the top, and the textarea's
+   * scrolling layer re-created, which is what stops it going dead after a
+   * focus. See lib/website-builder/keyboard-watch.ts.
+   */
+  useEffect(() => watchKeyboard(window, document, () => {
+    if (window.scrollY !== 0) window.scrollTo(0, 0)
+    const area = textareaRef.current
+    if (area) reviveScroller(area, (cb) => window.requestAnimationFrame(cb))
+  }), [])
+
   const displayRef = useRef<HTMLDivElement>(null)
 
   const isDirty = fileContent !== originalContent

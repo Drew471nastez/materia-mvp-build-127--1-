@@ -72,6 +72,7 @@ import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { reviveScroller, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
+import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
@@ -6217,6 +6218,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (!el) return
     return watchForStuckScroll(el, reviveCanvas)
   }, [isMobileView, reviveCanvas])
+
+  /**
+   * AND THE KEYBOARD, which was the layer nobody had named.
+   *
+   * Focus a field in the sidebar sheet, the assistant, or a section's own
+   * form and iOS scrolls the WINDOW to lift it above the keyboard, locked
+   * document or not, then leaves it there when the keyboard goes. The fixed
+   * surface is offset from the viewport, the scroller half off screen, and
+   * the next touch moves nothing. The two revives above only ran when the
+   * code pane or project settings closed; a keyboard closing did the same
+   * damage with no handler. Twice, staggered: once as it goes, once after
+   * the keyboard animation has finished putting the viewport back.
+   */
+  useEffect(() => watchKeyboard(window, document, () => {
+    reviveCanvas()
+    window.setTimeout(reviveCanvas, 420)
+  }), [reviveCanvas])
 
   /** What leaving would cost right now, if anything. */
   const leaveReason: LeaveReason = {
