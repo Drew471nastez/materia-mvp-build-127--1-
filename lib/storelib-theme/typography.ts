@@ -307,20 +307,48 @@ function sectionVarBlock(role: "heading" | "body", from: string): string {
  * them in its CSS. h3 and h4 take family, weight, spacing and transform from
  * their style and keep the size the section gave them, since inside a
  * section they are card titles and labels, not the section's heading.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE OVERRIDES WERE WRITTEN THE WRONG WAY ROUND, AND SO DID NOTHING
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Every one of them used to read `[data-heading-style="h1"] [data-section]`,
+ * which asks for a section INSIDE the element carrying the style. The real
+ * markup is the other way about:
+ *
+ *     <div data-section>                     the dispatcher's wrapper
+ *       <div data-section-id data-heading-style="h1" style="--scheme-*">
+ *         <section class="s"> <h1 class="s__h">
+ *
+ * So the selector never matched anything, ever. The default rule above it
+ * did — it is on `[data-section]` itself — which is why every section came
+ * out at Heading 2's size no matter what was picked, and why the section's
+ * type controls read as connected to nothing. Measured across all thirty:
+ * 24 of them had a heading, and all 24 were 36px under h1, h2, h3, h4 and
+ * custom alike.
+ *
+ * Both nestings are written now. The attribute sits inside the wrapper
+ * today; that is an implementation detail of one component, and the rule
+ * that depends on it should not be able to fail silently again if it moves.
  */
 export function typographyStylesheet(root: string, typo: ThemeTypography): string {
   const rules: string[] = []
   const sect = `${root} [data-section]`
+  /**
+   * The element carrying the style, wherever it is relative to the section
+   * root. Two selectors of the same weight (0,2,0), both above the default
+   * below (0,1,0), so a chosen style wins and an unchosen one inherits.
+   */
+  const carrying = (attr: string) => `${root} [data-section] [${attr}],${root} [${attr}] [data-section]`
   // The default: a section's heading is its H2, its body is Body.
   rules.push(`${sect}{${sectionVarBlock("heading", "type-h2")};${sectionVarBlock("body", "type-body")};}`)
   for (const key of ["h1", "h2", "h3", "h4"] as const) {
-    rules.push(`${root} [data-heading-style="${key}"] [data-section]{${sectionVarBlock("heading", `type-${key}`)};}`)
+    rules.push(`${carrying(`data-heading-style="${key}"`)}{${sectionVarBlock("heading", `type-${key}`)};}`)
   }
-  rules.push(`${root} [data-heading-style="custom"] [data-section]{${sectionVarBlock("heading", "custom-heading")};}`)
+  rules.push(`${carrying('data-heading-style="custom"')}{${sectionVarBlock("heading", "custom-heading")};}`)
   for (const key of ["body", "body_large", "body_small"] as const) {
-    rules.push(`${root} [data-body-style="${key}"] [data-section]{${sectionVarBlock("body", `type-${key.replace(/_/g, "-")}`)};}`)
+    rules.push(`${carrying(`data-body-style="${key}"`)}{${sectionVarBlock("body", `type-${key.replace(/_/g, "-")}`)};}`)
   }
-  rules.push(`${root} [data-body-style="custom"] [data-section]{${sectionVarBlock("body", "custom-body")};}`)
+  rules.push(`${carrying('data-body-style="custom"')}{${sectionVarBlock("body", "custom-body")};}`)
 
   // The elements. `:where()` keeps these below anything a section wrote.
   const heading = (from: string) =>
@@ -329,7 +357,12 @@ export function typographyStylesheet(root: string, typo: ThemeTypography): strin
   // and a column label, not the section's heading.
   const content = "[data-section]:not([data-chrome])"
   rules.push(`${root} :where(${content} h1){${heading("type-h1")}}`)
-  rules.push(`${root} :where(${content} h2),${root} [data-heading-style] :where(${content} h1){${heading("section-heading")}}`)
+  /**
+   * A section's H1 follows the CHOSEN heading style when there is one, and
+   * its own H1 size when there is not. Same correction as above: the
+   * attribute is inside the section root, not outside it.
+   */
+  rules.push(`${root} :where(${content} h2),${root} ${content} :where([data-heading-style] h1),${root} [data-heading-style] :where(${content} h1){${heading("section-heading")}}`)
   for (const key of ["h3", "h4"] as const) {
     rules.push(`${root} :where(${content} ${key}){font-family:var(--type-${key}-font);font-weight:var(--type-${key}-weight);letter-spacing:var(--type-${key}-tracking);text-transform:var(--type-${key}-transform);}`)
   }
@@ -340,7 +373,7 @@ export function typographyStylesheet(root: string, typo: ThemeTypography): strin
    * `font-size: var(--section-text-size, 17px)` and keep its own size
    * until somebody picks one.
    */
-  rules.push(`${root} [data-body-style] [data-section]{font-family:var(--section-body-font);font-size:var(--section-body-size);line-height:var(--section-body-line-height);font-weight:var(--section-body-weight);letter-spacing:var(--section-body-tracking);${PROPS.map((p) => `--section-text-${p}:var(--section-body-${p})`).join(";")};}`)
+  rules.push(`${carrying("data-body-style")}{font-family:var(--section-body-font);font-size:var(--section-body-size);line-height:var(--section-body-line-height);font-weight:var(--section-body-weight);letter-spacing:var(--section-body-tracking);${PROPS.map((p) => `--section-text-${p}:var(--section-body-${p})`).join(";")};}`)
   rules.push(`${root} :where([data-section] button),${root} :where([data-section] a[href]){font-family:var(--type-button-font);letter-spacing:var(--type-button-tracking);text-transform:var(--type-button-transform);}`)
 
   // Narrower widths. The query is against the section's container, which is

@@ -43,6 +43,7 @@ import { SWRProvider } from "@/lib/swr-config"
 import { PrefetchLinks } from "@/components/shared/prefetch-links"
 import NativeOAuthBridge from "@/app/NativeOAuthBridge"
 import { CapacitorBounceGuard } from "@/components/platform/capacitor-bounce-guard"
+import { StuckLayerGuard } from "@/components/platform/stuck-layer-guard"
 import { KeyboardGuard } from "@/components/platform/keyboard-guard"
 import { RotationGuard } from "@/components/platform/rotation-guard"
 import { NativePushInit } from "@/components/native-push-init"
@@ -211,6 +212,7 @@ export default function RootLayout({
         <ViewportVars />
         <NativeCookieKillSwitch />
         <CapacitorBounceGuard />
+        <StuckLayerGuard />
         <KeyboardGuard />
         <RotationGuard />
         <NativePushInit /> 

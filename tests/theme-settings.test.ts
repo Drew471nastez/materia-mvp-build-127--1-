@@ -35,6 +35,7 @@ import { join } from "node:path"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { themeStylesheet, themeVars, THEME_ROOT_ATTRIBUTE } from "@/lib/website-builder/theme-css"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
+import { themeTypography, typographyStylesheet } from "@/lib/storelib-theme/typography"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 
 const root = process.cwd()
@@ -588,6 +589,50 @@ section("Robots, which is a setting somebody trusts")
       )
     })(),
   )
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+section("A section's type controls reach the section")
+// ═══════════════════════════════════════════════════════════════════════
+{
+  /**
+   * Every override used to be written `[data-heading-style] [data-section]`,
+   * which asks for a section INSIDE the element carrying the style. The
+   * markup is the other way about — the attribute sits on a wrapper INSIDE
+   * `[data-section]` — so not one of them ever matched, and every section
+   * came out at Heading 2's size whatever was picked. Measured across all
+   * thirty by scripts/check-schemes.mjs: 24 had a heading, and all 24 were
+   * 36px under h1, h2, h3, h4 and custom alike.
+   */
+  const css = typographyStylesheet("[data-theme-root]", themeTypography({}))
+  for (const key of ["h1", "h3", "h4", "custom"]) {
+    check(
+      `a section set to ${key} is reached by the rule for it`,
+      css.includes(`[data-theme-root] [data-section] [data-heading-style="${key}"],`),
+    )
+  }
+  for (const key of ["body_large", "body_small", "custom"]) {
+    check(
+      `and a body set to ${key}`,
+      css.includes(`[data-theme-root] [data-section] [data-body-style="${key}"],`),
+    )
+  }
+  check(
+    "the republished --section-text-* reaches it too",
+    /\[data-theme-root\] \[data-section\] \[data-body-style\][^{]*\{[^}]*--section-text-size:var\(--section-body-size\)/.test(css),
+  )
+  /**
+   * The other nesting is still written, because which wrapper carries the
+   * attribute is an implementation detail of one component, and this rule
+   * should not be able to fail silently again if it moves.
+   */
+  check("and the other nesting is kept, so moving the attribute cannot break it", css.includes(`[data-theme-root] [data-heading-style="h1"] [data-section]{`))
+  /**
+   * An unchosen style still inherits the theme's H2, and the override has to
+   * outweigh that default (0,2,0 against 0,1,0) or picking one would do
+   * nothing at all.
+   */
+  check("an unchosen style still falls back to the theme's H2", css.includes(`[data-theme-root] [data-section]{--section-heading-font:var(--type-h2-font)`))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

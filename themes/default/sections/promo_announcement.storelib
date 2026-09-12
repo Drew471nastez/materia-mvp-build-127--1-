@@ -52,7 +52,7 @@
 
 .an .s__in { padding-top: var(--an-pad); padding-bottom: var(--an-pad); }
 .an__in { display: flex; justify-content: center; }
-.an__text { margin: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; font-size: 14px; line-height: 1.5; color: var(--s-text); text-align: center; }
+.an__text { margin: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; font-size: var(--section-text-size, 14px); line-height: var(--section-text-line-height, 1.5); color: var(--s-text); text-align: center; }
 .an__label { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: var(--s-btn); color: var(--s-btn-text); }
 .an__go { color: var(--s-heading); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 </style>
