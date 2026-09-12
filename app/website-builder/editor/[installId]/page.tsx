@@ -8140,7 +8140,27 @@ function SidebarSectionRow({
              reopened on the same click that had just closed it, because the
              pointer-down outside closes before the click lands. A right-click
              on the row opens the same menu. */
-          <DropdownMenu open={contextMenuOpen} onOpenChange={setContextMenuOpen}>
+          /* `modal={false}` IS THE WHOLE FIX FOR "SELECT A SECTION AND IT
+             FREEZES". Radix defaults a dropdown to modal, and a modal one
+             mounts react-remove-scroll, which adds a NON-PASSIVE touchmove
+             listener on the document and calls preventDefault() on every
+             gesture outside the menu. That is right for a dialog. For a
+             three-dot menu on a row it means the canvas cannot be scrolled
+             while it is open — and when the lock is not released on close, it
+             cannot be scrolled at all, ever, until the page is reloaded.
+
+             Measured on the real editor by scripts/check-editor-scroll.mjs:
+             open this menu, close it, wait three seconds, and 6 of 6
+             touchmoves over the canvas are still cancelled, on a phone and a
+             desktop alike. The stack named react-remove-scroll.
+
+             Nothing already shipped could clear it: removing
+             `data-scroll-locked` from the body does not detach that listener,
+             and the lock stack it consults is private. The only reliable
+             answer is not to take the lock. A menu you can still scroll
+             behind is also the right behaviour: this is an editor, not a
+             dialog. */
+          <DropdownMenu open={contextMenuOpen} onOpenChange={setContextMenuOpen} modal={false}>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"

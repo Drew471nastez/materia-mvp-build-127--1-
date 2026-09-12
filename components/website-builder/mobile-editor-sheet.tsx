@@ -499,6 +499,38 @@ export function MobileEditorSheet({
     if (rafId.current) cancelAnimationFrame(rafId.current)
   }, [])
 
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE BACKDROP'S TWO PROPERTIES ARE SET TOGETHER OR NOT AT ALL
+   * ═════════════════════════════════════════════════════════════════════════
+   * The drag writes this element's opacity by hand, for the same reason it
+   * writes the sheet's transform by hand: React cannot keep up with a finger.
+   * What it did NOT do was hand the opacity back at the end. `endDrag`
+   * restored `pointer-events` and left the opacity wherever the gesture had
+   * put it — and none of the drag path sets React state, so no re-render ever
+   * came along to correct it.
+   *
+   * A backdrop left at opacity 0 with `pointer-events: auto` is a full-screen
+   * invisible wall over the whole app. The canvas is plainly visible through
+   * it and every touch is swallowed, until the page is reloaded. That is
+   * "when I select a section it blocks": tapping a row starts a gesture on
+   * the sheet, the row is replaced by that section's settings, and the
+   * backdrop is left in that state.
+   *
+   * Measured on the real editor by scripts/check-editor-scroll.mjs:
+   * `div.fixed.inset-0.bg-black/30 opacity=0 pointer-events=auto`, still
+   * there three seconds later.
+   *
+   * So the two are written from one place, from one answer, and cannot
+   * disagree again.
+   */
+  const settleOverlay = (nowOpen: boolean) => {
+    const overlay = overlayRef.current
+    if (!overlay) return
+    overlay.style.opacity = nowOpen ? "1" : "0"
+    overlay.style.pointerEvents = nowOpen ? "auto" : "none"
+  }
+
   const setTransition = (on: boolean, ms: number = SNAP_DURATION_MS) => {
     const sheet = sheetRef.current
     const overlay = overlayRef.current
@@ -554,8 +586,7 @@ export function MobileEditorSheet({
     drag.current.currentY = target
     settleVisibility(open)
     applyTransformNow(target)
-    const overlay = overlayRef.current
-    if (overlay) overlay.style.pointerEvents = open ? "auto" : "none"
+    settleOverlay(open)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, openY, closedY])
 
@@ -650,8 +681,7 @@ export function MobileEditorSheet({
      */
     if (!wasDragging) {
       setTransition(true)
-      const overlay = overlayRef.current
-      if (overlay) overlay.style.pointerEvents = openRef.current ? "auto" : "none"
+      settleOverlay(openRef.current)
       return
     }
 
@@ -684,8 +714,7 @@ export function MobileEditorSheet({
 
     const nowOpen = index < list.length - 1
     settleVisibility(nowOpen, ms)
-    const overlay = overlayRef.current
-    if (overlay) overlay.style.pointerEvents = nowOpen ? "auto" : "none"
+    settleOverlay(nowOpen)
     if (nowOpen !== openRef.current) onOpenChangeRef.current(nowOpen)
   }
 
@@ -738,13 +767,39 @@ export function MobileEditorSheet({
 
     sheet.addEventListener("touchstart", onStart, { passive: true })
     sheet.addEventListener("touchmove", onMove, { passive: false })
-    sheet.addEventListener("touchend", onEnd)
-    sheet.addEventListener("touchcancel", onEnd)
+    /**
+     * ═════════════════════════════════════════════════════════════════════
+     *  THE END OF A GESTURE IS THE WINDOW'S BUSINESS, NOT THE SHEET'S
+     * ═════════════════════════════════════════════════════════════════════
+     * These two were on the sheet. A touch event is delivered to the element
+     * the touch STARTED on, so if React has replaced that element in the
+     * meantime the `touchend` has nowhere to go: it never reaches the sheet,
+     * `endDrag` never runs, and `drag.current.active` stays true forever.
+     *
+     * Which is exactly what tapping a section row does. The row is replaced
+     * by that section's settings, the finger comes up on an element that is
+     * no longer in the document, and the sheet is left mid-drag. A sheet that
+     * thinks it is being dragged renders its backdrop at the drag's opacity —
+     * zero — while React keeps writing `pointer-events: auto` on it. The
+     * result is a full-screen INVISIBLE layer over the whole app: the canvas
+     * is plainly visible through it and every touch is swallowed, until the
+     * page is reloaded.
+     *
+     * "When I select a section it blocks." Measured on the real editor by
+     * scripts/check-editor-scroll.mjs: `div.fixed.inset-0.bg-black/30
+     * opacity=0 pointer-events=auto`, still there three seconds later.
+     *
+     * The mouse path already knew this — see the window listeners below,
+     * added so a mouseup outside the handle still ends a drag. Touch simply
+     * never got the same treatment.
+     */
+    window.addEventListener("touchend", onEnd)
+    window.addEventListener("touchcancel", onEnd)
     return () => {
       sheet.removeEventListener("touchstart", onStart)
       sheet.removeEventListener("touchmove", onMove)
-      sheet.removeEventListener("touchend", onEnd)
-      sheet.removeEventListener("touchcancel", onEnd)
+      window.removeEventListener("touchend", onEnd)
+      window.removeEventListener("touchcancel", onEnd)
     }
     // `mounted` is the dependency that matters: the sheet is not in the DOM
     // until it is true, so an effect that ran once on the server-safe first
@@ -828,7 +883,20 @@ export function MobileEditorSheet({
         style={{
           zIndex: layer === "raised" ? 70 : 40,
           opacity: renderOpacity,
-          pointerEvents: open ? "auto" : "none",
+          /**
+           * WHAT YOU CAN SEE IS WHAT CAN TAKE THE TOUCH.
+           *
+           * This said `open ? "auto" : "none"`, which sounds right and is
+           * not: the sheet can be open while this is drawn at zero opacity —
+           * during a drag, and forever if a drag is left unfinished. An
+           * invisible full-screen layer with `pointer-events: auto` is the
+           * worst thing on a screen, because nothing looks wrong at all.
+           *
+           * Tied to the opacity, that state cannot exist. A backdrop you can
+           * see closes the sheet when tapped, as before; one you cannot see
+           * is not there at all.
+           */
+          pointerEvents: open && renderOpacity > 0.01 ? "auto" : "none",
           transition: fade,
           // Its own layer, so fading it is a compositor job and not a repaint
           // of everything under it on every frame.

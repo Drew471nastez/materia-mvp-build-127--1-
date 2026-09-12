@@ -36,8 +36,12 @@ function fakeScroller(opts: { scrollHeight: number; clientHeight: number; scroll
     set scrollTop(v: number) { if (!opts.frozen) top = v },
     scrollHeight: opts.scrollHeight,
     clientHeight: opts.clientHeight,
+    toggled: 0,
+    get offsetHeight() { return opts.clientHeight },
     style: {
-      overflowY: "auto",
+      _o: "auto",
+      get overflowY() { return this._o },
+      set overflowY(v: string) { this._o = v; el.toggled++ },
       removeProperty(n: string) { inline.delete(n) },
       setProperty(n: string, v: string) { inline.set(n, v) },
     },
@@ -66,7 +70,13 @@ function main() {
     const frames: (() => void)[] = []
     reviveScroller(el, (cb) => frames.push(cb))
     check("an inline lock is removed", !el.inline.has("pointer-events") && !el.inline.has("touch-action"))
-    check("the layer is dropped for one frame", el.style.overflowY === "hidden" && frames.length === 1)
+    /**
+     * The toggle still happens — hidden, then auto — but in ONE task with a
+     * forced layout between, never across a frame. A frame is not a promise:
+     * it does not come while the tab is hidden, and leaving the scroller
+     * hidden until one arrives is the freeze this was supposed to prevent.
+     */
+    check("the layer is re-created without waiting for a frame", el.style.overflowY === "auto" && (el as unknown as { toggled: number }).toggled >= 2)
     frames[0]()
     check("and asked for again on the next", el.style.overflowY === "auto" && el.inline.get("-webkit-overflow-scrolling") === "touch")
     check("the position comes back nudged off the top", el.scrollTop === 1)
@@ -163,6 +173,137 @@ function main() {
     check("the transition is tracked so a revive fires on the way OUT, not in", /const wasCovered = coveredRef\.current\n\s+coveredRef\.current = covered\n\s+if \(wasCovered && !covered\)/.test(editor))
   }
 
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A frame that never comes cannot leave the scroller hidden")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    /**
+     * THE FREEZE THIS FILE'S OWN FIX WAS CAUSING. `reviveScroller` set
+     * `overflow-y: hidden` and restored `auto` in a requestAnimationFrame. A
+     * frame does not come while the tab is hidden or the app is in the
+     * background — and one caller is `visibilitychange`, which fires as the
+     * page goes HIDDEN. So the canvas was set to hidden and nothing ever set
+     * it back. A script could still scroll it; a person could not, until a
+     * reload. Measured by scripts/check-editor-scroll.mjs on the real editor:
+     * "back from project settings: overflow=hidden".
+     */
+    const never = fakeScroller({ scrollHeight: 3000, clientHeight: 800, scrollTop: 400 })
+    reviveScroller(never, () => { /* the frame never comes */ })
+    check("the overflow is back to auto before any frame is asked for", never.style.overflowY === "auto")
+
+    const late = fakeScroller({ scrollHeight: 3000, clientHeight: 800, scrollTop: 400 })
+    const frames: (() => void)[] = []
+    reviveScroller(late, (cb) => frames.push(cb))
+    check("it is auto the moment revive returns, not a frame later", late.style.overflowY === "auto")
+    late.style.overflowY = "hidden" // something else got in between
+    frames[0]()
+    check("and the frame, when it does come, puts it back too", late.style.overflowY === "auto")
+    check("the layer is still re-created: the toggle happened", (never as unknown as { toggled: number }).toggled >= 2)
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A menu is not a dialog, and must not lock the page")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    /**
+     * "When I select the section it gets frozen and blocked."
+     *
+     * Radix defaults a dropdown to `modal`, and a modal dropdown mounts
+     * `react-remove-scroll`: a NON-PASSIVE `touchmove` listener on the
+     * document that calls `preventDefault()` on every gesture outside the
+     * menu, plus `data-scroll-locked` on the body. Right for a dialog. For a
+     * three-dot menu on a section row it means the canvas cannot be scrolled
+     * while it is open — and the lock was not being released on close, so it
+     * could not be scrolled again until the page was reloaded.
+     *
+     * Measured on the real editor by scripts/check-editor-scroll.mjs: open
+     * it, close it, wait three seconds, and 6 of 6 touchmoves over the canvas
+     * are still cancelled, phone and desktop alike.
+     *
+     * Nothing else can undo it. Taking `data-scroll-locked` off the body does
+     * not detach that listener, and the lock stack it consults is private to
+     * the library — which is why the stale-lock guard, which clears exactly
+     * that attribute, could never have helped.
+     */
+    const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const menu = readFileSync(join(process.cwd(), "components/ui/responsive-action-menu.tsx"), "utf8")
+    /** Every dropdown root in the editor and in the menu every row uses. */
+    const roots = [
+      ...editor.split("\n").filter((l) => l.includes("<DropdownMenu ") || l.trim() === "<DropdownMenu>"),
+      ...menu.split("\n").filter((l) => l.includes("<DropdownMenu ") || l.trim() === "<DropdownMenu>"),
+    ]
+    check(`every dropdown in the editor and the row menu is non-modal (${roots.length} found)`,
+      roots.length > 0 && roots.every((l) => l.includes("modal={false}")),
+      roots.filter((l) => !l.includes("modal={false}")).map((l) => l.trim()).join(" / "))
+    /**
+     * A DIALOG still locks, and should: it is the one thing you are meant to
+     * answer before carrying on. This guard is about menus only.
+     */
+    check("and a real dialog is left alone", /<Dialog open=\{addPageOpen\}/.test(editor) && !/<Dialog[^>]*modal=\{false\}/.test(editor))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("The sheet's backdrop can never be invisible and still take a touch")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    /**
+     * "When I select a section it blocks."
+     *
+     * The backdrop is a full-screen fixed layer. The drag path writes its
+     * opacity BY HAND, for the same reason it writes the sheet's transform by
+     * hand — React cannot keep up with a finger — and `endDrag` handed back
+     * `pointer-events` while leaving the opacity wherever the gesture had put
+     * it. Nothing in the drag path sets React state, so no re-render ever came
+     * along to correct it.
+     *
+     * Opacity 0 with `pointer-events: auto` over the whole viewport is the
+     * worst state a screen can be in: the canvas is plainly visible through it
+     * and every touch is swallowed, and nothing looks wrong. Measured on the
+     * real editor: `div.fixed.inset-0.bg-black/30 opacity=0 pointer-events=auto`,
+     * still there three seconds later.
+     *
+     * The invariant that makes it unreachable: the only writer that may turn
+     * the backdrop's pointer-events ON must set its opacity in the same
+     * breath, and React's own render must gate one on the other.
+     */
+    const sheet = readFileSync(join(process.cwd(), "components/website-builder/mobile-editor-sheet.tsx"), "utf8")
+
+    check(
+      "one helper writes both properties, from one answer",
+      /const settleOverlay = \(nowOpen: boolean\) => \{[\s\S]*?overlay\.style\.opacity = nowOpen \? "1" : "0"[\s\S]*?overlay\.style\.pointerEvents = nowOpen \? "auto" : "none"[\s\S]*?\}/.test(sheet),
+    )
+    /**
+     * Every OTHER imperative write may only turn them off. A write that turns
+     * pointer-events on without an opacity beside it is the bug returning.
+     */
+    const turnsOn = sheet
+      .split("\n")
+      .filter((l) => /overlay\.style\.pointerEvents\s*=/.test(l))
+      .filter((l) => !/= *"none"/.test(l))
+      .filter((l) => !/nowOpen \? "auto" : "none"/.test(l))
+    check("and no other line turns the backdrop's pointer-events on by itself", turnsOn.length === 0, turnsOn.map((l) => l.trim()).join(" / "))
+
+    check(
+      "React gates them on each other too, so a render cannot produce it either",
+      sheet.includes('pointerEvents: open && renderOpacity > 0.01 ? "auto" : "none"'),
+    )
+    /**
+     * And the gesture has to be able to END. A touch event is delivered to the
+     * element it STARTED on, so listening on the sheet means a finger lifted
+     * over a row React has since replaced never ends the drag — which is
+     * exactly what tapping a section row does. The mouse path already knew
+     * this; touch never got the same treatment.
+     */
+    check(
+      "a lifted finger ends the drag wherever it lands",
+      /window\.addEventListener\("touchend", onEnd\)/.test(sheet) && /window\.addEventListener\("touchcancel", onEnd\)/.test(sheet),
+    )
+    check(
+      "and the sheet no longer listens for the end of one itself",
+      !/sheet\.addEventListener\("touchend"/.test(sheet) && !/sheet\.addEventListener\("touchcancel"/.test(sheet),
+    )
+  }
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }

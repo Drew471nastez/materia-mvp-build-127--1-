@@ -40,6 +40,8 @@ export interface ScrollerLike {
   scrollTop: number
   readonly scrollHeight: number
   readonly clientHeight: number
+  /** Reading it forces layout, which is how the toggle below lands without a frame. */
+  readonly offsetHeight?: number
   style: { overflowY: string; removeProperty(name: string): void; setProperty(name: string, value: string): void }
 }
 
@@ -48,8 +50,27 @@ export const STUCK_DISTANCE_PX = 24
 
 /**
  * Back to a known-good state. Idempotent, and safe to call on a scroller that
- * was fine: the toggle is invisible within a frame, and the nudge is the same
- * one every touchdown already does.
+ * was fine.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  NEVER ACROSS A FRAME. THIS IS THE ONE THAT WAS FREEZING IT.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * This used to set `overflow-y: hidden` and put `auto` back in a
+ * `requestAnimationFrame`. A frame is not a promise. It does not come while
+ * the tab is hidden, while the app is in the background, or during the
+ * moment a screen is being torn down — and one of the places this is called
+ * from is `visibilitychange`, which fires as the page goes HIDDEN. So the
+ * scroller was set to hidden and the frame that would have restored it never
+ * ran, and the person came back to a canvas that could not be scrolled by
+ * hand at all, until a reload. A script could still scroll it, which is why
+ * the harness that drives the real editor read every step as fine: the one
+ * measurement that told the truth was `overflow=hidden` after the settings
+ * screen closed.
+ *
+ * So the layer is re-created synchronously: hidden, a forced layout, auto —
+ * three statements in one task, with nothing for a missed frame to leave
+ * half done. `nextFrame` is kept for the nudge, which is cosmetic and can
+ * wait; the overflow never waits for anything.
  */
 export function reviveScroller(el: ScrollerLike, nextFrame: (cb: () => void) => void): void {
   // An inline lock belongs to something that did not clean up after itself.
@@ -58,23 +79,22 @@ export function reviveScroller(el: ScrollerLike, nextFrame: (cb: () => void) => 
   el.style.removeProperty("position")
 
   const before = el.scrollTop
-  // Re-create the scrolling layer: hidden for one frame, then back.
+  // Re-create the scrolling layer in one breath. The read in the middle is
+  // what makes the browser apply the first write before seeing the second.
   el.style.overflowY = "hidden"
+  void el.offsetHeight
+  el.style.overflowY = "auto"
+  // iOS drops touch scrolling on a scroller whose ancestor animated opacity;
+  // re-declaring this is what asks WebKit for the layer again.
+  el.style.setProperty("-webkit-overflow-scrolling", "touch")
   nextFrame(() => {
-    el.style.overflowY = "auto"
-    // iOS drops touch scrolling on a scroller whose ancestor animated
-    // opacity; re-declaring this is what asks WebKit for the layer again.
-    el.style.setProperty("-webkit-overflow-scrolling", "touch")
+    // Belt to the braces above: whatever else happened in between, the
+    // scroller is not left hidden.
+    if (el.style.overflowY === "hidden") el.style.overflowY = "auto"
     nudgeOffEnds(el, before)
   })
 }
 
-/**
- * One pixel in from either end. iOS hands a gesture to the parent when a
- * scroller is exactly at its top or bottom, and the parent here is
- * `overflow: hidden` on purpose, so the gesture goes nowhere and every touch
- * after it until the finger reverses is eaten.
- */
 export function nudgeOffEnds(el: ScrollerLike, want: number = el.scrollTop): void {
   const max = el.scrollHeight - el.clientHeight
   if (max <= 2) return

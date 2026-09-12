@@ -1,0 +1,70 @@
+/**
+ * THE REAL EDITOR, IN A REAL BROWSER, WITH THE NETWORK REPLACED.
+ *
+ * Every earlier attempt at the scroll freeze reasoned about the editor from
+ * its source and shipped a guard. Six reports later this mounts the actual
+ * `StoreEditorPage` with `fetch` answered locally, so the sequence that is
+ * reported — scroll, tap a section, scroll again, in and out of the code
+ * editor and project settings — can be driven and MEASURED.
+ */
+import React from "react"
+import { createRoot } from "react-dom/client"
+import StoreEditorPage from "@/app/website-builder/editor/[installId]/page"
+import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+import type { SectionInstance } from "@/lib/website-builder/types"
+
+const PLACEHOLDER = "https://example.invalid/picture.jpg"
+const IMAGEY = new Set(["image_picker", "image_gallery"])
+function instance(type: string, i: number): SectionInstance {
+  const schema = SECTION_SCHEMAS[type]
+  const preset = schema.presets?.[0]
+  const settings: Record<string, unknown> = { ...(preset?.settings ?? {}) }
+  for (const f of schema.fields ?? []) {
+    if (IMAGEY.has(f.type) && settings[f.id] === undefined) settings[f.id] = PLACEHOLDER
+    if (!settings[f.id] && (f.id === "heading" || f.id === "title")) settings[f.id] = `Section ${i}: ${schema.name}`
+    if (!settings[f.id] && (f.id === "subheading" || f.id === "body") && (f.type === "text" || f.type === "textarea" || f.type === "richtext")) settings[f.id] = "Body text so the page is tall enough to scroll."
+  }
+  const blocks = (preset?.blocks ?? []).map((b, j) => {
+    const def = (schema.blocks ?? []).find((d) => d.type === b.type)
+    const bs: Record<string, unknown> = { ...(b.settings ?? {}) }
+    for (const f of def?.fields ?? []) if (IMAGEY.has(f.type) && bs[f.id] === undefined) bs[f.id] = PLACEHOLDER
+    return { id: `${type}-${i}-b${j}`, type: b.type, settings: bs }
+  })
+  return { id: `${type}-${i}`, type, name: schema.name, settings, blocks }
+}
+const PAGE = ["header", "hero_centered", "features_grid", "text_rich", "proof_testimonials", "faq_accordion", "cta_simple", "text_image", "promo_newsletter", "footer"]
+const sections = PAGE.map((t, i) => instance(t, i))
+
+const now = new Date().toISOString()
+const install = {
+  id: "probe-install", creator_id: "probe-creator", theme_id: "default", name: "Probe store", status: "draft",
+  is_custom: false, parent_install_id: null, sort_order: 0, created_at: now, updated_at: now, published_at: null,
+  settings: { id: "s1", install_id: "probe-install", settings: {}, draft_settings: null, created_at: now, updated_at: now },
+  pages: [{ id: "p1", install_id: "probe-install", page_key: "home", sections: [], created_at: now, updated_at: now }],
+}
+
+const calls: string[] = []
+const realFetch = window.fetch.bind(window)
+window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+  calls.push(`${init?.method ?? "GET"} ${url}`)
+  const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } })
+  if (!url.startsWith("/api/")) return realFetch(input, init)
+  if (/\/themes\/probe-install\/sections/.test(url)) return json({ sections, has_draft: false })
+  if (/\/themes\/probe-install\/settings/.test(url)) return json({ settings: install.settings })
+  if (/\/themes\/probe-install\/files/.test(url)) return json({ files: [] })
+  if (/\/themes\/probe-install\/backups/.test(url)) return json({ backups: [] })
+  if (/\/themes\/probe-install$/.test(url)) return json({ install, username: "probe" })
+  if (/\/products/.test(url)) return json({ products: [] })
+  if (/\/setup/.test(url)) return json({ setup: {} })
+  return json({})
+}
+
+declare global { interface Window { probeCalls: string[] } }
+window.probeCalls = calls
+
+/** The page reads `params` with `use()`, which needs a Suspense boundary above it. */
+createRoot(document.getElementById("app")!).render(
+  React.createElement(React.Suspense, { fallback: React.createElement("div", { id: "probe-fallback" }, "loading") },
+    React.createElement(StoreEditorPage, { params: Promise.resolve({ installId: "probe-install" }) })),
+)
