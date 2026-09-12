@@ -42,6 +42,13 @@ export interface PublishPanelProps {
   websiteUrlDisplay: string
   busy: boolean
   onPublish: () => void
+  /**
+   * Whether publishing will take a backup. Null while it is being asked.
+   * See lib/website-builder/setup-state.ts: the backup is skipped silently
+   * when its table has not been created, and the first anybody knew was the
+   * day they wanted one back.
+   */
+  backupsReady?: boolean | null
 }
 
 /**
@@ -51,6 +58,7 @@ export interface PublishPanelProps {
 export { relativeTime }
 
 function Body({
+  backupsReady,
   installId,
   active,
   live,
@@ -267,6 +275,21 @@ function Body({
         </div>
         <p className="mt-2.5 text-[15px] text-white/60">{status}</p>
       </div>
+
+      {/**
+        * Said here because this is where it costs something. Publishing
+        * normally saves a copy of the site first, so a publish can be undone;
+        * with the table missing it saves nothing and says nothing, which is
+        * the worst version of both.
+        */}
+      {backupsReady === false && (
+        <p className="flex items-start gap-2.5 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-[14px] text-amber-200">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <span>
+            This publish will not be backed up. Run supabase/sql/RUN_THEME_BACKUPS.sql once to turn backups on.
+          </span>
+        </p>
+      )}
 
       {websiteUrl && (
         <div>

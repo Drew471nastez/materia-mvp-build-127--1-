@@ -3661,6 +3661,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     notificationTimer.current = setTimeout(() => setNotification(null), 4000)
   }, [])
   const [customPages, setCustomPages] = useState<{ id: string; name: string; key: PageKey }[]>([])
+  /**
+   * Which of the builder's migrations have been run. Only used to SAY what
+   * is missing where it costs something — the publish panel warns when a
+   * publish will not be backed up — so a failure to ask leaves the editor
+   * exactly as it was.
+   */
+  const [backupsReady, setBackupsReady] = useState<boolean | null>(null)
+  useEffect(() => {
+    let alive = true
+    void (async () => {
+      try {
+        const res = await fetch("/api/website-builder/setup")
+        if (!res.ok) return
+        const d = (await res.json()) as { setup?: { backups?: boolean } }
+        if (alive && typeof d.setup?.backups === "boolean") setBackupsReady(d.setup.backups)
+      } catch {
+        /* the editor works the same either way; this only adds a sentence */
+      }
+    })()
+    return () => { alive = false }
+  }, [])
   const [addPageOpen, setAddPageOpen] = useState(false)
   const [newPageTitle, setNewPageTitle] = useState("")
   const [addingPage, setAddingPage] = useState(false)
@@ -6652,6 +6673,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   installId={installId}
                   onOpenChange={setPublishOpen}
                   anchorRef={publishBtnRef}
+                  backupsReady={backupsReady}
                   mobile={isMobileView}
                   live={live}
                   pending={pending}

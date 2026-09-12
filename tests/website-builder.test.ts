@@ -759,6 +759,41 @@ section("A form that says it worked, did")
   )
 }
 
+/**
+ * ===========================================================================
+ *  WHAT IS NOT SET UP YET IS SAID WHERE IT COSTS SOMETHING
+ * ===========================================================================
+ * Three migrations are run by hand, once. Every route that needs one falls
+ * back when it is missing, which is right, and every fallback was silent,
+ * which is how all three stayed unrun without anybody noticing. The one that
+ * actually loses something is backups: publish is supposed to save a copy of
+ * the site first, and without the table it saves nothing and says nothing.
+ */
+{
+  console.log("\n  A missing migration is said out loud")
+  const state = read("lib/website-builder/setup-state.ts")
+  const route = read("app/api/website-builder/setup/route.ts")
+  const panel = read("components/website-builder/publish-panel.tsx")
+  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const code = read("app/website-builder/code/[installId]/page.tsx")
+  const backupsApi = read("app/api/website-builder/themes/[installId]/backups/route.ts")
+
+  check("each of the three is probed", /store_theme_backups/.test(state) && /published_at/.test(state) && /store_theme_file_versions/.test(state))
+  check("by asking the database rather than by a flag somebody sets", /\.limit\(1\)/.test(state) && /return !error/.test(state))
+  check("and the answer is held, not asked per editor load", /unstable_cache/.test(state) && /revalidate: 300/.test(state))
+  check("the endpoint is for whoever is signed in, and nobody else", /if \(!user\) return NextResponse\.json\(\{ error: "Unauthorized" \}, \{ status: 401 \}\)/.test(route))
+  check("it carries no data out of those tables", !/select\("\*"\)/.test(route) && !/from\(/.test(route))
+
+  check("publish says a publish will not be backed up", /backupsReady === false/.test(panel) && /will not be backed up/.test(panel))
+  check("and names the file to run", /RUN_THEME_BACKUPS\.sql/.test(panel))
+  check("the editor asks once and carries on if the answer never comes", /\/api\/website-builder\/setup/.test(editor) && /the editor works the same either way/.test(editor))
+  check("the backups list says it too, rather than looking empty", /Backups are not set up yet/.test(backupsApi))
+  check(
+    "and a code file that goes live immediately says so at the moment it does",
+    /"Saved and live"/.test(code),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
