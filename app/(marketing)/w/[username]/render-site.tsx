@@ -15,7 +15,6 @@
  */
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { notFound, redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
@@ -43,6 +42,8 @@ export async function siteMetadata(
   username: string,
   searchParams: SiteSearchParams | undefined,
   pageKey = "home",
+  /** Set when this is the preview route, which has the token in its path. */
+  previewToken: string | null = null,
 ): Promise<Metadata> {
   /**
    * A PREVIEW IS NOT FOR SEARCH ENGINES. The link is shared with a person,
@@ -50,11 +51,18 @@ export async function siteMetadata(
    * decided on. Checked on the SHAPE of the token, not against the database:
    * the answer is the same either way, and it keeps a lookup out of here.
    */
-  if (previewTokenFrom(paramsToSearch(searchParams)) !== null) {
+  if (previewToken !== null || previewTokenFrom(paramsToSearch(searchParams)) !== null) {
     return { title: "Preview", robots: { index: false, follow: false } }
   }
 
-  const supabase = await createClient()
+  /**
+   * THE ADMIN CLIENT, NOT THE VIEWER'S. A published site's title, description
+   * and favicon are the same for everybody, and reading them through the
+   * viewer's client meant calling `cookies()` — which makes the whole route
+   * dynamic and uncacheable no matter what else it does. Nothing here is
+   * per-viewer, so nothing here needs to know who is asking.
+   */
+  const supabase = createAdminClient()
 
   const { data: creator } = await supabase
     .from("creators")
@@ -142,8 +150,16 @@ export async function renderSite(
   username: string,
   searchParams: SiteSearchParams | undefined,
   pageKey = "home",
+  /** Set when this is the preview route, which has the token in its path. */
+  previewToken: string | null = null,
 ) {
-  const wantedToken = previewTokenFrom(paramsToSearch(searchParams))
+  /**
+   * `?preview=` is still read, so links already shared keep working, but the
+   * preview has an address of its own now: `/preview/<token>`. The public
+   * routes read no query string at all, which is what lets them be cached
+   * for everybody rather than rendered for each visitor.
+   */
+  const wantedToken = previewToken ?? previewTokenFrom(paramsToSearch(searchParams))
   if (wantedToken) return await previewPage(username, wantedToken, pageKey)
 
   const found = await publishedSiteByName(username, pageKey)
