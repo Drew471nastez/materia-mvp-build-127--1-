@@ -156,7 +156,14 @@ export function ResponsiveActionMenu({
   }
 
   return (
-    <DropdownMenu>
+    /**
+     * NOT MODAL. A modal dropdown mounts `react-remove-scroll`, which cancels
+     * every touch gesture outside it and locks the body — and if the lock is
+     * not released on close, the page cannot be scrolled again until it is
+     * reloaded. A row's action menu should never do that; it is not a dialog,
+     * and you should be able to scroll the page it sits on.
+     */
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent align={align} className={menuWidth}>
         {items.map((item, i) => (
