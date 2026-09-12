@@ -171,8 +171,30 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
     `${root}{background:var(--theme-bg);color:var(--theme-text);font-family:var(--theme-font-body),ui-sans-serif,system-ui,sans-serif;font-size:var(--theme-font-size);line-height:var(--theme-line-height);}`,
     // Headings answer to the theme's text styles, section by section.
     typographyStylesheet(root, themeTypography(t)),
-    // Links, unless a section has painted them itself.
-    `${root} a:not([style*="color"]){color:inherit;}`,
+    /**
+     * ═══════════════════════════════════════════════════════════════════
+     *  A LINK THE SECTION HAS NOT PAINTED, AND ONLY THAT
+     * ═══════════════════════════════════════════════════════════════════
+     * This was `${root} a:not([style*="color"])`, meant to read "unless a
+     * section has painted them itself". It did not. The escape hatch tests
+     * the INLINE style, and a section paints its links in its own
+     * stylesheet, so nothing was ever exempt — and the selector weighs
+     * 0,2,1, which is MORE than the 0,2,0 of a section's own
+     * `[data-section-id="…"] .s__btn--primary`.
+     *
+     * So every anchor in every section was forced to `color: inherit`,
+     * including the buttons. A primary button is a black slab with the
+     * section's body colour on it; measured across the shipped theme, nine
+     * sections had a label at 3.1:1 and two at 1.5:1, and a white button on
+     * a dark section came out white on white — a blank slab where "Book a
+     * chair" should be. `scripts/check-buttons.mjs` reads every one of them
+     * out of a real browser.
+     *
+     * `:where()` is the whole fix: zero specificity, so this applies to a
+     * link nobody has painted and loses to every section that has, which is
+     * what the line always said it did.
+     */
+    `:where(${root} a){color:inherit;}`,
     /**
      * LONG WORDS DO NOT PUSH THE PAGE SIDEWAYS.
      *

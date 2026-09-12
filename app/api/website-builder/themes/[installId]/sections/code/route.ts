@@ -18,7 +18,7 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { resolveProvider } from "@/lib/sites/agent/provider"
 import { writeSection } from "@/lib/website-builder/agent/write-section"
-import { editorContent, recordVersion, saveDraft } from "@/lib/website-builder/theme-file-drafts"
+import { editorContent, recordVersion, saveDraft, sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { LIMITS } from "@/lib/storelib-theme/types"
@@ -71,9 +71,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     const rows = withDraft.error
       ? ((await supabase.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
       : (withDraft.data ?? [])
-    for (const row of rows as { path: string; content: string; draft_content?: string | null }[]) {
-      sources[row.path] = editorContent(row)
-    }
+    Object.assign(sources, sourceMap(rows as { path: string; content: string; draft_content?: string | null }[]))
   }
   if (Object.keys(sources).length >= LIMITS.filesPerPackage) {
     return NextResponse.json({ error: `A theme holds ${LIMITS.filesPerPackage} files.` }, { status: 413 })
