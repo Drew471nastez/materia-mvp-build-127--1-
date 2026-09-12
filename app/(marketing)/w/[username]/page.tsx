@@ -1,22 +1,53 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
-import { pageSections } from "@/lib/website-builder/preview-link"
+import { mayPreview, pageSections, previewTokenFrom, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
+import { publishedSiteByName } from "@/lib/website-builder/published-site"
+import { shopProducts } from "@/lib/website-builder/shop-products"
+import { getMainDomain } from "@/lib/url-helpers"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
+/**
+ * Dynamic because this route reads `searchParams` for the preview token, so
+ * it could never be prerendered anyway.
+ *
+ * IT DOES NOT TURN OFF THE CACHE UNDER IT, which is the thing worth writing
+ * down. `force-dynamic` changes the default for `fetch`, and Next's
+ * `unstable_cache` gates on `workStore.fetchCache === "force-no-store"` —
+ * which is set only by an explicit `export const fetchCache` in the module,
+ * and there is none here. So the published site below stays cached. Adding
+ * `export const fetchCache = "force-no-store"` to this file would silently
+ * put every visitor back on eight database round trips; a test refuses it.
+ */
 export const dynamic = "force-dynamic"
 
 interface PageProps {
   params: Promise<{ username: string }>
+  /** `?preview=<token>` shows the drafts, to whoever has the link. */
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { username } = await params
+
+  /**
+   * A PREVIEW IS NOT FOR SEARCH ENGINES. The link is shared with a person,
+   * and the page behind it is by definition not the one the creator has
+   * decided on. Checked on the SHAPE of the token, not against the database:
+   * the answer is the same either way, and it keeps a lookup out of here.
+   */
+  const looksLikePreview = previewTokenFrom(new URLSearchParams(
+    Object.entries((await searchParams) ?? {}).flatMap(([k, v]) =>
+      v === undefined ? [] : Array.isArray(v) ? v.map((x) => [k, x] as [string, string]) : [[k, v] as [string, string]],
+    ),
+  )) !== null
+  if (looksLikePreview) return { title: "Preview", robots: { index: false, follow: false } }
+
   const supabase = await createClient()
 
   const { data: creator } = await supabase
@@ -47,9 +78,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     (install as any)?.store_theme_settings?.[0] ??
     (install as any)?.store_theme_settings ??
     {}
-  // Prefer published `settings`, fall back to `draft_settings` so a freshly
-  // uploaded favicon shows up even if the install hasn't been re-published.
-  const settings: ThemeSettingsValues = settingsRow.settings ?? settingsRow.draft_settings ?? {}
+  // PUBLISHED ONLY. This fell back to `draft_settings` "so a freshly uploaded
+  // favicon shows up before a re-publish", which is a draft title, description
+  // and favicon on a public page — the same leak the body of this page was
+  // fixed for. A favicon shows up when it is published, like everything else.
+  const settings: ThemeSettingsValues = settingsRow.settings ?? {}
 
   // Default format: "{username} | Storelib" — prefer the creator's platform
   // username/slug over the brand_name so the tab title matches the URL.
@@ -78,93 +111,95 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-export default async function WebsitePublicPage({ params }: PageProps) {
+/**
+ * ===========================================================================
+ *  THE WEBSITE, AT ITS OWN ADDRESS
+ * ===========================================================================
+ * `<name>.storelib.com` is rewritten here by the proxy. This is the page a
+ * creator built in the website builder, and nothing else: their profile and
+ * products live at `storelib.com/<name>`, which is a different thing.
+ *
+ * NOTHING IS "COMING SOON". A creator with nothing published yet has a
+ * perfectly good page already — the creator page — and a visitor typing the
+ * subdomain goes there rather than to a placeholder. A published site is
+ * served from the cache in lib/website-builder/published-site.ts; a
+ * preview link (`?preview=<token>`) takes the slow, uncached path on
+ * purpose, because it is one person looking at unpublished work.
+ */
+export default async function WebsitePublicPage({ params, searchParams }: PageProps) {
   const { username } = await params
-  const supabase = await createClient()
 
-  // Find the creator by slug or username
-  const { data: creator } = await supabase
-    .from("creators")
-    .select("id, slug, display_name, avatar_url")
-    .or(`slug.eq.${username},username.eq.${username}`)
-    .maybeSingle()
+  const wantedToken = previewTokenFrom(new URLSearchParams(
+    Object.entries((await searchParams) ?? {}).flatMap(([k, v]) =>
+      v === undefined ? [] : Array.isArray(v) ? v.map((x) => [k, x] as [string, string]) : [[k, v] as [string, string]],
+    ),
+  ))
+  if (wantedToken) return await previewPage(username, wantedToken)
 
-  if (!creator) notFound()
+  const found = await publishedSiteByName(username)
+  if (found.kind === "renamed") redirect(`https://${found.to}.${getMainDomain()}`)
+  if (found.kind === "missing") notFound()
+  // Nothing published: the creator page, which always exists for a creator.
+  if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  // Find the published theme install for this creator.
-  // Use admin client — published installs must be publicly readable but
-  // `store_theme_*` tables are locked to the owner under regular RLS.
-  const publicAdmin = createAdminClient()
-  const { data: install } = await publicAdmin
+  const { site } = found
+  return (
+    <StorelibSourcesProvider prerendered={site.prerendered} page={{ template: "index" }}>
+      <ThemePage theme={site.themeSettings} sections={site.sections} emptyDetail="Check back soon!" />
+    </StorelibSourcesProvider>
+  )
+}
+
+/**
+ * The draft, for whoever holds the link. Uncached and unshared: it reads the
+ * install directly so the token can be compared against it, in constant
+ * time. A wrong token renders the published site and says nothing about
+ * whether a link exists.
+ */
+async function previewPage(username: string, token: string) {
+  const admin = createAdminClient()
+  const lower = username.toLowerCase()
+
+  let creatorId: string | null = null
+  const { data: profile } = await admin.from("profiles").select("id").eq("username", lower).maybeSingle()
+  if (profile) {
+    const { data: creator } = await admin.from("creators").select("id").eq("user_id", (profile as { id: string }).id).maybeSingle()
+    if (creator) creatorId = (creator as { id: string }).id
+  }
+  if (!creatorId) {
+    const { data: creator } = await admin.from("creators").select("id").eq("slug", lower).maybeSingle()
+    if (creator) creatorId = (creator as { id: string }).id
+  }
+  if (!creatorId) notFound()
+
+  const { data: install } = await admin
     .from("store_theme_installs")
-    .select(`
-      id,
-      name,
-      status,
-      store_theme_settings (
-        settings,
-        draft_settings
-      )
-    `)
-    .eq("creator_id", creator.id)
+    .select("id, name, status, preview_token, store_theme_settings ( settings, draft_settings )")
+    .eq("creator_id", creatorId)
     .eq("status", "published")
     .order("sort_order", { ascending: true })
     .limit(1)
     .maybeSingle()
+  if (!install) redirect(`https://${getMainDomain()}/${lower}`)
 
-  if (!install) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Website Coming Soon</h1>
-          <p className="text-gray-500">This website is currently being built.</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Get published sections for the home page (admin bypasses RLS)
-  const { data: pageData } = await publicAdmin
+  const row = install as { id: string; preview_token?: string | null; store_theme_settings?: unknown }
+  const { data: pageData } = await admin
     .from("store_theme_pages")
     .select("sections, draft_sections")
-    .eq("install_id", install.id)
+    .eq("install_id", row.id)
     .eq("page_key", "home")
     .maybeSingle()
 
-  const themeSettings: ThemeSettingsValues =
-    (install as any).store_theme_settings?.[0]?.settings ??
-    (install as any).store_theme_settings?.settings ??
-    {}
+  const preview = mayPreview(row.preview_token, token)
+  const settingsRow = Array.isArray(row.store_theme_settings) ? (row.store_theme_settings[0] ?? null) : (row.store_theme_settings ?? null)
+  const themeSettings = (themeSettingsOf(settingsRow as never, preview) ?? {}) as ThemeSettingsValues
+  const sections = pageSections<SectionInstance[]>(pageData as never, preview) ?? []
+  const products = await shopProducts(admin as never, creatorId)
+  const prerendered = await prerenderStorelibSections(admin as never, row.id, sections, themeSettings, "index", products)
 
-  /**
-   * PUBLISHED ONLY. The fallback to `draft_sections` here meant a page added
-   * since the last publish was live before anybody published it. Sharing an
-   * unpublished version is the preview link's job, on the storefront route:
-   * see lib/website-builder/preview-link.ts.
-   */
-  const sections: SectionInstance[] = pageSections<SectionInstance[]>(pageData, false) ?? []
-
-  /**
-   * Rendered here, on the server, once. Without this a .storelib section
-   * draws nothing at all on this route: measured at 0 characters of HTML
-   * against 3651 for the same section on the storefront.
-   */
-  const prerendered = await prerenderStorelibSections(
-    publicAdmin as never,
-    install.id,
-    sections,
-    themeSettings,
-    "index",
-  )
-
-  // No min-h-screen / flex-1 filler — see [sellername]/page.tsx for rationale.
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "index" }}>
-      <ThemePage
-        theme={themeSettings}
-        sections={sections}
-        emptyDetail="Check back soon!"
-      />
+      <ThemePage theme={themeSettings} sections={sections} emptyDetail="Check back soon!" />
     </StorelibSourcesProvider>
   )
 }

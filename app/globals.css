@@ -2786,6 +2786,20 @@ picture {
    need nothing from the body — and every other page keeps the rule that
    holds its footer above the home indicator. See
    components/website-builder/full-screen-lock.tsx. */
+/* ── The bottom of a half-open sheet is still reachable ───────────────────
+   A sheet at a middle stop is its full height slid down, so its scroller's
+   last pixels are below the screen. The sheet writes how many as
+   --wb-sheet-hidden (mobile-editor-sheet.tsx, writeTransform) and this adds
+   that much after the content, so scrolling to the end reaches the end. A
+   spacer rather than padding: the content-fit measurement reads the
+   scroller's padding, and a spacer is invisible to it. */
+[data-mobile-bottom-sheet] [data-sheet-scroll]::after {
+  content: "";
+  display: block;
+  flex: none;
+  height: var(--wb-sheet-hidden, 0px);
+}
+
 html.wb-fullscreen,
 html.wb-fullscreen body {
   height: 100%;

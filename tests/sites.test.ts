@@ -3769,7 +3769,9 @@ check(
   "the landing page's cache rule cannot swallow a site homepage",
   (() => {
     const proxy = strip(read("proxy.ts"))
-    const at = proxy.indexOf("url.pathname = `/site/${subdomain}")
+    // The rewrite is a ternary now: a page with no AI site goes to /w, the
+    // rest to /site. The header rule sits below it and applies to both.
+    const at = proxy.indexOf("const isWebsite = !looksLikeFile")
     const body = proxy.slice(at, proxy.indexOf("return rewritten", at) + 20)
     return (
       /if \(pathname === "\/"\)/.test(body) &&

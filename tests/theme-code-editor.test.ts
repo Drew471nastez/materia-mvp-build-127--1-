@@ -313,7 +313,9 @@ section("Save compiles, errors carry lines, the canvas finds out")
   const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8")
   const codePage = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
   const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
-  const creator = readFileSync(join(root, "app/(marketing)/[sellername]/page.tsx"), "utf8")
+  // `<name>.storelib.com` is the website and lives at /w; the apex path is
+  // the creator page and draws no sections.
+  const creator = readFileSync(join(root, "app/(marketing)/w/[username]/page.tsx"), "utf8")
   const section = readFileSync(join(root, "components/website-builder/sections/StorelibSection.tsx"), "utf8")
 
   check(
@@ -385,7 +387,9 @@ section("The page a section is on is the page it is on")
   const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   const provider = readFileSync(join(root, "components/website-builder/sections/storelib-sources.tsx"), "utf8")
   const sectionSrc = readFileSync(join(root, "components/website-builder/sections/StorelibSection.tsx"), "utf8")
-  const creator = readFileSync(join(root, "app/(marketing)/[sellername]/page.tsx"), "utf8")
+  // `<name>.storelib.com` is the website and lives at /w; the apex path is
+  // the creator page and draws no sections.
+  const creator = readFileSync(join(root, "app/(marketing)/w/[username]/page.tsx"), "utf8")
 
   /**
    * `page.template` was the string "index" wherever a section rendered, so a
@@ -508,7 +512,9 @@ section("Create writes the file, and you name it rather than its path")
     /h-10 flex-1 rounded-md bg-\[#111114\][^"]*md:h-7 md:flex-none/.test(codePage)
     && /h-10 w-full min-w-0 rounded-md border[^"]*text-\[16px\] md:h-8 md:text-\[12px\]/.test(codePage)
     && /h-10 min-w-0 flex-1 rounded-md border[^"]*text-\[16px\] md:h-7 md:text-\[12px\]/.test(codePage))
-  check("a nameless file cannot be created", (codePage.match(/disabled=\{!fileNameOf\(pendingAction\.path\)\.name\}/g) ?? []).length === 2)
+  // Two buttons guard the name. Create also refuses while a create is in
+  // flight, which is the extra clause on the first.
+  check("a nameless file cannot be created", (codePage.match(/disabled=\{!fileNameOf\(pendingAction\.path\)\.name \|\| creating\}/g) ?? []).length === 1 && (codePage.match(/disabled=\{!fileNameOf\(pendingAction\.path\)\.name\}/g) ?? []).length === 1)
 
   check("two sections cannot be given the same name", /async function sectionNamesInUse\(/.test(route) && /Another section is already called/.test(route) && /status: 409/.test(route))
   check("and a section keeps its own name when it is saved again", /if \(p === except\) continue/.test(route))

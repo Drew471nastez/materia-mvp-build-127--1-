@@ -775,6 +775,8 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
   /** New, rename, duplicate: one inline path field, not a dialog. */
   const [pendingAction, setPendingAction] = useState<{ kind: "new" | "rename" | "duplicate"; path: string } | null>(null)
+  /** The starter is being written. A press that shows nothing gets pressed again. */
+  const [creating, setCreating] = useState(false)
   /** The delete the server refused, with the pages that use the section. */
   const [deleteBlocked, setDeleteBlocked] = useState<{ path: string; usedBy: string[] } | null>(null)
   /** The rename it refused, for the same reason. */
@@ -1091,11 +1093,22 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
        * tab does not open and the reason is shown.
        */
       const starter = starterFor(to)
-      const res = await fetch(`/api/website-builder/themes/${installId}/files`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: to, content: starter }),
-      })
-      const d = await res.json().catch(() => ({}))
+      if (creating) return
+      setCreating(true)
+      let res: Response
+      let d: { error?: string; errors?: unknown }
+      try {
+        res = await fetch(`/api/website-builder/themes/${installId}/files`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: to, content: starter }),
+        })
+        d = await res.json().catch(() => ({}))
+      } catch {
+        toast.error("Could not reach the server")
+        return
+      } finally {
+        setCreating(false)
+      }
       if (!res.ok) {
         if (res.status === 422 && Array.isArray(d.errors)) setCompileErrors(d.errors as ThemeError[])
         toast.error(d.error ?? "Could not create that file")
@@ -1647,10 +1660,12 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                 <div className="flex items-center gap-2">
                   <button
                     type="submit"
-                    disabled={!fileNameOf(pendingAction.path).name}
-                    className="h-9 flex-1 rounded-md bg-[#111114] px-3 text-[13px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none md:h-7 md:text-[12px]"
+                    disabled={!fileNameOf(pendingAction.path).name || creating}
+                    aria-busy={creating}
+                    className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md bg-[#111114] px-3 text-[13px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none md:h-7 md:text-[12px]"
                   >
-                    Create
+                    {creating && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />}
+                    {creating ? "Creating" : "Create"}
                   </button>
                   <button
                     type="button"

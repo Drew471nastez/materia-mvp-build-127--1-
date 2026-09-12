@@ -445,7 +445,26 @@ export function MobileEditorSheet({
     const sheet = sheetRef.current
     const overlay = overlayRef.current
     const cY = offsetsRef.current[offsetsRef.current.length - 1]
-    if (sheet) sheet.style.transform = `translateY(${y}px)`
+    if (sheet) {
+      sheet.style.transform = `translateY(${y}px)`
+      /**
+       * ═════════════════════════════════════════════════════════════════════
+       *  WHAT THE SHEET HIDES, THE SCROLLER GETS BACK
+       * ═════════════════════════════════════════════════════════════════════
+       * The sheet is always its full height and is slid DOWN by `y`, so at a
+       * half-open stop the bottom `y` pixels of it are below the screen. The
+       * scroller inside is sized for the whole sheet, and its last `y` pixels
+       * of content sit in that hidden part: you scroll to the end and the end
+       * is off the bottom of the phone. This is that number, handed to the
+       * stylesheet, which adds exactly that much room after the content (see
+       * `[data-sheet-scroll]::after` in globals.css).
+       *
+       * Zero for a content-fit sheet, whose height is measured from that same
+       * content: room added there would be measured, grow the sheet, add more
+       * room, and never settle.
+       */
+      sheet.style.setProperty("--wb-sheet-hidden", fit ? "0px" : `${Math.max(0, Math.round(y))}px`)
+    }
     if (overlay) {
       const opacity = cY > 0 ? Math.max(0, Math.min(1, 1 - y / cY)) : 0
       overlay.style.opacity = String(opacity)

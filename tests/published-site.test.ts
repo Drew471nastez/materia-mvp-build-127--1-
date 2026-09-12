@@ -37,7 +37,7 @@ const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
 
 const cache = read("lib/website-builder/published-site.ts")
-const store = read("app/(marketing)/[sellername]/page.tsx")
+const store = read("app/(marketing)/w/[username]/page.tsx")
 const publish = read("app/api/website-builder/themes/[installId]/publish/route.ts")
 
 function main() {
