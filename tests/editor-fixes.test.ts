@@ -1,0 +1,121 @@
+/**
+ * ===========================================================================
+ *  FIVE THINGS FROM ONE ROUND OF USING THE BUILDER ON A PHONE
+ * ===========================================================================
+ * 1. Two addresses, two things: `<name>.storelib.com` is the website,
+ *    `storelib.com/<name>` is the creator's page. Nothing is "coming soon".
+ * 2. The fonts a theme chooses are loaded, not only named.
+ * 3. A half-open sheet can still be scrolled to the bottom.
+ * 4. Create in the code editor shows that it is creating.
+ * 5. The preview scroller heals itself: tests/canvas-scroll.test.ts.
+ */
+import { readFileSync, readdirSync } from "node:fs"
+import { join } from "node:path"
+import { OFFERED_FAMILIES, chosenFamilies, fontStylesheetHref } from "@/lib/website-builder/font-link"
+import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
+
+let passed = 0
+let failed = 0
+const failures: string[] = []
+function check(name: string, ok: boolean, detail = "") {
+  if (ok) { passed++; console.log(`  ok    ${name}`) }
+  else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
+}
+function section(t: string) { console.log(`\n${t}`) }
+const root = process.cwd()
+const read = (p: string) => readFileSync(join(root, p), "utf8")
+
+function main() {
+  // ═══════════════════════════════════════════════════════════════════════
+  section("Two addresses, two things")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    check("the website is on the subdomain", getWebsiteShareUrl("AndrewRullz") === "https://andrewrullz.storelib.com")
+    check("and is shown that way", getWebsiteUrlDisplay("andrewrullz") === "andrewrullz.storelib.com")
+
+    const proxy = read("proxy.ts")
+    check("a subdomain page with no AI site goes to the website route", /const isWebsite = !looksLikeFile && !\(await hasLiveAiSite\(subdomain\)\)/.test(proxy) && /`\/w\/\$\{subdomain\}/.test(proxy))
+    check("but an asset request never pays that lookup", /const looksLikeFile = \/\\\.\[a-z0-9\]\{1,8\}\$\/i\.test\(pathname\)/.test(proxy))
+    check("and a lookup that fails reads as no AI site, not as an error page", /async function hasLiveAiSite[\s\S]*?catch \{\s*return false/.test(proxy))
+
+    const apex = read("app/(marketing)/[sellername]/page.tsx")
+    check("the apex path is the creator page", /from "\.\.\/u\/\[username\]\/page"/.test(apex) && /return await StorefrontPage\(/.test(apex))
+    check("with the creator page's own metadata", /storefrontMetadata\(/.test(apex))
+    check("and no website logic left in it", !/ThemePage|pageSections|store_theme_installs/.test(apex))
+
+    const w = read("app/(marketing)/w/[username]/page.tsx")
+    check("the website route serves from the cache", /await publishedSiteByName\(username\)/.test(w))
+    check("nothing published sends the visitor to the creator page, never to a placeholder", /found\.kind === "unpublished"\) redirect\(`https:\/\/\$\{getMainDomain\(\)\}\/\$\{username\.toLowerCase\(\)\}`\)/.test(w) && !/Coming Soon/.test(w))
+    check("a renamed creator's site follows them to the new subdomain", /found\.kind === "renamed"\) redirect\(`https:\/\/\$\{found\.to\}\.\$\{getMainDomain\(\)\}`\)/.test(w))
+    check("its metadata reads published settings only", /const settings: ThemeSettingsValues = settingsRow\.settings \?\? \{\}/.test(w) && !/settingsRow\.draft_settings/.test(w))
+    check("the preview path draws the shop too", /shopProducts\(admin as never, creatorId\)/.test(w))
+
+    for (const f of ["app/(marketing)/w/[username]/page.tsx", "app/(marketing)/[sellername]/page.tsx", "app/products/[slug]/page.tsx"]) {
+      check(`${f.split("/").slice(-2, -1)[0]}: no "Coming Soon"`, !/Coming Soon/.test(read(f)))
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("The fonts a theme chooses are loaded")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    check("the allow-list is the panel's own options", OFFERED_FAMILIES.has("Playfair Display") && OFFERED_FAMILIES.has("Inter") && OFFERED_FAMILIES.size >= 15)
+    check("nothing chosen, nothing requested", fontStylesheetHref({}) === null && fontStylesheetHref(null) === null)
+    const href = fontStylesheetHref({ font_heading: "Playfair Display", font_body: "DM Sans", font_accent: "" })
+    check("the chosen families, and only those", href === "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap", href ?? "null")
+    check("the same family twice is requested once", JSON.stringify(chosenFamilies({ font_heading: "Lora", font_body: "Inter", font_accent: "Lora" })) === JSON.stringify(["Lora", "Inter"]))
+    /**
+     * A URL built from a free string is a URL somebody else gets to write.
+     * A family the panel does not offer requests nothing.
+     */
+    check("a family the panel does not offer is not requested", fontStylesheetHref({ font_heading: "Comic Sans MS", font_body: "x&family=evil" }) === null)
+    check("and a string that is not a family is not either", chosenFamilies({ font_heading: 42 as never, font_body: "  " }).length === 0)
+
+    const page = read("components/website-builder/theme/ThemePage.tsx")
+    check("ThemePage renders the link beside the theme's stylesheet", /const fontHref = fontStylesheetHref\(/.test(page) && /\{fontHref && <link rel="stylesheet" href=\{fontHref\} \/>\}/.test(page))
+
+    /** Every shipped section reads its font from the theme, never a literal. */
+    const files = readdirSync(join(root, "themes/default/sections")).filter((f) => f.endsWith(".storelib"))
+    // `(?!\\s*…)`: a lookahead after `\\s*` must re-state the space, or the
+    // matcher backtracks to zero spaces and reads " var" as not "var".
+    const literal = files.filter((f) => /font-family\s*:(?!\s*(var\(--|inherit\b))/.test(read(`themes/default/sections/${f}`)))
+    check(`no shipped section hard-codes a font family (${files.length} files)`, literal.length === 0, literal.join(", "))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A half-open sheet reaches its own bottom")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const sheet = read("components/website-builder/mobile-editor-sheet.tsx")
+    const css = read("app/globals.css")
+    check("the sheet says how much of itself is off screen", /sheet\.style\.setProperty\("--wb-sheet-hidden", fit \? "0px" : `\$\{Math\.max\(0, Math\.round\(y\)\)\}px`\)/.test(sheet))
+    check("and the scroller gets exactly that much room after its content", /\[data-mobile-bottom-sheet\] \[data-sheet-scroll\]::after \{[\s\S]*?height: var\(--wb-sheet-hidden, 0px\);/.test(css))
+    /**
+     * A content-fit sheet measures its content to size itself. Room added
+     * after the content would be measured, grow the sheet, add more room,
+     * and never settle — so it gets none, and a spacer is used rather than
+     * padding because the measurement reads padding.
+     */
+    check("a content-fit sheet gets no room, or it would never settle", /fit \? "0px"/.test(sheet))
+    check("written in the same place as the transform, so it moves with the finger", (() => {
+      const i = sheet.indexOf("const writeTransform")
+      const j = sheet.indexOf("--wb-sheet-hidden", i)
+      return i > 0 && j > i && j - i < 2000
+    })())
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("Create says that it is creating")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const code = read("app/website-builder/code/[installId]/page.tsx")
+    check("the button carries a spinner and says so while the file is written", /\{creating && <Loader2 className="h-3\.5 w-3\.5 shrink-0 animate-spin" \/>\}/.test(code) && /\{creating \? "Creating" : "Create"\}/.test(code))
+    check("and cannot be pressed twice", /disabled=\{!fileNameOf\(pendingAction\.path\)\.name \|\| creating\}/.test(code) && /if \(creating\) return/.test(code))
+    check("the flag is cleared whatever the server says", /\} finally \{\s*setCreating\(false\)/.test(code))
+  }
+
+  console.log(`\n${passed} passed, ${failed} failed`)
+  if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
+}
+
+main()

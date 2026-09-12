@@ -509,15 +509,17 @@ section("Add Section is derived from the files, one card per preset")
  */
 {
   console.log("\n  A published page draws the sections a creator wrote")
+  // The apex route is the creator page now and draws no sections; the
+  // website is `<name>.storelib.com`, served by /w.
   const PUBLIC_ROUTES = [
-    ["app/(marketing)/[sellername]/page.tsx", "index"],
     ["app/(marketing)/w/[username]/page.tsx", "index"],
     ["app/products/[slug]/page.tsx", "product"],
   ] as const
   for (const [route, template] of PUBLIC_ROUTES) {
     const src = read(route)
     check(`${route} renders them on the server`, /await prerenderStorelibSections\(/.test(src))
-    check(`${route} renders them as "${template}"`, new RegExp(`"${template.replace(".", "\\.")}",\\s*\\)`).test(src) && new RegExp(`page=\\{\\{ template: "${template}" \\}\\}`).test(src))
+    // The call may carry the creator's products after the template name.
+    check(`${route} renders them as "${template}"`, new RegExp(`"${template.replace(".", "\\.")}"(,\\s*products)?\\s*\\)`).test(src) && new RegExp(`page=\\{\\{ template: "${template}" \\}\\}`).test(src))
   }
   // Named here so a fourth route cannot quietly join the list without one.
   const walk = (dir: string): string[] => {

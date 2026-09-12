@@ -749,7 +749,10 @@ check(
   "handing over to the code fades rather than cuts",
   // `invisible` removed the site between one frame and the next, which is the
   // flash. Opacity hands over on a curve and keeps the scroll position.
-  /previewMode === "code" && "opacity-0 pointer-events-none"/.test(editor) &&
+  // Desktop only. On a phone the code pane is a full-screen opaque page and
+  // the fade bought nothing but a WebKit scroller that stopped taking touch
+  // after animating opacity — see tests/canvas-scroll.test.ts.
+  /previewMode === "code" && !isMobileView && "opacity-0 pointer-events-none"/.test(editor) &&
     !/previewMode === "code" && "invisible/.test(editor),
 )
 
@@ -2606,7 +2609,10 @@ check(
    * and the unwrapped one is a control that must still fail.
    */
   // The wrapper carries the shape and the clip...
-  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,700}?\? "rounded-t-\[20px\] w-full"/.test(editor) &&
+  // The window between the two strings holds the wrapper's class list and
+  // the paragraph explaining why the fade is desktop-only; it was 700 and
+  // that paragraph is what pushed it past.
+  /"relative overflow-hidden transition-all duration-300",[\s\S]{0,1600}?\? "rounded-t-\[20px\] w-full"/.test(editor) &&
     // ...and the scroller inside it is square and fills it, so nothing it
     // paints can reach a corner.
     /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"/.test(

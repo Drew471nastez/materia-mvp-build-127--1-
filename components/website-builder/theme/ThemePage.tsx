@@ -30,6 +30,7 @@
 import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react"
 
 import { THEME_ROOT_ATTRIBUTE, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
+import { fontStylesheetHref } from "@/lib/website-builder/font-link"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import SectionRenderer from "../sections/SectionRenderer"
 
@@ -348,6 +349,8 @@ export function ThemePage({
       />
     ))
 
+  const fontHref = fontStylesheetHref(theme as unknown as Record<string, unknown>)
+
   return (
     <div
       {...{ [THEME_ROOT_ATTRIBUTE]: "" }}
@@ -361,6 +364,9 @@ export function ThemePage({
         rule would leak from one to the other.
       */}
       <style dangerouslySetInnerHTML={{ __html: themeStylesheet(theme) }} />
+      {/* The families the stylesheet above names. Without this they were
+          names only: see lib/website-builder/font-link.ts. */}
+      {fontHref && <link rel="stylesheet" href={fontHref} />}
 
       <AnnouncementBar theme={theme} />
       <FreeShippingBar theme={theme} />

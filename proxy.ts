@@ -140,6 +140,30 @@ async function resolveOldUsername(oldUsername: string): Promise<string | null> {
 }
 
 /**
+ * Is there a live AI-built site under this name? The same question the /site
+ * handler asks before serving one, asked once here so the proxy can send a
+ * page request to the right renderer. Any failure reads as "no", which sends
+ * the request to /w, which in turn sends an unknown name to a 404.
+ */
+async function hasLiveAiSite(slug: string): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseKey) return false
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey)
+    const { data } = await supabase
+      .from("site_deployments")
+      .select("storage_prefix")
+      .eq("is_live", true)
+      .eq("slug", slug.toLowerCase())
+      .maybeSingle()
+    return !!(data as { storage_prefix: string | null } | null)?.storage_prefix
+  } catch {
+    return false
+  }
+}
+
+/**
  * Resolve a custom domain to a username via Supabase lookup
  * Returns the username if the domain is active, null otherwise
  */
@@ -481,7 +505,30 @@ export async function proxy(request: NextRequest) {
     // names below are the platform's own.
     if (!subdomain.includes(".") && !EXCLUDED_SUBDOMAINS.includes(subdomain)) {
       const url = request.nextUrl.clone()
-      url.pathname = `/site/${subdomain}${pathname === "/" ? "" : pathname}`
+      /**
+       * ═══════════════════════════════════════════════════════════════════════
+       *  WHICH OF TWO THINGS A SUBDOMAIN IS
+       * ═══════════════════════════════════════════════════════════════════════
+       * `<name>.storelib.com` is either an AI-built site (files in storage,
+       * served by /site) or the website a creator built in the website
+       * builder (a theme install, rendered by /w). The name alone cannot say
+       * which, so a page request asks: is there a live AI deployment under
+       * this name? If not, this is a website-builder address and goes to
+       * /w, which serves the published site from its cache — and, for a
+       * creator with nothing published, sends the visitor to their creator
+       * page at storelib.com/<name> rather than to a "coming soon".
+       *
+       * PAGES ONLY. An AI site's assets (`/_vendor/…`, its own files) ask
+       * every request, and one database read per script tag is not a cost
+       * the site handler should carry. A request with a file extension is an
+       * asset and goes straight to /site as before; a website-builder site's
+       * own assets are Next's, under reserved paths, and never come here.
+       */
+      const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname)
+      const isWebsite = !looksLikeFile && !(await hasLiveAiSite(subdomain))
+      url.pathname = isWebsite
+        ? `/w/${subdomain}${pathname === "/" ? "" : pathname}`
+        : `/site/${subdomain}${pathname === "/" ? "" : pathname}`
       const rewritten = NextResponse.rewrite(url)
 
       /**

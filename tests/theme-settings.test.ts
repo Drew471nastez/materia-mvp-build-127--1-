@@ -238,16 +238,17 @@ section("One page, four surfaces")
    * in three others, which is why the announcement bar's link, its scrolling
    * option and its dismiss button were in the panel and on none of them.
    */
+  // Not the apex route: `storelib.com/<name>` is the creator's page and
+  // draws no theme. The website is `<name>.storelib.com`, served by /w.
   const surfaces = [
     "app/website-builder/editor/[installId]/page.tsx",
     "app/(marketing)/w/[username]/page.tsx",
-    "app/(marketing)/[sellername]/page.tsx",
     "app/products/[slug]/page.tsx",
   ]
   const sources = surfaces.map((f) => [f, readFileSync(join(root, f), "utf8")] as const)
 
   const notUsing = sources.filter(([, src]) => !/<ThemePage/.test(src)).map(([f]) => f)
-  check("all four render the same page component", notUsing.length === 0, notUsing.join(", "))
+  check("all three render the same page component", notUsing.length === 0, notUsing.join(", "))
 
   const ownBar = sources
     .filter(([, src]) => /announcement_bar_enabled/.test(stripComments(src)))
