@@ -21,7 +21,19 @@ import { notFoundSections } from "@/lib/website-builder/not-found-page"
  * plain message: there is no site to speak in the voice of.
  */
 export default async function SiteNotFound() {
-  const name = (await headers()).get("x-storelib-site")
+  /**
+   * Read in a try, because the pages under this boundary are held at the
+   * edge for a minute and a header read is a dynamic one: if Next refuses it
+   * while generating, the answer must still be a 404 page rather than a
+   * crash. Without the header there is no site to speak in the voice of, so
+   * it falls back to the plain message below.
+   */
+  let name: string | null = null
+  try {
+    name = (await headers()).get("x-storelib-site")
+  } catch {
+    name = null
+  }
   const found = name ? await publishedSiteByName(name) : { kind: "missing" as const }
 
   if (found.kind !== "site") {
