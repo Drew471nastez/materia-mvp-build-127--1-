@@ -187,9 +187,66 @@ const DRIVE = `
       centreInsideScroller: !!top && sc.contains(top),
       pointerEventsNoneOn: chainNone(top),
       coveredBy: coverers(sc, x, y),
+      /**
+       * An invisible layer that still takes the touch is the worst kind: the
+       * canvas is plainly visible through it and completely dead. Reported
+       * with its own numbers rather than as "covered by", so it cannot be
+       * read as a scrim doing its job.
+       */
+      ghosts: Array.prototype.filter.call(document.querySelectorAll("body *"), function (e) {
+        if (sc.contains(e) || e === sc || e.contains(sc)) return false
+        var cs = getComputedStyle(e)
+        if (cs.pointerEvents === "none") return false
+        if (cs.visibility === "hidden") return false
+        /**
+         * WHAT THE ELEMENT IS SET TO, not what it is painting this instant.
+         *
+         * Headless Chromium does not advance CSS transitions or animations
+         * under a virtual-time budget, so anything fading IN reads as opacity
+         * 0 forever, and every one of them looked like a bug. The honest
+         * question is what the element has been TOLD to be:
+         *
+         *   an inline opacity is the answer, whoever wrote it — React on
+         *   render, or the drag path by hand. It is the settled intent.
+         *
+         *   with no inline opacity, a running animation means it is on its
+         *   way somewhere and is not settled at all; only with neither does
+         *   the computed value stand on its own.
+         *
+         * A real ghost is settled at nothing and still takes the touch.
+         */
+        var inline = e.style && e.style.opacity !== "" ? Number(e.style.opacity) : null
+        if (inline !== null) {
+          if (inline > 0.02) return false
+        } else {
+          if (typeof e.getAnimations === "function" && e.getAnimations().length > 0) return false
+          if (Number(cs.opacity) > 0.02) return false
+        }
+        var r = e.getBoundingClientRect()
+        return r.left <= x && r.right >= x && r.top <= y && r.bottom >= y && r.width > 200 && r.height > 200
+      }).map(function (e) {
+        var cs = getComputedStyle(e)
+        /** Inline too: it says whether React or the drag path wrote it last. */
+        var sheets = document.querySelectorAll("[data-mobile-bottom-sheet]")
+        var states = Array.prototype.map.call(sheets, function (sh) {
+          var scs = getComputedStyle(sh)
+          return "sheet[modal=" + (sh.getAttribute("aria-modal") || "-") + ",vis=" + scs.visibility + ",z=" + scs.zIndex + "]"
+        }).join(" ")
+        return describe(e) + " computed(opacity=" + cs.opacity + ",pe=" + cs.pointerEvents + ",z=" + cs.zIndex + ")" +
+          " inline(opacity=" + (e.style.opacity || "-") + ",pe=" + (e.style.pointerEvents || "-") + ",transition=" + (e.style.transition || "-").slice(0, 24) + ")" +
+          " " + states
+      }),
       bodyPE: document.body.style.pointerEvents || "-",
       htmlClass: document.documentElement.className,
       sheetOpen: !!document.querySelector("[data-mobile-bottom-sheet][aria-modal=true]"),
+      anythingOpen: !!document.querySelector("[aria-modal=true], [role=dialog][data-state=open], [role=menu][data-state=open]"),
+      backdrop: (function () {
+        var sh = document.querySelector("[data-mobile-bottom-sheet]")
+        var sc2 = sh && sh.parentElement ? sh.parentElement.querySelector("div.fixed.inset-0") : null
+        if (!sc2) return "(none)"
+        var c2 = getComputedStyle(sc2)
+        return "declared=" + (sc2.style.opacity || "(none)") + " computed=" + c2.opacity + " pe=" + c2.pointerEvents + " sheetModal=" + (sh.getAttribute("aria-modal") || "-")
+      })(),
       scrollLocked: document.body.hasAttribute("data-scroll-locked"),
       /** Every Radix layer that says it is open, and what kind it is. */
       openLayers: Array.prototype.map.call(
@@ -262,8 +319,16 @@ const DRIVE = `
     var why = []
     if (m.overflowY !== "auto" && m.overflowY !== "scroll") why.push("overflow is " + m.overflowY)
     if (!m.canScroll) why.push("nothing to scroll (" + m.scrollHeight + "/" + m.clientHeight + ")")
-    if (!m.centreInsideScroller) why.push("a touch lands outside the canvas, on " + m.topAtCentre)
+    /**
+     * COVERED BY SOMETHING OPEN IS NOT A FREEZE. A sheet over the canvas with
+     * a visible backdrop is a sheet doing its job: you are meant to be in it,
+     * and tapping the backdrop closes it. What is never right is being
+     * covered by something nobody can see (the ghosts check below), or
+     * covered with nothing open at all.
+     */
+    if (!m.centreInsideScroller && !m.anythingOpen) why.push("a touch lands outside the canvas, on " + m.topAtCentre + ", with nothing open to explain it")
     if (m.pointerEventsNoneOn) why.push("pointer-events none on " + m.pointerEventsNoneOn)
+    if (m.ghosts && m.ghosts.length) why.push("an INVISIBLE layer is taking the touch: " + m.ghosts.join("; "))
     if (m.touchAction === "none") why.push("touch-action none")
     m.userCanScroll = why.length === 0
     m.why = why
@@ -356,7 +421,96 @@ const DRIVE = `
     steps.push(touchDrag("a finger after TAPPING a section on the canvas"))
     steps.push(tryScroll("after tapping a section", 500))
 
-    // And selecting one from the list, which is the other way in.
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     *  EVERY CONTROL, ONE AT A TIME, WITH THE CANVAS CHECKED AFTER EACH
+     * ═══════════════════════════════════════════════════════════════════════
+     * Guessing which control freezes it has now been wrong twice. So this
+     * stops guessing: open a section's settings, then press everything in
+     * reach — every button, every field, every swatch — and after each one
+     * ask the only question that matters, whether a finger can still scroll
+     * the canvas. Whatever breaks it names itself.
+     */
+    async function sweep(where, root, budget) {
+      if (!root) { steps.push({ label: "no " + where + " to sweep" }); return }
+      var seen = {}
+      var controls = []
+      root.querySelectorAll("button, [role=button], [role=combobox], [role=tab], summary, input[type=color], input[type=checkbox], [data-swatch], select").forEach(function (c) {
+        if (!c.offsetParent && getComputedStyle(c).position !== "fixed") return
+        var name = (c.getAttribute("aria-label") || c.getAttribute("title") || c.textContent || c.tagName).trim().slice(0, 34) || c.tagName
+        if (seen[name]) return
+        /**
+         * Buttons that leave the editor are not freezes. "Back to Dashboard"
+         * covers the canvas because it is navigating away from it, which is
+         * the point of the button. Only the controls that stay on this screen
+         * are being asked whether they break it.
+         */
+        var low = name.toLowerCase()
+        if (low.indexOf("back to dashboard") === 0 || low.indexOf("theme settings") === 0 || low.indexOf("project settings") === 0 ||
+            low === "code" || low === "preview" || low === "publish" || low.indexOf("sections") === 0 || low.indexOf("pages") === 0 ||
+            low.indexOf("settings") === 0 || low.indexOf("open menu") === 0 || low === "back") return
+        seen[name] = 1
+        controls.push({ el: c, name: name })
+      })
+      steps.push({ label: where + ": " + controls.length + " controls to try" })
+      var names = controls.map(function (c) { return c.name })
+      var tried = 0
+      for (var i = 0; i < names.length && tried < budget; i++) {
+        /**
+         * FOUND AGAIN BY NAME EVERY TIME. Pressing one control re-renders the
+         * panel and every node cached before it is discarded, so a loop that
+         * holds element references tries exactly one thing and then silently
+         * skips the rest — which is what it did.
+         */
+        var want = names[i]
+        var c = null
+        root = phone ? document.querySelector("[data-mobile-bottom-sheet]") : document.querySelector("[data-wb-sidebar-scroll]")
+        if (!root) break
+        var live = root.querySelectorAll("button, [role=button], [role=combobox], [role=tab], summary, input[type=color], input[type=checkbox], [data-swatch], select")
+        for (var k = 0; k < live.length; k++) {
+          var n = (live[k].getAttribute("aria-label") || live[k].getAttribute("title") || live[k].textContent || live[k].tagName).trim().slice(0, 34)
+          if (n === want) { c = { el: live[k], name: want }; break }
+        }
+        if (!c) continue
+        tried++
+        tap(c.el)
+        await sleep(260)
+        escape()
+        await sleep(240)
+        var m = touchDrag(where + " → " + c.name)
+        if (!m.userCanScroll) { steps.push(m); steps.push({ label: "!! the canvas is dead after: " + c.name }) }
+      }
+      steps.push({ label: where + ": tried " + tried })
+    }
+
+    // Selecting a section the way a person does: the ROW, not the three dots.
+    var panelRoot = phone ? null : document.querySelector("[data-wb-sidebar-scroll]")
+    if (phone) { press("Sections"); await sleep(700); panelRoot = document.querySelector("[data-mobile-bottom-sheet]") }
+    /**
+     * A SECTION ROW, found by its own three-dot button rather than by
+     * guessing at markup: the row is the ancestor that holds both. Clicking
+     * the name is how a person selects it; the three dots are a different
+     * control, and pressing those was what the last round tested by mistake.
+     */
+    var rowButtons = []
+    if (panelRoot) {
+      panelRoot.querySelectorAll("button[aria-label^='Options for']").forEach(function (b) {
+        var row = b.parentElement
+        while (row && row !== panelRoot && !row.querySelector("span.flex-1")) row = row.parentElement
+        var label = row && row.querySelector("span.flex-1")
+        if (label) rowButtons.push(label)
+      })
+    }
+    steps.push({ label: "section rows found by their options button: " + rowButtons.length })
+    if (rowButtons.length > 2) {
+      tap(rowButtons[2]); await sleep(900)
+      steps.push(touchDrag("a finger after selecting a section ROW"))
+      // Whatever that opened, press everything inside it.
+      var opened = phone ? document.querySelector("[data-mobile-bottom-sheet]") : document.querySelector("[data-wb-sidebar-scroll]")
+      await sweep("section settings", opened, 22)
+    }
+
+    // And the three-dot menu, which was the last one.
     var rows = sectionRows()
     if (!rows.length && phone) { press("Sections"); await sleep(700); rows = sectionRows() }
     steps.push({ label: "section rows found: " + rows.length })
@@ -365,7 +519,12 @@ const DRIVE = `
       steps.push(touchDrag("a finger after selecting a section from the list"))
     }
     // Back out of whatever that opened, then try again.
-    escape(); await sleep(600)
+    /** Escape does not close a custom sheet; tapping its backdrop does. */
+    escape()
+    var back = document.querySelector("[data-mobile-bottom-sheet]")
+    var scrim = back && back.parentElement ? back.parentElement.querySelector("div.fixed.inset-0") : null
+    if (scrim) tap(scrim)
+    await sleep(800)
     steps.push(touchDrag("a finger after closing the section panel"))
     await sleep(2500)
     steps.push(touchDrag("and 3 seconds later, in case it was only animating out"))
@@ -454,8 +613,9 @@ for (const [w, h, label] of [[390, 844, "phone"], [1280, 900, "desktop"]]) {
     if (s.sections === undefined) { console.log(`  ${s.label}`); continue }
     const scrolled = s.askedFor !== undefined ? `  set ${s.askedFor} → ${s.scrollTop} ${s.took ? "OK" : "DID NOT TAKE"}` : ""
     console.log(`  ${s.label}: ${s.sections} sections, ${s.scrollHeight}/${s.clientHeight} (${s.canScroll ? "scrollable" : "NOT SCROLLABLE"}) overflow=${s.overflowY} box=${s.box}${scrolled}`)
+    if (s.backdrop) console.log(`      sheet backdrop: ${s.backdrop}`)
     if (s.touch) console.log(`      finger: ${s.touch.cancelled}/${s.touch.of} moves cancelled on ${s.touch.on}${s.touch.chain.length ? "  touch-action: " + s.touch.chain.join(", ") : ""}${s.touch.by && s.touch.by.length ? "\n      cancelled by: " + s.touch.by.join("\n                    ") : ""}`)
-    console.log(`      touch at centre lands on ${s.topAtCentre}${s.centreInsideScroller ? "" : "  ← OUTSIDE THE CANVAS"}${s.pointerEventsNoneOn ? "  pointer-events:none on " + s.pointerEventsNoneOn : ""}${s.coveredBy.length ? "\n      covered by: " + s.coveredBy.join("; ") : ""}${s.sheetOpen ? "  sheet OPEN" : ""}${s.scrollLocked ? "  body[data-scroll-locked]" : ""}${s.openLayers && s.openLayers.length ? "\n      open layers: " + s.openLayers.join(", ") : ""}${s.bodyPE !== "-" ? "  body.pointer-events=" + s.bodyPE : ""}`)
+    console.log(`      touch at centre lands on ${s.topAtCentre}${s.centreInsideScroller ? "" : "  ← OUTSIDE THE CANVAS"}${s.pointerEventsNoneOn ? "  pointer-events:none on " + s.pointerEventsNoneOn : ""}${s.coveredBy.length ? "\n      covered by: " + s.coveredBy.join("; ") : ""}${s.ghosts && s.ghosts.length ? "\n      INVISIBLE AND TAKING TOUCHES: " + s.ghosts.join("; ") : ""}${s.sheetOpen ? "  sheet OPEN" : ""}${s.scrollLocked ? "  body[data-scroll-locked]" : ""}${s.openLayers && s.openLayers.length ? "\n      open layers: " + s.openLayers.join(", ") : ""}${s.bodyPE !== "-" ? "  body.pointer-events=" + s.bodyPE : ""}`)
   }
 }
 
