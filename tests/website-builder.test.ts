@@ -519,7 +519,7 @@ section("Add Section is derived from the files, one card per preset")
   // The apex route is the creator page now and draws no sections; the
   // website is `<name>.storelib.com`, served by /w.
   const PUBLIC_ROUTES = [
-    ["app/products/[slug]/page.tsx", "product"],
+    ["components/website-builder/theme/render-product.tsx", "product"],
   ] as const
   for (const [route, template] of PUBLIC_ROUTES) {
     const src = read(route)
@@ -559,12 +559,20 @@ section("Add Section is derived from the files, one card per preset")
       e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name.endsWith(".tsx") ? [`${dir}/${e.name}`] : [],
     )
   }
+  /**
+   * Either function counts, because they are the same act: `renderWithSources`
+   * draws the sections from sources already in hand, and
+   * `prerenderStorelibSections` is that with a read for the sources first. A
+   * route that has the creator's files from the cache uses the first; a route
+   * that does not uses the second. A route that uses neither is the bug.
+   */
+  const drawsOnServer = (src: string) => /prerenderStorelibSections|renderWithSources/.test(src)
   const routesDrawingSections = [...new Set(["app/(marketing)", "app/products"].flatMap(walk))]
     .filter((f) => /<ThemePage/.test(read(f)))
   check(
     "and no other public route hands sections to ThemePage without it",
-    routesDrawingSections.every((f) => /prerenderStorelibSections/.test(read(f))),
-    routesDrawingSections.filter((f) => !/prerenderStorelibSections/.test(read(f))).join(", "),
+    routesDrawingSections.every((f) => drawsOnServer(read(f))),
+    routesDrawingSections.filter((f) => !drawsOnServer(read(f))).join(", "),
   )
 }
 

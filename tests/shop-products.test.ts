@@ -195,7 +195,7 @@ async function main() {
 
     check("the canvas is given products", /products=\{shopCards\}/.test(editor) && /products\?: RenderContext\["products"\]/.test(live))
     check("and builds them with the same function the site uses", /toCard\(\{/.test(editor) && /shopProducts\(/.test(site))
-    check("the published page passes them into the render", /renderWithSources\(found\.site\.sources, sections, found\.site\.themeSettings, template, products\)/.test(site))
+    check("the published page passes them into the render", /renderWithSources\(site\.sources, sections, site\.themeSettings, template, products\)/.test(site))
 
     /**
      * The shop is the part that actually moves. A price is edited from the

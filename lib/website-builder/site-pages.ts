@@ -28,6 +28,19 @@ export const RESERVED_PAGE_KEYS: ReadonlySet<string> = new Set([
   "cart",
   "search",
   "404",
+  /**
+   * And the addresses the platform answers on a creator's own host: the
+   * shop index, the API the site's own forms post to, and the flows that go
+   * to the apex because the session lives there. See PLATFORM_APEX_PATHS in
+   * proxy.ts. A page made under one of these names could never be reached,
+   * so it is refused when it is made rather than found missing later.
+   */
+  "products",
+  "api",
+  "checkout",
+  "purchase",
+  "receipt",
+  "access",
 ])
 
 /**

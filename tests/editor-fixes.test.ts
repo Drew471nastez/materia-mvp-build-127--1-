@@ -51,7 +51,7 @@ function main() {
     check("its metadata reads published settings only", /const settings: ThemeSettingsValues = settingsRow\.settings \?\? \{\}/.test(w) && !/settingsRow\.draft_settings/.test(w))
     check("the preview path draws the shop too", /shopProducts\(admin as never, creatorId\)/.test(w))
 
-    for (const f of ["app/(marketing)/w/[username]/render-site.tsx", "app/(marketing)/[sellername]/page.tsx", "app/products/[slug]/page.tsx"]) {
+    for (const f of ["app/(marketing)/w/[username]/render-site.tsx", "app/(marketing)/[sellername]/page.tsx", "components/website-builder/theme/render-product.tsx"]) {
       check(`${f.split("/").slice(-2, -1)[0]}: no "Coming Soon"`, !/Coming Soon/.test(read(f)))
     }
   }

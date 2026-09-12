@@ -104,7 +104,7 @@ function main() {
     check("the lookup takes the page being asked for", /export async function publishedSiteByName\(name: string, pageKey = "home"\)/.test(cache))
     check(
       "a page the site has not published is missing, not the home page under another name",
-      /const sections = found\.site\.pages\[pageKey\] \?\? \(pageKey === "home" \? found\.site\.sections : undefined\)/.test(cache) &&
+      /const sections = site\.pages\[pageKey\] \?\? \(pageKey === "home" \? site\.sections : undefined\)/.test(cache) &&
         /if \(!sections\) return \{ kind: "missing" \}/.test(cache),
     )
     check("and the template follows the page", /const template = templateForPage\(pageKey\)/.test(cache))
@@ -168,6 +168,94 @@ function main() {
 
     check("a delete that cannot be undone asks first", /confirming === p\.key/.test(switcher))
     check("and the way to ask is reachable on a phone, not only on hover", /sm:opacity-0 sm:group-hover\/row:opacity-100/.test(switcher))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("The site's own links lead somewhere")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const shop = read("app/(marketing)/w/[username]/products/page.tsx")
+    const productRoute = read("app/(marketing)/w/[username]/products/[slug]/page.tsx")
+    const productRenderer = read("components/website-builder/theme/render-product.tsx")
+    const shopPage = read("lib/website-builder/shop-page.ts")
+    const grid = read("themes/default/sections/product_grid.storelib")
+    const registry = read("lib/website-builder/theme-registry.ts")
+
+    /**
+     * Every product card, Product Featured and the header's link picker emit
+     * `/products/<slug>`; the themes ship "Shop" pointing at `/products`.
+     * Both were 404 on every published site, which is the whole path to a
+     * sale.
+     */
+    check("a product card still links the way it always did", /`\/products\/\$\{(slug|row\.slug|targetId)\}`/.test(read("lib/website-builder/shop-products.ts")))
+    check("and that address now has a route on the site", /export default async function SiteProductPage/.test(productRoute))
+    check(
+      "which draws it with the creator's theme, not a bare page",
+      /renderProduct\(slug, \{ creatorId: creator\.creatorId \}\)/.test(productRoute),
+    )
+    check(
+      "a product belonging to somebody else is not at this creator's address",
+      /if \(owner && product\.creator_id !== owner\.creatorId\) notFound\(\)/.test(productRenderer),
+    )
+    check("and the platform's own address draws the same page", /renderProduct\(slug\)/.test(read("app/products/[slug]/page.tsx")))
+
+    check("the Shop link the themes ship points at /products", /url: "\/products"/.test(registry))
+    check("and /products is a page now", /export default async function SiteShopPage/.test(shop))
+    check(
+      "built from the site's own header and footer, not a second design",
+      /const header = homeSections\.find\(\(s\) => s\.type === "header"\)/.test(shopPage) &&
+        /const footer = homeSections\.find\(\(s\) => s\.type === "footer"\)/.test(shopPage),
+    )
+    check(
+      "and one product grid reading the shop, which is a section that already exists",
+      /type: "product_grid"/.test(shopPage) && /source: "shop"/.test(shopPage) && /settings\.source == 'shop'/.test(grid),
+    )
+    check("it does not offer a button back to itself", /button_text: ""/.test(shopPage))
+    check("nothing is invented per request, so the same page renders the same twice", /const GRID_ID = "shop-all-products"/.test(shopPage))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("What on a site is not the site")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const site = proxy.slice(proxy.indexOf("if (bareHost.endsWith(`.${SITES_DOMAIN}`))"))
+
+    /**
+     * The newsletter section posts to /api/website-builder/subscribe. On a
+     * published site that was rewritten into /w and answered 404, so the form
+     * that says "you're subscribed" could not have been.
+     */
+    check(
+      "the site's own API calls are served on the site's host",
+      /if \(pathname === "\/api" \|\| pathname\.startsWith\("\/api\/"\)\) return NextResponse\.next\(\)/.test(site),
+    )
+    check(
+      "and a checkout goes to the apex, where the session is",
+      /PLATFORM_APEX_PATHS\.some/.test(site) && /status: 307/.test(site),
+    )
+    check("307, so a POST keeps its method and body", /\/\/ 307: the method and body survive/.test(proxy))
+    check(
+      "the list is short, because every other name is a page a creator may make",
+      (() => {
+        const list = /const PLATFORM_APEX_PATHS = \[([^\]]*)\]/.exec(proxy)?.[1] ?? ""
+        const paths = list.split(",").map((p) => p.trim().replace(/"/g, "")).filter(Boolean)
+        return paths.length <= 4 && paths.every((p) => RESERVED_PAGE_KEYS.has(p.slice(1)))
+      })(),
+      "every platform path must also be a reserved page key, or the editor can make a page nobody can reach",
+    )
+    check("and the shop index is reserved for the same reason", RESERVED_PAGE_KEYS.has("products") && RESERVED_PAGE_KEYS.has("api"))
+
+    /**
+     * A connected domain used to land on the creator's PROFILE, and threw
+     * the path away on the way: somebody who bought a domain for the site
+     * they built got the profile at it and their site only at the subdomain
+     * they were replacing.
+     */
+    check("a connected domain shows the website that was built", /rewritePath = `\/w\/\$\{username\}\$\{pathname === "\/" \|\| pathname === "" \? "" : pathname\}`/.test(proxy))
+    check("with the path kept, so About on a domain is About", /\$\{pathname === "\/" \|\| pathname === "" \? "" : pathname\}/.test(proxy))
+    check("a creator with no published website keeps the profile they had", /hasPublishedWebsite\(username\)/.test(proxy) && /rewritePath = `\/u\/\$\{username\}`/.test(proxy))
+    check("and an asset never pays for the two lookups", /const looksLikeFile = \/\\\.\[a-z0-9\]\{1,8\}\$\/i\.test\(pathname\)\s*\n\s*const builtSite/.test(proxy))
+    check("a lookup that fails reads as no website, which is the profile", /async function hasPublishedWebsite[\s\S]*?catch \{\s*return false/.test(proxy))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

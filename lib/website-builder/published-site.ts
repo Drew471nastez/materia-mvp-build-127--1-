@@ -41,7 +41,7 @@ import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { unstable_cache, revalidateTag } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
-import { shopProducts } from "@/lib/website-builder/shop-products"
+import { shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import { templateForPage } from "@/lib/website-builder/site-pages"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
@@ -149,6 +149,16 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
   return null
 }
 
+/**
+ * A name to the creator behind it, cached for a minute like the lookup
+ * above. The product page on a site needs only this: the address claims an
+ * owner and the product either belongs to them or does not.
+ */
+export async function creatorByName(name: string): Promise<NameMatch | null> {
+  const lower = name.toLowerCase()
+  return unstable_cache(() => lookUpName(lower), ["site-name", lower], { revalidate: NAME_TTL })()
+}
+
 /** Where a name that no longer exists went, if anywhere. */
 async function renamedTo(name: string): Promise<string | null> {
   const admin = createAdminClient()
@@ -244,6 +254,42 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
  * rather than quietly serving the home page under another address.
  */
 export async function publishedSiteByName(name: string, pageKey = "home"): Promise<SiteLookup> {
+  const found = await resolveSite(name)
+  if (found.kind !== "site") return found
+  const { site, products } = found
+
+  const sections = site.pages[pageKey] ?? (pageKey === "home" ? site.sections : undefined)
+  if (!sections) return { kind: "missing" }
+
+  // "index" for the front page, `page.<key>` for the rest: the name a
+  // section reads as `page.template` and writes `allowed_templates` against.
+  const template = templateForPage(pageKey)
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products)
+  return { kind: "site", site: { ...site, sections, prerendered } }
+}
+
+/**
+ * The same site and the same shop, handed back undrawn.
+ *
+ * The shop index (`/products`) is not a page in the database: it is the
+ * creator's header and footer around every product they sell, so it needs
+ * the pieces rather than a drawn page. Everything it uses is already cached
+ * by the lookup above, so this costs no extra round trips.
+ */
+export type ShopLookup =
+  | { kind: "site"; site: PublishedSite; products: ProductCard[] }
+  | Exclude<SiteLookup, { kind: "site" }>
+
+export async function publishedShopByName(name: string): Promise<ShopLookup> {
+  return resolveSite(name)
+}
+
+/**
+ * Name to creator to published site to shop, each layer cached as described
+ * at the top of this file. Everything that serves a built site goes through
+ * here, so a visitor pays for the lookup once however they arrived.
+ */
+async function resolveSite(name: string): Promise<ShopLookup> {
   const lower = name.toLowerCase()
 
   const match = await unstable_cache(
@@ -285,14 +331,7 @@ export async function publishedSiteByName(name: string, pageKey = "home"): Promi
     { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
   )()
 
-  const sections = found.site.pages[pageKey] ?? (pageKey === "home" ? found.site.sections : undefined)
-  if (!sections) return { kind: "missing" }
-
-  // "index" for the front page, `page.<key>` for the rest: the name a
-  // section reads as `page.template` and writes `allowed_templates` against.
-  const template = templateForPage(pageKey)
-  const prerendered = renderWithSources(found.site.sources, sections, found.site.themeSettings, template, products)
-  return { kind: "site", site: { ...found.site, sections, prerendered } }
+  return { kind: "site", site: found.site, products }
 }
 
 /**

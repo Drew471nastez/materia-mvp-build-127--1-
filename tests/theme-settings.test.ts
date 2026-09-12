@@ -75,7 +75,7 @@ const CONSUMERS = [
   "components/website-builder/sections/renderers/FooterSection.tsx",
   "app/(marketing)/w/[username]/render-site.tsx",
   "app/(marketing)/[sellername]/page.tsx",
-  "app/products/[slug]/page.tsx",
+  "components/website-builder/theme/render-product.tsx",
 ]
 const consumed = CONSUMERS.map((f) => stripComments(readFileSync(join(root, f), "utf8"))).join("\n")
 
@@ -243,7 +243,7 @@ section("One page, four surfaces")
   const surfaces = [
     "app/website-builder/editor/[installId]/page.tsx",
     "app/(marketing)/w/[username]/render-site.tsx",
-    "app/products/[slug]/page.tsx",
+    "components/website-builder/theme/render-product.tsx",
   ]
   const sources = surfaces.map((f) => [f, readFileSync(join(root, f), "utf8")] as const)
 

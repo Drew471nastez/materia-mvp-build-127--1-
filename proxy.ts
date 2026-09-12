@@ -24,6 +24,13 @@ const SITES_DOMAIN = process.env.NEXT_PUBLIC_SITES_HOST || MAIN_DOMAIN
 // Domains that should NOT be treated as seller subdomains
 const EXCLUDED_SUBDOMAINS = ["www", "app", "api", "admin", "dashboard", "localhost"]
 
+/**
+ * Platform flows that belong to the apex, wherever they are asked for. These
+ * need the session, and the session is host-only on storelib.com, so a
+ * checkout begun on a creator's own address is sent home to finish.
+ */
+const PLATFORM_APEX_PATHS = ["/checkout", "/purchase", "/receipt", "/access"]
+
 // Reserved paths that should not be rewritten on subdomains
 const RESERVED_PATHS = [
   "/api",
@@ -158,6 +165,54 @@ async function hasLiveAiSite(slug: string): Promise<boolean> {
       .eq("slug", slug.toLowerCase())
       .maybeSingle()
     return !!(data as { storage_prefix: string | null } | null)?.storage_prefix
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Has this creator published a website in the builder?
+ *
+ * Only a connected custom domain asks: the subdomain decides the same
+ * question the other way round (anything that is not a live AI site is the
+ * website, because an unpublished one already has a good answer at the
+ * creator page). A domain cannot fall through like that — it has no creator
+ * page of its own to fall back to unless it is told to — so it asks.
+ *
+ * A failed lookup reads as "no website", which lands on the profile, which
+ * is where the domain pointed yesterday.
+ */
+async function hasPublishedWebsite(username: string): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseKey) return false
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey)
+    const lower = username.toLowerCase()
+
+    // The name is a profile username or a creator slug, the same two places
+    // lib/website-builder/published-site.ts looks.
+    const { data: profile } = await supabase.from("profiles").select("id").eq("username", lower).maybeSingle()
+    let creatorId: string | null = null
+    if (profile) {
+      const { data: creator } = await supabase
+        .from("creators").select("id").eq("user_id", (profile as { id: string }).id).maybeSingle()
+      creatorId = (creator as { id: string } | null)?.id ?? null
+    }
+    if (!creatorId) {
+      const { data: creator } = await supabase.from("creators").select("id").eq("slug", lower).maybeSingle()
+      creatorId = (creator as { id: string } | null)?.id ?? null
+    }
+    if (!creatorId) return false
+
+    const { data: install } = await supabase
+      .from("store_theme_installs")
+      .select("id")
+      .eq("creator_id", creatorId)
+      .eq("status", "published")
+      .limit(1)
+      .maybeSingle()
+    return Boolean(install)
   } catch {
     return false
   }
@@ -524,6 +579,39 @@ export async function proxy(request: NextRequest) {
        * asset and goes straight to /site as before; a website-builder site's
        * own assets are Next's, under reserved paths, and never come here.
        */
+      /**
+       * ═══════════════════════════════════════════════════════════════════════
+       *  WHAT ON A SITE IS NOT THE SITE
+       * ═══════════════════════════════════════════════════════════════════════
+       * Everything under this host was treated as a page of the creator's
+       * website, which is wrong for two kinds of path and broke both:
+       *
+       *   /api/…       the site's own forms post here. The newsletter
+       *                section posts to /api/website-builder/subscribe, and
+       *                on a published site that was rewritten to
+       *                /w/<name>/api/… and answered 404 — so the form that
+       *                says "you're subscribed" could not have been.
+       *                Served here, on this host, like any other API call.
+       *
+       *   /checkout…   the Buy button goes to /checkout?productId=…, and a
+       *                purchase needs the session, which is host-only and
+       *                lives on the apex. Sent there rather than rendered on
+       *                a host where the visitor is a stranger.
+       *
+       * Both lists are short and unambiguous on purpose: every other name is
+       * a page a creator may make, and taking "pricing" or "library" away
+       * from them to reserve it for the platform is a worse trade than the
+       * collision it avoids.
+       */
+      if (pathname === "/api" || pathname.startsWith("/api/")) return NextResponse.next()
+      if (PLATFORM_APEX_PATHS.some((r) => pathname === r || pathname.startsWith(`${r}/`))) {
+        const apex = new URL(`https://${MAIN_DOMAIN}`)
+        apex.pathname = pathname
+        apex.search = search
+        // 307: the method and body survive, which a POST to checkout needs.
+        return NextResponse.redirect(apex, { status: 307 })
+      }
+
       const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname)
       const isWebsite = !looksLikeFile && !(await hasLiveAiSite(subdomain))
       url.pathname = isWebsite
@@ -735,10 +823,34 @@ export async function proxy(request: NextRequest) {
 
     let rewritePath: string
 
+    /**
+     * ═════════════════════════════════════════════════════════════════════════
+     *  A CONNECTED DOMAIN SHOWS THE SITE THEY BUILT
+     * ═════════════════════════════════════════════════════════════════════════
+     * Only custom domains reach this code now; a storelib.com subdomain is
+     * answered above. And every one of them landed on `/u/{username}`, the
+     * creator's PROFILE — so somebody who bought a domain, pointed it at
+     * Storelib and built a website got the profile page at it, and their
+     * website only at the subdomain they were trying to replace. Every path
+     * but `/` and `/p/…` was thrown away too, so an About page on a connected
+     * domain was the home page.
+     *
+     * A connected domain is a replacement for the subdomain, so it answers
+     * with the same thing the subdomain answers with: the published website,
+     * path and all. A creator with no published website keeps the profile
+     * exactly as before, so nothing changes for anybody who has not built one.
+     */
+    // Pages only, like the subdomain branch: an asset request must not cost
+    // two database lookups, and a site's assets are Next's own anyway.
+    const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname)
+    const builtSite = !looksLikeFile && !(await hasLiveAiSite(username)) && (await hasPublishedWebsite(username))
+
     if (pathname === "/links" || pathname === "/links/") {
       // username.storelib.com/links -> /l/{username}
       // The username is passed as the slug parameter
       rewritePath = `/l/${username}`
+    } else if (builtSite) {
+      rewritePath = `/w/${username}${pathname === "/" || pathname === "" ? "" : pathname}`
     } else if (pathname === "/" || pathname === "") {
       // username.storelib.com -> /u/{username}
       rewritePath = `/u/${username}`

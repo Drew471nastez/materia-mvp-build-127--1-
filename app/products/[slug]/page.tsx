@@ -1,13 +1,5 @@
-import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
-import { notFound } from "next/navigation"
 import type { Metadata } from "next"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
-import { ThemePage } from "@/components/website-builder/theme/ThemePage"
-import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
-import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
-import { pageSections } from "@/lib/website-builder/preview-link"
-import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import { productMetadata, renderProduct } from "@/components/website-builder/theme/render-product"
 
 export const dynamic = "force-dynamic"
 
@@ -15,190 +7,17 @@ interface PageProps {
   params: Promise<{ slug: string }>
 }
 
-type ProductRow = {
-  id: string
-  title: string | null
-  description: string | null
-  price_cents: number | null
-  compare_at_cents: number | null
-  thumbnail_url: string | null
-  gallery_urls: string[] | null
-  whats_included: string[] | null
-  slug: string | null
-  status: string | null
-  creator_id: string | null
-}
-
-async function fetchProductBySlug(slug: string): Promise<ProductRow | null> {
-  const supabase = await createClient()
-
-  // Try current slug first
-  const { data } = await supabase
-    .from("products")
-    .select("id, title, description, price_cents, compare_at_cents, thumbnail_url, gallery_urls, whats_included, slug, status, creator_id")
-    .eq("slug", slug)
-    .eq("status", "published")
-    .maybeSingle()
-
-  if (data) return data as ProductRow
-
-  // Fall back to renamed slugs
-  const { data: history } = await supabase
-    .from("product_slug_history")
-    .select(`
-      product_id,
-      products!inner (
-        id, title, description, price_cents, compare_at_cents,
-        thumbnail_url, gallery_urls, whats_included, slug, status, creator_id
-      )
-    `)
-    .eq("old_slug", slug)
-    .maybeSingle()
-
-  const p: any = history?.products
-  if (p && p.status === "published") return p as ProductRow
-  return null
-}
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
-  const product = await fetchProductBySlug(slug)
-  if (!product) return { title: "Product Not Found" }
-
-  const ogImage = (product.gallery_urls?.[0]) || product.thumbnail_url || undefined
-  return {
-    title: product.title ?? "Product",
-    description: product.description ?? undefined,
-    openGraph: {
-      title: product.title ?? "Product",
-      description: product.description ?? undefined,
-      ...(ogImage && { images: [{ url: ogImage }] }),
-    },
-  }
+  return productMetadata(slug)
 }
 
-export default async function WebsiteBuilderProductPage({ params }: PageProps) {
+/**
+ * The platform's own address for a product: `storelib.com/products/<slug>`.
+ * The same page on the creator's site is app/(marketing)/w/[username]/
+ * products/[slug], and both draw it with the creator's theme.
+ */
+export default async function ProductPage({ params }: PageProps) {
   const { slug } = await params
-  const product = await fetchProductBySlug(slug)
-  if (!product || !product.creator_id) notFound()
-
-  const admin = createAdminClient()
-
-  // Fetch the creator's published website-builder install
-  const { data: install } = await admin
-    .from("store_theme_installs")
-    .select(`
-      id,
-      store_theme_settings ( settings, draft_settings )
-    `)
-    .eq("creator_id", product.creator_id)
-    .eq("status", "published")
-    .order("sort_order", { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  // If the creator has no published website yet, fall back to notFound so
-  // Storelib doesn't leak an un-styled bare product. The marketplace page at
-  // /p/[slug] is still available for the discovery flow.
-  if (!install) notFound()
-
-  const themeSettings: ThemeSettingsValues =
-    (install as any).store_theme_settings?.[0]?.settings ??
-    (install as any).store_theme_settings?.settings ??
-    {}
-
-  // Fetch product-page AND home-page sections in parallel. Home is the
-  // source of truth for header/footer on every page of the live site.
-  const [{ data: pageData }, { data: homeData }] = await Promise.all([
-    admin
-      .from("store_theme_pages")
-      .select("sections, draft_sections")
-      .eq("install_id", install.id)
-      .eq("page_key", "product")
-      .maybeSingle(),
-    admin
-      .from("store_theme_pages")
-      .select("sections, draft_sections")
-      .eq("install_id", install.id)
-      .eq("page_key", "home")
-      .maybeSingle(),
-  ])
-
-  /**
-   * PUBLISHED ONLY. Both of them: the product page's own sections, and the
-   * home page whose header and footer this page borrows. Falling back to the
-   * drafts meant a product page edited but not published was already live,
-   * and so was a header being worked on.
-   */
-  /**
-   * And again on the way out. The database already holds rich text saved
-   * before anything sanitised it, and rows can arrive from an import. The
-   * save path is the authority; this is what covers what is already there.
-   */
-  const rawSections: SectionInstance[] = sanitizeSections(pageSections<SectionInstance[]>(pageData, false) ?? [])
-  const homeSections: SectionInstance[] = sanitizeSections(pageSections<SectionInstance[]>(homeData, false) ?? [])
-
-  const homeHeader = homeSections.find(s => s.type === "header")
-  const homeFooter = homeSections.find(s => s.type === "footer")
-
-  // Inject the real product data into every product-type section so the
-  // editor-preview code path ("_product_data" on settings) renders the
-  // actual product on the live storefront.
-  const productData = {
-    id: product.id,
-    title: product.title ?? "",
-    description: product.description ?? "",
-    price_cents: product.price_cents ?? 0,
-    compare_at_cents: product.compare_at_cents,
-    thumbnail_url: product.thumbnail_url ?? "",
-    gallery_urls: product.gallery_urls ?? [],
-    whats_included: product.whats_included ?? [],
-    files: [] as { file_name: string; file_size: number; mime_type: string }[],
-    slug: product.slug ?? slug,
-  }
-
-  const sections: SectionInstance[] = rawSections.map(s =>
-    s.type === "product"
-      ? { ...s, settings: { ...s.settings, _product_data: productData } }
-      : s
-  )
-
-  /**
-   * The product page borrows the HOME page's header and footer when it has
-   * none of its own, so a store's chrome is its chrome on every page. Composed
-   * here, where that rule lives, and handed to the same page component the
-   * storefront uses — which is what stops this route drifting from the others
-   * the way all four had.
-   */
-  const header = homeHeader ?? sections.find((s) => s.type === "header")
-  const footer = homeFooter ?? sections.find((s) => s.type === "footer")
-  const page = [
-    ...(header ? [header] : []),
-    ...sections.filter((s) => s.type !== "header" && s.type !== "footer"),
-    ...(footer ? [footer] : []),
-  ]
-
-  /**
-   * Rendered here, on the server, once — and as "product", not "index".
-   * A section reads that as `page.template` and `allowed_templates` is
-   * written against it, so the wrong word here hides the right sections.
-   */
-  const prerendered = await prerenderStorelibSections(
-    admin as never,
-    install.id,
-    page,
-    themeSettings,
-    "product",
-  )
-
-  return (
-    <StorelibSourcesProvider prerendered={prerendered} page={{ template: "product" }}>
-      <ThemePage
-        theme={themeSettings}
-        sections={page}
-        storefront={{ creatorId: product.creator_id ?? undefined }}
-        className="min-h-screen"
-      />
-    </StorelibSourcesProvider>
-  )
+  return renderProduct(slug)
 }
