@@ -279,7 +279,7 @@ section("The editor")
   check("four rungs: revive, rebuild everything, remount, reload", (() => {
     const two = code.indexOf("if (step >= 2) {")
     const three = code.indexOf("if (step === 3) {")
-    const four = code.indexOf("if (step >= 4) {")
+    const four = code.indexOf("if (step >= 4 && lastTouch.current.trusted) {")
     const bundle = code.slice(two, three)
     return two > 0 && three > two && four > three
       && bundle.includes("rebuildScroller(el,") && bundle.includes('resyncFixedLayers(document.querySelectorAll<HTMLElement>("[data-mobile-bottom-sheet], [data-wb-sheet-overlay]"))') && bundle.includes("dropOverscrollContain(el)") && bundle.includes("flashRootTouchAction([document.documentElement, document.body],") && bundle.includes("window.getSelection()?.removeAllRanges()")
