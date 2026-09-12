@@ -208,7 +208,7 @@
           "value": "right"
         }
       ],
-      "info": "Used by the default \u201cLogo left, nav right\u201d layout."
+      "info": "Used by the default “Logo left, nav right” layout."
     },
     {
       "id": "mobile_header_layout",
@@ -217,11 +217,11 @@
       "default": "logo_center_hamburger_left",
       "options": [
         {
-          "label": "Logo centered \u00b7 Hamburger left",
+          "label": "Logo centered · Hamburger left",
           "value": "logo_center_hamburger_left"
         },
         {
-          "label": "Hamburger left \u00b7 Logo left",
+          "label": "Hamburger left · Logo left",
           "value": "hamburger_left_logo_left"
         }
       ]
@@ -288,7 +288,7 @@
       "label": "Sticky on scroll up",
       "type": "toggle",
       "default": false,
-      "info": "Only reveal the sticky header when scrolling up \u2014 hides on scroll down."
+      "info": "Only reveal the sticky header when scrolling up. It hides on the way down."
     },
     {
       "id": "header_transparent",
@@ -422,12 +422,6 @@
       "type": "header"
     },
     {
-      "id": "show_search",
-      "label": "Show search icon",
-      "type": "toggle",
-      "default": true
-    },
-    {
       "id": "show_account_icon",
       "label": "Show account icon",
       "type": "toggle",
@@ -436,12 +430,6 @@
     {
       "id": "show_wishlist_icon",
       "label": "Show wishlist icon",
-      "type": "toggle",
-      "default": true
-    },
-    {
-      "id": "show_cart",
-      "label": "Show cart icon",
       "type": "toggle",
       "default": true
     },
@@ -514,10 +502,6 @@
             {
               "label": "A product",
               "value": "product"
-            },
-            {
-              "label": "A collection",
-              "value": "collection"
             },
             {
               "label": "The blog",

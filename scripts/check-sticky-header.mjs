@@ -66,7 +66,13 @@ async function run() {
   r.headerStartsBelowBar = Math.abs(h.top - b.bottom) < 2
   r.transform = getComputedStyle(header).transform
   r.willChange = getComputedStyle(header).willChange
-  const next = header.nextElementSibling
+  // The section after the header, whatever the header is wrapped in: it sits
+  // inside a wrapper of its own, so its own nextElementSibling is null and
+  // every measurement below threw. That is why this reported nothing at all
+  // rather than reporting a failure.
+  let box = header
+  while (box && !box.nextElementSibling) box = box.parentElement
+  const next = box && box.nextElementSibling
   r.overlapsNext = Math.round(next.getBoundingClientRect().top) < Math.round(h.bottom) - 2
   r.noEmptyBandBelow = Math.abs(next.getBoundingClientRect().top - h.bottom) < 2
   window.scrollTo(0, 700)

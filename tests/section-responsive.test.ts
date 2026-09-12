@@ -2095,9 +2095,33 @@ check(
    * site being built. Home took people out of the builder.
    */
   // Four doors: the nav link, its submenu, the CTA, and the phone menu.
+  // The fifth was the cart, which is gone: there was never a cart behind it.
   !/if \(isEditing\) \{\s*e\.preventDefault\(\)/.test(headerRenderer) &&
-    (headerRenderer.match(/if \(onEditorNavigate\) \{\s*e\.preventDefault\(\)\s*e\.stopPropagation\(\)\s*onEditorNavigate\(/g) ?? []).length === 4 &&
-    /if \(onEditorNavigate\) onEditorNavigate\("\/cart"\)/.test(headerRenderer),
+    (headerRenderer.match(/if \(onEditorNavigate\) \{\s*e\.preventDefault\(\)\s*e\.stopPropagation\(\)\s*onEditorNavigate\(/g) ?? []).length === 4,
+)
+
+check(
+  "and the account and wishlist links do not navigate the builder either",
+  /**
+   * They are real anchors now, to the platform, so in the editor they would
+   * take the creator out of the builder. The canvas cannot intercept them
+   * the way it does a nav link, because these leave the site entirely.
+   */
+  /**
+   * Four: account and wishlist in the icon row, and the two wishlist slots in
+   * the phone drawer. Log In is the fifth link out of the site and closes the
+   * drawer instead of returning undefined.
+   */
+  (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : undefined\}/g) ?? []).length === 4 &&
+    /onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : \(\) => onClose\(\)\}/.test(headerRenderer),
+)
+
+check(
+  "there is no cart icon, because there is no cart",
+  !/aria-label="Open cart"/.test(headerRenderer) &&
+    !/HeaderCartDrawer/.test(headerRenderer) &&
+    // The code, not the paragraph explaining what it replaced.
+    !/\/cart/.test(headerRenderer.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1")),
 )
 
 check(

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronDown, ExternalLink, FileText, Link2, Package, Search, Store } from "lucide-react"
+import { ChevronDown, ExternalLink, FileText, Link2, Package, Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { FieldPopover, FIELD_TRIGGER } from "@/components/website-builder/field-popover"
@@ -16,7 +16,7 @@ import { FieldPopover, FIELD_TRIGGER } from "@/components/website-builder/field-
  * written down anywhere the person filling the field can see. The result is
  * either a guess or a "#".
  *
- * The site's own pages, its products and its collections are listed here,
+ * The site's own pages and its products are listed here,
  * because the editor already has all three: it loads them for the page
  * browser. Anything else is still typeable, and an address that is not one of
  * these is shown as what it is rather than silently not matching.
@@ -26,7 +26,7 @@ export interface LinkTarget {
   /** What goes in the field. */
   href: string
   label: string
-  kind: "page" | "product" | "collection"
+  kind: "page" | "product"
 }
 
 export function LinkPicker({
@@ -57,7 +57,6 @@ export function LinkPicker({
   const groups: { kind: LinkTarget["kind"]; label: string; icon: React.ReactNode }[] = [
     { kind: "page", label: "Pages", icon: <FileText className="h-3.5 w-3.5" strokeWidth={1.75} /> },
     { kind: "product", label: "Products", icon: <Package className="h-3.5 w-3.5" strokeWidth={1.75} /> },
-    { kind: "collection", label: "Collections", icon: <Store className="h-3.5 w-3.5" strokeWidth={1.75} /> },
   ]
 
   const pick = (href: string) => {
@@ -161,7 +160,7 @@ export function LinkPicker({
 }
 
 /**
- * The site's own pages, products and collections, supplied once by the editor
+ * The site's own pages and products, supplied once by the editor
  * and read by every link field.
  *
  * A context rather than a prop threaded through eight call sites and two

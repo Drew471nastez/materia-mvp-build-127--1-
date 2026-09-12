@@ -27,7 +27,7 @@
  * `componentDidCatch` and `getDerivedStateFromError` exist on classes only.
  * This is that, and nothing else.
  */
-import { Component, type ReactNode } from "react"
+import { Component, Fragment, type ReactNode } from "react"
 
 interface Props {
   children: ReactNode
@@ -77,7 +77,19 @@ export class SectionErrorBoundary extends Component<Props, State> {
 
   render() {
     const { error } = this.state
-    if (!error) return <div key={this.state.attempt}>{this.props.children}</div>
+    /**
+     * A FRAGMENT, NOT A DIV, AND IT MATTERS MORE THAN IT LOOKS.
+     *
+     * The `key` is what makes "Try again" remount the section, and it needs
+     * no element to sit on. The `<div>` it used to sit on was one extra box
+     * around EVERY section, and around the header it was fatal: the header's
+     * own wrapper is `position: sticky`, and a sticky element can only travel
+     * inside its parent. Wrapped in a div exactly its own height, it had
+     * nowhere to go, so a sticky header scrolled away with the page on every
+     * published site. Measured by scripts/check-sticky-header.mjs, which said
+     * the header pinned at -592px.
+     */
+    if (!error) return <Fragment key={this.state.attempt}>{this.props.children}</Fragment>
 
     // A visitor gets a gap, not an outage and not a stack trace.
     if (!this.props.isEditing) return null

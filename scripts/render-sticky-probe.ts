@@ -1,7 +1,7 @@
 /** Emits a page with an announcement bar, a sticky header and a tall hero. */
 import { renderToStaticMarkup } from "react-dom/server"
 import { createElement } from "react"
-import { readFileSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
@@ -23,10 +23,28 @@ const theme = {
   announcement_bar_text: "Walk-ins welcome",
 } as ThemeSettingsValues
 
+/**
+ * A shipped section's defaults, from whichever kind of file defines it.
+ *
+ * This read `${type}.json` and nothing else, so the day the hero became
+ * `hero.storelib` the probe stopped running at all: ENOENT before a single
+ * measurement, on a check nobody was watching. A `.storelib` file keeps the
+ * same shape in its `<schema>` block, under `settings` rather than `fields`.
+ */
 function shipped(type: string, extra: Record<string, unknown> = {}): SectionInstance {
-  const schema = JSON.parse(readFileSync(join(root, `themes/default/sections/${type}.json`), "utf8"))
+  const json = join(root, `themes/default/sections/${type}.json`)
+  const storelib = join(root, `themes/default/sections/${type}.storelib`)
+  let schema: { fields?: { id: string; default?: unknown }[]; settings?: { id: string; default?: unknown }[]; presets?: { settings?: Record<string, unknown>; blocks?: unknown[] }[] }
+  if (existsSync(json)) {
+    schema = JSON.parse(readFileSync(json, "utf8"))
+  } else {
+    const src = readFileSync(storelib, "utf8")
+    const block = /<schema>\s*([\s\S]*?)\s*<\/schema>/.exec(src)
+    if (!block) throw new Error(`${type}.storelib has no <schema>`)
+    schema = JSON.parse(block[1])
+  }
   const settings: Record<string, unknown> = {}
-  for (const f of schema.fields ?? []) if (f.default !== undefined) settings[f.id] = f.default
+  for (const f of schema.fields ?? schema.settings ?? []) if (f.default !== undefined) settings[f.id] = f.default
   Object.assign(settings, schema.presets?.[0]?.settings ?? {}, extra)
   const blocks = (schema.presets?.[0]?.blocks ?? []).map((b: any, i: number) => ({
     id: `${type}-b${i}`,
@@ -71,7 +89,14 @@ for (const [name, overrides] of CASES) {
       theme,
       sections: [
         shipped("header", overrides),
-        shipped("hero"),
+        /**
+         * A tall body, so there is something to scroll under the header.
+         * This was `hero`, which became hero.storelib — and a .storelib
+         * section draws nothing without its sources, so the page came out
+         * short and no measurement ever arrived. These two are React
+         * renderers and render on their own.
+         */
+        shipped("gallery"),
         shipped("feature_grid"),
         shipped("footer"),
       ],

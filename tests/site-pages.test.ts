@@ -303,6 +303,69 @@ function main() {
     check("there is no second not-found under the site routes to compete with it", !existsSync(join(process.cwd(), "app/(site)/w/[username]/not-found.tsx")))
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  section("Nothing in the header points at a page that does not exist")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
+    const code = header.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1")
+    const headerSchema = read("themes/default/sections/header.json")
+    const themeSettings = read("lib/website-builder/theme-settings-schema.ts")
+    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+
+    /**
+     * FOUR ICONS, AND THREE OF THEM DID NOTHING. Search, Account and
+     * Wishlist were buttons whose entire behaviour was `preventDefault()`;
+     * the cart opened a drawer that could only say it was empty, or went to
+     * /cart, which is not a route in this product.
+     */
+    check("the cart is gone, and so is the drawer behind it", !/aria-label="Open cart"/.test(code) && !/HeaderCartDrawer/.test(code) && !/\/cart/.test(code))
+    check("and its settings went with it", !/show_cart/.test(headerSchema) && !/cart_type|cart_show_count|cart_show_subtotal/.test(themeSettings))
+    check("search is gone, because there is nothing to search", !/aria-label="Search"/.test(code) && !/show_search/.test(headerSchema))
+    check(
+      "account and wishlist are links to the platform pages that exist",
+      /href=\{`https:\/\/\$\{getMainDomain\(\)\}\/library`\}/.test(code) &&
+        /href=\{`https:\/\/\$\{getMainDomain\(\)\}\/wishlist`\}/.test(code),
+    )
+    check("no icon in the header is a button that only prevents its own default", !/onClick=\{e => e\.preventDefault\(\)\}/.test(code))
+    check("and Log In goes to the platform, where the session is", /href=\{`https:\/\/\$\{getMainDomain\(\)\}\/login`\}/.test(code))
+    check("with no invented count beside any of them", !/leading-none flex items-center justify-center">\s*0\s*</.test(code))
+
+    /**
+     * COLLECTIONS DO NOT EXIST. The link picker had a group fed by
+     * `/api/collections`, which is not a route, and the nav link offered
+     * "Collection" pointing at /collections/<id>, which is not one either.
+     */
+    check("a nav link cannot be pointed at a collection", !/collections\//.test(code) && !/"value": "collection"/.test(headerSchema))
+    check("and the editor no longer fetches a list that cannot answer", !/api\/collections/.test(editor.replace(/\/\*[\s\S]*?\*\//g, " ")))
+    check("the shop link in the picker is the address the shop is at", /\{ href: "\/products", label: "Shop", kind: "page" \}/.test(editor))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A preview shows the shop and a product, like the rest of the site")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const shop = read("app/(site)/w/[username]/preview/[token]/products/page.tsx")
+    const product = read("app/(site)/w/[username]/preview/[token]/products/[slug]/page.tsx")
+    const renderer = read("components/website-builder/theme/render-product.tsx")
+
+    check("the preview has a shop index", /export default async function PreviewShopPage/.test(shop))
+    check("and a product page", /export default async function PreviewProductPage/.test(product))
+    check("both refuse anything that is not token-shaped", /if \(!clean\) notFound\(\)/.test(shop) && /if \(!clean\) notFound\(\)/.test(product))
+    check("neither is indexed", /robots: \{ index: false, follow: false \}/.test(shop) && /robots: \{ index: false, follow: false \}/.test(product))
+    check("neither is cached", /export const dynamic = "force-dynamic"/.test(shop) && /export const dynamic = "force-dynamic"/.test(product))
+    check(
+      "the product page draws the drafts only for a token that matches",
+      /const preview = previewToken \? mayPreview\(/.test(renderer) &&
+        /pageSections<SectionInstance\[\]>\(pageData, preview\)/.test(renderer),
+    )
+    check(
+      "and a public request still gets the published version",
+      /export async function renderProduct\(\s*slug: string,\s*owner\?: \{ creatorId: string \},/.test(renderer) &&
+        /renderProduct\(slug\)/.test(read("app/products/[slug]/page.tsx")),
+    )
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }

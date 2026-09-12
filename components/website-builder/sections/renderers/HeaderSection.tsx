@@ -3,7 +3,7 @@
 // ============================================================
 // Storelib Theme Engine — HeaderSection
 // Extracted from SectionRenderer.tsx (Stage 2 refactor).
-// Contains: HeaderCartDrawer, MobileNavItem type,
+// Contains: MobileNavItem type,
 // HeaderMobileNavDrawer, MobileDrawerInner, HeaderSection.
 // These are tightly coupled — the drawers are only used by
 // HeaderSection — so they all live in this file together.
@@ -12,12 +12,13 @@
 
 import {
   ChevronDown, ChevronLeft, ChevronRight,
-  Heart, Menu, Search, ShoppingBag, User, X,
+  Heart, Menu, User, X,
 } from "lucide-react"
 import { useState, useEffect, useRef, useLayoutEffect, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
 import { ThemeSocials } from "../../theme/ThemeSocials"
 import { cn } from "@/lib/utils"
+import { getMainDomain } from "@/lib/url-helpers"
 import type { ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
 import {
   type SectionProps,
@@ -31,78 +32,6 @@ import {
 
 // ── Header color schemes ─────────────────────────────────────
 type HeaderColorScheme = ColorSchemeKey
-
-function HeaderCartDrawer({
-  open,
-  onClose,
-  scheme,
-}: {
-  open: boolean
-  onClose: () => void
-  scheme: HeaderColorScheme
-}) {
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
-    window.addEventListener("keydown", onKey)
-    return () => {
-      document.body.style.overflow = prev
-      window.removeEventListener("keydown", onKey)
-    }
-  }, [open, onClose])
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        aria-hidden
-        onClick={onClose}
-        className="fixed inset-0 z-[90] bg-black/40 transition-opacity duration-300"
-        style={{ opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none" }}
-      />
-      {/* Drawer */}
-      <aside
-        role="dialog"
-        aria-label="Cart"
-        className="fixed top-0 right-0 z-[95] h-full w-full sm:w-[420px] max-w-[92vw] bg-white shadow-2xl flex flex-col"
-        style={{
-          transform: open ? "translateX(0)" : "translateX(100%)",
-          transition: "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)",
-        }}
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-[15px] font-semibold text-gray-900">Your cart</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close cart"
-            className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-700 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 text-center">
-          <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-            <ShoppingBag className="h-7 w-7 text-gray-400" strokeWidth={1.5} />
-          </div>
-          <p className="text-[15px] font-medium text-gray-900">Your cart is empty</p>
-          <p className="text-[13px] text-gray-500 mt-1">Browse the shop to add something.</p>
-        </div>
-        <div className="border-t border-gray-100 p-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full h-11 rounded-lg bg-gray-900 text-white text-[14px] font-semibold hover:bg-gray-800 transition-colors"
-          >
-            Continue shopping
-          </button>
-        </div>
-      </aside>
-    </>
-  )
-}
 
 type MobileNavItem = {
   id: string
@@ -121,7 +50,6 @@ function HeaderMobileNavDrawer({
   onEditorNavigate,
   showAccount,
   showWishlist,
-  showCart,
 }: {
   open: boolean
   onClose: () => void
@@ -131,7 +59,6 @@ function HeaderMobileNavDrawer({
   onEditorNavigate?: (href: string) => void
   showAccount?: boolean
   showWishlist?: boolean
-  showCart?: boolean
 }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
@@ -189,7 +116,6 @@ function HeaderMobileNavDrawer({
       backdropTransition={backdropTransition}
       showAccount={!!showAccount}
       showWishlist={!!showWishlist}
-      showCart={!!showCart}
     />
   )
 
@@ -211,7 +137,6 @@ function MobileDrawerInner({
   backdropTransition,
   showAccount,
   showWishlist,
-  showCart,
 }: {
   open: boolean
   onClose: () => void
@@ -224,7 +149,6 @@ function MobileDrawerInner({
   backdropTransition: string
   showAccount: boolean
   showWishlist: boolean
-  showCart: boolean
 }) {
   // Active submenu id — null means we're on the ROOT menu. When an item
   // with children is tapped this flips to that item's id and the drawer
@@ -430,9 +354,15 @@ function MobileDrawerInner({
           >
             {/* LEFT slot */}
             {showAccount ? (
+              /**
+               * `/login` was relative, which on a creator's own address is a
+               * page of their site rather than Storelib's sign-in: it was
+               * rewritten to /w/<name>/login and answered 404. The session
+               * lives on the platform, so the link does too.
+               */
               <a
-                href="/login"
-                onClick={handleLinkClick("/login")}
+                href={`https://${getMainDomain()}/login`}
+                onClick={onEditorNavigate ? (e) => e.preventDefault() : () => onClose()}
                 className="flex items-center gap-2 text-[15px] font-semibold hover:opacity-70 transition-opacity"
                 style={{ color: scheme.nav_link }}
               >
@@ -441,31 +371,27 @@ function MobileDrawerInner({
               </a>
             ) : (
               // Wishlist-only case: wishlist goes on the LEFT.
-              <button
-                type="button"
+              <a
+                href={`https://${getMainDomain()}/wishlist`}
                 aria-label="Wishlist"
+                onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
                 className="relative h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors -ml-2"
-                onClick={e => e.preventDefault()}
               >
+                {/* No count badge. It was the character "0", written into the
+                    markup: a number that was never anything else. */}
                 <Heart className="h-[22px] w-[22px]" strokeWidth={1.8} style={{ color: scheme.nav_link }} />
-                <span className="absolute top-0 right-0 h-[17px] min-w-[17px] px-1 rounded-full bg-neutral-900 text-white text-[10px] font-bold leading-none flex items-center justify-center">
-                  0
-                </span>
-              </button>
+              </a>
             )}
             {/* RIGHT slot — only when BOTH are on so wishlist moves to the right */}
             {showAccount && showWishlist ? (
-              <button
-                type="button"
+              <a
+                href={`https://${getMainDomain()}/wishlist`}
                 aria-label="Wishlist"
+                onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
                 className="relative h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors -mr-2"
-                onClick={e => e.preventDefault()}
               >
                 <Heart className="h-[22px] w-[22px]" strokeWidth={1.8} style={{ color: scheme.nav_link }} />
-                <span className="absolute top-0 right-0 h-[17px] min-w-[17px] px-1 rounded-full bg-neutral-900 text-white text-[10px] font-bold leading-none flex items-center justify-center">
-                  0
-                </span>
-              </button>
+              </a>
             ) : (
               // Empty right slot so `justify-between` keeps the left element
               // flush to the edge instead of centring it.
@@ -491,7 +417,6 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // ONLY consumer that ever sets `onEditorNavigate`.
   const renderingInsideEditor = insideEditor ?? !!onEditorNavigate
   const s = section.settings
-  const [cartOpen, setCartOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   // Resolve color scheme (falls back to explicit bg/text colors if still set)
@@ -513,8 +438,6 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const borderColor = scheme.inset_border
 
   const layout = str(s.header_layout, "logo_left_nav_right")
-  const showSearch = s.show_search !== false
-  const showCart = s.show_cart !== false
   const showAccount = s.show_account_icon !== false
   const showWishlist = s.show_wishlist_icon !== false
   // Hover style for desktop menu links — mirrors the select in Header Settings.
@@ -824,7 +747,9 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     const url = str(block.settings.url, "")
     const targetId = str(block.settings.target_id, "")
     if (linkType === "product" && targetId) return `/products/${targetId}`
-    if (linkType === "collection" && targetId) return `/collections/${targetId}`
+    // No "collection": there is no collection in this product, so the option
+    // is gone from the control and a link saved under it before now has
+    // nothing to point at. It falls through to whatever URL it carries.
     if (linkType === "page" && targetId) return `/${targetId}`
     if (linkType === "blog" && targetId) return `/blog/${targetId}`
     if (linkType === "blog_post" && targetId) return `/blog/${targetId}`
@@ -988,109 +913,56 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     })
   }
 
-  // Cart count — reads from a lightweight global counter on `window` so
-  // callers can push updates via `window.dispatchEvent(new CustomEvent(
-  // 'storelib:cart-count', { detail: N }))`. Defaults to 0 so the badge
-  // stays hidden until a real count arrives.
-  const [cartCount, setCartCount] = useState(0)
-  /** The same channel, which already carried an object — now with a total. */
-  const [cartSubtotal, setCartSubtotal] = useState<string>("")
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const initial = (window as unknown as { __storelibCartCount?: number }).__storelibCartCount
-    if (typeof initial === "number") setCartCount(initial)
-    const onUpdate = (e: Event) => {
-      const detail = (e as CustomEvent<number | { count: number; subtotal?: string }>).detail
-      if (typeof detail === "number") setCartCount(detail)
-      else if (detail && typeof detail.count === "number") {
-        setCartCount(detail.count)
-        if (typeof detail.subtotal === "string") setCartSubtotal(detail.subtotal)
-      }
-    }
-    window.addEventListener("storelib:cart-count", onUpdate as EventListener)
-    return () => window.removeEventListener("storelib:cart-count", onUpdate as EventListener)
-  }, [])
-
   /**
-   * THE CART GROUP, which was three controls over nothing.
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THERE IS NO CART, SO THERE IS NO CART ICON
+   * ═════════════════════════════════════════════════════════════════════════
+   * The header carried a shopping bag, a count badge, a subtotal and a
+   * slide-out drawer. Nothing ever put anything in any of them: the count
+   * came from a `window` event no code dispatches, the drawer said "your
+   * cart is empty" because it could say nothing else, and the "Page" style
+   * sent people to /cart, which is not a route anywhere in this product.
+   * Storelib sells one thing at a time — Buy goes straight to
+   * /checkout?productId= — so a cart is a feature, not a fix, and a shopping
+   * bag that can never fill is a shop that looks broken.
    *
-   * `cart_type` decides whether the icon opens the drawer or goes to a cart
-   * page; `cart_show_count` gates the badge; `cart_show_subtotal` puts the
-   * running total beside the icon. All three are the THEME's, not this
-   * section's — a store has one cart, and asking for its behaviour to be set
-   * per header is how two pages end up disagreeing about it.
+   * The three theme settings that configured it went with it.
    */
-  const cartType = str(theme.cart_type, "drawer")
-  const showCartCount = theme.cart_show_count !== false
-  const showCartSubtotal = theme.cart_show_subtotal === true
 
-  // On mobile shells ONLY search + cart + hamburger appear in the header.
-  // Account & wishlist are moved into the sidebar drawer — they no longer
-  // clutter the mobile header bar.
+  // On a phone the header carries the hamburger and nothing else: account
+  // and wishlist live in the drawer it opens, where there is room for a word
+  // beside the icon.
   const renderIcons = (forMobile: boolean = false) => (
     <div className="flex min-w-0 items-center gap-2 shrink-0" style={{ color: textColor }}>
-      {showSearch && (
-        <button
-          type="button"
-          aria-label="Search"
-          className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
-          onClick={e => e.preventDefault()}
-        >
-          <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
-        </button>
-      )}
+      {/*
+        ACCOUNT AND WISHLIST GO SOMEWHERE NOW. Both were buttons whose only
+        behaviour was `preventDefault()`: on a published site they were three
+        pixels of hover state and nothing else. What they mean already exists,
+        on the platform rather than on the site — a buyer's purchases and
+        their saved items — and the session that knows who the buyer is is
+        held on storelib.com, so these are absolute links to it. Signed out,
+        the library sends them to sign in, which is the right answer to
+        "Account" too.
+      */}
       {showAccount && !forMobile && (
-        <button
-          type="button"
+        <a
+          href={`https://${getMainDomain()}/library`}
           aria-label="Account"
+          onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
           className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
-          onClick={e => e.preventDefault()}
         >
           <User className="h-[18px] w-[18px]" strokeWidth={1.8} />
-        </button>
+        </a>
       )}
       {showWishlist && !forMobile && (
-        <button
-          type="button"
+        <a
+          href={`https://${getMainDomain()}/wishlist`}
           aria-label="Wishlist"
+          onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
           className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
-          onClick={e => e.preventDefault()}
         >
           <Heart className="h-[18px] w-[18px]" strokeWidth={1.8} />
-        </button>
-      )}
-      {showCart && (
-        <button
-          type="button"
-          aria-label="Open cart"
-          className="relative flex h-9 items-center justify-center gap-1.5 rounded-full px-2 hover:bg-black/5 transition-colors"
-          onClick={e => {
-            e.preventDefault()
-            // "Page" sends people to the cart; "drawer" and "dropdown" open in
-            // place. The control offered all three and always opened the
-            // drawer.
-            if (cartType === "page") {
-              if (onEditorNavigate) onEditorNavigate("/cart")
-              else window.location.href = "/cart"
-              return
-            }
-            setCartOpen(true)
-          }}
-        >
-          <ShoppingBag className="h-[18px] w-[18px]" strokeWidth={1.8} />
-          {showCartSubtotal && !!cartSubtotal && (
-            <span className="text-[13px] font-medium tabular-nums">{cartSubtotal}</span>
-          )}
-          {showCartCount && cartCount > 0 && (
-            <span
-              aria-hidden
-              className="absolute -top-0.5 -right-0.5 h-[17px] min-w-[17px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none flex items-center justify-center shadow-sm ring-2 ring-[var(--hdr-ring,transparent)]"
-              style={{ ["--hdr-ring" as string]: bg }}
-            >
-              {cartCount > 99 ? "99+" : cartCount}
-            </span>
-          )}
-        </button>
+        </a>
       )}
       {/*
         The store's social links, when the theme says they belong up here.
@@ -1578,7 +1450,6 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       onEditorNavigate={renderingInsideEditor ? onEditorNavigate : undefined}
       showAccount={showAccount}
       showWishlist={showWishlist}
-      showCart={showCart}
       items={rootNavBlocks.map(b => {
         const kids = childrenByParent[b.id] ?? []
         return {
@@ -1672,9 +1543,6 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         }}
       >
         {headerInner}
-        {cartOpen && (
-          <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />
-        )}
         {mobileDrawer}
       </SectionWrapper>
     )
@@ -1699,9 +1567,6 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       }}
     >
       {headerInner}
-      {cartOpen && (
-        <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />
-      )}
       {mobileDrawer}
     </SectionWrapper>
   )

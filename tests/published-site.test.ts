@@ -91,8 +91,13 @@ function main() {
       return bail > 0 && cached > bail
     })())
     check("the preview path reads the install itself, uncached", (() => {
+      // The lookup is shared with the preview's own shop and product pages
+      // now, so the token check lives in `previewInstall` and `previewPage`
+      // calls it. Both halves, and neither goes near the cache.
+      const lookup = store.slice(store.indexOf("export async function previewInstall("), store.indexOf("async function previewPage("))
       const fn = store.slice(store.indexOf("async function previewPage("))
-      return /preview_token/.test(fn) && /mayPreview\(/.test(fn) && !/publishedSiteByName/.test(fn)
+      return /preview_token/.test(lookup) && /mayPreview\(/.test(lookup) &&
+        /previewInstall\(username, token\)/.test(fn) && !/publishedSiteByName/.test(fn)
     })())
   }
 

@@ -433,8 +433,6 @@ export function buildThemePreset(def: ThemeDefinition): ThemePreset {
     cta_url: "/products",
     cta_color: p.primary,
     cta_text_color: contrastText(p.primary),
-    show_search: false,
-    show_cart: true,
   }, [
     block("nav-home", "nav_link", { label: "Home", url: "/", link_type: "custom" }),
     block("nav-shop", "nav_link", { label: "Shop", url: "/products", link_type: "custom" }),

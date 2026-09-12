@@ -22,7 +22,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
-import { pageSections } from "@/lib/website-builder/preview-link"
+import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 type ProductRow = {
@@ -92,7 +92,18 @@ export async function productMetadata(slug: string): Promise<Metadata> {
  * is, and a product belonging to somebody else is not at that address: it is
  * sent to its own, rather than drawn in the wrong shop.
  */
-export async function renderProduct(slug: string, owner?: { creatorId: string }) {
+export async function renderProduct(
+  slug: string,
+  owner?: { creatorId: string },
+  /**
+   * A preview link, so the product page can be checked before it is
+   * published, the same as every other page of the site. The token is
+   * compared against the install's own, in constant time, and a wrong one
+   * quietly draws the published page: a preview is never a way to ask
+   * whether a link exists.
+   */
+  previewToken?: string,
+) {
   const product = await fetchProductBySlug(slug)
   if (!product || !product.creator_id) notFound()
   if (owner && product.creator_id !== owner.creatorId) notFound()
@@ -104,6 +115,7 @@ export async function renderProduct(slug: string, owner?: { creatorId: string })
     .from("store_theme_installs")
     .select(`
       id,
+      preview_token,
       store_theme_settings ( settings, draft_settings )
     `)
     .eq("creator_id", product.creator_id)
@@ -117,10 +129,11 @@ export async function renderProduct(slug: string, owner?: { creatorId: string })
   // /p/[slug] is still available for the discovery flow.
   if (!install) notFound()
 
-  const themeSettings: ThemeSettingsValues =
-    (install as any).store_theme_settings?.[0]?.settings ??
-    (install as any).store_theme_settings?.settings ??
-    {}
+  const preview = previewToken ? mayPreview((install as { preview_token?: string | null }).preview_token, previewToken) : false
+
+  const settingsRow =
+    (install as any).store_theme_settings?.[0] ?? (install as any).store_theme_settings ?? null
+  const themeSettings = (themeSettingsOf(settingsRow as never, preview) ?? {}) as ThemeSettingsValues
 
   // Fetch product-page AND home-page sections in parallel. Home is the
   // source of truth for header/footer on every page of the live site.
@@ -140,18 +153,20 @@ export async function renderProduct(slug: string, owner?: { creatorId: string })
   ])
 
   /**
-   * PUBLISHED ONLY. Both of them: the product page's own sections, and the
-   * home page whose header and footer this page borrows. Falling back to the
-   * drafts meant a product page edited but not published was already live,
-   * and so was a header being worked on.
+   * PUBLISHED ONLY, unless a preview link asked otherwise. Both of them: the
+   * product page's own sections, and the home page whose header and footer
+   * this page borrows. Falling back to the drafts on a public request meant a
+   * product page edited but not published was already live, and so was a
+   * header being worked on. `preview` is false for every visitor who did not
+   * arrive with a matching token.
    */
   /**
    * And again on the way out. The database already holds rich text saved
    * before anything sanitised it, and rows can arrive from an import. The
    * save path is the authority; this is what covers what is already there.
    */
-  const rawSections: SectionInstance[] = sanitizeSections(pageSections<SectionInstance[]>(pageData, false) ?? [])
-  const homeSections: SectionInstance[] = sanitizeSections(pageSections<SectionInstance[]>(homeData, false) ?? [])
+  const rawSections: SectionInstance[] = sanitizeSections(pageSections<SectionInstance[]>(pageData, preview) ?? [])
+  const homeSections: SectionInstance[] = sanitizeSections(pageSections<SectionInstance[]>(homeData, preview) ?? [])
 
   const homeHeader = homeSections.find(s => s.type === "header")
   const homeFooter = homeSections.find(s => s.type === "footer")

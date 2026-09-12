@@ -2002,13 +2002,11 @@ function NavLinkPicker({
   value,
   onChange,
   products,
-  collections,
   customPages,
 }: {
   value: string
   onChange: (v: string) => void
   products: { id: string; title: string; slug: string }[]
-  collections: { id: string; name: string; slug: string }[]
   customPages: { name: string; key: string }[]
 }) {
   const [open, setOpen] = useState(false)
@@ -2075,9 +2073,7 @@ function NavLinkPicker({
   const q = search.toLowerCase()
   const filteredPages = allPages.filter(p => p.label.toLowerCase().includes(q))
   const filteredProducts = products.filter(p => p.title.toLowerCase().includes(q))
-  const filteredCollections = collections.filter(c => c.name.toLowerCase().includes(q))
-
-  const hasResults = filteredPages.length > 0 || filteredProducts.length > 0 || filteredCollections.length > 0
+  const hasResults = filteredPages.length > 0 || filteredProducts.length > 0
 
   const popup = open && pos && typeof document !== "undefined" ? createPortal(
     <div
@@ -2106,23 +2102,6 @@ function NavLinkPicker({
                 <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <span className="truncate flex-1">{p.label}</span>
                 <span className="ml-2 text-[11px] text-muted-foreground/60 shrink-0 truncate max-w-[40%]">{p.url}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {filteredCollections.length > 0 && (
-          <div className="py-1 border-t border-border">
-            <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Categories</div>
-            {filteredCollections.slice(0, 20).map(c => (
-              <button
-                key={c.id}
-                type="button"
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted text-left transition-colors"
-                onMouseDown={e => { e.preventDefault(); onChange(`/collections/${c.slug}`); setOpen(false) }}
-              >
-                <FolderOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="truncate">{c.name}</span>
               </button>
             ))}
           </div>
@@ -2189,7 +2168,6 @@ function SortableNavLink({
   onUpdateBlockSetting,
   onRemoveBlock,
   products,
-  collections,
   customPages,
   children,
   isChild = false,
@@ -2201,7 +2179,6 @@ function SortableNavLink({
   onUpdateBlockSetting: (blockId: string, key: string, value: unknown) => void
   onRemoveBlock: (blockId: string) => void
   products: { id: string; title: string; slug: string }[]
-  collections: { id: string; name: string; slug: string }[]
   customPages: { name: string; key: string }[]
   children?: React.ReactNode
   isChild?: boolean
@@ -2316,7 +2293,6 @@ function SortableNavLink({
                   value={typeof block.settings.url === "string" ? block.settings.url : ""}
                   onChange={val => onUpdateBlockSetting(block.id, "url", val)}
                   products={products}
-                  collections={collections}
                   customPages={customPages}
                 />
               ) : (
@@ -2404,7 +2380,6 @@ function HeaderSectionSettings({
   onRemoveBlock,
   onReorderBlocks,
   products,
-  collections,
   customPages,
   theme,
   onEditScheme,
@@ -2418,7 +2393,6 @@ function HeaderSectionSettings({
   onRemoveBlock: (blockId: string) => void
   onReorderBlocks: (blocks: { id: string; type: string; settings: Record<string, unknown> }[]) => void
   products: { id: string; title: string; slug: string }[]
-  collections: { id: string; name: string; slug: string }[]
   customPages: { name: string; key: string }[]
   theme: ThemeSettingsValues
   onEditScheme: (schemeKey?: string) => void
@@ -2574,7 +2548,6 @@ function HeaderSectionSettings({
                       onUpdateBlockSetting={onUpdateBlockSetting}
                       onRemoveBlock={onRemoveBlock}
                       products={products}
-                      collections={collections}
                       customPages={customPages}
                       onAddChild={() => onAddBlock("nav_link", { parent_id: block.id, label: "New link", url: "#", link_type: "custom" })}
                     >
@@ -2604,7 +2577,6 @@ function HeaderSectionSettings({
                                   onUpdateBlockSetting={onUpdateBlockSetting}
                                   onRemoveBlock={onRemoveBlock}
                                   products={products}
-                                  collections={collections}
                                   customPages={customPages}
                                   isChild
                                 />
@@ -2994,7 +2966,6 @@ function HeaderSectionSettings({
                       value={typeof s.cta_url === "string" ? s.cta_url : ""}
                       onChange={val => onUpdateSetting("cta_url", val)}
                       products={products}
-                      collections={collections}
                       customPages={customPages}
                     />
                   </div>
@@ -3637,7 +3608,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [pageBrowserOpen, setPageBrowserOpen] = useState(false)
   const [pageBrowserSearch, setPageBrowserSearch] = useState("")
   const [products, setProducts] = useState<{ id: string; title: string; slug: string; thumbnail_url: string; price_cents: number; compare_at_cents: number | null; description: string; whats_included: string[]; gallery_urls: string[] }[]>([])
-  const [collections, setCollections] = useState<{ id: string; name: string; slug: string }[]>([])
   const [productsLoading, setProductsLoading] = useState(false)
   const [selectedProductPage, setSelectedProductPage] = useState<string | null>(null)
   const [editAllProductPages, setEditAllProductPages] = useState(false)
@@ -4222,17 +4192,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           description: p.description || "",
           whats_included: p.whats_included ?? [],
           gallery_urls: p.gallery_urls ?? [],
-        })))
-      }
-    } catch {}
-    try {
-      const res = await fetch("/api/collections?limit=100")
-      if (res.ok) {
-        const data = await res.json()
-        setCollections((data.collections ?? data ?? []).map((c: any) => ({
-          id: c.id,
-          name: c.name || "Untitled Collection",
-          slug: c.slug || c.id,
         })))
       }
     } catch {}
@@ -5148,14 +5107,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const linkTargets = useMemo<LinkTarget[]>(
     () => [
       { href: "/", label: "Home", kind: "page" },
-      { href: "/shop", label: "Shop", kind: "page" },
+      /**
+       * `/products`, not `/shop`. The picker offered "Shop" pointing at
+       * /shop, which is not a route on any address: the shop index is
+       * /products, which is where the themes' own Shop link goes.
+       */
+      { href: "/products", label: "Shop", kind: "page" },
       { href: "/about", label: "About", kind: "page" },
       { href: "/contact", label: "Contact", kind: "page" },
       ...customPages.map((p) => ({ href: `/${p.key}`, label: p.name, kind: "page" as const })),
       ...products.map((p) => ({ href: `/products/${p.slug}`, label: p.title, kind: "product" as const })),
-      ...collections.map((c) => ({ href: `/collections/${c.slug}`, label: c.name, kind: "collection" as const })),
+      /**
+       * NO COLLECTIONS. The picker had a Collections group fed by
+       * `/api/collections`, which is not a route: the fetch 404'd, the list
+       * was always empty, and the group was a heading nobody could ever fill.
+       * There is no collection in this product — a creator has products, and
+       * the sections that say "collection" take hand-typed items.
+       */
     ],
-    [customPages, products, collections],
+    [customPages, products],
   )
   /**
    * Insert at a gap in the canvas. `at` counts BODY sections — 0 is above the
@@ -5179,7 +5149,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const renderPageBrowser = () => {
     const search = pageBrowserSearch.toLowerCase()
     const filteredProducts = products.filter(p => p.title.toLowerCase().includes(search))
-    const filteredCollections = collections.filter(c => c.name.toLowerCase().includes(search))
     const builtInPages = [
       { name: "Home Page", key: "home" as PageKey },
       { name: "About Page", key: "about" as PageKey },
@@ -5278,27 +5247,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             )}
           </div>
 
-          {/* Collection Pages */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between px-1 mb-1.5">
-              <p className="text-xs font-bold text-foreground">Collection Pages</p>
-            </div>
-            {filteredCollections.length > 0 ? (
-              <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
-                {filteredCollections.map(c => (
-                  <button
-                    key={c.id}
-                    className="w-full text-left px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted/50"
-                    onClick={() => handlePageChange("home")}
-                  >
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground px-3 py-2">No collections found</p>
-            )}
-          </div>
         </div>
       </div>
     )
@@ -5671,7 +5619,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             onRemoveBlock={(blockId) => removeBlock(section.id, blockId)}
             onReorderBlocks={(blocks) => reorderBlocks(section.id, blocks)}
             products={products}
-            collections={collections}
             customPages={[
               { name: "Home", key: "home" },
               { name: "About", key: "about" },

@@ -262,19 +262,21 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
     ],
   },
   {
+    /**
+     * THE CART CONTROLS WENT WITH THE CART. Storelib sells one thing at a
+     * time — Buy goes straight to /checkout?productId= — so there was never
+     * anything to put in a basket: the count came from an event nothing
+     * dispatched, the drawer could only say it was empty, and "Page" sent
+     * people to /cart, which is not a route in this product. Three controls
+     * over nothing.
+     *
+     * The free shipping bar stays because it is a bar, it draws, and a
+     * creator who ships something physical can say what it costs.
+     */
     id: "cart",
-    label: "Cart & checkout",
+    label: "Shipping",
     icon: "shopping-bag",
     fields: [
-      { id: "cart_type", label: "Cart style", type: "select", default: "drawer",
-        options: [
-          { label: "Drawer (slide-out)", value: "drawer" },
-          { label: "Page", value: "page" },
-          { label: "Popup modal", value: "modal" },
-        ],
-      },
-      { id: "cart_show_count", label: "Show item count badge", type: "toggle", default: true },
-      { id: "cart_show_subtotal", label: "Show subtotal in cart icon", type: "toggle", default: false },
       { id: "free_shipping_threshold", label: "Free shipping threshold ($)", type: "number", min: 0, default: 0 },
       { id: "free_shipping_bar", label: "Show free shipping progress bar", type: "toggle", default: false },
     ],

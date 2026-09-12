@@ -189,7 +189,12 @@ export async function renderSite(
  * time. A wrong token renders the published site and says nothing about
  * whether a link exists.
  */
-async function previewPage(username: string, token: string, pageKey: string) {
+/**
+ * The install a preview link is about, and whether the link is the right
+ * one. Shared by every page a preview can show: the site's pages here, and
+ * the shop index in preview/[token]/products.
+ */
+export async function previewInstall(username: string, token: string) {
   const admin = createAdminClient()
   const lower = username.toLowerCase()
 
@@ -216,19 +221,30 @@ async function previewPage(username: string, token: string, pageKey: string) {
   if (!install) redirect(`https://${getMainDomain()}/${lower}`)
 
   const row = install as { id: string; preview_token?: string | null; store_theme_settings?: unknown }
+  /**
+   * Constant time, and a wrong token draws the published site rather than
+   * saying anything about whether a link exists.
+   */
+  const preview = mayPreview(row.preview_token, token)
+  const settingsRow = Array.isArray(row.store_theme_settings) ? (row.store_theme_settings[0] ?? null) : (row.store_theme_settings ?? null)
+  const themeSettings = (themeSettingsOf(settingsRow as never, preview) ?? {}) as ThemeSettingsValues
+
+  return { admin, creatorId, installId: row.id, preview, themeSettings }
+}
+
+async function previewPage(username: string, token: string, pageKey: string) {
+  const { admin, creatorId, installId, preview, themeSettings } = await previewInstall(username, token)
+
   const { data: pageData } = await admin
     .from("store_theme_pages")
     .select("sections, draft_sections")
-    .eq("install_id", row.id)
+    .eq("install_id", installId)
     .eq("page_key", pageKey)
     .maybeSingle()
 
   // A page the creator has not made is not a page, even with the link.
   if (!pageData && pageKey !== "home") notFound()
 
-  const preview = mayPreview(row.preview_token, token)
-  const settingsRow = Array.isArray(row.store_theme_settings) ? (row.store_theme_settings[0] ?? null) : (row.store_theme_settings ?? null)
-  const themeSettings = (themeSettingsOf(settingsRow as never, preview) ?? {}) as ThemeSettingsValues
   /**
    * And again on the way out. The database already holds rich text saved
    * before anything sanitised it, and rows can arrive from an import. The
@@ -237,7 +253,7 @@ async function previewPage(username: string, token: string, pageKey: string) {
   const sections = sanitizeSections(pageSections<SectionInstance[]>(pageData as never, preview) ?? [])
   const products = await shopProducts(admin as never, creatorId)
   const template = templateForPage(pageKey)
-  const prerendered = await prerenderStorelibSections(admin as never, row.id, sections, themeSettings, template, products)
+  const prerendered = await prerenderStorelibSections(admin as never, installId, sections, themeSettings, template, products)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template }}>
@@ -245,7 +261,7 @@ async function previewPage(username: string, token: string, pageKey: string) {
         theme={themeSettings}
         sections={sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId, installId: row.id }}
+        storefront={{ creatorId, installId }}
         emptyDetail="Check back soon!"
       />
     </StorelibSourcesProvider>

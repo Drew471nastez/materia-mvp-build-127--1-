@@ -366,14 +366,23 @@ section("Choosing an icon, and choosing where a link goes")
   check("an icon field gets a picker instead of falling through to a text box", /if \(kind === "icon_picker"\) \{\s*return <IconPicker/.test(editorSrc))
   check("and a link field gets one instead of a bare input", /if \(kind === "url"\) \{\s*return <LinkFieldEditor/.test(editorSrc) && !/kind === "text" \|\| kind === "url"/.test(editorSrc))
 
-  check("the link picker lists the site's own pages, products and collections", /kind: "page"/.test(linkPicker) && /kind: "product"/.test(linkPicker) && /kind: "collection"/.test(linkPicker))
+  check("the link picker lists the site's own pages and products", /kind: "page"/.test(linkPicker) && /kind: "product"/.test(linkPicker))
+  /**
+   * AND NOT COLLECTIONS. There is no collection in this product: the group
+   * was fed by `/api/collections`, which is not a route, so the fetch 404'd,
+   * the list was always empty and the heading could never be filled. The
+   * header's nav link offered "Collection" as a link type for the same
+   * nothing, pointing at /collections/<id>, which is not a route either.
+   */
+  check("and not collections, which do not exist", !/kind: "collection"/.test(linkPicker) && !/Collections/.test(linkPicker))
+  check("the nav link cannot be pointed at one", !/collections\//.test(read("components/website-builder/sections/renderers/HeaderSection.tsx").replace(/\/\/.*$/gm, "")))
+  check("and Shop in the picker is the address the shop is at", /\{ href: "\/products", label: "Shop", kind: "page" \}/.test(editorSrc) && !/href: "\/shop"/.test(editorSrc))
   check("and still takes any address at all", /Or any address/.test(linkPicker) && /mailto:/.test(linkPicker))
   check(
     "the targets come from the same lists the page browser shows, so the two cannot disagree",
     /const linkTargets = useMemo<LinkTarget\[\]>/.test(editorSrc) &&
       /\.\.\.customPages\.map/.test(editorSrc) &&
       /\.\.\.products\.map/.test(editorSrc) &&
-      /\.\.\.collections\.map/.test(editorSrc) &&
       (editorSrc.match(/<LinkTargetsProvider targets=\{linkTargets\}>/g) ?? []).length === 2,
   )
 
@@ -691,7 +700,7 @@ section("A form that says it worked, did")
     // profile page and renders no theme sections.
     /storefront\?: Storefront/.test(themePage) &&
       /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId \}\}/.test(read(RENDER_SITE)) &&
-      /storefront=\{\{ creatorId, installId: row\.id \}\}/.test(read(RENDER_SITE)),
+      /storefront=\{\{ creatorId, installId \}\}/.test(read(RENDER_SITE)),
   )
 
   check(
@@ -792,6 +801,30 @@ section("A form that says it worked, did")
     "and a code file that goes live immediately says so at the moment it does",
     /"Saved and live"/.test(code),
   )
+}
+
+/**
+ * ===========================================================================
+ *  A STICKY HEADER THAT COULD NEVER STICK
+ * ===========================================================================
+ * `position: sticky` travels inside its parent and no further. Every section
+ * was wrapped in a bare `<div>` by the error boundary — put there only to
+ * carry the `key` that remounts a section after "Try again" — and around the
+ * header that div was exactly the header's own height. So the sticky header
+ * had nowhere to travel and scrolled away with the page, on every published
+ * site, in every configuration that asked for sticky.
+ *
+ * scripts/check-sticky-header.mjs measures it in a browser; this holds the
+ * shape that makes the measurement true.
+ */
+{
+  console.log("\n  Nothing wraps a section in a box it did not ask for")
+  const boundary = read("components/website-builder/sections/SectionErrorBoundary.tsx")
+  const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
+
+  check("the boundary carries its key on a fragment, not a div", /return <Fragment key=\{this\.state\.attempt\}>/.test(boundary))
+  check("and still remounts the section when it is retried", /attempt: s\.attempt \+ 1/.test(boundary))
+  check("the header is still the thing that is sticky", /"sticky top-0 z-\[60\] isolate"/.test(header))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
