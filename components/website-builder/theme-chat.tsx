@@ -661,32 +661,6 @@ export function ThemeChat({
           </div>
         ) : exchanges.length === 0 ? (
           <div className="space-y-4">
-            {/*
-              * TWO THINGS, NAMED. Changing this page and writing a new kind of
-              * section are different acts with different answers, and "add a
-              * comparison table" is a sentence that could mean either. Asking
-              * beats guessing, and it costs one row.
-              */}
-            <div className="flex gap-1 rounded-lg bg-muted/60 p-0.5">
-              {([
-                ["change", "Change this page"],
-                ["code", "Code a section"],
-              ] as const).map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => { setMode(key); setWriteError(null) }}
-                  aria-pressed={mode === key}
-                  className={cn(
-                    "flex-1 rounded-[7px] px-2 py-1.5 text-[12px] font-medium transition-colors",
-                    mode === key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
             <p className="text-[13px] leading-relaxed text-muted-foreground">
               {mode === "change"
                 ? "Describe a change and it is made on this page. It writes the same sections, blocks and controls the panels do, the same sliders, pickers and colours, so everything stays undoable and nothing saves until you press Save."
@@ -710,36 +684,6 @@ export function ThemeChat({
               ))}
             </div>
 
-            {writing && (
-              <p className="text-[12.5px] text-muted-foreground">
-                Writing it, then compiling it. A section that does not compile is not kept.
-              </p>
-            )}
-
-            {written && (
-              <div className="rounded-lg border border-border bg-background p-3">
-                <p className="text-[13px] font-medium text-foreground">{written.name} is written</p>
-                <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
-                  It compiled and is saved as <span className="font-mono text-[12px]">{written.path}</span>.
-                  It is in Add Section under Created by you, and not published until you publish.
-                </p>
-                {onOpenCodeEditor && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenCodeEditor(written.path)}
-                    className="mt-2 h-7 rounded-md bg-foreground px-2.5 text-[12px] font-[550] text-background"
-                  >
-                    Open it
-                  </button>
-                )}
-              </div>
-            )}
-
-            {writeError && (
-              <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-[12.5px] leading-snug text-foreground">
-                {writeError}
-              </p>
-            )}
           </div>
         ) : (
           <ul className="space-y-5">
@@ -820,6 +764,76 @@ export function ThemeChat({
       </div>
 
       <div className="shrink-0 border-t border-border p-2.5">
+        {/*
+          ═════════════════════════════════════════════════════════════════════
+           THE TWO THINGS IT DOES, ALWAYS REACHABLE
+          ═════════════════════════════════════════════════════════════════════
+          Changing this page and writing a new kind of section are different
+          acts with different answers, and "add a comparison table" is a
+          sentence that could mean either. So it asks, in one row.
+
+          THE ROW USED TO BE IN THE EMPTY STATE ONLY. Ask for one change and
+          it was gone, and the conversation is kept across reloads — so after
+          a creator's first message, in that install, forever, half the
+          assistant could not be reached at all. It lives with the box you
+          type into now, because it decides what typing there does.
+        */}
+        <div className="mb-2 flex gap-1 rounded-lg bg-muted/60 p-0.5">
+          {([
+            ["change", "Change this page"],
+            ["code", "Code a section"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => { setMode(key); setWriteError(null) }}
+              aria-pressed={mode === key}
+              className={cn(
+                "flex-1 rounded-[7px] px-2 py-1.5 text-[12px] font-medium transition-colors",
+                mode === key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* What the writer produced, or why it could not. Also stranded in
+            the empty state before: a section written after any exchange was
+            reported to nobody. */}
+        {written && (
+          <div className="mb-2 rounded-lg border border-border bg-background p-3">
+            <p className="text-[13px] font-medium text-foreground">{written.name} is written</p>
+            <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
+              It compiled and is saved as <span className="font-mono text-[12px]">{written.path}</span>.
+              It is in Add Section under Created by you, and not published until you publish.
+            </p>
+            {onOpenCodeEditor && (
+              <button
+                type="button"
+                onClick={() => onOpenCodeEditor(written.path)}
+                className="mt-2 h-7 rounded-md bg-foreground px-2.5 text-[12px] font-[550] text-background"
+              >
+                Open it
+              </button>
+            )}
+          </div>
+        )}
+
+        {writeError && (
+          <p className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-[12.5px] leading-snug text-foreground">
+            {writeError}
+          </p>
+        )}
+
+        {/* The same report while it is still happening. */}
+        {writing && (
+          <p className="mb-2 flex items-center gap-2 px-0.5 text-[12.5px] text-muted-foreground">
+            <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+            Writing it, then compiling it. A section that does not compile is not kept.
+          </p>
+        )}
+
         {/*
           THE SCOPE OF THE EDIT, WHERE YOU ARE ABOUT TO TYPE IT.
           Not buried in a menu and not implied by the sentence: the chip says

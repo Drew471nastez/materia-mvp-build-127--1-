@@ -827,6 +827,32 @@ section("A form that says it worked, did")
   check("the header is still the thing that is sticky", /"sticky top-0 z-\[60\] isolate"/.test(header))
 }
 
+/**
+ * ===========================================================================
+ *  BOTH HALVES OF THE ASSISTANT, AFTER THE FIRST MESSAGE
+ * ===========================================================================
+ * Storelib AI does two things: change this page, and write a new kind of
+ * section. The row that chooses between them was rendered only in the empty
+ * state — and the conversation is kept across reloads, so one change meant
+ * the row never came back and the section writer could not be reached again
+ * in that install at all. The writer's own result and its errors were
+ * stranded in the same place: a section written after any exchange was
+ * reported to nobody.
+ */
+{
+  console.log("\n  Storelib AI does not lose half of itself after one message")
+  const chat = read("components/website-builder/theme-chat.tsx")
+  const empty = chat.slice(chat.indexOf("exchanges.length === 0 ? ("), chat.indexOf('<div className="shrink-0 border-t border-border p-2.5">'))
+  const composer = chat.slice(chat.indexOf('<div className="shrink-0 border-t border-border p-2.5">'))
+
+  check("the mode row is with the box you type into", /\["change", "Change this page"\]/.test(composer))
+  check("and not only in the empty state", !/\["change", "Change this page"\]/.test(empty))
+  check("what the writer produced is reported there too", /\{written && \(/.test(composer) && !/\{written && \(/.test(empty))
+  check("so are its errors", /\{writeError && \(/.test(composer) && !/\{writeError && \(/.test(empty))
+  check("and so is the fact that it is working", /\{writing && \(/.test(composer) && !/\{writing && \(/.test(empty))
+  check("the empty state keeps the part that is only useful when empty", /SUGGESTIONS : CODE_SUGGESTIONS|mode === "change" \? SUGGESTIONS/.test(empty))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
