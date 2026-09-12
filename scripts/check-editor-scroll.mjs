@@ -100,6 +100,41 @@ if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first
 const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
 const out = mkdtempSync(join(tmpdir(), "storelib-editor-"))
 
+
+/**
+ * WHO CANCELLED THE GESTURE. Installed before the editor's bundle, so every
+ * listener it registers is wrapped. A touchmove that is cancelled over the
+ * canvas is the whole freeze, and "something called preventDefault" is not an
+ * answer you can fix; this records the stack of whatever did.
+ */
+const SPY = `
+<script>
+(function () {
+  window.__prevented = []
+  var realPD = Event.prototype.preventDefault
+  Event.prototype.preventDefault = function () {
+    if (this.type === "touchmove" || this.type === "touchstart") {
+      var st = ""
+      try { throw new Error("x") } catch (e) { st = String(e.stack || "").split("\\n").slice(2, 6).join(" | ") }
+      window.__prevented.push({ type: this.type, cancelable: this.cancelable, stack: st })
+    }
+    return realPD.apply(this, arguments)
+  }
+  var realAdd = EventTarget.prototype.addEventListener
+  window.__touchListeners = []
+  EventTarget.prototype.addEventListener = function (type, fn, opts) {
+    if (type === "touchmove" || type === "touchstart") {
+      var passive = opts && typeof opts === "object" ? !!opts.passive : false
+      var who = this === document ? "document" : this === window ? "window" : (this.tagName ? this.tagName.toLowerCase() + (this.id ? "#" + this.id : "") + (typeof this.className === "string" && this.className ? "." + this.className.split(" ")[0] : "") : String(this))
+      var st = ""
+      try { throw new Error("x") } catch (e) { st = String(e.stack || "").split("\\n").slice(2, 5).join(" | ") }
+      window.__touchListeners.push({ type: type, on: who, passive: passive, stack: st })
+    }
+    return realAdd.apply(this, arguments)
+  }
+})()
+</script>`
+
 /** No regex literals in here: a backslash in a template literal is eaten. */
 const DRIVE = `
 <script>
@@ -155,6 +190,12 @@ const DRIVE = `
       bodyPE: document.body.style.pointerEvents || "-",
       htmlClass: document.documentElement.className,
       sheetOpen: !!document.querySelector("[data-mobile-bottom-sheet][aria-modal=true]"),
+      scrollLocked: document.body.hasAttribute("data-scroll-locked"),
+      /** Every Radix layer that says it is open, and what kind it is. */
+      openLayers: Array.prototype.map.call(
+        document.querySelectorAll("[data-state=open][role], [aria-modal=true], [data-radix-popper-content-wrapper]"),
+        function (e) { return describe(e) + "[role=" + (e.getAttribute("role") || "-") + ",modal=" + (e.getAttribute("aria-modal") || "-") + "]" }
+      ),
     }
   }
   /**
@@ -163,6 +204,60 @@ const DRIVE = `
    * the one true signal sat in the same row: overflow=hidden. A person can
    * scroll it only if all four hold.
    */
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  A REAL FINGER, NOT AN ASSIGNMENT TO scrollTop
+   * ═══════════════════════════════════════════════════════════════════════
+   * Everything this harness measured before was what a SCRIPT can do. The
+   * freeze is reported by a thumb. Those are different questions, and the
+   * gap between them is exactly where a preventDefault on touchmove
+   * lives: the scroller is healthy, its overflow is auto, nothing covers it,
+   * and every gesture over it is cancelled before the compositor sees it.
+   *
+   * Chromium will not scroll from synthetic touches, so this does not ask
+   * whether the pixels moved. It asks the one thing that decides whether
+   * they would: was the gesture cancelled, and by a listener on what.
+   */
+  function touchAt(type, target, x, y, cancelable) {
+    var t = new Touch({ identifier: 1, target: target, clientX: x, clientY: y, pageX: x, pageY: y })
+    var e = new TouchEvent(type, { bubbles: true, cancelable: !!cancelable, touches: type === "touchend" ? [] : [t], targetTouches: type === "touchend" ? [] : [t], changedTouches: [t] })
+    target.dispatchEvent(e)
+    return e
+  }
+  /** touch-action on the scroller and every ancestor above it. */
+  function touchActionChain(el) {
+    var out = []
+    for (var n = el; n && n !== document.documentElement; n = n.parentElement) {
+      var ta = getComputedStyle(n).touchAction
+      if (ta && ta !== "auto") out.push(describe(n) + ":" + ta)
+    }
+    var root = getComputedStyle(document.documentElement).touchAction
+    if (root && root !== "auto") out.push("html:" + root)
+    return out
+  }
+  function touchDrag(label) {
+    var sc = document.getElementById("wb-preview-root")
+    if (!sc) return { label: label, missing: true }
+    var r = sc.getBoundingClientRect()
+    var x = Math.round(r.left + r.width / 2)
+    var y = Math.round(r.top + r.height / 2)
+    var target = document.elementFromPoint(x, y) || sc
+    var before = sc.scrollTop
+    touchAt("touchstart", target, x, y, true)
+    var cancelled = 0, total = 0
+    for (var i = 1; i <= 6; i++) {
+      var e = touchAt("touchmove", target, x, y - i * 12, true)
+      total++
+      if (e.defaultPrevented) cancelled++
+    }
+    touchAt("touchend", target, x, y - 72, true)
+    var caught = (window.__prevented || []).splice(0)
+    var m = judge(measure(label))
+    m.touch = { on: describe(target), cancelled: cancelled, of: total, chain: touchActionChain(sc), movedBy: sc.scrollTop - before, by: caught.slice(0, 2).map(function (c) { return c.stack }) }
+    if (cancelled > 0) { m.userCanScroll = false; m.why.push(cancelled + " of " + total + " touchmoves over the canvas were cancelled by a listener") }
+    return m
+  }
+
   function judge(m) {
     var why = []
     if (m.overflowY !== "auto" && m.overflowY !== "scroll") why.push("overflow is " + m.overflowY)
@@ -222,6 +317,7 @@ const DRIVE = `
     return out
   }
   function finish() {
+    steps.push({ label: "touch listeners registered", listeners: (window.__touchListeners || []).map(function (l) { return l.type + " on " + l.on + (l.passive ? " (passive)" : " (CAN CANCEL)") }) })
     var el = document.createElement("script"); el.type = "application/json"; el.id = "out"
     el.textContent = JSON.stringify(steps); document.body.appendChild(el)
     document.title = "DONE:" + steps.length
@@ -234,13 +330,45 @@ const DRIVE = `
     if (++tries > 150) { steps.push({ label: "never ready", sections: n, hasScroller: !!sc, bodyText: document.body.innerText.slice(0, 300) }); return finish() }
     setTimeout(waitReady, 100)
   }
+  /** A tap, with the touch events a thumb actually sends before the click. */
+  function tap(el) {
+    if (!el) return false
+    var r = el.getBoundingClientRect()
+    var x = Math.round(r.left + Math.min(20, r.width / 2))
+    var y = Math.round(r.top + Math.min(20, r.height / 2))
+    touchAt("touchstart", el, x, y, true)
+    touchAt("touchend", el, x, y, true)
+    return click(el)
+  }
+  function sectionRows() {
+    return document.querySelectorAll("[data-mobile-bottom-sheet] [data-section-row], [data-mobile-bottom-sheet] button[aria-label^=Options], [data-wb-sidebar-scroll] button[aria-label^=Options]")
+  }
+
   async function go() {
     var phone = window.innerWidth < 768
     steps.push(measure("loaded"))
+    steps.push(touchDrag("a finger on the canvas, before anything"))
     steps.push(tryScroll("scroll before any click", 250))
     var secs = document.querySelectorAll("#wb-preview-root [id^=wb-section-]")
-    click(secs[2] || secs[1]); await sleep(600)
+
+    // THE REPORT: selecting a section. With touch, as a thumb does it.
+    tap(secs[2] || secs[1]); await sleep(700)
+    steps.push(touchDrag("a finger after TAPPING a section on the canvas"))
     steps.push(tryScroll("after tapping a section", 500))
+
+    // And selecting one from the list, which is the other way in.
+    var rows = sectionRows()
+    if (!rows.length && phone) { press("Sections"); await sleep(700); rows = sectionRows() }
+    steps.push({ label: "section rows found: " + rows.length })
+    if (rows.length) {
+      tap(rows[Math.min(2, rows.length - 1)]); await sleep(900)
+      steps.push(touchDrag("a finger after selecting a section from the list"))
+    }
+    // Back out of whatever that opened, then try again.
+    escape(); await sleep(600)
+    steps.push(touchDrag("a finger after closing the section panel"))
+    await sleep(2500)
+    steps.push(touchDrag("and 3 seconds later, in case it was only animating out"))
 
     if (phone) {
       // The sheet: open it the way a thumb does, then tap the canvas above it.
@@ -250,24 +378,29 @@ const DRIVE = `
       var over = document.elementFromPoint(r.left + r.width / 2, r.top + 80)
       steps.push({ label: "tapping the canvas above the sheet lands on " + describe(over) })
       click(over); await sleep(700)
+      steps.push(touchDrag("a finger with the sheet open"))
       steps.push(tryScroll("after tapping the canvas with the sheet open", 300))
       // Code editor via the menu, then back with Escape.
       press("Open menu"); await sleep(300); press("Code"); await sleep(900)
       steps.push(measure("in the code editor")); steps.push({ label: "dialogs: " + dialogs().join(" / ") })
       escape(); await sleep(1300)
+      steps.push(touchDrag("a finger back from the code editor"))
       steps.push(tryScroll("back from the code editor", 350))
       press("Open menu"); await sleep(300); press("Project settings"); await sleep(900)
       steps.push(measure("in project settings")); steps.push({ label: "dialogs: " + dialogs().join(" / ") })
       escape(); await sleep(1300)
+      steps.push(touchDrag("a finger back from project settings"))
       steps.push(tryScroll("back from project settings", 450))
     } else {
       press("Code"); await sleep(900)
       steps.push(measure("in the code editor"))
       press("Preview"); await sleep(1300)
+      steps.push(touchDrag("a finger back from the code editor"))
       steps.push(tryScroll("back from the code editor", 350))
       press("Project Settings"); await sleep(900)
       steps.push(measure("in project settings")); steps.push({ label: "dialogs: " + dialogs().join(" / ") })
       escape(); await sleep(1300)
+      steps.push(touchDrag("a finger back from project settings"))
       steps.push(tryScroll("back from project settings", 450))
       press("Disable section inspector"); await sleep(400)
       steps.push(tryScroll("inspector off", 200))
@@ -297,7 +430,7 @@ function run(width, height, label) {
    * that. A src attribute is immune.
    */
   writeFileSync(join(out, "editor-probe.js"), readFileSync(bundle))
-  writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><div id="app"></div><script src="editor-probe.js"></script>${DRIVE}</body></html>`)
+  writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><div id="app"></div>${SPY}<script src="editor-probe.js"></script>${DRIVE}</body></html>`)
   const dump = execFileSync(CHROMIUM, ["--headless", "--disable-gpu", "--no-sandbox", "--force-device-scale-factor=1", "--enable-logging=stderr", "--v=0",
     `--window-size=${width},${height}`, "--virtual-time-budget=40000", "--dump-dom", `file://${file}`],
     { encoding: "utf8", maxBuffer: 400 * 1024 * 1024, stdio: ["ignore", "pipe", process.env.PROBE_DEBUG ? "inherit" : "ignore"] })
@@ -315,12 +448,14 @@ for (const [w, h, label] of [[390, 844, "phone"], [1280, 900, "desktop"]]) {
   console.log(`\n══ ${label} ${w}×${h} ══`)
   for (const s of run(w, h, label)) {
     if (s.userCanScroll === false) { failures++; console.log(`  ✗ ${s.label}: a person could not scroll the canvas here: ${s.why.join("; ")}`) }
+    if (s.listeners) { console.log(`  touch listeners: ${[...new Set(s.listeners)].join("  |  ")}`); continue }
     if (s.labels) { console.log(`  chrome: ${s.labels.join(" | ")}\n  fetches: ${s.fetches.join(", ")}`); continue }
     if (s.missing || s.message || s.bodyText !== undefined) { console.log(`  ${s.label}: ${JSON.stringify(s)}`); continue }
     if (s.sections === undefined) { console.log(`  ${s.label}`); continue }
     const scrolled = s.askedFor !== undefined ? `  set ${s.askedFor} → ${s.scrollTop} ${s.took ? "OK" : "DID NOT TAKE"}` : ""
     console.log(`  ${s.label}: ${s.sections} sections, ${s.scrollHeight}/${s.clientHeight} (${s.canScroll ? "scrollable" : "NOT SCROLLABLE"}) overflow=${s.overflowY} box=${s.box}${scrolled}`)
-    console.log(`      touch at centre lands on ${s.topAtCentre}${s.centreInsideScroller ? "" : "  ← OUTSIDE THE CANVAS"}${s.pointerEventsNoneOn ? "  pointer-events:none on " + s.pointerEventsNoneOn : ""}${s.coveredBy.length ? "\n      covered by: " + s.coveredBy.join("; ") : ""}${s.sheetOpen ? "  sheet OPEN" : ""}${s.bodyPE !== "-" ? "  body.pointer-events=" + s.bodyPE : ""}`)
+    if (s.touch) console.log(`      finger: ${s.touch.cancelled}/${s.touch.of} moves cancelled on ${s.touch.on}${s.touch.chain.length ? "  touch-action: " + s.touch.chain.join(", ") : ""}${s.touch.by && s.touch.by.length ? "\n      cancelled by: " + s.touch.by.join("\n                    ") : ""}`)
+    console.log(`      touch at centre lands on ${s.topAtCentre}${s.centreInsideScroller ? "" : "  ← OUTSIDE THE CANVAS"}${s.pointerEventsNoneOn ? "  pointer-events:none on " + s.pointerEventsNoneOn : ""}${s.coveredBy.length ? "\n      covered by: " + s.coveredBy.join("; ") : ""}${s.sheetOpen ? "  sheet OPEN" : ""}${s.scrollLocked ? "  body[data-scroll-locked]" : ""}${s.openLayers && s.openLayers.length ? "\n      open layers: " + s.openLayers.join(", ") : ""}${s.bodyPE !== "-" ? "  body.pointer-events=" + s.bodyPE : ""}`)
   }
 }
 

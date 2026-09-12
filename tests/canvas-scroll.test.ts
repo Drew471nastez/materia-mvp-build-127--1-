@@ -201,6 +201,47 @@ function main() {
     check("and the frame, when it does come, puts it back too", late.style.overflowY === "auto")
     check("the layer is still re-created: the toggle happened", (never as unknown as { toggled: number }).toggled >= 2)
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A menu is not a dialog, and must not lock the page")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    /**
+     * "When I select the section it gets frozen and blocked."
+     *
+     * Radix defaults a dropdown to `modal`, and a modal dropdown mounts
+     * `react-remove-scroll`: a NON-PASSIVE `touchmove` listener on the
+     * document that calls `preventDefault()` on every gesture outside the
+     * menu, plus `data-scroll-locked` on the body. Right for a dialog. For a
+     * three-dot menu on a section row it means the canvas cannot be scrolled
+     * while it is open — and the lock was not being released on close, so it
+     * could not be scrolled again until the page was reloaded.
+     *
+     * Measured on the real editor by scripts/check-editor-scroll.mjs: open
+     * it, close it, wait three seconds, and 6 of 6 touchmoves over the canvas
+     * are still cancelled, phone and desktop alike.
+     *
+     * Nothing else can undo it. Taking `data-scroll-locked` off the body does
+     * not detach that listener, and the lock stack it consults is private to
+     * the library — which is why the stale-lock guard, which clears exactly
+     * that attribute, could never have helped.
+     */
+    const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const menu = readFileSync(join(process.cwd(), "components/ui/responsive-action-menu.tsx"), "utf8")
+    /** Every dropdown root in the editor and in the menu every row uses. */
+    const roots = [
+      ...editor.split("\n").filter((l) => l.includes("<DropdownMenu ") || l.trim() === "<DropdownMenu>"),
+      ...menu.split("\n").filter((l) => l.includes("<DropdownMenu ") || l.trim() === "<DropdownMenu>"),
+    ]
+    check(`every dropdown in the editor and the row menu is non-modal (${roots.length} found)`,
+      roots.length > 0 && roots.every((l) => l.includes("modal={false}")),
+      roots.filter((l) => !l.includes("modal={false}")).map((l) => l.trim()).join(" / "))
+    /**
+     * A DIALOG still locks, and should: it is the one thing you are meant to
+     * answer before carrying on. This guard is about menus only.
+     */
+    check("and a real dialog is left alone", /<Dialog open=\{addPageOpen\}/.test(editor) && !/<Dialog[^>]*modal=\{false\}/.test(editor))
+  }
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
