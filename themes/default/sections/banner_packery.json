@@ -2,6 +2,7 @@
   "type": "banner_packery",
   "name": "Banner packery",
   "description": "Masonry-style mosaic of 3–5 image banners with text overlays.",
+  "supports_typography_overrides": false,
   "icon": "layout-dashboard",
   "category": "media",
   "fields": [

@@ -2,6 +2,7 @@
   "type": "author_bio",
   "name": "Author Bio",
   "description": "Author profile section with photo, credentials, stats, and social links.",
+  "supports_typography_overrides": false,
   "icon": "user",
   "category": "niche",
   "fields": [

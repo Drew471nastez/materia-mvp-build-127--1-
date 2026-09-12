@@ -2,6 +2,7 @@
   "type": "timeline",
   "name": "Timeline",
   "description": "Vertical timeline or story section with alternating or single-side layout.",
+  "supports_typography_overrides": false,
   "icon": "clock",
   "category": "niche",
   "fields": [

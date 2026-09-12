@@ -2,6 +2,7 @@
   "type": "ebook_showcase",
   "name": "Ebook Showcase",
   "description": "Full-featured ebook or digital book sales section with cover, details, and purchase CTAs.",
+  "supports_typography_overrides": false,
   "icon": "book-open",
   "category": "niche",
   "fields": [

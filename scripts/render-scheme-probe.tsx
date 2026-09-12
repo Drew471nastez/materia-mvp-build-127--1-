@@ -13,6 +13,8 @@ import { join } from "node:path"
 import { StorelibSection } from "@/components/website-builder/sections/StorelibSection"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+import { SECTION_COMPONENTS } from "@/components/website-builder/sections/registry"
+import { designSupport } from "@/lib/website-builder/design-support"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { THEME_ROOT_ATTRIBUTE, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
 import { BUILT_IN_SCHEME_KEYS } from "@/lib/storelib-theme/color-schemes"
@@ -72,20 +74,87 @@ function instance(type: string, extra: Record<string, unknown>): SectionInstance
   return { id: safeId(type), type, name: schema.name, settings, blocks }
 }
 
+/**
+ * THROUGH THE REGISTRY, NOT STRAIGHT TO StorelibSection.
+ *
+ * An earlier version of this drew every section as a .storelib one, which
+ * quietly skipped the fifty that are React renderers — including the HEADER
+ * and the FOOTER, which are on every published site there is. Going through
+ * the same lookup the canvas and the storefront use means a section is drawn
+ * the way it is actually drawn, whichever family it belongs to.
+ */
 function draw(type: string, extra: Record<string, unknown>): string {
-  return renderToStaticMarkup(
-    createElement(StorelibLiveProvider, {
-      sources: {},
-      children: createElement(StorelibSection, { section: instance(type, extra), theme, isEditing: false, isSelected: false } as never),
-    } as never),
-  )
+  const Component = SECTION_COMPONENTS[type]
+  if (!Component) return ""
+  try {
+    return renderToStaticMarkup(
+      createElement(StorelibLiveProvider, {
+        sources: {},
+        children: createElement(Component, { section: instance(type, extra), theme, isEditing: false, isSelected: false } as never),
+      } as never),
+    )
+  } catch {
+    // A renderer that throws is the error boundary's problem, measured by
+    // scripts/check-error-boundary.mjs. Here it is simply not measurable.
+    return ""
+  }
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  AND THE THEME'S OWN FONTS, which are a control too
+ * ═══════════════════════════════════════════════════════════════════════════
+ * A section answering `heading_style` says the per-section control works. It
+ * says nothing about whether the theme's Heading font reaches the section at
+ * all — and that is the one a creator changes first, expecting the whole
+ * site to follow. So the page is drawn a second time under a different pair
+ * of fonts, and every section is asked whether it noticed.
+ */
+const ALT_THEME = { ...theme, font_heading: "Playfair Display", font_body: "IBM Plex Mono" } as unknown as ThemeSettingsValues
+
+function drawWith(t: ThemeSettingsValues, type: string, extra: Record<string, unknown>): string {
+  const Component = SECTION_COMPONENTS[type]
+  if (!Component) return ""
+  try {
+    return renderToStaticMarkup(
+      createElement(StorelibLiveProvider, {
+        sources: {},
+        children: createElement(Component, { section: instance(type, extra), theme: t, isEditing: false, isSelected: false } as never),
+      } as never),
+    )
+  } catch {
+    return ""
+  }
 }
 
 const vars = Object.entries(themeVars(theme) as CSSProperties).map(([k, v]) => `${k}:${String(v)}`).join(";")
+const altVars = Object.entries(themeVars(ALT_THEME) as CSSProperties).map(([k, v]) => `${k}:${String(v)}`).join(";")
+/**
+ * EVERY TYPE THE REGISTRY CAN DRAW, not just the ones the Add panel offers.
+ * `header` and `footer` are not addable — they are always there — and a site
+ * that was built before a type was retired still renders it.
+ */
+const DRAWABLE = Object.keys(SECTION_COMPONENTS).filter((t) => SECTION_SCHEMAS[t])
 let body = ""
-for (const type of ADDABLE_SECTIONS) {
+for (const type of DRAWABLE) {
+  /**
+   * AN EXPLICIT COLOUR IS NOT A BROKEN CONTROL.
+   *
+   * Several presets pin a background of their own — a dark hero, a tinted
+   * banner — and a section that has been given a colour is supposed to keep
+   * it whatever the scheme says. That is the override working, not the
+   * scheme failing, and measuring it as failure produced four false alarms.
+   *
+   * So on this axis every colour the section offers is cleared, which is
+   * what "follow the scheme" means, and then the scheme is the only thing
+   * left that can decide how it paints.
+   */
+  const noColours: Record<string, unknown> = { color_overrides: undefined }
+  for (const f of (SECTION_SCHEMAS[type].fields ?? []) as { id: string; type: string }[]) {
+    if (f.type === "color" || f.type === "color_background") noColours[f.id] = undefined
+  }
   for (const scheme of BUILT_IN_SCHEME_KEYS) {
-    body += `<div class="probe" data-type="${type}" data-axis="scheme" data-value="${scheme}">${draw(type, { color_scheme: scheme })}</div>\n`
+    body += `<div class="probe" data-type="${type}" data-axis="scheme" data-value="${scheme}">${draw(type, { ...noColours, color_scheme: scheme })}</div>\n`
   }
   for (const h of SECTION_HEADING_STYLES) {
     if (h === "custom") continue
@@ -109,13 +178,46 @@ for (const type of ADDABLE_SECTIONS) {
   })}</div>\n`
 }
 
+/**
+ * The second theme lives in its own root, with its own variables and its own
+ * stylesheet, exactly as a different site would. Nothing is shared but the
+ * sections themselves.
+ */
+let altBody = ""
+for (const type of DRAWABLE) {
+  altBody += `<div class="probe" data-type="${type}" data-axis="fonts" data-value="alt">${drawWith(ALT_THEME, type, {})}</div>\n`
+  body += `<div class="probe" data-type="${type}" data-axis="fonts" data-value="default">${draw(type, {})}</div>\n`
+}
+
 writeFileSync(
   join(OUT, "page.html"),
-  `<div ${THEME_ROOT_ATTRIBUTE} style="${vars}"><style>${themeStylesheet(theme)}</style>${body}</div>`,
+  `<div ${THEME_ROOT_ATTRIBUTE} style="${vars}"><style>${themeStylesheet(theme)}</style>${body}</div>` +
+  `<div ${THEME_ROOT_ATTRIBUTE} style="${altVars}"><style>${themeStylesheet(ALT_THEME)}</style>${altBody}</div>`,
 )
+/**
+ * What the EDITOR offers for each section, so the audit can hold the two
+ * against each other. A control that is shown and does nothing is the
+ * complaint this whole file exists to answer, and it cannot be seen by
+ * looking at either side alone.
+ */
+const offers = Object.fromEntries(DRAWABLE.map((t) => [t, designSupport(SECTION_SCHEMAS[t] as never).typography]))
+
+/**
+ * A section that offers a FONT of its own does not follow the theme's, and
+ * is not supposed to. `chapter_preview` defaults to Georgia because a book
+ * preview is meant to be in a book font, and a creator who picks one there
+ * has said what they want more recently than the theme did.
+ */
+const ownFont = Object.fromEntries(DRAWABLE.map((t) => [
+  t,
+  ((SECTION_SCHEMAS[t].fields ?? []) as { id: string }[]).some((f) => /^(font|font_family|typeface)$/.test(f.id) || f.id.endsWith("_font_family")),
+]))
+
+writeFileSync(join(OUT, "offers.json"), JSON.stringify({ typography: offers, ownFont }))
 writeFileSync(join(OUT, "axes.json"), JSON.stringify({
   schemes: BUILT_IN_SCHEME_KEYS,
   headings: SECTION_HEADING_STYLES,
   bodies: SECTION_BODY_STYLES,
-  sections: ADDABLE_SECTIONS,
+  sections: DRAWABLE,
+  addable: ADDABLE_SECTIONS,
 }))

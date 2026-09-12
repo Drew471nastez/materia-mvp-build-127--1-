@@ -2,6 +2,7 @@
   "type": "feature_grid",
   "name": "Feature grid",
   "description": "A grid of features with icons or images",
+  "supports_typography_overrides": false,
   "icon": "grid",
   "category": "content",
   "fields": [

@@ -2,6 +2,7 @@
   "type": "promotion_banner",
   "name": "Promotion banner",
   "description": "Large side-by-side image + text with call-to-action buttons.",
+  "supports_typography_overrides": false,
   "icon": "megaphone",
   "category": "marketing",
   "fields": [

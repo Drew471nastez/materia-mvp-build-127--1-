@@ -2,6 +2,7 @@
   "type": "footer",
   "name": "Footer",
   "description": "Site footer with logo, links, newsletter, and social icons",
+  "supports_typography_overrides": false,
   "icon": "layout-template",
   "category": "structure",
   "fields": [

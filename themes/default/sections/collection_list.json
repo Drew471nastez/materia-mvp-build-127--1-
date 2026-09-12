@@ -2,6 +2,7 @@
   "type": "collection_list",
   "name": "Collection list",
   "description": "Grid of collection cards with image, title, and product count.",
+  "supports_typography_overrides": false,
   "icon": "grid",
   "category": "commerce",
   "fields": [

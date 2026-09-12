@@ -2,6 +2,7 @@
   "type": "map_embed",
   "name": "Map embed",
   "description": "Embed a Google Maps or custom map to show your location",
+  "supports_typography_overrides": false,
   "icon": "map-pin",
   "category": "content",
   "fields": [

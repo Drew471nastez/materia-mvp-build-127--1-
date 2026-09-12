@@ -2,6 +2,7 @@
   "type": "gallery",
   "name": "Gallery",
   "description": "Image gallery with grid, masonry, or carousel layouts.",
+  "supports_typography_overrides": false,
   "icon": "image",
   "category": "media",
   "fields": [

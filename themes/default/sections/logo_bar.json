@@ -2,6 +2,7 @@
   "type": "logo_bar",
   "name": "Logo bar",
   "description": "Showcase partner, client, or integration logos.",
+  "supports_typography_overrides": false,
   "icon": "grid",
   "category": "social-proof",
   "fields": [

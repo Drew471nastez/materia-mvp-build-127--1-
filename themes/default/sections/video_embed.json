@@ -2,6 +2,7 @@
   "type": "video_embed",
   "name": "Video Embed",
   "description": "Embed a YouTube, Vimeo, or self-hosted video with optional heading and controls.",
+  "supports_typography_overrides": false,
   "icon": "play-circle",
   "category": "niche",
   "fields": [

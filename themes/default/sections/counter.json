@@ -2,6 +2,7 @@
   "type": "counter",
   "name": "Counter",
   "description": "Grid of animated counting numbers with heading and description.",
+  "supports_typography_overrides": false,
   "icon": "hash",
   "category": "social-proof",
   "fields": [

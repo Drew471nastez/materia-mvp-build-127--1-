@@ -2,6 +2,7 @@
   "type": "newsletter",
   "name": "Newsletter signup",
   "description": "Grow your email list with an inline or split signup section.",
+  "supports_typography_overrides": false,
   "icon": "mail",
   "category": "marketing",
   "fields": [

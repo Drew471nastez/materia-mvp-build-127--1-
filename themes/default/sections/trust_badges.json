@@ -2,6 +2,7 @@
   "type": "trust_badges",
   "name": "Trust badges",
   "description": "Reassure visitors with security, shipping, and quality badges.",
+  "supports_typography_overrides": false,
   "icon": "shield",
   "category": "social-proof",
   "fields": [

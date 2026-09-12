@@ -2,6 +2,7 @@
   "type": "pricing",
   "name": "Pricing",
   "description": "Pricing plans with optional billing toggle and feature lists.",
+  "supports_typography_overrides": false,
   "icon": "tag",
   "category": "conversion",
   "fields": [

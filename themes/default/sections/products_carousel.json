@@ -2,6 +2,7 @@
   "type": "products_carousel",
   "name": "Products carousel",
   "description": "Heading + horizontal scrollable strip of product cards with arrows.",
+  "supports_typography_overrides": false,
   "icon": "shopping-bag",
   "category": "commerce",
   "fields": [

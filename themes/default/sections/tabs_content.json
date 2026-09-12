@@ -2,6 +2,7 @@
   "type": "tabs_content",
   "name": "Tabs content",
   "description": "Tabbed content sections for organising information into switchable panels",
+  "supports_typography_overrides": false,
   "icon": "layout-list",
   "category": "interactive",
   "fields": [

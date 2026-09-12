@@ -2,6 +2,7 @@
   "type": "press_mentions",
   "name": "Press mentions",
   "description": "Showcase press coverage and media features with logos and quotes",
+  "supports_typography_overrides": false,
   "icon": "newspaper",
   "category": "social-proof",
   "fields": [

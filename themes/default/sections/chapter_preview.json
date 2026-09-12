@@ -2,6 +2,7 @@
   "type": "chapter_preview",
   "name": "Chapter Preview",
   "description": "Display a locked or unlocked chapter excerpt with optional CTA to purchase.",
+  "supports_typography_overrides": false,
   "icon": "file-text",
   "category": "niche",
   "fields": [

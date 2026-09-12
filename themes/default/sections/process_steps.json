@@ -2,6 +2,7 @@
   "type": "process_steps",
   "name": "Process / how it works",
   "description": "Explain your process or key steps with icons and descriptions.",
+  "supports_typography_overrides": false,
   "icon": "list-ordered",
   "category": "content",
   "fields": [

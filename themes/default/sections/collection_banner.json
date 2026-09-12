@@ -2,6 +2,7 @@
   "type": "collection_banner",
   "name": "Collection Banner",
   "description": "Product collection hero banner with optional filters, sort, and product count.",
+  "supports_typography_overrides": false,
   "icon": "grid",
   "category": "niche",
   "fields": [

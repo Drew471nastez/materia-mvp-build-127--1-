@@ -2,6 +2,7 @@
   "type": "team_members",
   "name": "Team members",
   "description": "Introduce your team with photos, bios, and social links.",
+  "supports_typography_overrides": false,
   "icon": "users",
   "category": "about",
   "fields": [
