@@ -2,6 +2,7 @@
   "type": "size_guide",
   "name": "Size Guide",
   "description": "Clothing size chart with unit toggle, fit guide image, and model measurements.",
+  "supports_typography_overrides": false,
   "icon": "ruler",
   "category": "niche",
   "fields": [

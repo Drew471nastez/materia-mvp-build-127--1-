@@ -2,6 +2,7 @@
   "type": "comparison_table",
   "name": "Comparison table",
   "description": "Side-by-side feature comparison table for products, plans, or services",
+  "supports_typography_overrides": false,
   "icon": "table",
   "category": "commerce",
   "fields": [

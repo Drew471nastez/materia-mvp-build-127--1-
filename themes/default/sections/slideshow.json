@@ -2,6 +2,7 @@
   "type": "slideshow",
   "name": "Slideshow",
   "description": "Rotating banner with multiple slides",
+  "supports_typography_overrides": false,
   "icon": "monitor-play",
   "category": "media",
   "fields": [

@@ -2,6 +2,7 @@
   "type": "lookbook",
   "name": "Lookbook",
   "description": "Fashion / clothing brand lookbook hero with collection info and mood styling.",
+  "supports_typography_overrides": false,
   "icon": "image",
   "category": "niche",
   "fields": [

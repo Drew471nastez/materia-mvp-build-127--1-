@@ -2,6 +2,7 @@
   "type": "brand_logo",
   "name": "Brand logos",
   "description": "Row of brand or partner logos with configurable width, spacing, and framing.",
+  "supports_typography_overrides": false,
   "icon": "badge",
   "category": "social-proof",
   "fields": [

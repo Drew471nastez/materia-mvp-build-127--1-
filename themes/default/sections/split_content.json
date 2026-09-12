@@ -2,6 +2,7 @@
   "type": "split_content",
   "name": "Split content",
   "description": "Side-by-side image and text layout",
+  "supports_typography_overrides": false,
   "icon": "columns",
   "category": "content",
   "fields": [

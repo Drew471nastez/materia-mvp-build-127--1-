@@ -2,6 +2,7 @@
   "type": "product_list",
   "name": "Product list",
   "description": "Display your products in a customizable grid",
+  "supports_typography_overrides": false,
   "icon": "shopping-bag",
   "category": "commerce",
   "fields": [
