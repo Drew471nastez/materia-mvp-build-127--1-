@@ -184,7 +184,7 @@ function main() {
     check("editing a product does not rewrite its slug", !writesSlug, "if this fails, that change needs to leave a redirect behind")
 
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
-    check("and a page's key is set once, when it is created", /const pageKey = newPageTitle/.test(editor) && !/page_key:\s*renamed/.test(editor))
+    check("and a page's key is set once, when it is created", /const pageKey = toPageSlug\(newPageTitle\)/.test(editor) && !/page_key:\s*renamed/.test(editor))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

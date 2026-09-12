@@ -64,7 +64,8 @@ import type {
 import { ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/website-builder/editor/design-panels"
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { PAGE_META } from "@/lib/website-builder/types"
-import { BUILT_IN_PAGE_KEYS, pageTitleFromKey } from "@/lib/website-builder/site-pages"
+import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey } from "@/lib/website-builder/site-pages"
+import { toPageSlug } from "@/lib/sites/slug"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
@@ -4708,9 +4709,35 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const handleAddCustomPage = async () => {
     if (!newPageTitle.trim()) return
     setAddingPage(true)
-    // Create the page key from title
-    const pageKey = newPageTitle.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") as PageKey
-    const newPage = { id: `page-${Date.now()}`, name: newPageTitle.trim(), key: pageKey }
+
+    /**
+     * ═════════════════════════════════════════════════════════════════════
+     *  THE NAME BECOMES THE ADDRESS, SO IT HAS TO BE A FREE ONE
+     * ═════════════════════════════════════════════════════════════════════
+     * The key was a title with its spaces and punctuation taken out, and
+     * nothing checked what came back. A page called "Home" made the key
+     * "home" and saved a header and a footer over the draft of the home
+     * page. A page called "!!!" made an empty key, which the API refuses
+     * and the failure was swallowed, so the page appeared in the switcher
+     * and existed nowhere.
+     */
+    const pageKey = toPageSlug(newPageTitle) as PageKey
+    const taken =
+      !pageKey ||
+      pageKeyFromSegment(pageKey) === null ||
+      BUILT_IN_PAGE_KEYS.has(pageKey) ||
+      customPages.some((p) => p.key === pageKey)
+    if (taken) {
+      showNotification(
+        pageKey && (BUILT_IN_PAGE_KEYS.has(pageKey) || customPages.some((p) => p.key === pageKey))
+          ? `There is already a page at /${pageKey}.`
+          : "Give the page a name with letters or numbers in it.",
+        "error",
+      )
+      setAddingPage(false)
+      return
+    }
+    const newPage = { id: pageKey, name: newPageTitle.trim(), key: pageKey }
 
     // Reuse the current session's header/footer so new pages inherit the
     // exact same nav links, logo, colors, and footer that the rest of the
@@ -4747,14 +4774,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       })
     }
 
-    // Save sections for the new page
+    // Save sections for the new page. A page that did not save is not a
+    // page, so the switcher is not told about one.
     try {
-      await fetch(`/api/website-builder/themes/${installId}/sections`, {
+      const res = await fetch(`/api/website-builder/themes/${installId}/sections`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ page_key: pageKey, sections: defaultSections, mode: "draft" }),
       })
-    } catch {}
+      if (!res.ok) throw new Error(String(res.status))
+    } catch {
+      showNotification("That page could not be created. Try again.", "error")
+      setAddingPage(false)
+      return
+    }
 
     setCustomPages(prev => [...prev, newPage])
     setAddPageOpen(false)

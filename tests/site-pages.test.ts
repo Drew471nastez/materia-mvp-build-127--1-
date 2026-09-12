@@ -156,6 +156,16 @@ function main() {
       return /revalidatePublishedSite\(creatorId\)/.test(del)
     })())
 
+    /**
+     * The name a person types becomes the address, and nothing checked what
+     * it turned into: "Home" made the key `home` and saved a bare header and
+     * footer over the home page's draft.
+     */
+    check("a new page cannot be named onto another page", /BUILT_IN_PAGE_KEYS\.has\(pageKey\)/.test(editor) && /customPages\.some\(\(p\) => p\.key === pageKey\)/.test(editor))
+    check("nor onto a name that cannot be an address", /pageKeyFromSegment\(pageKey\) === null/.test(editor))
+    check("the key comes from the same slug rule as the rest of the product", /const pageKey = toPageSlug\(newPageTitle\) as PageKey/.test(editor))
+    check("and a page that did not save is not shown as one that did", /if \(!res\.ok\) throw new Error\(String\(res\.status\)\)/.test(editor) && /That page could not be created/.test(editor))
+
     check("a delete that cannot be undone asks first", /confirming === p\.key/.test(switcher))
     check("and the way to ask is reachable on a phone, not only on hover", /sm:opacity-0 sm:group-hover\/row:opacity-100/.test(switcher))
   }
