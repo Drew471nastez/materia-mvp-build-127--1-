@@ -71,8 +71,11 @@ import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/re
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { resetClippedAncestors, reviveScroller, scrollWithin, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
-import { describeFreeze, sendFreezeReport } from "@/lib/website-builder/freeze-report"
+import { rebuildScroller, resetClippedAncestors, reviveScroller, scrollWithin, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
+import { describeFreeze, sendFreezeReport, type GestureStats } from "@/lib/website-builder/freeze-report"
+
+/** Dead drags this close together are one freeze, and each one escalates the answer. */
+const STUCK_ESCALATE_MS = 6000
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
@@ -6223,19 +6226,35 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [previewMode, projectSettingsOpen, reviveCanvas])
 
   /**
-   * And the watchdog, on a phone: a real drag that moves nothing is a freeze.
+   * ===================================================================
+   *  THE WATCHDOG, ON A PHONE: A REAL DRAG THAT MOVES NOTHING IS A FREEZE
+   * ===================================================================
+   * And it answers in three steps, because the first one was measured not
+   * to be enough. Reports from an iPhone (lib/website-builder/freeze-report.ts)
+   * showed a canvas no finger could move with nothing wrong that a script
+   * can see: window at zero, no lock, nothing over it, no listener
+   * cancelling the move, `overflow: auto` with room, touches arriving at the
+   * scroller. `reviveCanvas` ran and the next drag was as dead as the last.
    *
-   * BEFORE IT IS REVIVED, THE PHONE SAYS WHAT IT SAW. Every cause named so
-   * far was found by reproducing the freeze in a headless browser; the one
-   * still reported does not reproduce there. So at the moment the watchdog
-   * catches a dead drag, the geometry and state that decide whether a touch
-   * can scroll are photographed and sent to the server log, where they can
-   * be read. Where the finger was, and whether the browser had already
-   * cancelled its move, come from two passive listeners of our own: the
-   * watchdog's callback has neither. See lib/website-builder/freeze-report.ts.
+   *   1. The first dead drag REVIVES: locks cleared, layer re-created.
+   *   2. A second dead drag soon after REBUILDS the scroller: `display:
+   *      none` and back, which throws away the browser's own scrolling node
+   *      for the element and makes a new one, the way a reload would.
+   *   3. A third REMOUNTS the canvas: a new element, from React, with the
+   *      scroll position put back.
+   *
+   * Before each step the phone says what it saw, and which step it is on,
+   * so the log can say which step was the one that worked. Where the finger
+   * was, what the gesture did and whether a script could still move the
+   * scroller come from two passive listeners of our own: the watchdog's
+   * callback has none of that.
    */
   const lastTouch = useRef<{ x: number; y: number; prevented: boolean | null }>({ x: 0, y: 0, prevented: null })
-  const lastReportAt = useRef(0)
+  const gesture = useRef<GestureStats & { startTop: number }>({ moves: 0, cancelable: 0, prevented: 0, maxScrollDelta: 0, startTop: 0 })
+  const lastReportAt = useRef<Record<string, number>>({})
+  const stuckHistory = useRef<number[]>([])
+  const [canvasEpoch, setCanvasEpoch] = useState(0)
+  const restoreTopRef = useRef<number | null>(null)
   useEffect(() => {
     if (!isMobileView) return
     const el = document.getElementById("wb-preview-root")
@@ -6243,32 +6262,68 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const onStart = (e: TouchEvent) => {
       const t = e.touches[0]
       if (t) lastTouch.current = { x: t.clientX, y: t.clientY, prevented: null }
+      gesture.current = { moves: 0, cancelable: 0, prevented: 0, maxScrollDelta: 0, startTop: el.scrollTop }
     }
     // On the window, so it runs after every listener that could have
     // cancelled the move, and passive, so it can never be the one that does.
-    const onMove = (e: TouchEvent) => { lastTouch.current.prevented = e.defaultPrevented }
+    const onMove = (e: TouchEvent) => {
+      const g = gesture.current
+      g.moves += 1
+      if (e.cancelable) g.cancelable += 1
+      if (e.defaultPrevented) g.prevented += 1
+      g.maxScrollDelta = Math.max(g.maxScrollDelta, Math.abs(el.scrollTop - g.startTop))
+      lastTouch.current.prevented = e.defaultPrevented
+    }
     document.addEventListener("touchstart", onStart, { passive: true, capture: true })
     window.addEventListener("touchmove", onMove, { passive: true })
     const stop = watchForStuckScroll(el, () => {
+      const now = Date.now()
+      const recent = stuckHistory.current.filter((t) => now - t < STUCK_ESCALATE_MS)
+      recent.push(now)
+      stuckHistory.current = recent
+      const step = Math.min(recent.length, 3)
+      const reason = step === 1 ? "stuck-drag" : step === 2 ? "stuck-after-revive" : "stuck-after-rebuild"
       try {
-        const report = describeFreeze(document, window, el, "stuck-drag", lastTouch.current)
-        lastReportAt.current = sendFreezeReport(
+        // Can a script still move it? Decides between a scroller that is
+        // dead and a gesture the browser is not handing to it.
+        const before = el.scrollTop
+        el.scrollTop = before + (before > 0 ? -1 : 1)
+        const scriptCanScroll = el.scrollTop !== before
+        el.scrollTop = before
+        const { startTop: _startTop, ...stats } = gesture.current
+        const report = describeFreeze(document, window, el, reason, lastTouch.current, { gesture: stats, probe: { scriptCanScroll } })
+        lastReportAt.current[reason] = sendFreezeReport(
           (path, body) => { void fetch(path, { method: "POST", body, keepalive: true, headers: { "content-type": "application/json" } }).catch(() => {}) },
           report,
-          Date.now(),
-          lastReportAt.current,
+          now,
+          lastReportAt.current[reason] ?? 0,
         )
       } catch {
         // A report that cannot be taken must never stand between the drag and the revive.
       }
       reviveCanvas()
+      if (step >= 2) rebuildScroller(el, (cb) => window.requestAnimationFrame(cb))
+      if (step >= 3) {
+        restoreTopRef.current = el.scrollTop
+        stuckHistory.current = []
+        setCanvasEpoch((n) => n + 1)
+      }
     })
     return () => {
       stop()
       document.removeEventListener("touchstart", onStart, { capture: true })
       window.removeEventListener("touchmove", onMove)
     }
-  }, [isMobileView, reviveCanvas])
+  }, [isMobileView, reviveCanvas, canvasEpoch])
+
+  // The remounted canvas starts at the top; put it back where the finger was.
+  useLayoutEffect(() => {
+    const top = restoreTopRef.current
+    if (top === null) return
+    restoreTopRef.current = null
+    const el = document.getElementById("wb-preview-root")
+    if (el) el.scrollTop = top
+  }, [canvasEpoch])
 
   /**
    * AND THE KEYBOARD, which was the layer nobody had named.
@@ -7197,6 +7252,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           >
           <div
             id="wb-preview-root"
+            /* A new key is a new element: the third answer to a dead drag. */
+            key={canvasEpoch}
             /**
              * THE SCROLL THAT STOPS.
              * iOS hands a scroll gesture to the parent when the scroller is

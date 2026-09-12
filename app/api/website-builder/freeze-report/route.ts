@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { FREEZE_REPORT_MAX_BYTES } from "@/lib/website-builder/freeze-report"
+import { FREEZE_REPORT_MAX_BYTES, splitForLog, type FreezeReport } from "@/lib/website-builder/freeze-report"
 
 /**
  * A phone whose canvas stopped scrolling sends what it saw; see
@@ -33,7 +33,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not a report" }, { status: 400 })
   }
 
-  // One line, so a log search for the tag finds the whole picture.
-  console.warn(`[wb-freeze] ${JSON.stringify(report)}`)
+  // Two lines under one tag: the log cuts a long line short, and the two
+  // element chains are the long part. The small fields go first, whole.
+  const [core, chains] = splitForLog(report as FreezeReport)
+  console.warn(`[wb-freeze] ${core}`)
+  console.warn(`[wb-freeze-chains] ${chains}`)
   return new NextResponse(null, { status: 204 })
 }

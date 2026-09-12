@@ -221,3 +221,39 @@ export function scrollWithin(
   else scroller.scrollTop = top
   return top
 }
+
+/**
+ * ===========================================================================
+ *  WHEN REVIVING THE SCROLLER IS NOT ENOUGH, REBUILD IT
+ * ===========================================================================
+ * Reports from a phone (see freeze-report.ts) showed a canvas that no finger
+ * could move with nothing wrong that a script can see: the window at zero,
+ * no lock on the document, nothing over the canvas, no listener cancelling
+ * the move, `overflow: auto` with a page's worth of room, and touches
+ * arriving at the scroller itself. And `reviveScroller` did not help: the
+ * next drag was as dead as the one before. Whatever is wrong lives below
+ * the DOM, in the browser's own scrolling machinery for that element, and
+ * toggling `overflow` reuses it.
+ *
+ * `display: none` does not. An element with no box has no scrolling node;
+ * showing it again builds a new one, the same way a reload would, without
+ * the reload. Scroll position is put back by hand because the new node
+ * starts at zero. Costs a layout of the whole canvas, which is why this is
+ * the second step and not the first.
+ */
+export interface RebuildableLike extends ScrollerLike {
+  style: ScrollerLike["style"] & { display: string }
+}
+
+export function rebuildScroller(el: RebuildableLike, nextFrame: (cb: () => void) => void): void {
+  const top = el.scrollTop
+  el.style.display = "none"
+  void el.offsetHeight
+  el.style.display = ""
+  void el.offsetHeight
+  el.scrollTop = top
+  nextFrame(() => {
+    if (el.style.display === "none") el.style.display = ""
+    nudgeOffEnds(el, top)
+  })
+}

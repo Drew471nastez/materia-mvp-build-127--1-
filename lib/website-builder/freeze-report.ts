@@ -44,6 +44,8 @@ export interface NodeLike {
   scrollLeft?: number
   scrollHeight?: number
   clientHeight?: number
+  scrollWidth?: number
+  clientWidth?: number
   // Method signatures, not function-typed properties: a real Element's
   // `contains(other: Node)` must satisfy this, and only methods are checked
   // loosely enough in both directions for that to hold.
@@ -71,27 +73,47 @@ export interface ReportWindow {
   navigator?: { userAgent?: string }
 }
 
+/**
+ * What the gesture itself did, counted by the same passive listeners that
+ * know where the finger is. A drag that sends moves the browser has already
+ * made non-cancelable is one the browser is scrolling with; a drag whose
+ * moves are all cancelable is one it has decided not to.
+ */
+export interface GestureStats {
+  moves: number
+  cancelable: number
+  prevented: number
+  /** How far the scroller moved at most during the gesture, in px. */
+  maxScrollDelta: number
+}
+
 export interface FreezeReport {
   reason: string
   ua: string
   window: { w: number; h: number; scrollX: number; scrollY: number }
   viewport: { w: number; h: number; offsetTop: number; offsetLeft: number; pageTop: number; scale: number } | null
   touch: { x: number; y: number; prevented: boolean | null } | null
-  scroller: {
-    rect: Rect
-    scrollTop: number
-    scrollHeight: number
-    clientHeight: number
-    style: Styles
-    inline: string
-  } | null
-  ancestors: Array<{ el: string; scrollTop: number; scrollLeft: number } & Styles>
-  underTouch: Array<{ el: string; inCanvas: boolean } & Styles>
+  gesture: GestureStats | null
+  /** Whether a script could move the scroller at that moment, when checked. */
+  probe: { scriptCanScroll: boolean } | null
   focus: string | null
   body: { pointerEvents: string; overflow: string; scrollLocked: string | null; inlineStyle: string }
   html: { classes: string; scrollTop: number }
   layers: string[]
   covers: string[]
+  scroller: {
+    rect: Rect
+    scrollTop: number
+    scrollLeft: number
+    scrollHeight: number
+    clientHeight: number
+    scrollWidth: number
+    clientWidth: number
+    style: Styles
+    inline: string
+  } | null
+  ancestors: Array<{ el: string; scrollTop: number; scrollLeft: number } & Styles>
+  underTouch: Array<{ el: string; inCanvas: boolean } & Styles>
 }
 
 type Rect = { top: number; left: number; w: number; h: number }
@@ -135,6 +157,7 @@ export function describeFreeze(
   scroller: NodeLike | null,
   reason: string,
   touch: { x: number; y: number; prevented: boolean | null } | null,
+  extra: { gesture?: GestureStats | null; probe?: { scriptCanScroll: boolean } | null } = {},
 ): FreezeReport {
   const vv = win.visualViewport ?? null
 
@@ -193,18 +216,8 @@ export function describeFreeze(
       ? { w: Math.round(vv.width), h: Math.round(vv.height), offsetTop: Math.round(vv.offsetTop), offsetLeft: Math.round(vv.offsetLeft), pageTop: Math.round(vv.pageTop), scale: Number(vv.scale.toFixed(2)) }
       : null,
     touch,
-    scroller: scroller
-      ? {
-          rect: rect(scroller),
-          scrollTop: scroller.scrollTop ?? 0,
-          scrollHeight: scroller.scrollHeight ?? 0,
-          clientHeight: scroller.clientHeight ?? 0,
-          style: styles(win, scroller),
-          inline: (scroller.style?.cssText ?? "").slice(0, 240),
-        }
-      : null,
-    ancestors,
-    underTouch,
+    gesture: extra.gesture ?? null,
+    probe: extra.probe ?? null,
     focus: doc.activeElement ? describeNode(doc.activeElement) : null,
     body: {
       pointerEvents: bodyStyle.pointerEvents,
@@ -218,7 +231,32 @@ export function describeFreeze(
     },
     layers,
     covers,
+    scroller: scroller
+      ? {
+          rect: rect(scroller),
+          scrollTop: scroller.scrollTop ?? 0,
+          scrollLeft: scroller.scrollLeft ?? 0,
+          scrollHeight: scroller.scrollHeight ?? 0,
+          clientHeight: scroller.clientHeight ?? 0,
+          scrollWidth: scroller.scrollWidth ?? 0,
+          clientWidth: scroller.clientWidth ?? 0,
+          style: styles(win, scroller),
+          inline: (scroller.style?.cssText ?? "").slice(0, 240),
+        }
+      : null,
+    ancestors,
+    underTouch,
   }
+}
+
+/**
+ * The log truncates a long line, and the two chains are the long part. So a
+ * report is logged as two lines under one tag: everything small first, and
+ * the chains after, so the picture that matters is never the part cut off.
+ */
+export function splitForLog(report: FreezeReport): [string, string] {
+  const { ancestors, underTouch, ...core } = report
+  return [JSON.stringify(core), JSON.stringify({ reason: report.reason, ancestors, underTouch })]
 }
 
 /** Where a report goes. Same origin, no credentials beyond the session cookie. */

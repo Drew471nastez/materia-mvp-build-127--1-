@@ -18,12 +18,13 @@ import {
   describeFreeze,
   describeNode,
   sendFreezeReport,
+  splitForLog,
   type NodeLike,
   type ReportDoc,
   type ReportWindow,
   type StyleLike,
 } from "@/lib/website-builder/freeze-report"
-import { resetClippedAncestors, scrollWithin } from "@/lib/website-builder/canvas-scroll"
+import { rebuildScroller, resetClippedAncestors, scrollWithin } from "@/lib/website-builder/canvas-scroll"
 
 let passed = 0
 let failed = 0
@@ -121,8 +122,20 @@ section("describeNode says what a node is and nothing of what it holds")
 section("The picture a frozen phone sends")
 {
   const p = page()
-  const r = describeFreeze(p.doc, p.win, p.scroller, "stuck-drag", { x: 200, y: 400, prevented: true })
+  const r = describeFreeze(p.doc, p.win, p.scroller, "stuck-drag", { x: 200, y: 400, prevented: true }, {
+    gesture: { moves: 9, cancelable: 9, prevented: 0, maxScrollDelta: 0 },
+    probe: { scriptCanScroll: true },
+  })
   check("the reason travels", r.reason === "stuck-drag")
+  check("what the gesture did travels", r.gesture?.moves === 9 && r.gesture?.cancelable === 9 && r.gesture?.maxScrollDelta === 0)
+  check("whether a script could still scroll travels", r.probe?.scriptCanScroll === true)
+  check("the small fields come before the two chains", (() => {
+    const keys = Object.keys(r)
+    return keys.indexOf("focus") < keys.indexOf("scroller") && keys.indexOf("covers") < keys.indexOf("ancestors") && keys.indexOf("ancestors") < keys.indexOf("underTouch")
+  })())
+  const [core, chains] = splitForLog(r)
+  check("split for the log: the core line has no chains and the chain line has both", !core.includes("\"ancestors\"") && !core.includes("\"underTouch\"") && chains.includes("\"ancestors\"") && chains.includes("\"underTouch\"") && core.includes("\"scroller\""))
+  check("and the chain line still says which report it belongs to", JSON.parse(chains).reason === "stuck-drag")
   check("the window offset the keyboard leaves is in it", r.window.scrollY === 52 && r.viewport?.pageTop === 52)
   check("the scroller's own numbers are in it", r.scroller?.scrollTop === 120 && r.scroller?.scrollHeight === 4000 && r.scroller?.clientHeight === 700)
   check("the scroller's computed touch-action and overflow are in it", r.scroller?.style.ta === "pan-y" && r.scroller?.style.overflow === "visible/auto")
@@ -145,7 +158,7 @@ section("Without a touch and without a scroller it still reports")
 {
   const p = page()
   const r = describeFreeze(p.doc, p.win, null, "keyboard", null)
-  check("no scroller, no touch, no crash", r.scroller === null && r.touch === null && r.underTouch.length === 0 && r.ancestors.length === 0)
+  check("no scroller, no touch, no crash", r.scroller === null && r.touch === null && r.underTouch.length === 0 && r.ancestors.length === 0 && r.gesture === null && r.probe === null)
 }
 
 section("One picture per freeze")
@@ -184,6 +197,30 @@ section("A clipped ancestor that a script scrolled is put back")
   check("a clipped ancestor's horizontal offset goes too", inner.scrollLeft === 0 && reset.length === 1)
 }
 
+section("When reviving is not enough, the scroller is rebuilt")
+{
+  const writes: string[] = []
+  const frames: Array<() => void> = []
+  const el = {
+    scrollTop: 724, scrollHeight: 3042, clientHeight: 658,
+    get offsetHeight() { writes.push("layout"); return 658 },
+    style: {
+      overflowY: "auto",
+      _display: "",
+      get display() { return this._display },
+      set display(v: string) { this._display = v; writes.push(`display=${v || "(unset)"}`) },
+      removeProperty() {},
+      setProperty() {},
+    },
+  }
+  rebuildScroller(el, (cb) => frames.push(cb))
+  check("the element is hidden, laid out, shown, laid out: a new box", writes.join(" ") === "display=none layout display=(unset) layout", writes.join(" "))
+  check("and the scroll position is put back at once", el.scrollTop === 724)
+  check("it is not left hidden", el.style.display === "")
+  frames.forEach((f) => f())
+  check("the next frame keeps it where it was", el.scrollTop === 724 && el.style.display === "")
+}
+
 section("The canvas is scrolled by hand, and nothing above it")
 {
   const calls: Array<{ top: number; behavior: string }> = []
@@ -208,12 +245,19 @@ section("The editor")
   check("scrolls the canvas to a section with scrollWithin", code.includes("scrollWithin(scroller, el)"))
   check("puts clipped ancestors back when it revives", code.includes("resetClippedAncestors(el,"))
   check("photographs the freeze before it revives", (() => {
-    const at = code.indexOf('describeFreeze(document, window, el, "stuck-drag"')
+    const at = code.indexOf("describeFreeze(document, window, el, reason,")
     const revive = code.indexOf("reviveCanvas()", at)
     return at > 0 && revive > at
   })())
   check("reads whether the move was cancelled from a passive window listener", code.includes("lastTouch.current.prevented = e.defaultPrevented") && code.includes('window.addEventListener("touchmove", onMove, { passive: true })'))
   check("a report that fails cannot stop the revive", /try \{[\s\S]*?describeFreeze[\s\S]*?\} catch \{[\s\S]*?\}\s*reviveCanvas\(\)/.test(code))
+  check("three steps: revive, then rebuild, then remount", code.includes("if (step >= 2) rebuildScroller(el,") && code.includes("if (step >= 3) {") && code.includes("setCanvasEpoch((n) => n + 1)"))
+  check("dead drags close together escalate; far apart they start over", code.includes("now - t < STUCK_ESCALATE_MS") && /const STUCK_ESCALATE_MS = \d+/.test(code))
+  check("each step is reported under its own name", code.includes('"stuck-drag"') && code.includes('"stuck-after-revive"') && code.includes('"stuck-after-rebuild"'))
+  check("the report says whether a script could still scroll", code.includes("probe: { scriptCanScroll }"))
+  check("a new key is a new canvas element", code.includes("key={canvasEpoch}"))
+  check("the watchdog re-arms on the new element", /\}, \[isMobileView, reviveCanvas, canvasEpoch\]\)/.test(code))
+  check("and the remounted canvas is put back where the finger was", /useLayoutEffect\(\(\) => \{[\s\S]*?restoreTopRef\.current[\s\S]*?el\.scrollTop = top[\s\S]*?\}, \[canvasEpoch\]\)/.test(code))
 }
 
 section("The endpoint")
@@ -221,7 +265,7 @@ section("The endpoint")
   const route = read("app/api/website-builder/freeze-report/route.ts")
   check("signed-in users only", route.includes("supabase.auth.getUser()") && route.includes("status: 401"))
   check("capped in size", route.includes("FREEZE_REPORT_MAX_BYTES") && route.includes("status: 413"))
-  check("goes to the log under one tag", route.includes("console.warn(`[wb-freeze] ${JSON.stringify(report)}`)"))
+  check("goes to the log as two lines under one tag, small fields first", route.includes("splitForLog(report as FreezeReport)") && route.includes("console.warn(`[wb-freeze] ${core}`)") && route.includes("console.warn(`[wb-freeze-chains] ${chains}`)"))
   check("stores nothing", !route.includes(".from(") && !route.includes("insert("))
 }
 
