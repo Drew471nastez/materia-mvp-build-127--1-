@@ -1680,8 +1680,14 @@ section("What a touch on the sheet is FOR")
      * `startDrag` deafens the overlay at touchdown, before anyone knows what
      * the gesture is. A scroll that did not restore it leaves an overlay that
      * no longer closes the sheet when tapped.
+     *
+     * The restore goes through `settleOverlay` now, which hands back the
+     * opacity in the same breath. Handing back only the taps is what left a
+     * backdrop at opacity 0 with `pointer-events: auto` — invisible, over the
+     * whole screen, and swallowing every touch. The rule here is unchanged;
+     * what it points at is the one place allowed to do it.
      */
-    /overlay\.style\.pointerEvents = openRef\.current \? "auto" : "none"/.test(
+    /settleOverlay\(openRef\.current\)/.test(
       sheet.slice(sheet.indexOf("if (!wasDragging) {")),
     ),
   )

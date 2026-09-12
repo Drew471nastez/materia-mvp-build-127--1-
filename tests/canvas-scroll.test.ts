@@ -242,6 +242,68 @@ function main() {
      */
     check("and a real dialog is left alone", /<Dialog open=\{addPageOpen\}/.test(editor) && !/<Dialog[^>]*modal=\{false\}/.test(editor))
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("The sheet's backdrop can never be invisible and still take a touch")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    /**
+     * "When I select a section it blocks."
+     *
+     * The backdrop is a full-screen fixed layer. The drag path writes its
+     * opacity BY HAND, for the same reason it writes the sheet's transform by
+     * hand — React cannot keep up with a finger — and `endDrag` handed back
+     * `pointer-events` while leaving the opacity wherever the gesture had put
+     * it. Nothing in the drag path sets React state, so no re-render ever came
+     * along to correct it.
+     *
+     * Opacity 0 with `pointer-events: auto` over the whole viewport is the
+     * worst state a screen can be in: the canvas is plainly visible through it
+     * and every touch is swallowed, and nothing looks wrong. Measured on the
+     * real editor: `div.fixed.inset-0.bg-black/30 opacity=0 pointer-events=auto`,
+     * still there three seconds later.
+     *
+     * The invariant that makes it unreachable: the only writer that may turn
+     * the backdrop's pointer-events ON must set its opacity in the same
+     * breath, and React's own render must gate one on the other.
+     */
+    const sheet = readFileSync(join(process.cwd(), "components/website-builder/mobile-editor-sheet.tsx"), "utf8")
+
+    check(
+      "one helper writes both properties, from one answer",
+      /const settleOverlay = \(nowOpen: boolean\) => \{[\s\S]*?overlay\.style\.opacity = nowOpen \? "1" : "0"[\s\S]*?overlay\.style\.pointerEvents = nowOpen \? "auto" : "none"[\s\S]*?\}/.test(sheet),
+    )
+    /**
+     * Every OTHER imperative write may only turn them off. A write that turns
+     * pointer-events on without an opacity beside it is the bug returning.
+     */
+    const turnsOn = sheet
+      .split("\n")
+      .filter((l) => /overlay\.style\.pointerEvents\s*=/.test(l))
+      .filter((l) => !/= *"none"/.test(l))
+      .filter((l) => !/nowOpen \? "auto" : "none"/.test(l))
+    check("and no other line turns the backdrop's pointer-events on by itself", turnsOn.length === 0, turnsOn.map((l) => l.trim()).join(" / "))
+
+    check(
+      "React gates them on each other too, so a render cannot produce it either",
+      sheet.includes('pointerEvents: open && renderOpacity > 0.01 ? "auto" : "none"'),
+    )
+    /**
+     * And the gesture has to be able to END. A touch event is delivered to the
+     * element it STARTED on, so listening on the sheet means a finger lifted
+     * over a row React has since replaced never ends the drag — which is
+     * exactly what tapping a section row does. The mouse path already knew
+     * this; touch never got the same treatment.
+     */
+    check(
+      "a lifted finger ends the drag wherever it lands",
+      /window\.addEventListener\("touchend", onEnd\)/.test(sheet) && /window\.addEventListener\("touchcancel", onEnd\)/.test(sheet),
+    )
+    check(
+      "and the sheet no longer listens for the end of one itself",
+      !/sheet\.addEventListener\("touchend"/.test(sheet) && !/sheet\.addEventListener\("touchcancel"/.test(sheet),
+    )
+  }
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
