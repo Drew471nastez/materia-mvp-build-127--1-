@@ -146,7 +146,19 @@ function main() {
     check("the wrapper around the scroller is not faded on a phone", /previewMode === "code" && !isMobileView && "opacity-0 pointer-events-none"/.test(editor))
     check("the scroller is revived when the code pane or settings closes", /const covered = previewMode === "code" \|\| projectSettingsOpen/.test(editor) && /reviveScroller\(el, \(cb\) => window\.requestAnimationFrame\(cb\)\)/.test(editor))
     check("twice, for a keyboard still on its way down", /window\.setTimeout\(reviveCanvas, 340\)/.test(editor) && /window\.setTimeout\(reviveCanvas, 900\)/.test(editor))
-    check("and the window's own offset is put back", /if \(window\.scrollY !== 0\) window\.scrollTo\(0, 0\)/.test(editor.slice(editor.indexOf("const reviveCanvas"), editor.indexOf("const reviveCanvas") + 600)))
+    const revive = editor.slice(editor.indexOf("const reviveCanvas"), editor.indexOf("const reviveCanvas") + 1200)
+    check("and the window's own offset is put back", /if \(window\.scrollY !== 0\) window\.scrollTo\(0, 0\)/.test(revive))
+    /**
+     * ORDER MATTERS HERE, and getting it wrong is what made four earlier
+     * attempts look like they had missed. While `pointer-events: none` sits
+     * on the body no touch reaches the scroller at all, so reviving the
+     * scroller first fixes something nobody could have been touching.
+     */
+    check(
+      "the document is unlocked before the scroller is revived",
+      revive.indexOf("clearStaleDocumentLocks(document)") !== -1 &&
+        revive.indexOf("clearStaleDocumentLocks(document)") < revive.indexOf("reviveScroller(el"),
+    )
     check("on a phone the watchdog is armed on the canvas", /return watchForStuckScroll\(el, reviveCanvas\)/.test(editor))
     check("the transition is tracked so a revive fires on the way OUT, not in", /const wasCovered = coveredRef\.current\n\s+coveredRef\.current = covered\n\s+if \(wasCovered && !covered\)/.test(editor))
   }

@@ -102,8 +102,9 @@ function Body({
     })()
   }, [active, installId])
 
+  // A path, not a query: see `withToken` in the preview route for why.
   const previewUrl = previewToken && websiteUrl
-    ? `${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}preview=${previewToken}`
+    ? `${websiteUrl.replace(/\/$/, "")}/preview/${previewToken}`
     : null
 
   const openPreview = async () => {

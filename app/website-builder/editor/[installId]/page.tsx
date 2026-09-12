@@ -72,6 +72,7 @@ import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { reviveScroller, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
+import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
@@ -6159,19 +6160,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   useEffect(() => {
     const revive = () => {
       if (document.visibilityState !== "visible") return
-      const html = document.documentElement
-      const body = document.body
-      const liveLayer = document.querySelector('[data-state="open"], [data-mobile-bottom-sheet], [data-mobile-top-sheet]')
-      if (!liveLayer) {
-        for (const el of [html, body]) {
-          el.style.removeProperty("overflow")
-          el.style.removeProperty("pointer-events")
-          el.style.removeProperty("position")
-          el.style.removeProperty("touch-action")
-        }
-        html.removeAttribute("data-scroll-locked")
-        body.removeAttribute("data-scroll-locked")
-      }
+      /**
+       * THE GUARD USED TO TALK ITSELF OUT OF EVER RUNNING ON A PHONE. It
+       * skipped whenever it found `[data-mobile-bottom-sheet]`, and the
+       * builder's sections sheet is mounted for the whole life of the
+       * editor because it has a peek. So on a phone this never ran once.
+       * `clearStaleDocumentLocks` asks the narrower question that actually
+       * matters: is a layer open that SETS a body lock — which the sheet
+       * never does. See lib/website-builder/stuck-layer.ts.
+       */
+      clearStaleDocumentLocks(document)
       window.dispatchEvent(new Event("resize"))
     }
     const onPageShow = () => revive()
@@ -6197,6 +6195,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * means and why the layer is re-created.
    */
   const reviveCanvas = useCallback(() => {
+    /**
+     * THE DOCUMENT FIRST, and this is the half that was missing.
+     *
+     * Both the code editor and project settings are opened from a dropdown
+     * menu, and Radix's dismissable layer sets `body { pointer-events: none }`
+     * while that menu is open. Mounting a full-screen pane over it tears the
+     * menu down mid-close, so the restore can be skipped and the body stays
+     * dead to every press. Reviving the SCROLLER cannot help with that: the
+     * touches were never reaching it.
+     */
+    clearStaleDocumentLocks(document)
     const el = document.getElementById("wb-preview-root")
     if (!el) return
     reviveScroller(el, (cb) => window.requestAnimationFrame(cb))
@@ -6204,6 +6213,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // on the webview; nothing the builder owns can scroll it back but this.
     if (window.scrollY !== 0) window.scrollTo(0, 0)
   }, [])
+
+  /**
+   * AND THE PRESS THAT FINDS THE PAGE DEAD IS THE PRESS THAT REVIVES IT.
+   *
+   * With `pointer-events: none` on the body a press hit-tests through to the
+   * root element, so it still reaches a listener on the DOCUMENT even though
+   * it reaches nothing inside the page. That is the only signal available
+   * from inside a frozen page, and it is enough — whatever left the lock
+   * there, and whether or not this file ever learns what did.
+   */
+  useEffect(() => watchForStuckLayer(document, () => {
+    window.dispatchEvent(new Event("resize"))
+  }), [])
 
   // Coming back from the code pane or from project settings.
   const coveredRef = useRef(false)

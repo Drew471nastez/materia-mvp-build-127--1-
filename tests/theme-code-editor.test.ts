@@ -762,13 +762,30 @@ section("The code editor on a phone")
     /if \(visible\) return/.test(pane) && /contentDocument\?\.activeElement/.test(pane) && /window\.scrollTo\(0, 0\)/.test(pane),
   )
   const builder = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const stuck = readFileSync(join(root, "lib/website-builder/stuck-layer.ts"), "utf8")
   check(
     "and coming back to the app clears a lock whose owner is gone",
     // The builder never locks the document inline, so an inline lock at that
-    // moment belongs to something that did not clean up after itself.
+    // moment belongs to something that did not clean up after itself. The
+    // deciding is in stuck-layer.ts now, where it can be tested on its own;
+    // the builder's job is to ask it at the two moments it matters.
     /document\.addEventListener\("visibilitychange", revive\)/.test(builder) &&
-      /removeProperty\("pointer-events"\)/.test(builder) &&
-      /data-state="open"/.test(builder),
+      /clearStaleDocumentLocks\(document\)/.test(builder) &&
+      /el\.style\.removeProperty\(prop\)/.test(stuck) &&
+      /data-state="open"/.test(stuck),
+  )
+  /**
+   * And the way back from the code pane is the other one. Radix drops
+   * `pointer-events: none` on the body while a menu closes, and a menu torn
+   * down mid-close never takes it off again: every touch after that lands on
+   * nothing, which is the freeze people keep reporting. Nobody can report a
+   * lock they cannot see, so a press on a dead document is itself the signal.
+   */
+  check(
+    "and a press that lands on a dead document clears it too",
+    /watchForStuckLayer\(document/.test(builder) &&
+      /"pointerdown"[\s\S]{0,200}capture: true/.test(stuck) &&
+      /passive: true/.test(stuck),
   )
 
   /**
