@@ -48,8 +48,27 @@ execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-schem
 execFileSync("node", [bundle], { env: { ...process.env, OUT_DIR: out }, stdio: ["ignore", "ignore", "inherit"] })
 
 const PIC = "data:image/svg+xml;base64," + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900"><rect width="1200" height="900" fill="#8b5cf6"/></svg>').toString("base64")
-const body = readFileSync(join(out, "page.html"), "utf8").replace(/src="https:\/\/example\.invalid\/[^"]*"/g, `src="${PIC}"`)
 
+/**
+ * AT THE END OF THE BODY, RUNNING IMMEDIATELY — not on an event.
+ *
+ * `--virtual-time-budget` expires as soon as there are no timers left to
+ * run, and the dump is taken then. On a page with nothing animating that can
+ * be BEFORE `DOMContentLoaded`, so a handler waiting for that event never
+ * runs and the probe reports nothing: no title, no JSON, every section
+ * present in the dump. Running inline at parse time does not wait for
+ * anything, which is why the first version of this worked.
+ */
+/**
+ * A BACKSLASH IN HERE IS EATEN BEFORE THE BROWSER EVER SEES IT.
+ *
+ * This block is a JS template literal, so `\\d` and `\\(` collapse to `d`
+ * and `(` on the way out. A regex written `/^rgba?\\(/` arrives as
+ * `/^rgba?(/` — an unterminated group, a SyntaxError, and the whole script
+ * never runs. Nothing says so: no title, no JSON, every section present in
+ * the dump, and the probe reports "never finished" as if the page were too
+ * big. It cost an afternoon. Every backslash here is doubled on purpose.
+ */
 const MEASURE = `
 <script>
 (function () {
@@ -65,9 +84,56 @@ const MEASURE = `
    * changes when the scheme does. If none of it does, the control is wired
    * to nothing.
    */
+  /** Every colour this rendering actually paints, as hex, deduplicated. */
+  function colourSet(box, root) {
+    var seen = {}
+    /**
+     * THE ELEMENTS A SCHEME COLOUR CAN LAND ON, not every node.
+     *
+     * Reading every descendant was eighteen thousand style reads
+     * a page, each forcing a style recalculation against four hundred
+     * kilobytes of CSS, and Chromium took its dump before the script
+     * finished — no title, no JSON, the whole page present. Nothing looked
+     * broken; the probe simply reported nothing.
+     *
+     * The nine override keys are a background, a text colour, a heading, an
+     * accent, a border, and two buttons' fills and labels. This is where all
+     * nine can show up.
+     */
+    var all = [root].concat(Array.prototype.slice.call(
+      box.querySelectorAll("section, h1, h2, h3, h4, p, li, a, button, input, [class*=btn], [class*=card], [class*=badge]"), 0, 40))
+    for (var i = 0; i < all.length; i++) {
+      var c = getComputedStyle(all[i])
+      var props = [c.backgroundColor, c.color, c.borderTopColor]
+      for (var j = 0; j < props.length; j++) {
+        var m = /^rgba?\\((\\d+), (\\d+), (\\d+)/.exec(props[j] || "")
+        if (!m) continue
+        var hex = "#" + [m[1], m[2], m[3]].map(function (n) {
+          var h = Number(n).toString(16)
+          return h.length < 2 ? "0" + h : h
+        }).join("")
+        seen[hex] = 1
+      }
+      // A background-image carries gradients, which is where a scheme's
+      // gradient and several sections' overlays end up.
+      var bi = c.backgroundImage
+      if (bi && bi !== "none") {
+        var g = bi.match(/rgba?\\(\\d+, \\d+, \\d+/g) || []
+        for (var k = 0; k < g.length; k++) {
+          var mm = /(\\d+), (\\d+), (\\d+)/.exec(g[k])
+          seen["#" + [mm[1], mm[2], mm[3]].map(function (n) {
+            var h = Number(n).toString(16); return h.length < 2 ? "0" + h : h
+          }).join("")] = 1
+        }
+      }
+    }
+    return Object.keys(seen)
+  }
+
   function paintSig(box, root) {
     var out = []
-    var all = [root].concat(Array.prototype.slice.call(box.querySelectorAll("*"), 0, 400))
+    var all = [root].concat(Array.prototype.slice.call(
+      box.querySelectorAll("section, div, h1, h2, h3, h4, p, a, button"), 0, 60))
     for (var i = 0; i < all.length; i++) {
       var c = getComputedStyle(all[i])
       var bg = c.backgroundColor
@@ -77,6 +143,7 @@ const MEASURE = `
     return out.join(" ")
   }
   var rows = []
+  try {
   document.querySelectorAll(".probe").forEach(function (box) {
     /**
      * THE SECTION, NOT THE WRAPPER AROUND IT. A .storelib section paints on
@@ -115,19 +182,33 @@ const MEASURE = `
         return props.map(function (p) { return c[p] }).join("|")
       }).join(" / ")
     }
-    var headings = box.querySelectorAll("h1, h2, h3, h4, [data-heading]")
-    var texts = box.querySelectorAll("p, li, [data-body]")
+    var wantType = box.getAttribute("data-axis") !== "scheme" && box.getAttribute("data-axis") !== "override"
+    var headings = wantType ? box.querySelectorAll("h1, h2, h3, h4, [data-heading]") : []
+    var texts = wantType ? box.querySelectorAll("p, li, [data-body]") : []
     var hs = headings.length ? sig(headings, ["fontSize", "fontWeight", "lineHeight", "letterSpacing", "textTransform", "fontFamily"]) : null
     var ts = texts.length ? sig(texts, ["fontSize", "fontWeight", "lineHeight", "letterSpacing", "fontFamily"]) : null
+    /**
+     * ONLY WHAT THIS AXIS NEEDS. Reading every colour of every element for
+     * every rendering is 2,000 renderings times 600 elements of
+     * a full getComputedStyle pass, and the page stopped finishing at all.
+     * Each axis
+     * asks one question, so each row answers one.
+     */
+    var axis = box.getAttribute("data-axis")
     rows.push({
       type: box.getAttribute("data-type"),
-      axis: box.getAttribute("data-axis"),
+      axis: axis,
       value: box.getAttribute("data-value"),
-      bg: paintSig(box, root),
-      heading: hs,
-      body: ts,
+      bg: axis === "scheme" ? paintSig(box, root) : null,
+      colours: axis === "override" ? colourSet(box, root) : null,
+      heading: axis === "heading" || axis === "fonts" ? hs : null,
+      body: axis === "body" || axis === "fonts" ? ts : null,
     })
   })
+  } catch (e) {
+    document.title = "THREW:" + String(e && e.message || e)
+    return
+  }
   document.title = "ROWS:" + rows.length
   var el = document.createElement("script")
   el.type = "application/json"
@@ -137,18 +218,40 @@ const MEASURE = `
 })()
 </script>`
 
-const file = join(out, "page.html")
-writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style>
-<style>.probe{contain:layout paint;width:1200px}</style></head><body>${body}${MEASURE}</body></html>`)
-const dump = execFileSync(CHROMIUM, ["--headless", "--disable-gpu", "--no-sandbox",
-  "--force-device-scale-factor=1", "--window-size=1200,900", "--virtual-time-budget=15000",
-  "--dump-dom", `file://${file}`], { encoding: "utf8", maxBuffer: 200 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] })
-const m = /<script type="application\/json" id="out">([\s\S]*?)<\/script>/.exec(dump)
-if (!m) fail("The probe never reported. Chromium rendered nothing usable.")
-const rows = JSON.parse(m[1].replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">"))
+/**
+ * One Chromium run per page. Splitting them is what made this finish at all:
+ * eighty sections across twenty-six renderings is two thousand of them, and
+ * one page of that laid out forever and reported nothing.
+ */
+function measure(name) {
+  const src = readFileSync(join(out, name), "utf8").replace(/src="https:\/\/example\.invalid\/[^"]*"/g, `src="${PIC}"`)
+  const file = join(out, `run-${name}`)
+  writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style>
+<style>.probe{contain:layout paint;width:1200px}</style></head><body>${src}${MEASURE}</body></html>`)
+  if (process.env.PROBE_KEEP) { writeFileSync(join(process.env.PROBE_KEEP, name), readFileSync(file, "utf8")); console.error("kept", name) }
+  const dump = execFileSync(CHROMIUM, ["--headless", "--disable-gpu", "--no-sandbox",
+    "--force-device-scale-factor=1", "--window-size=1200,900", "--virtual-time-budget=20000",
+    "--dump-dom", `file://${file}`], { encoding: "utf8", maxBuffer: 200 * 1024 * 1024, stdio: ["ignore", "pipe", process.env.PROBE_DEBUG ? "inherit" : "ignore"] })
+  const threw = /<title>THREW:([^<]*)<\/title>/.exec(dump)
+  if (threw) fail(`${name}: the measurement threw in the browser: ${threw[1]}`)
+  const m = /<script type="application\/json" id="out">([\s\S]*?)<\/script>/.exec(dump)
+  if (!m) {
+    if (process.env.PROBE_DEBUG) {
+      const t = /<title>([\s\S]{0,200})<\/title>/.exec(dump)
+      console.error("  title:", t ? JSON.stringify(t[1]) : "(none)")
+      console.error("  tail of run file:", JSON.stringify(readFileSync(file, "utf8").slice(-260)))
+      console.error("  tail of dump:", JSON.stringify(dump.slice(-400)))
+    }
+    fail(`${name}: never reported. Dump was ${dump.length} bytes, ${(dump.match(/class="probe"/g) || []).length} probes in it.`)
+  }
+  return JSON.parse(m[1].replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">"))
+}
+
+const pages = JSON.parse(readFileSync(join(out, "pages.json"), "utf8"))
+const rows = pages.flatMap(measure)
 if (!rows.length) fail("No sections were measured.")
 
-const { typography: offers, ownFont } = JSON.parse(readFileSync(join(out, "offers.json"), "utf8"))
+const { typography: offers, ownFont, overrideKeys, overrideA, overrideB } = JSON.parse(readFileSync(join(out, "offers.json"), "utf8"))
 const by = (t, axis) => rows.filter((r) => r.type === t && r.axis === axis)
 const types = [...new Set(rows.map((r) => r.type))]
 
@@ -242,8 +345,41 @@ for (const t of types) {
   if (!offers[t] && answers) answersButHidden.push(t)
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE NINE PER-SECTION COLOUR OVERRIDES
+ * ═══════════════════════════════════════════════════════════════════════════
+ * A scheme reaching a section says nothing about whether OVERRIDING one of
+ * its colours on that section reaches it — and the override is what a
+ * creator reaches for when the scheme is nearly right. "The colour schemes
+ * don't really control the buttons of the sections, the text of the buttons."
+ *
+ * Each key is given a colour of its own, so finding it names that key and no
+ * other, then moved to a second colour. A section that painted the first has
+ * to paint the second. A section that never painted the first does not use
+ * that colour, and is not asked about it.
+ */
+const overrideDead = []
+const overrideUsage = new Map()
+{
+  const base = (t) => rows.find((r) => r.type === t && r.axis === "override" && r.value === "__all__")
+  for (const t of types) {
+    const b = base(t)
+    if (!b || !b.colours) continue
+    overrideKeys.forEach((key, i) => {
+      const a = overrideA[i]
+      if (!b.colours.includes(a)) return // this section does not paint this colour
+      overrideUsage.set(key, (overrideUsage.get(key) ?? 0) + 1)
+      const v = rows.find((r) => r.type === t && r.axis === "override" && r.value === key)
+      if (!v || !v.colours) return
+      if (!v.colours.includes(overrideB[i])) overrideDead.push(`${t} → ${key}`)
+    })
+  }
+}
+
 const problems = []
 const list = (label, xs) => `${label}:\n${xs.map((x) => `      - ${x}`).join("\n")}`
+if (overrideDead.length) problems.push(list(`${overrideDead.length} per-section colour override(s) do not reach the section`, overrideDead.slice(0, 25)))
 if (deafToFonts.length) problems.push(list(`${deafToFonts.length} section(s) do not follow the theme's fonts`, deafToFonts))
 if (shownButDead.length) problems.push(list(`${shownButDead.length} section(s) SHOW a text control that does nothing`, shownButDead))
 if (ownFontSections.length) console.log(`  note: ${ownFontSections.length} section(s) carry a font control of their own, so the theme's font is not theirs to follow: ${ownFontSections.join(", ")}\n`)
@@ -260,4 +396,6 @@ const offering = types.filter((t) => offers[t]).length
 console.log(`  Every one of the ${types.length} answers the colour scheme.
   ${offering} offer a text control, and every one of those answers it.
   Every section that has text and no font of its own follows the theme's heading and body fonts.
-  The rest do not offer one, so there is no control sitting there doing nothing.\n`)
+  The rest do not offer one, so there is no control sitting there doing nothing.
+  Every per-section colour override reaches every section that paints that colour
+  (${[...overrideUsage.entries()].map(([k, n]) => `${k}: ${n}`).join(", ")}).\n`)
