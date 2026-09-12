@@ -276,18 +276,18 @@ section("The editor")
   })())
   check("reads whether the move was cancelled from a passive window listener", code.includes("lastTouch.current.prevented = e.defaultPrevented") && code.includes('window.addEventListener("touchmove", onMove, { passive: true })'))
   check("a report that fails cannot stop the revive", /try \{[\s\S]*?describeFreeze[\s\S]*?\} catch \{[\s\S]*?\}\s*reviveCanvas\(\)/.test(code))
-  check("four rungs: revive, rebuild everything, remount, reload", (() => {
+  check("three rungs: revive, rebuild everything, remount, and never a reload", (() => {
     const two = code.indexOf("if (step >= 2) {")
     const three = code.indexOf("if (step === 3) {")
-    const four = code.indexOf("if (step >= 4 && lastTouch.current.trusted) {")
     const bundle = code.slice(two, three)
-    return two > 0 && three > two && four > three
+    return two > 0 && three > two
       && bundle.includes("rebuildScroller(el,") && bundle.includes('resyncFixedLayers(document.querySelectorAll<HTMLElement>("[data-mobile-bottom-sheet], [data-wb-sheet-overlay]"))') && bundle.includes("dropOverscrollContain(el)") && bundle.includes("flashRootTouchAction([document.documentElement, document.body],") && bundle.includes("window.getSelection()?.removeAllRanges()")
-      && code.slice(three, four).includes("setCanvasEpoch((n) => n + 1)")
-      && code.slice(four).includes("window.location.reload()")
+      && code.slice(three).includes("setCanvasEpoch((n) => n + 1)")
   })())
-  check("the reload saves the draft first when there is one, and reloads even if the save fails", code.includes("if (isDirtyRef.current) void saveDraftRef.current({ quiet: true }).then(go, go)") && code.includes("else go()"))
-  check("only a trusted touch can reach the reload: a probe's synthetic drags cannot reload the page", code.includes("if (step >= 4 && lastTouch.current.trusted) {") && code.includes("trusted: e.isTrusted"))
+  check("the ladder never reloads the page under a finger", (() => {
+    const ladder = code.slice(code.indexOf("watchForStuckScroll(el, () => {"), code.indexOf("}, [isMobileView, reviveCanvas, canvasEpoch])"))
+    return ladder.length > 0 && !ladder.includes("location.reload(") && !ladder.includes("saveDraft")
+  })())
   check("a drag on a scroller nested inside the canvas is not a freeze and does not climb", code.includes("if (lastTouch.current.nested) return") && code.includes("nested: nestedScrollerUnder(e.target)") && code.includes("node.scrollHeight > node.clientHeight + 1) return true"))
   check("the touchstart's cancellation and pointer cancels are counted on the window", code.includes('window.addEventListener("touchstart", onStartDone, { passive: true })') && code.includes('window.addEventListener("pointercancel", onPointerCancel, { passive: true })') && code.includes("gesture.current.startPrevented = e.defaultPrevented"))
   check("dead drags within the window climb; outside it they start over, and the window fits a person dragging and waiting", code.includes("now - t < STUCK_ESCALATE_MS") && /const STUCK_ESCALATE_MS = (\d[\d_]*)/.test(code) && Number(/const STUCK_ESCALATE_MS = (\d[\d_]*)/.exec(code)![1].replace(/_/g, "")) >= 30_000)

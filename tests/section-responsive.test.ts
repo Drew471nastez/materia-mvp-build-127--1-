@@ -2290,7 +2290,14 @@ check(
 
 check(
   "and the body cannot put the scroll back while it is mounted",
-  /html\.wb-fullscreen,\s*\nhtml\.wb-fullscreen body \{[\s\S]*?overflow: hidden;/.test(editorCss) &&
+  /html\.wb-fullscreen,\s*\nhtml\.wb-fullscreen body \{[\s\S]*?height: 100%;/.test(editorCss) &&
+    // Not `overflow: hidden` on the root, and not `overscroll-behavior: none`:
+    // an overflow-hidden root has its native scroll view disabled on iOS, and
+    // with that the phone reported the nested canvas going deaf. The body is
+    // exactly the viewport with zero padding, so there is nothing to scroll
+    // behind the editor anyway.
+    !/html\.wb-fullscreen,\s*\nhtml\.wb-fullscreen body \{[^}]*overflow: hidden;/.test(editorCss) &&
+    !/html:has\(\.wb-editor\),\s*\nhtml:has\(\.wb-editor\) body \{[^}]*overflow: hidden;/.test(editorCss) &&
     /html\.wb-fullscreen body \{[\s\S]*?padding-bottom: 0;/.test(editorCss) &&
     /root\.classList\.add\("wb-fullscreen"\)/.test(lockSrc) &&
     /root\.classList\.remove\("wb-fullscreen"\)/.test(lockSrc),

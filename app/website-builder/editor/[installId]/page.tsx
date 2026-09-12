@@ -82,10 +82,13 @@ import { describeFreeze, sendFreezeReport, type GestureStats } from "@/lib/websi
  */
 const STUCK_ESCALATE_MS = 45_000
 /**
- * What each rung is called in the log. Index is the rung reached. Four rungs
- * now, not six: the phone graded every single remedy as not enough on its
- * own, including a full remount of the canvas, so the middle ones are
- * bundled and the last rung is the one thing known to work, a reload.
+ * What each rung is called in the log. Index is the rung reached. Three
+ * rungs: the phone graded every single remedy as not enough on its own,
+ * including a full remount of the canvas, so the middle ones are bundled.
+ * There WAS a fourth, a reload, and it was the wrong answer: with the cause
+ * still there it fired on nearly every drag and the editor "reset itself".
+ * The cause is addressed at the root of the document now (see
+ * `html.wb-fullscreen` in globals.css); the ladder is a net, not a cure.
  */
 const STUCK_REASONS = ["stuck-drag", "stuck-after-revive", "stuck-after-rebuild", "stuck-after-remount"] as const
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
@@ -6257,9 +6260,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    *      comes off the canvas.
    *   3. A third REMOUNTS the canvas: a new element, from React, with the
    *      scroll position put back.
-   *   4. A fourth saves the draft if there is anything to save and RELOADS
-   *      the page. This is the floor: a reload is the one thing every
-   *      report so far agrees brings the canvas back.
+   *
+   * No reload. It was a rung for one deploy and it made the editor reset
+   * under a person's finger, because the cause was still there. The cause
+   * was the document: `overflow: hidden` on html and body disables the
+   * root scroll view on iOS, and with the root disabled the phone reported
+   * this nested scroller going deaf. That is fixed in globals.css, not
+   * here. What is here is a net.
    *
    * Reports so far (iOS 18.7) graded each of the first three, one at a
    * time, as not enough: a script could still scroll, touches reached the
@@ -6278,10 +6285,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const lastTouch = useRef<{ x: number; y: number; prevented: boolean | null; trusted: boolean; nested: boolean }>({ x: 0, y: 0, prevented: null, trusted: false, nested: false })
   const gesture = useRef<GestureStats & { startTop: number }>({ moves: 0, cancelable: 0, prevented: 0, maxScrollDelta: 0, startTop: 0, startPrevented: null, pointerMoves: 0, pointerCancels: 0 })
-  const saveDraftRef = useRef<(options?: { quiet?: boolean }) => Promise<void>>(async () => {})
-  saveDraftRef.current = saveDraft
-  const isDirtyRef = useRef(isDirty)
-  isDirtyRef.current = isDirty
+
   const lastReportAt = useRef<Record<string, number>>({})
   const stuckHistory = useRef<number[]>([])
   const [canvasEpoch, setCanvasEpoch] = useState(0)
@@ -6368,13 +6372,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (step === 3) {
         restoreTopRef.current = el.scrollTop
         setCanvasEpoch((n) => n + 1)
-      }
-      if (step >= 4 && lastTouch.current.trusted) {
-        // The floor. Nothing is lost: the draft goes first when there is one.
-        stuckHistory.current = []
-        const go = () => window.location.reload()
-        if (isDirtyRef.current) void saveDraftRef.current({ quiet: true }).then(go, go)
-        else go()
       }
     })
     return () => {
