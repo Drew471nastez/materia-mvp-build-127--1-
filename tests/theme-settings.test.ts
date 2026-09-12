@@ -635,6 +635,35 @@ section("A section's type controls reach the section")
   check("an unchosen style still falls back to the theme's H2", css.includes(`[data-theme-root] [data-section]{--section-heading-font:var(--type-h2-font)`))
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+section("A secondary button is painted in the scheme's own colours")
+// ═══════════════════════════════════════════════════════════════════════
+{
+  /**
+   * Every section's `.s__btn--secondary` used to read
+   * `transparent / var(--s-heading) / var(--s-border)`: a stand-in for the
+   * scheme's secondary-button colours rather than the colours themselves.
+   * So the two Secondary button overrides in the section panel changed
+   * nothing, and on a light scheme the outline was drawn in the faint
+   * divider colour instead of the dark one the scheme asks for.
+   *
+   * "The colour schemes don't really control the buttons of the sections."
+   */
+  const dir = join(process.cwd(), "themes/default/sections")
+  const files = readdirSync(dir).filter((f) => f.endsWith(".storelib"))
+  const withSecondary = files.filter((f) => readFileSync(join(dir, f), "utf8").includes(".s__btn--secondary"))
+  const standIn = withSecondary.filter((f) => /\.s__btn--secondary \{[^}]*var\(--s-heading\)/.test(readFileSync(join(dir, f), "utf8")))
+  const wired = withSecondary.filter((f) => {
+    const src = readFileSync(join(dir, f), "utf8")
+    return /\.s__btn--secondary \{ background: var\(--s-btn2\); color: var\(--s-btn2-text\); border-color: var\(--s-btn2-border\); \}/.test(src) &&
+      src.includes("--s-btn2: {{ scheme.secondary_btn_bg }}") &&
+      src.includes("--s-btn2-text: {{ scheme.secondary_btn_text }}") &&
+      src.includes("--s-btn2-border: {{ scheme.secondary_btn_border }}")
+  })
+  check(`every section with a secondary button reads the scheme's colours for it (${withSecondary.length})`, wired.length === withSecondary.length, `not wired: ${withSecondary.filter((f) => !wired.includes(f)).join(", ")}`)
+  check("and none of them paints it with the heading colour any more", standIn.length === 0, standIn.join(", "))
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
