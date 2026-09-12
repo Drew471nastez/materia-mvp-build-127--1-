@@ -853,6 +853,34 @@ section("A form that says it worked, did")
   check("the empty state keeps the part that is only useful when empty", /SUGGESTIONS : CODE_SUGGESTIONS|mode === "change" \? SUGGESTIONS/.test(empty))
 }
 
+/**
+ * ===========================================================================
+ *  THE SECTION GAP HAD NOTHING TO MATCH
+ * ===========================================================================
+ * The rule was `[data-section]:not([data-chrome])+[data-section]`, and
+ * `[data-section]` is the wrapper INSIDE each section's container — so two
+ * sections' wrappers are cousins, never siblings. Measured on a real page
+ * with querySelectorAll: four sections, ZERO adjacent pairs. The theme's
+ * Section gap setting did nothing at all.
+ *
+ * Measured again after the change, with the gap set to 40: the second body
+ * section's computed margin-top is 40px and the first one's is 0.
+ */
+{
+  console.log("\n  The section gap lands between sections")
+  const renderer = read("components/website-builder/sections/SectionRenderer.tsx")
+  const css = read("lib/website-builder/theme-css.ts")
+
+  check("the marker is on the element that has siblings", /data-section-box=""/.test(renderer))
+  check("and the header and footer are marked as chrome there", /const chrome = props\.section\.type === "header" \|\| props\.section\.type === "footer"/.test(renderer))
+  check("the rule uses that marker", /\[data-section-box\]:not\(\[data-chrome\]\) ~ \[data-section-box\]:not\(\[data-chrome\]\)/.test(css))
+  check(
+    "and a following sibling rather than an adjacent one, because the editor puts a strip between sections",
+    !/\[data-section-box\]:not\(\[data-chrome\]\)\+/.test(css),
+  )
+  check("nothing is added above the first section or below the last", /never above the first or below the last/.test(css))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

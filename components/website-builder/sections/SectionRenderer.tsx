@@ -117,8 +117,28 @@ export function renderSection(props: SectionProps) {
    * section painting `c.bg` and a stylesheet reading `var(--scheme-background)`
    * agree, in the editor and on the published page alike.
    */
+  /**
+   * `data-section-box` IS WHAT THE SECTION GAP HANGS OFF.
+   *
+   * The gap rule was `[data-section]:not([data-chrome])+[data-section]`, and
+   * `[data-section]` is the wrapper INSIDE this container — so two sections'
+   * wrappers are cousins, never siblings, and the selector matched nothing.
+   * Measured on a real page: four sections, zero adjacent pairs, so the
+   * theme's Section gap setting did nothing at all.
+   *
+   * This container is the element that does have siblings, so the marker
+   * goes here, and `data-chrome` with it for the header and the footer,
+   * which a gap must never be added above or below.
+   */
+  const chrome = props.section.type === "header" || props.section.type === "footer"
   return (
-    <div className="@container" id={props.wrapperId} {...sectionTokenAttrs(props.section, props.theme)}>
+    <div
+      className="@container"
+      id={props.wrapperId}
+      data-section-box=""
+      data-chrome={chrome ? "" : undefined}
+      {...sectionTokenAttrs(props.section, props.theme)}
+    >
       {guard(<Component {...props} />)}
     </div>
   )

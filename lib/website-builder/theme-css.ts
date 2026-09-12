@@ -218,7 +218,17 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
   if (gap > 0) {
     // Between sections, never above the first or below the last — a gap there
     // reads as a broken page rather than as spacing.
-    rules.push(`${root} [data-section]:not([data-chrome])+[data-section]:not([data-chrome]){margin-top:var(--theme-section-gap);}`)
+    /**
+     * EVERY BODY SECTION THAT HAS ONE BEFORE IT, which is "all but the
+     * first" — never above the first or below the last, because a gap there
+     * reads as a broken page rather than as spacing.
+     *
+     * `~` rather than `+` on purpose: the editor puts an insert strip
+     * between sections, and with `+` the gap would appear on a published
+     * page and vanish in the editor. The marker is on the container that
+     * actually has siblings; see SectionRenderer.
+     */
+    rules.push(`${root} [data-section-box]:not([data-chrome]) ~ [data-section-box]:not([data-chrome]){margin-top:var(--theme-section-gap);}`)
   }
 
   // ── Buttons ─────────────────────────────────────────────────────────────

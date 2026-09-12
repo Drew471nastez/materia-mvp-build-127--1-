@@ -208,9 +208,20 @@ section("The stylesheet is scoped, or it would leak into the editor")
   )
   check(
     "a section gap is only ever between sections, and never around the chrome",
-    // A gap above the header or below the footer is not spacing, it is a page
-    // that looks broken.
-    /\[data-section\]:not\(\[data-chrome\]\)\+\[data-section\]:not\(\[data-chrome\]\)/.test(css),
+    /**
+     * A gap above the header or below the footer is not spacing, it is a page
+     * that looks broken.
+     *
+     * AND IT HAS TO MATCH SOMETHING. This read `[data-section]+[data-section]`
+     * for months, and `[data-section]` is the wrapper INSIDE each section's
+     * container: two sections' wrappers are cousins, never siblings, so the
+     * rule matched nothing and the Section gap setting did nothing. Counted
+     * in a browser: four sections, zero adjacent pairs. The marker is on the
+     * container now, which is the element that does have siblings, and the
+     * selector is `~` rather than `+` because the editor puts an insert strip
+     * between sections.
+     */
+    /\[data-section-box\]:not\(\[data-chrome\]\) ~ \[data-section-box\]:not\(\[data-chrome\]\)/.test(css),
   )
   check(
     "one long word cannot push the page sideways",
