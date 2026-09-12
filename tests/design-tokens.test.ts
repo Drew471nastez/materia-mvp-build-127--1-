@@ -221,6 +221,10 @@ section("Typography compiles to tokens at three widths")
     .split("\n")
     .filter((line) => line.trim() && !line.trim().startsWith("@"))
     .map((line) => line.split("{")[0].trim())
+    // `:where(…)` strips a rule's specificity and puts the root inside the
+    // brackets. Unwrapped, because what this asks is whether a rule can
+    // escape the page root, and `:where([data-storelib-theme] a)` cannot.
+    .map((sel) => (sel.startsWith(":where(") && sel.endsWith(")") ? sel.slice(7, -1) : sel))
     .filter((sel) => !sel.split(",").every((part) => part.trim().startsWith(`[${THEME_ROOT_ATTRIBUTE}]`)))
   check("every typography rule is under the page root", unscoped.length === 0, unscoped.join(" | "))
   check("the header's and footer's headings are left alone", /\[data-section\]:not\(\[data-chrome\]\) h1\)/.test(css))

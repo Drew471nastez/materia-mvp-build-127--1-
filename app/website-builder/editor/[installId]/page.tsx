@@ -70,6 +70,7 @@ import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES, SECTION_CATEGORY
 import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
+import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { reviveScroller, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
@@ -5059,13 +5060,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * on every render is a memoised component that re-renders on every render.
    * Neither closes over a section, so neither has a reason to be rebuilt.
    */
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  CLICKING THE CANVAS DOES NOT MOVE THE CANVAS
+   * ═════════════════════════════════════════════════════════════════════════
+   * This used to call `scrollToSection`, which brought the clicked section to
+   * the top of the card. Think about when that runs: you are looking at the
+   * section, you put a finger on it, and the page slides out from under the
+   * finger — to show you the thing you were already looking at. Tap a button
+   * halfway down a hero and the hero jumps; tap the next thing and it jumps
+   * again. There is nothing to reveal, so there is nothing to scroll for.
+   *
+   * The five other callers stay, because each has something you cannot see:
+   * a section just ADDED or DUPLICATED is somewhere else on the page, and a
+   * row picked in the SIDEBAR is a section you pointed at from a list rather
+   * than from the page. Selecting from a list is the case where scrolling is
+   * the whole answer.
+   */
   const selectSectionFromCanvas = useCallback(
     (sectionId: string, blockId?: string | null) => {
       setSelectedPanel({ type: "section", sectionId })
       setSelectedBlockId(blockId ?? null)
-      scrollToSection(sectionId)
     },
-    [scrollToSection],
+    [],
   )
   /**
    * AND THE SIDEBAR GOES TO IT. Selecting the ninth FAQ entry on the canvas
@@ -5078,9 +5095,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (!selectedBlockId) return
     const row = document.querySelector(`[data-block-row="${window.CSS.escape(selectedBlockId)}"]`)
     if (!row) return
-    const id = requestAnimationFrame(() =>
-      row.scrollIntoView({ block: "nearest", behavior: "smooth" }),
-    )
+    const id = requestAnimationFrame(() => {
+      /**
+       * THE SIDEBAR'S OWN SCROLLER, AND NOTHING ABOVE IT. `scrollIntoView`
+       * walks every scrollable ancestor, so on a phone — where the sidebar
+       * is a sheet over the canvas — it could bring the canvas along with
+       * it, which is the movement clicking a section is not supposed to
+       * cause. Scrolling the one container by hand cannot reach past it.
+       */
+      const scroller = row.closest("[data-sheet-scroll], [data-wb-sidebar-scroll]") as HTMLElement | null
+      if (!scroller) return
+      const r = row.getBoundingClientRect()
+      const box = scroller.getBoundingClientRect()
+      if (r.top >= box.top && r.bottom <= box.bottom) return // already in view
+      const delta = r.top < box.top ? r.top - box.top : r.bottom - box.bottom
+      scroller.scrollBy({ top: delta, behavior: "smooth" })
+    })
     return () => cancelAnimationFrame(id)
   }, [selectedBlockId])
 
@@ -5465,6 +5495,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <div className="border border-border rounded-lg mb-3">
                   <SidebarSectionRow
                     section={header}
+                    displayName={sectionDisplayName(header, librarySchemas)}
                     isSelected={selectedSectionId === header.id}
                     onSelect={() => { setSelectedPanel({ type: "section", sectionId: header.id }); scrollToSection(header.id) }}
                     onToggleHide={() => toggleSectionHidden(header.id)}
@@ -5516,6 +5547,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           <div key={section.id}>
                             <SortableSectionRow
                               section={section}
+                              displayName={sectionDisplayName(section, librarySchemas)}
                               isSelected={selectedSectionId === section.id}
                               onSelect={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }}
                               onToggleHide={() => toggleSectionHidden(section.id)}
@@ -5564,6 +5596,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     <div className="wb-drag-lift rounded-lg bg-white">
                       <SidebarSectionRow
                         section={sections.find((x) => x.id === draggingId) ?? bodySection[0]}
+                        displayName={sectionDisplayName(sections.find((x) => x.id === draggingId) ?? bodySection[0], librarySchemas)}
                         isSelected={false}
                         onSelect={() => {}}
                         onToggleHide={() => {}}
@@ -5580,6 +5613,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <div className="border border-border rounded-lg mt-3">
                   <SidebarSectionRow
                     section={footer}
+                    displayName={sectionDisplayName(footer, librarySchemas)}
                     isSelected={selectedSectionId === footer.id}
                     onSelect={() => { setSelectedPanel({ type: "section", sectionId: footer.id }); scrollToSection(footer.id) }}
                     onToggleHide={() => toggleSectionHidden(footer.id)}
@@ -5643,7 +5677,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate">{section.name}</p>
+              <p className="text-sm font-semibold truncate">{sectionDisplayName(section, librarySchemas)}</p>
               <p className="text-[11px] text-muted-foreground">{schema?.name ?? section.type}</p>
             </div>
           </div>
@@ -6804,7 +6838,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white rounded-t-[20px]"
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
-              <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
+              <div data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
                 <LinkTargetsProvider targets={linkTargets}>{renderSidebarContent()}</LinkTargetsProvider>
               </div>
             </div>
@@ -6884,7 +6918,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
+            <div data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
               <LinkTargetsProvider targets={linkTargets}>{renderSidebarContent()}</LinkTargetsProvider>
             </div>
           </MobileEditorSheet>
@@ -7943,8 +7977,15 @@ function SidebarSectionRow({
   isStructure = false,
   structureRole,
   dragHandleProps,
+  displayName,
 }: {
   section: SectionInstance
+  /**
+   * What this section is called, resolved from its schema by the caller.
+   * NOT `section.name`: that is a copy taken when the section was added and
+   * it goes stale the moment somebody renames the section in its code.
+   */
+  displayName: string
   isSelected: boolean
   onSelect: () => void
   onToggleHide: () => void
@@ -7991,7 +8032,7 @@ function SidebarSectionRow({
            */
           <span
             {...(dragHandleProps ?? {})}
-            aria-label={`Drag ${section.name} to reorder`}
+            aria-label={`Drag ${displayName} to reorder`}
             className={cn(
               "-ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md touch-none",
               "cursor-grab active:cursor-grabbing transition-colors",
@@ -8028,7 +8069,7 @@ function SidebarSectionRow({
             )}
           </span>
         )}
-        <span className="flex-1 text-sm font-medium truncate">{section.name}</span>
+        <span className="flex-1 text-sm font-medium truncate">{displayName}</span>
 
         {/**
          * ===================================================================
@@ -8052,7 +8093,7 @@ function SidebarSectionRow({
             <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-label={section.hidden ? `Show ${section.name}` : `Hide ${section.name}`}
+                aria-label={section.hidden ? `Show ${displayName}` : `Hide ${displayName}`}
                 aria-pressed={section.hidden}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -8094,7 +8135,7 @@ function SidebarSectionRow({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                aria-label={`Options for ${section.name}`}
+                aria-label={`Options for ${displayName}`}
                 className={cn(
                   "h-6 w-6 shrink-0 rounded-md flex items-center justify-center transition-[opacity,background-color] duration-150",
                   // Under the pointer only. The grip is drawn at rest because

@@ -890,7 +890,10 @@ check(
    * was a one-way door: the row greyed out, the site lost its header, and no
    * control anywhere in the editor brought it back.
    */
-  /aria-label=\{section\.hidden \? `Show \$\{section\.name\}` : `Hide \$\{section\.name\}`\}/.test(editor) &&
+  // `section.name` is a copy taken when the section was added and it goes
+  // stale when somebody renames the section in its code, so every row is
+  // handed a name resolved from the schema. See lib/website-builder/section-name.ts.
+  /aria-label=\{section\.hidden \? `Show \$\{displayName\}` : `Hide \$\{displayName\}`\}/.test(editor) &&
     /\{\(section\.hidden \|\| isStructure\) && \(/.test(editor) &&
     /onToggleHide\(\)\s*\n\s*\}\}/.test(editor) &&
     // drawn at rest when the row is hidden, since that is the row that needs
@@ -1066,9 +1069,9 @@ check(
    */
   ((code) =>
     /py-1\.5 pl-7 pr-6 text-\[16px\] md:py-1 md:text-\[11\.5px\]/.test(code) &&
-    // The new-file field, which lives in the explorer now, and the one the
-    // rename and duplicate row uses.
-    /h-10 w-full min-w-0 rounded-md border[^"]*text-\[16px\] md:h-8 md:text-\[12px\]/.test(code) &&
+    // The new-file field, which is a centred dialog now rather than a row
+    // in the explorer, and the one the rename and duplicate row uses.
+    /h-11 w-full min-w-0 rounded-lg border[^"]*text-\[16px\] md:h-10 md:text-\[13px\]/.test(code) &&
     /h-10 min-w-0 flex-1 rounded-md border[^"]*text-\[16px\] md:h-7 md:text-\[12px\]/.test(code) &&
     // the code itself was always right, and stays the pattern the rest follow
     /const CODE_TEXT = "text-\[16px\] leading-6 md:text-\[12px\] md:leading-5"/.test(code) &&
@@ -1675,17 +1678,29 @@ check(
 )
 
 check(
-  "New file is in the explorer, where the files are",
+  "New file is a centred dialog, not the narrowest column on the page",
   /**
    * It was a button in the middle of the empty editor whose form laid a
    * label, a field and two buttons in one row: about 250px before the field
    * had a pixel, so on a phone the field ran off both edges and Cancel was
    * past the right one. A screenshot of that is what reported it.
    */
+  /**
+   * IT MOVED AGAIN, AND THIS TIME OUT OF THE COLUMN. In the explorer it was
+   * at least in front of you on a phone, where the explorer IS the screen.
+   * On a desktop the explorer is a 240px strip off to one side, and the one
+   * thing you have to type went in the narrowest place on the page, above a
+   * list you were not reading. Naming a file is a question with one answer,
+   * so it is asked in the middle and takes the screen while it is asked.
+   */
   /aria-label="New file"[\s\S]{0,200}FilePlus/.test(codePage) &&
-    /pendingAction\?\.kind === "new" && \(\s*\n\s*<form/.test(codePage) &&
-    // and the row that could not be one is stacked now
-    /className="space-y-2 pt-1"/.test(codePage),
+    /role="dialog"[\s\S]{0,120}aria-label="Name the new file"/.test(codePage) &&
+    /fixed inset-0 z-\[200\] flex items-center justify-center/.test(codePage) &&
+    // one expression for every screen: a column on a monitor, edge to edge
+    // with a 16px gutter on a phone, a horizontal scrollbar at no width
+    /w-\[min\(420px,calc\(100vw-32px\)\)\]/.test(codePage) &&
+    // and it is gone from the explorer
+    !/className="space-y-2 pt-1"/.test(codePage),
 )
 
 check(
@@ -2018,10 +2033,10 @@ section("The sidebar: one menu per row, badges for the chrome, and a width you s
 check(
   "a row shows one three-dots button under the pointer, and it opens the same menu a right-click does",
   !/title="Remove"/.test(editor) &&
-    /aria-label=\{`Options for \$\{section\.name\}`\}/.test(editor) &&
+    /aria-label=\{`Options for \$\{displayName\}`\}/.test(editor) &&
     // The three dots are the dropdown's own trigger, so open and close are
     // its business; and the menu is the app's dropdown, with no red row.
-    /<DropdownMenuTrigger asChild>\s*<button\s*type="button"\s*aria-label=\{`Options for \$\{section\.name\}`\}/.test(editor) &&
+    /<DropdownMenuTrigger asChild>\s*<button\s*type="button"\s*aria-label=\{`Options for \$\{displayName\}`\}/.test(editor) &&
     /Duplicate\s*<\/DropdownMenuItem>/.test(editor) &&
     /Delete\s*<\/DropdownMenuItem>/.test(editor) &&
     !/text-red-500 hover:bg-red-50/.test(editor),
@@ -2173,7 +2188,7 @@ check(
    * promises a drag the row does not accept.
    */
   /<GripVertical\s*\n\s*className=\{cn\("h-4 w-4 transition-opacity"/.test(editor) &&
-    /aria-label=\{`Drag \$\{section\.name\} to reorder`\}/.test(editor) &&
+    /aria-label=\{`Drag \$\{displayName\} to reorder`\}/.test(editor) &&
     /flex h-7 w-7 shrink-0 items-center justify-center rounded-md touch-none/.test(editor) &&
     /cursor-grab active:cursor-grabbing/.test(editor) &&
     /isSelected \|\| contextMenuOpen \? "opacity-100" : "opacity-0 group-hover:opacity-100/.test(editor) &&

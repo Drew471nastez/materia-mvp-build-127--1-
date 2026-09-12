@@ -181,8 +181,19 @@ section("The stylesheet is scoped, or it would leak into the editor")
     .filter((line) => line.trim() && !line.trim().startsWith("@"))
     .map((line) => line.split("{")[0].trim())
 
+  /**
+   * A selector may be wrapped in `:where(…)` to strip its specificity — the
+   * link rule is, so that a section's own button rule outweighs it — and the
+   * root is then inside the brackets. Unwrapped before the check, because
+   * what this is about is whether the rule can escape the page root, and
+   * `:where([data-storelib-theme] a)` cannot.
+   */
+  const unwrap = (sel: string) => {
+    const t = sel.trim()
+    return t.startsWith(":where(") && t.endsWith(")") ? t.slice(7, -1) : t
+  }
   const unscoped = selectors.filter(
-    (sel) => !sel.split(",").every((part) => part.trim().startsWith(`[${THEME_ROOT_ATTRIBUTE}]`)),
+    (sel) => !unwrap(sel).split(",").every((part) => part.trim().startsWith(`[${THEME_ROOT_ATTRIBUTE}]`)),
   )
   check(
     "every rule is scoped to the page root",

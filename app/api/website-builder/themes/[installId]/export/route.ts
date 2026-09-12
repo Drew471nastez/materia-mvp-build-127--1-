@@ -199,7 +199,17 @@ export async function GET(_req: Request, { params }: Params) {
     .from("store_theme_custom_files")
     .select("path, content")
     .eq("install_id", installId)
-  const saved = new Map((savedFiles ?? []).map(r => [r.path as string, r.content as string]))
+  /**
+   * Published content only, and only where there IS any. An export is what
+   * the site is, so it takes `content`; a file created in the code editor
+   * and not yet published has an empty one, and letting that through would
+   * put an empty file in the package where the theme's own belongs.
+   */
+  const saved = new Map(
+    (savedFiles ?? [])
+      .filter(r => typeof r.content === "string" && (r.content as string).trim() !== "")
+      .map(r => [r.path as string, r.content as string]),
+  )
   for (const [path, content] of Object.entries(DEFAULT_THEME_SOURCES)) files[path] = saved.get(path) ?? content
   for (const [path, content] of saved) if (path.endsWith(".storelib") && !(path in files)) files[path] = content
 

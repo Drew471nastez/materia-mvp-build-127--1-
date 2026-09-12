@@ -83,19 +83,69 @@ function db(opts: { drafts: boolean; versions: boolean }) {
             }
             return chain
           },
+          /**
+           * UPDATE, then SELECT, the way `saveDraft` asks for it. An update
+           * that matches nothing answers with no row and no error, which is
+           * how it learns the file does not exist yet.
+           */
           update(patch: Record<string, unknown>) {
             let rows = files.slice()
-            const chain = {
+            const apply = () => { for (const r of rows) Object.assign(r, patch) }
+            const rejected = { data: null, error: { message: 'column "draft_content" of relation "store_theme_custom_files" does not exist' } }
+            const blocked = "draft_content" in patch && !opts.drafts
+            const chain: Record<string, unknown> = {}
+            Object.assign(chain, {
               eq(col: string, val: string) {
                 rows = rows.filter((r) => (r as unknown as Record<string, unknown>)[col] === val)
                 return chain
               },
+              select: () => chain,
+              maybeSingle: () => {
+                if (blocked) return Promise.resolve(rejected)
+                apply()
+                return Promise.resolve({ data: rows[0] ? { ...rows[0] } : null, error: null })
+              },
+              single: () => {
+                if (blocked) return Promise.resolve(rejected)
+                if (!rows[0]) return Promise.resolve(err("no rows returned"))
+                apply()
+                return Promise.resolve({ data: { ...rows[0] }, error: null })
+              },
               then: (resolve: (v: unknown) => void) => {
-                for (const r of rows) Object.assign(r, patch)
+                if (blocked) return resolve(rejected)
+                apply()
                 resolve({ data: null, error: null })
               },
-            }
+            })
             return chain
+          },
+          /**
+           * INSERT, and the constraint that made this bug. `content` is
+           * `not null` in the real table, and an insert without one is
+           * exactly what the old `upsert({ draft_content })` became when the
+           * file did not exist yet.
+           */
+          insert(row: Record<string, unknown>) {
+            const settle = () => {
+              if ("draft_content" in row && !opts.drafts) {
+                return Promise.resolve(err('column "draft_content" of relation "store_theme_custom_files" does not exist'))
+              }
+              const clash = files.find((f) => f.install_id === row.install_id && f.path === row.path)
+              if (clash) return Promise.resolve(err('duplicate key value violates unique constraint "store_theme_custom_files_install_path_key"'))
+              if (typeof row.content !== "string") {
+                return Promise.resolve(err('null value in column "content" of relation "store_theme_custom_files" violates not-null constraint'))
+              }
+              const next: Row = {
+                install_id: String(row.install_id),
+                path: String(row.path),
+                content: String(row.content),
+                draft_content: row.draft_content === null || row.draft_content === undefined ? null : String(row.draft_content),
+                updated_at: new Date(Date.now() + ++seq).toISOString(),
+              }
+              files.push(next)
+              return Promise.resolve({ data: { ...next }, error: null })
+            }
+            return { select: () => ({ single: settle, maybeSingle: settle }) }
           },
         }
       }
@@ -230,7 +280,9 @@ async function main() {
      * matter.
      */
     check("a visitor is never shown a draft", /\.select\("path, content"\)/.test(storefront) && !/draft_content/.test(storefront))
-    check("but the editor's canvas is", /select\("path, content, draft_content"\)/.test(files) && /files\[row\.path\] = editorContent\(row\)/.test(files))
+    // The loop became `sourceMap`, which is the same rule in one place plus
+    // one more: a row with nothing in either half is not a source at all.
+    check("but the editor's canvas is", /select\("path, content, draft_content"\)/.test(files) && /const files = sourceMap\(/.test(files))
     check("the editor says when a file is saved and not yet live", /Not published yet/.test(codePage) && /setUnpublished\(saved\?\.drafted !== false\)/.test(codePage))
     check("and says the other thing when there is no draft column yet", /saved\?\.drafted === false \? "Saved and live"/.test(codePage))
     check("restoring an old version goes back out through the editor, not around it", /handleContentChange\(v\.content\)/.test(codePage) && /Loaded into the editor\. Save it to keep it\./.test(codePage))
