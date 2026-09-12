@@ -80,7 +80,17 @@ export async function sectionSources(
     .eq("install_id", installId)
     .like("path", "%.storelib")
   const sources: Record<string, string> = {}
-  for (const row of savedFiles ?? []) sources[row.path] = row.content
+  for (const row of savedFiles ?? []) {
+    /**
+     * AN EMPTY `content` IS "NOTHING PUBLISHED FOR THIS PATH", not "an empty
+     * file". A file created in the code editor and not yet published has a
+     * draft and no live half; including it here would shadow the theme's own
+     * file with nothing, so creating `sections/hero.storelib` to work on it
+     * would blank the shipped hero on the live site. See `saveDraft`.
+     */
+    if (typeof row.content !== "string" || row.content.trim() === "") continue
+    sources[row.path] = row.content
+  }
   return sources
 }
 

@@ -45,6 +45,34 @@ export function editorContent(row: Pick<FileRow, "content" | "draft_content">): 
   return row.draft_content ?? row.content
 }
 
+/**
+ * Rows to a path -> source map, the one way. Two rules, and both matter:
+ *
+ *   • the DRAFT wins where there is one, so the editor and the canvas show
+ *     what somebody last saved rather than what was last published;
+ *   • a row with NOTHING in either half is not a source and is left out.
+ *
+ * That second rule is what makes a new file safe. A file created in the code
+ * editor has a draft and an empty `content` — "nothing published for this
+ * path" — and including it as an empty source would shadow the theme's own
+ * file with nothing. Creating `sections/hero.storelib` to work on it would
+ * blank the shipped hero.
+ *
+ * The storefront has its own copy of the second rule and NOT the first, on
+ * purpose: a visitor sees `content` and only `content`. See `sectionSources`.
+ */
+export function sourceMap(
+  rows: readonly Pick<FileRow, "path" | "content" | "draft_content">[] | null | undefined,
+): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const row of rows ?? []) {
+    const source = editorContent(row)
+    if (typeof source !== "string" || source.trim() === "") continue
+    out[row.path] = source
+  }
+  return out
+}
+
 /** True when this file has been saved and not yet published. */
 export function hasUnpublishedEdit(row: Pick<FileRow, "content" | "draft_content">): boolean {
   return typeof row.draft_content === "string" && row.draft_content !== row.content
@@ -61,14 +89,70 @@ export async function saveDraft(
   path: string,
   content: string,
 ): Promise<{ ok: true; row: FileRow; drafts: boolean } | { ok: false; error: string }> {
-  const withDraft = await db
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  AN UPSERT CANNOT WRITE ONE HALF OF A ROW THAT DOES NOT EXIST YET
+   * ═══════════════════════════════════════════════════════════════════════
+   * This used to be a single `upsert({ install_id, path, draft_content })`.
+   * On a file that already existed that is right: the draft moves, what is
+   * live is untouched. On a file that does NOT exist the upsert becomes an
+   * INSERT — with no `content` at all — and `content` is `not null`. So
+   * creating a section failed outright with
+   *
+   *     null value in column "content" ... violates not-null constraint
+   *
+   * and it failed only AFTER the migration had been run, because before it
+   * there was no `draft_content` column and every save took the legacy path
+   * below, which does write `content`.
+   *
+   * Update-then-insert instead of an upsert, so each half is written for the
+   * case it is actually for. The extra round trip is paid once, when a file
+   * is created, and never on a save.
+   */
+  const updated = await db
     .from("store_theme_custom_files")
-    .upsert({ install_id: installId, path, draft_content: content }, { onConflict: "install_id,path" })
+    .update({ draft_content: content })
+    .eq("install_id", installId)
+    .eq("path", path)
     .select()
-    .single()
+    .maybeSingle()
 
-  if (!withDraft.error) return { ok: true, row: withDraft.data as FileRow, drafts: true }
-  if (!isMissing(withDraft.error.message)) return { ok: false, error: withDraft.error.message }
+  if (!updated.error && updated.data) return { ok: true, row: updated.data as FileRow, drafts: true }
+
+  if (!updated.error) {
+    /**
+     * No such row. A brand-new file has a draft and NOTHING LIVE, which is
+     * what `content: ""` means here — not "an empty file", but "nothing has
+     * been published for this path". Readers of live content skip an empty
+     * one (see `sectionSources`), so creating `sections/hero.storelib` to
+     * work on it does not blank the shipped hero on the live site until it
+     * is published.
+     */
+    const inserted = await db
+      .from("store_theme_custom_files")
+      .insert({ install_id: installId, path, content: "", draft_content: content })
+      .select()
+      .single()
+    if (!inserted.error) return { ok: true, row: inserted.data as FileRow, drafts: true }
+    /**
+     * Somebody else created it between the update and the insert. The row
+     * exists now, so the update that failed a moment ago is the right call.
+     */
+    if (/duplicate key|unique constraint/i.test(inserted.error.message ?? "")) {
+      const again = await db
+        .from("store_theme_custom_files")
+        .update({ draft_content: content })
+        .eq("install_id", installId)
+        .eq("path", path)
+        .select()
+        .single()
+      if (!again.error) return { ok: true, row: again.data as FileRow, drafts: true }
+      return { ok: false, error: again.error.message }
+    }
+    if (!isMissing(inserted.error.message)) return { ok: false, error: inserted.error.message }
+  } else if (!isMissing(updated.error.message)) {
+    return { ok: false, error: updated.error.message }
+  }
 
   /**
    * No draft column. The old behaviour: the save is live immediately. Worth

@@ -58,7 +58,19 @@ const MIGRATION = "Preview links need RUN_THEME_PREVIEW_LINK.sql to be run once.
  */
 function withToken(base: unknown, token: string): string | null {
   if (typeof base !== "string" || !base) return null
-  return `${base}${base.includes("?") ? "&" : "?"}preview=${token}`
+  /**
+   * A PATH, NOT A QUERY. The token used to be `?preview=<token>` on the
+   * site's own URL, which forced the public route to read a query string —
+   * and a route that reads one is rendered for each visitor, so the
+   * published site could never be held at the edge. Its own address costs
+   * nothing and takes that constraint away.
+   *
+   * `?preview=` is still honoured by the public route, so every link already
+   * shared keeps working.
+   */
+  const [origin, query] = base.split("?")
+  const path = `${origin.replace(/\/$/, "")}/preview/${token}`
+  return query ? `${path}?${query}` : path
 }
 
 async function baseOf(req: NextRequest): Promise<unknown> {

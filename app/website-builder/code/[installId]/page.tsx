@@ -1643,40 +1643,6 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                 {flattenTree(visibleTree).length} of {flattenTree(fileTree).length} files
               </p>
             )}
-            {/* Stacked, never a row: a label, a field and two buttons side by
-                side need about 250px before the field has a pixel. */}
-            {pendingAction?.kind === "new" && (
-              <form
-                className="space-y-2 pt-1"
-                onSubmit={e => { e.preventDefault(); void runPendingAction() }}
-                onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}
-              >
-                <NameField
-                  path={pendingAction.path}
-                  onChange={path => setPendingAction({ kind: "new", path })}
-                  label="Name of the new section"
-                  className="h-10 w-full min-w-0 rounded-md border border-[var(--code-border)] bg-[var(--code-bg)] px-2 font-mono text-[16px] md:h-8 md:text-[12px]"
-                />
-                <div className="flex items-center gap-2">
-                  <button
-                    type="submit"
-                    disabled={!fileNameOf(pendingAction.path).name || creating}
-                    aria-busy={creating}
-                    className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md bg-[#111114] px-3 text-[13px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none md:h-7 md:text-[12px]"
-                  >
-                    {creating && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />}
-                    {creating ? "Creating" : "Create"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPendingAction(null)}
-                    className="h-9 flex-1 rounded-md border border-[var(--code-border)] px-3 text-[13px] font-[550] text-[var(--code-muted)] transition-colors hover:text-[var(--code-text)] md:h-7 md:flex-none md:border-0 md:text-[12px]"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            )}
           </div>
           <div className="wb-slim-scroll flex-1 overflow-y-auto py-1 px-1">
             {visibleTree.map(node => (
@@ -2336,6 +2302,69 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
           </div>
         </div>
       </div>
+
+      {/**
+        * ═══════════════════════════════════════════════════════════════════
+        *  NAMING A NEW FILE IS NOT A ROW IN THE FILE LIST
+        * ═══════════════════════════════════════════════════════════════════
+        * This lived in the explorer, wedged between the search box and the
+        * tree. On a phone the explorer IS the screen, so it was at least in
+        * front of you; on a desktop it was a 240px column of chrome off to
+        * one side, and the one thing you had to type went in the narrowest
+        * place on the page, above a list you were not reading.
+        *
+        * Naming a file is a question with one answer, so it is asked in the
+        * middle of the screen and it takes the screen while it is asked.
+        * `min(420px, calc(100vw - 32px))` is the whole of the responsiveness
+        * it needs: a comfortable column on a monitor, edge-to-edge with a
+        * 16px gutter on a phone, and never a horizontal scrollbar between
+        * the two. The field is 16px on a phone, which is what stops iOS
+        * zooming the page when it takes focus.
+        */}
+      {pendingAction?.kind === "new" && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Name the new file"
+          onPointerDown={(e) => { if (e.target === e.currentTarget) setPendingAction(null) }}
+        >
+          <form
+            className="w-[min(420px,calc(100vw-32px))] rounded-2xl border border-[var(--code-border)] bg-[var(--code-panel,var(--code-bg))] p-4 shadow-[0_24px_80px_-16px_rgba(0,0,0,0.55)]"
+            onSubmit={e => { e.preventDefault(); void runPendingAction() }}
+            onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}
+          >
+            <p className="text-[13px] font-[550] text-[var(--code-text)]">New section</p>
+            <p className="mt-1 text-[12px] text-[var(--code-muted)]">
+              It starts as a section that compiles, so you can open it and change one thing at a time.
+            </p>
+            <NameField
+              path={pendingAction.path}
+              onChange={path => setPendingAction({ kind: "new", path })}
+              label="Name of the new section"
+              className="mt-3 h-11 w-full min-w-0 rounded-lg border border-[var(--code-border)] bg-[var(--code-bg)] px-2.5 font-mono text-[16px] md:h-10 md:text-[13px]"
+            />
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                type="submit"
+                disabled={!fileNameOf(pendingAction.path).name || creating}
+                aria-busy={creating}
+                className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#111114] px-3 text-[14px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none"
+              >
+                {creating && <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
+                {creating ? "Creating" : "Create"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                className="h-10 rounded-lg border border-[var(--code-border)] px-4 text-[14px] font-[550] text-[var(--code-muted)] transition-colors hover:text-[var(--code-text)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

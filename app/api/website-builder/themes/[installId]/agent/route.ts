@@ -20,7 +20,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
 import { createClient } from "@/lib/supabase/server"
-import { editorContent } from "@/lib/website-builder/theme-file-drafts"
+import { sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { customAddableSections, customSectionSchemas } from "@/lib/website-builder/storelib-schemas"
 // `MissingKeyError` only: the provider itself now comes from the resolver.
 import { MissingKeyError } from "@/lib/sites/agent/openai-provider"
@@ -210,10 +210,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             ? ((await supabase.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
             : (fileRows ?? [])
           if (rows.length > 0) {
-            agentSources = {}
-            for (const row of rows as { path: string; content: string; draft_content?: string | null }[]) {
-              agentSources[row.path] = editorContent(row)
-            }
+            agentSources = sourceMap(rows as { path: string; content: string; draft_content?: string | null }[])
           }
         } catch {
           /* the assistant works without them, as it always did */

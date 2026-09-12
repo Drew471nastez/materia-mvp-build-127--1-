@@ -165,7 +165,12 @@ function main() {
   {
     check("clicking a block on the canvas selects that block", /closest\?\.\("\[data-block-id\]"\)/.test(editor) && /onSelectSection\(section\.id, id\)/.test(editor))
     check("the sidebar row opens and takes the ring", /data-block-row=\{block\.id\}/.test(editor) && /selectedBlockId === block\.id/.test(editor))
-    check("and is scrolled into view", /\[data-block-row="\$\{window\.CSS\.escape\(selectedBlockId\)\}"\]/.test(editor) && /scrollIntoView\(\{ block: "nearest"/.test(editor))
+    /**
+     * By its own container, not by `scrollIntoView`, which walks EVERY
+     * scrollable ancestor — so on a phone, where the sidebar is a sheet over
+     * the canvas, bringing a row into view brought the canvas with it.
+     */
+    check("and is scrolled into view", /\[data-block-row="\$\{window\.CSS\.escape\(selectedBlockId\)\}"\]/.test(editor) && /scroller\.scrollBy\(\{ top: delta, behavior: "smooth" \}\)/.test(editor))
     check("deleting the selected block clears the selection", /setSelectedBlockId\(prev => \(prev === blockId \? null : prev\)\)/.test(editor))
     check("every section in the library that has blocks marks them for the canvas", (() => {
       const missing = ADDABLE_SECTIONS.filter((t) => {

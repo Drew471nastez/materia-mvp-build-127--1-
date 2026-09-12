@@ -508,9 +508,15 @@ section("Create writes the file, and you name it rather than its path")
     && !/bg-\[#8B56FA\][^"]*>Create/.test(codePage))
   // 16px on a phone in both dialogs, because anything smaller in a focused
   // field is what makes iOS zoom the page and not zoom back.
+  /**
+   * The new-file field is a centred dialog now rather than a row in a 240px
+   * column, so it is drawn at one size for every screen and does not need to
+   * shrink above `md`. 16px on a phone either way, which is what stops iOS
+   * zooming the page when the field takes focus.
+   */
   check("and they stay finger-sized on a phone, with a field iOS will not zoom",
     /h-10 flex-1 rounded-md bg-\[#111114\][^"]*md:h-7 md:flex-none/.test(codePage)
-    && /h-10 w-full min-w-0 rounded-md border[^"]*text-\[16px\] md:h-8 md:text-\[12px\]/.test(codePage)
+    && /h-11 w-full min-w-0 rounded-lg border[^"]*text-\[16px\] md:h-10 md:text-\[13px\]/.test(codePage)
     && /h-10 min-w-0 flex-1 rounded-md border[^"]*text-\[16px\] md:h-7 md:text-\[12px\]/.test(codePage))
   // Two buttons guard the name. Create also refuses while a create is in
   // flight, which is the extra clause on the first.
@@ -756,13 +762,30 @@ section("The code editor on a phone")
     /if \(visible\) return/.test(pane) && /contentDocument\?\.activeElement/.test(pane) && /window\.scrollTo\(0, 0\)/.test(pane),
   )
   const builder = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  const stuck = readFileSync(join(root, "lib/website-builder/stuck-layer.ts"), "utf8")
   check(
     "and coming back to the app clears a lock whose owner is gone",
     // The builder never locks the document inline, so an inline lock at that
-    // moment belongs to something that did not clean up after itself.
+    // moment belongs to something that did not clean up after itself. The
+    // deciding is in stuck-layer.ts now, where it can be tested on its own;
+    // the builder's job is to ask it at the two moments it matters.
     /document\.addEventListener\("visibilitychange", revive\)/.test(builder) &&
-      /removeProperty\("pointer-events"\)/.test(builder) &&
-      /data-state="open"/.test(builder),
+      /clearStaleDocumentLocks\(document\)/.test(builder) &&
+      /el\.style\.removeProperty\(prop\)/.test(stuck) &&
+      /data-state="open"/.test(stuck),
+  )
+  /**
+   * And the way back from the code pane is the other one. Radix drops
+   * `pointer-events: none` on the body while a menu closes, and a menu torn
+   * down mid-close never takes it off again: every touch after that lands on
+   * nothing, which is the freeze people keep reporting. Nobody can report a
+   * lock they cannot see, so a press on a dead document is itself the signal.
+   */
+  check(
+    "and a press that lands on a dead document clears it too",
+    /watchForStuckLayer\(document/.test(builder) &&
+      /"pointerdown"[\s\S]{0,200}capture: true/.test(stuck) &&
+      /passive: true/.test(stuck),
   )
 
   /**

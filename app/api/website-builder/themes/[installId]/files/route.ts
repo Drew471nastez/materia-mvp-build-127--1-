@@ -1,6 +1,6 @@
 import { LIMITS } from "@/lib/storelib-theme/types"
 import { NextResponse } from "next/server"
-import { editorContent, hasUnpublishedEdit, listVersions, recordVersion, saveDraft } from "@/lib/website-builder/theme-file-drafts"
+import { editorContent, hasUnpublishedEdit, listVersions, recordVersion, saveDraft, sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { getDefaultFileContent } from "@/lib/website-builder/theme-file-tree"
@@ -105,10 +105,7 @@ export async function GET(req: Request, { params }: Params) {
     const rows = readErr
       ? ((await supabase!.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
       : (data ?? [])
-    const files: Record<string, string> = {}
-    for (const row of rows as { path: string; content: string; draft_content?: string | null }[]) {
-      files[row.path] = editorContent(row)
-    }
+    const files = sourceMap(rows as { path: string; content: string; draft_content?: string | null }[])
     return NextResponse.json({ files })
   }
 
@@ -182,17 +179,27 @@ async function sectionNamesInUse(
   installId: string,
   except: string,
 ): Promise<Map<string, string>> {
-  const { data } = await supabase
+  /**
+   * DRAFTS COUNT. A section renamed in the editor and not yet published is
+   * still a name somebody has taken, and reading `content` alone would let a
+   * second section be given the same one — the clash only appearing when
+   * both went live. `sourceMap` takes the draft where there is one and skips
+   * a row with nothing in either half.
+   */
+  const withDraft = await supabase
     .from("store_theme_custom_files")
-    .select("path, content")
+    .select("path, content, draft_content")
     .eq("install_id", installId)
     .like("path", "%.storelib")
+  const rows = withDraft.error
+    ? ((await supabase.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
+    : (withDraft.data ?? [])
   const sources: Record<string, string> = {}
   for (const [p, c] of Object.entries(DEFAULT_THEME_SOURCES)) {
     if (/^sections\/[a-z0-9_-]+\.storelib$/.test(p)) sources[p] = c
   }
-  for (const row of (data ?? []) as { path: string; content: string }[]) {
-    if (/^sections\/[a-z0-9_-]+\.storelib$/.test(row.path)) sources[row.path] = row.content
+  for (const [p, c] of Object.entries(sourceMap(rows as { path: string; content: string; draft_content?: string | null }[]))) {
+    if (/^sections\/[a-z0-9_-]+\.storelib$/.test(p)) sources[p] = c
   }
   const out = new Map<string, string>()
   for (const [p, c] of Object.entries(sources)) {

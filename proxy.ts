@@ -645,6 +645,34 @@ export async function proxy(request: NextRequest) {
         rewritten.headers.set("Cache-Control", "public, s-maxage=10, stale-while-revalidate=30")
       }
 
+      /**
+       * ═══════════════════════════════════════════════════════════════════
+       *  A PUBLISHED SITE IS THE SAME PAGE FOR EVERYBODY, SO IT IS CACHED
+       * ═══════════════════════════════════════════════════════════════════
+       * Nothing on a website-builder page depends on who is asking: no Edit
+       * button, no owner menu, no follow state. That is the CREATOR page,
+       * which lives at the apex path and keeps its `private, no-cache`. This
+       * is a theme, its sections and the creator's published products, and
+       * two strangers are served the same bytes.
+       *
+       * The origin render behind it is already cheap — the publish-shaped
+       * inputs are cached and tagged, the products for a minute, the drawing
+       * is arithmetic — so what this buys is the visitor not waiting for any
+       * of it.
+       *
+       * A MINUTE, said plainly: a creator who publishes sees it at the edge
+       * within 60 seconds, and a visitor inside that window may be served
+       * the previous version while the new one is fetched behind them. The
+       * PREVIEW is a different address and is never cached, so checking work
+       * in progress is always immediate.
+       */
+      if (isWebsite && !pathname.startsWith("/preview/")) {
+        rewritten.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
+      }
+      if (pathname.startsWith("/preview/")) {
+        rewritten.headers.set("Cache-Control", "private, no-store")
+      }
+
       return rewritten
     }
   }

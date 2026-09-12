@@ -128,6 +128,63 @@ export function scopeCss(css: string, opts: ScopeOptions): Result<string> {
     })
   })
 
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  A BUTTON YOU FILLED AND NEVER SAID THE COLOUR OF
+   * ═══════════════════════════════════════════════════════════════════════
+   * A rule that gives a button a background and no `color` leaves its label
+   * inheriting the SECTION's text colour. On a dark section with a white
+   * button that is white on white: a blank slab where the words should be.
+   * It looks right on the screen it was written on, because there the two
+   * colours happen to differ, and it is wrong the moment somebody puts the
+   * section on a different scheme.
+   *
+   * Caught here, at save, with the line — the same as every other mistake in
+   * a section file — rather than left to be noticed on a live page.
+   *
+   * NARROW ON PURPOSE. Only a rule whose selector says "button", only when
+   * it sets a background that is really a fill, and never for a state
+   * (`:hover`, `:focus`) or a rule that is only setting a border. Those
+   * rules legitimately change one thing and inherit the rest, and a check
+   * that shouts about them is a check people learn to work around.
+   */
+  root.walkRules((rule: Rule) => {
+    const parent = rule.parent as AtRule | undefined
+    if (parent && parent.type === "atrule" && /keyframes$/i.test(parent.name)) return
+
+    const selector = rule.selector.toLowerCase()
+    if (!/(^|[\s.#\[>+~])[a-z0-9_-]*(btn|button)/.test(selector)) return
+    // A state or a part of one is a change to something already painted.
+    if (/:(hover|focus|active|visited|disabled|focus-visible|focus-within)|::/.test(selector)) return
+
+    let fills = false
+    let names = false
+    let line: number | undefined
+    rule.walkDecls((decl) => {
+      const prop = decl.prop.toLowerCase()
+      if (prop === "color") names = true
+      if (prop !== "background" && prop !== "background-color") return
+      const v = decl.value.trim().toLowerCase()
+      // `transparent`, `none` and `inherit` are not a fill: the label goes on
+      // whatever is behind, which is what it was already inheriting.
+      if (v === "transparent" || v === "none" || v === "inherit" || v === "unset" || v === "initial") return
+      fills = true
+      if (decl.source?.start) line = base + decl.source.start.line
+    })
+
+    if (fills && !names) {
+      errors.push({
+        stage: "css",
+        file: opts.file,
+        line,
+        message:
+          `"${rule.selector.trim()}" gives this button a background but never says what colour its label is, ` +
+          `so the label takes the section's text colour and can come out invisible on it. ` +
+          `Add a \`color\` — \`var(--s-btn-text)\` is the one the colour scheme picked for a filled button.`,
+      })
+    }
+  })
+
   if (keyframes.size) {
     root.walkDecls(/^(animation|animation-name)$/i, (decl) => {
       for (const [from, to] of keyframes) {

@@ -22,11 +22,13 @@
  *   node scripts/check-code-mobile.mjs
  */
 import { execFileSync } from "node:child_process"
-import { mkdtempSync, writeFileSync, rmSync, existsSync } from "node:fs"
+import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
+const root = process.cwd()
+
 const fail = (m) => {
   console.error(m)
   process.exit(1)
@@ -38,11 +40,31 @@ const NO_ZOOM = 16
 /** A small phone, and the narrowest width that is still `md`. */
 const PHONE = 390, DESK = 820
 
-/** Every text field in the code editor, with the classes it ships with. */
+/**
+ * Every text field in the code editor, WITH THE CLASSES IT ACTUALLY SHIPS
+ * WITH, read out of the page.
+ *
+ * These used to be copies, typed here. A copy measures itself: when the
+ * new-file field moved into a centred dialog and was redrawn at a different
+ * size, this went on measuring the string it no longer used and went on
+ * passing. A probe that cannot notice a change is a probe that is not
+ * checking anything.
+ *
+ * The page is the source. A field that cannot be found in it fails the run
+ * rather than quietly dropping out of the list.
+ */
+const page = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+const classOf = (label, marker) => {
+  const at = page.indexOf(marker)
+  if (at < 0) fail(`Could not find the ${label} field in the code editor (looked for ${marker}).`)
+  const m = /className="([^"]+)"/.exec(page.slice(at, at + 900))
+  if (!m) fail(`Found ${label} but no className after it.`)
+  return m[1]
+}
 const FIELDS = [
-  ["filter", "w-full rounded-md border py-1.5 pl-7 pr-6 text-[16px] md:py-1 md:text-[11.5px]"],
-  ["new-file", "h-10 w-full min-w-0 rounded-md border px-2 font-mono text-[16px] md:h-8 md:text-[12px]"],
-  ["path", "h-9 min-w-0 flex-1 rounded-md border px-2 font-mono text-[16px] md:h-7 md:text-[12px]"],
+  ["filter", classOf("filter", 'placeholder="Find a file…"')],
+  ["new-file", classOf("new-file", 'label="Name of the new section"')],
+  ["path", classOf("path", `label={pendingAction.kind === "rename" ? "New name" : "Name"}`)],
   // The control: the filter as it was, which is the field that was reported.
   ["before", "w-full rounded-md border py-1 pl-7 pr-6 text-[11.5px]"],
 ]
@@ -53,23 +75,32 @@ const FIELDS = [
  * the rest are inert — so what is measured is the SIZE and the BREAKPOINT,
  * which is the whole claim.
  */
+/**
+ * Whatever size the field is actually written at, not a list of the sizes it
+ * has been written at before. The classes come out of the page now, so the
+ * fixture has to be able to draw any of them: it reads the number out of
+ * `text-[Npx]` and `md:text-[Npx]` and declares exactly those two rules.
+ * A field that names no size at all fails the run rather than defaulting to
+ * a number that would make it look correct.
+ */
+const sizeOf = (cls, label) => {
+  const base = /(?:^|\s)text-\[([0-9.]+)px\]/.exec(cls)
+  if (!base) fail(`The ${label} field names no base text size: ${cls}`)
+  const md = /(?:^|\s)md:text-\[([0-9.]+)px\]/.exec(cls)
+  return { base: base[1], md: md ? md[1] : null }
+}
+const SIZES = FIELDS.map(([id, cls]) => [id, sizeOf(cls, id)])
+
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box;margin:0}
 body{font:14px system-ui;background:#fff;padding:8px}
 input{display:block;width:100%;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;padding:4px 8px}
-.\\31 6{font-size:16px}
-.\\31 15{font-size:11.5px}
-.\\31 2{font-size:12px}
+${SIZES.map(([id, s]) => `#f-${id}{font-size:${s.base}px}`).join("\n")}
 @media (min-width:768px){
-  .md-115{font-size:11.5px}
-  .md-12{font-size:12px}
+${SIZES.filter(([, s]) => s.md).map(([id, s]) => `  #f-${id}{font-size:${s.md}px}`).join("\n")}
 }
 </style></head><body>
-${FIELDS.map(([id, cls]) => {
-  const base = /text-\[16px\]/.test(cls) ? "16" : /text-\[11\.5px\]/.test(cls) ? "115" : "12"
-  const md = /md:text-\[11\.5px\]/.test(cls) ? " md-115" : /md:text-\[12px\]/.test(cls) ? " md-12" : ""
-  return `<input id="f-${id}" class="${base}${md}" value="x">`
-}).join("\n")}
+${SIZES.map(([id]) => `<input id="f-${id}" value="x">`).join("\n")}
 <script>
 const out = {}
 for (const id of ${JSON.stringify(FIELDS.map(([id]) => id))}) {

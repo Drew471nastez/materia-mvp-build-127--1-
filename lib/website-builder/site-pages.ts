@@ -37,6 +37,9 @@ export const RESERVED_PAGE_KEYS: ReadonlySet<string> = new Set([
    */
   "products",
   "api",
+  // `/preview/<token>` is where an unpublished site is shown; a page at
+  // /preview would sit next to it and read as part of it.
+  "preview",
   "checkout",
   "purchase",
   "receipt",
