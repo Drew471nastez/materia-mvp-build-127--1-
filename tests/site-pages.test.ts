@@ -263,6 +263,36 @@ function main() {
     check("a lookup that fails reads as no website, which is the profile", /async function hasPublishedWebsite[\s\S]*?catch \{\s*return false/.test(proxy))
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A page that is not there does not send the visitor to Storelib")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const nf = read("app/(site)/w/[username]/not-found.tsx")
+    const home = read("app/(site)/w/[username]/page.tsx")
+
+    check("the site's routes have a not-found of their own", /export default function SiteNotFound/.test(nf))
+    check("it says the page is not here", /That page is not here/.test(nf))
+    // The code, not the comment that explains what it replaced.
+    const nfCode = nf.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1")
+    check("and does not offer to take them off the site", !/Explore Storelib/.test(nfCode) && !/storelib\.com/.test(nfCode) && !/Storelib/.test(nfCode))
+    check("the one link is the front page of whatever site they are on", /href="\/"/.test(nf) && /Back to the home page/.test(nf))
+
+    /**
+     * IT READS NOTHING ABOUT THE REQUEST, and that is the whole of why it is
+     * not drawn in the site's own header and footer. The pages under this
+     * boundary are held at the edge for a minute; a `headers()` or
+     * `cookies()` read here makes the render dynamic after it began static,
+     * which Next answers with "Page changed from static to dynamic at
+     * runtime" — a 500 where a 404 belongs. That shipped once and was
+     * measured in the runtime logs, on every missing page of every site.
+     */
+    check(
+      "and nothing in it reads the request",
+      !/headers\(\)/.test(nfCode) && !/cookies\(\)/.test(nfCode) && !/"use client"/.test(nfCode),
+    )
+    check("which is only a rule because the pages under it are cached", /export const revalidate = 60/.test(home))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
