@@ -155,7 +155,8 @@ function main() {
     const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
     check("the wrapper around the scroller is not faded on a phone", /previewMode === "code" && !isMobileView && "opacity-0 pointer-events-none"/.test(editor))
     check("the scroller is revived when the code pane or settings closes", /const covered = previewMode === "code" \|\| projectSettingsOpen/.test(editor) && /reviveScroller\(el, \(cb\) => window\.requestAnimationFrame\(cb\)\)/.test(editor))
-    check("twice, for a keyboard still on its way down", /window\.setTimeout\(reviveCanvas, 340\)/.test(editor) && /window\.setTimeout\(reviveCanvas, 900\)/.test(editor))
+    check("twice, for a keyboard still on its way down", /window\.setTimeout\(back, 340\)/.test(editor) && /window\.setTimeout\(back, 900\)/.test(editor))
+    check("on a phone the return settles and never toggles the scroller's overflow; on a desktop, where the card faded, it revives", /const back = isMobileView \? settleCanvas : reviveCanvas/.test(editor))
     const revive = editor.slice(editor.indexOf("const reviveCanvas"), editor.indexOf("const reviveCanvas") + 1200)
     check("and the window's own offset is put back", /if \(window\.scrollY !== 0\) window\.scrollTo\(0, 0\)/.test(revive))
     /**

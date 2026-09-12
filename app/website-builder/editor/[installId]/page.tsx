@@ -6227,13 +6227,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const wasCovered = coveredRef.current
     coveredRef.current = covered
     if (wasCovered && !covered) {
+      /**
+       * On a desktop the canvas card faded to nothing under the pane, and
+       * WebKit can drop a scroller's layer after that, so the full revive
+       * with its overflow toggle is right there. On a phone the card never
+       * faded, and the toggle is the one thing that must not run: a person
+       * coming back from the code editor scrolls within the second, and an
+       * overflow toggle landing inside that gesture kills the native scroll
+       * it lands in. The phone gets the gentle settle: document unlocked,
+       * window put back, and nothing done to the scroller itself.
+       */
+      const back = isMobileView ? settleCanvas : reviveCanvas
       // After the pane's own close transition, and once more for a keyboard
       // that was still on its way down.
-      const a = window.setTimeout(reviveCanvas, 340)
-      const b = window.setTimeout(reviveCanvas, 900)
+      const a = window.setTimeout(back, 340)
+      const b = window.setTimeout(back, 900)
       return () => { window.clearTimeout(a); window.clearTimeout(b) }
     }
-  }, [previewMode, projectSettingsOpen, reviveCanvas])
+  }, [previewMode, projectSettingsOpen, isMobileView, reviveCanvas, settleCanvas])
 
   /**
    * ===================================================================

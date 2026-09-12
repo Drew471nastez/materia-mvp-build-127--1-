@@ -327,6 +327,33 @@ export function CodePane({
     if (visible) setEverShown(true)
   }, [visible])
 
+  /**
+   * ===========================================================================
+   *  HIDDEN MEANS HIDDEN, NOT TRANSPARENT
+   * ===========================================================================
+   * When the pane closes it stays mounted, so the code editor inside keeps
+   * its file, its cursor and its unsaved edits. It used to stay as a
+   * full-screen, fixed, `opacity: 0` layer with `pointer-events: none` over
+   * the whole editor, and on a phone that layer holds an IFRAME with a
+   * scrolling document of its own. The DOM ignores a transparent layer with
+   * pointer events off; the phone's native gesture routing does not have to,
+   * and "come back from the code editor and the preview will not scroll" is
+   * what a full-screen invisible frame sitting over the canvas looks like.
+   *
+   * So once the fade has finished, the pane is `visibility: hidden` as well.
+   * A hidden layer is out of hit-testing on every engine. On opening it is
+   * made visible first, in the same frame, so the fade-in still plays.
+   */
+  const [hidden, setHidden] = useState(!visible)
+  useEffect(() => {
+    if (visible) {
+      setHidden(false)
+      return
+    }
+    const t = window.setTimeout(() => setHidden(true), 320)
+    return () => window.clearTimeout(t)
+  }, [visible])
+
   // Escape leaves it, the way leaving any page over another one should.
   useEffect(() => {
     if (!fullScreen || !visible || !onClose) return
@@ -375,6 +402,7 @@ export function CodePane({
          */
         "transition-[opacity,translate,scale] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
         visible ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none translate-y-3 scale-[0.995] opacity-0",
+        hidden && !visible && "invisible",
       )}
       aria-hidden={!visible}
     >

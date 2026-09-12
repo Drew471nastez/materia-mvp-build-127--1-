@@ -223,6 +223,17 @@ section("It is reachable, and it works on a file longer than the window")
     "and it loads in place, so unsaved theme work is not navigated away from",
     (() => {
       const pane = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
+  check(
+    "a closed code pane is visibility: hidden once its fade is done, not a transparent full-screen frame over the canvas",
+    // On a phone the pane is a fixed, full-screen layer holding an iframe with
+    // a scrolling document of its own. Transparent with pointer events off is
+    // enough for the DOM and not for native gesture routing; hidden is.
+    /const \[hidden, setHidden\] = useState\(!visible\)/.test(pane) &&
+      /const t = window\.setTimeout\(\(\) => setHidden\(true\), 320\)/.test(pane) &&
+      /hidden && !visible && "invisible"/.test(pane) &&
+      // and it is shown again before the fade-in, so the fade still plays
+      /if \(visible\) \{\s*\n\s*setHidden\(false\)/.test(pane),
+  )
       return /src=\{`\/website-builder\/code\/\$\{installId\}\?embedded=1\$\{codeFilePath \? `&path=/.test(pane)
     })(),
   )
