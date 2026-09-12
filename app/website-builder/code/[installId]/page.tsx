@@ -16,6 +16,7 @@ import type { ThemeInstall, ThemeFileNode } from "@/lib/website-builder/types"
 import { DRAWER_EASING, drawerRelease } from "@/lib/website-builder/drawer-drag"
 import { buildThemeFileTree, flattenTree, detectLanguage } from "@/lib/website-builder/theme-file-tree"
 import { toast } from "sonner"
+import { StorelibMark } from "@/components/storelib-mark"
 import type { ThemeError } from "@/lib/storelib-theme/types"
 
 // ── File tree node ────────────────────────────────────────────
@@ -912,6 +913,83 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     })
   }, [filter, visibleTree])
 
+  /**
+   * ===========================================================================
+   *  THE ERRORS, OUT OF THE STRIP
+   * ===========================================================================
+   * Every line in the error list is a button, so the text in it cannot be
+   * selected: there was no way to copy what the compiler said except to read
+   * it off the screen and type it somewhere else. This is the whole list, as
+   * text, with the file it is about at the top.
+   */
+  const [copiedErrors, setCopiedErrors] = useState(false)
+  const copyErrors = async () => {
+    const text = [
+      selectedFile?.path ?? "",
+      ...compileErrors.map((e) => `${typeof e.line === "number" ? `line ${e.line}: ` : `${e.stage}: `}${e.message}`),
+    ]
+      .filter(Boolean)
+      .join("\n")
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedErrors(true)
+      window.setTimeout(() => setCopiedErrors(false), 1600)
+    } catch {
+      toast.error("The clipboard refused that")
+    }
+  }
+
+  /**
+   * ===========================================================================
+   *  SOLVE WITH AI
+   * ===========================================================================
+   * The file and the errors go to the assistant, and what comes back is the
+   * same file with those errors gone, compiled on the server before it is
+   * handed over. It lands in the editor as an edit — unsaved, reviewable,
+   * undoable — rather than being written to the account: a repair nobody read
+   * is not better than the error it replaced, and the file did not compile, so
+   * there was never anything saved for it to overwrite.
+   */
+  const [solving, setSolving] = useState(false)
+  /** Which file is open right now, for the answer that arrives later. */
+  const openPathRef = useRef<string | null>(null)
+  openPathRef.current = selectedFile?.path ?? null
+  const solveWithAi = async () => {
+    if (solving || !selectedFile) return
+    const path = selectedFile.path
+    if (!path.endsWith(".storelib")) return
+    setSolving(true)
+    try {
+      const res = await fetch(`/api/website-builder/themes/${installId}/sections/code/fix`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path,
+          source: fileContent,
+          errors: compileErrors.map((e) => ({ line: e.line, message: e.message, stage: e.stage })),
+        }),
+      })
+      const d = (await res.json().catch(() => ({}))) as { source?: string; error?: string }
+      if (!res.ok || typeof d.source !== "string") {
+        toast.error(d.error ?? "That could not be fixed automatically")
+        return
+      }
+      // The file the answer is for may not be the file that is open any more.
+      // A slow answer must not land in whatever file is open by then.
+      if (openPathRef.current !== path) {
+        toast.message(`You moved off ${path}, so the fix was not applied.`)
+        return
+      }
+      setFileContent(d.source)
+      setCompileErrors([])
+      toast.success("Storelib AI fixed it. Read it, then save.")
+    } catch {
+      toast.error("The assistant could not be reached")
+    } finally {
+      setSolving(false)
+    }
+  }
+
   const saveFile = async () => {
     if (!selectedFile || !isDirty) return
     setSaving(true)
@@ -1645,6 +1723,52 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
             )}
           </div>
           <div className="wb-slim-scroll flex-1 overflow-y-auto py-1 px-1">
+            {/*
+              NEW FILE IS A ROW IN THE LIST, NOT A DIALOG OVER IT.
+
+              It was a modal with a backdrop: a box in the middle of the screen
+              asking for a file name, with the file list it was about dimmed
+              behind it. Naming a file is not a decision that needs the rest of
+              the product taken away, and the one question it asks is answered
+              faster next to the folder the answer lands in. Rename and
+              Duplicate have always been inline; this is the odd one out
+              catching up with them.
+            */}
+            {pendingAction?.kind === "new" && (
+              <form
+                className="mb-1 rounded-md border border-[var(--code-focus)] bg-[var(--code-bg)] p-1.5"
+                onSubmit={e => { e.preventDefault(); void runPendingAction() }}
+                onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setPendingAction(null) } }}
+              >
+                <NameField
+                  path={pendingAction.path}
+                  onChange={path => setPendingAction({ kind: "new", path })}
+                  label="Name of the new section"
+                  className="h-9 w-full min-w-0 rounded border border-[var(--code-border)] bg-[var(--code-panel)] px-1.5 font-mono text-[16px] md:h-7 md:text-[11.5px]"
+                />
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <button
+                    type="submit"
+                    disabled={!fileNameOf(pendingAction.path).name || creating}
+                    aria-busy={creating}
+                    className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded bg-[#111114] px-2 text-[12px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none md:h-7"
+                  >
+                    {creating && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
+                    {creating ? "Creating" : "Create"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingAction(null)}
+                    className="h-8 rounded border border-[var(--code-border)] px-2 text-[12px] font-[550] text-[var(--code-muted)] transition-colors hover:text-[var(--code-text)] md:h-7"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[10.5px] leading-snug text-[var(--code-faint)]">
+                  It starts as a section that compiles, so you can open it and change one thing at a time.
+                </p>
+              </form>
+            )}
             {visibleTree.map(node => (
               <FileTreeNode
                 key={node.path}
@@ -2257,9 +2381,36 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
           {/* What the compiler said, one line each, each one a jump to its line. */}
           {compileErrors.length > 0 && (
             <div className="max-h-40 overflow-y-auto border-t border-red-500/30 bg-red-500/5 px-4 py-2" data-compile-errors="">
-              <p className="text-[11px] font-semibold text-red-600">
-                {compileErrors.length === 1 ? "1 error" : `${compileErrors.length} errors`} — the file was not saved
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="min-w-0 flex-1 text-[11px] font-semibold text-red-600">
+                  {compileErrors.length === 1 ? "1 error" : `${compileErrors.length} errors`} — the file was not saved
+                </p>
+                {/*
+                  TWO THINGS TO DO WITH A LIST OF ERRORS, and until now
+                  neither was possible. The list was buttons, so dragging
+                  across it selected nothing and there was no way to get the
+                  text out — you retyped it, from a strip four lines tall,
+                  into wherever you were asking for help.
+                */}
+                <button
+                  type="button"
+                  onClick={() => void copyErrors()}
+                  className="flex h-6 shrink-0 items-center gap-1 rounded px-1.5 text-[11px] font-[550] text-[var(--code-muted)] transition-colors hover:bg-red-500/10 hover:text-[var(--code-text)]"
+                >
+                  {copiedErrors ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  {copiedErrors ? "Copied" : "Copy all"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void solveWithAi()}
+                  disabled={solving || !selectedFile?.path.endsWith(".storelib")}
+                  aria-busy={solving}
+                  className="flex h-6 shrink-0 items-center gap-1.5 rounded bg-[#111114] px-2 text-[11px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  {solving ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" /> : <StorelibMark className="h-3 w-3 shrink-0 rounded-[3px]" />}
+                  {solving ? "Solving" : "Solve with AI"}
+                </button>
+              </div>
               <ul className="mt-1 space-y-0.5">
                 {compileErrors.map((err, i) => (
                   <li key={i}>
@@ -2303,68 +2454,6 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
         </div>
       </div>
 
-      {/**
-        * ═══════════════════════════════════════════════════════════════════
-        *  NAMING A NEW FILE IS NOT A ROW IN THE FILE LIST
-        * ═══════════════════════════════════════════════════════════════════
-        * This lived in the explorer, wedged between the search box and the
-        * tree. On a phone the explorer IS the screen, so it was at least in
-        * front of you; on a desktop it was a 240px column of chrome off to
-        * one side, and the one thing you had to type went in the narrowest
-        * place on the page, above a list you were not reading.
-        *
-        * Naming a file is a question with one answer, so it is asked in the
-        * middle of the screen and it takes the screen while it is asked.
-        * `min(420px, calc(100vw - 32px))` is the whole of the responsiveness
-        * it needs: a comfortable column on a monitor, edge-to-edge with a
-        * 16px gutter on a phone, and never a horizontal scrollbar between
-        * the two. The field is 16px on a phone, which is what stops iOS
-        * zooming the page when it takes focus.
-        */}
-      {pendingAction?.kind === "new" && (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Name the new file"
-          onPointerDown={(e) => { if (e.target === e.currentTarget) setPendingAction(null) }}
-        >
-          <form
-            className="w-[min(420px,calc(100vw-32px))] rounded-2xl border border-[var(--code-border)] bg-[var(--code-panel,var(--code-bg))] p-4 shadow-[0_24px_80px_-16px_rgba(0,0,0,0.55)]"
-            onSubmit={e => { e.preventDefault(); void runPendingAction() }}
-            onKeyDown={e => { if (e.key === "Escape") setPendingAction(null) }}
-          >
-            <p className="text-[13px] font-[550] text-[var(--code-text)]">New section</p>
-            <p className="mt-1 text-[12px] text-[var(--code-muted)]">
-              It starts as a section that compiles, so you can open it and change one thing at a time.
-            </p>
-            <NameField
-              path={pendingAction.path}
-              onChange={path => setPendingAction({ kind: "new", path })}
-              label="Name of the new section"
-              className="mt-3 h-11 w-full min-w-0 rounded-lg border border-[var(--code-border)] bg-[var(--code-bg)] px-2.5 font-mono text-[16px] md:h-10 md:text-[13px]"
-            />
-            <div className="mt-3 flex items-center gap-2">
-              <button
-                type="submit"
-                disabled={!fileNameOf(pendingAction.path).name || creating}
-                aria-busy={creating}
-                className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#111114] px-3 text-[14px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none"
-              >
-                {creating && <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
-                {creating ? "Creating" : "Create"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setPendingAction(null)}
-                className="h-10 rounded-lg border border-[var(--code-border)] px-4 text-[14px] font-[550] text-[var(--code-muted)] transition-colors hover:text-[var(--code-text)]"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   )
 }

@@ -516,7 +516,8 @@ section("Create writes the file, and you name it rather than its path")
    */
   check("and they stay finger-sized on a phone, with a field iOS will not zoom",
     /h-10 flex-1 rounded-md bg-\[#111114\][^"]*md:h-7 md:flex-none/.test(codePage)
-    && /h-11 w-full min-w-0 rounded-lg border[^"]*text-\[16px\] md:h-10 md:text-\[13px\]/.test(codePage)
+    && /h-8 flex-1 items-center justify-center gap-1\.5 rounded bg-\[#111114\][^"]*md:h-7/.test(codePage)
+    && /h-9 w-full min-w-0 rounded border[^"]*text-\[16px\] md:h-7 md:text-\[11\.5px\]/.test(codePage)
     && /h-10 min-w-0 flex-1 rounded-md border[^"]*text-\[16px\] md:h-7 md:text-\[12px\]/.test(codePage))
   // Two buttons guard the name. Create also refuses while a create is in
   // flight, which is the extra clause on the first.
@@ -839,6 +840,48 @@ section("The code editor on a phone")
   check(
     "the editor scrolls both ways, and a flick at the end stays in it",
     /\[touch-action:pan-x_pan-y\]/.test(page) && /overscroll-contain/.test(page),
+  )
+}
+
+/**
+ * ===========================================================================
+ *  WHAT YOU CAN DO WITH A LIST OF ERRORS
+ * ===========================================================================
+ * Two things, and until now neither was possible. Every line in the list is a
+ * button that jumps to its line, so dragging across the text selected
+ * nothing: the only way to get an error out of the editor was to read it off
+ * the screen and type it somewhere else. And the only way to act on one was
+ * to work out the fix yourself.
+ */
+{
+  console.log("\n  A list of errors can be copied, and handed to the assistant")
+  const code = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/sections/code/fix/route.ts"), "utf8")
+  const agent = readFileSync(join(root, "lib/website-builder/agent/fix-section.ts"), "utf8")
+
+  check("the whole list copies, with the file it is about", /const copyErrors = async \(\) => \{/.test(code) && /selectedFile\?\.path \?\? ""/.test(code))
+  check("and says so when it has", /\{copiedErrors \? "Copied" : "Copy all"\}/.test(code))
+  check("a clipboard that refuses is reported, not swallowed", /The clipboard refused that/.test(code))
+
+  check("Solve with AI sends the file and the errors", /sections\/code\/fix/.test(code) && /source: fileContent/.test(code) && /errors: compileErrors\.map/.test(code))
+  check("it has a loading state and cannot be pressed twice", /\{solving \? "Solving" : "Solve with AI"\}/.test(code) && /if \(solving \|\| !selectedFile\) return/.test(code) && /disabled=\{solving/.test(code))
+  check("the flag is cleared whatever the server says", /\} finally \{\s*setSolving\(false\)/.test(code))
+  check("it is offered only for a file the compiler compiles", /!selectedFile\?\.path\.endsWith\("\.storelib"\)/.test(code))
+  check("a slow answer never lands in a file somebody moved on from", /openPathRef\.current !== path/.test(code))
+
+  check("the endpoint is the owner's only", /if \(!user\) return NextResponse\.json/.test(route) && /\.eq\("creator_id", \(creator as \{ id: string \}\)\.id\)/.test(route))
+  check(
+    "what the model sends back is compiled before anybody sees it",
+    /compileSection\(text, \{ file: opts\.path \}\)/.test(agent) && /The repair still does not compile/.test(agent),
+  )
+  check("one repair attempt, then it stops", /for \(let attempt = 0; attempt < 2; attempt\+\+\)/.test(agent))
+  check(
+    "it is told to change only what the errors are about",
+    /YOU ARE REPAIRING AN EXISTING FILE, not writing a new one\./.test(agent) && /Change only what the errors are about/.test(agent),
+  )
+  check(
+    "and nothing is written to the account: the fix lands in the editor to be read",
+    !/saveDraft|recordVersion/.test(route) && /setFileContent\(d\.source\)/.test(code) && /Read it, then save/.test(code),
   )
 }
 

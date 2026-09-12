@@ -617,7 +617,19 @@ export async function proxy(request: NextRequest) {
       url.pathname = isWebsite
         ? `/w/${subdomain}${pathname === "/" ? "" : pathname}`
         : `/site/${subdomain}${pathname === "/" ? "" : pathname}`
-      const rewritten = NextResponse.rewrite(url)
+      /**
+       * WHOSE SITE THIS IS, ON THE REQUEST.
+       *
+       * `not-found.tsx` cannot read the route's params — Next does not give
+       * a not-found boundary the segment it was thrown in — so without this
+       * a page that is missing on somebody's shop can only be answered with
+       * Storelib's own 404. The header the proxy adds is the one thing the
+       * boundary can still read, and it is enough to draw the site's own
+       * header, footer and colours around the answer.
+       */
+      const rewritten = NextResponse.rewrite(url, {
+        request: { headers: new Headers({ ...Object.fromEntries(request.headers), "x-storelib-site": subdomain }) },
+      })
 
       /**
        * THE LANDING PAGE'S CACHE RULE WAS EATING EVERY SITE HOMEPAGE.
@@ -900,7 +912,11 @@ export async function proxy(request: NextRequest) {
     }
 
     // Create rewrite response
-    supabaseResponse = NextResponse.rewrite(rewriteUrl)
+    supabaseResponse = NextResponse.rewrite(rewriteUrl, {
+      // Same as the subdomain branch: the only way a not-found boundary can
+      // know whose site it is on.
+      request: { headers: new Headers({ ...Object.fromEntries(request.headers), "x-storelib-site": username }) },
+    })
     supabaseResponse.headers.set("x-seller-subdomain", username)
 
     /**

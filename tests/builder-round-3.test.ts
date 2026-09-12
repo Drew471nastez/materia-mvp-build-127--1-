@@ -196,21 +196,27 @@ async function main() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  section("Naming a new file is asked in the middle of the screen")
+  section("Naming a new file is asked where the files are")
   // ═══════════════════════════════════════════════════════════════════════
   {
     const code = read("app/website-builder/code/[installId]/page.tsx")
-    check("it is a centred dialog, not a row in the file list", /role="dialog"[\s\S]{0,120}aria-label="Name the new file"/.test(code) && /fixed inset-0 z-\[200\] flex items-center justify-center/.test(code))
     /**
-     * One expression is the whole of the responsiveness: a comfortable
-     * column on a monitor, edge to edge with a 16px gutter on a phone, and
-     * never a horizontal scrollbar between the two.
+     * IT WAS A CENTRED DIALOG, and before that a one-row form in the
+     * explorer that did not fit 240px. The dialog fixed the fit by taking
+     * the screen: a box in the middle, the file list it is about dimmed
+     * behind it, for a question with one short answer. Rename and Duplicate
+     * have always been answered inline, next to the file they are about.
+     *
+     * So it is a row in the list again, and the fit is solved the way it
+     * should have been the first time: the field on its own line with the
+     * buttons under it, which is a shape 240px has room for.
      */
-    check("it fits any screen without a second breakpoint", /w-\[min\(420px,calc\(100vw-32px\)\)\]/.test(code))
-    check("the field is 16px on a phone, so iOS does not zoom", /className="mt-3 h-11 w-full min-w-0[^"]*text-\[16px\]/.test(code))
-    check("the explorer no longer holds it", !/Stacked, never a row: a label, a field and two buttons/.test(code))
-    check("clicking away closes it", /onPointerDown=\{\(e\) => \{ if \(e\.target === e\.currentTarget\) setPendingAction\(null\) \}\}/.test(code))
-    check("and Escape does", /if \(e\.key === "Escape"\) setPendingAction\(null\)/.test(code))
+    check("it is a row in the file list, not a dialog over it", !/aria-label="Name the new file"/.test(code) && !/fixed inset-0 z-\[200\] flex items-center justify-center/.test(code))
+    check("it sits at the top of the tree, where the file will appear", /\{pendingAction\?\.kind === "new" && \([\s\S]{0,200}<form/.test(code.slice(code.indexOf("wb-slim-scroll flex-1 overflow-y-auto"))))
+    check("stacked, so it fits the column it is in", /className="mt-1\.5 flex items-center gap-1\.5"/.test(code))
+    check("the field is 16px on a phone, so iOS does not zoom", /label="Name of the new section"[\s\S]{0,200}text-\[16px\]/.test(code))
+    check("Escape drops it", /if \(e\.key === "Escape"\) \{ e\.stopPropagation\(\); setPendingAction\(null\) \}/.test(code))
+    check("and Cancel does", /onClick=\{\(\) => setPendingAction\(null\)\}/.test(code))
     check("Create still says it is creating and cannot be pressed twice", /\{creating \? "Creating" : "Create"\}/.test(code) && /disabled=\{!fileNameOf\(pendingAction\.path\)\.name \|\| creating\}/.test(code))
   }
 

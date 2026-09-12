@@ -112,7 +112,7 @@ function main() {
     const code = read("app/website-builder/code/[installId]/page.tsx")
     // The dialog it now lives in is roomier than the explorer column was, so
     // the spinner is drawn at the size the buttons around it are.
-    check("the button carries a spinner and says so while the file is written", /\{creating && <Loader2 className="h-4 w-4 shrink-0 animate-spin" \/>\}/.test(code) && /\{creating \? "Creating" : "Create"\}/.test(code))
+    check("the button carries a spinner and says so while the file is written", /\{creating && <Loader2 className="h-3 w-3 shrink-0 animate-spin" \/>\}/.test(code) && /\{creating \? "Creating" : "Create"\}/.test(code))
     check("and cannot be pressed twice", /disabled=\{!fileNameOf\(pendingAction\.path\)\.name \|\| creating\}/.test(code) && /if \(creating\) return/.test(code))
     check("the flag is cleared whatever the server says", /\} finally \{\s*setCreating\(false\)/.test(code))
   }

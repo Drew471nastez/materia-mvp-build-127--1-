@@ -1069,9 +1069,9 @@ check(
    */
   ((code) =>
     /py-1\.5 pl-7 pr-6 text-\[16px\] md:py-1 md:text-\[11\.5px\]/.test(code) &&
-    // The new-file field, which is a centred dialog now rather than a row
-    // in the explorer, and the one the rename and duplicate row uses.
-    /h-11 w-full min-w-0 rounded-lg border[^"]*text-\[16px\] md:h-10 md:text-\[13px\]/.test(code) &&
+    // The new-file field, a row at the top of the explorer, and the one the
+    // rename and duplicate row uses.
+    /h-9 w-full min-w-0 rounded border[^"]*text-\[16px\] md:h-7 md:text-\[11\.5px\]/.test(code) &&
     /h-10 min-w-0 flex-1 rounded-md border[^"]*text-\[16px\] md:h-7 md:text-\[12px\]/.test(code) &&
     // the code itself was always right, and stays the pattern the rest follow
     /const CODE_TEXT = "text-\[16px\] leading-6 md:text-\[12px\] md:leading-5"/.test(code) &&
@@ -1678,29 +1678,22 @@ check(
 )
 
 check(
-  "New file is a centred dialog, not the narrowest column on the page",
+  "New file is a row in the file list, and fits the column it is in",
   /**
-   * It was a button in the middle of the empty editor whose form laid a
-   * label, a field and two buttons in one row: about 250px before the field
-   * had a pixel, so on a phone the field ran off both edges and Cancel was
-   * past the right one. A screenshot of that is what reported it.
-   */
-  /**
-   * IT MOVED AGAIN, AND THIS TIME OUT OF THE COLUMN. In the explorer it was
-   * at least in front of you on a phone, where the explorer IS the screen.
-   * On a desktop the explorer is a 240px strip off to one side, and the one
-   * thing you have to type went in the narrowest place on the page, above a
-   * list you were not reading. Naming a file is a question with one answer,
-   * so it is asked in the middle and takes the screen while it is asked.
+   * It has been three things. A one-row form in the explorer (a label, a
+   * field and two buttons, about 250px before the field had a pixel, so on a
+   * phone it ran off both edges). Then a centred dialog, which fixed the fit
+   * by taking the whole screen for a question with one short answer. Now a
+   * row in the list, stacked — field on its own line, buttons under it —
+   * which is a shape that fits 240px on a desktop and the full width of the
+   * drawer on a phone.
    */
   /aria-label="New file"[\s\S]{0,200}FilePlus/.test(codePage) &&
-    /role="dialog"[\s\S]{0,120}aria-label="Name the new file"/.test(codePage) &&
-    /fixed inset-0 z-\[200\] flex items-center justify-center/.test(codePage) &&
-    // one expression for every screen: a column on a monitor, edge to edge
-    // with a 16px gutter on a phone, a horizontal scrollbar at no width
-    /w-\[min\(420px,calc\(100vw-32px\)\)\]/.test(codePage) &&
-    // and it is gone from the explorer
-    !/className="space-y-2 pt-1"/.test(codePage),
+    // in the list, not over it
+    !/aria-label="Name the new file"/.test(codePage) &&
+    /label="Name of the new section"/.test(codePage) &&
+    // 16px on a phone is what stops iOS zooming the page on focus
+    /label="Name of the new section"[\s\S]{0,200}text-\[16px\]/.test(codePage),
 )
 
 check(
