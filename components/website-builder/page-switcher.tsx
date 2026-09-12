@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react"
 
+import { AnchoredPanel } from "@/components/website-builder/anchored-panel"
 import { cn } from "@/lib/utils"
 
 /**
@@ -96,12 +97,21 @@ export function PageSwitcher({
   const [yoursOpen, setYoursOpen] = useState(true)
   const [productsOpen, setProductsOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  /** The pill the menu hangs from, and the menu itself, which is portalled
+   *  out of this component's own subtree and so is not inside `rootRef`. */
+  const pillRef = useRef<HTMLDivElement | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
   const searchRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     if (!open) return
     const onDown = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      // The menu lives in `document.body` now, so "inside the component" is
+      // two places. Checking only the first closed the menu on every click
+      // in it.
+      if (rootRef.current?.contains(t) || menuRef.current?.contains(t)) return
+      setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false)
@@ -222,6 +232,7 @@ export function PageSwitcher({
           a button is invalid markup and reads as one target to a screen
           reader. */}
       <div
+        ref={pillRef}
         className={cn(
           // Slim, like the mode pill beside it. At h-9 it was the tallest
           // thing on a 48px bar and read as a field rather than a label.
@@ -258,10 +269,20 @@ export function PageSwitcher({
       </div>
 
       {open && (
-        <div
+        /**
+         * Portalled out of the top bar. The bar is `relative z-50`, so a
+         * panel rendered inside it is one layer at 50 no matter what it
+         * declares, and the code editor's pane at z-[80] painted straight
+         * over this one the same way it did over the Publish panel.
+         */
+        <AnchoredPanel
+          anchorRef={pillRef}
+          align="center"
+          gap={8}
+          panelRef={menuRef}
           role="menu"
           className={cn(
-            "absolute left-1/2 top-full z-50 mt-2 w-[300px] -translate-x-1/2 overflow-hidden rounded-2xl border border-white/10 bg-[#1f1f1f] text-white shadow-[0_20px_60px_-12px_rgba(0,0,0,0.6)]",
+            "flex w-[300px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1f1f1f] text-white shadow-[0_20px_60px_-12px_rgba(0,0,0,0.6)]",
             "origin-top animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-150",
           )}
         >
@@ -284,7 +305,7 @@ export function PageSwitcher({
             </button>
           </div>
 
-          <div className="wb-slim-scroll max-h-[360px] overflow-y-auto p-2">
+          <div className="wb-slim-scroll max-h-[360px] min-h-0 flex-1 overflow-y-auto p-2">
             {builtIn.map((p) => row(p))}
 
             {/* The seller's own pages fold, because this is the group that
@@ -385,7 +406,7 @@ export function PageSwitcher({
               Create page
             </button>
           </div>
-        </div>
+        </AnchoredPanel>
       )}
     </div>
   )

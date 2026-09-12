@@ -4,6 +4,7 @@ import { relativeTime } from "@/lib/website-builder/relative-time"
 import { useEffect, useRef, useState } from "react"
 import { Check, Copy, ExternalLink, Eye, Globe, Loader2, ShieldCheck } from "lucide-react"
 
+import { AnchoredPanel } from "@/components/website-builder/anchored-panel"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { cn } from "@/lib/utils"
 
@@ -435,14 +436,28 @@ export function PublishPanel(props: PublishPanelProps) {
   }
 
   if (!present) return null
+  /**
+   * PORTALLED, like the sheet on a phone, and for the same reason.
+   *
+   * This used to hang from the button inside the top bar, which is
+   * `relative z-50` and therefore a stacking context: the panel's own z-50
+   * was only ever compared with the bar's other children, and out over the
+   * canvas the whole bar is one layer at 50. The code editor's pane is
+   * `absolute inset-0 z-[80]` in the canvas, so with the code editor open
+   * the Publish panel was painted UNDERNEATH it, showing at the edges and
+   * unusable in the middle. No number written here could have fixed that.
+   * See components/website-builder/anchored-panel.tsx.
+   */
   return (
-    <div
-      ref={panelRef}
+    <AnchoredPanel
+      anchorRef={anchorRef}
+      align="right"
+      panelRef={panelRef}
       role="dialog"
       aria-label="Publish"
       data-state={open ? "open" : "closed"}
       className={cn(
-        "absolute right-0 top-[calc(100%+10px)] z-50 w-[420px] rounded-2xl border border-white/10 bg-[#1f1f1f] p-6 shadow-[0_24px_80px_-16px_rgba(0,0,0,0.7)]",
+        "w-[420px] max-w-[calc(100vw-16px)] overflow-y-auto wb-slim-scroll rounded-2xl border border-white/10 bg-[#1f1f1f] p-6 shadow-[0_24px_80px_-16px_rgba(0,0,0,0.7)]",
         "origin-top-right duration-150",
         open
           ? "animate-in fade-in-0 zoom-in-95 slide-in-from-top-1"
@@ -450,6 +465,6 @@ export function PublishPanel(props: PublishPanelProps) {
       )}
     >
       <Body {...props} active={open} />
-    </div>
+    </AnchoredPanel>
   )
 }

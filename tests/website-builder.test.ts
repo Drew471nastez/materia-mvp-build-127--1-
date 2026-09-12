@@ -710,6 +710,47 @@ section("A form that says it worked, did")
   )
 }
 
+/**
+ * ===========================================================================
+ *  A PANEL THAT HANGS FROM THE CHROME IS NOT INSIDE THE CHROME
+ * ===========================================================================
+ * The Publish panel was drawn underneath the code editor. The top bar is
+ * `relative z-50`, which makes it a stacking context, so the panel's own
+ * z-50 was only ever compared with the bar's other children; out over the
+ * canvas the whole bar is one layer at 50, and the code pane is at 80.
+ *
+ * scripts/check-editor-layers.mjs measures the result in a browser, with a
+ * control built the old way that must come back broken. This holds the
+ * structure that makes the measurement true.
+ */
+{
+  console.log("\n  A panel that hangs from the chrome leaves the chrome")
+  const anchored = read("components/website-builder/anchored-panel.tsx")
+  const publish = read("components/website-builder/publish-panel.tsx")
+  const switcher = read("components/website-builder/page-switcher.tsx")
+  const pane = read("components/website-builder/preview-mode-switch.tsx")
+
+  check("it is rendered into the document body", /createPortal\(/.test(anchored) && /document\.body,/.test(anchored))
+  check("and positioned against the button rather than nested in it", /position: "fixed"/.test(anchored) && /getBoundingClientRect\(\)/.test(anchored))
+
+  const panelZ = Number(/export const CHROME_POPOVER_Z = (\d+)/.exec(anchored)?.[1])
+  const paneZ = Number(/"absolute inset-0 z-\[(\d+)\] flex flex-col rounded-t-\[20px\]"/.exec(pane)?.[1])
+  const fullZ = Number(/"fixed inset-0 z-\[(\d+)\] flex flex-col"/.exec(pane)?.[1])
+  check("both z-indexes are readable, or the comparison below is a guess", Boolean(panelZ && paneZ && fullZ), `panel ${panelZ}, pane ${paneZ}, full screen ${fullZ}`)
+  check("the panel outranks the code editor", panelZ > paneZ && panelZ > fullZ, `panel ${panelZ} vs pane ${paneZ} / ${fullZ}`)
+
+  check("the publish panel uses it", /<AnchoredPanel/.test(publish) && !/absolute right-0 top-\[calc\(100%\+10px\)\] z-50/.test(publish))
+  check("and so does the page switcher, which had the same fault", /<AnchoredPanel/.test(switcher))
+  check(
+    "a click inside a portalled menu does not read as a click outside it",
+    /menuRef\.current\?\.contains\(t\)/.test(switcher) && /panelRef\.current\?\.contains\(t\)/.test(publish),
+  )
+  check(
+    "and the panel can never be taller than what is below the button",
+    /maxHeight: Math\.max\(160, window\.innerHeight - top - EDGE\)/.test(anchored),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
