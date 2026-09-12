@@ -53,7 +53,7 @@
 .s__btn--secondary { background: transparent; color: var(--s-heading); border-color: var(--s-border); }
 .s__note { margin: 16px 0 0; font-size: 13px; color: var(--s-para); opacity: 0.8; }
 
-.rt { font-size: 16px; line-height: 1.7; color: var(--s-para); }
+.rt { font-size: var(--section-text-size, 16px); line-height: var(--section-text-line-height, 1.7); color: var(--s-para); }
 .rt > :first-child { margin-top: 0; }
 .rt > :last-child { margin-bottom: 0; }
 .rt h2, .rt h3 { color: var(--s-heading); line-height: 1.25; margin: 1.6em 0 0.5em; }
