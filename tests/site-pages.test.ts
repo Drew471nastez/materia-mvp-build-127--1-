@@ -18,7 +18,7 @@
  *   3. THE EDITOR HAS TO KEEP IT. A page made in the builder lived in React
  *      state: gone on reload, and its delete button deleted nothing.
  */
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import {
   BUILT_IN_PAGE_KEYS,
@@ -267,30 +267,40 @@ function main() {
   section("A page that is not there does not send the visitor to Storelib")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const nf = read("app/(site)/w/[username]/not-found.tsx")
+    const nf = read("app/not-found.tsx")
+    const body = read("components/platform/not-found-body.tsx")
     const home = read("app/(site)/w/[username]/page.tsx")
 
-    check("the site's routes have a not-found of their own", /export default function SiteNotFound/.test(nf))
-    check("it says the page is not here", /That page is not here/.test(nf))
-    // The code, not the comment that explains what it replaced.
-    const nfCode = nf.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1")
-    check("and does not offer to take them off the site", !/Explore Storelib/.test(nfCode) && !/storelib\.com/.test(nfCode) && !/Storelib/.test(nfCode))
-    check("the one link is the front page of whatever site they are on", /href="\/"/.test(nf) && /Back to the home page/.test(nf))
-
     /**
-     * IT READS NOTHING ABOUT THE REQUEST, and that is the whole of why it is
-     * not drawn in the site's own header and footer. The pages under this
-     * boundary are held at the edge for a minute; a `headers()` or
-     * `cookies()` read here makes the render dynamic after it began static,
-     * which Next answers with "Page changed from static to dynamic at
-     * runtime" — a 500 where a 404 belongs. That shipped once and was
-     * measured in the runtime logs, on every missing page of every site.
+     * ONE 404, TWO ANSWERS, CHOSEN BY THE HOST IN THE BROWSER.
+     *
+     * A nested `not-found.tsx` under the site routes was tried first and both
+     * halves of it failed, in production, measured rather than reasoned
+     * about. Reading the request in it — the only way a boundary can learn
+     * whose site it is on — turns a render that began static into a dynamic
+     * one, and Next answers that at runtime with "Page changed from static to
+     * dynamic": a 500 where a 404 belongs, on every missing page of every
+     * site, and on the front pages too. With the request read taken out, the
+     * payload carried both boundaries and the platform's was the one that
+     * showed.
      */
+    check("the platform's 404 has a second body for a creator's own address", /<NotFoundBody platform=\{<PlatformNotFound \/>\} site=\{<SiteNotFound \/>\} \/>/.test(nf))
+    check("which says the page is not here", /That page is not here/.test(nf))
+    check("and offers the site's own front page, not Storelib", /href="\/"[\s\S]{0,200}Back to the home page/.test(nf))
+    check("the site body mentions neither Storelib nor Explore", (() => {
+      const siteBody = nf.slice(nf.indexOf("function SiteNotFound"), nf.indexOf("function PlatformNotFound"))
+      return !/Storelib/.test(siteBody) && !/Explore/.test(siteBody)
+    })())
+
+    check("the choice is the host, and the browser always knows it", /window\.location\.hostname/.test(body) && /getMainDomain\(\)/.test(body))
+    check("computed at the first render rather than in an effect, so nothing flashes", /useState\(\(\) => \{/.test(body) && !/useEffect/.test(body))
+    check("localhost is the platform, whatever the host looks like", /host === "localhost"/.test(body))
     check(
-      "and nothing in it reads the request",
-      !/headers\(\)/.test(nfCode) && !/cookies\(\)/.test(nfCode) && !/"use client"/.test(nfCode),
+      "and nothing about the request is read on the server",
+      !/headers\(\)/.test(body) && !/cookies\(\)/.test(nf),
     )
-    check("which is only a rule because the pages under it are cached", /export const revalidate = 60/.test(home))
+    check("which is a rule because the pages under it are cached", /export const revalidate = 60/.test(home))
+    check("there is no second not-found under the site routes to compete with it", !existsSync(join(process.cwd(), "app/(site)/w/[username]/not-found.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

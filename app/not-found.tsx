@@ -1,7 +1,38 @@
 import Link from "next/link"
 import { Compass } from "lucide-react"
 
+import { NotFoundBody } from "@/components/platform/not-found-body"
+
+/**
+ * Two answers, one route. See components/platform/not-found-body.tsx: on
+ * storelib.com this is Storelib's 404, and on a creator's own address it is
+ * a page that does not mention Storelib and does not offer to take the
+ * visitor off the site they were on.
+ */
 export default function NotFound() {
+  return <NotFoundBody platform={<PlatformNotFound />} site={<SiteNotFound />} />
+}
+
+/** A page that is not there, on somebody's own website. */
+function SiteNotFound() {
+  return (
+    <main className="flex flex-1 flex-col items-center justify-center gap-3.5 px-6 py-24 text-center">
+      <h1 className="text-[26px] font-semibold tracking-tight text-[#1a1a2e] sm:text-[30px]">That page is not here</h1>
+      <p className="max-w-sm text-[15px] leading-relaxed text-[#6b7280]">
+        The link may be old, or the page may have moved.
+      </p>
+      {/* `/` is the front page of whatever address the visitor is already at. */}
+      <Link
+        href="/"
+        className="mt-3 inline-flex h-11 items-center rounded-xl bg-[#1a1a2e] px-6 text-[14px] font-semibold text-white transition-colors hover:bg-[#2d2d4e]"
+      >
+        Back to the home page
+      </Link>
+    </main>
+  )
+}
+
+function PlatformNotFound() {
   return (
     <main className="flex-1 flex items-center justify-center px-4 py-16 sm:py-24">
       <div className="text-center max-w-lg mx-auto">
