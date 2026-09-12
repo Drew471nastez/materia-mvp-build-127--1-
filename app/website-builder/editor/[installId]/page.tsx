@@ -6440,15 +6440,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   return (
     <div
       /**
-       * This surface polices its own touch. `CapacitorBounceGuard` listens on
-       * the document and cancels a vertical gesture whenever the DOCUMENT is
-       * not scrollable — and this one never is, by design. Everything the
-       * guard would do here is already done: html and body are locked with
-       * `overscroll-behavior: none`, the canvas is `touch-action: pan-y` with
-       * `overscroll-behavior: contain`, and it nudges itself off either end
-       * at touchdown. See the opt-out in that component.
+       * UNDER THE BOUNCE GUARD AGAIN, LIKE EVERY OTHER SCREEN.
+       *
+       * This surface opted out of `CapacitorBounceGuard` and policed its own
+       * touch with `overscroll-behavior: contain` and a nudge on the canvas.
+       * That is the model the iPhone reported as frozen: no native scroll
+       * ever began, a rebuilt or remounted canvas stayed dead, and only a
+       * reload brought it back. The guard's way, cancelling the one
+       * touchmove that would chain past a scroller's edge, has run on every
+       * app screen for a month without a freeze. The canvas is a plain
+       * scroller now, and the guard does the edge.
        */
-      data-wb-no-bounce-guard=""
       className={cn(
         // `fixed inset-0`, not `h-svh`. A 100svh element is CONTENT, and the
         // body adds its safe-area padding underneath it — one screen plus
@@ -7326,23 +7328,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             /* A new key is a new element: the third answer to a dead drag. */
             key={canvasEpoch}
             /**
-             * THE SCROLL THAT STOPS.
-             * iOS hands a scroll gesture to the parent when the scroller is
-             * exactly at its top or bottom, and the parent here is
-             * `overflow: hidden` on purpose — so the gesture goes nowhere,
-             * and every touch after it until the finger reverses is eaten.
-             * `overscroll-behavior: contain` is the modern answer and is set
-             * below; this is the belt to its braces: nudge one pixel off
-             * either end at touchdown so there is never a hand-off to make.
+             * =============================================================
+             *  A PLAIN SCROLLER, THE WAY IT WAS WHEN IT WORKED
+             * =============================================================
+             * This carried `touch-action: pan-y`, `overscroll-behavior:
+             * contain`, `-webkit-overflow-scrolling: touch` and a touchstart
+             * handler that nudged the scroll a pixel off either end, all
+             * added over three days to stop a pull at the edge from handing
+             * the gesture to the page. On the iPhone that model is what
+             * FROZE the canvas: the device's own reports showed a scroller
+             * that scripts could move and touches reached, with nothing
+             * cancelling them, and yet no native scroll ever began, a new
+             * element as dead as the old one, and only a reload bringing it
+             * back. A nested scroller with `overscroll-behavior: contain`
+             * inside a page that cannot scroll is a known way to leave iOS
+             * holding the gesture at the root.
+             *
+             * So the model is the one every other screen in the app uses:
+             * an ordinary `overflow-y: auto` box, and the bounce guard on
+             * the document cancels the one move that would chain past its
+             * edge. See the root of this surface, where the opt-out from
+             * that guard used to be.
              */
-            onTouchStart={(e) => {
-              if (!isMobileView) return
-              const el = e.currentTarget
-              const max = el.scrollHeight - el.clientHeight
-              if (max <= 2) return
-              if (el.scrollTop <= 0) el.scrollTop = 1
-              else if (el.scrollTop >= max) el.scrollTop = max - 1
-            }}
             className={cn(
               /**
                * `isolate` is the whole reason the page switcher's panel stopped
@@ -7371,20 +7378,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               // below, draws one over the card. A phone keeps its own.
               !isMobileView && "wb-canvas-hidebar",
             )}
-            style={
-              isMobileView
-                ? {
-                    // The card is the scroller. Say so to the browser: a
-                    // vertical drag here is a scroll and nothing else, and a
-                    // scroll that reaches the end stays in the card rather
-                    // than bouncing the page, which on iOS is where a touch
-                    // scroll gets stuck.
-                    touchAction: "pan-y",
-                    overscrollBehavior: "contain",
-                    WebkitOverflowScrolling: "touch",
-                  }
-                : undefined
-            }
           >
             {/* Inner wrapper — used to be the scroll container; now just
                 a flex-col so the footer sits at the bottom. It is also what
