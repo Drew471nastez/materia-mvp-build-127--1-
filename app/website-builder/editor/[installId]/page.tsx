@@ -74,6 +74,9 @@ import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { resetClippedAncestors, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
+
+/** The closed sheet's height while a section is selected: tabs, the section's name, one control. */
+const SECTION_PEEK_HEIGHT = 168
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
@@ -4419,14 +4422,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // External URLs and `#` anchors are simply ignored in edit mode.
   const handleEditorNavigate = useCallback((href: string) => {
     if (!href) return
+    /**
+     * WITH THE INSPECTOR ON, A TAP SELECTS. It does not navigate. A thumb on a
+     * phone lands on a link or a button as often as on the space around it,
+     * and every one of those taps was changing the page under the person:
+     * the header's logo, a "Home" in the nav, a button to "/", all reloaded
+     * the canvas at the top. That was "select a section and it takes me back
+     * to the top". Following links is what the preview is for, with the
+     * inspector off.
+     */
+    if (inspectorEnabled) return
     const trimmed = href.trim()
     if (!trimmed || trimmed === "#") return
+    // An anchor on this page scrolls the canvas to it, and nothing else.
+    if (trimmed.startsWith("#")) {
+      const scroller = document.getElementById("wb-preview-root")
+      const target = scroller?.querySelector<HTMLElement>(`#${window.CSS.escape(trimmed.slice(1))}`)
+      if (scroller && target) scrollWithin(scroller, target)
+      return
+    }
     // External → ignore (we don't want to leave the editor)
     if (/^https?:\/\//i.test(trimmed)) return
     if (trimmed.startsWith("mailto:") || trimmed.startsWith("tel:")) return
 
     // Normalise path-only hrefs
     const path = trimmed.startsWith("/") ? trimmed : `/${trimmed}`
+    // The page already showing is not reloaded, which would put it back at the top.
+    if ((path === "/" || path === "") && currentPage === "home") return
 
     // Product page deep-link
     if (path.startsWith("/products/")) {
@@ -4927,7 +4949,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     scheduleSnapshot({ installId, node })
   }
 
-  const saveDraft = async (options: { quiet?: boolean } = {}) => {
+  const saveDraft = async (options: { quiet?: boolean } = {}): Promise<boolean> => {
     try {
       const settingsRes = await fetch(`/api/website-builder/themes/${installId}/settings`, {
         method: "PUT",
@@ -4937,7 +4959,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (!settingsRes.ok) {
         const d = await settingsRes.json().catch(() => ({}))
         showNotification(d.error ?? "Failed to save settings", "error")
-        return
+        return false
       }
 
       const sectionsRes = await fetch(`/api/website-builder/themes/${installId}/sections`, {
@@ -4950,7 +4972,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         // A FAILED autosave is not quiet. Silence here is how somebody keeps
         // working for an hour against a server that stopped accepting writes.
         showNotification(d.error ?? "Failed to save sections", "error")
-        return
+        return false
       }
 
       // Sync header/footer to all other pages
@@ -4964,8 +4986,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * the state.
        */
       if (!options.quiet) showNotification("Changes saved successfully")
+      return true
     } catch {
       showNotification("Failed to save", "error")
+      return false
     }
   }
 
@@ -6298,6 +6322,38 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * One door out, used by both exits. Asks only when there is something to
    * lose; otherwise it goes, which is what somebody pressing Back meant.
    */
+  /**
+   * =====================================================================
+   *  THE CODE EDITOR IS A PAGE ON A PHONE, WITH ITS OWN ADDRESS
+   * =====================================================================
+   * On a desktop it opens over the canvas and closes back onto it. On a
+   * phone that pane was a fixed, full-screen iframe layer, and coming back
+   * from it was the one thing that reliably left the canvas deaf. So on a
+   * phone it is not a layer at all: it is the code editor's own route,
+   * reached by navigation and left by navigation, and the builder mounts
+   * fresh on the way back with nothing left over from the pane. The draft
+   * is saved before leaving when there is anything to save, and if that
+   * save fails the person stays here with the error, rather than losing
+   * their work to a page change.
+   */
+  const openCode = async (path?: string | null) => {
+    if (path) setCodeFilePath(path)
+    if (!isMobileView) {
+      setPreviewMode("code")
+      setMobileSidebarOpen(false)
+      setAiOpen(false)
+      return
+    }
+    if (isDirty && !saving && !publishing) {
+      const ok = await saveDraft({ quiet: true })
+      if (!ok) return
+    }
+    const q = new URLSearchParams({ back: "editor" })
+    if (path) q.set("path", path)
+    setLeaving(true)
+    router.push(`/website-builder/code/${installId}?${q.toString()}`)
+  }
+
   const requestExit = useCallback(
     (href: string) => {
       if (hasSomethingToLose({ draft: isDirty, code: codeDirty, busy: saving || publishing })) {
@@ -6466,9 +6522,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 label: previewMode === "code" ? "Back to preview" : "View code",
                 icon: <Code2 className="h-4 w-4" />,
                 onClick: () => {
-                  const next: PreviewMode = previewMode === "code" ? "preview" : "code"
-                  setPreviewMode(next)
-                  if (next === "code") { setMobileSidebarOpen(false); setAiOpen(false) }
+                  if (previewMode === "code") setPreviewMode("preview")
+                  else void openCode()
                 },
               },
               {
@@ -6932,6 +6987,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               // is being opened wins; the other gets out of the way.
               if (next) setAiOpen(false)
             }}
+            /**
+             * A SELECTED SECTION LIFTS THE SHEET A LITTLE. Tap a section on
+             * the canvas and its settings are what the sheet now holds; at
+             * the plain peek only the tabs showed, and nothing said the tap
+             * had done anything. With a section selected the closed sheet
+             * rests higher, enough for the section's name and its first
+             * control, and the canvas keeps clear of it as it always does.
+             * Deselect and it settles back. The sheet's own transition
+             * carries the move.
+             */
+            peekHeight={selectedPanel.type === "section" ? SECTION_PEEK_HEIGHT : undefined}
           >
             {/* Segmented tabs — Sections / Pages / Settings */}
             <div className="px-3 pt-1 pb-2 shrink-0 bg-background">
@@ -7011,9 +7077,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}
               onOpenCodeEditor={(path) => {
-                setCodeFilePath(path)
-                setPreviewMode("code")
                 setAiOpen(false)
+                void openCode(path)
               }}
             />
           </MobileEditorSheet>
@@ -7036,9 +7101,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}
               onOpenCodeEditor={(path) => {
-                setCodeFilePath(path)
-                setPreviewMode("code")
                 setAiOpen(false)
+                void openCode(path)
               }}
             />
             </div>

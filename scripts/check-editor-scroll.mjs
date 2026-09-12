@@ -464,6 +464,14 @@ const DRIVE = `
     steps.push(tryScroll("scroll before any click", 250))
     var secs = document.querySelectorAll("#wb-preview-root [id^=wb-section-]")
 
+    // "Select a section and it takes me back to the top." Scroll first, then
+    // tap, then read where the canvas is.
+    var scrollerForKeep = document.getElementById("wb-preview-root")
+    scrollerForKeep.scrollTop = 420; await sleep(250)
+    var beforeTap = scrollerForKeep.scrollTop
+    tap(secs[3] || secs[2] || secs[1]); await sleep(900)
+    steps.push({ label: "selecting a section keeps the scroll position", keptScroll: scrollerForKeep.scrollTop, beforeTap: beforeTap })
+
     // THE REPORT: selecting a section. With touch, as a thumb does it.
     tap(secs[2] || secs[1]); await sleep(700)
     steps.push(touchDrag("a finger after TAPPING a section on the canvas"))
@@ -662,6 +670,12 @@ for (const [w, h, label] of [[390, 844, "phone"], [1280, 900, "desktop"]]) {
   console.log(`\n══ ${label} ${w}×${h} ══`)
   for (const s of run(w, h, label)) {
     if (s.userCanScroll === false) { failures++; console.log(`  ✗ ${s.label}: a person could not scroll the canvas here: ${s.why.join("; ")}`) }
+    if (s.keptScroll !== undefined) {
+      var kept = s.beforeTap > 0 && Math.abs(s.keptScroll - s.beforeTap) < 40
+      if (!kept) failures++
+      console.log(`  ${kept ? "ok  " : "✗   "} ${s.label}: ${s.beforeTap} → ${s.keptScroll}`)
+      continue
+    }
     if (s.keyboardRevived !== undefined) {
       if (!s.keyboardRevived) failures++
       console.log(`  ${s.keyboardRevived ? "ok  " : "✗   "} ${s.label}${s.keyboardRevived ? "" : ": nothing revived the canvas after the blur"}  window.scrollY=${s.windowScrollY}  ${s.field}`)

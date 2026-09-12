@@ -360,6 +360,13 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   const embedded =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("embedded") === "1"
   /**
+   * `?back=editor` is the builder on a phone, where this page is reached by
+   * navigation rather than framed: Back goes to the builder, not the list.
+   */
+  const fromEditor =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("back") === "editor"
+  const backHref = fromEditor ? `/website-builder/editor/${installId}` : "/app/website-builder"
+  /**
    * `?path=` opens straight onto one file. Used when the assistant has just
    * written a section: "Open it" should land on the file, not on the tree with
    * the file somewhere in it.
@@ -1614,10 +1621,12 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       >
         <button
           className="flex items-center gap-1.5 text-[13px] text-[var(--code-muted)] hover:text-[var(--code-text)] mr-1"
-          onClick={() => router.push("/app/website-builder")}
+          // No question on the way out: an unsaved edit is held in this
+          // browser and offered back the next time the file is opened.
+          onClick={() => router.push(backHref)}
         >
           <ArrowLeft className="h-4 w-4" />
-          <span className="hidden sm:inline text-[12px]">Website Builder</span>
+          <span className={cn("text-[12px]", fromEditor ? "inline" : "hidden sm:inline")}>{fromEditor ? "Editor" : "Website Builder"}</span>
         </button>
 
         <div className="h-4 w-px bg-[var(--code-active)]" />

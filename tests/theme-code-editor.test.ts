@@ -223,6 +223,33 @@ section("It is reachable, and it works on a file longer than the window")
     "and it loads in place, so unsaved theme work is not navigated away from",
     (() => {
       const pane = readFileSync(join(root, "components/website-builder/preview-mode-switch.tsx"), "utf8")
+  const codeSrc = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  check(
+    "with the inspector on, a tap on a theme link selects and never navigates, and the page already showing is not reloaded",
+    /const handleEditorNavigate = useCallback\(\(href: string\) => \{\s*\n\s*if \(!href\) return[\s\S]{0,900}?if \(inspectorEnabled\) return/.test(editor) &&
+      /if \(\(path === "\/" \|\| path === ""\) && currentPage === "home"\) return/.test(editor) &&
+      /if \(trimmed\.startsWith\("#"\)\) \{[\s\S]*?scrollWithin\(scroller, target\)/.test(editor),
+  )
+  check(
+    "on a phone the code editor is its own page: the builder saves the draft, then navigates to the code route with a way back",
+    /const openCode = async \(path\?: string \| null\) => \{/.test(editor) &&
+      /if \(!isMobileView\) \{\s*\n\s*setPreviewMode\("code"\)/.test(editor) &&
+      /const ok = await saveDraft\(\{ quiet: true \}\)\s*\n\s*if \(!ok\) return/.test(editor) &&
+      /router\.push\(`\/website-builder\/code\/\$\{installId\}\?\$\{q\.toString\(\)\}`\)/.test(editor) &&
+      !/setCodeFilePath\(path\)\s*\n\s*setPreviewMode\("code"\)/.test(editor) &&
+      /else void openCode\(\)/.test(editor),
+  )
+  check(
+    "and the code page's Back goes to the builder when it came from there, with no question: unsaved edits are held and offered back",
+    /const fromEditor =[\s\S]*?get\("back"\) === "editor"/.test(codeSrc) &&
+      /const backHref = fromEditor \? `\/website-builder\/editor\/\$\{installId\}` : "\/app\/website-builder"/.test(codeSrc) &&
+      /onClick=\{\(\) => router\.push\(backHref\)\}/.test(codeSrc),
+  )
+  check(
+    "a section selected on the canvas lifts the phone's closed sheet a little",
+    /peekHeight=\{selectedPanel\.type === "section" \? SECTION_PEEK_HEIGHT : undefined\}/.test(editor) &&
+      /const SECTION_PEEK_HEIGHT = 168/.test(editor),
+  )
   check(
     "a closed code pane is visibility: hidden once its fade is done, not a transparent full-screen frame over the canvas",
     // On a phone the pane is a fixed, full-screen layer holding an iframe with
