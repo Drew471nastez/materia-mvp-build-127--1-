@@ -2,6 +2,7 @@
   "type": "faq",
   "name": "FAQ",
   "description": "Frequently asked questions with accordion or boxed styles.",
+  "supports_typography_overrides": false,
   "icon": "help-circle",
   "category": "content",
   "fields": [

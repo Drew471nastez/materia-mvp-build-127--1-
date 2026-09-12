@@ -2,6 +2,7 @@
   "type": "contact_form",
   "name": "Contact Form",
   "description": "Customizable contact form with optional split layout and configurable fields.",
+  "supports_typography_overrides": false,
   "icon": "mail",
   "category": "niche",
   "fields": [

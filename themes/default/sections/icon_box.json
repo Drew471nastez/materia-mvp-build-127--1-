@@ -2,6 +2,7 @@
   "type": "icon_box",
   "name": "Icon box",
   "description": "Feature grid of icon + title + description cards.",
+  "supports_typography_overrides": false,
   "icon": "layout-grid",
   "category": "content",
   "fields": [

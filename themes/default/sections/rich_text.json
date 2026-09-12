@@ -2,6 +2,7 @@
   "type": "rich_text",
   "name": "Rich text",
   "description": "A text block with heading, body copy, and optional CTA",
+  "supports_typography_overrides": false,
   "icon": "type",
   "category": "content",
   "fields": [

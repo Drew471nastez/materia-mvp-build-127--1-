@@ -2,6 +2,7 @@
   "type": "product",
   "name": "Product",
   "description": "Display a single product with images, pricing, description and purchase buttons",
+  "supports_typography_overrides": false,
   "icon": "star",
   "category": "commerce",
   "fields": [

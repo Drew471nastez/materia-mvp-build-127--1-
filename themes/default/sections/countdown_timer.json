@@ -2,6 +2,7 @@
   "type": "countdown_timer",
   "name": "Countdown timer",
   "description": "Build urgency with a live countdown to a date or event.",
+  "supports_typography_overrides": false,
   "icon": "clock",
   "category": "marketing",
   "fields": [

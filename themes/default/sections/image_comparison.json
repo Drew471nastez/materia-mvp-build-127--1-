@@ -2,6 +2,7 @@
   "type": "image_comparison",
   "name": "Image comparison",
   "description": "Before/after slider with draggable divider.",
+  "supports_typography_overrides": false,
   "icon": "columns-2",
   "category": "media",
   "fields": [

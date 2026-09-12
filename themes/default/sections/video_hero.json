@@ -2,6 +2,7 @@
   "type": "video_hero",
   "name": "Video hero",
   "description": "Full-width hero with background video and text overlay",
+  "supports_typography_overrides": false,
   "icon": "play-circle",
   "category": "media",
   "fields": [

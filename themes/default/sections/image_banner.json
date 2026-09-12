@@ -2,6 +2,7 @@
   "type": "image_banner",
   "name": "Image banner",
   "description": "Large image with optional text overlay and CTA",
+  "supports_typography_overrides": false,
   "icon": "image",
   "category": "media",
   "fields": [

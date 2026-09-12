@@ -2,6 +2,7 @@
   "type": "stats",
   "name": "Stats / numbers",
   "description": "Highlight key metrics and achievements with animated counters.",
+  "supports_typography_overrides": false,
   "icon": "bar-chart-2",
   "category": "content",
   "fields": [

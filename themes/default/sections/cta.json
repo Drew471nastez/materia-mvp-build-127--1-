@@ -2,6 +2,7 @@
   "type": "cta",
   "name": "Call to action",
   "description": "A high-impact call-to-action banner with optional countdown.",
+  "supports_typography_overrides": false,
   "icon": "zap",
   "category": "marketing",
   "fields": [
