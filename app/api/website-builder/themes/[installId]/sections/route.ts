@@ -192,7 +192,7 @@ export async function PUT(req: Request, { params }: Params) {
    * can see, and throwing the cache away on every keystroke would undo the
    * point of having one.
    */
-  if (mode === "publish" && creatorId) revalidatePublishedSite(creatorId)
+  if (mode === "publish" && creatorId) await revalidatePublishedSite(creatorId)
 
   return NextResponse.json({ page: result })
 }
@@ -230,7 +230,7 @@ export async function DELETE(req: Request, { params }: Params) {
 
   if (deleteErr) return NextResponse.json({ error: deleteErr.message }, { status: 500 })
 
-  if (creatorId) revalidatePublishedSite(creatorId)
+  if (creatorId) await revalidatePublishedSite(creatorId)
 
   return NextResponse.json({ ok: true })
 }

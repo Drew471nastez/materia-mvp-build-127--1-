@@ -29,15 +29,11 @@ export function newPreviewToken(): string {
 }
 
 /**
- * The token on this request, if the shape is right. A token that could not
- * be one is not worth a database round trip, and refusing early keeps the
- * lookup off anything a stranger types into the query string.
+ * Recognising a token lives in `preview-token.ts`, which the proxy can import
+ * without dragging `node:crypto` into the edge bundle. Re-exported here so
+ * every caller that already reads this file keeps working.
  */
-export function previewTokenFrom(params: { get(name: string): string | null }): string | null {
-  const raw = params.get("preview")
-  if (!raw) return null
-  return /^[A-Za-z0-9_-]{32,64}$/.test(raw) ? raw : null
-}
+export { previewTokenFrom, isPreviewTokenShaped } from "./preview-token"
 
 /**
  * Whether this request may see the drafts of this install. Compared against

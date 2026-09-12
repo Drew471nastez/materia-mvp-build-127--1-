@@ -133,7 +133,7 @@ export async function POST(req: Request, { params }: Params) {
      * Last, so it can only ever throw away a cache of something already
      * written.
      */
-    revalidatePublishedSite(creator.id)
+    await revalidatePublishedSite(creator.id)
 
     return NextResponse.json({ ok: true, status: "published" })
   }
@@ -155,7 +155,7 @@ export async function POST(req: Request, { params }: Params) {
     })
 
     // A site taken down that stays in a cache is still up.
-    revalidatePublishedSite(creator.id)
+    await revalidatePublishedSite(creator.id)
 
     return NextResponse.json({ ok: true, status: "unpublished" })
   }
