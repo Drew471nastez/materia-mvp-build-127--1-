@@ -439,7 +439,6 @@ const DRIVE = `
     )
     if (field) {
       var scroller = document.getElementById("wb-preview-root")
-      scroller.style.removeProperty("overflow-y")
       var focusouts = 0
       document.addEventListener("focusout", function () { focusouts++ })
       field.focus(); await sleep(250)
@@ -447,7 +446,7 @@ const DRIVE = `
       field.blur(); await sleep(750)
       steps.push({
         label: "keyboard (" + where + "): the canvas is revived when a field loses focus",
-        keyboardRevived: scroller.style.overflowY === "auto",
+        keyboardRevived: window.scrollY === 0,
         windowScrollY: window.scrollY,
         field: field.tagName.toLowerCase() + ":" + (field.getAttribute("type") || "") + " hasFocus=" + document.hasFocus() + " focused=" + focused + " focusouts=" + focusouts,
       })

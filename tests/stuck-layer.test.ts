@@ -178,7 +178,7 @@ function main() {
       return fn.indexOf("clearStaleDocumentLocks(document)") > 0 && fn.indexOf("clearStaleDocumentLocks(document)") < fn.indexOf("reviveScroller(")
     })(), "reviving a scroller cannot help when the touches never reach it")
     check("and the press-to-revive net is armed on the document", /watchForStuckLayer\(document, \(\) => \{/.test(editor))
-    check("the scroller's own repair is still there for the WebKit case", /watchForStuckScroll\(el, \(\) => \{[\s\S]*?reviveCanvas\(\)/.test(editor))
+    check("the scroller's own repair runs on the return from the code pane, not on a watchdog", /window\.setTimeout\(reviveCanvas, 340\)/.test(editor) && !/watchForStuckScroll\(/.test(editor))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

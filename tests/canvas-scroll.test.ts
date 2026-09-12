@@ -169,7 +169,7 @@ function main() {
       revive.indexOf("clearStaleDocumentLocks(document)") !== -1 &&
         revive.indexOf("clearStaleDocumentLocks(document)") < revive.indexOf("reviveScroller(el"),
     )
-    check("on a phone the watchdog is armed on the canvas, and what it calls revives", /watchForStuckScroll\(el, \(\) => \{[\s\S]*?reviveCanvas\(\)[\s\S]*?\}\)/.test(editor))
+    check("the watchdog is NOT armed on the canvas: judging a lagging native scroll dead and reviving mid-gesture was the freeze", !/watchForStuckScroll\(/.test(editor) && /NO WATCHDOG ON THE CANVAS/.test(editor))
     check("the transition is tracked so a revive fires on the way OUT, not in", /const wasCovered = coveredRef\.current\n\s+coveredRef\.current = covered\n\s+if \(wasCovered && !covered\)/.test(editor))
   }
 

@@ -2804,19 +2804,14 @@ html.wb-fullscreen,
 html.wb-fullscreen body {
   height: 100%;
   min-height: 0;
-  /* NOT `overflow: hidden`, AND NOT `overscroll-behavior: none`.
-
-     Both were here. The document has nothing to scroll anyway: the editor is
-     `position: fixed` and adds nothing to it, and the body is exactly the
-     viewport with its padding zeroed below. What the two declarations did
-     on iOS was different: an `overflow: hidden` root has its native scroll
-     view disabled, and with that the phone reported the canvas, a nested
-     scroller, going deaf. Touches reached it, scripts could move it, nothing
-     cancelled the gesture, and no native scroll ever began, until a reload.
-     Every other screen in the app keeps its root scroll view enabled with
-     nothing to scroll and its nested scrollers work; this is now the same.
-     The bounce guard on the document cancels the one move that would
-     rubber-band the root in the app shell. */
+  overflow: hidden;
+  /* No rubber-band either: there is nothing to scroll, and on iOS the bounce
+     would still lift the whole surface off the top of the screen. NOTE that
+     WKWebView ignores this — its scroll is a native UIScrollView — which is
+     what CapacitorBounceGuard is for. It cancels a touchmove that would go
+     past a boundary, and when the page fits it cancels every vertical one,
+     which is the state these rules put the editor in. */
+  overscroll-behavior: none;
 }
 html.wb-fullscreen body {
   padding-top: 0;
@@ -2859,6 +2854,8 @@ html:has(.wb-editor),
 html:has(.wb-editor) body {
   height: 100%;
   min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 html:has(.wb-editor) body {
   padding: 0;

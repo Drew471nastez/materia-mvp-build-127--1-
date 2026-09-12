@@ -140,9 +140,12 @@ function main() {
     const root = process.cwd()
     const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
     const code = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
-    check("the builder revives the canvas when the keyboard goes", /watchKeyboard\(window, document, \(\) => \{\s*reviveCanvas\(\)/.test(editor))
-    check("twice, so the second lands after the keyboard animation", /window\.setTimeout\(reviveCanvas, 420\)/.test(editor))
-    check("and the revive it calls is the one that scrolls the window back", /if \(window\.scrollY !== 0\) window\.scrollTo\(0, 0\)/.test(editor.slice(editor.indexOf("const reviveCanvas"), editor.indexOf("const reviveCanvas") + 1500)))
+    check("the builder settles the canvas when the keyboard goes: document unlocked, window put back, nothing done to the scroller's overflow", /watchKeyboard\(window, document, \(\) => \{\s*settleCanvas\(\)/.test(editor))
+    check("twice, so the second lands after the keyboard animation", /window\.setTimeout\(settleCanvas, 420\)/.test(editor))
+    check("and what it calls scrolls the window back without touching the scroller", (() => {
+      const fn = editor.slice(editor.indexOf("const settleCanvas"), editor.indexOf("const settleCanvas") + 700)
+      return /if \(window\.scrollY !== 0\) window\.scrollTo\(0, 0\)/.test(fn) && !/reviveScroller/.test(fn)
+    })())
     check("the code editor scrolls its own window back, which is the iframe's when framed", /watchKeyboard\(window, document, \(\) => \{\s*if \(window\.scrollY !== 0\) window\.scrollTo\(0, 0\)/.test(code))
     check("and re-creates the textarea's scrolling layer", /reviveScroller\(area, \(cb\) => window\.requestAnimationFrame\(cb\)\)/.test(code))
   }

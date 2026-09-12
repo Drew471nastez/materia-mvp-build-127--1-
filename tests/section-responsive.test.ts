@@ -592,15 +592,10 @@ check(
 )
 
 check(
-  "the phone preview card is a plain scroller, the way it was when it worked",
-  // It carried `touch-action: pan-y` and `overscroll-behavior: contain`. On
-  // the iPhone that is the model that froze: the device's own reports showed
-  // touches reaching a scroller that scripts could move, nothing cancelling
-  // them, and no native scroll ever beginning, until a reload. A nested
-  // scroller with `overscroll-behavior: contain` inside a page that cannot
-  // scroll is a known way to leave iOS holding the gesture at the root.
-  !/touchAction: "pan-y",\s*\n\s*overscrollBehavior: "contain"/.test(editor) &&
-    !/overscrollBehavior: "contain"/.test(editor.slice(editor.indexOf('id="wb-preview-root"'), editor.indexOf('id="wb-preview-root"') + 6000)),
+  "the phone preview card owns its touch scrolling",
+  // A vertical drag on the card is a scroll and nothing else, and reaching the
+  // end stays in the card rather than bouncing the page.
+  /touchAction: "pan-y",\s*\n\s*overscrollBehavior: "contain"/.test(editor),
 )
 
 
@@ -1442,22 +1437,12 @@ check(
    * so it is an opt-out and not an off switch.
    * `node scripts/check-bounce-guard.mjs`
    */
-  /**
-   * AND THEN THE OPT-OUT CAME BACK OFF. The builder's own touch model, the
-   * one the opt-out made room for, is what the iPhone reported as frozen:
-   * no native scroll ever began, a rebuilt or remounted canvas stayed dead,
-   * and only a reload brought it back. The guard's way, cancelling the one
-   * touchmove that would chain past a scroller's edge, has run on every
-   * other app screen for a month without a freeze. So the builder is under
-   * the guard again, and the opt-out attribute stays for the code editor,
-   * whose panels do scroll themselves.
-   */
   ((guard) =>
     /target\?\.closest\("\[data-wb-no-bounce-guard\]"\)/.test(guard) &&
     // the branch that did the damage is still there for everywhere else
     /Page fits on screen — prevent rubber-band in both directions/.test(guard))(
       readFileSync(join(root, "components/platform/capacitor-bounce-guard.tsx"), "utf8"),
-    ) && !/data-wb-no-bounce-guard=""/.test(editor),
+    ) && /data-wb-no-bounce-guard=""/.test(editor),
 )
 
 check(
@@ -1594,10 +1579,8 @@ check(
 )
 
 check(
-  "the canvas no longer nudges itself off its ends at touchdown",
-  // A scroll position written during a touch is a native pan interrupted
-  // mid-gesture. The guard on the document handles the edge instead.
-  !/if \(el\.scrollTop <= 0\) el\.scrollTop = 1/.test(editor) && !/else if \(el\.scrollTop >= max\) el\.scrollTop = max - 1/.test(editor),
+  "the canvas never hands a scroll to a parent that swallows it",
+  /if \(el\.scrollTop <= 0\) el\.scrollTop = 1/.test(editor) && /else if \(el\.scrollTop >= max\) el\.scrollTop = max - 1/.test(editor),
 )
 
 check(
@@ -2290,14 +2273,7 @@ check(
 
 check(
   "and the body cannot put the scroll back while it is mounted",
-  /html\.wb-fullscreen,\s*\nhtml\.wb-fullscreen body \{[\s\S]*?height: 100%;/.test(editorCss) &&
-    // Not `overflow: hidden` on the root, and not `overscroll-behavior: none`:
-    // an overflow-hidden root has its native scroll view disabled on iOS, and
-    // with that the phone reported the nested canvas going deaf. The body is
-    // exactly the viewport with zero padding, so there is nothing to scroll
-    // behind the editor anyway.
-    !/html\.wb-fullscreen,\s*\nhtml\.wb-fullscreen body \{[^}]*overflow: hidden;/.test(editorCss) &&
-    !/html:has\(\.wb-editor\),\s*\nhtml:has\(\.wb-editor\) body \{[^}]*overflow: hidden;/.test(editorCss) &&
+  /html\.wb-fullscreen,\s*\nhtml\.wb-fullscreen body \{[\s\S]*?overflow: hidden;/.test(editorCss) &&
     /html\.wb-fullscreen body \{[\s\S]*?padding-bottom: 0;/.test(editorCss) &&
     /root\.classList\.add\("wb-fullscreen"\)/.test(lockSrc) &&
     /root\.classList\.remove\("wb-fullscreen"\)/.test(lockSrc),
@@ -2713,8 +2689,8 @@ check(
   /width: `\$\{DEVICE_WIDTH\[device\]\}px`,\s*\n\s*maxWidth: "100%",\s*\n\s*height: "min\(900px, 100%\)",\s*\n\s*flex: "0 1 auto",/.test(
     editor,
   ) &&
-    // The scroller states nothing about touch either: a plain overflow box.
-    !/touchAction: "pan-y",\s*\n\s*overscrollBehavior: "contain",\s*\n\s*WebkitOverflowScrolling: "touch"/.test(
+    // The scroller keeps only what is about touch, not about size.
+    /touchAction: "pan-y",\s*\n\s*overscrollBehavior: "contain",\s*\n\s*WebkitOverflowScrolling: "touch",\s*\n\s*\}\s*\n\s*: undefined/.test(
       editor,
     ),)
 // ===========================================================================

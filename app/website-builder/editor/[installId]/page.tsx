@@ -71,26 +71,8 @@ import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/re
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { dropOverscrollContain, flashRootTouchAction, rebuildScroller, resetClippedAncestors, resyncFixedLayers, reviveScroller, scrollWithin, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
-import { describeFreeze, sendFreezeReport, type GestureStats } from "@/lib/website-builder/freeze-report"
+import { resetClippedAncestors, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
 
-/**
- * Dead drags this close together are one freeze, and each one climbs a rung.
- * Long enough that a person dragging, waiting, and dragging again is still
- * on the same ladder: the first ladder was six seconds and almost nobody
- * reached its second rung.
- */
-const STUCK_ESCALATE_MS = 45_000
-/**
- * What each rung is called in the log. Index is the rung reached. Three
- * rungs: the phone graded every single remedy as not enough on its own,
- * including a full remount of the canvas, so the middle ones are bundled.
- * There WAS a fourth, a reload, and it was the wrong answer: with the cause
- * still there it fired on nearly every drag and the editor "reset itself".
- * The cause is addressed at the root of the document now (see
- * `html.wb-fullscreen` in globals.css); the ladder is a net, not a cure.
- */
-const STUCK_REASONS = ["stuck-drag", "stuck-after-revive", "stuck-after-rebuild", "stuck-after-remount"] as const
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
@@ -6213,6 +6195,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
 
   /**
+   * The gentle half of the above: the document unlocked, the window put
+   * back, a script-scrolled wrapper put back. It never touches the
+   * scroller's own overflow, so it is safe to run near a gesture. The
+   * keyboard closing uses this one.
+   */
+  const settleCanvas = useCallback(() => {
+    clearStaleDocumentLocks(document)
+    const el = document.getElementById("wb-preview-root")
+    if (el) resetClippedAncestors(el, (node) => window.getComputedStyle(node as Element))
+    if (window.scrollY !== 0) window.scrollTo(0, 0)
+  }, [])
+
+  /**
    * AND THE PRESS THAT FINDS THE PAGE DEAD IS THE PRESS THAT REVIVES IT.
    *
    * With `pointer-events: none` on the body a press hit-tests through to the
@@ -6242,156 +6237,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   /**
    * ===================================================================
-   *  THE WATCHDOG, ON A PHONE: A REAL DRAG THAT MOVES NOTHING IS A FREEZE
+   *  NO WATCHDOG ON THE CANVAS. IT WAS THE FREEZE.
    * ===================================================================
-   * And it answers in three steps, because the first one was measured not
-   * to be enough. Reports from an iPhone (lib/website-builder/freeze-report.ts)
-   * showed a canvas no finger could move with nothing wrong that a script
-   * can see: window at zero, no lock, nothing over it, no listener
-   * cancelling the move, `overflow: auto` with room, touches arriving at the
-   * scroller. `reviveCanvas` ran and the next drag was as dead as the last.
+   * For one week a listener here judged a drag "dead" when the canvas had
+   * not moved after 24px of finger travel, and revived the scroller on the
+   * spot by toggling its overflow. On iOS the native scroll runs on another
+   * thread and the page's scroll position lags the finger by a few frames,
+   * so a flick reaches 24px before the position has moved. The revive then
+   * tore down the scroller's native scrolling node in the middle of the
+   * gesture, which killed the scroll that had just begun, and did it again
+   * on the next drag, and the next. Reports from the phone described it
+   * exactly: touches reaching the scroller, scripts able to move it,
+   * nothing cancelling the gesture, no native scroll ever beginning, a
+   * fresh element as dead as the old one. That was the code judging a
+   * healthy scroll dead and then making it so.
    *
-   *   1. The first dead drag REVIVES: locks cleared, layer re-created.
-   *   2. A second dead drag REBUILDS everything a page can rebuild: the
-   *      scroller (`display: none` and back, a new native scrolling node),
-   *      the fixed sheets and overlays (the compositor's copy of where they
-   *      are), the root's touch-action regions (none for a frame, then
-   *      back), any live text selection, and `overscroll-behavior: contain`
-   *      comes off the canvas.
-   *   3. A third REMOUNTS the canvas: a new element, from React, with the
-   *      scroll position put back.
-   *
-   * No reload. It was a rung for one deploy and it made the editor reset
-   * under a person's finger, because the cause was still there. The cause
-   * was the document: `overflow: hidden` on html and body disables the
-   * root scroll view on iOS, and with the root disabled the phone reported
-   * this nested scroller going deaf. That is fixed in globals.css, not
-   * here. What is here is a net.
-   *
-   * Reports so far (iOS 18.7) graded each of the first three, one at a
-   * time, as not enough: a script could still scroll, touches reached the
-   * scroller, nothing cancelled the moves, every move stayed cancelable, so
-   * the browser never began a native scroll, and even a fresh canvas
-   * element was as dead as the old one. Whatever holds the gesture is
-   * above the canvas. The touchstart's own cancellation, the pointer
-   * cancels and the selection are in the report from here on, because
-   * they are the three things about that side a page can still see.
-   *
-   * Before each step the phone says what it saw, and which step it is on,
-   * so the log can say which step was the one that worked. Where the finger
-   * was, what the gesture did and whether a script could still move the
-   * scroller come from two passive listeners of our own: the watchdog's
-   * callback has none of that.
+   * Scrolling worked before that listener and it works without it. The two
+   * repairs that stay run on discrete events, never during a gesture:
+   * coming back from the code pane or project settings (above), and the
+   * keyboard closing (below), which only unlocks the document and puts the
+   * window back.
    */
-  const lastTouch = useRef<{ x: number; y: number; prevented: boolean | null; trusted: boolean; nested: boolean }>({ x: 0, y: 0, prevented: null, trusted: false, nested: false })
-  const gesture = useRef<GestureStats & { startTop: number }>({ moves: 0, cancelable: 0, prevented: 0, maxScrollDelta: 0, startTop: 0, startPrevented: null, pointerMoves: 0, pointerCancels: 0 })
-
-  const lastReportAt = useRef<Record<string, number>>({})
-  const stuckHistory = useRef<number[]>([])
-  const [canvasEpoch, setCanvasEpoch] = useState(0)
-  const restoreTopRef = useRef<number | null>(null)
-  useEffect(() => {
-    if (!isMobileView) return
-    const el = document.getElementById("wb-preview-root")
-    if (!el) return
-    /**
-     * A drag that lands on a scroller INSIDE the canvas, a section's own
-     * scrolling list say, moves that scroller and not the canvas. That is
-     * not a freeze and must not climb the ladder; the fourth rung reloads.
-     */
-    const nestedScrollerUnder = (target: EventTarget | null): boolean => {
-      let node = target instanceof HTMLElement ? target : null
-      while (node && node !== el) {
-        const style = window.getComputedStyle(node)
-        if (/(auto|scroll|overlay)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) return true
-        node = node.parentElement
-      }
-      return false
-    }
-    const onStart = (e: TouchEvent) => {
-      const t = e.touches[0]
-      // `isTrusted`: a synthetic touch from a probe or a test can never reload the page.
-      if (t) lastTouch.current = { x: t.clientX, y: t.clientY, prevented: null, trusted: e.isTrusted, nested: nestedScrollerUnder(e.target) }
-      gesture.current = { moves: 0, cancelable: 0, prevented: 0, maxScrollDelta: 0, startTop: el.scrollTop, startPrevented: null, pointerMoves: 0, pointerCancels: 0 }
-    }
-    // On the window, after everything else: whether the touchstart was cancelled.
-    const onStartDone = (e: TouchEvent) => { gesture.current.startPrevented = e.defaultPrevented }
-    const onPointerMove = () => { gesture.current.pointerMoves = (gesture.current.pointerMoves ?? 0) + 1 }
-    const onPointerCancel = () => { gesture.current.pointerCancels = (gesture.current.pointerCancels ?? 0) + 1 }
-    // On the window, so it runs after every listener that could have
-    // cancelled the move, and passive, so it can never be the one that does.
-    const onMove = (e: TouchEvent) => {
-      const g = gesture.current
-      g.moves += 1
-      if (e.cancelable) g.cancelable += 1
-      if (e.defaultPrevented) g.prevented += 1
-      g.maxScrollDelta = Math.max(g.maxScrollDelta, Math.abs(el.scrollTop - g.startTop))
-      lastTouch.current.prevented = e.defaultPrevented
-    }
-    document.addEventListener("touchstart", onStart, { passive: true, capture: true })
-    window.addEventListener("touchstart", onStartDone, { passive: true })
-    window.addEventListener("touchmove", onMove, { passive: true })
-    window.addEventListener("pointermove", onPointerMove, { passive: true })
-    window.addEventListener("pointercancel", onPointerCancel, { passive: true })
-    const stop = watchForStuckScroll(el, () => {
-      if (lastTouch.current.nested) return
-      const now = Date.now()
-      const recent = stuckHistory.current.filter((t) => now - t < STUCK_ESCALATE_MS)
-      recent.push(now)
-      stuckHistory.current = recent
-      const step = Math.min(recent.length, STUCK_REASONS.length)
-      const reason = STUCK_REASONS[step - 1]
-      try {
-        // Can a script still move it? Decides between a scroller that is
-        // dead and a gesture the browser is not handing to it.
-        const before = el.scrollTop
-        el.scrollTop = before + (before > 0 ? -1 : 1)
-        const scriptCanScroll = el.scrollTop !== before
-        el.scrollTop = before
-        const { startTop: _startTop, ...stats } = gesture.current
-        const sel = window.getSelection()
-        const selection = sel && sel.rangeCount > 0 && sel.type !== "None" ? `${sel.type}:${sel.rangeCount}` : null
-        const report = describeFreeze(document, window, el, reason, lastTouch.current, { gesture: stats, probe: { scriptCanScroll }, step, selection })
-        lastReportAt.current[reason] = sendFreezeReport(
-          (path, body) => { void fetch(path, { method: "POST", body, keepalive: true, headers: { "content-type": "application/json" } }).catch(() => {}) },
-          report,
-          now,
-          lastReportAt.current[reason] ?? 0,
-        )
-      } catch {
-        // A report that cannot be taken must never stand between the drag and the revive.
-      }
-      reviveCanvas()
-      if (step >= 2) {
-        rebuildScroller(el, (cb) => window.requestAnimationFrame(cb))
-        resyncFixedLayers(document.querySelectorAll<HTMLElement>("[data-mobile-bottom-sheet], [data-wb-sheet-overlay]"))
-        dropOverscrollContain(el)
-        flashRootTouchAction([document.documentElement, document.body], (cb) => window.requestAnimationFrame(cb))
-        window.getSelection()?.removeAllRanges()
-      }
-      if (step === 3) {
-        restoreTopRef.current = el.scrollTop
-        setCanvasEpoch((n) => n + 1)
-      }
-    })
-    return () => {
-      stop()
-      document.removeEventListener("touchstart", onStart, { capture: true })
-      window.removeEventListener("touchstart", onStartDone)
-      window.removeEventListener("touchmove", onMove)
-      window.removeEventListener("pointermove", onPointerMove)
-      window.removeEventListener("pointercancel", onPointerCancel)
-    }
-  }, [isMobileView, reviveCanvas, canvasEpoch])
-
-  // The remounted canvas starts at the top; put it back where the finger was.
-  useLayoutEffect(() => {
-    const top = restoreTopRef.current
-    if (top === null) return
-    restoreTopRef.current = null
-    const el = document.getElementById("wb-preview-root")
-    if (el) el.scrollTop = top
-  }, [canvasEpoch])
 
   /**
    * AND THE KEYBOARD, which was the layer nobody had named.
@@ -6406,9 +6272,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * the keyboard animation has finished putting the viewport back.
    */
   useEffect(() => watchKeyboard(window, document, () => {
-    reviveCanvas()
-    window.setTimeout(reviveCanvas, 420)
-  }), [reviveCanvas])
+    settleCanvas()
+    window.setTimeout(settleCanvas, 420)
+  }), [settleCanvas])
 
   /** What leaving would cost right now, if anything. */
   const leaveReason: LeaveReason = {
@@ -6437,17 +6303,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   return (
     <div
       /**
-       * UNDER THE BOUNCE GUARD AGAIN, LIKE EVERY OTHER SCREEN.
-       *
-       * This surface opted out of `CapacitorBounceGuard` and policed its own
-       * touch with `overscroll-behavior: contain` and a nudge on the canvas.
-       * That is the model the iPhone reported as frozen: no native scroll
-       * ever began, a rebuilt or remounted canvas stayed dead, and only a
-       * reload brought it back. The guard's way, cancelling the one
-       * touchmove that would chain past a scroller's edge, has run on every
-       * app screen for a month without a freeze. The canvas is a plain
-       * scroller now, and the guard does the edge.
+       * This surface polices its own touch. `CapacitorBounceGuard` listens on
+       * the document and cancels a vertical gesture whenever the DOCUMENT is
+       * not scrollable — and this one never is, by design. Everything the
+       * guard would do here is already done: html and body are locked with
+       * `overscroll-behavior: none`, the canvas is `touch-action: pan-y` with
+       * `overscroll-behavior: contain`, and it nudges itself off either end
+       * at touchdown. See the opt-out in that component.
        */
+      data-wb-no-bounce-guard=""
       className={cn(
         // `fixed inset-0`, not `h-svh`. A 100svh element is CONTENT, and the
         // body adds its safe-area padding underneath it — one screen plus
@@ -7322,31 +7186,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           >
           <div
             id="wb-preview-root"
-            /* A new key is a new element: the third answer to a dead drag. */
-            key={canvasEpoch}
             /**
-             * =============================================================
-             *  A PLAIN SCROLLER, THE WAY IT WAS WHEN IT WORKED
-             * =============================================================
-             * This carried `touch-action: pan-y`, `overscroll-behavior:
-             * contain`, `-webkit-overflow-scrolling: touch` and a touchstart
-             * handler that nudged the scroll a pixel off either end, all
-             * added over three days to stop a pull at the edge from handing
-             * the gesture to the page. On the iPhone that model is what
-             * FROZE the canvas: the device's own reports showed a scroller
-             * that scripts could move and touches reached, with nothing
-             * cancelling them, and yet no native scroll ever began, a new
-             * element as dead as the old one, and only a reload bringing it
-             * back. A nested scroller with `overscroll-behavior: contain`
-             * inside a page that cannot scroll is a known way to leave iOS
-             * holding the gesture at the root.
+             * THE SCROLL THAT STOPS.
+             * iOS hands a scroll gesture to the parent when the scroller is
+             * exactly at its top or bottom, and the parent here is
+             * `overflow: hidden` on purpose — so the gesture goes nowhere,
+             * and every touch after it until the finger reverses is eaten.
+             * `overscroll-behavior: contain` is the modern answer and is set
+             * below; this is the belt to its braces: nudge one pixel off
+             * either end at touchdown so there is never a hand-off to make.
              *
-             * So the model is the one every other screen in the app uses:
-             * an ordinary `overflow-y: auto` box, and the bounce guard on
-             * the document cancels the one move that would chain past its
-             * edge. See the root of this surface, where the opt-out from
-             * that guard used to be.
+             * This is the model the editor scrolled perfectly with, and it
+             * is back exactly as it was. See "NO WATCHDOG ON THE CANVAS"
+             * above for what was actually freezing it.
              */
+            onTouchStart={(e) => {
+              if (!isMobileView) return
+              const el = e.currentTarget
+              const max = el.scrollHeight - el.clientHeight
+              if (max <= 2) return
+              if (el.scrollTop <= 0) el.scrollTop = 1
+              else if (el.scrollTop >= max) el.scrollTop = max - 1
+            }}
             className={cn(
               /**
                * `isolate` is the whole reason the page switcher's panel stopped
@@ -7375,6 +7236,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               // below, draws one over the card. A phone keeps its own.
               !isMobileView && "wb-canvas-hidebar",
             )}
+            style={
+              isMobileView
+                ? {
+                    // The card is the scroller. Say so to the browser: a
+                    // vertical drag here is a scroll and nothing else, and a
+                    // scroll that reaches the end stays in the card rather
+                    // than bouncing the page, which on iOS is where a touch
+                    // scroll gets stuck.
+                    touchAction: "pan-y",
+                    overscrollBehavior: "contain",
+                    WebkitOverflowScrolling: "touch",
+                  }
+                : undefined
+            }
           >
             {/* Inner wrapper — used to be the scroll container; now just
                 a flex-col so the footer sits at the bottom. It is also what
