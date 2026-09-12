@@ -9,7 +9,7 @@
  * This is also where a long-standing hole was closed. The builder has always
  * offered an About page, a Contact page and pages of the creator's own, the
  * shipped header links to `/about`, and nothing has ever served any of them:
- * `app/(marketing)/w/` held a single route for the home page, so every other
+ * `app/(site)/w/` held a single route for the home page, so every other
  * address on every published site was a 404. Sub-pages were work a creator
  * could do and no visitor could see.
  */

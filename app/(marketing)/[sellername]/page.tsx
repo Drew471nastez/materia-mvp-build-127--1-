@@ -3,7 +3,7 @@
  *  storelib.com/<name> IS THE CREATOR'S PAGE
  * ===========================================================================
  * Two addresses, two things. `<name>.storelib.com` is the WEBSITE a creator
- * built in the website builder; that lives at app/(marketing)/w/[username]
+ * built in the website builder; that lives at app/(site)/w/[username]
  * and the proxy sends the subdomain there. `storelib.com/<name>` is the
  * creator's PAGE — profile, products, follow — which is the storefront at
  * app/(marketing)/u/[username], reached here without the `/u/`.

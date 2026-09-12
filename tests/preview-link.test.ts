@@ -104,7 +104,7 @@ function main() {
     const seller = read("app/(marketing)/[sellername]/page.tsx")
     // Both /w routes hand their work to this one file, so the website's
     // rules live here rather than in either route.
-    const w = read("app/(marketing)/w/[username]/render-site.tsx")
+    const w = read("app/(site)/w/[username]/render-site.tsx")
     // The product page is drawn by one renderer for both of its addresses.
     const product = read("components/website-builder/theme/render-product.tsx")
     check("the apex path is the creator page, not the website", /from "\.\.\/u\/\[username\]\/page"/.test(seller) && !/pageSections|draft_sections|ThemePage/.test(seller))

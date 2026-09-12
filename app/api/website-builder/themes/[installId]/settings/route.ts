@@ -125,7 +125,7 @@ export async function PUT(req: Request, { params }: Params) {
    * write it. Keyed on `update.settings` rather than on `mode`, because one
    * of those branches writes it without being asked to publish.
    */
-  if (update.settings !== undefined && creatorId) revalidatePublishedSite(creatorId)
+  if (update.settings !== undefined && creatorId) await revalidatePublishedSite(creatorId)
 
   return NextResponse.json({ settings: result })
 }

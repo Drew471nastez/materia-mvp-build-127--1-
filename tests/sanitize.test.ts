@@ -197,7 +197,7 @@ section("It is applied where it has to be")
   check(
     "and on read, because the database already holds what was saved before this existed",
     /sanitizeSections\(/.test(read("lib/website-builder/published-site.ts")) &&
-      /sanitizeSections\(/.test(read("app/(marketing)/w/[username]/render-site.tsx")) &&
+      /sanitizeSections\(/.test(read("app/(site)/w/[username]/render-site.tsx")) &&
       /sanitizeSections\(/.test(read("components/website-builder/theme/render-product.tsx")),
   )
   check(

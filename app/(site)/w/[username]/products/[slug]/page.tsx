@@ -3,7 +3,15 @@ import type { Metadata } from "next"
 import { productMetadata, renderProduct } from "@/components/website-builder/theme/render-product"
 import { creatorByName } from "@/lib/website-builder/published-site"
 
-/** Same reasoning as the rest of /w: see the comment in ../../page.tsx. */
+/**
+ * RENDERED PER REQUEST, unlike the pages of the site around it.
+ *
+ * Everything here is the catalogue: a price, whether the last one sold, a Buy
+ * button that starts a purchase. The catalogue is already cached for a minute
+ * on its own (see `creatorShopTag` in lib/website-builder/published-site.ts),
+ * and holding the page on top of that would add a second minute to a
+ * corrected price on a live shop. The page around it is held; this is not.
+ */
 export const dynamic = "force-dynamic"
 
 interface PageProps {

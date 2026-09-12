@@ -1,21 +1,33 @@
 import { notFound, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { pageKeyFromSegment } from "@/lib/website-builder/site-pages"
-import { renderSite, siteMetadata, type SiteSearchParams } from "../render-site"
+import { renderSite, siteMetadata } from "../render-site"
 
 /** Same reasoning as the home route: see the comment in ../page.tsx. */
-export const dynamic = "force-dynamic"
+export const revalidate = 60
+
+/**
+ * Empty on purpose, and it is what turns the cache on.
+ *
+ * Without a `generateStaticParams` a dynamic segment is rendered at request
+ * time and never kept. With one — even one that names nothing — Next treats
+ * every username as a path it may generate on demand and then hold for
+ * `revalidate` seconds. Nothing is named here because the list is every
+ * published site, which changes without a deploy.
+ */
+export function generateStaticParams() {
+  return []
+}
 
 interface PageProps {
   params: Promise<{ username: string; page: string }>
-  searchParams?: Promise<SiteSearchParams>
 }
 
-export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { username, page } = await params
   const key = pageKeyFromSegment(page)
   if (!key) return { title: "Not Found", robots: { index: false, follow: false } }
-  return siteMetadata(username, await searchParams, key)
+  return siteMetadata(username, undefined, key)
 }
 
 /**
@@ -32,7 +44,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
  * database, so `/about/team` is not an address the builder can produce and
  * pretending otherwise would serve the About page at two addresses.
  */
-export default async function WebsiteSubPage({ params, searchParams }: PageProps) {
+export default async function WebsiteSubPage({ params }: PageProps) {
   const { username, page } = await params
 
   // `/home` is the front page, which lives at `/`. Sent there rather than
@@ -42,5 +54,5 @@ export default async function WebsiteSubPage({ params, searchParams }: PageProps
   const key = pageKeyFromSegment(page)
   if (!key) notFound()
 
-  return renderSite(username, await searchParams, key)
+  return renderSite(username, undefined, key)
 }

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
+import { previewTokenFrom } from "@/lib/website-builder/preview-token"
 
 // Main domain - customize this based on environment
 const MAIN_DOMAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
@@ -614,6 +615,32 @@ export async function proxy(request: NextRequest) {
 
       const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname)
       const isWebsite = !looksLikeFile && !(await hasLiveAiSite(subdomain))
+
+      /**
+       * ═══════════════════════════════════════════════════════════════════
+       *  THE OLD `?preview=` LINKS, SENT ON TO THE ADDRESS PREVIEWS HAVE NOW
+       * ═══════════════════════════════════════════════════════════════════
+       * A preview used to be a query string on the public page, which meant
+       * the public page had to read `searchParams` — and a route that reads
+       * `searchParams` is rendered again for every visitor, forever. Moving
+       * the token into the path is what lets the published page be held at
+       * the edge at all.
+       *
+       * Links already sent out are still in the old shape, so they are sent
+       * here rather than broken. A redirect, not a rewrite: the address bar
+       * should end up showing the one that will keep working.
+       */
+      if (isWebsite && !pathname.startsWith("/preview/")) {
+        const legacy = previewTokenFrom(url.searchParams)
+        if (legacy) {
+          const rest = pathname === "/" ? "" : pathname
+          const to = new URL(request.url)
+          to.pathname = `/preview/${legacy}${rest}`
+          to.searchParams.delete("preview")
+          return NextResponse.redirect(to, 308)
+        }
+      }
+
       url.pathname = isWebsite
         ? `/w/${subdomain}${pathname === "/" ? "" : pathname}`
         : `/site/${subdomain}${pathname === "/" ? "" : pathname}`
@@ -652,37 +679,16 @@ export async function proxy(request: NextRequest) {
        * can collide with, and matching the route's own value keeps the two
        * from drifting apart. Assets keep the route's immutable caching, which
        * is what makes a version-stamped bundle worth stamping.
+       *
+       * SIXTY, to match `revalidate = 60` on the route. It used to say ten,
+       * which was harmless while the page was dynamic — Next's own no-store
+       * overrode it and nothing here landed at all. Now that the page is
+       * cacheable this header is the one the edge obeys on the homepage, so
+       * the two numbers have to be the same one or the front page and every
+       * page under it go stale on different clocks.
        */
       if (pathname === "/") {
-        rewritten.headers.set("Cache-Control", "public, s-maxage=10, stale-while-revalidate=30")
-      }
-
-      /**
-       * ═══════════════════════════════════════════════════════════════════
-       *  A PUBLISHED SITE IS THE SAME PAGE FOR EVERYBODY, SO IT IS CACHED
-       * ═══════════════════════════════════════════════════════════════════
-       * Nothing on a website-builder page depends on who is asking: no Edit
-       * button, no owner menu, no follow state. That is the CREATOR page,
-       * which lives at the apex path and keeps its `private, no-cache`. This
-       * is a theme, its sections and the creator's published products, and
-       * two strangers are served the same bytes.
-       *
-       * The origin render behind it is already cheap — the publish-shaped
-       * inputs are cached and tagged, the products for a minute, the drawing
-       * is arithmetic — so what this buys is the visitor not waiting for any
-       * of it.
-       *
-       * A MINUTE, said plainly: a creator who publishes sees it at the edge
-       * within 60 seconds, and a visitor inside that window may be served
-       * the previous version while the new one is fetched behind them. The
-       * PREVIEW is a different address and is never cached, so checking work
-       * in progress is always immediate.
-       */
-      if (isWebsite && !pathname.startsWith("/preview/")) {
         rewritten.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
-      }
-      if (pathname.startsWith("/preview/")) {
-        rewritten.headers.set("Cache-Control", "private, no-store")
       }
 
       return rewritten

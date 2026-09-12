@@ -316,7 +316,7 @@ section("Save compiles, errors carry lines, the canvas finds out")
   const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   // `<name>.storelib.com` is the website and lives at /w; the apex path is
   // the creator page and draws no sections.
-  const creator = readFileSync(join(root, "app/(marketing)/w/[username]/render-site.tsx"), "utf8")
+  const creator = readFileSync(join(root, "app/(site)/w/[username]/render-site.tsx"), "utf8")
   const section = readFileSync(join(root, "components/website-builder/sections/StorelibSection.tsx"), "utf8")
 
   check(
@@ -404,7 +404,7 @@ section("The page a section is on is the page it is on")
   const sectionSrc = readFileSync(join(root, "components/website-builder/sections/StorelibSection.tsx"), "utf8")
   // `<name>.storelib.com` is the website and lives at /w; the apex path is
   // the creator page and draws no sections.
-  const creator = readFileSync(join(root, "app/(marketing)/w/[username]/render-site.tsx"), "utf8")
+  const creator = readFileSync(join(root, "app/(site)/w/[username]/render-site.tsx"), "utf8")
 
   /**
    * `page.template` was the string "index" wherever a section rendered, so a

@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { compileSection } from "@/lib/storelib-theme/storelib/compile"
 import { readdirSync } from "node:fs"
+import { isPreviewTokenShaped } from "@/lib/website-builder/preview-token"
 
 let passed = 0
 let failed = 0
@@ -78,11 +79,10 @@ function main() {
   section("The preview has an address of its own")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const home = read("app/(marketing)/w/[username]/preview/[token]/page.tsx")
-    const sub = read("app/(marketing)/w/[username]/preview/[token]/[page]/page.tsx")
+    const home = read("app/(site)/w/[username]/preview/[token]/page.tsx")
+    const sub = read("app/(site)/w/[username]/preview/[token]/[page]/page.tsx")
     const api = read("app/api/website-builder/themes/[installId]/preview/route.ts")
     const panel = read("components/website-builder/publish-panel.tsx")
-    const site = read("app/(marketing)/w/[username]/render-site.tsx")
 
     check("the token is a path segment", /params: Promise<\{ username: string; token: string/.test(home))
     check("a segment that is not token-shaped is not a page", /if \(!tokenOf\(token\)\) return \{ title: "Not Found"/.test(home) && /const clean = tokenOf\(token\)\s*\n\s*if \(!clean\) notFound\(\)/.test(home))
@@ -90,36 +90,114 @@ function main() {
     check("it is never cached", /export const dynamic = "force-dynamic"/.test(home) && /export const dynamic = "force-dynamic"/.test(sub))
     check("sub-pages have one too", /pageKeyFromSegment\(page\)/.test(sub))
     check("the link that is handed out is the path form", /\$\{origin\.replace\(\/\\\/\$\/, ""\)\}\/preview\/\$\{token\}/.test(api) && /\$\{websiteUrl\.replace\(\/\\\/\$\/, ""\)\}\/preview\/\$\{previewToken\}/.test(panel))
+
     /**
-     * Every link already shared is `?preview=`, and those must keep working
-     * or turning this on would break what people had already sent out.
+     * Every link already shared is `?preview=`. The public page cannot read
+     * the query any more — that is the whole point — so the proxy sends the
+     * old shape on to the new one rather than letting it 404 into the
+     * published site, which would have quietly shown the wrong thing.
      */
-    check("and the old query form still works", /previewToken \?\? previewTokenFrom\(paramsToSearch\(searchParams\)\)/.test(site))
+    const proxy = read("proxy.ts")
+    check(
+      "and an old query-form link is sent on to it",
+      /const legacy = previewTokenFrom\(url\.searchParams\)/.test(proxy) &&
+        /to\.pathname = `\/preview\/\$\{legacy\}\$\{rest\}`/.test(proxy) &&
+        /NextResponse\.redirect\(to, 308\)/.test(proxy),
+    )
+    check(
+      "recognising a token does not drag node:crypto into the proxy",
+      !/^import .*node:crypto/m.test(read("lib/website-builder/preview-token.ts")) &&
+        proxy.includes('from "@/lib/website-builder/preview-token"'),
+    )
+    check("and the shape is written down once", isPreviewTokenShaped("a".repeat(43)) && !isPreviewTokenShaped("short"))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  section("So a published site can be held at the edge")
+  section("So a published site is actually held at the edge")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const proxy = read("proxy.ts")
-    const site = read("app/(marketing)/w/[username]/render-site.tsx")
-
-    check("a site is cached for a minute, with a window to serve stale in", /if \(isWebsite && !pathname\.startsWith\("\/preview\/"\)\) \{[\s\S]{0,120}"public, s-maxage=60, stale-while-revalidate=300"/.test(proxy))
-    check("and a preview never is", /if \(pathname\.startsWith\("\/preview\/"\)\) \{[\s\S]{0,120}"private, no-store"/.test(proxy))
     /**
-     * `cookies()` makes a route dynamic whatever else it does, and a
-     * published site's title and favicon are the same for everybody. Reading
-     * them through the viewer's client was the last per-request thing on the
-     * path.
+     * THE PART THAT WAS MEASURED, AND THE PART THAT WAS WRONG.
+     *
+     * Asking for a cache in `next.config` headers or on the proxy's rewrite
+     * did nothing: Next puts `private, no-cache, no-store` on a dynamically
+     * rendered page itself and that wins over both. Checked against the live
+     * site — `/`, `/blog` and `/explore` all came back `no-store` despite
+     * having rules. So the only claim worth guarding is the one that decides
+     * whether the page is dynamic at all.
      */
-    check("nothing on the public path asks who is looking", !/from "@\/lib\/supabase\/server"/.test(site) && /const supabase = createAdminClient\(\)/.test(site))
+    const home = read("app/(site)/w/[username]/page.tsx")
+    const sub = read("app/(site)/w/[username]/[page]/page.tsx")
+    /**
+     * Read from the last build if there is one. Without a build there is
+     * nothing to check against, and saying so is better than a guard that
+     * passes because the file was missing.
+     */
+    let manifest: { dynamicRoutes?: Record<string, unknown> } | null = null
+    try { manifest = JSON.parse(read(".next/prerender-manifest.json")) } catch { manifest = null }
+
+    check("the site routes are not force-dynamic any more", !/export const dynamic/.test(home) && !/export const dynamic/.test(sub))
+    check("they are held for a minute", /export const revalidate = 60/.test(home) && /export const revalidate = 60/.test(sub))
+    check("and they are registered as pages that can be cached", /generateStaticParams/.test(home) && /generateStaticParams/.test(sub))
 
     /**
-     * The CREATOR page is the opposite: an Edit button, owner menus, a
-     * follow state. It keeps its private caching, and mixing the two up
-     * would serve one visitor's rendering to another.
+     * The build says whether any of that worked. A route Next will cache is
+     * in the prerender manifest; a route it renders fresh every time is not,
+     * whatever the file says.
      */
-    check("the creator page is still private", /rewritePath\.startsWith\("\/u\/"\)[\s\S]{0,200}"private, no-cache, must-revalidate"/.test(proxy))
+    if (!manifest) {
+      console.log("  skip  the build's own verdict — no .next/prerender-manifest.json, run a build to check it")
+    } else {
+      const routes = Object.keys(manifest.dynamicRoutes ?? {})
+      check("the build agrees: the front page is cacheable", routes.includes("/w/[username]"), routes.join(", "))
+      check("and so is every page under it", routes.includes("/w/[username]/[page]"))
+      check("the preview is not, and must never be", !routes.includes("/w/[username]/preview/[token]"))
+      check("nor is a product page, which carries a cart", !routes.includes("/w/[username]/products/[slug]"))
+      /**
+       * Nor the shop index, for the same reason: it is a wall of prices and
+       * sold-out states. The catalogue behind both is cached for a minute on
+       * its own, and holding the page as well would add a second minute to a
+       * corrected price.
+       */
+      check("nor the shop index, which is the same data", !routes.includes("/w/[username]/products"))
+    }
+
+    /**
+     * A published site could not be cached while it sat under the marketing
+     * layout, which reads `cookies()` for a wishlist badge and `headers()`
+     * for the host. One dynamic read in a layout makes every route beneath
+     * it dynamic, which is why the config's rules had never landed on
+     * anything.
+     */
+    check("nothing on the site's layout asks who is looking", !/next\/headers/.test(read("app/(site)/layout.tsx")))
+    check("the marketing layout still does, for the pages that need it", /from "next\/headers"/.test(read("app/(marketing)/layout.tsx")))
+
+    /**
+     * And a cache nobody purges is a creator staring at their old site. The
+     * data tag was already purged on publish; the RENDERED page was not.
+     */
+    const pub = read("lib/website-builder/published-site.ts")
+    check("publishing purges the rendered page, not just the data under it", /revalidatePath\(`\/w\/\$\{name\}`, "layout"\)/.test(pub) && /revalidateTag\(creatorSiteTag\(creatorId\)/.test(pub))
+    check("and a name it cannot find does not fail the publish", /\} catch \{\s*\n\s*\/\/ A purge that cannot find the name/.test(pub))
+
+    /**
+     * The CREATOR page is the opposite: an Edit button, owner menus, a follow
+     * state. Mixing the two up would serve one visitor's rendering to
+     * another, so it stays where it is and stays private.
+     */
+    /**
+     * The homepage is the one site path that collides with a `next.config`
+     * rule (`/`, meant for the marketing site), so the proxy overrides it on
+     * the rewrite. That header is now the one the edge obeys there, so it has
+     * to be the same number the route revalidates on, or the front page and
+     * the pages under it go stale on different clocks.
+     */
+    check(
+      "the homepage's own header agrees with the route's revalidate",
+      /rewritten\.headers\.set\("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300"\)/.test(read("proxy.ts")) &&
+        /export const revalidate = 60/.test(home),
+    )
+    check("the creator page is still private", /rewritePath\.startsWith\("\/u\/"\)[\s\S]{0,200}"private, no-cache, must-revalidate"/.test(read("proxy.ts")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

@@ -102,7 +102,7 @@ export async function PUT(req: Request, { params }: Params) {
 
   // A shared header pushed to every page in publish mode is a change to the
   // live site on every one of them.
-  if (mode === "publish") revalidatePublishedSite((creator as { id: string }).id)
+  if (mode === "publish") await revalidatePublishedSite((creator as { id: string }).id)
 
   return NextResponse.json({ ok: true, synced })
 }

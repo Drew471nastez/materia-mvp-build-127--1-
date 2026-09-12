@@ -4,7 +4,7 @@
  * ===========================================================================
  * The website builder has always offered an About page, a Contact page and
  * pages a creator makes themselves. Every one of them saved, published, and
- * served by nothing: `app/(marketing)/w/` held one route, for the home page,
+ * served by nothing: `app/(site)/w/` held one route, for the home page,
  * so `<name>.storelib.com/about` was a 404 on every site ever built — including
  * for the `/about` link the shipped header puts in the nav of a brand new one.
  *
@@ -41,9 +41,9 @@ const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
 
 const cache = read("lib/website-builder/published-site.ts")
-const renderer = read("app/(marketing)/w/[username]/render-site.tsx")
-const home = read("app/(marketing)/w/[username]/page.tsx")
-const sub = read("app/(marketing)/w/[username]/[page]/page.tsx")
+const renderer = read("app/(site)/w/[username]/render-site.tsx")
+const home = read("app/(site)/w/[username]/page.tsx")
+const sub = read("app/(site)/w/[username]/[page]/page.tsx")
 const sectionsApi = read("app/api/website-builder/themes/[installId]/sections/route.ts")
 const editor = read("app/website-builder/editor/[installId]/page.tsx")
 const switcher = read("components/website-builder/page-switcher.tsx")
@@ -125,7 +125,12 @@ function main() {
     // was missing.
     check("the proxy forwards the path to /w", /\/w\/\$\{subdomain\}\$\{pathname === "\/" \? "" : pathname\}/.test(proxy))
     check("the sub-page route exists", /export default async function WebsiteSubPage/.test(sub))
-    check("it draws the site through the same renderer as the front page", /renderSite\(username, await searchParams, key\)/.test(sub) && /renderSite\(username, await searchParams, "home"\)/.test(home))
+    /**
+     * The query argument is gone on both: a page that reads `searchParams` is
+     * rendered fresh for every visitor forever, which is what kept the
+     * published site out of every cache. Previews have their own address now.
+     */
+    check("it draws the site through the same renderer as the front page", /renderSite\(username, undefined, key\)/.test(sub) && /renderSite\(username, undefined, "home"\)/.test(home))
     check("a segment that is not a page key is a 404", /if \(!key\) notFound\(\)/.test(sub))
     check("and /home goes to the front page rather than being served twice", /redirect\("\/"\)/.test(sub))
     check("one segment deep, because a page key is one segment", !/\[\.\.\./.test(sub))
@@ -174,8 +179,8 @@ function main() {
   section("The site's own links lead somewhere")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const shop = read("app/(marketing)/w/[username]/products/page.tsx")
-    const productRoute = read("app/(marketing)/w/[username]/products/[slug]/page.tsx")
+    const shop = read("app/(site)/w/[username]/products/page.tsx")
+    const productRoute = read("app/(site)/w/[username]/products/[slug]/page.tsx")
     const productRenderer = read("components/website-builder/theme/render-product.tsx")
     const shopPage = read("lib/website-builder/shop-page.ts")
     const grid = read("themes/default/sections/product_grid.storelib")

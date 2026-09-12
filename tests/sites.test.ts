@@ -3757,13 +3757,14 @@ check(
 /**
  * `headers()` in next.config matches the path the BROWSER asked for, and on a
  * site subdomain that path is `/` — which carries the marketing landing page's
- * rule, `s-maxage=3600, stale-while-revalidate=7200`. Config headers win over
- * a route handler's, so every published homepage was edge-cached for an hour
- * and served stale for two more: up to three hours of "I published and nothing
- * changed", silently defeating the ten-second window the site route asks for.
+ * rule, `s-maxage=3600, stale-while-revalidate=7200`. So a published homepage
+ * would be held for an hour and served stale for two more: three hours of "I
+ * published and nothing changed". The rewrite is the only place that knows the
+ * request is a site, so the header belongs there.
  *
- * The same trap already caught storefronts once. The rewrite is the only place
- * that knows the request is a site, so the header belongs there.
+ * THE NUMBER IS NOT WRITTEN DOWN HERE. It has to be the one the route
+ * revalidates on, or the front page and every page under it go stale on
+ * different clocks, so it is read from the route rather than pinned twice.
  */
 check(
   "the landing page's cache rule cannot swallow a site homepage",
@@ -3773,9 +3774,12 @@ check(
     // rest to /site. The header rule sits below it and applies to both.
     const at = proxy.indexOf("const isWebsite = !looksLikeFile")
     const body = proxy.slice(at, proxy.indexOf("return rewritten", at) + 20)
+    const route = read("app/(site)/w/[username]/page.tsx")
+    const seconds = /export const revalidate = (\d+)/.exec(route)?.[1]
     return (
+      seconds !== undefined &&
       /if \(pathname === "\/"\)/.test(body) &&
-      /rewritten\.headers\.set\("Cache-Control", "public, s-maxage=10, stale-while-revalidate=30"\)/.test(body)
+      body.includes(`rewritten.headers.set("Cache-Control", "public, s-maxage=${seconds}, stale-while-revalidate=`)
     )
   })(),
 )

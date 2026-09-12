@@ -44,9 +44,9 @@ const cache = read("lib/website-builder/published-site.ts")
  * could be broken in either half.
  */
 const store =
-  read("app/(marketing)/w/[username]/page.tsx") +
-  read("app/(marketing)/w/[username]/[page]/page.tsx") +
-  read("app/(marketing)/w/[username]/render-site.tsx")
+  read("app/(site)/w/[username]/page.tsx") +
+  read("app/(site)/w/[username]/[page]/page.tsx") +
+  read("app/(site)/w/[username]/render-site.tsx")
 const publish = read("app/api/website-builder/themes/[installId]/publish/route.ts")
 
 function main() {

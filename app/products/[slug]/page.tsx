@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 /**
  * The platform's own address for a product: `storelib.com/products/<slug>`.
- * The same page on the creator's site is app/(marketing)/w/[username]/
+ * The same page on the creator's site is app/(site)/w/[username]/
  * products/[slug], and both draw it with the creator's theme.
  */
 export default async function ProductPage({ params }: PageProps) {
