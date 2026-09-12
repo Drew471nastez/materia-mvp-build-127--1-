@@ -53,7 +53,11 @@ export function buildLibrary(files: ThemeFiles, cache = shared): Library {
   for (const path of Object.keys(files).sort()) {
     const type = sectionTypeFromPath(path)
     if (!type) continue
-    const r = cache.compile(files[path], { file: path, expectType: type })
+    // The file name is the type (`sectionTypeFromPath`), and the schema's own
+    // `type` line is documentation: a file copied from another one carries
+    // the line it came with, and refusing it there only meant a copy could
+    // not be saved.
+    const r = cache.compile(files[path], { file: path })
     if (r.ok === false) {
       errors.push({ file: path, errors: r.errors })
       continue

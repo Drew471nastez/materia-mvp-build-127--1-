@@ -239,7 +239,17 @@ export async function PUT(req: Request, { params }: Params) {
    */
   if (path.endsWith(".storelib")) {
     const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
-    const r = compileSection(content, { file: path, expectType: m ? m[1] : undefined })
+    /**
+     * NO `expectType`. A section's type is its FILE NAME — that is what a
+     * page stores and what the library is keyed by — and the schema's own
+     * `type` line used to have to repeat it exactly or the file would not
+     * save. Every copy of a section therefore refused to save under its new
+     * name ("the schema says type hero_centered but the file is my_hero"),
+     * and so did every rename, which is the way most people start writing
+     * one. The line is documentation now: the name on the disk decides, and
+     * nothing has to be edited in two places to agree with itself.
+     */
+    const r = compileSection(content, { file: path })
     if (r.ok === false) {
       return NextResponse.json(
         { error: `${path} did not compile`, errors: r.errors },
@@ -418,13 +428,13 @@ export async function PATCH(req: Request, { params }: Params) {
   }
 
   /**
-   * A section file's name and its schema's type are one thing (the
-   * compiler refuses a file whose type disagrees with its name), so a
-   * renamed section file is compiled under its new name before it moves.
+   * Compiled under its new name before it moves, so a rename cannot leave an
+   * unusable file behind. NOT under a required type: the file name is the
+   * type, and insisting the schema's `type` line agree with it is what made
+   * every rename fail with a compile error it could do nothing about.
    */
   if (to.endsWith(".storelib")) {
-    const m = to.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
-    const r = compileSection(existing.content, { file: to, expectType: m ? m[1] : undefined })
+    const r = compileSection(existing.content, { file: to })
     if (r.ok === false) return NextResponse.json({ error: `${to} did not compile`, errors: r.errors }, { status: 422 })
   }
 

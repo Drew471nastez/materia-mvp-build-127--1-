@@ -308,7 +308,11 @@ export async function readPackage(bytes: Uint8Array, opts: ReadOptions = {}): Pr
   for (const [path, text] of Object.entries(files)) {
     const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
     if (!m) { if (path.endsWith(".storelib") && path !== "layout/theme.storelib" && !path.startsWith("snippets/")) warnings.push(err(`${path} is not a section, layout or snippet`, path)); continue }
-    const r = compileSection(text, { file: path, expectType: m[1] })
+    // The file name is the type, as everywhere else. A package whose schema
+    // line disagrees with its file name is imported under the file name
+    // rather than refused: it is the same file that saved cleanly in the
+    // editor it was exported from.
+    const r = compileSection(text, { file: path })
     if (r.ok === false) errors.push(...r.errors.map((e) => ({ ...e, file: e.file ?? path })))
     else { types.add(m[1]); if (r.warnings) warnings.push(...r.warnings) }
   }

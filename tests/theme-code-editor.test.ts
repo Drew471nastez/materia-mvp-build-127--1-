@@ -20,6 +20,7 @@
  * Run with:  npm run test:push
  */
 
+import { compileSection } from "@/lib/storelib-theme/storelib/compile"
 import { DRAWER_EASING, DRAWER_MS, drawerRelease } from "@/lib/website-builder/drawer-drag"
 import {
   buildThemeFileTree,
@@ -320,13 +321,27 @@ section("Save compiles, errors carry lines, the canvas finds out")
 
   check(
     "PUT compiles a .storelib before storing it and refuses with the errors, 422",
-    /compileSection\(content, \{ file: path, expectType/.test(route) && /\{ error: `\$\{path\} did not compile`, errors: r\.errors \},\s*\{ status: 422 \}/.test(route),
+    /compileSection\(content, \{ file: path \}\)/.test(route) && /\{ error: `\$\{path\} did not compile`, errors: r\.errors \},\s*\{ status: 422 \}/.test(route),
+  )
+  /**
+   * AND IT DOES NOT DEMAND THE SCHEMA REPEAT THE FILE NAME. A section's type
+   * is its file name; the schema's own `type` line used to have to match it
+   * exactly or the file would not save, so every copy of a section refused
+   * to save under its new name and so did every rename.
+   */
+  check(
+    "a file whose schema names another type still saves, under its own name",
+    (() => {
+      // The code, not the comment that explains why the code is the way it is.
+      const code = route.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1")
+      return !/expectType/.test(code)
+    })(),
   )
   check(
     "and the compile runs before the upsert, so a broken file never reaches a row",
     // The write is saveDraft now, which puts it in the file's draft half.
     // Same property: nothing is stored until it has compiled.
-    route.indexOf("compileSection(content, { file: path, expectType") < route.indexOf("const saved = await saveDraft("),
+    route.indexOf("compileSection(content, { file: path })") < route.indexOf("const saved = await saveDraft("),
   )
   check(
     "DELETE of a section file the theme does not have is refused with the pages that use it",
@@ -882,6 +897,69 @@ section("The code editor on a phone")
   check(
     "and nothing is written to the account: the fix lands in the editor to be read",
     !/saveDraft|recordVersion/.test(route) && /setFileContent\(d\.source\)/.test(code) && /Read it, then save/.test(code),
+  )
+}
+
+
+/**
+ * ===========================================================================
+ *  A FILE'S NAME AND WHAT IS WRITTEN INSIDE IT
+ * ===========================================================================
+ * A section's type is its file name: that is what a page stores and what the
+ * library is keyed by. The schema's own `type` line had to repeat it exactly
+ * or the compiler refused the file — so a copy of a section could not be
+ * saved under a new name ("the schema says type hero_centered but the file is
+ * my_hero"), and neither could a rename, which is how most people start
+ * writing one. The line is documentation now.
+ *
+ * This RUNS the compiler on a file whose schema disagrees with its name,
+ * because "it saves now" is a claim about behaviour.
+ */
+{
+  console.log("\n  The name on the file decides, and the schema need not repeat it")
+  const src = [
+    "<template>",
+    '<section class="s">{{ settings.heading }}</section>',
+    "</template>",
+    "",
+    "<style>",
+    ".s { padding: 20px; }",
+    "</style>",
+    "",
+    "<schema>",
+    JSON.stringify(
+      {
+        schema_version: 1,
+        type: "hero_centered",
+        name: "A copy of the hero",
+        settings: [{ type: "text", id: "heading", label: "Heading", default: "Hello" }],
+      },
+      null,
+      2,
+    ),
+    "</schema>",
+    "",
+  ].join("\n")
+
+  const asItsOwnFile = compileSection(src, { file: "sections/my_hero.storelib" })
+  check(
+    "a copy saved under another name compiles",
+    asItsOwnFile.ok === true,
+    asItsOwnFile.ok === false ? asItsOwnFile.errors.map((e) => e.message).join("; ") : "",
+  )
+
+  const held = compileSection(src, { file: "sections/my_hero.storelib", expectType: "my_hero" })
+  check(
+    "and the compiler can still be asked to hold a file to a type, for the assistant",
+    held.ok === false && held.errors.some((e) => /a section's type is its file name/.test(e.message)),
+  )
+
+  const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/files/route.ts"), "utf8")
+  const code = route.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1")
+  check("neither saving nor renaming asks it to", !/expectType/.test(code))
+  check(
+    "renaming a section still asks before it empties the pages that use it",
+    /pagesUsingSection\(supabase, installId, fromSection\[1\]\)/.test(route) && /status: 409/.test(route),
   )
 }
 

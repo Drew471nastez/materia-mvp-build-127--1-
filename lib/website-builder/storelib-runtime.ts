@@ -66,7 +66,9 @@ export function compiledSection(type: string, overrides?: Record<string, string>
   }
   const hit = compiled.get(source)
   if (hit) return hit
-  const r = compileSection(source, { file: sectionSourcePath(type), expectType: type })
+  // No `expectType`: the path IS the type here, so the schema's own line
+  // adds nothing but a second place to keep in step. See the files route.
+  const r = compileSection(source, { file: sectionSourcePath(type) })
   const out: Compiled = r.ok === true ? { ok: true, value: r.value } : { ok: false, errors: r.errors }
   compiled.set(source, out)
   return out
