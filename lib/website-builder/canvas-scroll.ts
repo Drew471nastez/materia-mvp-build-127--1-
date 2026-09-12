@@ -304,3 +304,20 @@ export function dropOverscrollContain(el: { style: { setProperty(name: string, v
   el.style.removeProperty("overscroll-behavior")
   el.style.setProperty("overscroll-behavior-y", "auto")
 }
+
+/**
+ * The browser's touch-action regions are computed from the page and handed
+ * to the process that routes gestures. Setting `touch-action: none` on the
+ * root for one frame and taking it away again forces those regions to be
+ * rebuilt from scratch, which is the only lever a page has on that side.
+ */
+export function flashRootTouchAction(
+  roots: ArrayLike<{ style: { setProperty(name: string, value: string): void; removeProperty(name: string): void }; readonly offsetHeight?: number }>,
+  nextFrame: (cb: () => void) => void,
+): void {
+  for (let i = 0; i < roots.length; i++) roots[i].style.setProperty("touch-action", "none")
+  for (let i = 0; i < roots.length; i++) void roots[i].offsetHeight
+  nextFrame(() => {
+    for (let i = 0; i < roots.length; i++) roots[i].style.removeProperty("touch-action")
+  })
+}

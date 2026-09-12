@@ -71,7 +71,7 @@ import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/re
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { dropOverscrollContain, rebuildScroller, resetClippedAncestors, resyncFixedLayers, reviveScroller, scrollWithin, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
+import { dropOverscrollContain, flashRootTouchAction, rebuildScroller, resetClippedAncestors, resyncFixedLayers, reviveScroller, scrollWithin, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
 import { describeFreeze, sendFreezeReport, type GestureStats } from "@/lib/website-builder/freeze-report"
 
 /**
@@ -81,8 +81,13 @@ import { describeFreeze, sendFreezeReport, type GestureStats } from "@/lib/websi
  * reached its second rung.
  */
 const STUCK_ESCALATE_MS = 45_000
-/** What each rung is called in the log. Index is the rung reached. */
-const STUCK_REASONS = ["stuck-drag", "stuck-after-revive", "stuck-after-rebuild", "stuck-after-resync", "stuck-after-overscroll", "stuck-after-remount"] as const
+/**
+ * What each rung is called in the log. Index is the rung reached. Four rungs
+ * now, not six: the phone graded every single remedy as not enough on its
+ * own, including a full remount of the canvas, so the middle ones are
+ * bundled and the last rung is the one thing known to work, a reload.
+ */
+const STUCK_REASONS = ["stuck-drag", "stuck-after-revive", "stuck-after-rebuild", "stuck-after-remount"] as const
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
@@ -6244,22 +6249,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * scroller. `reviveCanvas` ran and the next drag was as dead as the last.
    *
    *   1. The first dead drag REVIVES: locks cleared, layer re-created.
-   *   2. A second dead drag soon after REBUILDS the scroller: `display:
-   *      none` and back, which throws away the browser's own scrolling node
-   *      for the element and makes a new one, the way a reload would.
-   *   3. A third RESYNCS the fixed layers over the canvas, the sheets and
-   *      their overlays: the compositor keeps its own copy of where those
-   *      are, and a stale copy sits over the canvas invisibly.
-   *   4. A fourth drops `overscroll-behavior: contain` from the canvas,
-   *      which on iOS has left a nested scroller deaf after a rubber band.
-   *   5. A fifth REMOUNTS the canvas: a new element, from React, with the
+   *   2. A second dead drag REBUILDS everything a page can rebuild: the
+   *      scroller (`display: none` and back, a new native scrolling node),
+   *      the fixed sheets and overlays (the compositor's copy of where they
+   *      are), the root's touch-action regions (none for a frame, then
+   *      back), any live text selection, and `overscroll-behavior: contain`
+   *      comes off the canvas.
+   *   3. A third REMOUNTS the canvas: a new element, from React, with the
    *      scroll position put back.
+   *   4. A fourth saves the draft if there is anything to save and RELOADS
+   *      the page. This is the floor: a reload is the one thing every
+   *      report so far agrees brings the canvas back.
    *
-   * Reports so far (iOS 18.7) graded rungs 1 and 2 as not enough on their
-   * own: a script could still scroll, touches reached the scroller, nothing
-   * cancelled them, and every move stayed cancelable, so the browser never
-   * began a native scroll. Rungs 3 and 4 are the two remaining things
-   * standing between the finger and the scroller.
+   * Reports so far (iOS 18.7) graded each of the first three, one at a
+   * time, as not enough: a script could still scroll, touches reached the
+   * scroller, nothing cancelled the moves, every move stayed cancelable, so
+   * the browser never began a native scroll, and even a fresh canvas
+   * element was as dead as the old one. Whatever holds the gesture is
+   * above the canvas. The touchstart's own cancellation, the pointer
+   * cancels and the selection are in the report from here on, because
+   * they are the three things about that side a page can still see.
    *
    * Before each step the phone says what it saw, and which step it is on,
    * so the log can say which step was the one that worked. Where the finger
@@ -6267,8 +6276,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * scroller come from two passive listeners of our own: the watchdog's
    * callback has none of that.
    */
-  const lastTouch = useRef<{ x: number; y: number; prevented: boolean | null }>({ x: 0, y: 0, prevented: null })
-  const gesture = useRef<GestureStats & { startTop: number }>({ moves: 0, cancelable: 0, prevented: 0, maxScrollDelta: 0, startTop: 0 })
+  const lastTouch = useRef<{ x: number; y: number; prevented: boolean | null; trusted: boolean; nested: boolean }>({ x: 0, y: 0, prevented: null, trusted: false, nested: false })
+  const gesture = useRef<GestureStats & { startTop: number }>({ moves: 0, cancelable: 0, prevented: 0, maxScrollDelta: 0, startTop: 0, startPrevented: null, pointerMoves: 0, pointerCancels: 0 })
+  const saveDraftRef = useRef<(options?: { quiet?: boolean }) => Promise<void>>(async () => {})
+  saveDraftRef.current = saveDraft
+  const isDirtyRef = useRef(isDirty)
+  isDirtyRef.current = isDirty
   const lastReportAt = useRef<Record<string, number>>({})
   const stuckHistory = useRef<number[]>([])
   const [canvasEpoch, setCanvasEpoch] = useState(0)
@@ -6277,11 +6290,30 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (!isMobileView) return
     const el = document.getElementById("wb-preview-root")
     if (!el) return
+    /**
+     * A drag that lands on a scroller INSIDE the canvas, a section's own
+     * scrolling list say, moves that scroller and not the canvas. That is
+     * not a freeze and must not climb the ladder; the fourth rung reloads.
+     */
+    const nestedScrollerUnder = (target: EventTarget | null): boolean => {
+      let node = target instanceof HTMLElement ? target : null
+      while (node && node !== el) {
+        const style = window.getComputedStyle(node)
+        if (/(auto|scroll|overlay)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) return true
+        node = node.parentElement
+      }
+      return false
+    }
     const onStart = (e: TouchEvent) => {
       const t = e.touches[0]
-      if (t) lastTouch.current = { x: t.clientX, y: t.clientY, prevented: null }
-      gesture.current = { moves: 0, cancelable: 0, prevented: 0, maxScrollDelta: 0, startTop: el.scrollTop }
+      // `isTrusted`: a synthetic touch from a probe or a test can never reload the page.
+      if (t) lastTouch.current = { x: t.clientX, y: t.clientY, prevented: null, trusted: e.isTrusted, nested: nestedScrollerUnder(e.target) }
+      gesture.current = { moves: 0, cancelable: 0, prevented: 0, maxScrollDelta: 0, startTop: el.scrollTop, startPrevented: null, pointerMoves: 0, pointerCancels: 0 }
     }
+    // On the window, after everything else: whether the touchstart was cancelled.
+    const onStartDone = (e: TouchEvent) => { gesture.current.startPrevented = e.defaultPrevented }
+    const onPointerMove = () => { gesture.current.pointerMoves = (gesture.current.pointerMoves ?? 0) + 1 }
+    const onPointerCancel = () => { gesture.current.pointerCancels = (gesture.current.pointerCancels ?? 0) + 1 }
     // On the window, so it runs after every listener that could have
     // cancelled the move, and passive, so it can never be the one that does.
     const onMove = (e: TouchEvent) => {
@@ -6293,8 +6325,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       lastTouch.current.prevented = e.defaultPrevented
     }
     document.addEventListener("touchstart", onStart, { passive: true, capture: true })
+    window.addEventListener("touchstart", onStartDone, { passive: true })
     window.addEventListener("touchmove", onMove, { passive: true })
+    window.addEventListener("pointermove", onPointerMove, { passive: true })
+    window.addEventListener("pointercancel", onPointerCancel, { passive: true })
     const stop = watchForStuckScroll(el, () => {
+      if (lastTouch.current.nested) return
       const now = Date.now()
       const recent = stuckHistory.current.filter((t) => now - t < STUCK_ESCALATE_MS)
       recent.push(now)
@@ -6309,7 +6345,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         const scriptCanScroll = el.scrollTop !== before
         el.scrollTop = before
         const { startTop: _startTop, ...stats } = gesture.current
-        const report = describeFreeze(document, window, el, reason, lastTouch.current, { gesture: stats, probe: { scriptCanScroll }, step })
+        const sel = window.getSelection()
+        const selection = sel && sel.rangeCount > 0 && sel.type !== "None" ? `${sel.type}:${sel.rangeCount}` : null
+        const report = describeFreeze(document, window, el, reason, lastTouch.current, { gesture: stats, probe: { scriptCanScroll }, step, selection })
         lastReportAt.current[reason] = sendFreezeReport(
           (path, body) => { void fetch(path, { method: "POST", body, keepalive: true, headers: { "content-type": "application/json" } }).catch(() => {}) },
           report,
@@ -6320,19 +6358,32 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         // A report that cannot be taken must never stand between the drag and the revive.
       }
       reviveCanvas()
-      if (step >= 2) rebuildScroller(el, (cb) => window.requestAnimationFrame(cb))
-      if (step >= 3) resyncFixedLayers(document.querySelectorAll<HTMLElement>("[data-mobile-bottom-sheet], [data-wb-sheet-overlay]"))
-      if (step >= 4) dropOverscrollContain(el)
-      if (step >= 5) {
+      if (step >= 2) {
+        rebuildScroller(el, (cb) => window.requestAnimationFrame(cb))
+        resyncFixedLayers(document.querySelectorAll<HTMLElement>("[data-mobile-bottom-sheet], [data-wb-sheet-overlay]"))
+        dropOverscrollContain(el)
+        flashRootTouchAction([document.documentElement, document.body], (cb) => window.requestAnimationFrame(cb))
+        window.getSelection()?.removeAllRanges()
+      }
+      if (step === 3) {
         restoreTopRef.current = el.scrollTop
-        stuckHistory.current = []
         setCanvasEpoch((n) => n + 1)
+      }
+      if (step >= 4 && lastTouch.current.trusted) {
+        // The floor. Nothing is lost: the draft goes first when there is one.
+        stuckHistory.current = []
+        const go = () => window.location.reload()
+        if (isDirtyRef.current) void saveDraftRef.current({ quiet: true }).then(go, go)
+        else go()
       }
     })
     return () => {
       stop()
       document.removeEventListener("touchstart", onStart, { capture: true })
+      window.removeEventListener("touchstart", onStartDone)
       window.removeEventListener("touchmove", onMove)
+      window.removeEventListener("pointermove", onPointerMove)
+      window.removeEventListener("pointercancel", onPointerCancel)
     }
   }, [isMobileView, reviveCanvas, canvasEpoch])
 

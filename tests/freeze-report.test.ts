@@ -24,7 +24,7 @@ import {
   type ReportWindow,
   type StyleLike,
 } from "@/lib/website-builder/freeze-report"
-import { dropOverscrollContain, rebuildScroller, resetClippedAncestors, resyncFixedLayers, scrollWithin } from "@/lib/website-builder/canvas-scroll"
+import { dropOverscrollContain, flashRootTouchAction, rebuildScroller, resetClippedAncestors, resyncFixedLayers, scrollWithin } from "@/lib/website-builder/canvas-scroll"
 
 let passed = 0
 let failed = 0
@@ -124,12 +124,15 @@ section("The picture a frozen phone sends")
 {
   const p = page()
   const r = describeFreeze(p.doc, p.win, p.scroller, "stuck-drag", { x: 200, y: 400, prevented: true }, {
-    gesture: { moves: 9, cancelable: 9, prevented: 0, maxScrollDelta: 0 },
+    gesture: { moves: 9, cancelable: 9, prevented: 0, maxScrollDelta: 0, startPrevented: false, pointerMoves: 9, pointerCancels: 0 },
     probe: { scriptCanScroll: true },
     step: 1,
+    selection: "Range:1",
   })
   check("the reason travels", r.reason === "stuck-drag")
   check("the rung travels", r.step === 1)
+  check("the touchstart's own cancellation and the pointer cancels travel", r.gesture?.startPrevented === false && r.gesture?.pointerMoves === 9 && r.gesture?.pointerCancels === 0)
+  check("a live selection travels", r.selection === "Range:1")
   check("the sheets and their overlays are listed where the compositor sees them", r.sheets.length === 2 && r.sheets[1].el.startsWith("div.fixed.sheet") && r.sheets[1].rect.top === 744 && r.sheets[0].op === "0")
   check("what the gesture did travels", r.gesture?.moves === 9 && r.gesture?.cancelable === 9 && r.gesture?.maxScrollDelta === 0)
   check("whether a script could still scroll travels", r.probe?.scriptCanScroll === true)
@@ -162,7 +165,7 @@ section("Without a touch and without a scroller it still reports")
 {
   const p = page()
   const r = describeFreeze(p.doc, p.win, null, "keyboard", null)
-  check("no scroller, no touch, no crash", r.scroller === null && r.touch === null && r.underTouch.length === 0 && r.ancestors.length === 0 && r.gesture === null && r.probe === null)
+  check("no scroller, no touch, no crash", r.scroller === null && r.touch === null && r.underTouch.length === 0 && r.ancestors.length === 0 && r.gesture === null && r.probe === null && r.selection === null)
 }
 
 section("One picture per freeze")
@@ -234,6 +237,13 @@ section("The two rungs that take something away")
   const props: Record<string, string | null> = { "overscroll-behavior": "contain" }
   dropOverscrollContain({ style: { setProperty: (k, v) => { props[k] = v }, removeProperty: (k) => { props[k] = null } } })
   check("overscroll-behavior: contain is taken off the canvas", props["overscroll-behavior"] === null && props["overscroll-behavior-y"] === "auto")
+  const rootWrites: string[] = []
+  const frames: Array<() => void> = []
+  const root = (name: string) => ({ style: { setProperty: (k: string, v: string) => rootWrites.push(`${name}:${k}=${v}`), removeProperty: (k: string) => rootWrites.push(`${name}:-${k}`) }, get offsetHeight() { rootWrites.push(`${name}:layout`); return 1 } })
+  flashRootTouchAction([root("html"), root("body")], (cb) => frames.push(cb))
+  check("touch-action: none goes on both roots and is laid out before the frame", rootWrites.join(" ") === "html:touch-action=none body:touch-action=none html:layout body:layout", rootWrites.join(" "))
+  frames.forEach((f) => f())
+  check("and comes off again on the next frame", rootWrites.slice(-2).join(" ") === "html:-touch-action body:-touch-action")
 }
 
 section("The canvas is scrolled by hand, and nothing above it")
@@ -266,10 +276,23 @@ section("The editor")
   })())
   check("reads whether the move was cancelled from a passive window listener", code.includes("lastTouch.current.prevented = e.defaultPrevented") && code.includes('window.addEventListener("touchmove", onMove, { passive: true })'))
   check("a report that fails cannot stop the revive", /try \{[\s\S]*?describeFreeze[\s\S]*?\} catch \{[\s\S]*?\}\s*reviveCanvas\(\)/.test(code))
-  check("five rungs: revive, rebuild, resync the fixed layers, drop overscroll contain, remount", code.includes("if (step >= 2) rebuildScroller(el,") && code.includes('if (step >= 3) resyncFixedLayers(document.querySelectorAll<HTMLElement>("[data-mobile-bottom-sheet], [data-wb-sheet-overlay]"))') && code.includes("if (step >= 4) dropOverscrollContain(el)") && code.includes("if (step >= 5) {") && code.includes("setCanvasEpoch((n) => n + 1)"))
+  check("four rungs: revive, rebuild everything, remount, reload", (() => {
+    const two = code.indexOf("if (step >= 2) {")
+    const three = code.indexOf("if (step === 3) {")
+    const four = code.indexOf("if (step >= 4) {")
+    const bundle = code.slice(two, three)
+    return two > 0 && three > two && four > three
+      && bundle.includes("rebuildScroller(el,") && bundle.includes('resyncFixedLayers(document.querySelectorAll<HTMLElement>("[data-mobile-bottom-sheet], [data-wb-sheet-overlay]"))') && bundle.includes("dropOverscrollContain(el)") && bundle.includes("flashRootTouchAction([document.documentElement, document.body],") && bundle.includes("window.getSelection()?.removeAllRanges()")
+      && code.slice(three, four).includes("setCanvasEpoch((n) => n + 1)")
+      && code.slice(four).includes("window.location.reload()")
+  })())
+  check("the reload saves the draft first when there is one, and reloads even if the save fails", code.includes("if (isDirtyRef.current) void saveDraftRef.current({ quiet: true }).then(go, go)") && code.includes("else go()"))
+  check("only a trusted touch can reach the reload: a probe's synthetic drags cannot reload the page", code.includes("if (step >= 4 && lastTouch.current.trusted) {") && code.includes("trusted: e.isTrusted"))
+  check("a drag on a scroller nested inside the canvas is not a freeze and does not climb", code.includes("if (lastTouch.current.nested) return") && code.includes("nested: nestedScrollerUnder(e.target)") && code.includes("node.scrollHeight > node.clientHeight + 1) return true"))
+  check("the touchstart's cancellation and pointer cancels are counted on the window", code.includes('window.addEventListener("touchstart", onStartDone, { passive: true })') && code.includes('window.addEventListener("pointercancel", onPointerCancel, { passive: true })') && code.includes("gesture.current.startPrevented = e.defaultPrevented"))
   check("dead drags within the window climb; outside it they start over, and the window fits a person dragging and waiting", code.includes("now - t < STUCK_ESCALATE_MS") && /const STUCK_ESCALATE_MS = (\d[\d_]*)/.test(code) && Number(/const STUCK_ESCALATE_MS = (\d[\d_]*)/.exec(code)![1].replace(/_/g, "")) >= 30_000)
-  check("each rung is reported under its own name", ["stuck-drag", "stuck-after-revive", "stuck-after-rebuild", "stuck-after-resync", "stuck-after-overscroll", "stuck-after-remount"].every((r) => code.includes(`"${r}"`)) && code.includes("STUCK_REASONS[step - 1]"))
-  check("the rung travels with the report", code.includes("probe: { scriptCanScroll }, step }"))
+  check("each rung is reported under its own name", ["stuck-drag", "stuck-after-revive", "stuck-after-rebuild", "stuck-after-remount"].every((r) => code.includes(`"${r}"`)) && code.includes("STUCK_REASONS[step - 1]"))
+  check("the rung and the selection travel with the report", code.includes("probe: { scriptCanScroll }, step, selection }"))
   const sheet = read("components/website-builder/mobile-editor-sheet.tsx")
   check("the sheet's overlay is marked so it can be resynced and reported", sheet.includes('data-wb-sheet-overlay=""'))
   check("the report says whether a script could still scroll", code.includes("probe: { scriptCanScroll }"))

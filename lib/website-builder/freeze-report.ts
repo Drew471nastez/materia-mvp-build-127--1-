@@ -86,6 +86,11 @@ export interface GestureStats {
   prevented: number
   /** How far the scroller moved at most during the gesture, in px. */
   maxScrollDelta: number
+  /** Whether the touchstart itself was cancelled: on iOS that alone stops a scroll. */
+  startPrevented?: boolean | null
+  /** Pointer events seen for the gesture: a cancel means the browser handed the gesture to a native scroller, somewhere. */
+  pointerMoves?: number
+  pointerCancels?: number
 }
 
 export interface FreezeReport {
@@ -99,6 +104,8 @@ export interface FreezeReport {
   probe: { scriptCanScroll: boolean } | null
   /** Which rung of the ladder this drag reached. */
   step: number | null
+  /** A live text selection takes drags for itself on iOS. */
+  selection: string | null
   /** The fixed sheets and their overlays, where the compositor thinks they are. */
   sheets: Array<{ el: string; rect: Rect; tf: string; vis: string; op: string; pe: string; transition: string }>
   focus: string | null
@@ -162,7 +169,7 @@ export function describeFreeze(
   scroller: NodeLike | null,
   reason: string,
   touch: { x: number; y: number; prevented: boolean | null } | null,
-  extra: { gesture?: GestureStats | null; probe?: { scriptCanScroll: boolean } | null; step?: number | null } = {},
+  extra: { gesture?: GestureStats | null; probe?: { scriptCanScroll: boolean } | null; step?: number | null; selection?: string | null } = {},
 ): FreezeReport {
   const vv = win.visualViewport ?? null
 
@@ -232,6 +239,7 @@ export function describeFreeze(
     gesture: extra.gesture ?? null,
     probe: extra.probe ?? null,
     step: extra.step ?? null,
+    selection: extra.selection ?? null,
     sheets,
     focus: doc.activeElement ? describeNode(doc.activeElement) : null,
     body: {
