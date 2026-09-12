@@ -667,9 +667,16 @@ export async function proxy(request: NextRequest) {
        * can collide with, and matching the route's own value keeps the two
        * from drifting apart. Assets keep the route's immutable caching, which
        * is what makes a version-stamped bundle worth stamping.
+       *
+       * SIXTY, to match `revalidate = 60` on the route. It used to say ten,
+       * which was harmless while the page was dynamic — Next's own no-store
+       * overrode it and nothing here landed at all. Now that the page is
+       * cacheable this header is the one the edge obeys on the homepage, so
+       * the two numbers have to be the same one or the front page and every
+       * page under it go stale on different clocks.
        */
       if (pathname === "/") {
-        rewritten.headers.set("Cache-Control", "public, s-maxage=10, stale-while-revalidate=30")
+        rewritten.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
       }
 
       return rewritten

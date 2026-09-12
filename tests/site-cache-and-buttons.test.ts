@@ -178,6 +178,18 @@ function main() {
      * state. Mixing the two up would serve one visitor's rendering to
      * another, so it stays where it is and stays private.
      */
+    /**
+     * The homepage is the one site path that collides with a `next.config`
+     * rule (`/`, meant for the marketing site), so the proxy overrides it on
+     * the rewrite. That header is now the one the edge obeys there, so it has
+     * to be the same number the route revalidates on, or the front page and
+     * the pages under it go stale on different clocks.
+     */
+    check(
+      "the homepage's own header agrees with the route's revalidate",
+      /rewritten\.headers\.set\("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300"\)/.test(read("proxy.ts")) &&
+        /export const revalidate = 60/.test(home),
+    )
     check("the creator page is still private", /rewritePath\.startsWith\("\/u\/"\)[\s\S]{0,200}"private, no-cache, must-revalidate"/.test(read("proxy.ts")))
   }
 
