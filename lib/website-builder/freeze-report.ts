@@ -33,6 +33,7 @@ export interface StyleLike {
   position: string
   transform: string
   zIndex: string
+  transition?: string
 }
 
 export interface NodeLike {
@@ -96,6 +97,10 @@ export interface FreezeReport {
   gesture: GestureStats | null
   /** Whether a script could move the scroller at that moment, when checked. */
   probe: { scriptCanScroll: boolean } | null
+  /** Which rung of the ladder this drag reached. */
+  step: number | null
+  /** The fixed sheets and their overlays, where the compositor thinks they are. */
+  sheets: Array<{ el: string; rect: Rect; tf: string; vis: string; op: string; pe: string; transition: string }>
   focus: string | null
   body: { pointerEvents: string; overflow: string; scrollLocked: string | null; inlineStyle: string }
   html: { classes: string; scrollTop: number }
@@ -157,7 +162,7 @@ export function describeFreeze(
   scroller: NodeLike | null,
   reason: string,
   touch: { x: number; y: number; prevented: boolean | null } | null,
-  extra: { gesture?: GestureStats | null; probe?: { scriptCanScroll: boolean } | null } = {},
+  extra: { gesture?: GestureStats | null; probe?: { scriptCanScroll: boolean } | null; step?: number | null } = {},
 ): FreezeReport {
   const vv = win.visualViewport ?? null
 
@@ -207,6 +212,14 @@ export function describeFreeze(
     }
   }
 
+  const sheets: FreezeReport["sheets"] = []
+  const sheetNodes = doc.querySelectorAll("[data-mobile-bottom-sheet], [data-wb-sheet-overlay]")
+  for (let i = 0; i < sheetNodes.length && i < 6; i++) {
+    const el = sheetNodes[i]
+    const s = win.getComputedStyle(el)
+    sheets.push({ el: describeNode(el), rect: rect(el), tf: s.transform.slice(0, 80), vis: s.visibility, op: s.opacity, pe: s.pointerEvents, transition: (s.transition ?? "").slice(0, 60) })
+  }
+
   const bodyStyle = win.getComputedStyle(doc.body)
   return {
     reason,
@@ -218,6 +231,8 @@ export function describeFreeze(
     touch,
     gesture: extra.gesture ?? null,
     probe: extra.probe ?? null,
+    step: extra.step ?? null,
+    sheets,
     focus: doc.activeElement ? describeNode(doc.activeElement) : null,
     body: {
       pointerEvents: bodyStyle.pointerEvents,

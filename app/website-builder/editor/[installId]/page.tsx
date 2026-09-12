@@ -71,11 +71,18 @@ import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/re
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { rebuildScroller, resetClippedAncestors, reviveScroller, scrollWithin, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
+import { dropOverscrollContain, rebuildScroller, resetClippedAncestors, resyncFixedLayers, reviveScroller, scrollWithin, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
 import { describeFreeze, sendFreezeReport, type GestureStats } from "@/lib/website-builder/freeze-report"
 
-/** Dead drags this close together are one freeze, and each one escalates the answer. */
-const STUCK_ESCALATE_MS = 6000
+/**
+ * Dead drags this close together are one freeze, and each one climbs a rung.
+ * Long enough that a person dragging, waiting, and dragging again is still
+ * on the same ladder: the first ladder was six seconds and almost nobody
+ * reached its second rung.
+ */
+const STUCK_ESCALATE_MS = 45_000
+/** What each rung is called in the log. Index is the rung reached. */
+const STUCK_REASONS = ["stuck-drag", "stuck-after-revive", "stuck-after-rebuild", "stuck-after-resync", "stuck-after-overscroll", "stuck-after-remount"] as const
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
@@ -6240,8 +6247,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    *   2. A second dead drag soon after REBUILDS the scroller: `display:
    *      none` and back, which throws away the browser's own scrolling node
    *      for the element and makes a new one, the way a reload would.
-   *   3. A third REMOUNTS the canvas: a new element, from React, with the
+   *   3. A third RESYNCS the fixed layers over the canvas, the sheets and
+   *      their overlays: the compositor keeps its own copy of where those
+   *      are, and a stale copy sits over the canvas invisibly.
+   *   4. A fourth drops `overscroll-behavior: contain` from the canvas,
+   *      which on iOS has left a nested scroller deaf after a rubber band.
+   *   5. A fifth REMOUNTS the canvas: a new element, from React, with the
    *      scroll position put back.
+   *
+   * Reports so far (iOS 18.7) graded rungs 1 and 2 as not enough on their
+   * own: a script could still scroll, touches reached the scroller, nothing
+   * cancelled them, and every move stayed cancelable, so the browser never
+   * began a native scroll. Rungs 3 and 4 are the two remaining things
+   * standing between the finger and the scroller.
    *
    * Before each step the phone says what it saw, and which step it is on,
    * so the log can say which step was the one that worked. Where the finger
@@ -6281,8 +6299,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const recent = stuckHistory.current.filter((t) => now - t < STUCK_ESCALATE_MS)
       recent.push(now)
       stuckHistory.current = recent
-      const step = Math.min(recent.length, 3)
-      const reason = step === 1 ? "stuck-drag" : step === 2 ? "stuck-after-revive" : "stuck-after-rebuild"
+      const step = Math.min(recent.length, STUCK_REASONS.length)
+      const reason = STUCK_REASONS[step - 1]
       try {
         // Can a script still move it? Decides between a scroller that is
         // dead and a gesture the browser is not handing to it.
@@ -6291,7 +6309,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         const scriptCanScroll = el.scrollTop !== before
         el.scrollTop = before
         const { startTop: _startTop, ...stats } = gesture.current
-        const report = describeFreeze(document, window, el, reason, lastTouch.current, { gesture: stats, probe: { scriptCanScroll } })
+        const report = describeFreeze(document, window, el, reason, lastTouch.current, { gesture: stats, probe: { scriptCanScroll }, step })
         lastReportAt.current[reason] = sendFreezeReport(
           (path, body) => { void fetch(path, { method: "POST", body, keepalive: true, headers: { "content-type": "application/json" } }).catch(() => {}) },
           report,
@@ -6303,7 +6321,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
       reviveCanvas()
       if (step >= 2) rebuildScroller(el, (cb) => window.requestAnimationFrame(cb))
-      if (step >= 3) {
+      if (step >= 3) resyncFixedLayers(document.querySelectorAll<HTMLElement>("[data-mobile-bottom-sheet], [data-wb-sheet-overlay]"))
+      if (step >= 4) dropOverscrollContain(el)
+      if (step >= 5) {
         restoreTopRef.current = el.scrollTop
         stuckHistory.current = []
         setCanvasEpoch((n) => n + 1)

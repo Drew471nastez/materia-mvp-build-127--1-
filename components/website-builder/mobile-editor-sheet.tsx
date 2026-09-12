@@ -877,6 +877,7 @@ export function MobileEditorSheet({
     <>
       <div
         ref={overlayRef}
+        data-wb-sheet-overlay=""
         aria-hidden="true"
         onClick={() => onOpenChange(false)}
         className="fixed inset-0 bg-black/30"

@@ -24,7 +24,7 @@ import {
   type ReportWindow,
   type StyleLike,
 } from "@/lib/website-builder/freeze-report"
-import { rebuildScroller, resetClippedAncestors, scrollWithin } from "@/lib/website-builder/canvas-scroll"
+import { dropOverscrollContain, rebuildScroller, resetClippedAncestors, resyncFixedLayers, scrollWithin } from "@/lib/website-builder/canvas-scroll"
 
 let passed = 0
 let failed = 0
@@ -93,6 +93,7 @@ function page() {
     querySelectorAll: (sel: string) => {
       if (sel === "div, section, span") return nodes().filter((n) => ["DIV", "SECTION", "SPAN"].includes(n.tagName ?? ""))
       if (sel === "[data-mobile-bottom-sheet][aria-modal=true]") return [sheet]
+      if (sel === "[data-mobile-bottom-sheet], [data-wb-sheet-overlay]") return [scrim, sheet]
       return []
     },
   }
@@ -125,8 +126,11 @@ section("The picture a frozen phone sends")
   const r = describeFreeze(p.doc, p.win, p.scroller, "stuck-drag", { x: 200, y: 400, prevented: true }, {
     gesture: { moves: 9, cancelable: 9, prevented: 0, maxScrollDelta: 0 },
     probe: { scriptCanScroll: true },
+    step: 1,
   })
   check("the reason travels", r.reason === "stuck-drag")
+  check("the rung travels", r.step === 1)
+  check("the sheets and their overlays are listed where the compositor sees them", r.sheets.length === 2 && r.sheets[1].el.startsWith("div.fixed.sheet") && r.sheets[1].rect.top === 744 && r.sheets[0].op === "0")
   check("what the gesture did travels", r.gesture?.moves === 9 && r.gesture?.cancelable === 9 && r.gesture?.maxScrollDelta === 0)
   check("whether a script could still scroll travels", r.probe?.scriptCanScroll === true)
   check("the small fields come before the two chains", (() => {
@@ -221,6 +225,17 @@ section("When reviving is not enough, the scroller is rebuilt")
   check("the next frame keeps it where it was", el.scrollTop === 724 && el.style.display === "")
 }
 
+section("The two rungs that take something away")
+{
+  const writes: string[] = []
+  const layer = (name: string) => ({ style: { _d: "", get display() { return this._d }, set display(v: string) { this._d = v; writes.push(`${name}:${v || "(unset)"}`) } }, get offsetHeight() { writes.push(`${name}:layout`); return 10 } })
+  const n = resyncFixedLayers([layer("sheet"), layer("overlay")])
+  check("every fixed layer is hidden, laid out, shown and laid out again", n === 2 && writes.join(" ") === "sheet:none sheet:layout sheet:(unset) sheet:layout overlay:none overlay:layout overlay:(unset) overlay:layout", writes.join(" "))
+  const props: Record<string, string | null> = { "overscroll-behavior": "contain" }
+  dropOverscrollContain({ style: { setProperty: (k, v) => { props[k] = v }, removeProperty: (k) => { props[k] = null } } })
+  check("overscroll-behavior: contain is taken off the canvas", props["overscroll-behavior"] === null && props["overscroll-behavior-y"] === "auto")
+}
+
 section("The canvas is scrolled by hand, and nothing above it")
 {
   const calls: Array<{ top: number; behavior: string }> = []
@@ -251,9 +266,12 @@ section("The editor")
   })())
   check("reads whether the move was cancelled from a passive window listener", code.includes("lastTouch.current.prevented = e.defaultPrevented") && code.includes('window.addEventListener("touchmove", onMove, { passive: true })'))
   check("a report that fails cannot stop the revive", /try \{[\s\S]*?describeFreeze[\s\S]*?\} catch \{[\s\S]*?\}\s*reviveCanvas\(\)/.test(code))
-  check("three steps: revive, then rebuild, then remount", code.includes("if (step >= 2) rebuildScroller(el,") && code.includes("if (step >= 3) {") && code.includes("setCanvasEpoch((n) => n + 1)"))
-  check("dead drags close together escalate; far apart they start over", code.includes("now - t < STUCK_ESCALATE_MS") && /const STUCK_ESCALATE_MS = \d+/.test(code))
-  check("each step is reported under its own name", code.includes('"stuck-drag"') && code.includes('"stuck-after-revive"') && code.includes('"stuck-after-rebuild"'))
+  check("five rungs: revive, rebuild, resync the fixed layers, drop overscroll contain, remount", code.includes("if (step >= 2) rebuildScroller(el,") && code.includes('if (step >= 3) resyncFixedLayers(document.querySelectorAll<HTMLElement>("[data-mobile-bottom-sheet], [data-wb-sheet-overlay]"))') && code.includes("if (step >= 4) dropOverscrollContain(el)") && code.includes("if (step >= 5) {") && code.includes("setCanvasEpoch((n) => n + 1)"))
+  check("dead drags within the window climb; outside it they start over, and the window fits a person dragging and waiting", code.includes("now - t < STUCK_ESCALATE_MS") && /const STUCK_ESCALATE_MS = (\d[\d_]*)/.test(code) && Number(/const STUCK_ESCALATE_MS = (\d[\d_]*)/.exec(code)![1].replace(/_/g, "")) >= 30_000)
+  check("each rung is reported under its own name", ["stuck-drag", "stuck-after-revive", "stuck-after-rebuild", "stuck-after-resync", "stuck-after-overscroll", "stuck-after-remount"].every((r) => code.includes(`"${r}"`)) && code.includes("STUCK_REASONS[step - 1]"))
+  check("the rung travels with the report", code.includes("probe: { scriptCanScroll }, step }"))
+  const sheet = read("components/website-builder/mobile-editor-sheet.tsx")
+  check("the sheet's overlay is marked so it can be resynced and reported", sheet.includes('data-wb-sheet-overlay=""'))
   check("the report says whether a script could still scroll", code.includes("probe: { scriptCanScroll }"))
   check("a new key is a new canvas element", code.includes("key={canvasEpoch}"))
   check("the watchdog re-arms on the new element", /\}, \[isMobileView, reviveCanvas, canvasEpoch\]\)/.test(code))

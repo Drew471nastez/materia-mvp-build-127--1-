@@ -257,3 +257,50 @@ export function rebuildScroller(el: RebuildableLike, nextFrame: (cb: () => void)
     nudgeOffEnds(el, top)
   })
 }
+
+/**
+ * ===========================================================================
+ *  THE LADDER: EACH RUNG IS A DIFFERENT GUESS, AND THE PHONE GRADES THEM
+ * ===========================================================================
+ * The reports (freeze-report.ts) narrowed the freeze to the browser's own
+ * gesture routing: a script can move the canvas, touches reach it, nothing
+ * cancels them, and every move stays cancelable, which means the browser
+ * never began a native scroll for the gesture. Reviving and rebuilding the
+ * scroller did not help. Two more things stand between the finger and the
+ * scroller on a phone, and each rung below takes one of them away so the
+ * next report can say which one mattered.
+ *
+ *   `resyncFixedLayers`: the bottom sheets are fixed, full height, and
+ *   translated mostly off screen; the browser's compositor keeps its own
+ *   copy of where such a layer is, and a stale copy sits over the canvas
+ *   without any script being able to see it. Hiding and showing them
+ *   throws the copy away.
+ *
+ *   `dropOverscrollContain`: `overscroll-behavior: contain` on the canvas
+ *   is what keeps a pull at the top from rubber-banding the page; on iOS it
+ *   has also been the thing that left a nested scroller deaf after a
+ *   rubber band. Removing it is a trade the phone can report on.
+ */
+export interface ToggleableLike {
+  style: { display: string }
+  readonly offsetHeight?: number
+}
+
+export function resyncFixedLayers(layers: ArrayLike<ToggleableLike>): number {
+  let n = 0
+  for (let i = 0; i < layers.length; i++) {
+    const el = layers[i]
+    const was = el.style.display
+    el.style.display = "none"
+    void el.offsetHeight
+    el.style.display = was
+    void el.offsetHeight
+    n++
+  }
+  return n
+}
+
+export function dropOverscrollContain(el: { style: { setProperty(name: string, value: string): void; removeProperty(name: string): void } }): void {
+  el.style.removeProperty("overscroll-behavior")
+  el.style.setProperty("overscroll-behavior-y", "auto")
+}
