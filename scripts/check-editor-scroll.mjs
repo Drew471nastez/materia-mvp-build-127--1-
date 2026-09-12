@@ -411,6 +411,55 @@ const DRIVE = `
 
   async function go() {
     var phone = window.innerWidth < 768
+    /**
+     * THE KEYBOARD. "Focus a field and the preview will not scroll." On iOS
+     * a focused field scrolls the WINDOW to lift itself above the keyboard,
+     * locked document or not, and the window is left there when the keyboard
+     * goes; the fixed builder is then offset and its scroller dead. Chromium
+     * will not scroll a locked document, so the offset itself cannot be
+     * reproduced here — what CAN be measured is the response: the builder
+     * must revive the canvas when a field loses focus, and reviveScroller's
+     * fingerprint is the inline overflow-y: auto it writes while re-creating
+     * the scroll layer. Cleared first, so only a revive in this step can put
+     * it back. (Its -webkit-overflow-scrolling declaration would be the more
+     * obvious fingerprint, but Chromium does not know that property and drops
+     * it on write, so it can never be read back here.)
+     */
+    // Any visible field that takes a keyboard, outside the canvas: which one
+    // does not matter, the keyboard closing is the event under test.
+    async function keyboardStep(where) {
+    var canvas = document.getElementById("wb-preview-root")
+    var field = Array.prototype.find.call(
+      document.querySelectorAll("input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), textarea, [contenteditable=true]"),
+      function (el) {
+        if (canvas && canvas.contains(el)) return false
+        var r = el.getBoundingClientRect()
+        return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden"
+      },
+    )
+    if (field) {
+      var scroller = document.getElementById("wb-preview-root")
+      scroller.style.removeProperty("overflow-y")
+      var focusouts = 0
+      document.addEventListener("focusout", function () { focusouts++ })
+      field.focus(); await sleep(250)
+      var focused = document.activeElement === field
+      field.blur(); await sleep(750)
+      steps.push({
+        label: "keyboard (" + where + "): the canvas is revived when a field loses focus",
+        keyboardRevived: scroller.style.overflowY === "auto",
+        windowScrollY: window.scrollY,
+        field: field.tagName.toLowerCase() + ":" + (field.getAttribute("type") || "") + " hasFocus=" + document.hasFocus() + " focused=" + focused + " focusouts=" + focusouts,
+      })
+      steps.push(touchDrag("a finger after a field lost focus"))
+      steps.push(tryScroll("after a field lost focus", 300))
+    } else {
+      var root = document.querySelector("[data-wb-sidebar-scroll]")
+      var kinds = root ? Array.prototype.map.call(root.querySelectorAll("input, textarea, select, [contenteditable]"), function (el) { return el.tagName.toLowerCase() + ":" + (el.getAttribute("type") || "") }).slice(0, 12) : []
+      steps.push({ label: "keyboard (" + where + "): no field in reach to focus", message: "fields in the panel: " + (kinds.length ? kinds.join(", ") : "none") })
+    }
+    }
+
     steps.push(measure("loaded"))
     steps.push(touchDrag("a finger on the canvas, before anything"))
     steps.push(tryScroll("scroll before any click", 250))
@@ -464,7 +513,7 @@ const DRIVE = `
          */
         var want = names[i]
         var c = null
-        root = phone ? document.querySelector("[data-mobile-bottom-sheet]") : document.querySelector("[data-wb-sidebar-scroll]")
+        root = document.querySelector("[data-wb-sidebar-scroll]")
         if (!root) break
         var live = root.querySelectorAll("button, [role=button], [role=combobox], [role=tab], summary, input[type=color], input[type=checkbox], [data-swatch], select")
         for (var k = 0; k < live.length; k++) {
@@ -484,8 +533,14 @@ const DRIVE = `
     }
 
     // Selecting a section the way a person does: the ROW, not the three dots.
-    var panelRoot = phone ? null : document.querySelector("[data-wb-sidebar-scroll]")
-    if (phone) { press("Sections"); await sleep(700); panelRoot = document.querySelector("[data-mobile-bottom-sheet]") }
+    /**
+     * The sidebar's scroller, wherever it lives: in the sidebar on a desktop
+     * and inside the sections sheet on a phone. Asking for the first sheet
+     * in the document found the assistant's sheet there, which holds no
+     * section rows, so on a phone this step used to find nothing and skip.
+     */
+    if (phone) { press("Sections"); await sleep(700) }
+    var panelRoot = document.querySelector("[data-wb-sidebar-scroll]")
     /**
      * A SECTION ROW, found by its own three-dot button rather than by
      * guessing at markup: the row is the ancestor that holds both. Clicking
@@ -505,8 +560,9 @@ const DRIVE = `
     if (rowButtons.length > 2) {
       tap(rowButtons[2]); await sleep(900)
       steps.push(touchDrag("a finger after selecting a section ROW"))
+      await keyboardStep("section settings")
       // Whatever that opened, press everything inside it.
-      var opened = phone ? document.querySelector("[data-mobile-bottom-sheet]") : document.querySelector("[data-wb-sidebar-scroll]")
+      var opened = document.querySelector("[data-wb-sidebar-scroll]")
       await sweep("section settings", opened, 22)
     }
 
@@ -607,6 +663,11 @@ for (const [w, h, label] of [[390, 844, "phone"], [1280, 900, "desktop"]]) {
   console.log(`\n══ ${label} ${w}×${h} ══`)
   for (const s of run(w, h, label)) {
     if (s.userCanScroll === false) { failures++; console.log(`  ✗ ${s.label}: a person could not scroll the canvas here: ${s.why.join("; ")}`) }
+    if (s.keyboardRevived !== undefined) {
+      if (!s.keyboardRevived) failures++
+      console.log(`  ${s.keyboardRevived ? "ok  " : "✗   "} ${s.label}${s.keyboardRevived ? "" : ": nothing revived the canvas after the blur"}  window.scrollY=${s.windowScrollY}  ${s.field}`)
+      continue
+    }
     if (s.listeners) { console.log(`  touch listeners: ${[...new Set(s.listeners)].join("  |  ")}`); continue }
     if (s.labels) { console.log(`  chrome: ${s.labels.join(" | ")}\n  fetches: ${s.fetches.join(", ")}`); continue }
     if (s.missing || s.message || s.bodyText !== undefined) { console.log(`  ${s.label}: ${JSON.stringify(s)}`); continue }
