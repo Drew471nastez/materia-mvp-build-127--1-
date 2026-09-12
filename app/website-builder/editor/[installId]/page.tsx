@@ -3485,6 +3485,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * Ordinary setState, so the preview repaints, `isDirty` flips, and Save
    * behaves exactly as it does for a change made by hand.
    */
+  /**
+   * The undo helpers are defined further down, after the state they close
+   * over. This is how the handlers above them reach one, and it is the same
+   * shape as `sectionsRef` and `undoRef` below.
+   */
+  const pushUndoRef = useRef<() => void>(() => {})
+
   const applyAiOp = useCallback((op: ThemeOp) => {
     /**
      * MARKED DIRTY, LIKE EVERY OTHER EDIT.
@@ -3499,6 +3506,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * asserting the property that is missing is worse than no comment.)
      */
     setIsDirty(true)
+    /**
+     * AND UNDOABLE, LIKE EVERY OTHER EDIT.
+     *
+     * Eleven hand-edit handlers push an undo step. This one did not, so the
+     * one kind of change a person did not make by hand was the one kind they
+     * could not take back: an AI edit that rewrote a section left Undo
+     * pointing at whatever they had done before it, and pressing it threw
+     * away their own work instead of the model's.
+     *
+     * Debounced, because a single instruction arrives as a run of operations
+     * and thirty of them should not fill a thirty-step history.
+     */
+    pushUndoRef.current()
 
     if (op.kind === "update_theme") {
       setSettingsDraft(previous => applyOp({ sections: [], settings: previous }, op).settings as ThemeSettingsValues)
@@ -3683,6 +3703,40 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setUndoStack(prev => [...prev.slice(-30), snapshotNow()])
     setRedoStack([])
   }, [snapshotNow])
+
+  /**
+   * One step for a run of edits. Typing into a field fires on every
+   * keystroke, and thirty keystrokes should not fill a thirty-step history.
+   *
+   * Declared here, beside `pushUndo`, because callers above it in the file
+   * need it in their dependency list and a `const` cannot be named before it
+   * exists.
+   */
+  const undoPushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debouncedPushUndo = useCallback(() => {
+    if (undoPushTimerRef.current) clearTimeout(undoPushTimerRef.current)
+    undoPushTimerRef.current = setTimeout(() => pushUndo(), 500)
+  }, [pushUndo])
+
+  /**
+   * THE STACK BELONGS TO THE PAGE IT WAS RECORDED ON.
+   *
+   * A snapshot is the whole page: `sections` and the theme settings. Switch
+   * page and `sections` is replaced wholesale, but the stack was never
+   * cleared — so the next Undo wrote the PREVIOUS page's sections onto the
+   * page now open, marked it dirty, and autosave persisted that a second and
+   * a half later. Silent, and it destroys a page somebody was not even
+   * looking at.
+   *
+   * Cleared on every page change, so Undo either undoes something you did on
+   * this page or does nothing at all.
+   */
+  pushUndoRef.current = debouncedPushUndo
+
+  const clearHistory = useCallback(() => {
+    setUndoStack([])
+    setRedoStack([])
+  }, [])
 
   const handleUndo = useCallback(() => {
     const stack = undoRef.current
@@ -3935,6 +3989,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const loadSections = useCallback(async (page: PageKey) => {
     const loaded = await fetchPageSections(page)
     setSections(loaded)
+    setUndoStack([])
+    setRedoStack([])
   }, [fetchPageSections])
 
   // Load install data.
@@ -4168,6 +4224,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       await saveDraft({ quiet: true })
     }
     switchingPage.current = true
+    // The history describes the page being left. See `clearHistory`.
+    clearHistory()
     /**
      * try/finally, because the fetches below can reject — a dropped
      * connection, a 500 — and a flag left true would switch autosave off for
@@ -4222,6 +4280,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const handleSelectProductPage = async (productId: string, productTitle: string) => {
     setSectionsLoading(true)
+    // A product page is another page: the history describes the one being
+    // left. See `clearHistory`.
+    clearHistory()
     // Only flip `canvasLoading` on when the user is landing here via a
     // product deep-link (URL already has product=...) — otherwise keep the
     // previous page visible so switching to a product page feels instant.
@@ -4379,13 +4440,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     () => sections.filter((s) => s.type !== "header" && s.type !== "footer").length,
     [sections],
   )
-
-  // Settings change (debounced undo push)
-  const undoPushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const debouncedPushUndo = useCallback(() => {
-    if (undoPushTimerRef.current) clearTimeout(undoPushTimerRef.current)
-    undoPushTimerRef.current = setTimeout(() => pushUndo(), 500)
-  }, [pushUndo])
 
   const updateSetting = (key: string, value: unknown) => {
     debouncedPushUndo()
@@ -7603,6 +7657,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
     <ThemePage
       theme={theme}
       sections={sections}
+      // Designing a page is not subscribing to it. See storefront-context.
+      storefront={{ inEditor: true }}
       /**
        * The strip you hover to add a section right there. Only with the
        * inspector on: with it off the canvas is a plain preview, and nothing

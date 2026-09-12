@@ -27,6 +27,7 @@
  * that knows about it.
  */
 
+import { StorefrontProvider, type Storefront } from "./storefront-context"
 import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react"
 
 import { THEME_ROOT_ATTRIBUTE, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
@@ -277,6 +278,7 @@ function CookieBanner({ theme }: { theme: ThemeSettingsValues }) {
 // ── The page ────────────────────────────────────────────────────────────────
 
 export function ThemePage({
+  storefront,
   theme,
   sections,
   renderSection,
@@ -289,6 +291,13 @@ export function ThemePage({
 }: {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
+  /**
+   * Whose site this is. The two sections that send something somewhere, the
+   * newsletter and the contact form, need it; everything else ignores it.
+   * Absent in the editor's canvas, which is how those sections know not to
+   * send anything while somebody is designing the page.
+   */
+  storefront?: Storefront
   /**
    * How to render one section. The published routes leave this out and get the
    * plain renderer; the editor passes its own so it can add selection,
@@ -349,6 +358,7 @@ export function ThemePage({
     ))
 
   return (
+    <StorefrontProvider value={storefront ?? {}}>
     <div
       {...{ [THEME_ROOT_ATTRIBUTE]: "" }}
       className={className}
@@ -397,6 +407,7 @@ export function ThemePage({
 
       <CookieBanner theme={theme} />
     </div>
+    </StorefrontProvider>
   )
 }
 

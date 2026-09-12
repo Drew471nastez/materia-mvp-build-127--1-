@@ -1,0 +1,40 @@
+"use client"
+
+/**
+ * ===========================================================================
+ *  WHICH SITE A SECTION IS BEING DRAWN ON
+ * ===========================================================================
+ * A section is written once and rendered on every creator's site, so it knows
+ * nothing about whose site it is on. That is right for markup and wrong for
+ * the two sections that have to send something somewhere: a newsletter needs
+ * a list to add to, and a form needs an inbox.
+ *
+ * The newsletter form was the visible cost. Its submit handler set a success
+ * message and stopped, so a visitor was told "you're in" and nothing was
+ * recorded anywhere. Nobody could tell, because the section looked like it
+ * worked.
+ *
+ * One context, set by the page that already knows the answer, empty inside
+ * the builder's canvas. A section reads it and decides whether it can do the
+ * thing it offers.
+ */
+import { createContext, useContext, type ReactNode } from "react"
+
+export interface Storefront {
+  /** The creator whose site this is. Absent in the editor's canvas. */
+  creatorId?: string
+  /** Which theme install is being drawn, for anything scoped to one site. */
+  installId?: string
+  /** True while the builder is drawing, so a section does not send anything. */
+  inEditor?: boolean
+}
+
+const StorefrontContext = createContext<Storefront>({})
+
+export function StorefrontProvider({ value, children }: { value: Storefront; children: ReactNode }) {
+  return <StorefrontContext.Provider value={value}>{children}</StorefrontContext.Provider>
+}
+
+export function useStorefront(): Storefront {
+  return useContext(StorefrontContext)
+}

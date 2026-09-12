@@ -1,3 +1,4 @@
+import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -188,6 +189,8 @@ export default async function SellerWebsitePage({ params, searchParams }: PagePr
       <ThemePage
         theme={site.themeSettings}
         sections={site.sections}
+        // Whose site this is, for the sections that send something somewhere.
+        storefront={{ creatorId: site.creatorId, installId: site.installId }}
         emptyDetail="Check back soon!"
       />
     </StorelibSourcesProvider>
@@ -287,7 +290,12 @@ async function previewPage(sellername: string, token: string) {
   const settingsRow =
     (install as any).store_theme_settings?.[0] ?? (install as any).store_theme_settings ?? null
   const themeSettings: ThemeSettingsValues = (themeSettings_(settingsRow, preview) ?? {}) as ThemeSettingsValues
-  const sections: SectionInstance[] = (pageSections<SectionInstance[]>(pageData, preview) ?? [])
+  /**
+   * And again on the way out. The database already holds rich text saved
+   * before anything sanitised it, and rows can arrive from an import. The
+   * save path is the authority; this is what covers what is already there.
+   */
+  const sections: SectionInstance[] = sanitizeSections(pageSections<SectionInstance[]>(pageData, preview) ?? [])
 
   const prerendered = await prerenderStorelibSections(
     publicAdmin as never,
@@ -302,6 +310,7 @@ async function previewPage(sellername: string, token: string) {
       <ThemePage
         theme={themeSettings}
         sections={sections}
+        storefront={{ creatorId }}
         emptyDetail="Check back soon!"
       />
     </StorelibSourcesProvider>

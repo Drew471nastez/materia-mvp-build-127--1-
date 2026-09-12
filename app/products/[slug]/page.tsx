@@ -1,3 +1,4 @@
+import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
@@ -129,8 +130,13 @@ export default async function WebsiteBuilderProductPage({ params }: PageProps) {
    * drafts meant a product page edited but not published was already live,
    * and so was a header being worked on.
    */
-  const rawSections: SectionInstance[] = pageSections<SectionInstance[]>(pageData, false) ?? []
-  const homeSections: SectionInstance[] = pageSections<SectionInstance[]>(homeData, false) ?? []
+  /**
+   * And again on the way out. The database already holds rich text saved
+   * before anything sanitised it, and rows can arrive from an import. The
+   * save path is the authority; this is what covers what is already there.
+   */
+  const rawSections: SectionInstance[] = sanitizeSections(pageSections<SectionInstance[]>(pageData, false) ?? [])
+  const homeSections: SectionInstance[] = sanitizeSections(pageSections<SectionInstance[]>(homeData, false) ?? [])
 
   const homeHeader = homeSections.find(s => s.type === "header")
   const homeFooter = homeSections.find(s => s.type === "footer")
@@ -187,7 +193,12 @@ export default async function WebsiteBuilderProductPage({ params }: PageProps) {
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "product" }}>
-      <ThemePage theme={themeSettings} sections={page} className="min-h-screen" />
+      <ThemePage
+        theme={themeSettings}
+        sections={page}
+        storefront={{ creatorId: product.creator_id ?? undefined }}
+        className="min-h-screen"
+      />
     </StorelibSourcesProvider>
   )
 }

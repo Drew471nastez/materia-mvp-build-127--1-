@@ -1,18 +1,33 @@
 "use client"
 
-// Newsletter — centered or split-layout email capture form. Submission
-// is stubbed at the renderer level (shows the success message and stays
-// there); actual list wiring is done by the host app's form endpoint
-// when it chooses to adopt this section.
+/**
+ * Newsletter: a centred or split email capture form.
+ *
+ * IT USED TO CAPTURE NOTHING. The submit handler called `preventDefault()`
+ * and set the success message, so a visitor read "you're in, check your
+ * inbox" and no address was recorded anywhere, on any site built with this
+ * section. A button that plainly does nothing is better than one that says
+ * it worked.
+ *
+ * It posts to /api/website-builder/subscribe now, which writes to the same
+ * `subscribers` table as every other capture on the platform and fires the
+ * creator's welcome automation. Inside the builder's canvas it still only
+ * shows the success state, because designing a page is not subscribing to
+ * it.
+ */
 
 import { useState } from "react"
 import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 import { hexToRgba } from "../_shared"
+import { useStorefront } from "../../theme/storefront-context"
 
 export function NewsletterSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
+  const { creatorId, inEditor } = useStorefront()
   const [submitted, setSubmitted] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [failed, setFailed] = useState("")
   const bg = str(s.bg_color) || c.bg
   const color = str(s.text_color) || c.text
   const padTop = typeof s.padding_top === "number" ? s.padding_top : 60
@@ -21,9 +36,39 @@ export function NewsletterSection({ section, theme, isEditing, isSelected, onCli
   const bgImage = str(s.bg_image)
   const overlayOp = typeof s.bg_overlay_opacity === "number" ? s.bg_overlay_opacity : 40
 
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    // The canvas is not a place to join a mailing list.
+    if (isEditing || inEditor || !creatorId) { setSubmitted(true); return }
+    const data = new FormData(e.currentTarget)
+    const email = String(data.get("email") ?? "").trim()
+    const name = String(data.get("name") ?? "").trim()
+    if (!email) return
+    setSending(true)
+    setFailed("")
+    try {
+      const res = await fetch("/api/website-builder/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creator_id: creatorId, email, name: name || undefined }),
+      })
+      const out = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        // Said plainly, and the form stays filled in so nobody retypes it.
+        setFailed(out.error || "Something went wrong. Please try again.")
+        return
+      }
+      setSubmitted(true)
+    } catch {
+      setFailed("Could not reach the server. Please try again.")
+    } finally {
+      setSending(false)
+    }
+  }
+
   const form = (
     <form
-      onSubmit={e => { e.preventDefault(); setSubmitted(true) }}
+      onSubmit={submit}
       className="w-full max-w-md mx-auto"
     >
       {submitted ? (
@@ -35,6 +80,8 @@ export function NewsletterSection({ section, theme, isEditing, isSelected, onCli
           {bool(s.show_name_field, false) && (
             <input
               type="text"
+              name="name"
+              autoComplete="given-name"
               placeholder="First name"
               className="w-full mb-3 px-4 py-3 rounded text-sm"
               style={{ background: hexToRgba(color, 0.1), color, border: `1px solid ${hexToRgba(color, 0.3)}` }}
@@ -43,19 +90,27 @@ export function NewsletterSection({ section, theme, isEditing, isSelected, onCli
           <div className="flex flex-col @[640px]:flex-row gap-2">
             <input
               type="email"
+              name="email"
               required
+              autoComplete="email"
               placeholder={str(s.placeholder, "Enter your email address")}
               className="flex-1 px-4 py-3 rounded text-sm"
               style={{ background: hexToRgba(color, 0.1), color, border: `1px solid ${hexToRgba(color, 0.3)}` }}
             />
             <button
               type="submit"
-              className="px-5 py-3 rounded text-sm font-semibold"
+              disabled={sending}
+              className="px-5 py-3 rounded text-sm font-semibold transition-opacity disabled:opacity-60"
               style={{ background: color, color: bg }}
             >
-              {str(s.button_text, "Subscribe")}
+              {sending ? "Subscribing…" : str(s.button_text, "Subscribe")}
             </button>
           </div>
+          {failed && (
+            <p role="alert" className="mt-3 text-xs text-center" style={{ color }}>
+              {failed}
+            </p>
+          )}
           {!!s.disclaimer && (
             <p className="mt-3 text-xs opacity-70 text-center">{str(s.disclaimer)}</p>
           )}

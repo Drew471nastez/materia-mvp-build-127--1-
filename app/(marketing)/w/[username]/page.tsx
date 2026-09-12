@@ -1,3 +1,4 @@
+import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -142,7 +143,12 @@ export default async function WebsitePublicPage({ params }: PageProps) {
    * unpublished version is the preview link's job, on the storefront route:
    * see lib/website-builder/preview-link.ts.
    */
-  const sections: SectionInstance[] = pageSections<SectionInstance[]>(pageData, false) ?? []
+  /**
+   * And again on the way out. The database already holds rich text saved
+   * before anything sanitised it, and rows can arrive from an import. The
+   * save path is the authority; this is what covers what is already there.
+   */
+  const sections: SectionInstance[] = sanitizeSections(pageSections<SectionInstance[]>(pageData, false) ?? [])
 
   /**
    * Rendered here, on the server, once. Without this a .storelib section
@@ -163,6 +169,8 @@ export default async function WebsitePublicPage({ params }: PageProps) {
       <ThemePage
         theme={themeSettings}
         sections={sections}
+        // Whose site this is, for the sections that send something somewhere.
+        storefront={{ creatorId: creator.id }}
         emptyDetail="Check back soon!"
       />
     </StorelibSourcesProvider>

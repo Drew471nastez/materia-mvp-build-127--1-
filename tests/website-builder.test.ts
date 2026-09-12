@@ -563,6 +563,118 @@ section("Add Section is derived from the files, one card per preset")
   })())
 }
 
+// ===========================================================================
+section("Undo cannot reach a page you are not on")
+// ===========================================================================
+
+{
+  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+
+  /**
+   * An undo snapshot is the whole page: `sections` plus the theme settings.
+   * Switching page replaces `sections` wholesale, and the stack was never
+   * cleared — so the next Undo wrote the PREVIOUS page's sections onto the
+   * page now open, marked it dirty, and autosave persisted that a second and
+   * a half later. Silent, and it destroys a page nobody was looking at.
+   */
+  check(
+    "there is one place that clears the history",
+    /const clearHistory = useCallback\(\(\) => \{\s*\n\s*setUndoStack\(\[\]\)\s*\n\s*setRedoStack\(\[\]\)/.test(editor),
+  )
+  check(
+    "a page change clears it",
+    /switchingPage\.current = true\s*\n\s*\/\/ The history describes the page being left[\s\S]{0,80}clearHistory\(\)/.test(editor),
+  )
+  check(
+    "so does opening a product page, which is another page",
+    /const handleSelectProductPage[\s\S]{0,400}clearHistory\(\)/.test(editor),
+  )
+  check(
+    "and loading a page's sections directly",
+    /const loadSections = useCallback[\s\S]{0,220}setUndoStack\(\[\]\)/.test(editor),
+  )
+
+  /**
+   * The AI was the one kind of change a person did not make by hand, and the
+   * one kind they could not take back: Undo pointed at whatever they had done
+   * before it, so pressing it threw away their own work instead of the
+   * model's.
+   */
+  check(
+    "an AI edit records an undo step like every other edit",
+    /const applyAiOp = useCallback[\s\S]{0,1400}pushUndoRef\.current\(\)/.test(editor),
+  )
+  check(
+    "and it is the debounced one, so one instruction is one step",
+    /pushUndoRef\.current = debouncedPushUndo/.test(editor),
+  )
+}
+
+// ===========================================================================
+section("A form that says it worked, did")
+// ===========================================================================
+
+{
+  const newsletter = read("components/website-builder/sections/renderers/NewsletterSection.tsx")
+  const route = read("app/api/website-builder/subscribe/route.ts")
+  const themePage = read("components/website-builder/theme/ThemePage.tsx")
+
+  /**
+   * The submit handler called `preventDefault()` and set the success
+   * message. That was the whole of it: a visitor read "you're in, check your
+   * inbox" and no address was recorded anywhere, on any site built with this
+   * section. A button that plainly does nothing is better than one that lies.
+   */
+  check(
+    "the newsletter form posts somewhere",
+    /fetch\("\/api\/website-builder\/subscribe"/.test(newsletter) &&
+      !/onSubmit=\{e => \{ e\.preventDefault\(\); setSubmitted\(true\) \}\}/.test(newsletter),
+  )
+  check(
+    "its fields are named, or the form has nothing to send",
+    /name="email"/.test(newsletter) && /name="name"/.test(newsletter),
+  )
+  check(
+    "a failure is shown rather than reported as a success",
+    /setFailed\(/.test(newsletter) && /role="alert"/.test(newsletter),
+  )
+  check(
+    "and the builder's canvas still sends nothing",
+    /if \(isEditing \|\| inEditor \|\| !creatorId\)/.test(newsletter) &&
+      /storefront=\{\{ inEditor: true \}\}/.test(read("app/website-builder/editor/[installId]/page.tsx")),
+  )
+
+  check(
+    "the section is told whose site it is on",
+    /storefront\?: Storefront/.test(themePage) &&
+      /storefront=\{\{ creatorId: creator\.id \}\}/.test(read("app/(marketing)/w/[username]/page.tsx")) &&
+      /storefront=\{\{ creatorId: site\.creatorId/.test(read("app/(marketing)/[sellername]/page.tsx")),
+  )
+
+  check(
+    "the endpoint writes to the same table as every other capture",
+    /\.from\("subscribers"\)/.test(route) && /source: "website_builder_newsletter"/.test(route),
+  )
+  check(
+    "and fires the creator's own welcome automation",
+    /triggerEmailFlows\(/.test(route) && /triggerType: "new_subscriber"/.test(route),
+  )
+  check(
+    "an unknown creator writes nothing",
+    /\.from\("creators"\)[\s\S]{0,160}if \(!creator\) return/.test(route),
+  )
+  check(
+    "subscribing twice is not an error and not a second row",
+    /if \(existing\) return NextResponse\.json\(\{ ok: true \}\)/.test(route) && /error\.code === "23505"/.test(route),
+  )
+  check(
+    "and the answer does not tell a stranger who is already on the list",
+    // The reply for an address already subscribed is byte for byte the reply
+    // for a new one, or the endpoint becomes a way to ask.
+    (route.match(/return NextResponse\.json\(\{ ok: true \}\)/g) ?? []).length >= 2,
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

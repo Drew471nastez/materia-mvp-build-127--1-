@@ -1,3 +1,4 @@
+import { sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { z } from "zod"
@@ -70,7 +71,16 @@ export async function PUT(req: Request, { params }: Params) {
       { status: 400 },
     )
   }
-  const { settings, draft_settings, mode } = parsed.data
+  const parsedSettings = parsed.data
+  /**
+   * The announcement bar's message and the other theme settings the theme
+   * itself puts into the page are HTML, and the same rule applies to them as
+   * to a section's rich text: nothing that can execute reaches the database.
+   * See lib/website-builder/sanitize.ts.
+   */
+  const settings = parsedSettings.settings ? sanitizeThemeSettings(parsedSettings.settings) : undefined
+  const draft_settings = parsedSettings.draft_settings ? sanitizeThemeSettings(parsedSettings.draft_settings) : parsedSettings.draft_settings
+  const mode = parsedSettings.mode
 
   const update: Record<string, unknown> = {}
 

@@ -1,3 +1,4 @@
+import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { LIMITS } from "@/lib/storelib-theme/types"
@@ -100,11 +101,26 @@ export async function PUT(req: Request, { params }: Params) {
       { status: 400 },
     )
   }
-  const { page_key, sections, mode } = parsed.data as {
+  const { page_key, sections: raw, mode } = parsed.data as {
     page_key: string
     sections: SectionInstance[]
     mode?: "draft" | "publish"
   }
+
+  /**
+   * THE AUTHORITY ON WHAT REACHES THE DATABASE.
+   *
+   * Several sections put a setting straight into the DOM, and a published
+   * storefront is served from storelib.com/<username>, the platform's own
+   * origin. Script in a rich text body therefore ran in the session of any
+   * signed-in visitor who opened that store. The rich text control is a
+   * plain textarea, so putting it there took no tooling at all.
+   *
+   * Cleaned here rather than only at render, because a value that never
+   * enters the database cannot be missed by a read path somebody adds later.
+   * See lib/website-builder/sanitize.ts for the allow lists.
+   */
+  const sections = sanitizeSections(raw)
 
   /**
    * ===========================================================================

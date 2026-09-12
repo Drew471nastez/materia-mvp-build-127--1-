@@ -37,6 +37,7 @@
  * Keeping them apart is also what stops a new creator being cached as "no
  * such site" for an hour because somebody guessed their address early.
  */
+import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { unstable_cache, revalidateTag } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
@@ -162,7 +163,12 @@ async function buildSite(creatorId: string, displayName: string): Promise<SiteLo
     .eq("page_key", "home")
     .maybeSingle()
 
-  const sections = pageSections<SectionInstance[]>(pageData as never, false) ?? []
+  /**
+   * And again on the way out. The database already holds rich text saved
+   * before anything sanitised it, and rows can arrive from an import. The
+   * save path is the authority; this is what covers what is already there.
+   */
+  const sections = sanitizeSections(pageSections<SectionInstance[]>(pageData as never, false) ?? [])
   const prerendered = await prerenderStorelibSections(admin as never, row.id, sections, themeSettings, "index")
 
   return {
