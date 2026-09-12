@@ -38,7 +38,7 @@
  * such site" for an hour because somebody guessed their address early.
  */
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
-import { unstable_cache, revalidateTag } from "next/cache"
+import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
 import { shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
@@ -338,7 +338,7 @@ async function resolveSite(name: string): Promise<ShopLookup> {
  * Publish and unpublish both call this. Unpublish matters as much: a site
  * taken down that stays in a cache is still up.
  */
-export function revalidatePublishedSite(creatorId: string): void {
+export async function revalidatePublishedSite(creatorId: string): Promise<void> {
   /**
    * The second argument is how long the purge itself is remembered, and it
    * has to outlive the entries it is purging or a stale one could survive
@@ -346,4 +346,45 @@ export function revalidatePublishedSite(creatorId: string): void {
    * entries are held for.
    */
   revalidateTag(creatorSiteTag(creatorId), { expire: SITE_TTL })
+
+  /**
+   * AND THE RENDERED PAGE, which is a second cache and was not being told.
+   *
+   * The public routes are held at the edge for a minute now. Purging the data
+   * underneath them does nothing to a page already rendered from it, so
+   * without this a creator pressed Publish and watched the old site for up to
+   * sixty seconds — the exact complaint the caching was meant to avoid
+   * causing.
+   *
+   * `"layout"` rather than `"page"`: it takes the front page and every page
+   * below it, which is what a publish changes.
+   */
+  const name = await creatorUsername(creatorId)
+  if (name) revalidatePath(`/w/${name}`, "layout")
+}
+
+/**
+ * The name a creator's site is served under. Profile username first, then the
+ * creator slug, which is the same order `findCreator` resolves a name in.
+ */
+async function creatorUsername(creatorId: string): Promise<string | null> {
+  try {
+    const admin = createAdminClient()
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("username")
+      .eq("id", creatorId)
+      .maybeSingle()
+    const fromProfile = (profile as { username?: string | null } | null)?.username
+    if (fromProfile) return fromProfile
+    const { data: creator } = await admin
+      .from("creators")
+      .select("username")
+      .eq("id", creatorId)
+      .maybeSingle()
+    return (creator as { username?: string | null } | null)?.username ?? null
+  } catch {
+    // A purge that cannot find the name is better than a publish that fails.
+    return null
+  }
 }

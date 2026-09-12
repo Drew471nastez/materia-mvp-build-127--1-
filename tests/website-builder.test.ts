@@ -67,7 +67,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
  * both hand the work to this one file, so this is where the site's rendering
  * is asserted.
  */
-const RENDER_SITE = "app/(marketing)/w/[username]/render-site.tsx"
+const RENDER_SITE = "app/(site)/w/[username]/render-site.tsx"
 const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1")
 
 // ── Section schemas, as the editor reads them ───────────────────────────
@@ -536,7 +536,7 @@ section("Add Section is derived from the files, one card per preset")
    * or a section is compiled for one template and told it is on another.
    */
   {
-    const site = read("app/(marketing)/w/[username]/render-site.tsx")
+    const site = read("app/(site)/w/[username]/render-site.tsx")
     check("the website renders its sections on the server", /await prerenderStorelibSections\(/.test(site))
     check(
       "and names the template after the page it is drawing",
@@ -687,7 +687,7 @@ section("A form that says it worked, did")
   check(
     "the section is told whose site it is on",
     // The built website is served from the subdomain, which is
-    // app/(marketing)/w/[username]. storelib.com/<name> is the creator's
+    // app/(site)/w/[username]. storelib.com/<name> is the creator's
     // profile page and renders no theme sections.
     /storefront\?: Storefront/.test(themePage) &&
       /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId \}\}/.test(read(RENDER_SITE)) &&
