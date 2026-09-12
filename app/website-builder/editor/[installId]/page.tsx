@@ -71,7 +71,8 @@ import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/re
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { reviveScroller, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
+import { resetClippedAncestors, reviveScroller, scrollWithin, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
+import { describeFreeze, sendFreezeReport } from "@/lib/website-builder/freeze-report"
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
@@ -3829,11 +3830,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     lastOverId.current = null
   }, [])
 
-  // Scroll to a section in the canvas
+  /**
+   * Scroll the CANVAS to a section, and nothing else. `scrollIntoView` was
+   * the call here, and it scrolls every ancestor it needs to: the clipped
+   * wrapper around the card and, on iOS, the window itself, `overflow:
+   * hidden` or not. Each is left wherever it went, with no touch that can
+   * bring it back, and the card sits displaced with a scroller that no
+   * longer lines up with the finger. One container, scrolled by hand.
+   */
   const scrollToSection = useCallback((sectionId: string) => {
     setTimeout(() => {
       const el = document.getElementById(`wb-section-${sectionId}`)
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+      const scroller = document.getElementById("wb-preview-root")
+      if (el && scroller) scrollWithin(scroller, el)
     }, 80)
   }, [])
 
@@ -6177,6 +6186,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     clearStaleDocumentLocks(document)
     const el = document.getElementById("wb-preview-root")
     if (!el) return
+    // A wrapper that a script scrolled is an offset no finger can undo.
+    resetClippedAncestors(el, (node) => window.getComputedStyle(node as Element))
     reviveScroller(el, (cb) => window.requestAnimationFrame(cb))
     // A keyboard that was up inside the code frame leaves its scroll offset
     // on the webview; nothing the builder owns can scroll it back but this.
@@ -6211,12 +6222,52 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }, [previewMode, projectSettingsOpen, reviveCanvas])
 
-  // And the watchdog, on a phone: a real drag that moves nothing is a freeze.
+  /**
+   * And the watchdog, on a phone: a real drag that moves nothing is a freeze.
+   *
+   * BEFORE IT IS REVIVED, THE PHONE SAYS WHAT IT SAW. Every cause named so
+   * far was found by reproducing the freeze in a headless browser; the one
+   * still reported does not reproduce there. So at the moment the watchdog
+   * catches a dead drag, the geometry and state that decide whether a touch
+   * can scroll are photographed and sent to the server log, where they can
+   * be read. Where the finger was, and whether the browser had already
+   * cancelled its move, come from two passive listeners of our own: the
+   * watchdog's callback has neither. See lib/website-builder/freeze-report.ts.
+   */
+  const lastTouch = useRef<{ x: number; y: number; prevented: boolean | null }>({ x: 0, y: 0, prevented: null })
+  const lastReportAt = useRef(0)
   useEffect(() => {
     if (!isMobileView) return
     const el = document.getElementById("wb-preview-root")
     if (!el) return
-    return watchForStuckScroll(el, reviveCanvas)
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0]
+      if (t) lastTouch.current = { x: t.clientX, y: t.clientY, prevented: null }
+    }
+    // On the window, so it runs after every listener that could have
+    // cancelled the move, and passive, so it can never be the one that does.
+    const onMove = (e: TouchEvent) => { lastTouch.current.prevented = e.defaultPrevented }
+    document.addEventListener("touchstart", onStart, { passive: true, capture: true })
+    window.addEventListener("touchmove", onMove, { passive: true })
+    const stop = watchForStuckScroll(el, () => {
+      try {
+        const report = describeFreeze(document, window, el, "stuck-drag", lastTouch.current)
+        lastReportAt.current = sendFreezeReport(
+          (path, body) => { void fetch(path, { method: "POST", body, keepalive: true, headers: { "content-type": "application/json" } }).catch(() => {}) },
+          report,
+          Date.now(),
+          lastReportAt.current,
+        )
+      } catch {
+        // A report that cannot be taken must never stand between the drag and the revive.
+      }
+      reviveCanvas()
+    })
+    return () => {
+      stop()
+      document.removeEventListener("touchstart", onStart, { capture: true })
+      window.removeEventListener("touchmove", onMove)
+    }
   }, [isMobileView, reviveCanvas])
 
   /**

@@ -1,0 +1,229 @@
+/**
+ * ===========================================================================
+ *  WHEN THE CANVAS DIES ON A PHONE, THE PHONE SAYS WHAT IT SAW
+ * ===========================================================================
+ * The freeze that is still reported does not reproduce in a headless browser,
+ * so the device is asked at the moment the watchdog catches a dead drag. This
+ * RUNS the report against a fake document and checks two things above all:
+ * that it captures what decides whether a touch can scroll, and that it
+ * carries no content. Then the two hardenings shipped with it: a clipped
+ * ancestor scrolled by a script is put back, and the canvas is scrolled by
+ * hand rather than by `scrollIntoView`.
+ */
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+import {
+  FREEZE_REPORT_GAP_MS,
+  FREEZE_REPORT_PATH,
+  describeFreeze,
+  describeNode,
+  sendFreezeReport,
+  type NodeLike,
+  type ReportDoc,
+  type ReportWindow,
+  type StyleLike,
+} from "@/lib/website-builder/freeze-report"
+import { resetClippedAncestors, scrollWithin } from "@/lib/website-builder/canvas-scroll"
+
+let passed = 0
+let failed = 0
+const failures: string[] = []
+function check(name: string, ok: boolean, detail = "") {
+  if (ok) { passed++; console.log(`  ok    ${name}`) }
+  else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
+}
+function section(t: string) { console.log(`\n${t}`) }
+
+const root = process.cwd()
+const read = (p: string) => readFileSync(join(root, p), "utf8")
+
+/* ── A fake page ───────────────────────────────────────────────────────── */
+
+type FakeNode = NodeLike & { text: string; css: Partial<StyleLike>; rect: { top: number; left: number; width: number; height: number }; children: FakeNode[]; attrs: Record<string, string> }
+
+function node(tag: string, opts: Partial<FakeNode> & { css?: Partial<StyleLike> } = {}): FakeNode {
+  const n: FakeNode = {
+    tagName: tag.toUpperCase(),
+    id: opts.id ?? "",
+    className: opts.className ?? "",
+    parentElement: null,
+    scrollTop: opts.scrollTop ?? 0,
+    scrollLeft: opts.scrollLeft ?? 0,
+    scrollHeight: opts.scrollHeight ?? 0,
+    clientHeight: opts.clientHeight ?? 0,
+    text: opts.text ?? "",
+    css: opts.css ?? {},
+    rect: opts.rect ?? { top: 0, left: 0, width: 0, height: 0 },
+    children: [],
+    attrs: opts.attrs ?? {},
+    style: { cssText: (opts.style as { cssText?: string } | undefined)?.cssText ?? "" },
+    getBoundingClientRect() { return this.rect },
+    getAttribute(name: string) { return this.attrs[name] ?? null },
+    contains(other: NodeLike | null) {
+      let cur = other
+      while (cur) { if (cur === this) return true; cur = cur.parentElement }
+      return false
+    },
+  }
+  return n
+}
+function add(parent: FakeNode, child: FakeNode) { child.parentElement = parent; parent.children.push(child); return child }
+function all(n: FakeNode, out: FakeNode[] = []): FakeNode[] { out.push(n); for (const c of n.children) all(c, out); return out }
+
+const base: StyleLike = { overflowX: "visible", overflowY: "visible", pointerEvents: "auto", touchAction: "auto", opacity: "1", visibility: "visible", position: "static", transform: "none", zIndex: "auto" }
+
+function page() {
+  const html = node("html", { className: "capacitor wb-fullscreen", css: { overflowY: "hidden" } })
+  const body = add(html, node("body", { css: { overflowY: "hidden" } }))
+  const app = add(body, node("div", { className: "wb-editor fixed", css: { position: "fixed" }, rect: { top: 0, left: 0, width: 390, height: 844 } }))
+  const wrap = add(app, node("div", { className: "relative overflow-hidden", css: { overflowY: "hidden" }, scrollTop: 37, rect: { top: 60, left: 0, width: 390, height: 700 } }))
+  const scroller = add(wrap, node("div", { id: "wb-preview-root", css: { overflowY: "auto", touchAction: "pan-y" }, scrollTop: 120, scrollHeight: 4000, clientHeight: 700, rect: { top: 60, left: 0, width: 390, height: 700 }, style: { cssText: "touch-action: pan-y;" } }))
+  const sectionEl = add(scroller, node("div", { id: "wb-section-abc", rect: { top: 300, left: 0, width: 390, height: 900 } }))
+  const heading = add(sectionEl, node("h2", { text: "What can I buy from the andrewullz collection?", rect: { top: 320, left: 20, width: 350, height: 40 } }))
+  const scrim = add(body, node("div", { className: "fixed inset-0 bg-black/30", css: { position: "fixed", opacity: "0", pointerEvents: "auto", zIndex: "40" }, rect: { top: 0, left: 0, width: 390, height: 844 } }))
+  const sheet = add(body, node("div", { className: "fixed sheet", css: { position: "fixed", zIndex: "50" }, rect: { top: 744, left: 0, width: 390, height: 100 }, attrs: { "data-mobile-bottom-sheet": "", "aria-modal": "true" } }))
+  const input = add(sheet, node("input", { text: "Accordion FAQ" }))
+  const nodes = () => all(html)
+  const doc: ReportDoc = {
+    documentElement: html,
+    body,
+    activeElement: input,
+    elementFromPoint: () => heading,
+    querySelectorAll: (sel: string) => {
+      if (sel === "div, section, span") return nodes().filter((n) => ["DIV", "SECTION", "SPAN"].includes(n.tagName ?? ""))
+      if (sel === "[data-mobile-bottom-sheet][aria-modal=true]") return [sheet]
+      return []
+    },
+  }
+  const win: ReportWindow = {
+    innerWidth: 390,
+    innerHeight: 844,
+    scrollX: 0,
+    scrollY: 52,
+    visualViewport: { width: 390, height: 844, offsetTop: 0, offsetLeft: 0, pageTop: 52, scale: 1 },
+    getComputedStyle: (el) => ({ ...base, ...(el as FakeNode).css }),
+    navigator: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15" },
+  }
+  return { doc, win, scroller, wrap, sectionEl, heading, scrim, sheet, input }
+}
+
+/* ── The report ────────────────────────────────────────────────────────── */
+
+section("describeNode says what a node is and nothing of what it holds")
+{
+  const n = node("div", { id: "wb-section-abc", className: "relative w-full isolate group/section", text: "private words" })
+  const d = describeNode(n)
+  check("tag, id and the first two classes", d === "div#wb-section-abc.relative.w-full", d)
+  check("no text content", !d.includes("private"))
+  check("nothing is 'none'", describeNode(null) === "none")
+}
+
+section("The picture a frozen phone sends")
+{
+  const p = page()
+  const r = describeFreeze(p.doc, p.win, p.scroller, "stuck-drag", { x: 200, y: 400, prevented: true })
+  check("the reason travels", r.reason === "stuck-drag")
+  check("the window offset the keyboard leaves is in it", r.window.scrollY === 52 && r.viewport?.pageTop === 52)
+  check("the scroller's own numbers are in it", r.scroller?.scrollTop === 120 && r.scroller?.scrollHeight === 4000 && r.scroller?.clientHeight === 700)
+  check("the scroller's computed touch-action and overflow are in it", r.scroller?.style.ta === "pan-y" && r.scroller?.style.overflow === "visible/auto")
+  check("its inline style is in it", r.scroller?.inline === "touch-action: pan-y;")
+  check("every ancestor is listed with its scroll offset", r.ancestors.length === 4 && r.ancestors[0].el.startsWith("div.relative.overflow-hidden") && r.ancestors[0].scrollTop === 37)
+  check("what was under the finger is listed, and whether it is inside the canvas", r.underTouch[0].el === "h2" && r.underTouch[0].inCanvas === true && r.underTouch.some((u) => u.el.startsWith("body") && !u.inCanvas))
+  check("whether the move had been cancelled is in it", r.touch?.prevented === true)
+  check("the invisible scrim that still takes pointer events is caught", r.covers.length === 1 && r.covers[0].startsWith("div.fixed.inset-0") && r.covers[0].includes("op=0"))
+  check("the canvas itself is not reported as a cover", !r.covers.some((c) => c.includes("wb-preview-root")))
+  check("the sheet holding aria-modal is listed as a layer", r.layers.some((l) => l.includes("aria-modal=true") && l.endsWith("x1")))
+  check("what has focus is named by tag, not by value", r.focus === "input")
+  check("body and html state are in it", r.body.overflow === "visible/hidden" && r.html.classes.includes("wb-fullscreen"))
+  check("the user agent is in it, cut short", r.ua.startsWith("Mozilla/5.0 (iPhone") && r.ua.length <= 120)
+  const json = JSON.stringify(r)
+  check("no text a person typed or could read is in the report", !json.includes("andrewullz") && !json.includes("Accordion FAQ") && !json.includes("What can I buy"))
+  check("small enough for a log line", json.length < 4000, String(json.length))
+}
+
+section("Without a touch and without a scroller it still reports")
+{
+  const p = page()
+  const r = describeFreeze(p.doc, p.win, null, "keyboard", null)
+  check("no scroller, no touch, no crash", r.scroller === null && r.touch === null && r.underTouch.length === 0 && r.ancestors.length === 0)
+}
+
+section("One picture per freeze")
+{
+  const sent: string[] = []
+  const post = (path: string, body: string) => sent.push(`${path} ${body.length}`)
+  const p = page()
+  const r = describeFreeze(p.doc, p.win, p.scroller, "stuck-drag", null)
+  let last = sendFreezeReport(post, r, 10_000, 0)
+  check("the first one goes, to the right place", sent.length === 1 && sent[0].startsWith(FREEZE_REPORT_PATH) && last === 10_000)
+  last = sendFreezeReport(post, r, 10_000 + FREEZE_REPORT_GAP_MS - 1, last)
+  check("another drag of the same frozen canvas does not send again", sent.length === 1 && last === 10_000)
+  last = sendFreezeReport(post, r, 10_000 + FREEZE_REPORT_GAP_MS, last)
+  check("after the gap it does", sent.length === 2 && last === 10_000 + FREEZE_REPORT_GAP_MS)
+}
+
+/* ── The two hardenings ────────────────────────────────────────────────── */
+
+section("A clipped ancestor that a script scrolled is put back")
+{
+  const p = page()
+  const overflowOf = (n: unknown) => { const s = p.win.getComputedStyle(n as NodeLike); return { overflowX: s.overflowX, overflowY: s.overflowY } }
+  const reset = resetClippedAncestors(p.scroller as never, overflowOf)
+  check("the overflow-hidden wrapper at 37px goes to zero", p.wrap.scrollTop === 0 && reset.length === 1 && reset[0].includes("@37,0"), reset.join())
+  check("the scroller itself is not touched", p.scroller.scrollTop === 120)
+  const again = resetClippedAncestors(p.scroller as never, overflowOf)
+  check("nothing to do the second time", again.length === 0)
+}
+{
+  const outer = node("div", { css: { overflowY: "auto" }, scrollTop: 300 })
+  const inner = add(outer, node("div", { css: { overflowX: "hidden", overflowY: "hidden" }, scrollLeft: 12 }))
+  const leaf = add(inner, node("div"))
+  const overflowOf = (n: unknown) => { const c = (n as FakeNode).css; return { overflowX: c.overflowX ?? "visible", overflowY: c.overflowY ?? "visible" } }
+  const reset = resetClippedAncestors(leaf as never, overflowOf)
+  check("a real scroller keeps its position", outer.scrollTop === 300)
+  check("a clipped ancestor's horizontal offset goes too", inner.scrollLeft === 0 && reset.length === 1)
+}
+
+section("The canvas is scrolled by hand, and nothing above it")
+{
+  const calls: Array<{ top: number; behavior: string }> = []
+  const scroller = { scrollTop: 120, getBoundingClientRect: () => ({ top: 60 }), scrollTo: (o: { top: number; behavior: "smooth" | "auto" }) => { calls.push(o); scroller.scrollTop = o.top } }
+  const target = { getBoundingClientRect: () => ({ top: 300 }) }
+  const top = scrollWithin(scroller, target)
+  check("the target's offset inside the scroller is what is scrolled to", top === 360 && calls[0]?.top === 360 && calls[0]?.behavior === "smooth", JSON.stringify(calls))
+  const above = { getBoundingClientRect: () => ({ top: -500 }) }
+  check("never below zero", scrollWithin(scroller, above, "auto") === 0)
+  const plain = { scrollTop: 0, getBoundingClientRect: () => ({ top: 0 }) }
+  scrollWithin(plain, { getBoundingClientRect: () => ({ top: 42 }) })
+  check("a scroller without scrollTo is assigned directly", plain.scrollTop === 42)
+}
+
+/* ── Wired where it matters ────────────────────────────────────────────── */
+
+section("The editor")
+{
+  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const code = editor.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+  check("no longer calls scrollIntoView anywhere", !code.includes("scrollIntoView("))
+  check("scrolls the canvas to a section with scrollWithin", code.includes("scrollWithin(scroller, el)"))
+  check("puts clipped ancestors back when it revives", code.includes("resetClippedAncestors(el,"))
+  check("photographs the freeze before it revives", (() => {
+    const at = code.indexOf('describeFreeze(document, window, el, "stuck-drag"')
+    const revive = code.indexOf("reviveCanvas()", at)
+    return at > 0 && revive > at
+  })())
+  check("reads whether the move was cancelled from a passive window listener", code.includes("lastTouch.current.prevented = e.defaultPrevented") && code.includes('window.addEventListener("touchmove", onMove, { passive: true })'))
+  check("a report that fails cannot stop the revive", /try \{[\s\S]*?describeFreeze[\s\S]*?\} catch \{[\s\S]*?\}\s*reviveCanvas\(\)/.test(code))
+}
+
+section("The endpoint")
+{
+  const route = read("app/api/website-builder/freeze-report/route.ts")
+  check("signed-in users only", route.includes("supabase.auth.getUser()") && route.includes("status: 401"))
+  check("capped in size", route.includes("FREEZE_REPORT_MAX_BYTES") && route.includes("status: 413"))
+  check("goes to the log under one tag", route.includes("console.warn(`[wb-freeze] ${JSON.stringify(report)}`)"))
+  check("stores nothing", !route.includes(".from(") && !route.includes("insert("))
+}
+
+console.log(`\n${passed} passed, ${failed} failed`)
+if (failed) { console.log(failures.map((f) => `  - ${f}`).join("\n")); process.exit(1) }

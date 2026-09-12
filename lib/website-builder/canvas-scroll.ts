@@ -163,3 +163,61 @@ export function watchForStuckScroll(
     el.removeEventListener("touchcancel", onEnd)
   }
 }
+
+/**
+ * ===========================================================================
+ *  A CLIPPED ANCESTOR THAT WAS SCROLLED IS AN OFFSET NOBODY CAN UNDO
+ * ===========================================================================
+ * `overflow: hidden` stops a finger, not a script. `scrollIntoView` and a
+ * focus that lifts a field above the keyboard walk EVERY scrollable ancestor,
+ * clipped ones included, and leave each one wherever it had to go. The canvas
+ * card then sits some pixels up inside its wrapper, with nothing a person can
+ * do to bring it back, because the wrapper takes no touch. Put every clipped
+ * ancestor back to zero; a scroller that is meant to scroll is left alone.
+ */
+export interface ClippedLike {
+  scrollTop: number
+  scrollLeft: number
+  parentElement: ClippedLike | null
+  tagName?: string
+  id?: string
+}
+
+export function resetClippedAncestors(
+  el: ClippedLike,
+  overflowOf: (node: ClippedLike) => { overflowX: string; overflowY: string },
+): string[] {
+  const reset: string[] = []
+  let node = el.parentElement
+  while (node) {
+    if (node.scrollTop !== 0 || node.scrollLeft !== 0) {
+      const o = overflowOf(node)
+      const clipped = (v: string) => v === "hidden" || v === "clip"
+      if ((node.scrollTop !== 0 && clipped(o.overflowY)) || (node.scrollLeft !== 0 && clipped(o.overflowX))) {
+        reset.push(`${(node.tagName ?? "node").toLowerCase()}${node.id ? `#${node.id}` : ""}@${node.scrollTop},${node.scrollLeft}`)
+        if (clipped(o.overflowY)) node.scrollTop = 0
+        if (clipped(o.overflowX)) node.scrollLeft = 0
+      }
+    }
+    node = node.parentElement
+  }
+  return reset
+}
+
+/**
+ * Bring `target` to the top of `scroller`, and move NOTHING ELSE.
+ * `scrollIntoView` is the obvious call and the wrong one here: it scrolls
+ * every ancestor it needs to, the clipped wrapper and the window included,
+ * which on iOS is how the canvas ends up displaced (see above). One
+ * container, scrolled by hand, cannot reach past itself.
+ */
+export function scrollWithin(
+  scroller: { scrollTop: number; getBoundingClientRect(): { top: number }; scrollTo?: (opts: { top: number; behavior: "smooth" | "auto" }) => void },
+  target: { getBoundingClientRect(): { top: number } },
+  behavior: "smooth" | "auto" = "smooth",
+): number {
+  const top = Math.max(0, Math.round(target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop))
+  if (typeof scroller.scrollTo === "function") scroller.scrollTo({ top, behavior })
+  else scroller.scrollTop = top
+  return top
+}
