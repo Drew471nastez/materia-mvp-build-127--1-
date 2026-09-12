@@ -1,17 +1,19 @@
 import { cookies } from "next/headers"
 
-// Session token value — update this string to invalidate all existing sessions
-const SESSION_TOKEN = "slblog_4f8e2a1b9c3d7e6f0a5b2c8d4e1f9a3b_v1"
+import { ADMIN_COOKIE, verifySessionToken } from "@/lib/admin-session"
 
+/**
+ * The cookie half of the admin gate. The token itself is in
+ * lib/admin-session.ts, which has no framework import so that the signing
+ * and the verifying can be run by the suite rather than read.
+ */
 export async function isAdminAuthenticated(): Promise<boolean> {
   try {
     const cookieStore = await cookies()
-    return cookieStore.get("blog_admin")?.value === SESSION_TOKEN
+    return verifySessionToken(cookieStore.get(ADMIN_COOKIE)?.value)
   } catch {
     return false
   }
 }
 
-export function getSessionToken(): string {
-  return SESSION_TOKEN
-}
+export { ADMIN_COOKIE, SESSION_MAX_AGE, issueSessionToken, verifySessionToken } from "@/lib/admin-session"

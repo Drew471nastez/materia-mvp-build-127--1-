@@ -26,6 +26,17 @@ export default function BlogAdminLoginClient() {
         router.push("/admin/blog/dashboard")
         return
       }
+      /**
+       * "Not configured" is not "wrong password", and telling somebody to
+       * try again when there is nothing to try is how an evening is spent.
+       * Every other failure keeps the one message, which says nothing about
+       * which half was wrong.
+       */
+      if (res.status === 503) {
+        const body = await res.json().catch(() => ({}))
+        setError(typeof body.error === "string" ? body.error : "Blog admin is not configured.")
+        return
+      }
       setError("Invalid username or password")
     } catch (err) {
       console.error("[blog-admin] login failed:", err)
