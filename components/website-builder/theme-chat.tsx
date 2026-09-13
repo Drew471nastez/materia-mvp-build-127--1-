@@ -37,6 +37,7 @@ import {
   X,
 } from "lucide-react"
 
+import { ImageViewer, type ViewableImage } from "@/components/website-builder/image-viewer"
 import { StorelibMark } from "@/components/storelib-mark"
 import { cn } from "@/lib/utils"
 import {
@@ -380,6 +381,18 @@ export function ThemeChat({
   const [attached, setAttached] = React.useState<Attachment[]>([])
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [attachError, setAttachError] = React.useState<string | null>(null)
+  /** Which picture is open full size, and the set it belongs to. */
+  const [viewing, setViewing] = React.useState<{ images: ViewableImage[]; at: number } | null>(null)
+  /**
+   * A FILE IS OVER THE PANEL.
+   *
+   * Counted rather than set, because dragenter and dragleave fire for every
+   * child the pointer crosses: a boolean flickers off the moment the cursor
+   * passes from the thread onto the composer inside it, and the drop target
+   * blinks the whole way down the panel.
+   */
+  const dragDepth = React.useRef(0)
+  const [dragging, setDragging] = React.useState(false)
 
   /**
    * A SCREENSHOT IS SHRUNK BEFORE IT IS SENT.
@@ -666,15 +679,26 @@ export function ThemeChat({
    * not compile is never stored, so the worst outcome here is being told why.
    */
   const writeOne = React.useCallback(
-    async (prompt: string) => {
+    async (prompt: string, images: Attachment[] = []) => {
       setWriting(true)
       setWriteError(null)
       setWritten(null)
+      setAttached([])
+      setAttachError(null)
       try {
         const res = await fetch(`/api/website-builder/themes/${installId}/sections/code`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt }),
+          /**
+           * THE PICTURES GO TOO. They used not to, which is the whole of the
+           * bug: attaching a screenshot here sent `{ prompt: "" }`, failed
+           * the route's own validation, and came back as "the assistant could
+           * not produce a section that compiles".
+           */
+          body: JSON.stringify({
+            prompt,
+            images: images.map((a) => ({ mediaType: a.mediaType, data: a.data, name: a.name })),
+          }),
         })
         const d = (await res.json().catch(() => ({}))) as {
           path?: string
@@ -708,7 +732,7 @@ export function ThemeChat({
       setDraft("")
       if (mode === "code") {
         if (writing) return
-        void writeOne(prompt)
+        void writeOne(prompt, images)
         return
       }
       if (busy) {
@@ -736,7 +760,56 @@ export function ThemeChat({
   React.useEffect(resize, [draft, resize])
 
   return (
-    <div className="flex h-full w-full flex-col bg-background">
+    <div
+      className="relative flex h-full w-full flex-col bg-background"
+      /**
+       * DROPPING WORKS ANYWHERE ON THE PANEL, not only on the composer. The
+       * counter is why: dragenter and dragleave fire for every child the
+       * pointer crosses, so a boolean would blink off on the way past the
+       * thread and the target would flicker down the whole panel.
+       */
+      onDragEnter={(event) => {
+        if (!event.dataTransfer.types.includes("Files")) return
+        dragDepth.current += 1
+        setDragging(true)
+      }}
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes("Files")) event.preventDefault()
+      }}
+      onDragLeave={(event) => {
+        if (!event.dataTransfer.types.includes("Files")) return
+        dragDepth.current = Math.max(0, dragDepth.current - 1)
+        if (dragDepth.current === 0) setDragging(false)
+      }}
+      onDrop={(event) => {
+        if (!event.dataTransfer.files.length) return
+        event.preventDefault()
+        dragDepth.current = 0
+        setDragging(false)
+        void attach(event.dataTransfer.files)
+      }}
+    >
+      {/*
+        WHAT A DROP WILL DO, while the file is still in the air. Without it
+        the gesture is something you either already know about or never find,
+        and a file let go over a panel that showed no target reads as broken.
+      */}
+      {dragging && (
+        <div data-drop-target="" className="pointer-events-none absolute inset-2 z-[120] flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-foreground/30 bg-background/90">
+          <ImagePlus className="h-6 w-6 text-foreground/60" strokeWidth={1.75} />
+          <p className="text-[13px] font-medium text-foreground">Drop the picture here</p>
+          <p className="text-[12px] text-muted-foreground">It will be built as closely as the theme allows</p>
+        </div>
+      )}
+
+      {viewing && (
+        <ImageViewer
+          images={viewing.images}
+          startAt={viewing.at}
+          onClose={() => setViewing(null)}
+        />
+      )}
+
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
         <StorelibMark className="h-[18px] w-[18px] shrink-0 rounded-[5px]" />
         <span className="flex-1 truncate text-[13px] font-medium">Ask Storelib</span>
@@ -866,14 +939,17 @@ export function ThemeChat({
               <li key={exchange.id} className="space-y-2">
                 {exchange.images && exchange.images.length > 0 && (
                   <div className="mb-1.5 flex flex-wrap gap-1.5">
-                    {exchange.images.map((image) => (
-                      /* eslint-disable-next-line @next/next/no-img-element -- a data URL held in memory for this thread only. */
-                      <img
+                    {exchange.images.map((image, index) => (
+                      <button
                         key={image.id}
-                        src={image.url}
-                        alt={image.name}
-                        className="h-16 w-16 rounded-lg border border-border object-cover"
-                      />
+                        type="button"
+                        onClick={() => setViewing({ images: exchange.images ?? [], at: index })}
+                        aria-label={`Open ${image.name}`}
+                        className="block overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element -- bytes this thread already holds. */}
+                        <img src={image.url} alt={image.name} className="h-16 w-16 object-cover" />
+                      </button>
                     ))}
                   </div>
                 )}
@@ -1081,12 +1157,15 @@ export function ThemeChat({
             <div className="flex flex-wrap gap-2 px-3 pt-3">
               {attached.map((image) => (
                 <div key={image.id} className="group/att relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- a data URL from the creator's own file; there is nothing to optimise and nowhere to fetch it from. */}
-                  <img
-                    src={image.url}
-                    alt={image.name}
-                    className="h-14 w-14 rounded-lg border border-border object-cover"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setViewing({ images: attached, at: attached.indexOf(image) })}
+                    aria-label={`Open ${image.name}`}
+                    className="block overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- a data URL from the creator's own file; there is nothing to optimise and nowhere to fetch it from. */}
+                    <img src={image.url} alt={image.name} className="h-14 w-14 object-cover" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => removeAttachment(image.id)}
