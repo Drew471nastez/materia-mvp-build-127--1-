@@ -240,10 +240,32 @@ section("It is reachable, and it works on a file longer than the window")
       /else void openCode\(\)/.test(editor),
   )
   check(
+    "a panel that is centred is not animated by its own placement: the two transforms are on two boxes",
+    // A centred panel is placed with translateX(-50%) and the enter animation
+    // sets `transform` outright, so for its whole length the centring is gone
+    // and the panel slides in from half its width to the right. Measured by
+    // eye as "it comes in from the right side weirdly".
+    ((panel) =>
+      /<div\s*\n\s*style=\{\{\s*\n\s*position: "fixed",[\s\S]*?transform: place\.transform,[\s\S]*?\}\}\s*\n\s*>\s*\n\s*<div ref=\{ref\} className=\{className\} style=\{\{ maxHeight: place\.maxHeight \}\}/.test(panel) &&
+      !/className=\{className\}[\s\S]{0,200}transform: place\.transform/.test(panel))(
+        readFileSync(join(root, "components/website-builder/anchored-panel.tsx"), "utf8"),
+      ),
+  )
+  check(
+    "the code page's Back says the builder is coming, in the same place and at the same size",
+    /const \[goingBack, setGoingBack\] = useState\(false\)/.test(codeSrc) &&
+      /if \(goingBack\) return\s*\n\s*setGoingBack\(true\)\s*\n\s*router\.push\(backHref\)/.test(codeSrc) &&
+      /goingBack \? \(\s*\n\s*<Loader2 className="h-4 w-4 animate-spin" \/>/.test(codeSrc) &&
+      /goingBack \? \(fromEditor \? "Opening the editor" : "Going back"\)/.test(codeSrc),
+  )
+  check(
     "and the code page's Back goes to the builder when it came from there, with no question: unsaved edits are held and offered back",
     /const fromEditor =[\s\S]*?get\("back"\) === "editor"/.test(codeSrc) &&
       /const backHref = fromEditor \? `\/website-builder\/editor\/\$\{installId\}` : "\/app\/website-builder"/.test(codeSrc) &&
-      /onClick=\{\(\) => router\.push\(backHref\)\}/.test(codeSrc),
+      // No confirm on the way out; the press itself is handled above, where
+      // the arrow becomes a spinner.
+      !/window\.confirm/.test(codeSrc) &&
+      /router\.push\(backHref\)/.test(codeSrc),
   )
   check(
     "selecting a section does not move the phone's sheet, and the canvas keeps the scroll it had",

@@ -413,8 +413,12 @@ section("Selecting a section cannot move the canvas")
   check("half a second, which covers a tap and is never felt", PIN_AFTER_SELECT_MS === 500)
   const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   check(
-    "a selection from the canvas arms it, and a touch or a wheel releases it",
-    /const selectSectionFromCanvas = useCallback\(\s*\n\s*\(sectionId: string, blockId\?: string \| null\) => \{[\s\S]*?pinScroll\(/.test(editor) &&
+    "on a phone the selected section comes to the top of the canvas, smoothly and on purpose",
+    /if \(isMobileView && section\) \{[\s\S]*?scrollWithin\(el, section, "smooth"\)/.test(editor),
+  )
+  check(
+    "a selection from the canvas arms it on a desktop, and a touch or a wheel releases it",
+    /const selectSectionFromCanvas = useCallback\(\s*\n\s*\(sectionId: string, blockId\?: string \| null\) => \{[\s\S]*?\} else \{[\s\S]*?pinScroll\(/.test(editor) &&
       /touchingCanvas\.current = true\s*\n\s*if \(!isMobileView\) return/.test(editor) &&
       /onTouchEnd=\{\(\) => \{ touchingCanvas\.current = false \}\}/.test(editor) &&
       /onWheelCapture=\{\(\) => \{ touchingCanvas\.current = true \}\}/.test(editor),

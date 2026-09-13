@@ -366,6 +366,8 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   const fromEditor =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("back") === "editor"
   const backHref = fromEditor ? `/website-builder/editor/${installId}` : "/app/website-builder"
+  /** Set the instant Back is pressed, so the arrow can say the page is coming. */
+  const [goingBack, setGoingBack] = useState(false)
   /**
    * `?path=` opens straight onto one file. Used when the assistant has just
    * written a section: "Open it" should land on the file, not on the tree with
@@ -1620,13 +1622,30 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <button
-          className="flex items-center gap-1.5 text-[13px] text-[var(--code-muted)] hover:text-[var(--code-text)] mr-1"
+          className="flex items-center gap-1.5 text-[13px] text-[var(--code-muted)] hover:text-[var(--code-text)] mr-1 disabled:opacity-100"
           // No question on the way out: an unsaved edit is held in this
           // browser and offered back the next time the file is opened.
-          onClick={() => router.push(backHref)}
+          //
+          // THE BUTTON SAYS IT IS GOING. The builder takes a moment to come
+          // back, and a back arrow that does nothing visible for a second
+          // reads as a press that missed. The arrow becomes a spinner in the
+          // same place, at the same size, so nothing moves.
+          onClick={() => {
+            if (goingBack) return
+            setGoingBack(true)
+            router.push(backHref)
+          }}
+          disabled={goingBack}
+          aria-busy={goingBack}
         >
-          <ArrowLeft className="h-4 w-4" />
-          <span className={cn("text-[12px]", fromEditor ? "inline" : "hidden sm:inline")}>{fromEditor ? "Editor" : "Website Builder"}</span>
+          {goingBack ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ArrowLeft className="h-4 w-4" />
+          )}
+          <span className={cn("text-[12px]", fromEditor ? "inline" : "hidden sm:inline")}>
+            {goingBack ? (fromEditor ? "Opening the editor" : "Going back") : fromEditor ? "Editor" : "Website Builder"}
+          </span>
         </button>
 
         <div className="h-4 w-px bg-[var(--code-active)]" />

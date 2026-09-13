@@ -5098,20 +5098,37 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const selectSectionFromCanvas = useCallback(
     (sectionId: string, blockId?: string | null) => {
       const el = document.getElementById("wb-preview-root")
+      const section = document.getElementById(`wb-section-${sectionId}`)
       if (el) {
-        touchingCanvas.current = false
-        pinScroll(
-          el,
-          PIN_AFTER_SELECT_MS,
-          (cb) => window.requestAnimationFrame(cb),
-          () => Date.now(),
-          () => touchingCanvas.current,
-        )
+        if (isMobileView && section) {
+          /**
+           * ON A PHONE THE SELECTED SECTION COMES TO THE TOP, SMOOTHLY.
+           * The screen is one column and the sheet takes the bottom of it, so
+           * a section selected anywhere is worth the same thing: bring it to
+           * the top of the canvas so the whole of it is in front of the
+           * person editing it. One smooth move, on purpose, rather than the
+           * accidental jumps this replaced.
+           */
+          touchingCanvas.current = true
+          scrollWithin(el, section, "smooth")
+        } else {
+          // A desktop has the section and its settings side by side already:
+          // moving the canvas would only take the section out from under the
+          // pointer. Held still instead; see pinScroll.
+          touchingCanvas.current = false
+          pinScroll(
+            el,
+            PIN_AFTER_SELECT_MS,
+            (cb) => window.requestAnimationFrame(cb),
+            () => Date.now(),
+            () => touchingCanvas.current,
+          )
+        }
       }
       setSelectedPanel({ type: "section", sectionId })
       setSelectedBlockId(blockId ?? null)
     },
-    [],
+    [isMobileView],
   )
   /**
    * AND THE SIDEBAR GOES TO IT. Selecting the ninth FAQ entry on the canvas

@@ -122,22 +122,35 @@ export function AnchoredPanel({
 
   if (!mounted || !place) return null
 
+  /**
+   * =========================================================================
+   *  TWO BOXES, BECAUSE ONE TRANSFORM CANNOT DO TWO JOBS
+   * =========================================================================
+   * A centred panel is placed by `transform: translateX(-50%)`, and the enter
+   * animation the callers ask for is a transform too. The animation's
+   * keyframes set `transform` outright, so for its whole length the centring
+   * is simply gone: the panel starts half its own width to the right and
+   * slides left into place. That is the "it comes in from the right side
+   * weirdly" in the report, and it only ever showed on the centred one.
+   *
+   * So the outer box does nothing but sit where the panel goes, and the inner
+   * box is the panel: the caller's classes, its animation, its size limit and
+   * anything else it wants. Neither transform is ever asked to be the other.
+   */
   return createPortal(
     <div
-      ref={ref}
-      className={className}
       style={{
         position: "fixed",
         top: place.top,
         left: place.left,
         right: place.right,
         transform: place.transform,
-        maxHeight: place.maxHeight,
         zIndex: CHROME_POPOVER_Z,
       }}
-      {...rest}
     >
-      {children}
+      <div ref={ref} className={className} style={{ maxHeight: place.maxHeight }} {...rest}>
+        {children}
+      </div>
     </div>,
     document.body,
   )
