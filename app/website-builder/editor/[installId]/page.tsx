@@ -5437,8 +5437,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * back step that looks identical to a forward one is a transition that has
    * been added without being made to mean anything.
    */
-  const sidebarGoingBack = React.useRef(false)
-  const lastPanelKey = React.useRef(sidebarPanelKey)
+  /**
+   * `useRef`, not `React.useRef`. This file imports the hooks it uses by
+   * name and never imports React itself, so `React` is not a binding here:
+   * these two lines threw "React is not defined" the moment the editor
+   * rendered, which took the whole builder down for everybody.
+   *
+   * It reached production because TypeScript accepts the spelling — the
+   * React types declare `React` as a UMD global — and the build does not
+   * fail on type errors. tests/react-binding.test.ts is what catches it now.
+   */
+  const sidebarGoingBack = useRef(false)
+  const lastPanelKey = useRef(sidebarPanelKey)
   if (lastPanelKey.current !== sidebarPanelKey) {
     sidebarGoingBack.current =
       lastPanelKey.current.startsWith("section:") && !sidebarPanelKey.startsWith("section:")
