@@ -14,70 +14,33 @@
  * quoted back at it, because a second failure is usually the same failure and
  * a creator waiting on a third round trip has been waiting too long.
  */
-import { compileSection } from "@/lib/storelib-theme/storelib/compile"
-import { CONTROL_TYPES } from "@/lib/storelib-theme/controls/registry"
-import { FILTER_NAMES } from "@/lib/storelib-theme/storelib/template"
+import {
+  MAX_REPAIR_ATTEMPTS,
+  describeThemeForAuthoring,
+  knowledgeBlock,
+  validateSection,
+  writeSectionRules,
+  type ThemeContextInput,
+} from "@/lib/storelib-ai"
 import type { AgentProvider } from "@/lib/sites/agent/types"
 import { describeImages, type AgentImage } from "@/lib/sites/agent/attachments"
 import type { ThemeError } from "@/lib/storelib-theme/types"
 
-/** What the model is told about the format. Short on purpose: it is a page. */
+/**
+ * What the model is told about the format and about taste.
+ *
+ * STABLE, because it is the cached prefix on both providers. The only thing
+ * that varies is the list of names already taken, which is short and which
+ * changes when the install changes rather than per request. Everything about
+ * THIS site goes in the turn instead: see `describeThemeForAuthoring`.
+ */
 export function writeSectionSystem(existingNames: string[], existingTypes: string[]): string {
   return [
     "You write one Storelib section and nothing else.",
     "",
-    "A section is ONE file with four blocks, each tag on its own line:",
-    "  <template> markup </template>",
-    "  <style> CSS </style>",
-    "  <script> optional, sandboxed </script>",
-    "  <schema> JSON </schema>",
+    writeSectionRules(),
     "",
-    "THE TEMPLATE LANGUAGE is not Vue, React or JSX. `v-if`, `@click`, `:class`",
-    "and JSX braces are refused by the compiler. It is:",
-    "  {{ settings.heading }}            print a value, HTML-escaped",
-    "  {% if x %} … {% elsif y %} … {% else %} … {% endif %}",
-    "  {% for block in blocks %} … {% else %} … {% endfor %}",
-    "  {# a comment, which never reaches the page #}",
-    "It can read: settings, blocks, section (.id .type .settings .blocks),",
-    "theme, scheme, page (.template, .in_editor) and forloop inside a loop.",
-    "`settings` and `section.settings` are the same thing.",
-    "",
-    "EVERY NAME MUST BE DECLARED. {{ settings.foo }} only compiles when the",
-    "schema declares a setting with id \"foo\". The same for block settings.",
-    "",
-    "FILTERS, after a pipe, argument after a colon:",
-    "  " + FILTER_NAMES.join(" "),
-    "  `url` on every href. `raw` only on a richtext setting. `asset` on images.",
-    "",
-    "SETTING TYPES:",
-    "  " + CONTROL_TYPES.join(" "),
-    "",
-    "REPEATED CONTENT IS BLOCKS, never question_1 / question_2. Declare a block",
-    "type in the schema and loop over `blocks`. Give the preset two or three so",
-    "the section arrives with something in it. Put data-block-id=\"{{ block.id }}\"",
-    "on each one so clicking it in the builder selects it.",
-    "",
-    "IT MUST TAKE THE SITE'S COLOURS. Declare a color_scheme setting and read",
-    "scheme.bg, scheme.text, scheme.heading, scheme.paragraph, scheme.border,",
-    "scheme.accent, scheme.primary_btn_bg, scheme.primary_btn_text. Never",
-    "hardcode a colour.",
-    "",
-    "IT MUST BE RESPONSIVE. Write the phone layout as the base rules, then",
-    "@container (min-width: 640px) and @container (min-width: 1024px). Put",
-    "container-type: inline-size on the outermost element. NOT @media: a section",
-    "is as wide as the column it is in, which in the phone preview is not the",
-    "width of the window.",
-    "",
-    "CSS is scoped to the section automatically. Do not write html, body or",
-    ":root rules; they will be scoped and do nothing.",
-    "",
-    "AN EMPTY STATE belongs behind {% if page.in_editor %} so it prompts the",
-    "creator and never reaches a visitor.",
-    "",
-    "NO JAVASCRIPT unless the platform genuinely cannot do it. <details> and",
-    "<summary> are an accordion with no script at all.",
-    "",
-    "Padding must be settings (range, px), not fixed numbers.",
+    "PADDING AND SPACING ARE SETTINGS (a range, in px), not fixed numbers in the CSS.",
     "",
     existingTypes.length ? `Types already taken, pick a different one: ${existingTypes.join(", ")}` : "",
     existingNames.length ? `Names already taken, pick a different one: ${existingNames.join(", ")}` : "",
@@ -106,13 +69,16 @@ export type WriteResult =
   | { ok: true; value: WrittenSection }
   | { ok: false; error: string; errors?: ThemeError[]; source?: string }
 
-const say = (errors: ThemeError[]) =>
-  errors.map((e) => `${e.line ? `line ${e.line}: ` : ""}${e.message}`).join("\n")
-
 /**
- * One request, one repair, one answer. `taken` is every type and name already
- * in this install, so the model is told what it may not call the section and
- * the result is checked against the same list rather than trusted.
+ * One request, up to three attempts, one answer. `taken` is every type and
+ * name already in this install, so the model is told what it may not call the
+ * section and the result is checked against the same list rather than
+ * trusted.
+ *
+ * THREE, NOT TWO. The old second-and-last attempt was where the compiler's
+ * message usually landed; there was nothing left for the case where a model
+ * fixes the error it was shown and introduces another, which is the ordinary
+ * way this goes when a file is 200 lines long. See MAX_REPAIR_ATTEMPTS.
  */
 export async function writeSection(opts: {
   provider: AgentProvider
@@ -129,6 +95,16 @@ export async function writeSection(opts: {
   images?: AgentImage[]
   takenTypes: string[]
   takenNames: string[]
+  /**
+   * The site this section is being written FOR: its colour schemes, its type,
+   * its buttons, what it is already built out of.
+   *
+   * This path used to be given a sentence and nothing else, which is why a
+   * section it produced compiled, worked, and looked like it came from a
+   * different website. Optional, so a caller with no theme to hand still
+   * works exactly as before.
+   */
+  theme?: ThemeContextInput
   signal?: AbortSignal
 }): Promise<WriteResult> {
   const system = writeSectionSystem(opts.takenNames, opts.takenTypes)
@@ -139,14 +115,24 @@ export async function writeSection(opts: {
    * typed is read in the light of the image rather than the other way round.
    * With no words at all it carries the whole request on its own.
    */
-  const opening = [describeImages(images, asked.length > 0), asked && `REQUEST\n${asked}`]
+  const opening = [
+    /**
+     * The site FIRST, because it is the frame the request is read in. A model
+     * told afterwards what the colours are has already chosen them.
+     */
+    opts.theme ? describeThemeForAuthoring(opts.theme) : "",
+    describeImages(images, asked.length > 0),
+    knowledgeBlock(asked),
+    asked && `REQUEST\n${asked}`,
+  ]
     .filter(Boolean)
     .join("\n\n")
   const turns: { role: "user" | "assistant"; content: string; images?: AgentImage[] }[] = [
     { role: "user", content: opening, images: images.length ? images : undefined },
   ]
 
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < MAX_REPAIR_ATTEMPTS; attempt++) {
+    const last = attempt === MAX_REPAIR_ATTEMPTS - 1
     let text: string
     try {
       const turn = await opts.provider.complete({
@@ -185,17 +171,27 @@ export async function writeSection(opts: {
       continue
     }
 
-    const compiled = compileSection(text, { file: path, expectType: type })
-    if (compiled.ok === false) {
-      if (attempt === 1) return { ok: false, error: `The section did not compile.`, errors: compiled.errors, source: text }
+    /**
+     * ONE GATE: it compiles AND it would be correct on a real page. The
+     * quality half is what stops a section that compiles perfectly and then
+     * breaks the moment somebody adds it twice, or animates at somebody who
+     * asked for no animation. See lib/storelib-ai/quality.ts.
+     */
+    const checked = validateSection(text, { path, expectType: type })
+    if (checked.ok === false) {
+      if (last) {
+        return checked.reason === "compile"
+          ? { ok: false, error: "The section did not compile.", errors: checked.errors, source: text }
+          : { ok: false, error: "The section compiled but would not be correct on a real page.", source: text }
+      }
       turns.push({ role: "assistant", content: text })
-      turns.push({ role: "user", content: `That did not compile:\n${say(compiled.errors)}\n\nFix it and send the whole file again.` })
+      turns.push({ role: "user", content: checked.feedback })
       continue
     }
 
-    const name = compiled.value.schema.name.trim()
+    const name = checked.name
     if (opts.takenNames.some((n) => n.toLowerCase() === name.toLowerCase())) {
-      if (attempt === 1) return { ok: false, error: `Another section is already called "${name}".`, source: text }
+      if (last) return { ok: false, error: `Another section is already called "${name}".`, source: text }
       turns.push({ role: "assistant", content: text })
       turns.push({ role: "user", content: `Another section is already called "${name}". Give this one a different name and send the whole file again.` })
       continue

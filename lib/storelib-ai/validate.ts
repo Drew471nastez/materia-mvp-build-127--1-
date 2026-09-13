@@ -1,0 +1,67 @@
+/**
+ * ===========================================================================
+ *  ONE GATE, IN FRONT OF EVERY WAY A SECTION FILE CAN BE WRITTEN
+ * ===========================================================================
+ * There are three: the assistant writing a new section, the assistant editing
+ * an existing one through write_section_code, and the code editor's repair
+ * button. All three used to decide separately what "good enough to save"
+ * meant, and all three stopped after one repair attempt, which is the attempt
+ * where a model most often repeats its own mistake.
+ *
+ * So: compile first, because a file that does not compile has no meaningful
+ * quality to assess; then the checks in quality.ts; then a verdict and, when
+ * it failed, the exact words to send back.
+ *
+ * THREE ATTEMPTS, NOT ONE. The second is where the compiler's message usually
+ * lands, and the third is what catches a model that fixed the error it was
+ * shown and introduced another. Past that it is looping, and somebody is
+ * waiting.
+ */
+
+import { compileSection } from "@/lib/storelib-theme/storelib/compile"
+import type { ThemeError } from "@/lib/storelib-theme/types"
+import { checkSectionQuality, describeQuality, qualityErrors, type QualityFinding } from "./quality"
+
+/** How many times a model may be asked to fix its own output before we stop. */
+export const MAX_REPAIR_ATTEMPTS = 3
+
+export type Validation =
+  | { ok: true; type: string; name: string; findings: QualityFinding[] }
+  | { ok: false; reason: "compile"; errors: ThemeError[]; feedback: string }
+  | { ok: false; reason: "quality"; findings: QualityFinding[]; feedback: string }
+
+const say = (errors: ThemeError[]) =>
+  errors.map((e) => `${e.line ? `line ${e.line}: ` : ""}${e.message}`).join("\n")
+
+/**
+ * Compile, then check, then decide.
+ *
+ * `expectType` is passed through to the compiler, which insists a section's
+ * declared type matches its file name. Quality WARNINGS never fail: they ride
+ * along on a passing result so a caller can log them, and a file is not held
+ * back from somebody because a heuristic over text had an opinion.
+ */
+export function validateSection(source: string, opts: { path?: string; expectType?: string } = {}): Validation {
+  const compiled = compileSection(source, { file: opts.path, expectType: opts.expectType })
+  if (compiled.ok === false) {
+    return {
+      ok: false,
+      reason: "compile",
+      errors: compiled.errors,
+      feedback: `That did not compile:\n${say(compiled.errors)}\n\nFix exactly that and send the whole file again. Change nothing else.`,
+    }
+  }
+
+  const findings = checkSectionQuality(source)
+  const errors = qualityErrors(findings)
+  if (errors.length) {
+    return {
+      ok: false,
+      reason: "quality",
+      findings,
+      feedback: `It compiles, but it would not be correct on a real page:\n${describeQuality(errors)}\n\nFix those and send the whole file again. Keep everything else exactly as it is.`,
+    }
+  }
+
+  return { ok: true, type: compiled.value.type, name: compiled.value.schema.name.trim(), findings }
+}

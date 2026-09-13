@@ -21,6 +21,7 @@
  */
 
 import { compileSection } from "@/lib/storelib-theme/storelib/compile"
+import { MAX_REPAIR_ATTEMPTS } from "@/lib/storelib-ai"
 import { DRAWER_EASING, DRAWER_MS, drawerRelease } from "@/lib/website-builder/drawer-drag"
 import {
   buildThemeFileTree,
@@ -1009,7 +1010,19 @@ section("The code editor on a phone")
     "what the model sends back is compiled before anybody sees it",
     /compileSection\(text, \{ file: opts\.path \}\)/.test(agent) && /The repair still does not compile/.test(agent),
   )
-  check("one repair attempt, then it stops", /for \(let attempt = 0; attempt < 2; attempt\+\+\)/.test(agent))
+  /**
+   * Three, not one. The old second-and-last attempt was where the compiler's
+   * message usually landed, leaving nothing for the ordinary case of a model
+   * fixing the error it was shown and introducing another.
+   */
+  check(
+    "three repair attempts, then it stops",
+    /for \(let attempt = 0; attempt < MAX_REPAIR_ATTEMPTS; attempt\+\+\)/.test(agent) && MAX_REPAIR_ATTEMPTS === 3,
+  )
+  check(
+    "and a repair that introduces a NEW defect is sent back, while one it inherited is not",
+    /introduced/.test(agent) && /qualityErrors\(checkSectionQuality\(opts\.source\)\)/.test(agent),
+  )
   check(
     "it is told to change only what the errors are about",
     /YOU ARE REPAIRING AN EXISTING FILE, not writing a new one\./.test(agent) && /Change only what the errors are about/.test(agent),

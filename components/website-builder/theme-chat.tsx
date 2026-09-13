@@ -737,9 +737,18 @@ export function ThemeChat({
            * the route's own validation, and came back as "the assistant could
            * not produce a section that compiles".
            */
+          /**
+           * AND THE SITE GOES TOO. Writing a section is the one moment every
+           * colour, font and spacing value is decided at once, and this path
+           * used to make those decisions knowing nothing about the site the
+           * section was for. The editor already holds both, so it costs a
+           * request body rather than a database read.
+           */
           body: JSON.stringify({
             prompt,
             images: images.map((a) => ({ mediaType: a.mediaType, data: a.data, name: a.name })),
+            settings,
+            sectionTypes: [...new Set(sections.map((s) => s.type))].slice(0, 40),
           }),
         })
         const d = (await res.json().catch(() => ({}))) as {

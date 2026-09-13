@@ -20,6 +20,15 @@
 import type { ProjectWorkspace } from "./tools"
 import type { ToolCall } from "./types"
 import { looksLikeQuestion, openSteps, refuseToFinish, type SiteScope } from "./plan"
+/**
+ * THE SAME TASTE AS THE THEME EDITOR, AND NOTHING ELSE FROM IT.
+ *
+ * This agent writes React against a Vite project: it has no schema, no colour
+ * scheme and no Storelib compiler, so the section contract would be rules
+ * about a format it cannot produce. What it shares is the part that is about
+ * design rather than about format. See lib/storelib-ai.
+ */
+import { sitesAgentRules } from "@/lib/storelib-ai"
 import { type CallInfo, compactTurns, compactionNote } from "./compaction"
 import type { Budget } from "./complexity"
 import type { ProjectFiles } from "../types"
@@ -119,7 +128,9 @@ website, and a website has several pages that link to each other.
   first and read what is available.
 - Write the copy as somebody who knows the trade. A barber shop has skin
   fades, beard trims and hot-towel shaves at real prices, not "Service One" at
-  "$00".`
+  "$00".
+
+${sitesAgentRules()}`
 
 /**
  * THE RULES THAT MAKE AN EXISTING PROJECT A PROJECT, RATHER THAN A PROMPT.

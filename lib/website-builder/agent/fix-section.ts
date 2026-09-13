@@ -20,7 +20,8 @@
  * taking the review away from the one place that exists for it.
  */
 import { compileSection } from "@/lib/storelib-theme/storelib/compile"
-import { unfence, writeSectionSystem } from "@/lib/website-builder/agent/write-section"
+import { MAX_REPAIR_ATTEMPTS, checkSectionQuality, describeQuality, editSectionRules, qualityErrors } from "@/lib/storelib-ai"
+import { unfence } from "@/lib/website-builder/agent/write-section"
 import type { AgentProvider } from "@/lib/sites/agent/types"
 import type { ThemeError } from "@/lib/storelib-theme/types"
 
@@ -49,14 +50,15 @@ export async function fixSection(opts: {
    * the compiler does not have, plus the one rule that separates the two jobs.
    */
   const system = [
-    writeSectionSystem([], opts.takenTypes ?? []),
+    editSectionRules(),
     "",
     "YOU ARE REPAIRING AN EXISTING FILE, not writing a new one.",
     "Change only what the errors are about. Keep the section's type, its name,",
     "its settings, its markup and its wording exactly as they are wherever the",
     "errors do not force a change. Send the WHOLE file back, nothing else: no",
     "explanation, no code fence, no diff.",
-  ].join("\n")
+    (opts.takenTypes ?? []).length ? `Types already taken, do not rename onto one: ${(opts.takenTypes ?? []).join(", ")}` : "",
+  ].filter(Boolean).join("\n")
 
   const first = [
     `This is ${opts.path}. It does not compile.`,
@@ -70,7 +72,8 @@ export async function fixSection(opts: {
 
   const turns: { role: "user" | "assistant"; content: string }[] = [{ role: "user", content: first }]
 
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < MAX_REPAIR_ATTEMPTS; attempt++) {
+    const last = attempt === MAX_REPAIR_ATTEMPTS - 1
     let text: string
     try {
       const turn = await opts.provider.complete({
@@ -91,11 +94,30 @@ export async function fixSection(opts: {
 
     const compiled = compileSection(text, { file: opts.path })
     if (compiled.ok === false) {
-      if (attempt === 1) {
+      if (last) {
         return { ok: false, error: "The repair still does not compile.", errors: compiled.errors, source: text }
       }
       turns.push({ role: "assistant", content: text })
       turns.push({ role: "user", content: `That still does not compile:\n${say(compiled.errors)}\n\nFix it and send the whole file again.` })
+      continue
+    }
+
+    /**
+     * A REPAIR IS NOT ALLOWED TO INTRODUCE A NEW DEFECT.
+     *
+     * Only what the repair ADDED counts. The file arrived here broken and
+     * usually carries other problems with it; holding somebody's compile fix
+     * hostage to an unrelated finding would mean the file never compiles
+     * again, which is the opposite of the button they pressed.
+     */
+    const had = new Set(qualityErrors(checkSectionQuality(opts.source)).map((f) => f.id))
+    const introduced = qualityErrors(checkSectionQuality(text)).filter((f) => !had.has(f.id))
+    if (introduced.length && !last) {
+      turns.push({ role: "assistant", content: text })
+      turns.push({
+        role: "user",
+        content: `It compiles now, but the repair introduced something that would be wrong on a real page:\n${describeQuality(introduced)}\n\nFix that too and send the whole file again.`,
+      })
       continue
     }
 

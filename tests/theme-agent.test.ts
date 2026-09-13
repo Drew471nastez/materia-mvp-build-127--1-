@@ -33,6 +33,13 @@ import {
   readHouseStyle,
 } from "@/lib/website-builder/agent/house-style"
 import { classifyRequest } from "@/lib/website-builder/agent/ambition"
+/**
+ * The generic half of this prompt moved into the shared brain, which both
+ * providers and all four surfaces compose. Asserting against the composed
+ * text rather than against loop.ts is the point: the rule has to be in what
+ * the model is SENT, not in one file that happens to mention it.
+ */
+import { pageAgentRules } from "@/lib/storelib-ai"
 import { contrastRatio, parseColor, reviewSections } from "@/lib/website-builder/agent/review"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import {
@@ -3299,23 +3306,23 @@ section("A setting is one way to make a change, not the limit of what is possibl
   )
   check(
     "and it says to go to the code when no setting covers the request",
-    /Settings are one way to make a change\. They are not the edge of what is possible/.test(loop) &&
-      /read_section_code on that section type/.test(loop) &&
+    /A SETTING IS ONE WAY TO MAKE A CHANGE\. IT IS NOT THE EDGE OF WHAT YOU CAN DO/.test(pageAgentRules()) &&
+      /read_section_code on that section's type/.test(loop) &&
       /write_section_code with the whole file/.test(loop),
   )
   check(
     "a setting is added only for something somebody would change again",
-    /ADD A SETTING ONLY WHEN SOMEBODY WOULD WANT TO CHANGE IT AGAIN LATER/.test(loop),
+    /DO NOT ADD A SETTING FOR EVERY ONE-OFF/.test(pageAgentRules()),
   )
   check(
     "a follow-up is read as a correction, not as licence to rename things",
-    /READ A FOLLOW-UP AS A CORRECTION OF THE LAST THING YOU DID/.test(loop),
+    /A SHORT MESSAGE AFTER A CHANGE IS ABOUT THAT CHANGE/.test(pageAgentRules()),
   )
   check(
     "a source that does not compile is refused, and nothing is stored",
     /const compiled = compileSection\(source, \{ file: path \}\)/.test(route) &&
       /did not compile/.test(route) &&
-      /IF A WRITE IS REFUSED IT DID NOT HAPPEN/.test(loop),
+      /A refused write did not happen/.test(loop),
   )
   check(
     "a write goes to the same table the code editor saves to, draft cleared",

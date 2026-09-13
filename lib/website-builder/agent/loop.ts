@@ -54,6 +54,7 @@ import {
 import { describeHouseStyle, readHouseStyle } from "./house-style"
 import { describeFindings, reviewSections } from "./review"
 import { nameOf as typeName, schemaMapFor, schemaOf, type SchemaMap } from "./schemas"
+import { checkSectionQuality, describeQuality, knowledgeBlock, pageAgentRules, qualityErrors } from "@/lib/storelib-ai"
 import type {
   AgentProvider,
   AgentTurn,
@@ -134,15 +135,10 @@ Rules:
 - Do not add a product section to a store with no products. It renders empty, which looks broken rather than new.
 - MATCH THE PAGE YOU ARE ON. It has a palette, a spacing rhythm and a way of alternating backgrounds, and you are shown them. Reuse a colour that is already there rather than introducing one three shades off it; keep padding on the values the rest of the page uses. Coherence is what separates a designed page from an assembled one, and it comes from using a small vocabulary consistently — not from making each section interesting on its own.
 - YOUR WORK IS CHECKED BEFORE YOU FINISH. Contrast, empty text, repeated entries, and a section left holding its preset's demo copy are all checked against the page as it stands after your changes. If anything is wrong you will be told and you fix it. So get it right first: text needs at least 4.5:1 against what is behind it, every section you add gets real copy about this store, and no two entries say the same thing.
-- START FROM WHAT WAS ASKED FOR, NOT FROM WHAT IS EASY TO REACH. Settings are one way to make a change. They are not the edge of what is possible, and "the section exposes no control for that" is not an answer while the section is a file you can edit. If somebody asks for a smoother accordion, a hover effect, tighter spacing between two particular things, a different layout on a phone, an animation, or anything else no setting covers:
-    1. read_section_code on that section type and look at what is actually there.
-    2. Change the markup, the CSS or the script to do the thing.
-    3. write_section_code with the whole file.
-   Keep everything you were not asked about exactly as it was: the schema, every setting the file reads, the blocks, the class names the rest of the theme uses, and the way it behaves at every width. A request about an animation is not permission to rewrite the copy.
-- ADD A SETTING ONLY WHEN SOMEBODY WOULD WANT TO CHANGE IT AGAIN LATER. A one-off fix belongs in the CSS. A choice a creator will revisit — a speed, a style, on or off — is worth a field in the schema with a sensible default, and then the default is what they already have.
-- IF A WRITE IS REFUSED IT DID NOT HAPPEN. The compiler says what is wrong; fix that in the source and write it again. Do not report a change you were not able to save, and do not abandon the request because the first attempt did not compile.
-- READ A FOLLOW-UP AS A CORRECTION OF THE LAST THING YOU DID. "I meant the opening animation" after you renamed something means the rename was not what was wanted: go and do the animation. Never take a word in the request as licence to change content that happens to contain it.
-- When you are done, reply with one plain sentence saying what you changed. No preamble, no markdown, no lists.`
+- THE SOURCE IS REACHED WITH TOOLS, LIKE ANYTHING ELSE HERE. When the change is not something a control covers: read_section_code on that section's type, change the markup, the CSS, the script or the schema, then write_section_code with the whole file. A refused write did not happen; the compiler says what is wrong, so fix that and write again rather than reporting a change you did not save.
+- When you are done, reply with one plain sentence saying what you changed. No preamble, no markdown, no lists.
+
+${pageAgentRules()}`
 
 function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): ToolSpec<string>[] {
   return [
@@ -560,6 +556,8 @@ export async function* themeAgent(
   /** Sections this run wrote to, and the subset it created, for the review. */
   const touched = new Set<string>()
   const added = new Set<string>()
+  /** Per section type, how many writes the quality gate has sent back. */
+  const codeRefusals = new Map<string, number>()
   /** Sections whose blocks this run added to or removed from. */
   const filled = new Set<string>()
   /**
@@ -607,6 +605,15 @@ export async function* themeAgent(
          * read in the light of the picture.
          */
         describeImages(images, prompt.trim().length > 0),
+        /**
+         * RETRIEVED, NOT DUMPED, and in the turn rather than the prefix.
+         * The whole reference is thousands of tokens of mostly-irrelevant
+         * detail; what a request about an animation needs is the handful of
+         * facts about animation. It goes here, beside the request, because a
+         * prefix that changes per request is a prefix neither provider
+         * caches, and the cached prefix is most of what a run costs.
+         */
+        knowledgeBlock(prompt),
         `REQUEST\n${prompt}`,
       ]
         .filter(Boolean)
@@ -720,7 +727,7 @@ export async function* themeAgent(
          * change to the page held in memory here and stays instant.
          */
         if (input.code && (call.name === "read_section_code" || call.name === "write_section_code")) {
-          const result = await runCodeTool(call.name, call.argumentsJson, input.code)
+          const result = await runCodeTool(call.name, call.argumentsJson, input.code, codeRefusals)
           results.push({ id: call.id, output: result })
           if (call.name === "write_section_code" && result.startsWith("sections/")) {
             // The canvas has to be told, the same way an operation tells it.
@@ -835,10 +842,28 @@ export async function* themeAgent(
  * and because a refusal here has to say WHY in a way the model can act on:
  * a file that did not compile comes back with the compiler's own words.
  */
+/**
+ * ===========================================================================
+ *  THE QUALITY GATE ONLY BLOCKS WHAT THIS EDIT BROKE
+ * ===========================================================================
+ * Refusing a write because the file has a fixed id in it sounds right until
+ * the file ALREADY had one: then somebody asking for a colour change is told
+ * about an unrelated defect, forever, and their change never happens. The
+ * checks are run against the source as it was and the source as it is being
+ * written, and only what appeared in between is this edit's fault.
+ *
+ * AND IT GIVES UP BEFORE THE CREATOR DOES. Two refusals per section in a run;
+ * the third write goes through with the finding reported rather than held. A
+ * gate that cannot be satisfied is a gate that loses somebody's work.
+ */
+const QUALITY_REFUSALS = 2
+
 async function runCodeTool(
   name: string,
   argumentsJson: string,
   code: NonNullable<ThemeAgentInput["code"]>,
+  /** How many times each section's write has already been sent back. */
+  refused: Map<string, number>,
 ): Promise<string> {
   let args: Record<string, unknown> = {}
   try {
@@ -859,6 +884,18 @@ async function runCodeTool(
 
   const source = typeof args.source === "string" ? args.source : ""
   if (!source.trim()) return "Send the whole file in `source`. A patch or a fragment cannot be stored."
+
+  const seen = refused.get(sectionType) ?? 0
+  if (seen < QUALITY_REFUSALS) {
+    const before = code.read(sectionType)
+    const had = new Set(before === null ? [] : qualityErrors(checkSectionQuality(before)).map((f) => f.id))
+    const introduced = qualityErrors(checkSectionQuality(source)).filter((f) => !had.has(f.id))
+    if (introduced.length) {
+      refused.set(sectionType, seen + 1)
+      return `That source was NOT saved. It compiles, but the change would be wrong on a real page:\n${describeQuality(introduced)}\n\nFix those in the source you sent and write it again, keeping everything else exactly as it is.`
+    }
+  }
+
   const written = await code.write(sectionType, source)
   if (written.ok === true) {
     return `sections/${sectionType}.storelib was compiled and saved. It is live on the canvas. If the change was meant to be visible, say what you changed in one sentence when you finish.`

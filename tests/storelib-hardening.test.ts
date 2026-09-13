@@ -143,18 +143,31 @@ function main() {
     const chat = read("components/website-builder/theme-chat.tsx")
 
     const system = writeSectionSystem(["Accordion FAQ"], ["faq_accordion"])
-    check("the model is told the language is not Vue or JSX", /not Vue, React or JSX/.test(system) && /v-if/.test(system))
+    /**
+     * The wording of these moved into lib/storelib-ai, which every surface and
+     * both providers compose from. What is asserted is that the facts still
+     * REACH the model, not which file the sentence is typed in.
+     */
+    check("the model is told the language is not Vue or JSX", /NOT VUE, REACT OR JSX/i.test(system) && /v-if/.test(system))
     check("and every filter and setting type it may use", FILTER_NAMES.every((f) => system.includes(f)) && CONTROL_TYPES.every((c) => system.includes(c)))
     check("that repeated content is blocks, not question_1 and question_2", /question_1/.test(system) && /blocks/.test(system))
-    check("that it must take the site's colours", /color_scheme/.test(system) && /Never/.test(system) && /hardcode a colour/.test(system))
-    check("that it must be responsive with container queries, not media ones", /@container \(min-width: 640px\)/.test(system) && /NOT @media/.test(system))
+    check("that it must take the site's colours", /color_scheme/.test(system) && /Never hardcode a hex value/.test(system))
+    check("that it must be responsive with container queries, not media ones", /@container \(min-width: 640px\)/.test(system) && /NOT MEDIA QUERIES/i.test(system))
+    check("and that it must not break when the section is used twice", /A SECTION CAN BE ON A PAGE MORE THAN ONCE/.test(system))
+    check("and that it is held to a quality contract that is actually checked", /you will be shown what failed/.test(system))
     check("and what names are already taken here", system.includes("faq_accordion") && system.includes("Accordion FAQ"))
 
     check("a fence is stripped, because they add one anyway", unfence("```storelib\n<template>x</template>\n```") === "<template>x</template>")
     check("and a plain answer is left alone", unfence("  <template>x</template>  ") === "<template>x</template>")
 
-    check("what comes back is compiled before it is kept", /compileSection\(text, \{ file: path, expectType: type \}\)/.test(writer))
-    check("it gets one repair attempt with the errors quoted back", /That did not compile/.test(writer) && /attempt < 2/.test(writer))
+    check(
+      "what comes back is compiled AND checked before it is kept",
+      /validateSection\(text, \{ path, expectType: type \}\)/.test(writer),
+    )
+    check(
+      "it gets three attempts with the errors quoted back, not one",
+      /validateSection\(text, \{ path, expectType: type \}\)/.test(writer) && /attempt < MAX_REPAIR_ATTEMPTS/.test(writer),
+    )
     check("a type that is already here is refused", /is already a section here/.test(writer))
     check("and so is a name that is already here", /Another section is already called/.test(writer))
     /**

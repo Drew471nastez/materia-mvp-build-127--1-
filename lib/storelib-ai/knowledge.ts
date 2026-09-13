@@ -1,0 +1,183 @@
+/**
+ * ===========================================================================
+ *  WHAT STORELIB ACTUALLY IS, IN A FORM THAT SURVIVES A DEPLOY
+ * ===========================================================================
+ * The real documentation is docs/theme/00-16, and it is the authority. It is
+ * also seventeen markdown files that nothing imports, which means Next never
+ * traces them into the serverless bundle: a `readFileSync` against them works
+ * on a laptop and throws on Vercel. Documentation the runtime cannot open is
+ * documentation the model does not have.
+ *
+ * So the facts a model needs at runtime live here, as a module, the way
+ * lib/storelib-theme/controls/storelib-controls.json already does. Anything
+ * that can be derived from the engine is IMPORTED from the engine rather than
+ * retyped, so the control list, the filter list and the capability list
+ * cannot drift from the compiler that enforces them. What is left is prose,
+ * kept short and checked by tests/storelib-ai.test.ts against the same
+ * sources.
+ *
+ * RETRIEVAL, NOT A DUMP. Everything here at once is thousands of tokens on
+ * every request, most of it irrelevant. `knowledgeFor` picks the topics the
+ * request is actually about and returns those. The core facts, which are
+ * short and always needed by anything authoring a file, go in the stable
+ * prefix; retrieved topics go in the turn, because a prefix that changes per
+ * request is a prefix nobody caches.
+ */
+
+import { CONTROL_TYPES } from "@/lib/storelib-theme/controls/registry"
+import { FILTER_NAMES } from "@/lib/storelib-theme/storelib/template"
+import { CAPABILITIES } from "@/lib/storelib-theme/storelib/script"
+import { SCHEME_COLOR_KEYS } from "@/lib/storelib-theme/color-schemes"
+import { TYPE_STYLE_KEYS, FONT_ROLES } from "@/lib/storelib-theme/typography"
+
+export interface Topic {
+  id: string
+  /** Words in a request that mean this topic is worth including. */
+  triggers: RegExp
+  text: string
+}
+
+/**
+ * THE FORMAT ITSELF, always sent to anything that writes a file.
+ *
+ * Short on purpose. It is the part that cannot be looked up, because getting
+ * it wrong produces a file that does not compile rather than a file that is
+ * merely worse.
+ */
+export const CORE_FORMAT = `A Storelib section is ONE file with four blocks, each tag on its own line:
+  <template> markup </template>
+  <style> CSS </style>
+  <script> optional, sandboxed </script>
+  <schema> JSON </schema>
+
+THE TEMPLATE LANGUAGE IS NOT VUE, REACT OR JSX. v-if, @click, :class and JSX braces are refused by the compiler. It is:
+  {{ settings.heading }}            print a value, HTML-escaped
+  {% if x %} … {% elsif y %} … {% else %} … {% endif %}
+  {% for block in blocks %} … {% else %} … {% endfor %}
+  {# a comment, which never reaches the page #}
+It can read: settings, blocks, section (.id .type .settings .blocks), theme, scheme, page (.template, .in_editor), products, and forloop inside a loop. settings and section.settings are the same thing.
+
+EVERY NAME MUST BE DECLARED. {{ settings.foo }} compiles only when the schema declares a setting with id "foo". The same for block settings. The compiler checks every path the template reads against the schema beside it, so a typo is an error with a line number, not a blank space on the page.
+
+FILTERS, after a pipe, argument after a colon:
+  ${FILTER_NAMES.join(" ")}
+  url on every href. raw only on a richtext setting. asset on images.
+
+SETTING TYPES:
+  ${CONTROL_TYPES.join(" ")}`
+
+const TOPICS: Topic[] = [
+  {
+    id: "blocks",
+    triggers: /block|repeat|item|entry|question|tier|testimonial|logo|slide|card|list|faq|accordion|gallery/i,
+    text: `REPEATED CONTENT IS BLOCKS, never question_1 / question_2. Declare a block type in the schema with its own settings, and loop over \`blocks\` in the template. Put data-block-id="{{ block.id }}" on each one so clicking it in the builder selects it. A preset with two or three blocks in it is what makes the section arrive with something in it rather than empty. Block settings are read as block.settings.<id> and must be declared on that block type.`,
+  },
+  {
+    id: "color-scheme",
+    triggers: /colou?r|scheme|background|dark|light|contrast|palette|brand|theme/i,
+    text: `COLOUR COMES FROM THE SCHEME. Declare a color_scheme setting and read the scheme in the template and CSS. The keys are: ${SCHEME_COLOR_KEYS.join(", ")}. Older themes also read the shorter aliases bg, paragraph, primary_btn_bg and primary_btn_text, which still resolve. The built-in schemes are white, light, dark, black and highlight, shown in the editor as Light, Soft, Dark, Brand and Accent, and a creator can add more. Never hardcode a hex value for something the scheme already answers: a hardcoded colour stops responding to the creator's theme.`,
+  },
+  {
+    id: "typography",
+    triggers: /font|type|heading|text size|typograph|weight|uppercase|letter|headline/i,
+    text: `TYPE COMES FROM THE THEME. The theme carries font roles (${FONT_ROLES.join(", ")}) and a type scale (${TYPE_STYLE_KEYS.join(", ")}), each with its own desktop, tablet and mobile size. Read them from theme rather than naming a font family inside a section. Expose a type control only when the section genuinely needs one.`,
+  },
+  {
+    id: "css-scoping",
+    triggers: /css|style|class|scope|global|leak|selector/i,
+    text: `A SECTION'S CSS IS SCOPED AUTOMATICALLY, to that section's instances and nothing else. You do not write the scope and you cannot escape it. html, body and :root are rewritten to point at the section root, so a rule written against them does not do what it looks like it does; do not write them. The CSS may read settings with {{ }} the same way the template does.`,
+  },
+  {
+    id: "responsive",
+    triggers: /mobile|phone|tablet|desktop|responsive|breakpoint|stack|column|width|overflow|wrap/i,
+    text: `RESPONSIVE IS WRITTEN WITH CONTAINER QUERIES, NOT MEDIA QUERIES. A section is as wide as the column it is in, which in the builder's phone preview is not the width of the window, so @media asks the wrong question and a section built on it looks correct in the preview and wrong in the editor. Put container-type: inline-size on the outermost element, write the phone layout as the base rules, then @container (min-width: 640px) and @container (min-width: 1024px) for wider ones.`,
+  },
+  {
+    id: "script",
+    triggers: /script|javascript|js|slider|carousel|autoplay|interval|timer|animate|animation|click|toggle|drag|scroll/i,
+    text: `A SECTION'S SCRIPT IS SANDBOXED. It is handed root (this instance's root element), settings, blocks, theme, page and storelib, and it cannot reach anything else. window, document, globalThis, fetch, localStorage, location, eval and Function are refused by the compiler, by name, before the file saves. That is also what makes a section safe to use twice on a page: query inside root, never in the document.
+  setTimeout, setInterval and requestAnimationFrame are NOT available unless the schema declares the "timers" capability. Capabilities: ${CAPABILITIES.join(", ")}.
+  PREFER NO SCRIPT. <details> and <summary> are an accordion with no script at all, and a CSS transition is an animation with no script at all. Reach for a script when the platform genuinely cannot do it.`,
+  },
+  {
+    id: "animation",
+    triggers: /anim|transition|smooth|fade|slide|ease|motion|hover|open|close|expand|collapse/i,
+    text: `ANIMATION IS CSS FIRST. Transition the properties that are cheap to animate: opacity and transform. Height from 0 to auto does not transition; use grid-template-rows 0fr to 1fr, or max-height, or transform. Anything that moves must be wrapped so it stops for people who have asked it to: @media (prefers-reduced-motion: reduce) { … } with the transition or animation set to none. That media query is about the visitor's own setting, not about width, so it is the one place @media is right.`,
+  },
+  {
+    id: "assets",
+    triggers: /image|picture|photo|asset|logo|icon|svg|video|media/i,
+    text: `IMAGES come from an image_picker setting and are printed through the asset filter. Give every img a width, a height and an alt, and set object-fit where the crop matters. A section that renders an empty image box when nothing has been chosen looks broken; put the placeholder behind {% if %}.`,
+  },
+  {
+    id: "editor-state",
+    triggers: /empty|placeholder|preset|default|new section|first/i,
+    text: `AN EMPTY STATE BELONGS BEHIND {% if page.in_editor %}, so it prompts the creator in the builder and never reaches a visitor. The schema's preset is what a section arrives with: fill it, so adding the section produces something finished rather than a shell.`,
+  },
+  {
+    id: "settings-resolution",
+    triggers: /setting|control|schema|option|default|toggle|range|select/i,
+    text: `A SETTING'S VALUE is the creator's choice if they made one, otherwise the schema's default. A field id that does not exist, and a value the control cannot take, are both ignored silently by the renderer, so a change written against either looks like it worked and does nothing. Padding and spacing belong in range settings with a px unit rather than fixed numbers in the CSS.`,
+  },
+  {
+    id: "multi-instance",
+    triggers: /twice|two|multiple|instance|duplicate|id=|anchor/i,
+    text: `A SECTION CAN BE ON A PAGE MORE THAN ONCE. Nothing in it may assume it is alone: no literal id="..." in the markup, because two instances would then share one id. Build ids from {{ section.id }}, and have the script query inside root rather than the document.`,
+  },
+  {
+    id: "accessibility",
+    triggers: /accessib|a11y|screen reader|aria|keyboard|focus|label|contrast|alt/i,
+    text: `INTERACTIVE THINGS MUST BE REACHABLE. A control that can be clicked is a button or a link, not a div with a handler. <details>/<summary> is keyboard-accessible for free. Anything that opens says so with aria-expanded, every image has alt text, and text keeps at least 4.5:1 against what is behind it. Headings go in order and describe the section.`,
+  },
+]
+
+/**
+ * The topics this request is about, most relevant first, capped.
+ *
+ * A cap rather than a relevance score: the triggers are deliberately loose, a
+ * long request matches half of them, and four topics is already more Storelib
+ * detail than most changes need. Order is the order they are declared in,
+ * which puts format before taste.
+ */
+export function knowledgeFor(request: string, opts: { limit?: number } = {}): Topic[] {
+  const limit = opts.limit ?? 4
+  const text = request.slice(0, 4_000)
+  return TOPICS.filter((t) => t.triggers.test(text)).slice(0, limit)
+}
+
+/** The retrieved topics as one block, or "" when nothing matched. */
+export function knowledgeBlock(request: string, opts: { limit?: number } = {}): string {
+  const topics = knowledgeFor(request, opts)
+  if (!topics.length) return ""
+  return `STORELIB REFERENCE, for what you are about to do:\n\n${topics.map((t) => t.text).join("\n\n")}`
+}
+
+/**
+ * Named topics, in the order asked for.
+ *
+ * Writing a WHOLE section from nothing needs some of these every time rather
+ * than when a word happens to match: a new file always declares blocks, always
+ * takes a colour scheme, always has to be responsive. Composing them from the
+ * same array is what stops the authoring prompt and the retrieved reference
+ * drifting into two different accounts of the same format.
+ */
+export function topicsById(ids: string[]): string {
+  return ids
+    .map((id) => TOPICS.find((t) => t.id === id)?.text ?? "")
+    .filter(Boolean)
+    .join("\n\n")
+}
+
+/** What every new section needs, whatever it is a section of. */
+export const AUTHORING_ESSENTIALS = topicsById([
+  "blocks",
+  "color-scheme",
+  "responsive",
+  "css-scoping",
+  "editor-state",
+  "multi-instance",
+  "script",
+])
+
+/** Every topic, for tests and for the one surface that wants the lot. */
+export const ALL_TOPICS: readonly Topic[] = TOPICS

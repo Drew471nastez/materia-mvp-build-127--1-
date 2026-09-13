@@ -41,6 +41,15 @@ const BodySchema = z.object({
   images: z.array(z.unknown()).max(16).optional(),
   provider: z.enum(["anthropic", "openai"]).optional(),
   tier: z.enum(["fast", "strong"]).optional(),
+  /**
+   * The theme the section is being written FOR, as the editor currently holds
+   * it: its colour schemes, its fonts, its buttons. Optional, because an
+   * older client does not send it and a section written without it is exactly
+   * what this route produced before.
+   */
+  settings: z.record(z.unknown()).optional(),
+  /** What the site is already built out of, for coherence. Names only. */
+  sectionTypes: z.array(z.string().max(80)).max(60).optional(),
 })
 
 export async function POST(request: NextRequest, context: { params: Promise<{ installId: string }> }) {
@@ -115,6 +124,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     images,
     takenTypes,
     takenNames,
+    theme: {
+      settings: parsed.data.settings ?? null,
+      neighbours: (parsed.data.sectionTypes ?? []).map((type) => ({
+        type,
+        name: SECTION_SCHEMAS[type]?.name ?? mine[type]?.name,
+      })),
+    },
     signal: request.signal,
   })
 
