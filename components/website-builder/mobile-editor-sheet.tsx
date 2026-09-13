@@ -162,6 +162,11 @@ export function MobileEditorSheet({
   /** Pixels of a bottom-pinned element the browser's own bar sits over. */
   const [chromeGap, setChromeGap] = React.useState(0)
   /**
+   * How much of the sheet a keyboard is covering. Padded into the content
+   * rather than taken out of the sheet's height — see measureViewport.
+   */
+  const [keyboardInset, setKeyboardInset] = React.useState(0)
+  /**
    * The home indicator, added to the peek rather than subtracted from it.
    *
    * The peek is how much of the sheet stays on screen when it is closed, and
@@ -282,7 +287,32 @@ export function MobileEditorSheet({
       })
     }
     const measureViewport = () => {
-      setViewport(Math.round(vv?.height ?? window.innerHeight))
+      /**
+       * =====================================================================
+       *  THE SHEET IS SIZED TO THE SCREEN, NOT TO WHAT THE KEYBOARD LEFT
+       * =====================================================================
+       * This used to be `visualViewport.height`, which is the right number
+       * for almost everything and the wrong one for a sheet whose geometry
+       * is a fraction of it. iOS does not shrink the LAYOUT viewport for the
+       * keyboard, it shrinks the VISUAL one and scrolls it — so every input
+       * focus rewrote the sheet's height AND every detent offset underneath
+       * it at once, and Add Section collapsed to a strip with the search
+       * field and the whole library gone behind the keyboard.
+       *
+       * `innerHeight` does not move when a keyboard opens, so the sheet's
+       * geometry does not either. What the keyboard covers is published
+       * separately, below, and padded into the CONTENT — which is the same
+       * thing the code editor does with its path bar, on the same platform,
+       * for the same reason.
+       */
+      setViewport(Math.round(window.innerHeight || vv?.height || 0))
+      /**
+       * The strip the keyboard is sitting over. Rounded away from a
+       * sub-pixel: a 0.5px "keyboard" is a rounding artefact on every
+       * resize, and moving the content by it is a twitch.
+       */
+      const covered = vv ? window.innerHeight - vv.height - vv.offsetTop : 0
+      setKeyboardInset(covered > 1 ? Math.round(covered) : 0)
       /**
        * The toolbar gap is measured here and the home indicator is NOT, and
        * the difference matters: `visualViewport.scroll` fires on every frame
@@ -939,8 +969,13 @@ export function MobileEditorSheet({
            * open from the sheet are fixed.
            */
           contain: "paint",
-          // The home indicator, plus whatever the browser's bar is covering.
-          paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${chromeGap}px)`,
+          /**
+           * The home indicator, whatever the browser's bar is covering, and
+           * the keyboard. The first two are constant for a session; the
+           * third appears when somebody taps a field inside the sheet, and
+           * without it the field they are typing into is underneath it.
+           */
+          paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${chromeGap + keyboardInset}px)`,
           /**
            * `pan-y`, not `none`. `none` would hand every touch to us and kill
            * native scrolling inside the sheet — smooth, momentum-carrying,

@@ -723,6 +723,45 @@ html.capacitor body {
       0 1px 2px rgba(0, 0, 0, 0.5);
   }
 
+  /**
+   * ONE PANEL REPLACING ANOTHER, IN THE SAME HOLE.
+   *
+   * Going back from a section's settings to the list was a cut: the panel
+   * was simply different on the next frame, which reads as a glitch rather
+   * than as navigation, because nothing tells you the two are related.
+   *
+   * OPACITY AND translate ONLY, and only 8px of it. This runs beside a live
+   * preview of the page, so the animation has to cost a composited layer and
+   * nothing else — no height, no width, nothing that lays out. And it is
+   * short: a panel you are stepping back through four times in a row must
+   * never make you wait for it, which is the failure mode of every "smoother"
+   * transition that was made smoother by being made longer.
+   *
+   * `translate`, not `transform`: Tailwind v4 compiles its utilities to the
+   * standalone properties, and a rule here naming `transform` would be
+   * animating a property nothing else in the builder sets.
+   */
+  .wb-panel-swap {
+    animation: wb-panel-swap 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  @keyframes wb-panel-swap {
+    from { opacity: 0; translate: 0 6px; }
+    to { opacity: 1; translate: none; }
+  }
+  /* Going BACK comes from the other side, so the direction carries the sense
+     of where you are in the stack rather than every change looking alike. */
+  .wb-panel-swap-back {
+    animation: wb-panel-swap-back 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  @keyframes wb-panel-swap-back {
+    from { opacity: 0; translate: -8px 0; }
+    to { opacity: 1; translate: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-panel-swap,
+    .wb-panel-swap-back { animation: none; }
+  }
+
   /* Project settings: a whole page over the builder, arriving from a touch
      below and a touch smaller, which is what makes it a page opening rather
      than a modal appearing. */
@@ -2341,13 +2380,61 @@ html.capacitor [tabindex="0"] {
   transition: opacity 80ms ease-out;
 }
 
+/* ── A PRESS IS NOT THE START OF A SCROLL ─────────────────────────────────────
+   :active fires the instant a finger lands, and a finger lands on something
+   every single time you scroll a list. So every card your thumb happened to
+   start on dimmed to 65% and stayed dimmed for the whole gesture — which is
+   the "whitish fade on the elements when I scroll by mistake". The element was
+   not flashing; it was correctly showing a press that was never a press.
+
+   CSS cannot know whether a touch will become a tap or a pan. But the ENGINE
+   can, and it drops :active as soon as the touch turns into a pan — so a delay
+   in front of the dim is enough: a tap outlasts it and dims, a scroll does not
+   and never visibly starts.
+
+   The delay is on the :active rule only, which is the state being transitioned
+   TO. Releasing reads the base rule, with no delay, so letting go is instant.
+   Putting it in the shorthand above would have made every release feel late.
+   ──────────────────────────────────────────────────────────────────────────── */
 html.capacitor button:active,
 html.capacitor a:active,
 html.capacitor [role="button"]:active,
 html.capacitor [tabindex="0"]:active {
-  opacity: 0.65;
+  opacity: 0.72;
+  transition-delay: 90ms;
+  transition-duration: 60ms;
   /* scale(0.97) removed: transform on :active can trigger a relayout that delays
      the subsequent click event by one frame in some Android WebViews */
+}
+
+/* ── NO LONG-PRESS CALLOUT, ANYWHERE IT IS NOT TEXT ───────────────────────────
+   Holding a card in a WebView pops iOS's own preview: a rounded highlight
+   drawn OVER the element, which is the "flash overlay" that appears on hold
+   and belongs to the platform rather than to anything in this app. Text keeps
+   its callout, because selecting and copying text is the one case where the
+   platform's behaviour is the right behaviour.
+   ──────────────────────────────────────────────────────────────────────────── */
+html.capacitor button,
+html.capacitor a,
+html.capacitor [role="button"],
+html.capacitor [tabindex="0"],
+html.capacitor img {
+  -webkit-touch-callout: none;
+}
+
+/* ── HOVER IS NOT A THING A FINGER DOES ───────────────────────────────────────
+   Tailwind v4 already gates `hover:` behind (hover: hover), and several
+   Android WebViews answer that query with `hover: hover` anyway. On those the
+   lift and the zoom fire under a thumb, which reads as the element jumping
+   when you touch it. Inside the native shell there is no pointer, so the
+   question does not arise: the transforms are turned off outright.
+   ──────────────────────────────────────────────────────────────────────────── */
+@media (pointer: coarse) {
+  html.capacitor [class*="hover:scale-"]:hover,
+  html.capacitor [class*="hover:-translate-y"]:hover,
+  html.capacitor [class*="hover:translate-y"]:hover {
+    transform: none;
+  }
 }
 
 /* Blog page subtle entrance animations */
