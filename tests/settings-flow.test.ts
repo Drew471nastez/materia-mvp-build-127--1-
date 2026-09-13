@@ -395,10 +395,11 @@ section("The chart tooltip stays in its card")
       after — so it is checked by the pair in "The scrub, on a phone" rather
       than by looking for an unconditional transition here.
     */
-    check(
-      `${name}: a drag is recognised without having to out-argue the vertical`,
-      /totalMove > 5/.test(src) && /if \(dx > dy\) \{/.test(src),
-    )
+    /*
+      Superseded: the 5px sum turned out to be the cause of the lost hold, not
+      a cure for a dead zone. The slop model replaced it, and is checked in
+      "The scrub, on a phone".
+    */
   }
 }
 
@@ -448,13 +449,35 @@ for (const f of ["components/app/dashboard-client.tsx", "components/app/analytic
     /\}, 120\)/.test(src) && !/\}, 250\)/.test(src),
   )
   check(
-    `${name}: the first placement is a cut, so the box does not swoop in from the edge`,
-    /tooltipPlacedRef\.current\s*\?\s*"transform 90ms/.test(src) &&
-      /if \(tooltipActive && activeIndex != null\) tooltipPlacedRef\.current = true/.test(src),
+    /**
+     * THE LOST HOLD. `dx + dy > 5` counts tremor as movement, and a bare
+     * `else` makes a one pixel vertical bias into a scroll — so a resting
+     * thumb locked the gesture vertical within about fifty milliseconds and
+     * the hold was gone for good. Slop is per axis, and vertical has to win
+     * clearly, because getting that wrong steals a hold while getting it
+     * wrong the other way only delays a scroll by a few pixels.
+     */
+    `${name}: a resting thumb's drift cannot cancel the hold`,
+    /const SLOP = 12/.test(src) &&
+      /\(dx > SLOP \|\| dy > SLOP\)/.test(src) &&
+      /\} else if \(dy > dx \* 1\.4\) \{/.test(src) &&
+      !/const totalMove = dx \+ dy/.test(src),
   )
   check(
-    `${name}: and every placement after it glides`,
-    /transform 90ms cubic-bezier\(0\.22, 1, 0\.36, 1\)/.test(src),
+    `${name}: and the hold reads the finger's current position, not where it landed`,
+    /getIndexFromTouch\(lastTouchXRef\.current\)/.test(src),
+  )
+  check(
+    `${name}: the box follows the finger every frame, written straight to the node`,
+    /box\.style\.transform = shiftFor\(x, rect\.width\)/.test(src),
+  )
+  check(
+    `${name}: with no transition in front of it, which would only be lag`,
+    /transition: "none"/.test(src) && !/transform 90ms/.test(src),
+  )
+  check(
+    `${name}: and no React state carries the position, so there is no render per frame`,
+    !/setTooltipLeft|setTooltipX/.test(src),
   )
 }
 
@@ -469,6 +492,35 @@ check(
      */
     const src = code("components/app/dashboard-client.tsx")
     return /touchAction: 'pan-x pan-y'/.test(src) && !/touchAction: 'pan-x'/.test(src)
+  })(),
+)
+
+
+check(
+  "both charts got every part of the scrub, not most of it",
+  (() => {
+    /**
+     * A patch script applied six changes to one chart and four to the other,
+     * and the build passed either way — a half-updated gesture is still valid
+     * TypeScript. This compares the two files on the parts that have to
+     * match, so the next partial application fails here rather than on a
+     * phone.
+     */
+    const a = code("components/app/dashboard-client.tsx")
+    const b = code("components/app/analytics-chart.tsx")
+    const parts = [
+      /const SLOP = 12/,
+      /\} else if \(dy > dx \* 1\.4\) \{/,
+      /function shiftFor\(x: number, track: number\): string/,
+      /box\.style\.transform = shiftFor\(x, rect\.width\)/,
+      /transition: "none"/,
+      /lastTouchXRef/,
+      /idx !== lastHapticIndexRef\.current/,
+      /function plotLeftFor\(labels: string\[\]\): number/,
+      /tickFormatter=\{axisTick\}/,
+      /\}, 120\)/,
+    ]
+    return parts.every((re) => re.test(a) && re.test(b))
   })(),
 )
 
