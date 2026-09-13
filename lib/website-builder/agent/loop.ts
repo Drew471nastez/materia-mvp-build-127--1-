@@ -94,6 +94,25 @@ export type ThemeAgentEvent =
   | { type: "thinking"; text: string }
   /** One change, the moment it is made, so the preview moves as it happens. */
   | { type: "op"; op: ThemeOp; label: string }
+  /**
+   * WHAT IT SAID IT WAS GOING TO DO, before it did any of it.
+   *
+   * The model's opening turn, the one it writes before its first tool call.
+   * It was being shown as another line of commentary that the next line
+   * replaced; it is the only thing in a run that says what the whole run is
+   * FOR, so it is worth keeping on screen until the run is over.
+   */
+  | { type: "plan"; text: string }
+  /**
+   * ONE STEP, TWICE: once when it starts and once when it ends.
+   *
+   * These are not a progress bar. Every one is a tool call the model actually
+   * made, named against the page it was made on, so the list is a record of
+   * the work rather than a decoration timed to look busy.
+   */
+  | { type: "step"; id: string; label: string; state: "running" | "done" | "failed" }
+  /** A section's source, the moment it is written. */
+  | { type: "code"; path: string; source: string }
   | { type: "message"; text: string }
   /** A section's source was rewritten: whoever is drawing it should reload. */
   | { type: "sources-changed" }
@@ -396,6 +415,78 @@ function summarise(done: string[]): string {
 }
 
 /** A short line for the chat: "Added a pricing section", not "add_section". */
+/**
+ * WHAT A TOOL CALL IS, IN THE CREATOR'S WORDS.
+ *
+ * "read_section" is not a step anybody asked for; "Reading the FAQ" is the
+ * same step described to the person waiting on it. Named against the page as
+ * it stands when the call is made, so a section is called what it is called
+ * rather than by its id.
+ */
+/**
+ * The tools that exist to CHANGE the page. One of these that comes back with
+ * no operation did not do what it set out to do, whatever its message says.
+ */
+const WRITE_TOOLS = new Set([
+  "add_section",
+  "remove_section",
+  "move_section",
+  "rename_section",
+  "update_section",
+  "set_section_visibility",
+  "add_block",
+  "update_block",
+  "remove_block",
+  "move_block",
+  "update_theme",
+])
+
+function describeCall(
+  name: string,
+  argumentsJson: string,
+  state: ThemeState,
+  schemas?: SchemaMap,
+): string {
+  let args: Record<string, unknown> = {}
+  try {
+    args = JSON.parse(argumentsJson || "{}") as Record<string, unknown>
+  } catch {
+    /* A call whose arguments will not parse still gets a name. */
+  }
+  /**
+   * "the FAQ" where the section is on the page, and "a section" where it is
+   * not — the caller writes `the ${...}` around it, so an unknown one has to
+   * come back without the article or the label reads "Reading the a section".
+   */
+  const nameOf = (id: unknown) => {
+    const section = state.sections.find((s) => s.id === id)
+    return section ? `the ${typeName(schemas, section.type)}` : "a section"
+  }
+  const typeOf = (value: unknown) =>
+    typeof value === "string" ? `the ${typeName(schemas, value)}` : "a section"
+
+  switch (name) {
+    case "read_section": return `Reading ${nameOf(args.id)}`
+    case "read_section_type": return `Looking at what ${typeOf(args.sectionType)} can do`
+    case "read_section_code": return `Reading ${typeOf(args.sectionType)} code`
+    case "write_section_code": return `Writing ${typeOf(args.sectionType)} code`
+    case "read_store": return "Reading the catalogue"
+    case "add_section": return `Adding ${typeOf(args.sectionType)}`
+    case "remove_section": return `Removing ${nameOf(args.id)}`
+    case "move_section": return `Moving ${nameOf(args.id)}`
+    case "rename_section": return `Renaming ${nameOf(args.id)}`
+    case "update_section": return `Changing ${nameOf(args.id)}`
+    case "set_section_visibility":
+      return args.visible === false ? `Hiding ${nameOf(args.id)}` : `Showing ${nameOf(args.id)}`
+    case "add_block": return `Adding to ${nameOf(args.sectionId)}`
+    case "update_block": return `Editing ${nameOf(args.sectionId)}`
+    case "remove_block": return `Removing from ${nameOf(args.sectionId)}`
+    case "move_block": return `Reordering ${nameOf(args.sectionId)}`
+    case "update_theme": return "Changing the theme's settings"
+    default: return name.replace(/_/g, " ")
+  }
+}
+
 function labelFor(op: ThemeOp, state: ThemeState, schemas?: SchemaMap): string {
   const nameOf = (id: string) => {
     const section = state.sections.find((s) => s.id === id)
@@ -615,6 +706,9 @@ export async function* themeAgent(
     },
   ]
 
+  /** The opening turn is the plan; everything after it is commentary. */
+  let plannedYet = false
+
   try {
     for (let attempt = 1; attempt <= maxTurns; attempt++) {
       if (signal?.aborted) throw new DOMException("Aborted", "AbortError")
@@ -693,10 +787,32 @@ export async function* themeAgent(
         break
       }
 
-      if (turn.text.trim()) yield { type: "thinking", text: turn.text.trim() }
+      /**
+       * THE FIRST THING IT SAYS IS THE PLAN.
+       *
+       * Every turn after this one is commentary between steps — useful, and
+       * replaced by the next line. The opening turn is different: it is the
+       * only place in a run that says what the whole run is for, and it was
+       * being scrolled away by the first tool call.
+       */
+      if (turn.text.trim()) {
+        if (!plannedYet) {
+          plannedYet = true
+          yield { type: "plan", text: turn.text.trim() }
+        } else {
+          yield { type: "thinking", text: turn.text.trim() }
+        }
+      }
 
       const results: Array<{ id: string; output: string }> = []
       for (const call of turn.toolCalls) {
+        /**
+         * ANNOUNCED BEFORE IT RUNS, and named against the page as it stands
+         * now — after the call, a section it removed no longer has a name to
+         * be called by.
+         */
+        const stepLabel = describeCall(call.name, call.argumentsJson, state, schemas)
+        yield { type: "step", id: call.id, label: stepLabel, state: "running" }
         /**
          * The one tool that has to wait on something. `execute` is synchronous
          * on purpose — every other tool is a pure function of the theme — so
@@ -711,6 +827,7 @@ export async function* themeAgent(
               ? describeStore(facts)
               : "The catalogue is not available from here. Write copy that does not depend on knowing the products, and say so in your reply.",
           })
+          yield { type: "step", id: call.id, label: stepLabel, state: facts ? "done" : "failed" }
           continue
         }
 
@@ -722,16 +839,34 @@ export async function* themeAgent(
         if (input.code && (call.name === "read_section_code" || call.name === "write_section_code")) {
           const result = await runCodeTool(call.name, call.argumentsJson, input.code)
           results.push({ id: call.id, output: result })
-          if (call.name === "write_section_code" && result.startsWith("sections/")) {
+          const wrote = call.name === "write_section_code" && result.startsWith("sections/")
+          if (wrote) {
             // The canvas has to be told, the same way an operation tells it.
             const type = String(JSON.parse(call.argumentsJson || "{}").sectionType ?? "")
             done.push(`Rewrote the ${type.replace(/_/g, " ")} section's code`)
             wroteCode = true
+            /**
+             * The source itself, so the panel can show what was written
+             * rather than only that something was. It is what the model sent
+             * and what was saved — the same string, not a summary of it.
+             */
+            try {
+              const source = String(JSON.parse(call.argumentsJson || "{}").source ?? "")
+              if (source) yield { type: "code", path: result.trim(), source }
+            } catch {
+              /* A step that cannot show its code is still a step that ran. */
+            }
+          }
+          yield {
+            type: "step",
+            id: call.id,
+            label: stepLabel,
+            state: call.name === "write_section_code" && !wrote ? "failed" : "done",
           }
           continue
         }
 
-        const { output, op } = execute(call.name, call.argumentsJson, state, newId, locked, schemas)
+        const { output, op, failed: refused } = execute(call.name, call.argumentsJson, state, newId, locked, schemas)
         if (op) {
           /**
            * Labelled against the state BEFORE the operation, so "Removed FAQ"
@@ -756,6 +891,22 @@ export async function* themeAgent(
           yield { type: "op", op, label }
         }
         results.push({ id: call.id, output })
+        /**
+         * TWO WAYS A STEP CAN NOT HAVE HAPPENED, and neither is read off the
+         * wording of a message written for a model.
+         *
+         * `execute` sets `failed` where it refused. And separately: a WRITE
+         * that produced no operation changed nothing, whatever it said about
+         * it — a tick against a call that moved nothing is the list lying
+         * about the one thing it exists to report.
+         */
+        const changedNothing = !op && WRITE_TOOLS.has(call.name)
+        yield {
+          type: "step",
+          id: call.id,
+          label: stepLabel,
+          state: refused || changedNothing ? "failed" : "done",
+        }
       }
       turns.push({ role: "tool", results })
     }
@@ -875,12 +1026,19 @@ function execute(
   locked?: string,
   /** Every type this install can see, theirs included. See ./schemas. */
   schemas?: SchemaMap,
-): { output: string; op?: ThemeOp } {
+  /**
+   * `failed` is set by the paths that REFUSED, rather than inferred by the
+   * caller reading this output. A step's tick used to be decided by matching
+   * the first word of a sentence written for a model, which is a rule that
+   * silently stops working the day somebody rewords the sentence — and then
+   * every refused call shows a tick and the list quietly lies.
+   */
+): { output: string; op?: ThemeOp; failed?: true } {
   let args: Record<string, unknown>
   try {
     args = argumentsJson.trim() ? JSON.parse(argumentsJson) : {}
   } catch {
-    return { output: "Your arguments were not valid JSON. Send them again as a JSON object." }
+    return { output: "Your arguments were not valid JSON. Send them again as a JSON object.", failed: true }
   }
 
   const id = typeof args.id === "string" ? args.id : ""
@@ -914,6 +1072,7 @@ function execute(
     if (wholePage[name]) {
       return {
         output: `${lockedName} is the only thing open, so ${wholePage[name]} is not available in this edit. Do what you can inside ${lockedName}, and tell the creator in your reply that ${wholePage[name]} needs the lock cleared first.`,
+        failed: true,
       }
     }
 
@@ -922,18 +1081,19 @@ function execute(
     if (target && target !== locked) {
       return {
         output: `${lockedName} is the only section you may change in this edit. Nothing was changed. Use read_section if you need to look at another one.`,
+        failed: true,
       }
     }
   }
 
   switch (name) {
     case "read_section": {
-      if (!found) return { output: notFound(id, state) }
+      if (!found) return { output: notFound(id, state), failed: true }
       return { output: describeSection(found, schemas) }
     }
 
     case "update_section": {
-      if (!found) return { output: notFound(id, state) }
+      if (!found) return { output: notFound(id, state), failed: true }
       const settings = parseSettings(args.settingsJson)
       if (!settings) {
         return {
@@ -967,7 +1127,7 @@ function execute(
       const wanted = typeof args.sectionType === "string" ? args.sectionType : ""
       const schema = schemaOf(schemas, wanted)
       if (!schema) {
-        return { output: `There is no section type "${wanted}". The types are listed on add_section.` }
+        return { output: `There is no section type "${wanted}". The types are listed on add_section.`, failed: true }
       }
       const specimen = buildSection(`preview-${wanted}`, wanted, schemas)
       return {
@@ -988,7 +1148,7 @@ function execute(
     case "add_section": {
       const sectionType = typeof args.sectionType === "string" ? args.sectionType : ""
       if (!schemaOf(schemas, sectionType)) {
-        return { output: `There is no section type "${sectionType}". Use one of the types listed on this tool.` }
+        return { output: `There is no section type "${sectionType}". Use one of the types listed on this tool.`, failed: true }
       }
       let settings = parseSettings(args.settingsJson) ?? undefined
       let notes: string[] = []
@@ -1025,17 +1185,17 @@ function execute(
     }
 
     case "move_section": {
-      if (!found) return { output: notFound(id, state) }
+      if (!found) return { output: notFound(id, state), failed: true }
       if (found.type === "header" || found.type === "footer") {
         return { output: `The ${found.type} is fixed and cannot be moved. It is the same on every page.` }
       }
       const index = typeof args.index === "number" ? args.index : NaN
-      if (!Number.isFinite(index)) return { output: "Send `index` as a number." }
+      if (!Number.isFinite(index)) return { output: "Send `index` as a number.", failed: true }
       return { output: `Moved [${id}] to position ${index}.`, op: { kind: "move_section", id, index } }
     }
 
     case "remove_section": {
-      if (!found) return { output: notFound(id, state) }
+      if (!found) return { output: notFound(id, state), failed: true }
       if (found.type === "header" || found.type === "footer") {
         return { output: `The ${found.type} cannot be removed. A page without one is not a page.` }
       }
@@ -1043,9 +1203,9 @@ function execute(
     }
 
     case "set_section_visibility": {
-      if (!found) return { output: notFound(id, state) }
+      if (!found) return { output: notFound(id, state), failed: true }
       if (typeof args.hidden !== "boolean") {
-        return { output: "Send `hidden` as true to hide the section or false to show it." }
+        return { output: "Send `hidden` as true to hide the section or false to show it.", failed: true }
       }
       /**
        * Already in that state is reported, not applied. An operation that
@@ -1068,16 +1228,16 @@ function execute(
     }
 
     case "rename_section": {
-      if (!found) return { output: notFound(id, state) }
+      if (!found) return { output: notFound(id, state), failed: true }
       const label = typeof args.name === "string" ? args.name.trim().slice(0, 60) : ""
-      if (!label) return { output: "Send `name` as a short label." }
+      if (!label) return { output: "Send `name` as a short label.", failed: true }
       return { output: `Renamed [${id}] to "${label}".`, op: { kind: "rename_section", id, name: label } }
     }
 
     case "add_block": {
       const sectionId = typeof args.sectionId === "string" ? args.sectionId : ""
       const section = state.sections.find((s) => s.id === sectionId)
-      if (!section) return { output: notFound(sectionId, state) }
+      if (!section) return { output: notFound(sectionId, state), failed: true }
 
       const blockType = typeof args.blockType === "string" ? args.blockType : ""
       const specs = blockSpecs(section.type)
@@ -1125,7 +1285,7 @@ function execute(
     case "update_block": {
       const sectionId = typeof args.sectionId === "string" ? args.sectionId : ""
       const section = state.sections.find((s) => s.id === sectionId)
-      if (!section) return { output: notFound(sectionId, state) }
+      if (!section) return { output: notFound(sectionId, state), failed: true }
 
       const blockId = typeof args.blockId === "string" ? args.blockId : ""
       const block = (section.blocks ?? []).find((b) => b.id === blockId)
@@ -1159,13 +1319,13 @@ function execute(
     case "move_block": {
       const sectionId = typeof args.sectionId === "string" ? args.sectionId : ""
       const section = state.sections.find((s) => s.id === sectionId)
-      if (!section) return { output: notFound(sectionId, state) }
+      if (!section) return { output: notFound(sectionId, state), failed: true }
       const blockId = typeof args.blockId === "string" ? args.blockId : ""
       if (!(section.blocks ?? []).some((b) => b.id === blockId)) {
         return { output: `${section.type} has no block "${blockId}".` }
       }
       const index = typeof args.index === "number" ? args.index : NaN
-      if (!Number.isFinite(index)) return { output: "Send `index` as a number." }
+      if (!Number.isFinite(index)) return { output: "Send `index` as a number.", failed: true }
       return {
         output: `Moved block [${blockId}] to position ${index}.`,
         op: { kind: "move_block", sectionId, blockId, index },
@@ -1175,7 +1335,7 @@ function execute(
     case "remove_block": {
       const sectionId = typeof args.sectionId === "string" ? args.sectionId : ""
       const section = state.sections.find((s) => s.id === sectionId)
-      if (!section) return { output: notFound(sectionId, state) }
+      if (!section) return { output: notFound(sectionId, state), failed: true }
       const blockId = typeof args.blockId === "string" ? args.blockId : ""
       if (!(section.blocks ?? []).some((b) => b.id === blockId)) {
         return { output: `${section.type} has no block "${blockId}".` }
@@ -1210,7 +1370,7 @@ function execute(
     }
 
     default:
-      return { output: `There is no tool called ${name}.` }
+      return { output: `There is no tool called ${name}.`, failed: true }
   }
 }
 
