@@ -53,55 +53,73 @@ writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><style>
 <div id="stage"></div>
 <script>
 (function () {
-  function shift(pct, track) {
-    var x = (pct / 100) * track
+  function shift(x, track) {
     return "translateX(clamp(8px, calc(" + x.toFixed(1) + "px - 50%), calc(" + track + "px - 100% - 8px))) translateZ(0)"
   }
 
   var stage = document.getElementById("stage")
   var results = []
-  /* Phone, small phone, and a desktop card. */
   /* The card widths a phone and a desktop actually produce. */
   var cardWidths = [320, 360, 430, 720]
   /* Short label through to the longest one this tooltip really shows. */
   var labels = ["Sep 6", "Views: 3", "Revenue: $1,240.50", "Sep 13 — Views: 128,400 (12 refunded)"]
+  /* The axis is measured from its own ticks now, so it is not one number. */
+  var axisWidths = [22, 30, 40, 46]
+  /* A week, a fortnight, a quarter. */
+  var pointCounts = [7, 14, 90]
+  var PLOT_RIGHT = 10
 
   for (var c = 0; c < cardWidths.length; c++) {
     for (var l = 0; l < labels.length; l++) {
-      var card = document.createElement("div")
-      card.className = "card"
-      card.style.width = cardWidths[c] + "px"
-      card.style.height = "60px"
-      stage.appendChild(card)
+      for (var a = 0; a < axisWidths.length; a++) {
+        for (var n = 0; n < pointCounts.length; n++) {
+          var track = cardWidths[c]
+          var plotLeft = axisWidths[a]
+          var count = pointCounts[n]
 
-      var tip = document.createElement("div")
-      tip.className = "tip"
-      tip.textContent = labels[l]
-      card.appendChild(tip)
+          var card = document.createElement("div")
+          card.className = "card"
+          card.style.width = track + "px"
+          card.style.height = "60px"
+          stage.appendChild(card)
 
-      /* Every position a finger can land on, at one percent steps. */
-      for (var pct = 0; pct <= 100; pct++) {
-        tip.style.left = "0"
-        tip.style.transform = shift(pct, cardWidths[c])
-        var cb = card.getBoundingClientRect()
-        var tb = tip.getBoundingClientRect()
-        var overLeft = Math.round(cb.left - tb.left)
-        var overRight = Math.round(tb.right - cb.right)
-        if (overLeft > 0 || overRight > 0) {
-          results.push({
-            cardWidth: cardWidths[c], label: labels[l], pct: pct,
-            overLeft: overLeft, overRight: overRight,
-            tipWidth: Math.round(tb.width),
-          })
+          var tip = document.createElement("div")
+          tip.className = "tip"
+          tip.textContent = labels[l]
+          card.appendChild(tip)
+
+          /* Every data point, placed where the component places it. */
+          for (var i = 0; i < count; i++) {
+            var plotWidth = track - plotLeft - PLOT_RIGHT
+            var x = plotLeft + (i / (count - 1)) * plotWidth
+            tip.style.left = "0"
+            tip.style.transform = shift(x, track)
+
+            var cb = card.getBoundingClientRect()
+            var tb = tip.getBoundingClientRect()
+            var overLeft = Math.round(cb.left - tb.left)
+            var overRight = Math.round(tb.right - cb.right)
+            if (overLeft > 0 || overRight > 0) {
+              results.push({
+                cardWidth: track, label: labels[l], axis: plotLeft, points: count, index: i,
+                overLeft: overLeft, overRight: overRight, tipWidth: Math.round(tb.width),
+              })
+            }
+          }
+          stage.removeChild(card)
         }
       }
-      stage.removeChild(card)
     }
   }
 
   var pre = document.createElement("pre")
   pre.id = "result"
-  pre.textContent = JSON.stringify({ escapes: results, checked: cardWidths.length * labels.length * 101 })
+  var total = 0
+  for (var q = 0; q < pointCounts.length; q++) total += pointCounts[q]
+  pre.textContent = JSON.stringify({
+    escapes: results,
+    checked: cardWidths.length * labels.length * axisWidths.length * total,
+  })
   document.body.appendChild(pre)
 })()
 </script></body></html>`)
@@ -115,13 +133,13 @@ if (!m) fail("The page did not report. Nothing was measured.")
 const decode = (s) => s.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
 const r = JSON.parse(decode(m[1]))
 
-console.log(`  ${r.checked} positions measured: 4 card widths x 4 label lengths x every percent`)
+console.log(`  ${r.checked} placements measured: 4 card widths x 4 label lengths x 4 axis widths x every point of a 7, 14 and 90 point series`)
 
 if (r.escapes.length > 0) {
   const worst = r.escapes.reduce((a, b) => (Math.max(b.overLeft, b.overRight) > Math.max(a.overLeft, a.overRight) ? b : a))
   console.log(`  ${r.escapes.length} of them put the box outside the card`)
-  console.log(`  worst: "${worst.label}" (${worst.tipWidth}px) at ${worst.pct}% in a ${worst.cardWidth}px card — ${worst.overLeft}px past the left, ${worst.overRight}px past the right`)
+  console.log(`  worst: "${worst.label}" (${worst.tipWidth}px), point ${worst.index} of ${worst.points}, ${worst.axis}px axis, ${worst.cardWidth}px card — ${worst.overLeft}px past the left, ${worst.overRight}px past the right`)
   fail("the tooltip still underlaps the container")
 }
 
-console.log("\nat every position a finger can produce, at every card width and label length, the tooltip stays inside the card.")
+console.log("\nat every data point, at every card width, label length and axis width, the tooltip stays inside the card.")
