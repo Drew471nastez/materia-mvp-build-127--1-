@@ -8,7 +8,8 @@
     "dev": "node scripts/build-sites-assets.mjs && next dev",
     "lint": "eslint .",
     "start": "next start",
-    "test:push": "node scripts/run-push-tests.mjs"
+    "test:push": "node scripts/run-push-tests.mjs",
+    "check:client-errors": "node scripts/check-client-errors.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

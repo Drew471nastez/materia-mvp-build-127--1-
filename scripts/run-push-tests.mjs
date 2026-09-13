@@ -32,6 +32,7 @@ const SUITES = [
   "tests/openai-provider.test.ts",
   "tests/theme-agent.test.ts",
   "tests/storelib-ai.test.ts",
+  "tests/client-errors.test.ts",
   "tests/section-responsive.test.ts",
   "tests/anthropic-provider.test.ts",
   "tests/theme-code-editor.test.ts",
