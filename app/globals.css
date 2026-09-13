@@ -793,11 +793,23 @@ html.capacitor body {
     .settings-panel { animation: none; }
   }
 
+  /* ── A panel arrives from the side, never from below ────────────────────
+     Forward came from 6px below, and a scroll container counts anything
+     translated past its bottom edge as scrollable overflow: for the 180ms of
+     the animation the sidebar grew a scrollbar for those 6px and then lost
+     it again. Measured with scripts/check-sidebar-swap.mjs, sampling every
+     frame: 6px of overflow at the worst frame, 0px once settled. That flash
+     is the "second scrollbar" somebody was watching blink.
+
+     Sideways instead, which cannot do it: the scroller is overflow-x-hidden,
+     so a horizontal translate is clipped rather than scrolled to. It also
+     says more than the old motion did. Forward comes from the right, back
+     comes from the left, which is the direction a stack actually moves. */
   .wb-panel-swap {
     animation: wb-panel-swap 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
   }
   @keyframes wb-panel-swap {
-    from { opacity: 0; translate: 0 6px; }
+    from { opacity: 0; translate: 8px 0; }
     to { opacity: 1; translate: none; }
   }
   /* Going BACK comes from the other side, so the direction carries the sense

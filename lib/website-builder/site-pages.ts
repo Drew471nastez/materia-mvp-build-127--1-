@@ -1,3 +1,4 @@
+import { POLICY_PAGES } from "./policy-pages"
 /**
  * ===========================================================================
  *  WHICH PAGE OF A SITE AN ADDRESS ASKS FOR
@@ -84,6 +85,15 @@ export function templateForPage(pageKey: string): string {
 
 /** "about" reads as About, "size-guide" as Size guide. */
 export function pageTitleFromKey(key: string): string {
+  /**
+   * A policy page has a NAME, not a de-hyphenated key. Left to the rule
+   * below, "terms-of-service" became "Terms of service" in the switcher
+   * while the footer linked to "Terms Of Service", which is two names for
+   * one page and the sort of thing nobody reports and everybody notices.
+   */
+  const policy = POLICY_PAGES.find((p) => p.key === key)
+  if (policy) return policy.title
+
   const words = key.replace(/-/g, " ").trim()
   return words.charAt(0).toUpperCase() + words.slice(1)
 }

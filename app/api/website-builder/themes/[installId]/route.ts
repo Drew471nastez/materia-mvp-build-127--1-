@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { ensurePolicyPages, type PagesTable } from "@/lib/website-builder/ensure-policy-pages"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -35,6 +36,25 @@ export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
   const { error, status, supabase, install, creator } = await getCreatorAndInstall(installId)
   if (error) return NextResponse.json({ error }, { status })
+
+  /**
+   * EVERY SITE HAS ITS POLICY PAGES BY THE TIME IT IS READ.
+   *
+   * A refund policy, a privacy policy and terms of service are created here
+   * rather than in a migration, because a migration only covers the sites
+   * that exist when somebody remembers to run it. This is idempotent and
+   * writes only what is missing: see lib/website-builder/ensure-policy-pages.
+   *
+   * Awaited, so the pages are in the response that follows rather than
+   * appearing on the next reload. A failure is logged and swallowed: not
+   * having a refund policy is not a reason to refuse somebody their editor.
+   */
+  const ensured = await ensurePolicyPages(
+    supabase! as unknown as PagesTable,
+    installId,
+    String((install as { name?: unknown } | null)?.name ?? "").trim(),
+  )
+  if (ensured.error) console.error(`[policy-pages] ${installId}: ${ensured.error}`)
 
   const { data, error: fetchError } = await supabase!
     .from("store_theme_installs")

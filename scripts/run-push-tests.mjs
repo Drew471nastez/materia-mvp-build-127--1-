@@ -34,6 +34,7 @@ const SUITES = [
   "tests/storelib-ai.test.ts",
   "tests/client-errors.test.ts",
   "tests/react-binding.test.ts",
+  "tests/policy-pages.test.ts",
   "tests/section-responsive.test.ts",
   "tests/anthropic-provider.test.ts",
   "tests/theme-code-editor.test.ts",

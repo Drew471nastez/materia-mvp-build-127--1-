@@ -27,10 +27,7 @@
  *
  *   node scripts/check-sheet-keyboard.mjs
  */
-import { spawn } from "node:child_process"
-import { writeFileSync, readFileSync } from "node:fs"
-import { join } from "node:path"
-import { CHROMIUM, bundle, css, out, fail } from "./editor-probe-harness.mjs"
+import { drivePage, fail } from "./editor-probe-harness.mjs"
 
 /** About what an iPhone keyboard plus its accessory bar covers. */
 const KEYBOARD = 336
@@ -220,93 +217,8 @@ const DRIVE = `
   return steps
 })()`
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const PORT = Number(process.env.CDP_PORT ?? 9455)
-
-async function run(width, height) {
-  const file = join(out, "keyboard.html")
-  writeFileSync(join(out, "editor-probe.js"), readFileSync(bundle))
-  writeFileSync(
-    file,
-    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><div id="app"></div>${FAKE_VIEWPORT}<script>window.PROBE_SHORT=false</script><script src="editor-probe.js"></script></body></html>`,
-  )
-
-  const chrome = spawn(
-    CHROMIUM,
-    [
-      "--headless=new",
-      "--disable-gpu",
-      "--no-sandbox",
-      "--disable-dev-shm-usage",
-      "--force-device-scale-factor=1",
-      "--blink-settings=primaryHoverType=1,availableHoverTypes=1,primaryPointerType=2,availablePointerTypes=2",
-      `--remote-debugging-port=${PORT}`,
-      "--remote-allow-origins=*",
-      `--window-size=${width},${height}`,
-      "about:blank",
-    ],
-    { stdio: ["ignore", "ignore", "pipe"] },
-  )
-  let stderr = ""
-  chrome.stderr.on("data", (d) => (stderr += String(d)))
-
-  let version = null
-  for (let i = 0; i < 60 && !version; i++) {
-    try {
-      version = await (await fetch(`http://127.0.0.1:${PORT}/json/version`)).json()
-    } catch {
-      await sleep(250)
-    }
-  }
-  if (!version) {
-    chrome.kill()
-    fail(`Chromium never opened a debugging port.\n${stderr.slice(-600)}`)
-  }
-
-  try {
-    const ws = new WebSocket(version.webSocketDebuggerUrl)
-    await new Promise((res, rej) => {
-      ws.addEventListener("open", res, { once: true })
-      ws.addEventListener("error", rej, { once: true })
-    })
-    let id = 0
-    const pending = new Map()
-    let sessionId = null
-    ws.addEventListener("message", (ev) => {
-      const msg = JSON.parse(ev.data)
-      if (msg.id && pending.has(msg.id)) {
-        pending.get(msg.id)(msg)
-        pending.delete(msg.id)
-      }
-    })
-    const send = (method, params = {}, session = sessionId) =>
-      new Promise((resolve) => {
-        const n = ++id
-        pending.set(n, resolve)
-        ws.send(JSON.stringify({ id: n, method, params, ...(session ? { sessionId: session } : {}) }))
-      })
-
-    const { result: created } = await send("Target.createTarget", { url: "about:blank" }, null)
-    const { result: attached } = await send("Target.attachToTarget", { targetId: created.targetId, flatten: true }, null)
-    sessionId = attached.sessionId
-    await send("Page.enable")
-    await send("Runtime.enable")
-    /** A real phone's viewport, not the window the OS was willing to give. */
-    await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true })
-    await send("Page.navigate", { url: `file://${file}` })
-    await sleep(4_000)
-
-    const answer = await send("Runtime.evaluate", { expression: DRIVE, awaitPromise: true, returnByValue: true, timeout: 120_000 })
-    const r = answer.result?.result
-    if (!r || r.subtype === "error" || answer.result?.exceptionDetails) {
-      fail(`the drive threw: ${JSON.stringify(answer.result?.exceptionDetails ?? r)?.slice(0, 800)}`)
-    }
-    ws.close()
-    return r.value ?? []
-  } finally {
-    chrome.kill()
-  }
-}
+const run = (width, height) =>
+  drivePage({ width, height, body: FAKE_VIEWPORT, drive: DRIVE })
 
 let failures = 0
 console.log(`\n══ Add section, phone, keyboard ${KEYBOARD}px ══`)

@@ -225,8 +225,24 @@ check(
   const swap = css.slice(css.indexOf(".wb-panel-swap {"), css.indexOf(".wb-panel-swap {") + 900)
   check(
     "it animates opacity and translate only, so it costs a layer and not a layout",
-    /translate: 0 6px/.test(swap) && !/height|width|margin|padding/.test(swap),
+    /translate: [-\d]/.test(swap) && !/height|width|margin|padding/.test(swap),
     swap.slice(0, 160),
+  )
+  /**
+   * AND IT MOVES SIDEWAYS, NEVER DOWN.
+   *
+   * The panel is as tall as the scroller it sits in, so a translate DOWN puts
+   * something past the scroller's bottom edge, and a scroll container counts
+   * that as scrollable overflow: for the 180ms of the animation the sidebar
+   * grew a scrollbar and then lost it. Measured with
+   * scripts/check-sidebar-swap.mjs, sampling every frame: 6px of overflow at
+   * the worst frame against 0px settled. Sideways cannot do it, because the
+   * scroller is overflow-x-hidden and a horizontal translate is clipped.
+   */
+  check(
+    "it comes from the side, so it cannot grow a scrollbar for its own animation",
+    /translate: -?\d+px 0/.test(swap) && !/translate: 0 -?\d+px/.test(swap),
+    swap.slice(0, 200),
   )
   check(
     "`translate`, not `transform` — the v4 trap again",
