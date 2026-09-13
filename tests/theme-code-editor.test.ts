@@ -252,6 +252,14 @@ section("It is reachable, and it works on a file longer than the window")
       ),
   )
   check(
+    "the section's own toolbar can hand the section to the assistant",
+    // Every other button there changes the section by hand; asking for a
+    // change in words is the same job by another route.
+    /\/\*\* Opens the assistant on the section this toolbar belongs to\. \*\/\s*\n\s*onAskAi: \(\) => void/.test(editor) &&
+      /<Item label="Ask Storelib about this section" onClick=\{onAskAi\}>\s*\n\s*<StorelibMark/.test(editor) &&
+      /onAskAi=\{\(\) => \{\s*\n\s*setAiOpen\(true\)/.test(editor),
+  )
+  check(
     "Create is the accent colour, like every other action that goes ahead",
     /rounded bg-\[#8B56FA\] px-2 text-\[12px\] font-\[550\] text-white transition-colors hover:bg-\[#7b46ec\]/.test(codeSrc),
   )
@@ -260,8 +268,11 @@ section("It is reachable, and it works on a file longer than the window")
     // It opened inside the file list: on a phone that threw the list over the
     // editor, and on a desktop it answered in a different column from the one
     // being looked at.
-    /\{\/\* Code area \*\/\}[\s\S]{0,900}?\{pendingAction\?\.kind === "new" && \(/.test(codeSrc) &&
-      /max-w-\[520px\]/.test(codeSrc) &&
+    // A card in the middle of the code area, sized inside the pane: a dialog
+    // on a desktop and a full-width sheet at 390px, from one layout.
+    /\{pendingAction\?\.kind === "new" && \(\s*\n\s*<div className="absolute inset-0 z-20 flex items-center justify-center/.test(codeSrc) &&
+      /max-w-\[440px\]/.test(codeSrc) &&
+      /<div className="relative flex-1 flex flex-col overflow-hidden min-w-0">/.test(codeSrc) &&
       !/onClick=\{\(\) => \{ setShowFiles\(true\); setPendingAction\(\{ kind: "new"/.test(codeSrc) &&
       /if \(narrow\) setShowFiles\(false\)/.test(codeSrc),
   )

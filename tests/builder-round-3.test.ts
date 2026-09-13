@@ -212,7 +212,11 @@ async function main() {
      * buttons under it, which is a shape 240px has room for.
      */
     check("it is a row in the file list, not a dialog over it", !/aria-label="Name the new file"/.test(code) && !/fixed inset-0 z-\[200\] flex items-center justify-center/.test(code))
-    check("it sits at the top of the tree, where the file will appear", /\{pendingAction\?\.kind === "new" && \([\s\S]{0,200}<form/.test(code.slice(code.indexOf("wb-slim-scroll flex-1 overflow-y-auto"))))
+    // AND THEN IT LEFT THE TREE. Asking in the file list put the question in
+    // a different column from the one being looked at, and on a phone it
+    // threw the list over the editor to ask it. It is a card in the middle
+    // of the code area now, sized inside the pane.
+    check("it is asked in the middle of the code area, not in the file list", /\{pendingAction\?\.kind === "new" && \(\s*\n\s*<div className="absolute inset-0 z-20 flex items-center justify-center/.test(code) && !/wb-slim-scroll flex-1 overflow-y-auto[\s\S]{0,400}pendingAction\?\.kind === "new"/.test(code))
     check("stacked, so it fits the column it is in", /className="mt-1\.5 flex items-center gap-1\.5"/.test(code))
     check("the field is 16px on a phone, so iOS does not zoom", /label="Name of the new section"[\s\S]{0,200}text-\[16px\]/.test(code))
     check("Escape drops it", /if \(e\.key === "Escape"\) \{ e\.stopPropagation\(\); setPendingAction\(null\) \}/.test(code))

@@ -1815,7 +1815,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
 
         {/* ── Editor area ── */}
         {/* Always here, drawer or no drawer: the code is what this screen is. */}
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <div className="relative flex-1 flex flex-col overflow-hidden min-w-0">
           {/* Tabs */}
           {openTabs.length > 0 && (
             <div className="wb-slim-scroll flex items-end bg-[var(--code-panel)] border-b border-[var(--code-border)] overflow-x-auto shrink-0">
@@ -2028,55 +2028,6 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
           })()}
 
           {/* Code area */}
-          {/**
-            * NEW FILE ASKS ITS QUESTION WHERE THE QUESTION WAS ASKED.
-            *
-            * The field used to open inside the explorer, so pressing New file
-            * from the editor threw the file list over the screen on a phone
-            * and answered somewhere else on a desktop. One short question
-            * belongs on the surface the person is looking at. It is a band
-            * across the top of the code area now, at a readable width, and
-            * every way in leaves the list exactly as it was.
-            */}
-          {pendingAction?.kind === "new" && (
-            <div className="shrink-0 border-b border-[var(--code-border)] bg-[var(--code-panel)] px-3 py-2.5">
-              <div className="mx-auto w-full max-w-[520px]">
-                <form
-                  className="mb-1 rounded-md border border-[var(--code-focus)] bg-[var(--code-bg)] p-1.5"
-                  onSubmit={e => { e.preventDefault(); void runPendingAction() }}
-                  onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setPendingAction(null) } }}
-                >
-                  <NameField
-                    path={pendingAction.path}
-                    onChange={path => setPendingAction({ kind: "new", path })}
-                    label="Name of the new section"
-                    className="h-9 w-full min-w-0 rounded border border-[var(--code-border)] bg-[var(--code-panel)] px-1.5 font-mono text-[16px] md:h-7 md:text-[11.5px]"
-                  />
-                  <div className="mt-1.5 flex items-center gap-1.5">
-                    <button
-                      type="submit"
-                      disabled={!fileNameOf(pendingAction.path).name || creating}
-                      aria-busy={creating}
-                      className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded bg-[#8B56FA] px-2 text-[12px] font-[550] text-white transition-colors hover:bg-[#7b46ec] active:bg-[#6d3ade] disabled:opacity-40 disabled:pointer-events-none md:h-7"
-                    >
-                      {creating && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
-                      {creating ? "Creating" : "Create"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPendingAction(null)}
-                      className="h-8 rounded border border-[var(--code-border)] px-2 text-[12px] font-[550] text-[var(--code-muted)] transition-colors hover:text-[var(--code-text)] md:h-7"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                  <p className="mt-1.5 text-[10.5px] leading-snug text-[var(--code-faint)]">
-                    It starts as a section that compiles, so you can open it and change one thing at a time.
-                  </p>
-                </form>
-              </div>
-            </div>
-          )}
           {!selectedFile ? (
             <div className="flex-1 flex items-center justify-center px-6 text-[var(--code-faint)]">
               <div className="text-center">
@@ -2514,6 +2465,61 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
               </span>
             )}
           </div>
+          {/**
+            * =============================================================
+            *  NEW FILE IS ASKED IN THE MIDDLE, THE WAY IT USED TO BE
+            * =============================================================
+            * It was a row in the explorer, so the question arrived in a
+            * different column from the one being looked at, and on a phone it
+            * threw the file list over the editor to ask it. Then it was a
+            * band across the top of the code area: nearer, and still a strip
+            * of chrome. It is a card in the middle of the code area now. One
+            * question, in the place the answer lands, with the files still
+            * there behind it.
+            *
+            * Sized inside the pane rather than against the screen, so the
+            * same card is a comfortable dialog on a desktop and a full-width
+            * sheet at 390px without a second layout.
+            */}
+          {pendingAction?.kind === "new" && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--code-bg)]/80 p-4 backdrop-blur-[2px]">
+              <div className="w-full max-w-[440px]">
+                <form
+                className="mb-1 rounded-md border border-[var(--code-focus)] bg-[var(--code-bg)] p-1.5"
+                onSubmit={e => { e.preventDefault(); void runPendingAction() }}
+                onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setPendingAction(null) } }}
+                >
+                <NameField
+                path={pendingAction.path}
+                onChange={path => setPendingAction({ kind: "new", path })}
+                label="Name of the new section"
+                className="h-9 w-full min-w-0 rounded border border-[var(--code-border)] bg-[var(--code-panel)] px-1.5 font-mono text-[16px] md:h-7 md:text-[11.5px]"
+                />
+                <div className="mt-1.5 flex items-center gap-1.5">
+                <button
+                type="submit"
+                disabled={!fileNameOf(pendingAction.path).name || creating}
+                aria-busy={creating}
+                className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded bg-[#8B56FA] px-2 text-[12px] font-[550] text-white transition-colors hover:bg-[#7b46ec] active:bg-[#6d3ade] disabled:opacity-40 disabled:pointer-events-none md:h-7"
+                >
+                {creating && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
+                {creating ? "Creating" : "Create"}
+                </button>
+                <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                className="h-8 rounded border border-[var(--code-border)] px-2 text-[12px] font-[550] text-[var(--code-muted)] transition-colors hover:text-[var(--code-text)] md:h-7"
+                >
+                Cancel
+                </button>
+                </div>
+                <p className="mt-1.5 text-[10.5px] leading-snug text-[var(--code-faint)]">
+                It starts as a section that compiles, so you can open it and change one thing at a time.
+                </p>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -467,7 +467,8 @@ section("Leaving a page always ends, one way or the other")
     "the screen that says you are leaving is on the glass before the page goes",
     // Prefetching made the navigation instant, and an instant navigation
     // paints the next page before this one has drawn the screen at all.
-    /const LEAVING_SEEN_MS = 280/.test(editor) &&
+    // Three lines in turn need the time they were written for.
+    /const LEAVING_SEEN_MS = 3_000/.test(editor) &&
       /const start = window\.setTimeout\(\(\) => \{\s*\n\s*cancelCeiling\.current = navigateWithCeiling\([\s\S]*?\}, LEAVING_SEEN_MS\)/.test(editor) &&
       /cancelCeiling\.current = \(\) => window\.clearTimeout\(start\)/.test(editor),
   )

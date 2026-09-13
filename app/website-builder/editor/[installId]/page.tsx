@@ -805,8 +805,14 @@ function FieldEditor({
  */
 const AUTOSAVE_DELAY_MS = 1_500
 
-/** How long the screen that says you are leaving is on the glass before the page goes. */
-const LEAVING_SEEN_MS = 280
+/**
+ * How long the screen that says you are leaving is on the glass before the
+ * page goes. It reads three lines in turn, and a screen nobody can read is
+ * a flash of grey with a word in it; this is the time those three lines
+ * were written for. The ceiling that stops a slow route hanging starts
+ * after this, so nothing waits twice.
+ */
+const LEAVING_SEEN_MS = 3_000
 
 /**
  * ===========================================================================
@@ -7626,6 +7632,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 onMoveUp={() => selectedSectionId && moveSectionBy(selectedSectionId, -1)}
                 onMoveDown={() => selectedSectionId && moveSectionBy(selectedSectionId, 1)}
                 onDuplicate={() => selectedSectionId && duplicateSection(selectedSectionId)}
+                onAskAi={() => {
+                  setAiOpen(true)
+                  if (isMobileView) setMobileSidebarOpen(false)
+                }}
                 onToggleHide={() => selectedSectionId && toggleSectionHidden(selectedSectionId)}
                 onRemove={() => selectedSectionId && removeSection(selectedSectionId)}
               />
@@ -7898,6 +7908,7 @@ function SectionToolbar({
   onDuplicate,
   onToggleHide,
   onRemove,
+  onAskAi,
 }: {
   sectionId: string | null
   hidden: boolean
@@ -7910,6 +7921,8 @@ function SectionToolbar({
   onDuplicate: () => void
   onToggleHide: () => void
   onRemove: () => void
+  /** Opens the assistant on the section this toolbar belongs to. */
+  onAskAi: () => void
 }) {
   const [box, setBox] = useState<{ top: number; right: number } | null>(null)
   /**
@@ -8085,6 +8098,19 @@ function SectionToolbar({
       style={{ top: draw.top, right: draw.right }}
       onClick={(e) => e.stopPropagation()}
     >
+      {/**
+       * ASK STORELIB ABOUT THIS SECTION, from the section itself.
+       *
+       * The assistant already knows which section is selected; what it did
+       * not have was a way in from the thing being looked at. Every other
+       * button here changes the section by hand. This one asks for a change
+       * in words, which is the same job by another route, so it sits with
+       * them rather than in a menu somewhere else.
+       */}
+      <Item label="Ask Storelib about this section" onClick={onAskAi}>
+        <StorelibMark className="h-4 w-4 rounded-[4px]" />
+      </Item>
+      <span aria-hidden className="mx-0.5 h-5 w-px bg-neutral-200" />
       {!isChrome && (
         <>
           <Item label="Move up" onClick={onMoveUp} disabled={!canMoveUp}>
