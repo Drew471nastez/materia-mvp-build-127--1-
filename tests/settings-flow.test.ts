@@ -222,13 +222,30 @@ check(
     /<YAxis/.test(code("components/app/dashboard-client.tsx")),
 )
 check(
-  "and its width is the same constant the touch maths reads, in both charts",
+  "the axis is measured from its own labels rather than being a flat 40px",
   ["components/app/analytics-chart.tsx", "components/app/dashboard-client.tsx"].every((f) => {
     const src = code(f)
     return (
-      /const PLOT_LEFT = \d+/.test(src) &&
-      /width=\{PLOT_LEFT\}/.test(src) &&
-      /rect\.left \+ PLOT_LEFT/.test(src) &&
+      /function plotLeftFor\(labels: string\[\]\): number/.test(src) &&
+      /Math\.max\(22, Math\.min\(46, longest\.length \* 7 \+ 10\)\)/.test(src) &&
+      !/const PLOT_LEFT = \d+/.test(src)
+    )
+  }),
+)
+check(
+  "one formatter both draws the ticks and measures them, so the gutter fits what is shown",
+  ["components/app/analytics-chart.tsx", "components/app/dashboard-client.tsx"].every((f) => {
+    const src = code(f)
+    return /tickFormatter=\{axisTick\}/.test(src) && /plotLeftFor\(\[axisTick\(0\)/.test(src)
+  }),
+)
+check(
+  "and the measured width is what the axis, the margin and the finger all read",
+  ["components/app/analytics-chart.tsx", "components/app/dashboard-client.tsx"].every((f) => {
+    const src = code(f)
+    return (
+      /width=\{plotLeft\}/.test(src) &&
+      /rect\.left \+ plotLeft/.test(src) &&
       !/rect\.left \+ 40/.test(src)
     )
   }),
@@ -373,10 +390,11 @@ section("The chart tooltip stays in its card")
       `${name}: there is room above for the active dot, which is 8px of ring and radius`,
       /const PLOT_TOP = (\d+)/.test(src) && Number(src.match(/const PLOT_TOP = (\d+)/)![1]) >= 8,
     )
-    check(
-      `${name}: the tooltip slides between points instead of hopping`,
-      /transition: "transform 90ms/.test(src),
-    )
+    /*
+      The glide is now conditional — a cut on the first placement, a slide
+      after — so it is checked by the pair in "The scrub, on a phone" rather
+      than by looking for an unconditional transition here.
+    */
     check(
       `${name}: a drag is recognised without having to out-argue the vertical`,
       /totalMove > 5/.test(src) && /if \(dx > dy\) \{/.test(src),
@@ -396,6 +414,61 @@ check(
      */
     const src = code("components/app/dashboard-client.tsx")
     return /setShouldAnimate\(true\)[\s\S]{0,200}\}, \[displayChartData\]\)/.test(src)
+  })(),
+)
+
+
+// ---------------------------------------------------------------------------
+section("The scrub, on a phone")
+// ---------------------------------------------------------------------------
+
+for (const f of ["components/app/dashboard-client.tsx", "components/app/analytics-chart.tsx"]) {
+  const src = code(f)
+  const name = f.split("/").pop()
+
+  check(
+    `${name}: the tooltip is placed over its own point, in the plot area`,
+    /const plotWidth = track - plotLeft - PLOT_RIGHT/.test(src) &&
+      /plotLeft \+ \(activeIndex \/ \([a-zA-Z]+\.length - 1\)\) \* plotWidth/.test(src),
+  )
+  check(
+    `${name}: not as a percentage of the whole card, which ignored the axis`,
+    !/tooltipLeftPercent/.test(src),
+  )
+  check(
+    `${name}: one haptic per point crossed, fired on the change and not the frame`,
+    /idx !== lastHapticIndexRef\.current/.test(src) && /hapticTap\("light"\)/.test(src),
+  )
+  check(
+    `${name}: and it is forgotten when the finger lifts, so the next scrub ticks again`,
+    /lastHapticIndexRef\.current = null/.test(src),
+  )
+  check(
+    `${name}: a hold produces the tooltip in about a tenth of a second`,
+    /\}, 120\)/.test(src) && !/\}, 250\)/.test(src),
+  )
+  check(
+    `${name}: the first placement is a cut, so the box does not swoop in from the edge`,
+    /tooltipPlacedRef\.current\s*\?\s*"transform 90ms/.test(src) &&
+      /if \(tooltipActive && activeIndex != null\) tooltipPlacedRef\.current = true/.test(src),
+  )
+  check(
+    `${name}: and every placement after it glides`,
+    /transform 90ms cubic-bezier\(0\.22, 1, 0\.36, 1\)/.test(src),
+  )
+}
+
+check(
+  "a thumb on the Views / Revenue / Orders row can still scroll the page",
+  (() => {
+    /**
+     * `pan-x` does not mean "prefer horizontal". It means vertical panning is
+     * not allowed in this element at all — so a thumb that landed on a KPI
+     * tile and pulled down could not scroll the page, and the row read as
+     * frozen. Both axes named lets the browser decide from the gesture.
+     */
+    const src = code("components/app/dashboard-client.tsx")
+    return /touchAction: 'pan-x pan-y'/.test(src) && !/touchAction: 'pan-x'/.test(src)
   })(),
 )
 
