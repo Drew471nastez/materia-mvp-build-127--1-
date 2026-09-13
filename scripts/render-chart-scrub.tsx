@@ -31,7 +31,13 @@ const metric = ((globalThis as unknown as { __metric?: string }).__metric ?? "vi
 
 const host = document.getElementById("app")!
 createRoot(host).render(
+  /*
+   * With something to scroll above and below it, because the chart is
+   * touch-action:none and now scrolls the page by hand: if that is wrong, a
+   * thumb on the chart freezes the page, and this is where that shows up.
+   */
   <div style={{ width: 360, padding: 0 }}>
+    <div style={{ height: 600, background: "#eef0f3" }} />
     <div style={{ background: "#fff", borderRadius: 16, padding: 8 }}>
       <AnalyticsChartWithTooltip
         chartDisplayData={data}
@@ -43,5 +49,6 @@ createRoot(host).render(
         formatPrice={(cents: number) => `$${(cents / 100).toFixed(2)}`}
       />
     </div>
+    <div style={{ height: 1200, background: "#eef0f3" }} />
   </div>,
 )

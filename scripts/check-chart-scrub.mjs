@@ -119,6 +119,8 @@ const DRIVE = `
     var m = t.textContent.match(/Sep (\\d+)/)
     return m ? Number(m[1]) - 1 : null
   }
+  function touchAction() { var h = chart(); return h ? getComputedStyle(h).touchAction : null }
+  function scrollY() { return Math.round(window.scrollY || document.documentElement.scrollTop || 0) }
   function tipBox() { var t = tooltip(); if (!t) return null; var r = t.getBoundingClientRect(); return { left: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width) } }
 
   /* ---- geometry the touch maths uses ---------------------------------- */
@@ -162,6 +164,11 @@ const DRIVE = `
   function run(name, steps, done) {
     globalThis.__haptics = []
     mark("run:" + name)
+    /* Back to where the geometry was measured, and with room to scroll both
+       ways, so one run cannot leave the next one at the top of the page. */
+    window.scrollTo(0, 300)
+    var startScroll = scrollY()
+    rect = host.getBoundingClientRect()
     var el = host
     var log = []
     var first = steps[0]
@@ -170,7 +177,7 @@ const DRIVE = `
     function next() {
       if (i >= steps.length) {
         fire(el, "touchend", steps[steps.length - 1].x, steps[steps.length - 1].y)
-        setTimeout(function () { done({ name: name, log: log, haptics: globalThis.__haptics.slice(), afterEnd: { active: !!tooltip() } }) }, 40)
+        setTimeout(function () { done({ name: name, log: log, haptics: globalThis.__haptics.slice(), startScroll: startScroll, touchActionAtRest: touchAction(), afterEnd: { active: !!tooltip(), scrollY: scrollY() } }) }, 120)
         return
       }
       var s = steps[i++]
@@ -179,7 +186,7 @@ const DRIVE = `
       /* A frame, so the rAF the handler queued gets to run. */
       var done2 = false
       var onFrame = function () { if (done2) return; done2 = true
-        log.push({ x: Math.round(s.x - rect.left), want: s.want == null ? null : s.want, got: reading(), active: !!tooltip(), defaultPrevented: ev.defaultPrevented, tip: tipBox() })
+        log.push({ x: Math.round(s.x - rect.left), want: s.want == null ? null : s.want, got: reading(), active: !!tooltip(), defaultPrevented: ev.defaultPrevented, tip: tipBox(), touchAction: touchAction(), scrollY: scrollY() })
         next()
       }
       /* A frame for the rAF the handler queued, and a timer in case frames
@@ -196,6 +203,8 @@ const DRIVE = `
     if ((!host || !document.querySelector("#app .recharts-yAxis")) && tries++ < 600) { setTimeout(waitForChart, 10); return }
     if (!host) { report({ error: "the chart never mounted" }); return }
     mark("mounted")
+    /* Measured where the runs will happen, since the page now scrolls. */
+    window.scrollTo(0, 300)
     rect = host.getBoundingClientRect()
     var grid = plotFromGrid()
     if (!grid) { report({ error: "the grid never drew, so there is no plot area to press" }); return }
@@ -216,9 +225,18 @@ const DRIVE = `
     oneShot.push({ x: xForIndex(10), y: y })
     for (var i = 10; i >= 3; i--) oneShot.push({ x: xForIndex(i), y: y + (i % 2), want: i })
 
-    /* HOLD THEN DRAG: press, wait past the hold, then swipe right. */
-    var holdDrag = [{ x: xForIndex(4), y: y }, { wait: 200 }]
-    for (var j = 4; j <= 11; j++) holdDrag.push({ x: xForIndex(j), y: y + (j % 2), want: j })
+    /*
+     * HOLD THEN SLIDE, IN ONE MOTION AND WITHOUT LIFTING. The gesture the
+     * chart is actually for, and the one that needed a lift and a second tap
+     * before touch-action stopped being a ternary.
+     *
+     * A thumb settling drifts, and a thumb sweeping sideways arcs, so both
+     * are in here: three pixels of drift under the hold and up to five of
+     * vertical wander across the slide. A hold that only survives a finger
+     * held perfectly still is not a hold.
+     */
+    var holdDrag = [{ x: xForIndex(4), y: y }, { x: xForIndex(4) + 1, y: y + 2 }, { wait: 200 }, { x: xForIndex(4) + 2, y: y + 3, want: 4 }]
+    for (var j = 4; j <= 11; j++) holdDrag.push({ x: xForIndex(j), y: y + ((j % 3) * 2) - 2, want: j })
 
     /* STRAIGHT DOWN: a scroll that happens to start on the chart. */
     var pull = [{ x: xForIndex(7), y: y }]
@@ -294,6 +312,8 @@ const show = (a) => {
   console.log(`\n${a.name}:`)
   a.log.forEach((s) => console.log(`  x=${String(s.x).padStart(4)}  want ${s.want === null ? "nothing" : "day " + s.want}  got ${s.got === null ? "nothing" : "day " + s.got}  ${s.active ? "showing" : "idle"}${s.defaultPrevented ? " (scroll held)" : ""}`))
   console.log(`  haptics: ${a.haptics.length} (${a.haptics.join(", ") || "none"})`)
+  console.log(`  touch-action throughout: ${[...new Set(a.log.map((s) => s.touchAction))].join(" then ") || "(none seen)"}`)
+  console.log(`  page scrolled: ${a.startScroll} -> ${a.afterEnd.scrollY} (${a.afterEnd.scrollY - a.startScroll >= 0 ? "+" : ""}${a.afterEnd.scrollY - a.startScroll}px)`)
   console.log(`  after the finger lifts: ${a.afterEnd.active ? "STILL SHOWING" : "gone"}`)
 }
 ;["oneShot", "holdThenDrag", "pullDown"].forEach((k) => show(r[k]))
@@ -317,9 +337,32 @@ for (const key of ["oneShot", "holdThenDrag"]) {
   if (held.length) problems.push(`[${metric}] ${a.name}: ${held.length} moves did not prevent the default, so the page can scroll mid scrub.`)
 }
 
+/*
+ * TOUCH-ACTION IS LATCHED AT TOUCHSTART. A value that changes when the
+ * tooltip opens cannot affect the gesture that opened it — it only reaches
+ * the NEXT touch, which is why the old chart needed a lift and a second tap.
+ * Nothing here may vary across a gesture, and it may not permit a pan.
+ */
+for (const key of ["oneShot", "holdThenDrag", "pullDown"]) {
+  const seen = [...new Set(r[key].log.map((s) => s.touchAction))]
+  if (seen.length > 1) problems.push(`[${metric}] ${key}: touch-action changed mid gesture (${seen.join(" then ")}). The browser latched the first one and ignored the rest.`)
+  if (seen.some((t) => t !== "none")) problems.push(`[${metric}] ${key}: touch-action is "${seen.join(", ")}". Anything that permits a pan lets the browser take the gesture away mid hold.`)
+}
+
+/* Scrolling by hand, because touch-action:none means nothing else will. */
+{
+  /* A finger pulled DOWN sends the page UP, so the number goes down. */
+  const moved = r.pullDown.afterEnd.scrollY - r.pullDown.startScroll
+  if (moved > -20) problems.push(`[${metric}] a downward drag on the chart moved the page ${moved}px, and it should have gone up by at least 20. With touch-action:none nothing else will scroll it, so a thumb on the chart would freeze the page.`)
+  for (const key of ["oneShot", "holdThenDrag"]) {
+    const drift = Math.abs(r[key].afterEnd.scrollY - r[key].startScroll)
+    if (drift > 4) problems.push(`[${metric}] ${key}: the page moved ${drift}px during a scrub. A sideways gesture must not scroll.`)
+  }
+}
+
 const pull = r.pullDown
 if (pull.log.some((s) => s.active)) problems.push(`[${metric}] pullDown: a straight downward drag opened the tooltip. A thumb over the chart cannot scroll the page.`)
-if (pull.log.some((s) => s.defaultPrevented)) problems.push(`[${metric}] pullDown: a downward drag had its default prevented. The page will not scroll.`)
+
 
 }
 

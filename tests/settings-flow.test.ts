@@ -584,6 +584,12 @@ check(
      * `pan-x` alone means a thumb on that element cannot scroll the page.
      * The dashboard's KPI row was the one in the screenshot; the analytics
      * page had two more of them.
+     *
+     * This is about STRIPS, not the two trend charts. Those are deliberately
+     * `touch-action: none`, because a chart that promises the browser a pan
+     * has its hold stolen mid gesture, and they scroll the page by hand
+     * instead. tests/analytics-chart.test.ts holds that rule and the
+     * scrolling that pays for it.
      */
     const files = [
       "components/app/dashboard-client.tsx",
