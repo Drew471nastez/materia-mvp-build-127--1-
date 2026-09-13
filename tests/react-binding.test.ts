@@ -130,12 +130,15 @@ function main() {
   VALUE_USE.lastIndex = 0
 
   /**
-   * The specific lines that caused it, named. If somebody writes them again
-   * the failure says which file rather than only which rule.
+   * The two lines that caused it are gone entirely: they drove the sidebar's
+   * slide, and the sidebar no longer moves. What survives them is the scan
+   * above, which is the general rule rather than a note about one file, and
+   * this: the editor imports its hooks by name and still never imports React,
+   * which is the condition that made `React.useRef` a ReferenceError.
    */
   const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
-  check("the editor's sidebar refs use the imported hook", /const sidebarGoingBack = useRef\(false\)/.test(editor))
-  check("and so does the one beside it", /const lastPanelKey = useRef\(sidebarPanelKey\)/.test(editor))
+  check("the editor still imports its hooks by name", /import \{[^}]*useRef[^}]*\} from "react"/.test(editor))
+  check("and still does not import React itself", !importsReact(strip(editor)))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

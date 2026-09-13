@@ -161,21 +161,32 @@ function WbLoadProgressBar({ active }: { active: boolean }) {
        * theme is edge-to-edge and dark, and the strip read as a white line
        * under the bar. Absolute, it takes no room, and idle it is nothing.
        */
-      className="absolute inset-x-0 bottom-0 z-10 h-[1.5px] overflow-hidden bg-transparent pointer-events-none"
+      /**
+       * 3px, NOT 1.5. At a hairline and 0.9 opacity this was invisible on the
+       * one screen it exists for: a dark bar above, a light canvas below, and
+       * a sweep nobody reported ever seeing. It is still a line on the bar's
+       * own edge and takes no room in the flow, so making it legible costs
+       * nothing but the pixels it is drawn in.
+       */
+      className="absolute inset-x-0 bottom-0 z-10 h-[3px] overflow-hidden bg-transparent pointer-events-none"
       style={{
-        // Subtler overall opacity so the bar reads as a hint of progress,
-        // not a UI chrome element fighting for attention.
-        opacity: visible ? 0.9 : 0,
-        transition: "opacity 280ms ease-out",
+        opacity: visible ? 1 : 0,
+        transition: "opacity 240ms ease-out",
       }}
     >
       <div
         className="h-full"
         style={{
           width: `${progress}%`,
-          // Flat, modern blue (Tailwind blue-500 → blue-600). No purple/indigo
-          // gradient and no glow — keeps it calm and subtle.
-          background: "#3b82f6",
+          /**
+           * The product's own accent, not a generic blue. It is the colour
+           * every other "something is happening" in this editor uses, and a
+           * second progress colour is a second thing to learn. The soft edge
+           * is the sweep's leading end, which is what makes a bar creeping
+           * toward 90% read as still moving rather than as stuck.
+           */
+          background: "#8B56FA",
+          boxShadow: "0 0 8px rgba(139, 86, 250, 0.55)",
           transition: "width 380ms cubic-bezier(0.22, 1, 0.36, 1)",
           willChange: "width",
         }}
@@ -4438,6 +4449,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       setSectionsLoading(false)
       setCanvasLoading(false)
+      /**
+       * ═══════════════════════════════════════════════════════════════════
+       *  YOU ARRIVE AT THE TOP OF A PAGE YOU OPENED
+       * ═══════════════════════════════════════════════════════════════════
+       * Opening a page kept the scroll position of the one before it, so
+       * following a footer link from halfway down a long home page landed
+       * you halfway down the privacy policy, with the heading above the
+       * fold. Nothing about that says a page changed; it reads as the canvas
+       * having glitched.
+       *
+       * Every browser does this and nobody notices, which is the point: it
+       * is what makes a navigation feel like one. After the paint, so it
+       * scrolls the page that has arrived rather than the one on its way
+       * out, and `instant` because this is not a journey to watch.
+       */
+      requestAnimationFrame(() => {
+        document.getElementById("wb-preview-root")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+      })
     } finally {
       switchingPage.current = false
     }
@@ -4543,7 +4572,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // perform a full browser navigation (that would blow the user out of the
   // editor). Instead, map the href to the appropriate editor page/action.
   // External URLs and `#` anchors are simply ignored in edit mode.
-  const handleEditorNavigate = useCallback((href: string, fromFooter = false) => {
+  const handleEditorNavigate = useCallback((href: string, fromNav = false) => {
     if (!href) return
     /**
      * WITH THE INSPECTOR ON, A TAP SELECTS. It does not navigate. A thumb on a
@@ -4554,7 +4583,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * to the top". Following links is what the preview is for, with the
      * inspector off.
      */
-    if (inspectorEnabled && !fromFooter) return
+    if (inspectorEnabled && !fromNav) return
     const trimmed = href.trim()
     if (!trimmed || trimmed === "#") return
     // An anchor on this page scrolls the canvas to it, and nothing else.
@@ -5457,10 +5486,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       : `${sidebarMode}:${selectedPanel.type}`
 
   /**
-   * Going back up the stack comes from the left, going in comes from below.
-   * The direction is the only thing that says which way you moved, and a
-   * back step that looks identical to a forward one is a transition that has
-   * been added without being made to mean anything.
+   * NO ANIMATION ON A PANEL SWAP.
+   *
+   * Selecting a section slid its settings in from the side, and at 180ms
+   * over a panel full of text that is not navigation, it is a flinch: the
+   * whole sidebar twitches every time you click a section, which is the most
+   * common thing anybody does in this editor. Reported as looking cheap, and
+   * it was.
+   *
+   * The direction was meant to say which way you moved through the stack.
+   * That is worth saying in a sheet that slides over a page; it is not worth
+   * saying in a panel that simply shows a different thing, and the price was
+   * a moving target every time the mouse landed.
+   *
+   * The `key` stays, because that is not decoration: it is what makes React
+   * build a new panel rather than reconcile one section's fields into
+   * another's.
    */
   /**
    * `useRef`, not `React.useRef`. This file imports the hooks it uses by
@@ -5472,13 +5513,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * React types declare `React` as a UMD global — and the build does not
    * fail on type errors. tests/react-binding.test.ts is what catches it now.
    */
-  const sidebarGoingBack = useRef(false)
-  const lastPanelKey = useRef(sidebarPanelKey)
-  if (lastPanelKey.current !== sidebarPanelKey) {
-    sidebarGoingBack.current =
-      lastPanelKey.current.startsWith("section:") && !sidebarPanelKey.startsWith("section:")
-    lastPanelKey.current = sidebarPanelKey
-  }
 
   const renderSidebarContent = () => {
     // ── Page browser mode ──
@@ -7229,7 +7263,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <LinkTargetsProvider targets={linkTargets}>
                   <div
                     key={sidebarPanelKey}
-                    className={sidebarGoingBack.current ? "wb-panel-swap-back h-full" : "wb-panel-swap h-full"}
+                    className="h-full"
                   >
                     {renderSidebarContent()}
                   </div>
@@ -7333,7 +7367,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <LinkTargetsProvider targets={linkTargets}>
                   <div
                     key={sidebarPanelKey}
-                    className={sidebarGoingBack.current ? "wb-panel-swap-back h-full" : "wb-panel-swap h-full"}
+                    className="h-full"
                   >
                     {renderSidebarContent()}
                   </div>
@@ -7635,25 +7669,38 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                * them, and every one of those taps used to change the page
                * under somebody who meant to select a section.
                *
-               * A footer is not that. Its links ARE its content: there is no
-               * space around them to aim for, nobody taps one by accident,
-               * and the three policy links this site now ships live there.
-               * Clicking one and having nothing happen reads as a broken
-               * link, which is the one thing a legal page must not be.
+               * THE HEADER AND THE FOOTER ARE NOT THAT. They are the site's
+               * navigation: their links ARE their content, there is barely
+               * any space around them to aim for, and a nav you cannot
+               * follow while looking at the site is a nav you cannot check.
+               * The three policy links every site now ships live in one of
+               * them.
                *
-               * So the footer is the exception, and only for a path inside
-               * this site: an external link still does nothing, because
-               * leaving the editor is not what that tap meant either.
+               * This was the footer alone for one deploy, on the reasoning
+               * that a thumb finds the header's logo by accident. It does,
+               * and the accident it used to cause is fixed elsewhere: a tap
+               * that navigates now lands at the TOP of the page it opened,
+               * which is where a navigation is supposed to leave you, so it
+               * reads as having gone somewhere rather than as a jump.
+               *
+               * `data-chrome` is header and footer and nothing else, which
+               * is exactly the rule. A link in a hero or a feature card
+               * still only selects: that one IS content being edited, and a
+               * tap on it is far more often aimed at the section behind it.
+               *
+               * Only for a path inside this site. An external link still
+               * does nothing, because leaving the editor is not what that
+               * tap meant either.
                */
               const el = e.target as HTMLElement | null
               const anchor = el?.closest?.("a[href]") as HTMLAnchorElement | null
-              const inFooter = !!anchor?.closest?.('[data-section-type="footer"]')
+              const inNav = !!anchor?.closest?.("[data-chrome]")
               const href = anchor?.getAttribute("href")?.trim() ?? ""
               const internal = href.startsWith("/") && !/^\/\//.test(href)
 
               if (leavesThePage(e.target as unknown as ClickTargetLike | null)) e.preventDefault()
 
-              if (inFooter && internal) {
+              if (inNav && internal) {
                 e.stopPropagation()
                 handleEditorNavigate(href, true)
               }

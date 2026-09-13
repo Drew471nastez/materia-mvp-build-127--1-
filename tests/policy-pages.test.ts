@@ -346,18 +346,22 @@ async function main() {
     /** A footer link is a link. */
     check("sections say what type they are", /data-section-type=\{props\.section\.type\}/.test(renderer))
     check(
-      "and a footer link navigates even with the inspector on",
-      /data-section-type="footer"/.test(editor) && /handleEditorNavigate\(href, true\)/.test(editor),
+      "and a link in the header or the footer navigates even with the inspector on",
+      /closest\?\.\("\[data-chrome\]"\)/.test(editor) && /handleEditorNavigate\(href, true\)/.test(editor),
     )
     check(
-      "while everywhere else a tap still only selects",
-      /if \(inspectorEnabled && !fromFooter\) return/.test(editor),
+      "while a link inside the page's own content still only selects",
+      /if \(inspectorEnabled && !fromNav\) return/.test(editor),
+    )
+    check(
+      "and opening a page leaves you at the top of it",
+      /getElementById\("wb-preview-root"\)\?\.scrollTo\(\{ top: 0/.test(editor),
     )
     check("an external link in a footer still does not leave the editor", /href\.startsWith\("\/"\)/.test(editor))
 
     /** And every wait says so. */
     check("the progress bar covers every canvas wait", /<WbLoadProgressBar active=\{sectionsLoading \|\| canvasBusy\} \/>/.test(editor))
-    check("and it is a hairline, not a chrome element", /h-\[1\.5px\]/.test(editor))
+    check("and it is visible enough to read as progress", /h-\[3px\]/.test(editor) && /#8B56FA/.test(editor))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

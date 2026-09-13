@@ -359,7 +359,7 @@ function main() {
   const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   check(
     "and the canvas blocks both, in either mode, without blocking any handler",
-    /onClickCapture=\{\(e\) => \{[\s\S]{0,1600}?if \(leavesThePage\(/.test(editor) &&
+    /onClickCapture=\{\(e\) => \{[\s\S]{0,3000}?if \(leavesThePage\(/.test(editor) &&
       /onSubmitCapture=\{\(e\) => e\.preventDefault\(\)\}/.test(editor),
   )
 }

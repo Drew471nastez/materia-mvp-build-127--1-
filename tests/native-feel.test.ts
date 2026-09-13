@@ -201,13 +201,18 @@ check(
   "the sidebar panel is keyed, so a swap is a new element rather than an edit in place",
   /const sidebarPanelKey = pageBrowserOpen/.test(editor) && /key=\{sidebarPanelKey\}/.test(editor),
 )
+/**
+ * AND IT DOES NOT MOVE.
+ *
+ * The panel used to slide in, forward from one side and back from the other,
+ * so the direction said which way you had moved through the stack. At 180ms
+ * over a panel of text that is not navigation it is a flinch, and it fired on
+ * the most common action in the editor: clicking a section. Reported as
+ * looking cheap. The key stays because that is structure, not decoration.
+ */
 check(
-  "going back comes from the other side, so the direction means something",
-  /wb-panel-swap-back/.test(editor) && /sidebarGoingBack/.test(editor),
-)
-check(
-  "and back is detected by leaving a section, not by guessing",
-  /lastPanelKey\.current\.startsWith\("section:"\) && !sidebarPanelKey\.startsWith\("section:"\)/.test(editor),
+  "selecting a section does not make the sidebar move",
+  !/wb-panel-swap-back/.test(editor) && !/sidebarGoingBack/.test(editor),
 )
 check(
   "choosing a category replaces the grid rather than swapping card contents",
@@ -221,8 +226,19 @@ check(
   })(),
 )
 
+/**
+ * What is left of `.wb-panel-swap` belongs to the ADD SECTION grid, where a
+ * category change replaces the whole list and the fade is what says so.
+ */
 {
-  const swap = css.slice(css.indexOf(".wb-panel-swap {"), css.indexOf(".wb-panel-swap {") + 900)
+  /**
+   * 400, not 900. The block shrank when the sidebar stopped sliding, and a
+   * fixed window that outlives its block reads into the NEXT rule: the
+   * "no transform" check started failing on `.wb-settings-in`, which is a
+   * different animation that is allowed one. Sized to the rule and its
+   * keyframes and nothing after them.
+   */
+  const swap = css.slice(css.indexOf(".wb-panel-swap {"), css.indexOf(".wb-panel-swap {") + 400)
   check(
     "it animates opacity and translate only, so it costs a layer and not a layout",
     /translate: [-\d]/.test(swap) && !/height|width|margin|padding/.test(swap),
@@ -252,7 +268,7 @@ check(
     "it is short enough to step back through four times without waiting",
     (() => {
       const ms = [...swap.matchAll(/animation: wb-panel-swap[a-z-]* (\d+)ms/g)].map((m) => Number(m[1]))
-      return ms.length >= 2 && ms.every((n) => n <= 220)
+      return ms.length >= 1 && ms.every((n) => n <= 220)
     })(),
   )
   check(

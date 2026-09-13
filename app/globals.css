@@ -831,18 +831,11 @@ html.capacitor body {
     from { opacity: 0; translate: 8px 0; }
     to { opacity: 1; translate: none; }
   }
-  /* Going BACK comes from the other side, so the direction carries the sense
-     of where you are in the stack rather than every change looking alike. */
-  .wb-panel-swap-back {
-    animation: wb-panel-swap-back 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
-  @keyframes wb-panel-swap-back {
-    from { opacity: 0; translate: -8px 0; }
-    to { opacity: 1; translate: none; }
-  }
+  /* The BACK direction went with the sidebar's slide: nothing uses it now.
+     What is left belongs to the add-section grid, where a category change
+     replaces the whole list and the fade is what says so. */
   @media (prefers-reduced-motion: reduce) {
-    .wb-panel-swap,
-    .wb-panel-swap-back { animation: none; }
+    .wb-panel-swap { animation: none; }
   }
 
   /* Project settings: a whole page over the builder, arriving from a touch
