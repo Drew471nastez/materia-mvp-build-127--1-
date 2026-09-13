@@ -298,14 +298,17 @@ function ChartWithLongPressTooltip({
                 axisLine={false}
                 interval="preserveStartEnd"
               />
-              <YAxis
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                tickLine={false}
-                axisLine={false}
-                domain={[0, "auto"]}
-                width={40}
-                tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
-              />
+              {/*
+                NO Y AXIS, same as the analytics chart.
+                Forty pixels on the left of the chart to print five numbers
+                nobody reads off a chart: the exact figure is in the tooltip
+                and the shape is what the chart is for. The grid lines stay
+                so the rise and fall still has something to be read against.
+
+                The payouts chart keeps its axis, and that is not an
+                inconsistency: money wants a scale you can judge at a glance,
+                a count over time does not.
+              */}
               {/* Desktop-only Recharts tooltip */}
               {!isTouchDevice && (
                 <Tooltip
