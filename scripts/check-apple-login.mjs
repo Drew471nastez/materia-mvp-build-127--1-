@@ -155,9 +155,56 @@ if (!secret) {
   process.exit(failures ? 1 : 0)
 }
 
+/**
+ * ===========================================================================
+ *  THE .p8 IS NOT THE SECRET, AND THE NAMES DO NOT HELP
+ * ===========================================================================
+ * Apple calls the downloaded file a "key". Supabase calls the field a
+ * "Secret Key". They are not the same thing and one of them must never
+ * leave the machine it was downloaded to:
+ *
+ *   THE .p8   an EC PRIVATE KEY. It signs secrets. It is not one. Anyone
+ *             holding it can mint a valid Apple login for this team until
+ *             the key is revoked.
+ *   THE JWT   what you sign WITH the .p8, valid for six months, and the
+ *             only one of the two that belongs in a dashboard field.
+ *
+ * Somebody pasting the first where the second goes is the obvious mistake
+ * and the expensive one, so this names it rather than reporting a malformed
+ * JWT and letting them go looking.
+ */
+const looksLikePrivateKey =
+  /-----BEGIN[\s\S]*PRIVATE KEY-----/.test(secret) ||
+  /** A bare PKCS#8 body, pasted without its header lines. */
+  /^MIG[A-Za-z0-9+/=\s]{100,}$/.test(secret.replace(/\s+/g, "")) ||
+  secret.replace(/\s+/g, "").startsWith("MIGTAgEAMBMGByqGSM49")
+
+if (looksLikePrivateKey) {
+  console.log(`
+  ✗   THAT IS YOUR PRIVATE KEY, NOT THE CLIENT SECRET.
+
+      It is the contents of the .p8, which signs secrets rather than being
+      one. It must never be pasted into a dashboard, a chat, a terminal
+      that keeps history, or a file in this repository.
+
+      IF IT HAS BEEN PASTED ANYWHERE, REVOKE IT:
+        Apple Developer → Certificates, Identifiers & Profiles → Keys →
+        the key → Revoke. Then register a new one, and this time keep the
+        .p8 as a FILE and pass only its path:
+
+          node scripts/make-apple-secret.mjs --p8 <path to the .p8> \\
+            --key-id <key id> --team-id <team id> \\
+            --services-id ${clientId}
+
+      What that prints, starting "eyJhbGci", is the client secret. That is
+      what Supabase wants.
+`)
+  process.exit(1)
+}
+
 const parts = secret.split(".")
 if (parts.length !== 3) {
-  ok("the secret is a JWT", false, "Apple's client secret has three dot-separated parts")
+  ok("the secret is a JWT", false, "Apple's client secret has three dot-separated parts, and starts with eyJ")
   process.exit(1)
 }
 
