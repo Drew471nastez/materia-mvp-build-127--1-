@@ -381,9 +381,22 @@ export function ThemePage({
       <AnnouncementBar theme={theme} />
       <FreeShippingBar theme={theme} />
 
-      {children}
-
       {headers.map((section) => render(section, "header", headerTouchesTop(theme)))}
+
+      {/*
+        THE HEADER IS ALWAYS THE TOP OF THE PAGE.
+
+        `children` used to render above it. The editor passes its "Empty page,
+        add a section" placeholder through here, so an empty page drew the
+        placeholder first and the site's own header BELOW it — which is not
+        what the page looks like, and is the one moment somebody is deciding
+        what the page should be.
+
+        It belongs where the body belongs: after the header, before the
+        footer. On a page with sections it is nothing, so this changes only
+        the empty case, which is the case it exists for.
+      */}
+      {children}
 
       {/*
         No `flex-1` filler between the body and the footer. It was tried and it

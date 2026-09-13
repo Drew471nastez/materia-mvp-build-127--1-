@@ -420,6 +420,28 @@ async function main() {
       "and the header's own nav gets a navigate that works",
       /onEditorNavigate: role === "header" \|\| role === "footer" \? navigateFromChrome : onEditorNavigate/.test(editor),
     )
+
+    /** The header is the top of the page, including on an empty one. */
+    const themePage = readFileSync(join(root, "components/website-builder/theme/ThemePage.tsx"), "utf8")
+    const headerAt = themePage.indexOf('headers.map((section) => render(section, "header"')
+    const childrenAt = themePage.indexOf("{children}", headerAt - 2000)
+    check(
+      "the empty-page placeholder renders below the header, not above it",
+      headerAt > 0 && childrenAt > headerAt,
+      `header at ${headerAt}, children at ${childrenAt}`,
+    )
+
+    /** A link to a page that is not there says so. */
+    check("an unknown address is stated rather than swallowed", /setMissingPath\(path\)/.test(editor))
+    check("and it offers to make the page", /Create this page/.test(editor) && /onCreateMissingPage/.test(editor))
+    check("arriving somewhere clears it", /setMissingPath\(null\)/.test(editor))
+    check(
+      "and /shop no longer quietly becomes the home page",
+      !/We don't have a dedicated shop page in the editor/.test(editor),
+    )
+
+    /** A refresh looks like a page switch. */
+    check("the sidebar shows its skeleton on a first load too", /\{sectionsLoading \|\| loading \? \(/.test(editor))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

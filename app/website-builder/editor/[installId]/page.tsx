@@ -3775,6 +3775,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [editAllProductPages, setEditAllProductPages] = useState(false)
   const [editAllConfirmOpen, setEditAllConfirmOpen] = useState(false)
   const [sectionsLoading, setSectionsLoading] = useState(false)
+  /**
+   * The address of a link that points at no page of this site, so the canvas
+   * can say so instead of appearing to ignore the click. Cleared by any
+   * successful page change, because arriving somewhere answers it.
+   */
+  const [missingPath, setMissingPath] = useState<string | null>(null)
   // If the editor is opened directly on a product deep-link, keep the canvas
   // in "loading" state from the very first render until the deep-link effect
   // has injected `_product_data` — otherwise the canvas would briefly render
@@ -4421,6 +4427,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     switchingPage.current = true
     // The history describes the page being left. See `clearHistory`.
     clearHistory()
+    /** Arriving somewhere answers "that page does not exist". */
+    setMissingPath(null)
     /**
      * try/finally, because the fetches below can reject — a dropped
      * connection, a 500 — and a flag left true would switch autosave off for
@@ -4635,11 +4643,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       handlePageChange("home")
       return
     }
-    if (path === "/shop" || path.startsWith("/shop/") || path.startsWith("/collections")) {
-      // We don't have a dedicated shop page in the editor — treat it as home.
-      handlePageChange("home")
-      return
-    }
     if (path === "/about" || path === "/about/") {
       handlePageChange("about" as PageKey)
       return
@@ -4656,7 +4659,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       handlePageChange(customMatch.key)
       return
     }
-    // Unknown internal path — silently ignore (keeps editor in current page).
+    /**
+     * ═════════════════════════════════════════════════════════════════════
+     *  A LINK TO A PAGE THAT IS NOT THERE SAYS SO
+     * ═════════════════════════════════════════════════════════════════════
+     * This silently did nothing, and "/shop" quietly became the home page.
+     * Both are the same failure from the creator's side: they click a link
+     * in their own header and the screen does not change, so the link looks
+     * broken and they have no idea whether the problem is the link, the
+     * page, or the editor.
+     *
+     * A browser answers this question with a 404. The builder can answer it
+     * better, because here the page CAN be made: it says which address was
+     * asked for and offers to create it.
+     */
+    setMissingPath(path)
+    return
     /**
      * `inspectorEnabled` is read, so it belongs here. The two page handlers
      * are NOT: they are plain functions rebuilt every render, and listing
@@ -5711,7 +5729,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </div>
 
           {/* Skeleton loading when switching pages */}
-          {sectionsLoading ? (
+          {/**
+            * THE SAME WAIT LOOKS THE SAME WHEREVER IT CAME FROM.
+            *
+            * This was `sectionsLoading` alone, which is a page SWITCH. Landing
+            * on the editor or refreshing it is `loading`, and that showed no
+            * skeleton at all: the sidebar arrived empty, with a page name and
+            * an Add section button, and the list appeared under them a moment
+            * later. An empty list and a list that has not arrived look
+            * identical, and the first thing somebody does on a refresh is
+            * wonder where their sections went.
+            */}
+          {sectionsLoading || loading ? (
             <div className="flex-1 overflow-y-auto wb-slim-scroll p-3 space-y-2">
               {[1, 2, 3, 4, 5].map(i => (
                 <div key={i} className="h-12 rounded-lg bg-muted/60 animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
@@ -7852,6 +7881,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 onAddSection={openAddSection}
                 onAddSectionAt={openAddSectionAt}
                 onEditorNavigate={handleEditorNavigate}
+                missingPath={missingPath}
+                /**
+                 * Opening the create dialog with the address already typed
+                 * in: the person has just told us what they want it called
+                 * by clicking a link to it.
+                 */
+                onCreateMissingPage={(path) => {
+                  setNewPageTitle(pageTitleFromKey(path.replace(/^\//, "").replace(/\/$/, "")))
+                  setAddPageOpen(true)
+                }}
                 shopCards={shopCards}
               />
               </div>
@@ -8424,6 +8463,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   onAddSection,
   onAddSectionAt,
   onEditorNavigate,
+  missingPath,
+  onCreateMissingPage,
   shopCards,
 }: {
   theme: ThemeSettingsValues
@@ -8442,6 +8483,9 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   onAddSection: () => void
   onAddSectionAt: (at: number) => void
   onEditorNavigate: (href: string, fromNav?: boolean) => void
+  /** An address the site has no page for, so the canvas can say so. */
+  missingPath?: string | null
+  onCreateMissingPage?: (path: string) => void
   /**
    * The creator's real products, for a section set to draw the shop. The
    * same list the published page gets, mapped through the same `toCard`, so
@@ -8556,7 +8600,24 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
         )
       }}
     >
-      {bodyCount === 0 && sections.length > 0 && (
+      {missingPath ? (
+        <div className="py-24 flex items-center justify-center text-center">
+          <div className="max-w-[420px] px-6">
+            <p className="mb-1 text-xl font-bold uppercase tracking-tight text-neutral-300">Page not found</p>
+            <p className="mb-4 text-sm text-neutral-500">
+              Nothing on this website answers to <span className="font-medium text-neutral-700">{missingPath}</span> yet.
+              The link works; the page it points at has not been made.
+            </p>
+            <button
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+              onClick={() => onCreateMissingPage?.(missingPath)}
+            >
+              <Plus className="h-4 w-4" />
+              Create this page
+            </button>
+          </div>
+        </div>
+      ) : bodyCount === 0 && sections.length > 0 ? (
         <div className="py-24 flex items-center justify-center text-center">
           <div>
             <p className="text-xl font-bold tracking-tight text-neutral-300 uppercase mb-1">Empty Page</p>
@@ -8567,7 +8628,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
             </button>
           </div>
         </div>
-      )}
+      ) : null}
     </ThemePage>
     </StorelibLiveProvider>
   )
