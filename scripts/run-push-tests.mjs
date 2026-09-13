@@ -65,6 +65,7 @@ const SUITES = [
   "tests/stuck-layer.test.ts",
   "tests/site-cache-and-buttons.test.ts",
   "tests/keyboard-watch.test.ts",
+  "tests/agent-attachments.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
