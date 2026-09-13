@@ -61,6 +61,7 @@ writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><style>
   var stage = document.getElementById("stage")
   var results = []
   /* Phone, small phone, and a desktop card. */
+  /* The card widths a phone and a desktop actually produce. */
   var cardWidths = [320, 360, 430, 720]
   /* Short label through to the longest one this tooltip really shows. */
   var labels = ["Sep 6", "Views: 3", "Revenue: $1,240.50", "Sep 13 — Views: 128,400 (12 refunded)"]
