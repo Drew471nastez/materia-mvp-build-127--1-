@@ -524,6 +524,72 @@ check(
   })(),
 )
 
+
+// ---------------------------------------------------------------------------
+section("THE AUDIT: every chart request, on both charts")
+// ---------------------------------------------------------------------------
+
+/**
+ * Asked for, over several rounds, and checked here in one place so "is it all
+ * done" has an answer that is not my opinion.
+ *
+ * Two of these were found by this audit rather than by anything failing: the
+ * analytics chart still redrew twice on a metric switch, and the analytics
+ * PAGE had two more rows that forbade vertical panning. Both were the same
+ * bugs as the dashboard's, in the file nobody had screenshotted.
+ */
+{
+  const charts: Array<[string, string]> = [
+    ["home", code("components/app/dashboard-client.tsx")],
+    ["analytics", code("components/app/analytics-chart.tsx")],
+  ]
+
+  const required: Array<[string, RegExp]> = [
+    ["the tooltip is clamped to the card, by the box's own width", /translateX\(clamp\(8px, calc\(/],
+    ["nothing measures the tooltip's width from a ref", /^(?!.*tooltipRef\.current\?\.offsetWidth)/s],
+    ["the numbers are on the axis", /<YAxis/],
+    ["the axis is measured from its own labels", /function plotLeftFor\(labels: string\[\]\): number/],
+    ["one formatter draws and measures the ticks", /tickFormatter=\{axisTick\}/],
+    ["the axis width is what the finger reads", /rect\.left \+ plotLeft/],
+    ["room above for the active dot", /const PLOT_TOP = \d+/],
+    ["the tooltip sits over its own point, in the plot area", /plotLeft \+ \(activeIndex/],
+    ["a resting thumb cannot cancel the hold", /const SLOP = 12/],
+    ["vertical has to win clearly to be a scroll", /\} else if \(dy > dx \* 1\.4\) \{/],
+    ["the hold reads where the finger is now", /getIndexFromTouch\(lastTouchXRef\.current\)/],
+    ["a hold lands in about a tenth of a second", /\}, 120\)/],
+    ["the box follows the finger every frame", /box\.style\.transform = shiftFor\(x, rect\.width\)/],
+    ["no transition fights that follow", /transition: "none"/],
+    ["one haptic per point crossed", /idx !== lastHapticIndexRef\.current/],
+    ["the haptic resets when the finger lifts", /lastHapticIndexRef\.current = null/],
+    ["one redraw per metric switch, on the data", /\}, \[(displayChartData|chartDisplayData)\]\)/],
+  ]
+
+  for (const [label, re] of required) {
+    const missing = charts.filter(([, src]) => !re.test(src)).map(([name]) => name)
+    check(
+      `both charts: ${label}`,
+      missing.length === 0,
+      missing.length ? `missing on: ${missing.join(", ")}` : undefined,
+    )
+  }
+}
+
+check(
+  "no strip anywhere in the app forbids vertical panning",
+  (() => {
+    /**
+     * `pan-x` alone means a thumb on that element cannot scroll the page.
+     * The dashboard's KPI row was the one in the screenshot; the analytics
+     * page had two more of them.
+     */
+    const files = [
+      "components/app/dashboard-client.tsx",
+      "app/app/analytics/analytics-client.tsx",
+    ]
+    return files.every((f) => !/touchAction: 'pan-x'/.test(read(f)))
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
