@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
+import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
@@ -97,8 +97,24 @@ type KPIType = "views" | "orders" | "revenue" | "conversion" | null
  * The axis is told this, the chart's margin is told this, and so is the
  * touch maths. They cannot drift apart again.
  */
-const PLOT_LEFT = 40
-/** The right margin, for the same reason. */
+/**
+ * THE AXIS IS ONLY AS WIDE AS ITS WIDEST NUMBER.
+ *
+ * A flat 40px is right for "$12.4k" and absurd for "0", "1", "2" — which is
+ * what a new store's chart is made of, and why the left of it looked like a
+ * margin somebody forgot to remove. On a 320px phone that was an eighth of
+ * the chart spent on three characters.
+ *
+ * Measured from the longest label the formatter will actually produce for
+ * this data, at roughly seven pixels a character, with room for the gap to
+ * the plot. Bounded so it can neither collapse onto the grid nor run away
+ * for a large currency value.
+ */
+function plotLeftFor(labels: string[]): number {
+  const longest = labels.reduce((a, b) => (b.length > a.length ? b : a), "")
+  return Math.max(22, Math.min(46, longest.length * 7 + 10))
+}
+/** The right margin. */
 const PLOT_RIGHT = 10
 /** Room above for the active dot: six pixels of radius plus its white ring. */
 const PLOT_TOP = 10
@@ -122,6 +138,23 @@ function ChartWithLongPressTooltip({
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * The axis labels, and therefore how wide the axis has to be. One
+   * formatter, used to draw the ticks and to measure them, so the gutter can
+   * never be sized for text the chart does not show.
+   */
+  const axisTick = useCallback((v: number) => (
+    openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0)}`
+      : openKPIModal === "conversion" ? `${v}%`
+      : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)
+  ), [openKPIModal])
+
+  const plotLeft = useMemo(() => {
+    const top = displayChartData.reduce((m, d) => Math.max(m, d.value ?? 0), 0)
+    /* The ends and the middle: enough to catch the widest tick recharts draws. */
+    return plotLeftFor([axisTick(0), axisTick(top / 2), axisTick(top)])
+  }, [displayChartData, axisTick])
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tooltipActiveRef = useRef(false)
   const [tooltipActive, setTooltipActive] = useState(false)
@@ -130,6 +163,17 @@ function ChartWithLongPressTooltip({
   const directionLockRef = useRef<"horizontal" | "vertical" | null>(null)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const rafRef = useRef<number | null>(null)
+  /** The last point a tick was fired for, so one is fired per point, not per frame. */
+  const lastHapticIndexRef = useRef<number | null>(null)
+  /**
+   * True once the tooltip has been placed at least once in this gesture.
+   *
+   * The transition that makes the box glide between points also made it
+   * SWOOP IN from wherever the transform started, every time it appeared —
+   * which is the blink. It is only allowed to animate once it has a previous
+   * position to animate from.
+   */
+  const tooltipPlacedRef = useRef(false)
   // Animation state — true means "play the animation now"
   const [shouldAnimate, setShouldAnimate] = useState(true)
 
@@ -164,7 +208,7 @@ function ChartWithLongPressTooltip({
     const el = containerRef.current
     if (!el || !displayChartData.length) return null
     const rect = el.getBoundingClientRect()
-    const chartLeft = rect.left + PLOT_LEFT
+    const chartLeft = rect.left + plotLeft
     const chartRight = rect.right - PLOT_RIGHT
     const chartWidth = chartRight - chartLeft
     const x = clientX - chartLeft
@@ -186,7 +230,7 @@ function ChartWithLongPressTooltip({
         setActiveIndex(idx)
         hapticTap("medium")
       }
-    }, 250)
+    }, 120)
   }, [getIndexFromTouch])
 
   // Use a native event listener for touchmove with { passive: false }
@@ -203,6 +247,19 @@ function ChartWithLongPressTooltip({
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(() => {
         const idx = getIndexFromTouch(clientX)
+        /**
+         * ONE TICK PER POINT CROSSED.
+         *
+         * Fired on the CHANGE rather than on the frame, which is what keeps
+         * it to one per column instead of sixty a second — a finger crossing
+         * a point is the event, and holding still is not. It is what makes a
+         * scrub feel like it is passing over something rather than sliding
+         * on glass.
+         */
+        if (idx !== null && idx !== lastHapticIndexRef.current) {
+          lastHapticIndexRef.current = idx
+          hapticTap("light")
+        }
         setActiveIndex(idx)
       })
       return
@@ -236,6 +293,16 @@ function ChartWithLongPressTooltip({
     }
   }, [getIndexFromTouch])
 
+  /**
+   * The first placement of the tooltip is a cut; every one after it glides.
+   * Set in an effect, so it flips only once the DOM actually holds that first
+   * position — enabling the transition any earlier is what made the box swoop
+   * in from the edge on every activation.
+   */
+  useEffect(() => {
+    if (tooltipActive && activeIndex != null) tooltipPlacedRef.current = true
+  }, [tooltipActive, activeIndex])
+
   // Attach non-passive touchmove listener
   useEffect(() => {
     const el = containerRef.current
@@ -256,6 +323,8 @@ function ChartWithLongPressTooltip({
     touchStartPosRef.current = null
     directionLockRef.current = null
     tooltipActiveRef.current = false
+    lastHapticIndexRef.current = null
+    tooltipPlacedRef.current = false
     setTooltipActive(false)
     setActiveIndex(null)
   }, [])
@@ -274,8 +343,21 @@ function ChartWithLongPressTooltip({
     : openKPIModal === "revenue" ? t("dashboard.revenue")
     : t("dashboard.conversionRate")
 
-  const tooltipLeftPercent = activeIndex != null && displayChartData.length > 1
-    ? (activeIndex / (displayChartData.length - 1)) * 100 : 50
+  /**
+   * WHERE THE POINT ACTUALLY IS, in pixels from the card's left edge.
+   *
+   * This was a percentage of the whole card: index 0 became 0%, so the
+   * tooltip sat at the very left while its data point sat `plotLeft` pixels
+   * further in. Every point was off by the width of the axis, worst at the
+   * ends. The plot area is what the points are spread across, so that is
+   * what they are measured against.
+   */
+  const tooltipX = (): number => {
+    const track = containerRef.current?.offsetWidth ?? 0
+    if (!track || activeIndex == null || displayChartData.length < 2) return track / 2
+    const plotWidth = track - plotLeft - PLOT_RIGHT
+    return plotLeft + (activeIndex / (displayChartData.length - 1)) * plotWidth
+  }
 
   /*
     CLAMPED IN PIXELS, because the tooltip is positioned with a transform.
@@ -342,7 +424,7 @@ function ChartWithLongPressTooltip({
    */
   const tooltipShift = (): string => {
     const track = containerRef.current?.offsetWidth ?? 0
-    const x = (tooltipLeftPercent / 100) * track
+    const x = tooltipX()
     if (!track) return "translateX(-50%)"
     /**
      * `translateZ(0)` keeps the layer promotion the old `translate3d` gave
@@ -407,8 +489,8 @@ function ChartWithLongPressTooltip({
                 tickLine={false}
                 axisLine={false}
                 domain={[0, "auto"]}
-                width={PLOT_LEFT}
-                tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
+                width={plotLeft}
+                tickFormatter={axisTick}
               />
               {/* Desktop-only Recharts tooltip */}
               {!isTouchDevice && (
@@ -523,7 +605,9 @@ function ChartWithLongPressTooltip({
              * threshold where a following object reads as lag, and it is a
              * transform so it runs on the compositor.
              */
-            transition: "transform 90ms cubic-bezier(0.22, 1, 0.36, 1)",
+            transition: tooltipPlacedRef.current
+              ? "transform 90ms cubic-bezier(0.22, 1, 0.36, 1)"
+              : "none",
             /* And it can never be wider than the card it sits in. */
             maxWidth: "calc(100% - 16px)",
             background: "#1a1a2e",
@@ -2430,7 +2514,18 @@ export function DashboardClient({
         {/* Stats Cards + Chart Section */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
           {/* KPI Metric Tabs - horizontally scrollable on mobile */}
-          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}>
+          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{
+              /*
+                BOTH AXES. This was `pan-x`, which does not mean "prefer
+                horizontal" — it means vertical panning is not allowed here at
+                all. So a thumb that landed on Views or Revenue and pulled down
+                could not scroll the page, and the row looked frozen. With both
+                named, the browser decides from the gesture: sideways scrolls
+                the row, down scrolls the page.
+              */
+              touchAction: 'pan-x pan-y',
+              WebkitOverflowScrolling: 'touch',
+            }}>
             {/* Views */}
             <button
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${

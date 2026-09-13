@@ -45,8 +45,16 @@ import { GlidingActiveDot, GlidingCursor } from "@/components/app/chart-glide"
  * The axis is told this, the chart's margin is told this, and so is the
  * touch maths. They cannot drift apart again.
  */
-const PLOT_LEFT = 40
-/** The right margin, for the same reason. */
+/**
+ * THE AXIS IS ONLY AS WIDE AS ITS WIDEST NUMBER. See dashboard-client for
+ * why a flat 40 was wrong: on a 320px phone it spent an eighth of the chart
+ * on the characters "0", "1", "2".
+ */
+function plotLeftFor(labels: string[]): number {
+  const longest = labels.reduce((a, b) => (b.length > a.length ? b : a), "")
+  return Math.max(22, Math.min(46, longest.length * 7 + 10))
+}
+/** The right margin. */
 const PLOT_RIGHT = 10
 /** Room above for the active dot: six pixels of radius plus its white ring. */
 const PLOT_TOP = 10
@@ -100,6 +108,10 @@ function AnalyticsChartWithTooltipInner({
   const directionLockRef = useRef<"horizontal" | "vertical" | null>(null)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const rafRef = useRef<number | null>(null)
+  /** One tick per point crossed, not one per frame. */
+  const lastHapticIndexRef = useRef<number | null>(null)
+  /** The first placement is a cut; only then may it glide. See dashboard-client. */
+  const tooltipPlacedRef = useRef(false)
   const [shouldAnimate, setShouldAnimate] = useState(true)
 
   useEffect(() => {
@@ -120,11 +132,23 @@ function AnalyticsChartWithTooltipInner({
     return () => clearTimeout(timer)
   }, [chartDisplayData, chartMetricFilter, onePageChartFilter])
 
+  /** One formatter, used to draw the ticks and to measure how wide they are. */
+  const axisTick = useCallback((v: number) => {
+    if (chartMetricFilter === "conversion" || onePageChartFilter === "ctr") return `${v}%`
+    if (chartMetricFilter === "revenue") return `$${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0)}`
+    return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)
+  }, [chartMetricFilter, onePageChartFilter])
+
+  const plotLeft = useMemo(() => {
+    const top = chartDisplayData.reduce((m: number, d: { value?: number }) => Math.max(m, d.value ?? 0), 0)
+    return plotLeftFor([axisTick(0), axisTick(top / 2), axisTick(top)])
+  }, [chartDisplayData, axisTick])
+
   const getIndexFromTouch = useCallback((clientX: number) => {
     const el = containerRef.current
     if (!el || !chartDisplayData.length) return null
     const rect = el.getBoundingClientRect()
-    const chartLeft = rect.left + PLOT_LEFT
+    const chartLeft = rect.left + plotLeft
     const chartRight = rect.right - PLOT_RIGHT
     const chartWidth = chartRight - chartLeft
     const x = clientX - chartLeft
@@ -145,7 +169,7 @@ function AnalyticsChartWithTooltipInner({
         setActiveIndex(idx)
         hapticTap("medium")
       }
-    }, 250)
+    }, 120)
   }, [getIndexFromTouch])
 
   const touchMoveHandler = useCallback((e: TouchEvent) => {
@@ -159,6 +183,10 @@ function AnalyticsChartWithTooltipInner({
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(() => {
         const idx = getIndexFromTouch(clientX)
+        if (idx !== null && idx !== lastHapticIndexRef.current) {
+          lastHapticIndexRef.current = idx
+          hapticTap("light")
+        }
         setActiveIndex(idx)
       })
       return
@@ -196,6 +224,16 @@ function AnalyticsChartWithTooltipInner({
     return () => el.removeEventListener("touchmove", touchMoveHandler)
   }, [touchMoveHandler])
 
+  /**
+   * The first placement of the tooltip is a cut; every one after it glides.
+   * Set in an effect, so it flips only once the DOM actually holds that first
+   * position — enabling the transition any earlier is what made the box swoop
+   * in from the edge on every activation. Same as dashboard-client.
+   */
+  useEffect(() => {
+    if (tooltipActive && activeIndex != null) tooltipPlacedRef.current = true
+  }, [tooltipActive, activeIndex])
+
   const handleTouchEnd = useCallback(() => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current)
@@ -208,6 +246,8 @@ function AnalyticsChartWithTooltipInner({
     touchStartPosRef.current = null
     directionLockRef.current = null
     tooltipActiveRef.current = false
+    lastHapticIndexRef.current = null
+    tooltipPlacedRef.current = false
     setTooltipActive(false)
     setActiveIndex(null)
   }, [])
@@ -215,8 +255,13 @@ function AnalyticsChartWithTooltipInner({
   const activePoint = activeIndex != null && activeIndex >= 0 && activeIndex < chartDisplayData.length
     ? chartDisplayData[activeIndex] : null
 
-  const tooltipLeftPercent = activeIndex != null && chartDisplayData.length > 1
-    ? (activeIndex / (chartDisplayData.length - 1)) * 100 : 50
+  /** Where the point actually is: the plot area, not the whole card. */
+  const tooltipX = (): number => {
+    const track = containerRef.current?.offsetWidth ?? 0
+    if (!track || activeIndex == null || chartDisplayData.length < 2) return track / 2
+    const plotWidth = track - plotLeft - PLOT_RIGHT
+    return plotLeft + (activeIndex / (chartDisplayData.length - 1)) * plotWidth
+  }
 
   /*
     THE TOUCH TOOLTIP MOVES IN PIXELS, NOT PER CENT.
@@ -275,7 +320,7 @@ function AnalyticsChartWithTooltipInner({
    */
   const tooltipShift = (): string => {
     const track = containerRef.current?.offsetWidth ?? 0
-    const x = (tooltipLeftPercent / 100) * track
+    const x = tooltipX()
     if (!track) return "translateX(-50%)"
     /**
      * `translateZ(0)` keeps the layer promotion the old `translate3d` gave
@@ -446,12 +491,8 @@ function AnalyticsChartWithTooltipInner({
             tickLine={false}
             axisLine={false}
             domain={[0, "auto"]}
-            width={PLOT_LEFT}
-            tickFormatter={(v: number) => {
-              if (chartMetricFilter === "conversion" || onePageChartFilter === "ctr") return `${v}%`
-              if (chartMetricFilter === "revenue") return `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}`
-              return v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)
-            }}
+            width={plotLeft}
+            tickFormatter={axisTick}
           />
           {/* Desktop-only Recharts tooltip */}
           {!isTouchDevice && (
@@ -548,7 +589,9 @@ function AnalyticsChartWithTooltipInner({
               left: 0,
               transform: tooltipShift(),
               /* Glides between points; see the dashboard chart for why. */
-              transition: "transform 90ms cubic-bezier(0.22, 1, 0.36, 1)",
+              transition: tooltipPlacedRef.current
+                ? "transform 90ms cubic-bezier(0.22, 1, 0.36, 1)"
+                : "none",
               maxWidth: "calc(100% - 16px)",
               background: "#1a1a2e",
               borderRadius: "8px",
