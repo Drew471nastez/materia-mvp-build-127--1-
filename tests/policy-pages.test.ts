@@ -25,6 +25,7 @@ import { ensurePolicyPages, type PageRow, type PagesTable } from "@/lib/website-
 import { pageTitleFromKey, BUILT_IN_PAGE_KEYS } from "@/lib/website-builder/site-pages"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { applyUniversalChrome, chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -361,7 +362,64 @@ async function main() {
 
     /** And every wait says so. */
     check("the progress bar covers every canvas wait", /<WbLoadProgressBar active=\{sectionsLoading \|\| canvasBusy\} \/>/.test(editor))
-    check("and it is visible enough to read as progress", /h-\[3px\]/.test(editor) && /#8B56FA/.test(editor))
+    check("and it is visible enough to read as progress", /h-\[2px\]/.test(editor) && /#8B56FA/.test(editor))
+    /**
+     * A width transition is laid out on the main thread every frame, and the
+     * main thread during a page load is the one doing the loading: the bar
+     * stalled exactly when somebody was watching it.
+     */
+    check(
+      "the bar is composited, so it keeps moving while the page loads",
+      /transform: `scaleX\(/.test(editor) && !/transition: "width/.test(editor),
+    )
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  section("One header and one footer, whatever the rows hold")
+  // ════════════════════════════════════════════════════════════════════════
+  {
+    const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const body = (id: string): SectionInstance => ({ id, type: "rich_text", name: id, settings: {}, blocks: [], hidden: false })
+    const oldFooter: SectionInstance = { ...footer(), id: "stale-footer", settings: { logo_text: "Old" } }
+
+    const home = [header, body("h1"), footer()]
+    const stale = [{ ...header, id: "stale-header" }, body("p1"), oldFooter]
+
+    const dressed = withUniversalChrome(stale, chromeOf(home))
+    check("a stale page wears home's header", dressed[0].id === "header")
+    check("and home's footer", dressed[dressed.length - 1].id === "footer")
+    check("while keeping its own body", dressed.some((x) => x.id === "p1") && dressed.length === 3)
+
+    /** A header dragged into the middle is a row nobody meant to write. */
+    const scrambled = [body("a"), header, body("b"), footer()]
+    const fixed = withUniversalChrome(scrambled, chromeOf(home))
+    check("chrome is put back at the ends whatever order the row had", fixed[0].type === "header" && fixed[3].type === "footer")
+
+    /** A site with no home chrome must not strip the chrome a page has. */
+    const orphan = withUniversalChrome(stale, chromeOf([body("only")]))
+    check("a page keeps its own when the site has none to give", orphan[0].id === "stale-header" && orphan[2].id === "stale-footer")
+
+    const pages = applyUniversalChrome({ home, about: stale, "privacy-policy": [body("x")] })
+    check("every page of a site ends up with the same footer", Object.values(pages).every((p) => p[p.length - 1].id === "footer"))
+    check("including a page that had none at all", pages["privacy-policy"].length === 3)
+
+    /** And both sides use it, which is the whole point of extracting it. */
+    const published = readFileSync(join(root, "lib/website-builder/published-site.ts"), "utf8")
+    const preview = readFileSync(join(root, "app/(site)/w/[username]/render-site.tsx"), "utf8")
+    check("the published site applies it", /applyUniversalChrome\(pages\)/.test(published))
+    check("the preview applies it", /withUniversalChrome\(/.test(preview))
+    check(
+      "and the editor uses the same function rather than a second copy",
+      /const mergeWithHomeHeaderFooter = withUniversalChrome/.test(editor),
+    )
+
+    const panels = readFileSync(join(root, "components/website-builder/editor/design-panels.tsx"), "utf8")
+    check("Advanced colors is shut until it is asked for", /const \[customizeOpen, setCustomizeOpen\] = useState\(false\)/.test(panels))
+
+    check(
+      "and the header's own nav gets a navigate that works",
+      /onEditorNavigate: role === "header" \|\| role === "footer" \? navigateFromChrome : onEditorNavigate/.test(editor),
+    )
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

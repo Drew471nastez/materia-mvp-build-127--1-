@@ -38,6 +38,7 @@
  * such site" for an hour because somebody guessed their address early.
  */
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
+import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
@@ -221,6 +222,19 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
     if (!published || published.length === 0) continue
     pages[r.page_key] = sanitizeSections(published)
   }
+  /**
+   * ONE HEADER AND ONE FOOTER, at render, whatever the rows hold.
+   *
+   * Each page row carries its own copy, the editor syncs them on save, and a
+   * sync is not a guarantee: a page written before it existed, an imported
+   * theme, a restored backup. The editor already merged home's chrome over
+   * whatever a page stored and the published site did not, so the live site
+   * was the only place the drift showed. See lib/website-builder/
+   * universal-chrome.
+   */
+  const dressed = applyUniversalChrome(pages)
+  for (const key of Object.keys(dressed)) pages[key] = dressed[key]
+
   const sections = pages.home ?? []
   const sources = await sectionSources(admin as never, row.id)
 

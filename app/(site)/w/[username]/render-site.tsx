@@ -24,6 +24,7 @@ import { mayPreview, pageSections, previewTokenFrom, themeSettings as themeSetti
 import { publishedSiteByName } from "@/lib/website-builder/published-site"
 import { SiteNotPublished } from "./not-published"
 import { shopProducts } from "@/lib/website-builder/shop-products"
+import { chromeOf, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
 import { getMainDomain } from "@/lib/url-helpers"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
@@ -258,7 +259,24 @@ async function previewPage(username: string, token: string, pageKey: string) {
    * before anything sanitised it, and rows can arrive from an import. The
    * save path is the authority; this covers what is already there.
    */
-  const sections = sanitizeSections(pageSections<SectionInstance[]>(pageData as never, preview) ?? [])
+  /**
+   * A preview reads ONE page, so home's chrome has to be fetched for it.
+   * Skipped when this IS home, which already has its own.
+   */
+  let chrome: Chrome = {}
+  if (pageKey !== "home") {
+    const { data: homeRow } = await admin
+      .from("store_theme_pages")
+      .select("sections, draft_sections")
+      .eq("install_id", installId)
+      .eq("page_key", "home")
+      .maybeSingle()
+    chrome = chromeOf(sanitizeSections(pageSections<SectionInstance[]>(homeRow as never, preview) ?? []))
+  }
+  const sections = withUniversalChrome(
+    sanitizeSections(pageSections<SectionInstance[]>(pageData as never, preview) ?? []),
+    chrome,
+  )
   const products = await shopProducts(admin as never, creatorId)
   const template = templateForPage(pageKey)
   const prerendered = await prerenderStorelibSections(admin as never, installId, sections, themeSettings, template, products)

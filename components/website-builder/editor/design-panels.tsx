@@ -54,7 +54,7 @@ import {
   type TypeStyleKey,
 } from "@/lib/storelib-theme/typography"
 import { designSupport } from "@/lib/website-builder/design-support"
-import { effectiveOverride, hasOverrides, resetOverrides, setOverride } from "@/lib/website-builder/section-overrides"
+import { effectiveOverride, resetOverrides, setOverride } from "@/lib/website-builder/section-overrides"
 import type { SchemaField, SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { ColorChip } from "./color-chip"
 
@@ -376,7 +376,16 @@ export function SectionDesignPanel({
 }) {
   const support = designSupport(schema)
   const s = section.settings
-  const [customizeOpen, setCustomizeOpen] = useState(() => hasOverrides(s))
+  /**
+   * SHUT, always.
+   *
+   * It opened itself whenever the section had any colour override at all,
+   * and an override is set by picking one colour once: from then on the
+   * panel greeted you with seven colour rows above the settings you came
+   * for. The row already says "3 customized" when there is something in
+   * there, which is the part worth seeing without opening it.
+   */
+  const [customizeOpen, setCustomizeOpen] = useState(false)
   const colors = resolveSectionColors(asRecord(theme), s)
   const overridden = SECTION_OVERRIDE_KEYS.filter((k) => effectiveOverride(s, k) !== "").length
 

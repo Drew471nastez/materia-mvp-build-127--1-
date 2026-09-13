@@ -65,6 +65,7 @@ import { ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/w
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey } from "@/lib/website-builder/site-pages"
+import { withUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { toPageSlug } from "@/lib/sites/slug"
@@ -133,10 +134,20 @@ function WbLoadProgressBar({ active }: { active: boolean }) {
       // Kick off the ease-out creep: 0 → 30 → 60 → 80 → 90.
       // We never touch 100 while active so the bar can't visually "restart".
       setProgress(0)
-      timersRef.current.push(setTimeout(() => setProgress(30), 30))
-      timersRef.current.push(setTimeout(() => setProgress(60), 350))
-      timersRef.current.push(setTimeout(() => setProgress(80), 900))
-      timersRef.current.push(setTimeout(() => setProgress(90), 1800))
+      /**
+       * More steps, closer together. Four widely spaced ones meant each move
+       * was a long eased run that had visibly FINISHED before the next began,
+       * so the bar advanced and then sat still, which reads as stuck. With
+       * the transition longer than the gap between steps, each one starts
+       * before the last has settled and the sweep is continuous.
+       */
+      const creep: [number, number][] = [
+        [18, 40], [34, 240], [48, 480], [60, 760],
+        [70, 1080], [78, 1450], [84, 1900], [89, 2500], [93, 3400],
+      ]
+      for (const [to, at] of creep) {
+        timersRef.current.push(setTimeout(() => setProgress(to), at))
+      }
     } else if (visible) {
       // Finish the sweep: snap to 100, fade out, then reset.
       clearTimers()
@@ -162,33 +173,45 @@ function WbLoadProgressBar({ active }: { active: boolean }) {
        * under the bar. Absolute, it takes no room, and idle it is nothing.
        */
       /**
-       * 3px, NOT 1.5. At a hairline and 0.9 opacity this was invisible on the
-       * one screen it exists for: a dark bar above, a light canvas below, and
-       * a sweep nobody reported ever seeing. It is still a line on the bar's
-       * own edge and takes no room in the flow, so making it legible costs
-       * nothing but the pixels it is drawn in.
+       * 2px. A hairline at 0.9 opacity was invisible on the one screen it
+       * exists for; 3px read as a chrome element. Two is a line you notice
+       * moving without noticing the line. It still takes no room in the flow.
        */
-      className="absolute inset-x-0 bottom-0 z-10 h-[3px] overflow-hidden bg-transparent pointer-events-none"
+      className="absolute inset-x-0 bottom-0 z-10 h-[2px] overflow-hidden bg-transparent pointer-events-none"
       style={{
         opacity: visible ? 1 : 0,
-        transition: "opacity 240ms ease-out",
+        transition: "opacity 220ms ease-out",
       }}
     >
       <div
-        className="h-full"
+        className="h-full w-full origin-left"
         style={{
-          width: `${progress}%`,
           /**
-           * The product's own accent, not a generic blue. It is the colour
-           * every other "something is happening" in this editor uses, and a
-           * second progress colour is a second thing to learn. The soft edge
-           * is the sweep's leading end, which is what makes a bar creeping
-           * toward 90% read as still moving rather than as stuck.
+           * ═══════════════════════════════════════════════════════════════
+           *  scaleX, NOT width
+           * ═══════════════════════════════════════════════════════════════
+           * A width transition is laid out and painted on the main thread on
+           * every frame, and the main thread during a page load is the one
+           * doing the loading: the bar stuttered, stalled, and jumped the
+           * moment the work it was reporting on got busy — which is exactly
+           * when somebody is looking at it. A transform is composited off
+           * the main thread, so it keeps moving at the display's own rate
+           * however hard React is working beside it.
+           *
+           * `origin-left` so it grows from the left edge rather than the
+           * middle, and the element is full width with nothing in it, so
+           * there is no layout to redo at any point in the sweep.
            */
-          background: "#8B56FA",
-          boxShadow: "0 0 8px rgba(139, 86, 250, 0.55)",
-          transition: "width 380ms cubic-bezier(0.22, 1, 0.36, 1)",
-          willChange: "width",
+          transform: `scaleX(${progress / 100})`,
+          transition: "transform 520ms cubic-bezier(0.22, 1, 0.36, 1)",
+          willChange: "transform",
+          /**
+           * The product's own accent, not a generic blue: it is the colour
+           * every other "something is happening" in this editor uses. A soft
+           * leading edge rather than a glow, which at 2px was a purple haze
+           * over the canvas rather than a line on the bar.
+           */
+          background: "linear-gradient(90deg, #8B56FA 0%, #8B56FA 88%, rgba(139,86,250,0.55) 100%)",
         }}
       />
     </div>
@@ -4057,17 +4080,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }, [installId])
 
-  const mergeWithHomeHeaderFooter = (
-    pageSections: SectionInstance[],
-    home: { header?: SectionInstance; footer?: SectionInstance }
-  ): SectionInstance[] => {
-    const body = pageSections.filter(s => s.type !== "header" && s.type !== "footer")
-    return [
-      ...(home.header ? [home.header] : pageSections.filter(s => s.type === "header")),
-      ...body,
-      ...(home.footer ? [home.footer] : pageSections.filter(s => s.type === "footer")),
-    ]
-  }
+  /**
+   * The same rule the published site uses, imported rather than written
+   * twice. It was two copies, and they had drifted: the editor merged home's
+   * chrome and the live site rendered each page's own, so a stale footer was
+   * invisible in the one place somebody would check it.
+   */
+  const mergeWithHomeHeaderFooter = withUniversalChrome
 
   const fetchPageSections = useCallback(async (page: PageKey): Promise<SectionInstance[]> => {
     const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=${page}`)
@@ -8422,7 +8441,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   onSelectSection: (sectionId: string, blockId?: string | null) => void
   onAddSection: () => void
   onAddSectionAt: (at: number) => void
-  onEditorNavigate: (href: string) => void
+  onEditorNavigate: (href: string, fromNav?: boolean) => void
   /**
    * The creator's real products, for a section set to draw the shop. The
    * same list the published page gets, mapped through the same `toCard`, so
@@ -8430,6 +8449,12 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
    */
   shopCards: ProductCard[]
 }) {
+  /**
+   * The same navigate, already marked as coming from the site's navigation.
+   * Memoised, because it is handed to every chrome section on every render
+   * and SectionRenderer is memoised on its props.
+   */
+  const navigateFromChrome = useCallback((href: string) => onEditorNavigate(href, true), [onEditorNavigate])
   return (
     <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor products={shopCards}>
     <ThemePage
@@ -8477,7 +8502,18 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
               }
             : undefined,
           deviceMode: device,
-          onEditorNavigate,
+          /**
+           * THE HEADER AND THE FOOTER NAVIGATE; EVERYTHING ELSE SELECTS.
+           *
+           * The canvas already follows a link inside `[data-chrome]`, but the
+           * header's nav never reaches that handler: it calls this prop and
+           * then stops the event, so "Home" did nothing at all with the
+           * inspector on. It is the site's navigation, so it is handed a
+           * navigate that says so; a body section keeps the one that refuses
+           * while the inspector is on, because a tap on a hero's button is
+           * almost always aimed at the hero.
+           */
+          onEditorNavigate: role === "header" || role === "footer" ? navigateFromChrome : onEditorNavigate,
         }
 
         // The header takes `wrapperId` rather than sitting in a
