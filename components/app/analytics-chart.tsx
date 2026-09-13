@@ -23,7 +23,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ComponentProps } from "react"
 import {
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  XAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, ReferenceLine,
 } from "recharts"
 
@@ -362,18 +362,17 @@ function AnalyticsChartWithTooltipInner({
             axisLine={false}
             interval="preserveStartEnd"
           />
-          <YAxis
-            tick={{ fontSize: 11, fill: "#9ca3af" }}
-            tickLine={false}
-            axisLine={false}
-            domain={[0, "auto"]}
-            width={40}
-            tickFormatter={(v: number) => {
-              if (chartMetricFilter === "conversion" || onePageChartFilter === "ctr") return `${v}%`
-              if (chartMetricFilter === "revenue") return `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}`
-              return v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)
-            }}
-          />
+          {/*
+            NO Y AXIS.
+            It cost 40px of width on the left of every chart to print five
+            numbers that nobody reads off a chart — the exact figure comes
+            from the tooltip, and the shape is what the chart is for. The
+            horizontal grid lines stay, so the rise and fall still has
+            something to be read against.
+
+            `domain` and the formatter went with it: both existed only to
+            label ticks that are no longer drawn.
+          */}
           {/* Desktop-only Recharts tooltip */}
           {!isTouchDevice && (
             <Tooltip

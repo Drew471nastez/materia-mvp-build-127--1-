@@ -28,6 +28,7 @@ import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getStoreU
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { useLanguage, LANGUAGES } from "@/lib/i18n"
+import { BillingPageClient } from "@/components/app/billing/billing-page-client"
 
 function ChainLinkIcon({ className = "w-3 h-3", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
   return (
@@ -892,8 +893,27 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const initialPayoutCurrency = useRef(payoutCurrency)
   const initialStatementDescriptor = useRef(statementDescriptor)
 
-  const [stripeStatus, setStripeStatus] = useState<{ connected: boolean; status: string; chargesEnabled?: boolean; payoutsEnabled?: boolean; detailsSubmitted?: boolean; accountId?: string | null }>({ connected: false, status: "not_connected" })
-  const [stripeStatusLoading, setStripeStatusLoading] = useState(false)
+  /**
+   * SEEDED FROM THE SERVER, NOT FROM NOTHING.
+   *
+   * This used to start at `{ connected: false }` with a separate
+   * `stripeStatusLoading` flag, and the Get paid banner was hidden until a
+   * client-side fetch came back. So the page painted, and then half a
+   * second later a full-width purple bar appeared and shoved everything
+   * below it down — which is the banner "appearing very late and delayed".
+   *
+   * The creator row already carries `stripe_account_id`, and the settings
+   * page already selects it. So the answer is in the first paint: somebody
+   * with no account sees the banner immediately, somebody with one never
+   * sees it flash. The fetch still runs and still refines the detail —
+   * whether charges and payouts are actually enabled — it just no longer
+   * decides whether a whole bar exists.
+   */
+  const connectedAtLoad = Boolean((creator as { stripe_account_id?: string | null } | null)?.stripe_account_id)
+  const [stripeStatus, setStripeStatus] = useState<{ connected: boolean; status: string; chargesEnabled?: boolean; payoutsEnabled?: boolean; detailsSubmitted?: boolean; accountId?: string | null }>({
+    connected: connectedAtLoad,
+    status: connectedAtLoad ? "connected" : "not_connected",
+  })
   const [stripeBusy, setStripeBusy] = useState<"connect" | "disconnect" | null>(null)
   const [showStripeManage, setShowStripeManage] = useState(false)
   const [stripeBankInfo, setStripeBankInfo] = useState<{ bankName: string | null; last4: string; currency: string; status: string | null } | null>(null)
@@ -901,9 +921,44 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [stripePayoutInfo, setStripePayoutInfo] = useState<{ payoutsEnabled: boolean; detailsSubmitted: boolean; requirementsDue: string[]; requirementsPastDue: string[] } | null>(null)
 
   const [activeTab, setActiveTab] = useState<TabId>(initialTab)
+  /**
+   * Billing's own data, fetched the first time the tab is opened and kept.
+   *
+   * It is the one panel here with a real wait in it — Stripe is asked for
+   * the customer, the subscription, the invoices and the card — so it is
+   * the one panel that can show a loading state honestly. Kept afterwards,
+   * so coming back to the tab is as instant as every other one.
+   */
+  const [billingData, setBillingData] = useState<null | {
+    plans: unknown[]
+    subscription: unknown
+    currentPlan: unknown
+    invoices: unknown[]
+    paymentMethod: unknown
+  }>(null)
+  const [billingError, setBillingError] = useState(false)
+  const billingAsked = useRef(false)
+
+  const loadBilling = useCallback(async () => {
+    if (billingAsked.current) return
+    billingAsked.current = true
+    setBillingError(false)
+    try {
+      const response = await fetch("/api/billing/overview")
+      if (!response.ok) throw new Error("billing")
+      setBillingData(await response.json())
+    } catch {
+      /* Asked again on the next visit rather than stuck for the session. */
+      billingAsked.current = false
+      setBillingError(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === "billing") void loadBilling()
+  }, [activeTab, loadBilling])
   const tabNavRef = useRef<HTMLDivElement>(null)
   const activeTabRef = useRef<HTMLButtonElement>(null)
-  const [isTabLoading, setIsTabLoading] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [showSaveToast, setShowSaveToast] = useState(false)
@@ -1006,13 +1061,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
 
   const loadStripeStatus = useCallback(async () => {
-    setStripeStatusLoading(true)
     try {
       const res = await fetch("/api/stripe/connect/status")
       const data = await res.json()
       if (res.ok) setStripeStatus(data)
     } finally {
-      setStripeStatusLoading(false)
     }
   }, [])
 
@@ -1129,7 +1182,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     const tab = params.get("tab") as TabId | null
     const stripeParam = params.get("stripe")
 
-    if (tab && TAB_IDS.includes(tab as TabId) && tab !== "billing") {
+    if (tab && TAB_IDS.includes(tab as TabId)) {
       setActiveTab(tab as TabId)
       if (tab === "domains") fetchDomains()
     }
@@ -1522,12 +1575,27 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   // Tab change with skeleton loading animation
   const handleTabChange = (newTab: TabId) => {
     if (newTab === activeTab) return
-    // Billing tab navigates to its own route
-    if (newTab === "billing") {
-      router.push("/app/settings/billing")
-      return
-    }
-    setIsTabLoading(true)
+    /**
+     * BILLING IS A TAB NOW, NOT A ROUTE.
+     *
+     * It used to `router.push("/app/settings/billing")`: a full navigation,
+     * a route-level skeleton, and a page that arrived carrying its own copy
+     * of this very tab bar. Switching to it now does what switching to any
+     * other tab does, and the Stripe round trip happens inside the panel
+     * instead of in front of the whole screen.
+     */
+    /**
+     * SWITCHED, NOT LOADED.
+     *
+     * Every panel renders from props this component already holds, so there
+     * is nothing to wait for and nothing to show a skeleton about. The
+     * previous version set a loading flag, rendered shimmering grey cards,
+     * and cleared the flag on a 160ms timer — a delay invented to make the
+     * fake loading state visible, on a switch that could have been instant.
+     *
+     * Domains is the one tab with a real fetch, and it renders its own list
+     * state rather than blanking the page.
+     */
     setActiveTab(newTab)
     if (newTab === "domains") fetchDomains()
     // Persist tab in URL so refresh stays on the same tab
@@ -1538,9 +1606,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       url.searchParams.set("tab", newTab)
     }
     window.history.replaceState({}, "", url.toString())
-    setTimeout(() => {
-      setIsTabLoading(false)
-    }, 160)
   }
 
   const handleSubmit = async (e?: React.FormEvent | Event) => {
@@ -2061,55 +2126,72 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
         {/* Tab Content */}
         <form onSubmit={handleSubmit}>
-          {/* Skeleton Loading */}
-          {isTabLoading && (
-            <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-150">
-              {/* Skeleton Card 1 */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%]" />
-                  <div className="flex-1 space-y-2.5">
-                    <div className="h-4 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-32" />
-                    <div className="h-3 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-48" />
+          {/*
+            ONE KEYED WRAPPER, so React replaces the panel rather than
+            reconciling one tab's fields into another's and keeping the DOM
+            nodes. Without the key nothing is ever new, so nothing can
+            animate, and the content changes under you in a single frame.
+
+            120ms, opacity and a 4px rise. Short because this is a tab, not
+            a page: anything long enough to admire is long enough to be in
+            the way the fourth time you use it.
+          */}
+          <div key={activeTab} className="settings-panel">
+          {/*
+            NO SKELETON BETWEEN TABS.
+            There used to be one here: forty-five lines of shimmering grey
+            cards, shown for a fixed 160ms on every switch. Nothing is
+            fetched when a tab changes — every panel renders from the props
+            this component was handed once — so it was a loading state for
+            content that was already on the machine, and a fake one at that.
+            What it bought was a flash of grey that made a change of tab
+            look slower and cheaper than simply doing it.
+
+            What replaces it is one keyed wrapper that fades. See
+            `handleTabChange`.
+          */}
+          {/* Billing Tab */}
+          {activeTab === "billing" && (
+            <div className="space-y-4 sm:space-y-6">
+              {billingData ? (
+                <BillingPageClient initialData={billingData as never} embedded />
+              ) : billingError ? (
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#e5e7eb]">
+                  <p className="text-[14px] font-medium text-[#1a1a2e]">We could not load your billing.</p>
+                  <p className="mt-1 text-[13px] text-[#6b7280]">
+                    Nothing has changed on your account. This is a problem reading it.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void loadBilling()}
+                    className="mt-3 h-9 px-4 text-[13px] font-semibold text-white bg-[#1a1a2e] rounded-lg"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : (
+                /*
+                  THE ONE HONEST LOADING STATE IN SETTINGS. Every other panel
+                  renders from props already here; this one is waiting on
+                  Stripe. So it says so, in the shape of what is coming,
+                  rather than shimmering — and the tab itself already
+                  switched, so nothing is blocking behind it.
+                */
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#e5e7eb]">
+                  <div className="flex items-center gap-2.5 text-[#6b7280]">
+                    <span className="h-3.5 w-3.5 rounded-full border-2 border-[#e5e7eb] border-t-[#7c3aed] animate-spin" />
+                    <span className="text-[13.5px]">Checking your plan and invoices</span>
                   </div>
                 </div>
-              </div>
-              {/* Skeleton Card 2 */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <div className="h-5 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-40 mb-4" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="h-3 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-20" />
-                    <div className="h-11 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-xl" />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-3 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-24" />
-                    <div className="h-11 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-xl" />
-                  </div>
-                </div>
-              </div>
-              {/* Skeleton Card 3 */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <div className="h-5 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-32 mb-4" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="h-3 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-16" />
-                    <div className="h-11 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-xl" />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-3 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-28" />
-                    <div className="h-11 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-xl" />
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           )}
 
           {/* General Tab */}
-          {!isTabLoading && activeTab === "general" && (
+          {activeTab === "general" && (
             <div className="space-y-4 sm:space-y-6">
               {/* Purple Announcement Bar — Connect Stripe (only after status confirmed) */}
-              {!stripeStatusLoading && !stripeStatus.connected && (
+              {!stripeStatus.connected && (
                 <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm transition-all duration-300">
                   <div className="flex items-center gap-3 min-w-0">
                     <Wallet className="h-5 w-5 text-white shrink-0" />
@@ -2485,7 +2567,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           )}
 
           {/* Security Tab */}
-          {!isTabLoading && activeTab === "security" && (
+          {activeTab === "security" && (
             <div className="space-y-4 sm:space-y-6">
               {/* Password Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
@@ -2592,7 +2674,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           )}
 
           {/* Privacy Tab */}
-          {!isTabLoading && activeTab === "privacy" && (
+          {activeTab === "privacy" && (
             <div className="space-y-4 sm:space-y-6">
               {/* AI & Personalization Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
@@ -2751,7 +2833,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           )}
 
           {/* Payments Tab */}
-          {!isTabLoading && activeTab === "payments" && (
+          {activeTab === "payments" && (
             <div className="space-y-[10px] sm:space-y-[14px]">
               {/* Error display for Connect flow */}
               {error && (
@@ -2814,7 +2896,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-[15px] sm:text-[16px] font-semibold text-[#1a1a2e]">Stripe</h3>
                         <span className={`px-1.5 py-0.5 font-medium rounded-full flex items-center gap-1 ${isMobileViewport ? "text-[8px]" : "text-[10px]"} ${stripeStatus.connected ? "bg-emerald-500 text-white" : "bg-amber-100 text-amber-700 border border-amber-200"}`}>
-                          <Check className="h-3 w-3" /> {stripeStatus.connected ? "Connected" : stripeStatus.status === "pending" ? "Pending" : stripeStatusLoading ? "Checking" : "Not connected"}
+                          <Check className="h-3 w-3" /> {stripeStatus.connected ? "Connected" : stripeStatus.status === "pending" ? "Pending" : "Not connected"}
                         </span>
                       </div>
                       <p className="text-[13px] sm:text-[14px] text-[#6b7280] mt-0.5">Connect to accept payments from Credit/Debit cards</p>
@@ -2962,7 +3044,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           )}
 
           {/* Manage Stores Tab */}
-          {!isTabLoading && activeTab === "stores" && (
+          {activeTab === "stores" && (
             <div className="space-y-4 sm:space-y-6">
               {/* Store Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
@@ -3041,7 +3123,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           )}
 
           {/* Domains Tab */}
-          {!isTabLoading && activeTab === "domains" && (
+          {activeTab === "domains" && (
             <div className="space-y-4 sm:space-y-6">
 
               {/* Upgrade banner — only shown for free/null plan, nothing while loading or paid */}
@@ -3500,6 +3582,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             </div>
           )}
 
+          </div>
         </form>
       </div>
 

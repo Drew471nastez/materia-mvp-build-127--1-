@@ -50,11 +50,21 @@ export function UpgradePageClient({
 
   const goBack = () => {
     if (closing) return
+    /**
+     * LEAVES, RATHER THAN SHOWING A SPINNER WHILE IT LEAVES.
+     *
+     * This used to set a flag that drew a full-screen spinner and then
+     * navigated 400ms later. Nothing was loading during those 400ms — the
+     * spinner was there to fill a pause invented to make the spinner
+     * visible, and it is the reason closing this felt worse than opening it.
+     *
+     * Now the panel animates out and the navigation happens as it finishes,
+     * so the 180ms is the movement rather than a wait in front of it.
+     */
     setClosing(true)
-    // Show spinner briefly, then navigate
     setTimeout(() => {
-      router.push("/app/settings/billing")
-    }, 400)
+      router.push("/app/settings?tab=billing")
+    }, 180)
   }
 
   const handleUpgrade = async (planId: string) => {
@@ -145,16 +155,10 @@ export function UpgradePageClient({
   }
 
   return (
-    <div className="relative bg-white min-h-full">
-      {/* Smooth close overlay — absolute so it stays within the scroll container */}
-      {closing && (
-        <div className="fixed inset-0 z-[200] bg-white/95 backdrop-blur-sm flex items-center justify-center animate-in fade-in">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-6 w-6 text-[#7c3aed] animate-spin" />
-            <p className="text-[13px] text-[#6b7280] font-medium">Going back...</p>
-          </div>
-        </div>
-      )}
+    <div
+      className={`relative bg-white min-h-full ${closing ? "upgrade-leaving" : "upgrade-arriving"}`}
+    >
+      {/* The close overlay that used to live here is gone: see `goBack`. */}
       {/* Top bar — sticky within the app layout's overflow-y-auto scroll container */}
       <div className="sticky top-0 z-30 bg-white border-b border-[#e5e7eb]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">

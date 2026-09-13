@@ -61,8 +61,16 @@ import { GlobalIcon as OnePageLinear } from "@solar-icons/react/linear/global"
 import { GlobalIcon as OnePageBold } from "@solar-icons/react/bold/global"
 import { LetterIcon as EmailsLinear } from "@solar-icons/react/linear/letter"
 import { LetterIcon as EmailsBold } from "@solar-icons/react/bold/letter"
-import { MonitorSmartphoneIcon as WebsiteBuilderLinear } from "@solar-icons/react/linear/monitor-smartphone"
-import { MonitorSmartphoneIcon as WebsiteBuilderBold } from "@solar-icons/react/bold/monitor-smartphone"
+/**
+ * ONE PLAIN SCREEN, not a screen with a phone beside it.
+ *
+ * Every other glyph in this list is a single object drawn once — an
+ * envelope, a card, a box, a bill. `monitor-smartphone` is two devices at
+ * two sizes with a gap between them, so at 20px it carries more strokes
+ * than anything next to it and reads as busier rather than as different.
+ */
+import { MonitorIcon as WebsiteBuilderLinear } from "@solar-icons/react/linear/monitor"
+import { MonitorIcon as WebsiteBuilderBold } from "@solar-icons/react/bold/monitor"
 import { SettingsIcon as SettingsLinear } from "@solar-icons/react/linear/settings"
 import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
 import { ShopIcon as StoreLinear } from "@solar-icons/react/linear/shop"
