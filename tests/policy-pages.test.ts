@@ -440,6 +440,42 @@ async function main() {
       !/We don't have a dedicated shop page in the editor/.test(editor),
     )
 
+    /**
+     * THE BUMP ON NAVIGATION, as an ordering invariant.
+     *
+     * `setCurrentPage` used to run BEFORE the fetch, so for one render plus
+     * however long the network took, the canvas drew the OLD page's sections
+     * under the NEW page's template: `page.template` decides what a
+     * theme-language section renders, the header's active link moves, and a
+     * product page stops being one. Then the sections landed and everything
+     * changed again. Two changes where the eye expects none, and the middle
+     * one is a page that never existed.
+     *
+     * Asserted on ORDER, because that is what the fix is. This is weaker
+     * than a measurement and it is what is available: the probe in
+     * scripts/check-page-switch.mjs cannot complete a real switch without a
+     * server, and says so rather than passing vacuously.
+     */
+    const pageChange = editor.slice(editor.indexOf("const handlePageChange"), editor.indexOf("const handleSelectProductPage"))
+    check(
+      "a page switch fetches before it says which page is shown",
+      pageChange.indexOf("await Promise.all([") < pageChange.indexOf("setCurrentPage(page)"),
+      `fetch at ${pageChange.indexOf("await Promise.all([")}, setCurrentPage at ${pageChange.indexOf("setCurrentPage(page)")}`,
+    )
+    check(
+      "and the page and its sections are set together, in one commit",
+      /setCurrentPage\(page\)[\s\S]{0,200}setSections\(merged\)/.test(pageChange),
+    )
+    const productChange = editor.slice(editor.indexOf("const handleSelectProductPage"), editor.indexOf("const handleSelectProductPage") + 6000)
+    check(
+      "a product page does the same",
+      /setSelectedProductPage\(productTitle\)\s*\n\s*setCurrentPage\("product"\)\s*\n\s*setSections\(merged\)/.test(productChange),
+    )
+    check(
+      "and the scroll to the top runs after the commit rather than racing it",
+      /useLayoutEffect\(\(\) => \{[\s\S]{0,220}wb-preview-root[\s\S]{0,120}\}, \[currentPage, selectedProductPage\]\)/.test(editor),
+    )
+
     /** A refresh looks like a page switch. */
     check("the sidebar shows its skeleton on a first load too", /\{sectionsLoading \|\| loading \? \(/.test(editor))
   }

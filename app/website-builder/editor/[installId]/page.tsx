@@ -4456,12 +4456,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             }
           : null
 
-      setCurrentPage(page)
+      /**
+       * The sidebar's half of the switch happens now, because it is what the
+       * click was aimed at: the menu shuts, the panel goes back to the list.
+       * None of it touches the canvas.
+       */
       setSelectedPanel({ type: "pages" })
       setPageBrowserOpen(false)
-      setSelectedProductPage(null)
-      setEditAllProductPages(false)
-      updatePageUrl(page)
 
       // Load new page sections, then — if not home — splice in home's
       // header/footer so every page renders identically to home.
@@ -4472,32 +4473,64 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           : Promise.resolve<{ header?: SectionInstance; footer?: SectionInstance }>({}),
       ])
       const merged = page !== "home" ? mergeWithHomeHeaderFooter(loaded, homeHF) : loaded
+
+      /**
+       * ═══════════════════════════════════════════════════════════════════
+       *  THE PAGE AND ITS SECTIONS CHANGE IN ONE RENDER
+       * ═══════════════════════════════════════════════════════════════════
+       * THIS IS THE BUMP. `setCurrentPage` used to run BEFORE the fetch, so
+       * for one render — plus however long the network took — the canvas
+       * drew the OLD page's sections under the NEW page's template. That is
+       * a real visual change: `page.template` decides what a theme-language
+       * section renders, the header's active link moves to the page you
+       * have not arrived at yet, and a product page stops being one. Then
+       * the sections landed and everything changed a second time.
+       *
+       * Two changes where the eye expects none reads as a flash, and the
+       * middle one is of a page that never existed: this page's name over
+       * that page's content.
+       *
+       * So nothing that describes WHICH PAGE IS SHOWN moves until the
+       * content for it is in hand. React batches these into one commit, so
+       * the canvas goes from the old page straight to the new one with no
+       * frame in between.
+       */
+      setCurrentPage(page)
+      setSelectedProductPage(null)
+      setEditAllProductPages(false)
       setSections(merged)
+      updatePageUrl(page)
 
       setSectionsLoading(false)
       setCanvasLoading(false)
-      /**
-       * ═══════════════════════════════════════════════════════════════════
-       *  YOU ARRIVE AT THE TOP OF A PAGE YOU OPENED
-       * ═══════════════════════════════════════════════════════════════════
-       * Opening a page kept the scroll position of the one before it, so
-       * following a footer link from halfway down a long home page landed
-       * you halfway down the privacy policy, with the heading above the
-       * fold. Nothing about that says a page changed; it reads as the canvas
-       * having glitched.
-       *
-       * Every browser does this and nobody notices, which is the point: it
-       * is what makes a navigation feel like one. After the paint, so it
-       * scrolls the page that has arrived rather than the one on its way
-       * out, and `instant` because this is not a journey to watch.
-       */
-      requestAnimationFrame(() => {
-        document.getElementById("wb-preview-root")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
-      })
     } finally {
       switchingPage.current = false
     }
   }
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  YOU ARRIVE AT THE TOP OF A PAGE YOU OPENED
+   * ═══════════════════════════════════════════════════════════════════════
+   * Opening a page kept the scroll position of the one before it, so a
+   * footer link followed from halfway down a long home page landed halfway
+   * down the privacy policy with its heading above the fold. Nothing about
+   * that says a page changed; it reads as the canvas having glitched.
+   *
+   * A LAYOUT EFFECT ON THE PAGE, not a requestAnimationFrame after the
+   * setState that changed it. rAF runs before the next paint but React's
+   * commit is scheduled separately, so the callback could land either side
+   * of the new sections being in the DOM: scroll the old content and the
+   * new page arrives already scrolled, scroll after and the content moves
+   * under the eye. An effect keyed on the page runs after the commit that
+   * changed it, every time, which is the one moment this is correct.
+   *
+   * `useLayoutEffect`, so it is done before the browser paints: a scroll
+   * corrected after a paint is a scroll somebody saw.
+   */
+  useLayoutEffect(() => {
+    document.getElementById("wb-preview-root")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+  }, [currentPage, selectedProductPage])
 
   const handleSelectProductPage = async (productId: string, productTitle: string) => {
     setSectionsLoading(true)
@@ -4520,8 +4553,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           }
         : null
 
-    setSelectedProductPage(productTitle)
-    setCurrentPage("product")
+    /**
+     * The sidebar's half, which the click was aimed at and which does not
+     * touch the canvas. Everything that says WHICH PAGE IS SHOWN waits for
+     * the content: see the same note in handlePageChange. Without it the
+     * canvas drew the page you were leaving under the product page's
+     * template, and then changed again when the sections landed.
+     */
     setSelectedPanel({ type: "pages" })
     setPageBrowserOpen(false)
     // Prefer slug for the previewPath so the URL matches the live site's
@@ -4529,7 +4567,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // in the in-memory list yet.
     const slugForUrl =
       products.find(p => p.id === productId)?.slug ?? productId
-    updatePageUrl("product", slugForUrl)
 
     // Build fallback product data from the products list immediately. We
     // include id + slug so the Buy Now / Add to Cart buttons remain wired
@@ -4589,7 +4626,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // Splice home's header/footer around this product template
     const merged = mergeWithHomeHeaderFooter(pageSections, homeHF)
 
+    /** One commit: the page, the product it is showing, and its sections. */
+    setSelectedProductPage(productTitle)
+    setCurrentPage("product")
     setSections(merged)
+    updatePageUrl("product", slugForUrl)
+
     setSectionsLoading(false)
     setCanvasLoading(false)
   }
