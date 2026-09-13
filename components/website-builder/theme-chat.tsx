@@ -39,6 +39,7 @@ import {
 
 import { ImageViewer, type ViewableImage } from "@/components/website-builder/image-viewer"
 import { StorelibMark } from "@/components/storelib-mark"
+import { WorkPanel, type WorkCode, type WorkStep } from "@/components/website-builder/work-panel"
 import { cn } from "@/lib/utils"
 import {
   ALLOWED_IMAGE_TYPES,
@@ -72,6 +73,12 @@ interface Exchange {
    * words and drops the pictures, which is the trade we want.
    */
   images?: Attachment[]
+  /** What it said it would do, before it did any of it. */
+  plan?: string
+  /** One entry per tool call it actually made, in the order they happened. */
+  steps?: WorkStep[]
+  /** The source of any section it wrote during the run. */
+  code?: WorkCode[]
 }
 
 /**
@@ -657,6 +664,39 @@ export function ThemeChat({
             if (event.type === "thinking") {
               const note = event.text ?? ""
               patch((e) => ({ ...e, note }))
+            } else if (event.type === "plan") {
+              const plan = event.text ?? ""
+              patch((e) => ({ ...e, plan }))
+            } else if (event.type === "step") {
+              const id = event.id ?? ""
+              const label = event.label ?? ""
+              const state = (event.state ?? "running") as WorkStep["state"]
+              patch((e) => {
+                const steps = e.steps ?? []
+                const at = steps.findIndex((step) => step.id === id)
+                /**
+                 * The same id arrives twice, once running and once settled.
+                 * Replacing in place is what makes the line TICK rather than
+                 * appear a second time underneath itself.
+                 */
+                if (at < 0) return { ...e, steps: [...steps, { id, label, state }] }
+                const next = [...steps]
+                next[at] = { id, label, state }
+                return { ...e, steps: next }
+              })
+            } else if (event.type === "code") {
+              const path = event.path ?? ""
+              const source = event.source ?? ""
+              if (path && source) {
+                patch((e) => {
+                  const code = e.code ?? []
+                  const at = code.findIndex((file) => file.path === path)
+                  if (at < 0) return { ...e, code: [...code, { path, source }] }
+                  const next = [...code]
+                  next[at] = { path, source }
+                  return { ...e, code: next }
+                })
+              }
             } else if (event.type === "op" && event.op) {
               if (!snapshotTaken) {
                 onRunStart()
@@ -1005,6 +1045,19 @@ export function ThemeChat({
                   </div>
                 )}
                 <p className="text-[13px] text-foreground">{exchange.prompt}</p>
+
+                {/*
+                  THE RUN ITSELF: the plan, the steps as they tick off, and
+                  any code it wrote. Above the change list, because it is what
+                  is happening and the list is what happened.
+                */}
+                <WorkPanel
+                  plan={exchange.plan}
+                  steps={exchange.steps ?? []}
+                  code={exchange.code ?? []}
+                  running={exchange.running}
+                  onOpenCode={onOpenCodeEditor}
+                />
 
                 {exchange.changes.length > 0 && (
                   <ul className="space-y-1 border-l border-border pl-3">
