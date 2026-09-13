@@ -481,6 +481,41 @@ section("Leaving a page always ends, one way or the other")
     /navigateWithCeiling\(\s*\n\s*\(\) => router\.push\(backHref\),\s*\n\s*\(\) => window\.location\.assign\(backHref\)/.test(codeSrc),
   )
 }
+  // ═══════════════════════════════════════════════════════════════════════
+  section("The Add section library cannot be blanked by a missed measurement")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    /**
+     * Reported with a screenshot: every category down the side of the modal,
+     * and beside them nothing at all. Not "no sections in this category" —
+     * the list was never empty, it simply never drew.
+     *
+     * The grid was gated on `gridWidth > 0`, and the width came from a ref
+     * read inside an effect keyed on `[open, isMobileLayout]`. A dialog that
+     * mounts its content through a presence wrapper does not have the ref
+     * attached in the commit that effect runs in, so it returned early,
+     * nothing set the width, and the deps never changed again to give it a
+     * second chance. Measured on the real editor: `cards=0` on a desktop and
+     * `cards=38` on a phone, from the same code.
+     *
+     * A callback ref is called with the node the moment the node exists,
+     * whenever that is, so there is no window to fall through.
+     */
+    const editorSrc = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    check(
+      "the grid is measured by a callback ref, not a ref read in an effect",
+      /const gridRef = useCallback\(\(el: HTMLDivElement \| null\) => \{/.test(editorSrc) &&
+        /new ResizeObserver\(\(\) => setGridWidth\(el\.getBoundingClientRect\(\)\.width\)\)/.test(editorSrc),
+    )
+    /**
+     * And even a width that never arrives must not hide the library. A card
+     * whose preview does not yet know how wide it is can still be drawn and
+     * still be pressed.
+     */
+    check("the list is not gated on the measurement at all", !/\{gridWidth > 0 && visible\.map/.test(editorSrc))
+    check("the observer is disconnected when the node goes and on unmount", /gridObserver\.current\?\.disconnect\(\)/.test(editorSrc))
+    check("each card carries a stable hook to count by", /data-library-card=\{type\}/.test(editorSrc))
+  }
 
 console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
