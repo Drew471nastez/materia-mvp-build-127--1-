@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronDown, ExternalLink, FileText, Link2, Package, Search } from "lucide-react"
+import { Check, ChevronDown, ExternalLink, FileText, Link2, Package, Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { FieldPopover, FIELD_TRIGGER } from "@/components/website-builder/field-popover"
@@ -117,8 +117,22 @@ export function LinkPicker({
                     value === t.href && "bg-muted",
                   )}
                 >
-                  <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{t.label}</span>
-                  <span className="shrink-0 truncate text-[11px] text-muted-foreground">{t.href}</span>
+                  {/**
+                    * THE NAME, NOT THE ADDRESS.
+                    *
+                    * Every row printed its own href beside it, so choosing a
+                    * product meant reading past
+                    * "/products/geanta-guess-reptila-2g7yyk" to find the
+                    * name, and a long slug squeezed the name down to "F." or
+                    * "Gea…". Nobody picks a link by its slug: they pick the
+                    * page, and the address is what this control is FOR
+                    * producing. It is still there for anyone who wants it,
+                    * as the row's title.
+                    */}
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-foreground" title={t.href}>
+                    {t.label}
+                  </span>
+                  {value === t.href && <Check className="h-3.5 w-3.5 shrink-0 text-foreground/70" strokeWidth={2.2} />}
                 </button>
               ))}
             </div>

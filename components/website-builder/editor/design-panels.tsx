@@ -164,7 +164,7 @@ export function SchemePicker({
   value: string
   onChange: (key: string) => void
   theme: Theme
-  /** Shown as an Edit affordance on the trigger, opening the scheme in Theme settings. */
+  /** Opens a scheme in Theme settings. Offered on each row of the open list. */
   onEdit?: (key: string) => void
   size?: "sm" | "md"
 }) {
@@ -206,18 +206,15 @@ export function SchemePicker({
           <span className={cn("font-bold", size === "sm" ? "text-[14px]" : "text-[16px]")}>Aa</span>
           <span className={cn("font-medium truncate", size === "sm" ? "text-[13px]" : "text-[14px]")}>{active.name}</span>
         </span>
+        {/**
+          * THE TRIGGER SHOWS THE SCHEME, AND NOTHING ELSE.
+          *
+          * Edit used to sit here, on a control whose whole job is to say
+          * which scheme is on: a white pill on every coloured swatch, always
+          * present, and it only ever edited the ACTIVE one. Editing belongs
+          * with the list, where every scheme is in reach.
+          */}
         <span className="flex items-center gap-2 shrink-0">
-          {onEdit && (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={(e) => { e.stopPropagation(); onEdit(activeKey) }}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onEdit(activeKey) } }}
-              className="text-[12px] font-medium px-3 py-1 rounded-md bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer shadow-sm"
-            >
-              Edit
-            </span>
-          )}
           <ChevronDown className={cn("h-4 w-4 opacity-70 transition-transform duration-200 ease-out", open && "rotate-180")} />
         </span>
       </button>
@@ -236,20 +233,39 @@ export function SchemePicker({
           {Object.entries(schemes).map(([key, sc]) => {
             const isActive = activeKey === key
             return (
-              <button
+              /**
+               * A row is a pair, not a button inside a button, which is
+               * invalid markup and which browsers resolve by dropping one of
+               * them. Choosing is the whole row; editing is the affordance on
+               * the end, and it only appears where it can do something.
+               */
+              <div
                 key={key}
-                type="button"
-                onClick={() => { onChange(key); setOpen(false) }}
                 className={cn(
-                  "w-full h-11 flex items-center gap-2.5 px-3 rounded-lg border-2 transition-colors duration-150 cursor-pointer",
+                  "relative flex w-full items-center rounded-lg border-2 transition-colors duration-150",
                   isActive ? "border-blue-500" : "border-transparent hover:border-blue-200",
                 )}
                 style={{ background: sc.gradient || sc.background, color: sc.heading }}
               >
-                <span className="text-[15px] font-bold">Aa</span>
-                <span className="text-[13px] font-medium truncate">{sc.name}</span>
-                {isActive && <Check className="h-3.5 w-3.5 ml-auto opacity-70" />}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => { onChange(key); setOpen(false) }}
+                  className="flex h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 px-3 text-left"
+                >
+                  <span className="text-[15px] font-bold">Aa</span>
+                  <span className="truncate text-[13px] font-medium">{sc.name}</span>
+                  {isActive && <Check className="ml-auto h-3.5 w-3.5 shrink-0 opacity-70" />}
+                </button>
+                {onEdit && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit(key) }}
+                    className="mr-1.5 shrink-0 rounded-md border border-black/10 bg-white/90 px-2.5 py-1 text-[12px] font-medium text-gray-900 shadow-sm transition-colors hover:bg-white"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
             )
           })}
         </div>

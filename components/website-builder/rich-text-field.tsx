@@ -35,21 +35,20 @@
  */
 
 import * as React from "react"
-import { Bold, ChevronDown, Italic, Link2, List, ListOrdered, Type } from "lucide-react"
-import { StorelibMark } from "@/components/storelib-mark"
+import { Bold, ChevronDown, Italic, Link, List, ListOrdered, Type } from "lucide-react"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { cn } from "@/lib/utils"
 
 /**
- * The assistant, when the editor has one to offer.
+ * NO ASSISTANT BUTTON IN HERE.
  *
- * A context rather than a prop, because these fields are rendered several
- * layers below anything that knows about the chat panel, and threading a
- * callback through every settings component to reach a button is how props
- * become plumbing. No provider means no button: a toolbar icon that does
- * nothing is worse than one that is not there.
+ * It was the first thing in the toolbar and it was the wrong place for it.
+ * This is the control for a text setting, used by every richtext field in
+ * the product; the assistant is a thing you ask about a SECTION, and it
+ * already has its own button on the section toolbar. A door to it in every
+ * text box is a second entrance to one room, and it pushed the controls that
+ * belong here along by one.
  */
-export const RichTextAssistant = React.createContext<(() => void) | null>(null)
 
 const BLOCKS = [
   { label: "Paragraph", tag: "p" },
@@ -62,15 +61,25 @@ export function RichTextField({
   value,
   onChange,
   placeholder,
-  minHeight = 140,
+  minHeight = 120,
+  /**
+   * WHERE IT STOPS GROWING.
+   *
+   * A policy body is two thousand words. Left to size itself the field owned
+   * the whole panel and the section's other settings were a scroll away, so
+   * past this it scrolls inside itself on the panel's own slim bar. Roughly
+   * eight lines: enough to write in, short enough that Hide, Duplicate and
+   * Delete stay on screen.
+   */
+  maxHeight = 260,
 }: {
   value: string
   onChange: (html: string) => void
   placeholder?: string
   minHeight?: number
+  maxHeight?: number
 }) {
   const ref = React.useRef<HTMLDivElement>(null)
-  const askAi = React.useContext(RichTextAssistant)
   const [empty, setEmpty] = React.useState(!value || value === "<p></p>")
 
   /**
@@ -125,27 +134,19 @@ export function RichTextField({
 
   return (
     <div className="rounded-lg border border-border bg-background overflow-hidden focus-within:ring-2 focus-within:ring-neutral-900/10 focus-within:border-neutral-400 transition-colors">
-      <div className="flex items-center gap-0.5 border-b border-border px-1.5 py-1">
-        {askAi ? (
-          <>
-            {/* The brand mark, not a sparkle. Every other way into the
-                assistant in this product is the mark, and a second icon for
-                one door is a second thing to learn. */}
-            <ToolbarButton label="Ask AI to write this" onClick={askAi}>
-              <StorelibMark className="h-4 w-4 rounded-[4px]" />
-            </ToolbarButton>
-            <Divider />
-          </>
-        ) : null}
-
+      {/* ONE WEIGHT, ONE SIZE, ONE COLOUR. The row was a 4px-grid icon set at
+          mixed default weights, which reads as a toolbar assembled from
+          whatever was to hand. 15px on a 28px target, and the bold is the
+          only one drawn heavier, because that is what it means. */}
+      <div className="flex items-center gap-px border-b border-border bg-muted/30 px-1.5 py-1">
         <BlockSelect onPick={(tag) => run("formatBlock", `<${tag}>`)} />
         <Divider />
 
         <ToolbarButton label="Bold" onClick={() => run("bold")}>
-          <Bold className="h-4 w-4" />
+          <Bold className="h-[15px] w-[15px]" strokeWidth={2.4} />
         </ToolbarButton>
         <ToolbarButton label="Italic" onClick={() => run("italic")}>
-          <Italic className="h-4 w-4" />
+          <Italic className="h-[15px] w-[15px]" strokeWidth={2.1} />
         </ToolbarButton>
         <ToolbarButton
           label="Link"
@@ -157,15 +158,15 @@ export function RichTextField({
             run("createLink", safe)
           }}
         >
-          <Link2 className="h-4 w-4" />
+          <Link className="h-[15px] w-[15px]" strokeWidth={1.9} />
         </ToolbarButton>
         <Divider />
 
         <ToolbarButton label="Bulleted list" onClick={() => run("insertUnorderedList")}>
-          <List className="h-4 w-4" />
+          <List className="h-[15px] w-[15px]" strokeWidth={1.9} />
         </ToolbarButton>
         <ToolbarButton label="Numbered list" onClick={() => run("insertOrderedList")}>
-          <ListOrdered className="h-4 w-4" />
+          <ListOrdered className="h-[15px] w-[15px]" strokeWidth={1.9} />
         </ToolbarButton>
       </div>
 
@@ -183,8 +184,8 @@ export function RichTextField({
           onInput={publish}
           onBlur={publish}
           onPaste={onPaste}
-          className="wb-richtext px-3 py-2.5 text-sm outline-none"
-          style={{ minHeight }}
+          className="wb-richtext wb-slim-scroll overflow-y-auto px-3 py-2.5 text-sm outline-none"
+          style={{ minHeight, maxHeight }}
         />
       </div>
     </div>
@@ -206,21 +207,21 @@ function ToolbarButton({ label, onClick, children }: { label: string; onClick: (
         e.preventDefault()
         onClick()
       }}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted hover:text-foreground"
+      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-background hover:text-foreground"
     >
       {children}
     </button>
   )
 }
 
-const Divider = () => <span aria-hidden className="mx-0.5 h-5 w-px bg-border" />
+const Divider = () => <span aria-hidden className="mx-1 h-4 w-px bg-border" />
 
 function BlockSelect({ onPick }: { onPick: (tag: string) => void }) {
   return (
     <div className="relative">
       <select
         aria-label="Text style"
-        className="h-8 cursor-pointer appearance-none rounded-md bg-transparent pl-8 pr-5 text-sm text-foreground/80 outline-none transition-colors hover:bg-muted"
+        className="h-7 cursor-pointer appearance-none rounded-md bg-transparent pl-7 pr-5 text-[13px] text-foreground/70 outline-none transition-colors hover:bg-background"
         defaultValue=""
         onMouseDown={(e) => e.stopPropagation()}
         onChange={(e) => {
@@ -238,7 +239,7 @@ function BlockSelect({ onPick }: { onPick: (tag: string) => void }) {
           </option>
         ))}
       </select>
-      <Type aria-hidden className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/80" />
+      <Type aria-hidden strokeWidth={1.9} className="pointer-events-none absolute left-2 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-foreground/70" />
       <ChevronDown aria-hidden className="pointer-events-none absolute right-0.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground/60" />
     </div>
   )

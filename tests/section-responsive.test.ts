@@ -510,8 +510,9 @@ check(
    * bottom edge now.
    */
   /className="absolute inset-x-0 bottom-0 z-10 h-\[1\.5px\]/.test(editor) &&
-    // Rendered INSIDE the header, as its last child.
-    /<WbLoadProgressBar active=\{sectionsLoading\} \/>\s*<\/header>/.test(editor),
+    // Rendered INSIDE the header, as its last child, and driven by every
+    // canvas wait rather than only by a page switch.
+    /<WbLoadProgressBar active=\{sectionsLoading \|\| canvasBusy\} \/>\s*<\/header>/.test(editor),
 )
 
 

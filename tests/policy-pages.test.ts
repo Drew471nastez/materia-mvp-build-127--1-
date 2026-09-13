@@ -299,7 +299,7 @@ async function main() {
     check("and neither is the old fixed-height textarea", !/min-h-\[80px\][\s\S]{0,80}resize-y/.test(editor))
 
     check("the toolbar is the six things these fields hold", ["Bold", "Italic", "Link", "Bulleted list", "Numbered list"].every((l) => rich.includes(l)))
-    check("the assistant button only exists when there is an assistant", /askAi \? \(/.test(rich))
+    check("the toolbar is text controls only, with no door to the assistant in it", !/askAi/.test(rich))
     check(
       "a toolbar press keeps the selection, or there is nothing to format",
       /onMouseDown=\{\(e\) => \{\s*e\.preventDefault\(\)/.test(rich),
@@ -313,6 +313,51 @@ async function main() {
     check("and is measured rather than counted", /el\.style\.height = "auto"/.test(auto) && /scrollHeight/.test(auto))
     check("with a ceiling, so it cannot push the panel away", /Math\.min\(wanted, ceiling\)/.test(auto))
     check("and it re-fits when the sidebar is resized", /ResizeObserver/.test(auto))
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  section("The controls stop getting in the way")
+  // ════════════════════════════════════════════════════════════════════════
+  {
+    const rich = readFileSync(join(root, "components/website-builder/rich-text-field.tsx"), "utf8")
+    const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const picker = readFileSync(join(root, "components/website-builder/link-picker.tsx"), "utf8")
+    const panels = readFileSync(join(root, "components/website-builder/editor/design-panels.tsx"), "utf8")
+    const renderer = readFileSync(join(root, "components/website-builder/sections/SectionRenderer.tsx"), "utf8")
+
+    /** A text control is not a door to the assistant. */
+    check("the assistant button is gone from the text toolbar", !/StorelibMark|askAi/.test(rich))
+    check("and nothing still tries to provide one", !/RichTextAssistant/.test(editor))
+    check("the toolbar is the six text controls", ["Bold", "Italic", "Link", "Bulleted list", "Numbered list", "Text style"].every((l) => rich.includes(l)))
+
+    /** It stops growing before it owns the panel. */
+    check("the editor has a ceiling and scrolls past it", /maxHeight = 260/.test(rich) && /style=\{\{ minHeight, maxHeight \}\}/.test(rich))
+    check("on the panel's own slim bar, not a second kind", /wb-slim-scroll overflow-y-auto/.test(rich))
+
+    /** A link is chosen by its name. */
+    check("the picker shows the name, with the address as the row's title", /title=\{t\.href\}/.test(picker))
+    check("and no longer prints the slug beside every product", !/text-\[11px\] text-muted-foreground">\{t\.href\}/.test(picker))
+
+    /** Editing a scheme lives with the schemes. */
+    check("Edit is off the closed trigger", !/onEdit\(activeKey\)/.test(panels))
+    check("and on every row of the open list", /onEdit\(key\)/.test(panels))
+    check("a row is a pair, not a button inside a button", /flex h-11 min-w-0 flex-1 cursor-pointer/.test(panels))
+
+    /** A footer link is a link. */
+    check("sections say what type they are", /data-section-type=\{props\.section\.type\}/.test(renderer))
+    check(
+      "and a footer link navigates even with the inspector on",
+      /data-section-type="footer"/.test(editor) && /handleEditorNavigate\(href, true\)/.test(editor),
+    )
+    check(
+      "while everywhere else a tap still only selects",
+      /if \(inspectorEnabled && !fromFooter\) return/.test(editor),
+    )
+    check("an external link in a footer still does not leave the editor", /href\.startsWith\("\/"\)/.test(editor))
+
+    /** And every wait says so. */
+    check("the progress bar covers every canvas wait", /<WbLoadProgressBar active=\{sectionsLoading \|\| canvasBusy\} \/>/.test(editor))
+    check("and it is a hairline, not a chrome element", /h-\[1\.5px\]/.test(editor))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

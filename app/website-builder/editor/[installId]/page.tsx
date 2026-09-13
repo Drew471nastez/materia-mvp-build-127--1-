@@ -66,7 +66,7 @@ import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schem
 import { PAGE_META } from "@/lib/website-builder/types"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey } from "@/lib/website-builder/site-pages"
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
-import { RichTextAssistant, RichTextField } from "@/components/website-builder/rich-text-field"
+import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { toPageSlug } from "@/lib/sites/slug"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/registry"
@@ -4543,7 +4543,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // perform a full browser navigation (that would blow the user out of the
   // editor). Instead, map the href to the appropriate editor page/action.
   // External URLs and `#` anchors are simply ignored in edit mode.
-  const handleEditorNavigate = useCallback((href: string) => {
+  const handleEditorNavigate = useCallback((href: string, fromFooter = false) => {
     if (!href) return
     /**
      * WITH THE INSPECTOR ON, A TAP SELECTS. It does not navigate. A thumb on a
@@ -4554,7 +4554,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * to the top". Following links is what the preview is for, with the
      * inspector off.
      */
-    if (inspectorEnabled) return
+    if (inspectorEnabled && !fromFooter) return
     const trimmed = href.trim()
     if (!trimmed || trimmed === "#") return
     // An anchor on this page scrolls the canvas to it, and nothing else.
@@ -4609,7 +4609,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return
     }
     // Unknown internal path — silently ignore (keeps editor in current page).
-  }, [products, customPages])
+    /**
+     * `inspectorEnabled` is read, so it belongs here. The two page handlers
+     * are NOT: they are plain functions rebuilt every render, and listing
+     * them would rebuild this callback every render too, which is the
+     * closure churn SectionRenderer's memo exists to avoid.
+     */
+  }, [products, customPages, inspectorEnabled])
 
   // ── Memoized section buckets ─────────────────────────────────
   /**
@@ -5466,17 +5472,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * React types declare `React` as a UMD global — and the build does not
    * fail on type errors. tests/react-binding.test.ts is what catches it now.
    */
-  /**
-   * The assistant, for the button in a rich text toolbar.
-   *
-   * Memoised because it is a context value: a new function every render
-   * would re-render every field in the panel on every keystroke elsewhere.
-   */
-  const askAiFromField = useCallback(() => {
-    setAiOpen(true)
-    if (isMobileView) setMobileSidebarOpen(false)
-  }, [isMobileView])
-
   const sidebarGoingBack = useRef(false)
   const lastPanelKey = useRef(sidebarPanelKey)
   if (lastPanelKey.current !== sidebarPanelKey) {
@@ -7087,8 +7082,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         {/* ── Thin page-load progress bar ──
             Single A→B sweep (NProgress-style), never looping. Creeps toward
             ~90% while the load is in flight, snaps to 100% and fades out.
-            Lives on the bar's bottom edge so it has no height of its own. */}
-        <WbLoadProgressBar active={sectionsLoading} />
+            Lives on the bar's bottom edge so it has no height of its own.
+
+            EVERY WAIT, NOT JUST ONE. It was wired to `sectionsLoading`, which
+            is the page switch and nothing else, so arriving at the editor,
+            following a footer link and opening a page from settings all
+            waited with no sign that anything was happening. Every one of
+            those is the canvas being replaced, and this is the one line of
+            the editor whose job is to say so. */}
+        <WbLoadProgressBar active={sectionsLoading || canvasBusy} />
       </header>
 
       <ProjectSettings
@@ -7225,17 +7227,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             >
               <div data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
                 <LinkTargetsProvider targets={linkTargets}>
-                  {/* The assistant button in a rich text toolbar opens the
-                      chat. A context, because these fields are several layers
-                      below anything that knows the chat exists. */}
-                  <RichTextAssistant.Provider value={askAiFromField}>
                   <div
                     key={sidebarPanelKey}
                     className={sidebarGoingBack.current ? "wb-panel-swap-back h-full" : "wb-panel-swap h-full"}
                   >
                     {renderSidebarContent()}
                   </div>
-                  </RichTextAssistant.Provider>
                 </LinkTargetsProvider>
               </div>
             </div>
@@ -7334,17 +7331,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
             <div data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
               <LinkTargetsProvider targets={linkTargets}>
-                  {/* The assistant button in a rich text toolbar opens the
-                      chat. A context, because these fields are several layers
-                      below anything that knows the chat exists. */}
-                  <RichTextAssistant.Provider value={askAiFromField}>
                   <div
                     key={sidebarPanelKey}
                     className={sidebarGoingBack.current ? "wb-panel-swap-back h-full" : "wb-panel-swap h-full"}
                   >
                     {renderSidebarContent()}
                   </div>
-                  </RichTextAssistant.Provider>
                 </LinkTargetsProvider>
             </div>
           </MobileEditorSheet>
@@ -7634,7 +7626,37 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * handler, ours and the section's, still runs.
              */
             onClickCapture={(e) => {
+              /**
+               * ═════════════════════════════════════════════════════════════
+               *  A LINK IN THE FOOTER IS A LINK, EVEN WHILE EDITING
+               * ═════════════════════════════════════════════════════════════
+               * With the inspector on a tap only selects, because a thumb
+               * lands on the header's logo and its nav as often as beside
+               * them, and every one of those taps used to change the page
+               * under somebody who meant to select a section.
+               *
+               * A footer is not that. Its links ARE its content: there is no
+               * space around them to aim for, nobody taps one by accident,
+               * and the three policy links this site now ships live there.
+               * Clicking one and having nothing happen reads as a broken
+               * link, which is the one thing a legal page must not be.
+               *
+               * So the footer is the exception, and only for a path inside
+               * this site: an external link still does nothing, because
+               * leaving the editor is not what that tap meant either.
+               */
+              const el = e.target as HTMLElement | null
+              const anchor = el?.closest?.("a[href]") as HTMLAnchorElement | null
+              const inFooter = !!anchor?.closest?.('[data-section-type="footer"]')
+              const href = anchor?.getAttribute("href")?.trim() ?? ""
+              const internal = href.startsWith("/") && !/^\/\//.test(href)
+
               if (leavesThePage(e.target as unknown as ClickTargetLike | null)) e.preventDefault()
+
+              if (inFooter && internal) {
+                e.stopPropagation()
+                handleEditorNavigate(href, true)
+              }
             }}
             onSubmitCapture={(e) => e.preventDefault()}
             className={cn(

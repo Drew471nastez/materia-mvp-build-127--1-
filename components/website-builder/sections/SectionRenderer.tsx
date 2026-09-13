@@ -136,6 +136,14 @@ export function renderSection(props: SectionProps) {
       className="@container"
       id={props.wrapperId}
       data-section-box=""
+      /**
+       * The TYPE, not just "is this chrome". A rule that has to name the
+       * footer and not the header cannot be written against `data-chrome`,
+       * and the editor has exactly that rule: a link in a footer navigates,
+       * a link in a header does not, because a thumb lands on the logo and
+       * the nav while it is trying to select the header.
+       */
+      data-section-type={props.section.type}
       data-chrome={chrome ? "" : undefined}
       {...sectionTokenAttrs(props.section, props.theme)}
     >

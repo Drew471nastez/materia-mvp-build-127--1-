@@ -227,7 +227,13 @@ section("It is reachable, and it works on a file longer than the window")
   const codeSrc = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
   check(
     "with the inspector on, a tap on a theme link selects and never navigates, and the page already showing is not reloaded",
-    /const handleEditorNavigate = useCallback\(\(href: string\) => \{\s*\n\s*if \(!href\) return[\s\S]{0,900}?if \(inspectorEnabled\) return/.test(editor) &&
+    /**
+     * The guard now has ONE exception, and it is named in the regex so that
+     * widening it again is a failing test: a link in the FOOTER navigates,
+     * because a footer's links are its content and the policy pages every
+     * site ships live there. Everywhere else a tap still only selects.
+     */
+    /const handleEditorNavigate = useCallback\(\(href: string, fromFooter = false\) => \{\s*\n\s*if \(!href\) return[\s\S]{0,1200}?if \(inspectorEnabled && !fromFooter\) return/.test(editor) &&
       /if \(\(path === "\/" \|\| path === ""\) && currentPage === "home"\) return/.test(editor) &&
       /if \(trimmed\.startsWith\("#"\)\) \{[\s\S]*?scrollWithin\(scroller, target\)/.test(editor),
   )
@@ -320,7 +326,7 @@ section("It is reachable, and it works on a file longer than the window")
     /onMouseDownCapture=\{inspectorEnabled \? \(e\) => e\.preventDefault\(\) : undefined\}/.test(editor) &&
       // and the page-leaving pair, which is not about the inspector at all:
       // see "The canvas never takes the browser anywhere" in canvas-scroll.
-      /onClickCapture=\{\(e\) => \{\s*\n\s*if \(leavesThePage\(/.test(editor) &&
+      /onClickCapture=\{\(e\) => \{[\s\S]{0,1600}?if \(leavesThePage\(/.test(editor) &&
       /onSubmitCapture=\{\(e\) => e\.preventDefault\(\)\}/.test(editor),
   )
   check(
