@@ -257,6 +257,63 @@ check(
   /Checking your plan and invoices/.test(settingsRaw),
 )
 
+
+// ---------------------------------------------------------------------------
+section("The native cold start")
+// ---------------------------------------------------------------------------
+
+{
+  const start = read("app/native-start/page.tsx")
+
+  check(
+    "the deep-link check uses the bridge Capacitor already injected",
+    /\(window as unknown as \{[\s\S]{0,400}\}\)\.Capacitor/.test(start) &&
+      /bridge\.Plugins\?\.App/.test(start),
+  )
+  check(
+    "so a launch no longer waits on a chunk fetch before it can read where to go",
+    (() => {
+      /*
+       * The import survives as a fallback for a shell whose bridge does not
+       * expose the plugin, but it must no longer be the FIRST thing awaited.
+       */
+      /*
+       * WITHOUT COMMENTS. The comment explaining the change quotes the very
+       * import it removed from the critical path, so a search over the raw
+       * text finds that first and reports the fix as absent — the same trap
+       * the drop-target guard fell into, and the reason this is worth
+       * spelling out twice.
+       */
+      const resolve = code("app/native-start/page.tsx").slice(
+        code("app/native-start/page.tsx").indexOf("async function resolve()"),
+      )
+      const firstImport = resolve.indexOf('await import("@capacitor/app")')
+      const bridgeRead = resolve.indexOf(").Capacitor")
+      return bridgeRead > 0 && firstImport > bridgeRead
+    })(),
+  )
+  check(
+    "a browser skips the check entirely rather than importing and catching",
+    /if \(!bridge\?\.isNativePlatform\?\.\(\)\) throw new Error\("not native"\)/.test(start),
+  )
+  check(
+    "and the ordering that makes recovery links work is unchanged",
+    (() => {
+      const resolve = start.slice(start.indexOf("async function resolve()"))
+      const deepLink = resolve.indexOf("isRecovery")
+      const fastPath = resolve.indexOf("Layer 1: synchronous localStorage fast-path")
+      return deepLink > 0 && fastPath > 0 && deepLink < fastPath
+    })(),
+  )
+  check(
+    "the entry itself is still a static file, not a render",
+    (() => {
+      /* Prerendered: the first hop is a file, and only the hop after it is work. */
+      return !/export const dynamic = "force-dynamic"/.test(start)
+    })(),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
