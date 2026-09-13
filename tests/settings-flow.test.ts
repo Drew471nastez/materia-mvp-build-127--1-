@@ -314,6 +314,44 @@ section("The native cold start")
   )
 }
 
+
+// ---------------------------------------------------------------------------
+section("The chart tooltip stays in its card")
+// ---------------------------------------------------------------------------
+
+{
+  const charts = [
+    "components/app/dashboard-client.tsx",
+    "components/app/analytics-chart.tsx",
+  ]
+
+  for (const path of charts) {
+    const src = code(path)
+    const name = path.split("/").pop()
+
+    check(
+      `${name}: the position is a clamp whose bounds are the card, not a guess`,
+      /translateX\(clamp\(8px, calc\(\$\{x\.toFixed\(1\)\}px - 50%\), calc\(\$\{track\}px - 100% - 8px\)\)\)/.test(src),
+    )
+    check(
+      `${name}: nothing reads the tooltip's own width any more`,
+      !/tooltipRef\.current\?\.offsetWidth/.test(src),
+    )
+    check(
+      `${name}: and there is no fixed edge zone deciding when centring is safe`,
+      !/EDGE_ZONE/.test(src),
+    )
+    check(
+      `${name}: it can never be wider than the card either`,
+      /maxWidth: "calc\(100% - 16px\)"/.test(src),
+    )
+    check(
+      `${name}: the chart reserves room for the dot the axis used to leave`,
+      /margin=\{\{ top: 10, right: 10, left: 10, bottom: 0 \}\}/.test(src),
+    )
+  }
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
