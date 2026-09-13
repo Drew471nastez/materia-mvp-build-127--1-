@@ -529,7 +529,11 @@ check(
     // to lose, and otherwise goes, which is what pressing Back meant.
     /onClick=\{\(\) => requestExit\("\/app\/website-builder"\)\}/.test(editor) &&
     /const requestExit = useCallback\(/.test(editor) &&
-    /setLeaving\(true\)\s*\n\s*router\.push\(href\)/.test(editor) &&
+    // One door out, and it cannot hang: the soft navigation first, the
+    // address loaded for real if this page is still here. See
+    // lib/website-builder/navigate-ceiling.ts.
+    /leaveFor\(href\)/.test(editor) &&
+    /navigateWithCeiling\(\s*\n\s*\(\) => router\.push\(href\),\s*\n\s*\(\) => window\.location\.assign\(href\)/.test(editor) &&
     // Portalled and above every sheet, or the sheets that render into the
     // body paint over the screen that says you are leaving.
     /\{leaving && portalReady && createPortal\(\s*<div className="wb-leaving"/.test(editor) &&
@@ -1296,7 +1300,9 @@ check(
    */
   /window\.addEventListener\("pageshow", onPageShow\)/.test(editor) &&
     /window\.addEventListener\("popstate", revive\)/.test(editor) &&
-    /const watchdog = window\.setTimeout\(revive, 3000\)/.test(editor) &&
+    // The watchdog finishes the journey rather than abandoning it: a page
+    // still here after three seconds loads the address it was going to.
+    /const watchdog = window\.setTimeout\(\(\) => \{[\s\S]*?if \(href\) window\.location\.assign\(href\)[\s\S]*?\}, 3000\)/.test(editor) &&
     /if \(e\.persisted\) revive\(\)/.test(editor) &&
     // it clears BOTH, or the confirm reopens the moment anything sets it again
     /setLeaving\(false\)\s*\n\s*setPendingExit\(null\)/.test(editor) &&

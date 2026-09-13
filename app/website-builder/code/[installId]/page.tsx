@@ -4,6 +4,7 @@ import * as React from "react"
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
 import { BuilderLoader } from "@/components/website-builder/builder-loader"
+import { navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Save, Loader2, File, Folder, FolderOpen, ChevronRight, X, AlertCircle, Check, RotateCcw, Code2, RefreshCw, Search, Copy, Download, Sun, Moon, FilePlus, Pencil, Files, Trash2, History, MoreHorizontal,
@@ -1633,7 +1634,15 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
           onClick={() => {
             if (goingBack) return
             setGoingBack(true)
-            router.push(backHref)
+            // The same ceiling the builder has on its way out: soft first,
+            // and a real load if this page is still here. See
+            // lib/website-builder/navigate-ceiling.ts.
+            navigateWithCeiling(
+              () => router.push(backHref),
+              () => window.location.assign(backHref),
+              (cb, ms) => window.setTimeout(cb, ms),
+              (id) => window.clearTimeout(id),
+            )
           }}
           disabled={goingBack}
           aria-busy={goingBack}

@@ -72,6 +72,7 @@ import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { PIN_AFTER_SELECT_MS, pinScroll, resetClippedAncestors, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
+import { navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
@@ -3307,6 +3308,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * edits, or a save in flight.
    */
   const [pendingExit, setPendingExit] = useState<string | null>(null)
+  /** Where this page is on its way to, read by the watchdog that finishes the job. */
+  const leavingHref = useRef<string | null>(null)
   /** Reported by the code editor in its frame; see its postMessage. */
   const [codeDirty, setCodeDirty] = useState(false)
   /**
@@ -6161,7 +6164,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     window.addEventListener("pageshow", onPageShow)
     window.addEventListener("popstate", revive)
-    const watchdog = window.setTimeout(revive, 3000)
+    /**
+     * AND IF IT IS STILL HERE, IT LOADS THE ADDRESS FOR REAL. This used to
+     * clear the screen and leave the person standing in the editor they had
+     * asked to leave, which is the half of "it hangs" that no amount of
+     * waiting fixed.
+     */
+    const watchdog = window.setTimeout(() => {
+      const href = leavingHref.current
+      if (href) window.location.assign(href)
+      else revive()
+    }, 3000)
     return () => {
       window.removeEventListener("pageshow", onPageShow)
       window.removeEventListener("popstate", revive)
@@ -6387,16 +6400,61 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     router.push(`/website-builder/code/${installId}?${q.toString()}`)
   }
 
+  /**
+   * EVERY WAY OUT GOES THROUGH HERE, AND EVERY WAY OUT ENDS.
+   *
+   * The soft navigation first: instant when the route is warm, and it keeps
+   * the app's state. If this page is still here when the ceiling is reached,
+   * the address is loaded for real. See navigate-ceiling.ts for why, and the
+   * prefetch below for why the ceiling is rarely reached.
+   */
+  const cancelCeiling = useRef<(() => void) | null>(null)
+  const leaveFor = useCallback((href: string) => {
+    leavingHref.current = href
+    setLeaving(true)
+    cancelCeiling.current?.()
+    cancelCeiling.current = navigateWithCeiling(
+      () => router.push(href),
+      () => window.location.assign(href),
+      (cb, ms) => window.setTimeout(cb, ms),
+      (id) => window.clearTimeout(id),
+    )
+  }, [router])
+  // Navigating unmounts this page, and that cancels the fallback: a hard load
+  // happens only when the soft one did not.
+  useEffect(() => () => cancelCeiling.current?.(), [])
+
+  /**
+   * The two addresses out of here, warmed while nothing else is happening, so
+   * the way back is a repaint rather than a round trip.
+   */
+  useEffect(() => {
+    const warm = () => {
+      try {
+        router.prefetch("/app/website-builder")
+        router.prefetch("/app")
+      } catch {
+        // A router that will not prefetch still navigates; this is only a head start.
+      }
+    }
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+    if (typeof w.requestIdleCallback === "function") {
+      const id = w.requestIdleCallback(warm, { timeout: 4000 })
+      return () => (w as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback?.(id)
+    }
+    const id = window.setTimeout(warm, 1500)
+    return () => window.clearTimeout(id)
+  }, [router])
+
   const requestExit = useCallback(
     (href: string) => {
       if (hasSomethingToLose({ draft: isDirty, code: codeDirty, busy: saving || publishing })) {
         setPendingExit(href)
         return
       }
-      setLeaving(true)
-      router.push(href)
+      leaveFor(href)
     },
-    [isDirty, codeDirty, saving, publishing, router],
+    [isDirty, codeDirty, saving, publishing, leaveFor],
   )
 
   // ── Main editor layout ─────────────────────────────────────
@@ -6887,8 +6945,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         onLeave={() => {
           const href = pendingExit
           setPendingExit(null)
-          setLeaving(true)
-          if (href) router.push(href)
+          if (href) leaveFor(href)
         }}
       />
 

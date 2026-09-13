@@ -17,6 +17,7 @@ import { readFileSync } from "node:fs"
 import { leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 import { join } from "node:path"
 import { PIN_AFTER_SELECT_MS, STUCK_DISTANCE_PX, nudgeOffEnds, pinScroll, reviveScroller, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
+import { NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 
 let passed = 0
 let failed = 0
@@ -431,6 +432,53 @@ section("Selecting a section cannot move the canvas")
   check(
     "and it is a page only on a phone: a desktop keeps the pane over the canvas",
     /if \(!isMobileView\) \{\s*\n\s*setPreviewMode\("code"\)/.test(editor),
+  )
+}
+
+section("Leaving a page always ends, one way or the other")
+{
+  const said: string[] = []
+  let timerId = 0
+  const timers = new Map<number, () => void>()
+  const after = (cb: () => void, ms: number) => { timerId += 1; timers.set(timerId, cb); said.push(`waits ${ms}ms`); return timerId }
+  const clear = (id: number) => { timers.delete(id); said.push("cancels the wait") }
+
+  const cancel = navigateWithCeiling(() => said.push("soft"), () => said.push("hard"), after, clear)
+  check("the soft navigation goes first, and the fallback is only armed", said.join(", ") === `soft, waits ${NAVIGATE_CEILING_MS}ms`, said.join(", "))
+
+  cancel()
+  check("arriving cancels the fallback, so a page that left does not load twice", said.includes("cancels the wait") && !said.includes("hard"))
+
+  const second: string[] = []
+  const timers2 = new Map<number, () => void>()
+  const after2 = (cb: () => void) => { timerId += 1; timers2.set(timerId, cb); return timerId }
+  navigateWithCeiling(() => second.push("soft"), () => second.push("hard"), after2, () => {})
+  timers2.forEach((cb) => cb())
+  check("a page still here when the ceiling is reached loads the address for real", second.join(", ") === "soft, hard", second.join(", "))
+
+  check("two and a half seconds: long enough for a warm route, short enough that nobody wonders", NAVIGATE_CEILING_MS === 2500)
+}
+{
+  const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  check(
+    "every way out of the builder goes through one function that cannot hang",
+    /const leaveFor = useCallback\(\(href: string\) => \{[\s\S]*?navigateWithCeiling\(\s*\n\s*\(\) => router\.push\(href\),\s*\n\s*\(\) => window\.location\.assign\(href\)/.test(editor) &&
+      /leaveFor\(href\)\s*\n\s*\},\s*\n\s*\[isDirty, codeDirty, saving, publishing, leaveFor\]/.test(editor) &&
+      /if \(href\) leaveFor\(href\)/.test(editor) &&
+      !/setLeaving\(true\)\s*\n\s*router\.push\(href\)/.test(editor),
+  )
+  check(
+    "the watchdog finishes the job rather than stranding somebody in the editor they asked to leave",
+    /const watchdog = window\.setTimeout\(\(\) => \{\s*\n\s*const href = leavingHref\.current\s*\n\s*if \(href\) window\.location\.assign\(href\)\s*\n\s*else revive\(\)/.test(editor),
+  )
+  check(
+    "and the way out is warmed while nothing else is happening",
+    /router\.prefetch\("\/app\/website-builder"\)/.test(editor) && /router\.prefetch\("\/app"\)/.test(editor),
+  )
+  const codeSrc = readFileSync(join(process.cwd(), "app/website-builder/code/[installId]/page.tsx"), "utf8")
+  check(
+    "the code editor's Back has the same ceiling",
+    /navigateWithCeiling\(\s*\n\s*\(\) => router\.push\(backHref\),\s*\n\s*\(\) => window\.location\.assign\(backHref\)/.test(codeSrc),
   )
 }
 

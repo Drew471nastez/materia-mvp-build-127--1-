@@ -254,7 +254,7 @@ section("It is reachable, and it works on a file longer than the window")
   check(
     "the code page's Back says the builder is coming, in the same place and at the same size",
     /const \[goingBack, setGoingBack\] = useState\(false\)/.test(codeSrc) &&
-      /if \(goingBack\) return\s*\n\s*setGoingBack\(true\)\s*\n\s*router\.push\(backHref\)/.test(codeSrc) &&
+      /if \(goingBack\) return\s*\n\s*setGoingBack\(true\)/.test(codeSrc) &&
       /goingBack \? \(\s*\n\s*<Loader2 className="h-4 w-4 animate-spin" \/>/.test(codeSrc) &&
       /goingBack \? \(fromEditor \? "Opening the editor" : "Going back"\)/.test(codeSrc),
   )
