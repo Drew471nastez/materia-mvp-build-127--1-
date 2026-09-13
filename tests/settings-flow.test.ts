@@ -446,7 +446,7 @@ for (const f of ["components/app/dashboard-client.tsx", "components/app/analytic
   )
   check(
     `${name}: a hold produces the tooltip in about a tenth of a second`,
-    /\}, 120\)/.test(src) && !/\}, 250\)/.test(src),
+    /\}, 100\)/.test(src) && !/\}, 250\)/.test(src),
   )
   check(
     /**
@@ -458,8 +458,8 @@ for (const f of ["components/app/dashboard-client.tsx", "components/app/analytic
      * wrong the other way only delays a scroll by a few pixels.
      */
     `${name}: a resting thumb's drift cannot cancel the hold`,
-    /const SLOP = 12/.test(src) &&
-      /\(dx > SLOP \|\| dy > SLOP\)/.test(src) &&
+    /const SLOP_Y = 12/.test(src) &&
+      /\(dx > SLOP_X \|\| dy > SLOP_Y\)/.test(src) &&
       /\} else if \(dy > dx \* 1\.4\) \{/.test(src) &&
       !/const totalMove = dx \+ dy/.test(src),
   )
@@ -509,7 +509,8 @@ check(
     const a = code("components/app/dashboard-client.tsx")
     const b = code("components/app/analytics-chart.tsx")
     const parts = [
-      /const SLOP = 12/,
+        /const SLOP_X = 8/,
+      /const SLOP_Y = 12/,
       /\} else if \(dy > dx \* 1\.4\) \{/,
       /function shiftFor\(x: number, track: number\): string/,
       /box\.style\.transform = shiftFor\(x, rect\.width\)/,
@@ -518,7 +519,7 @@ check(
       /idx !== lastHapticIndexRef\.current/,
       /function plotLeftFor\(labels: string\[\]\): number/,
       /tickFormatter=\{axisTick\}/,
-      /\}, 120\)/,
+      /\}, 100\)/,
     ]
     return parts.every((re) => re.test(a) && re.test(b))
   })(),
@@ -553,10 +554,12 @@ section("THE AUDIT: every chart request, on both charts")
     ["the axis width is what the finger reads", /rect\.left \+ plotLeft/],
     ["room above for the active dot", /const PLOT_TOP = \d+/],
     ["the tooltip sits over its own point, in the plot area", /plotLeft \+ \(activeIndex/],
-    ["a resting thumb cannot cancel the hold", /const SLOP = 12/],
+    ["a resting thumb cannot cancel the hold", /const SLOP_Y = 12/],
+    ["a deliberate sideways drag engages sooner than a scroll gives up", /const SLOP_X = 8/],
+    ["one animation length, shared by both charts", /CHART_ANIM_MS/],
     ["vertical has to win clearly to be a scroll", /\} else if \(dy > dx \* 1\.4\) \{/],
     ["the hold reads where the finger is now", /getIndexFromTouch\(lastTouchXRef\.current\)/],
-    ["a hold lands in about a tenth of a second", /\}, 120\)/],
+    ["a hold lands in about a tenth of a second", /\}, 100\)/],
     ["the box follows the finger every frame", /box\.style\.transform = shiftFor\(x, rect\.width\)/],
     ["no transition fights that follow", /transition: "none"/],
     ["one haptic per point crossed", /idx !== lastHapticIndexRef\.current/],
@@ -588,6 +591,31 @@ check(
     ]
     return files.every((f) => !/touchAction: 'pan-x'/.test(read(f)))
   })(),
+)
+
+
+check(
+  "a metric switch plays one animation, not three",
+  (() => {
+    /**
+     * Tapping Revenue used to blur the chart out to 30%, blur it back in, and
+     * redraw the line, all at once — the pumping and double loading. The
+     * first-load skeleton stays, because that is the one moment there really
+     * is nothing to look at; the sample-data dimming stays too, because it
+     * says these numbers are not yours rather than "wait".
+     */
+    const src = code("components/app/dashboard-client.tsx")
+    return (
+      !/isChartLoading \? "opacity-30 blur-\[2px\]"/.test(src) &&
+      /isChartLoading && displayChartData\.length === 0 \?/.test(src) &&
+      /showSampleData && !hasRealData \? "opacity-50"/.test(src)
+    )
+  })(),
+)
+
+check(
+  "a sideways swipe cannot hand the browser a pull-to-refresh",
+  /\.app-content-scroll \{\s*overscroll-behavior-y: contain;/.test(read("app/globals.css")),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

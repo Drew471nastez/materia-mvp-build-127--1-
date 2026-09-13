@@ -1782,6 +1782,21 @@ html.keyboard-open body {
 
 /* Also zero the scroll-container's own safe-area padding while keyboard is
    open — prevents internal whitespace at the bottom of the scrollable area. */
+/* ── A SIDEWAYS SWIPE MUST NOT RELOAD THE PAGE ────────────────────────────────
+   The app's content lives in a fixed-height scroller, and a scroller sitting
+   at its top hands any further downward pull to the document — which on
+   Android is pull-to-refresh. That was reachable from the KPI strip the
+   moment vertical panning was allowed there, so a swipe between Views and
+   Revenue that drifted downward could reload the whole page mid-gesture.
+
+   `contain` keeps the scroll inside this element: it still scrolls normally,
+   it just stops handing the leftover to the browser. Not `none`, which would
+   also kill the rubber band the native shell relies on.
+   ──────────────────────────────────────────────────────────────────────────── */
+.app-content-scroll {
+  overscroll-behavior-y: contain;
+}
+
 html.keyboard-open .app-content-scroll {
   padding-bottom: 0 !important;
 }
