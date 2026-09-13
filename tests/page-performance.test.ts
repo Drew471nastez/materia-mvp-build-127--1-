@@ -61,11 +61,16 @@ check(
      * subscription". allSettled rather than all, so one endpoint failing cannot
      * blank the other three.
      */
-    const src = code("app/app/settings/billing/page.tsx")
+    /**
+     * The loader moved to lib/billing/overview.ts when billing stopped being
+     * a page and became a settings tab. The rule did not move with it by
+     * accident — it is checked here, where the work now lives.
+     */
+    const src = code("lib/billing/overview.ts")
     const sequential = src.match(/await\s+stripe\./g)?.length ?? 0
     return /Promise\.allSettled\(/.test(src) && sequential === 0
   })(),
-  "        app/app/settings/billing/page.tsx",
+  "        lib/billing/overview.ts",
 )
 
 check(

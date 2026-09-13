@@ -32,9 +32,19 @@ interface BillingPageClientProps {
     invoices: any[]
     paymentMethod: any | null
   }
+  /**
+   * Drawn INSIDE the settings tabs rather than as its own page.
+   *
+   * Billing used to be a route, and it carried its own copy of the settings
+   * heading and tab bar so it looked like the rest of settings when you
+   * arrived there. Inside the tabs that copy is a second heading and a
+   * second row of pills under the real ones — which is the tell that you
+   * have gone somewhere else, and the thing to remove.
+   */
+  embedded?: boolean
 }
 
-export function BillingPageClient({ initialData }: BillingPageClientProps) {
+export function BillingPageClient({ initialData, embedded = false }: BillingPageClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useLanguage()
@@ -287,15 +297,18 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   return (
     <div className="h-full overflow-y-scroll overflow-x-hidden page-scroll bg-[#fafafa]" style={{ scrollbarGutter: "stable" }}>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-hidden">
-        {/* Header */}
+        {/* Header — the page owns this when billing is a tab. */}
+        {!embedded && (
         <div className="mb-6 flex items-start justify-between gap-3">
           <div>
             <h1 className="text-[22px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("settings.title")}</h1>
             <p className="text-[14px] text-[#6b7280] mt-1">{t("settings.subtitle")}</p>
           </div>
         </div>
+        )}
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation — likewise. */}
+        {!embedded && (
         <div ref={tabNavRef} className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="flex gap-1 p-1 w-fit h-[44px] sm:h-[48px] items-center">
             {TABS.map((tab) => {
@@ -310,6 +323,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
             })}
           </div>
         </div>
+        )}
 
         {/* Notification is now a fixed toast at top of screen - rendered at end of component */}
 

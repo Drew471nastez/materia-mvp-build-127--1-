@@ -50,8 +50,41 @@ export default function NativeStartPage() {
       // Must run BEFORE the synchronous localStorage fast-path to prevent
       // Layer 1 from navigating to /app before the deep link can be processed.
       try {
-        const { App } = await import("@capacitor/app")
-        const launch = await App.getLaunchUrl()
+        /**
+         * =====================================================================
+         *  THE BRIDGE IS ALREADY HERE. DO NOT FETCH IT AGAIN.
+         * =====================================================================
+         * This was `await import("@capacitor/app")` on every single cold
+         * start: a chunk fetched over the network before the synchronous
+         * localStorage read below could run — and that read is what sends an
+         * already-signed-in person straight to their home screen. So the
+         * common launch, by far, paid for a module it did not need in order
+         * to answer a question that was almost always "no deep link".
+         *
+         * Capacitor injects its bridge into the WebView BEFORE the page
+         * loads, so the plugin is reachable as a global with nothing to
+         * download. And in a browser there is no launch URL to find at all,
+         * so the whole check is skipped rather than attempted and caught.
+         *
+         * The ORDERING is unchanged, which is the part that matters: a
+         * recovery link is still resolved before the fast path can navigate
+         * away from it. What changed is how long finding out takes.
+         */
+        const bridge = (window as unknown as {
+          Capacitor?: {
+            isNativePlatform?: () => boolean
+            Plugins?: { App?: { getLaunchUrl?: () => Promise<{ url?: string } | null> } }
+          }
+        }).Capacitor
+
+        /* A browser cannot have been launched from a URL. Nothing to ask. */
+        if (!bridge?.isNativePlatform?.()) throw new Error("not native")
+
+        const appPlugin = bridge.Plugins?.App
+        const launch = appPlugin?.getLaunchUrl
+          ? await appPlugin.getLaunchUrl()
+          : await (await import("@capacitor/app")).App.getLaunchUrl()
+
         if (launch?.url) {
           const lu = launch.url
           const isBridgeReset =

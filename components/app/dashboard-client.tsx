@@ -253,14 +253,72 @@ function ChartWithLongPressTooltip({
     thread, at touch frequency, while that same thread was handing recharts a
     new active index. The clamp maths is unchanged; only its unit is.
   */
-  const getClampedLeftPx = () => {
-    const containerEl = containerRef.current
-    const containerWidth = containerEl?.offsetWidth ?? 0
-    const tooltipWidth = tooltipRef.current?.offsetWidth ?? 0
-    const half = tooltipWidth / 2
-    const wanted = (tooltipLeftPercent / 100) * containerWidth
-    if (!containerWidth) return wanted
-    return Math.max(half + 4, Math.min(containerWidth - half - 4, wanted))
+  /**
+   * =========================================================================
+   *  THE TOOLTIP FLIPS AT THE EDGES INSTEAD OF BEING CENTRED AND CLIPPED
+   * =========================================================================
+   * The old version clamped by half the tooltip's own width, read with
+   * `tooltipRef.current?.offsetWidth ?? 0`. That ref is null on the render
+   * that first shows the tooltip — the element does not exist yet — so the
+   * width came back 0, the clamp became a no-op, and `translateX(-50%)` then
+   * pushed half the box off the left edge of the card. Which is exactly what
+   * the first point on the chart looked like: "p 6" and "ews: 3".
+   *
+   * Measuring it properly would mean a layout read every time the active
+   * point changes, and this thing is driven by a dragging finger.
+   *
+   * So it does not measure at all. Near an edge the box ANCHORS to that edge
+   * rather than centring on the point, which is what a tooltip should do
+   * anyway — the same flip a menu does near the side of a screen. Three
+   * cases, no measurement, and no width can overflow because the box is
+   * never centred on a point that has less than half a box beside it.
+   */
+  /**
+   * =========================================================================
+   *  CSS RESOLVES THE BOX'S OWN WIDTH. WE NEVER MEASURE IT.
+   * =========================================================================
+   * Two earlier attempts at this were wrong in the same way — both needed
+   * the tooltip's width and could not have it in time.
+   *
+   *   1. `Math.min(containerWidth - half, ...)` read `tooltipRef.offsetWidth`
+   *      during the render that first CREATES the tooltip. The ref is null
+   *      then, so half was 0, the clamp did nothing, and translateX(-50%)
+   *      pushed half the box off the card. That is the "p 6 / ews: 3" in the
+   *      screenshot.
+   *   2. Anchoring to the edge inside a fixed 18% zone. Whether centring is
+   *      safe depends on how wide the box is relative to the card, so a fixed
+   *      zone cannot be right: check-chart-tooltip found a 264px box centred
+   *      at 19% of a 320px card hanging 71px past the left edge.
+   *
+   * The way out is that a percentage inside `translateX` resolves against the
+   * ELEMENT'S OWN border box. So `50%` is half the tooltip and `100%` is all
+   * of it, computed by the browser at paint time, for a width nothing in
+   * JavaScript ever has to know.
+   *
+   * What JavaScript does supply is the TRACK — the container's width — which
+   * is stable, changes on resize rather than on every frame of a drag, and is
+   * already being measured for other reasons.
+   *
+   *   left edge:   8px
+   *   centred:     x - 50%          (half the box left of the point)
+   *   right edge:  track - 100% - 8px
+   *
+   * clamp() picks the middle one unless it would cross a bound. And where the
+   * box cannot fit at all, clamp() returns its minimum, which pins it left —
+   * with `max-width: calc(100% - 16px)` making sure that case is only ever a
+   * rounding away.
+   */
+  const tooltipShift = (): string => {
+    const track = containerRef.current?.offsetWidth ?? 0
+    const x = (tooltipLeftPercent / 100) * track
+    if (!track) return "translateX(-50%)"
+    /**
+     * `translateZ(0)` keeps the layer promotion the old `translate3d` gave
+     * for free. The movement is still entirely in the transform — `left` is
+     * a static 0 — so a dragging finger never lays this element out, which
+     * is the rule tests/analytics-chart.test.ts holds.
+     */
+    return `translateX(clamp(8px, calc(${x.toFixed(1)}px - 50%), calc(${track}px - 100% - 8px))) translateZ(0)`
   }
 
   // Show a dot on the last data point
@@ -283,7 +341,15 @@ function ChartWithLongPressTooltip({
       <LazyAreaChart data={displayChartData}>
         {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine }) => (
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={displayChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+            {/*
+              ROOM FOR THE DOTS, now that there is no y axis reserving any.
+              The axis used to take 40px on the left, and removing it left
+              `left: 0` — so the first point's active dot, six pixels of
+              radius plus a two pixel white ring, was drawn half outside the
+              card. That clipped stub at the top left of the chart was the
+              dot, not a spike in the data.
+            */}
+            <AreaChart data={displayChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <defs>
                 <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
@@ -298,14 +364,17 @@ function ChartWithLongPressTooltip({
                 axisLine={false}
                 interval="preserveStartEnd"
               />
-              <YAxis
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                tickLine={false}
-                axisLine={false}
-                domain={[0, "auto"]}
-                width={40}
-                tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
-              />
+              {/*
+                NO Y AXIS, same as the analytics chart.
+                Forty pixels on the left of the chart to print five numbers
+                nobody reads off a chart: the exact figure is in the tooltip
+                and the shape is what the chart is for. The grid lines stay
+                so the rise and fall still has something to be read against.
+
+                The payouts chart keeps its axis, and that is not an
+                inconsistency: money wants a scale you can judge at a glance,
+                a count over time does not.
+              */}
               {/* Desktop-only Recharts tooltip */}
               {!isTouchDevice && (
                 <Tooltip
@@ -406,11 +475,11 @@ function ChartWithLongPressTooltip({
           style={{
             position: "absolute",
             top: 8,
-            /*
-              A TRANSFORM, not `left: %` — see getClampedLeftPx above.
-            */
+            /* Pinned left; the whole position is in the transform. See tooltipShift. */
             left: 0,
-            transform: `translate3d(${getClampedLeftPx()}px, 0, 0) translateX(-50%)`,
+            transform: tooltipShift(),
+            /* And it can never be wider than the card it sits in. */
+            maxWidth: "calc(100% - 16px)",
             background: "#1a1a2e",
             borderRadius: "8px",
             fontSize: "12px",

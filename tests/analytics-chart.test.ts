@@ -129,13 +129,25 @@ section("Nothing teleports")
     check(
       `and ${name}'s touch tooltip moves on the compositor`,
       /**
+       * THE RULE, not the expression that used to satisfy it.
+       *
        * It animated `left: <n>%`. Left is a layout property: every value a
        * dragging finger produced laid the element out again and repainted it
        * on the main thread — the same thread that was handing recharts a new
        * active index at the time.
+       *
+       * The position is now a clamp against the card's width, because the
+       * old `getClampedLeftPx` divided by the tooltip's own width and read it
+       * from a ref that is null on the render which first shows the box — so
+       * it clamped by zero and half the tooltip hung outside the card. The
+       * rule this check exists for is unchanged: `left` is static and every
+       * pixel of movement lives in a promoted transform.
        */
-      !/left: `\$\{getClampedLeft\(\)\}%`/.test(src) &&
-        /translate3d\(\$\{getClampedLeftPx\(\)\}px, 0, 0\)/.test(src),
+      /left: 0,/.test(src) &&
+        !/left: `\$\{[^`]*\}%`/.test(src) &&
+        /transform: tooltipShift\(\)/.test(src) &&
+        /translateX\(clamp\(/.test(src) &&
+        /translateZ\(0\)`$/m.test(src),
     )
   }
 }
