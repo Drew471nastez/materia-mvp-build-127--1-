@@ -116,6 +116,18 @@ function plotLeftFor(labels: string[]): number {
 }
 /** The right margin. */
 const PLOT_RIGHT = 10
+
+/**
+ * WHERE A BOX OF UNKNOWN WIDTH GOES, given where it wants to be.
+ *
+ * The percentages resolve against the BOX'S own border box — `50%` is half
+ * of it, `100%` all of it — so the browser does the arithmetic that would
+ * otherwise need a measurement taken at a moment when the element does not
+ * exist yet. `track` is the card, which is measured and stable.
+ */
+function shiftFor(x: number, track: number): string {
+  return `translateX(clamp(8px, calc(${x.toFixed(1)}px - 50%), calc(${track}px - 100% - 8px))) translateZ(0)`
+}
 /** Room above for the active dot: six pixels of radius plus its white ring. */
 const PLOT_TOP = 10
 
@@ -165,15 +177,8 @@ function ChartWithLongPressTooltip({
   const rafRef = useRef<number | null>(null)
   /** The last point a tick was fired for, so one is fired per point, not per frame. */
   const lastHapticIndexRef = useRef<number | null>(null)
-  /**
-   * True once the tooltip has been placed at least once in this gesture.
-   *
-   * The transition that makes the box glide between points also made it
-   * SWOOP IN from wherever the transform started, every time it appeared —
-   * which is the blink. It is only allowed to animate once it has a previous
-   * position to animate from.
-   */
-  const tooltipPlacedRef = useRef(false)
+  /** Where the finger is now, which for a drifting thumb is not where it landed. */
+  const lastTouchXRef = useRef(0)
   // Animation state — true means "play the animation now"
   const [shouldAnimate, setShouldAnimate] = useState(true)
 
@@ -219,17 +224,32 @@ function ChartWithLongPressTooltip({
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0]
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+    lastTouchXRef.current = touch.clientX
     directionLockRef.current = null
     longPressTimerRef.current = setTimeout(() => {
-      // Long press fallback — if no movement detected, activate scrub
-      if (directionLockRef.current === null) {
-        directionLockRef.current = "horizontal"
-        tooltipActiveRef.current = true
-        setTooltipActive(true)
-        const idx = getIndexFromTouch(touch.clientX)
-        setActiveIndex(idx)
-        hapticTap("medium")
-      }
+      /**
+       * A HOLD IS A HOLD EVEN THOUGH A THUMB IS NEVER STILL.
+       *
+       * This used to bail unless nothing had been decided yet, and what
+       * decided it was `totalMove > 5` with `dx > dy` — so a resting finger's
+       * own tremor, which is a few pixels and very often more vertical than
+       * horizontal, locked the gesture to "vertical" within about fifty
+       * milliseconds and cancelled this timer. The hold was then lost for
+       * good: moving left or right afterwards did nothing, because the lock
+       * was already set. That is the "I hold and it just loses it".
+       *
+       * Only a decisive vertical pull cancels a hold now — see SLOP below —
+       * and the point is read from where the finger IS rather than from
+       * where it landed, which for a drifting thumb is not the same place.
+       */
+      if (directionLockRef.current === "vertical") return
+      directionLockRef.current = "horizontal"
+      tooltipActiveRef.current = true
+      setTooltipActive(true)
+      const idx = getIndexFromTouch(lastTouchXRef.current)
+      lastHapticIndexRef.current = idx
+      setActiveIndex(idx)
+      hapticTap("medium")
     }, 120)
   }, [getIndexFromTouch])
 
@@ -244,8 +264,36 @@ function ChartWithLongPressTooltip({
       e.preventDefault()
       e.stopPropagation()
       const clientX = touch.clientX
+      lastTouchXRef.current = clientX
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(() => {
+        /**
+         * =================================================================
+         *  THE BOX FOLLOWS THE FINGER. THE NUMBERS SNAP TO THE POINT.
+         * =================================================================
+         * It used to be positioned from the active INDEX, so it sat still
+         * until the finger crossed into the next column and then jumped the
+         * whole way — forty pixels at a time on a week of data. A glide
+         * softened the jump and could not remove it, because the thing being
+         * animated was still a series of steps.
+         *
+         * Written here, straight to the node, it moves with the thumb on
+         * every frame it gets. React is not involved: `setActiveIndex` below
+         * still runs, but it only ever changes when a point is crossed, so
+         * there is no render per frame and nothing to be late.
+         *
+         * What stays snapped is what should: the values in the box and the
+         * dot on the line mark a data point, and a data point is a fact.
+         */
+        const el = containerRef.current
+        const box = tooltipRef.current
+        if (el && box) {
+          const rect = el.getBoundingClientRect()
+          const left = plotLeft
+          const right = rect.width - PLOT_RIGHT
+          const x = Math.max(left, Math.min(right, clientX - rect.left))
+          box.style.transform = shiftFor(x, rect.width)
+        }
         const idx = getIndexFromTouch(clientX)
         /**
          * ONE TICK PER POINT CROSSED.
@@ -265,12 +313,25 @@ function ChartWithLongPressTooltip({
       return
     }
 
-    // Direction detection phase — decide horizontal scrub vs vertical scroll
+    /**
+     * DIRECTION, DECIDED ONLY WHEN THE FINGER HAS ACTUALLY SAID SOMETHING.
+     *
+     * The old test was `dx + dy > 5`, then `dx > dy` for horizontal and
+     * everything else for vertical. Summing the axes means five pixels of
+     * tremor counts as movement, and "everything else" means a one pixel
+     * vertical bias is a scroll. Between them, a hold was cancelled before it
+     * could start.
+     *
+     * SLOP is per axis and large enough that a thumb resting on glass cannot
+     * cross it. Horizontal wins on its own; vertical has to win clearly,
+     * because getting that one wrong steals a hold and getting it wrong the
+     * other way only delays a scroll by a few pixels.
+     */
     const dx = Math.abs(touch.clientX - touchStartPosRef.current.x)
     const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
-    const totalMove = dx + dy
+    const SLOP = 12
 
-    if (directionLockRef.current === null && totalMove > 5) {
+    if (directionLockRef.current === null && (dx > SLOP || dy > SLOP)) {
       if (dx > dy) {
         // Horizontal intent → activate scrub immediately (no long press needed)
         directionLockRef.current = "horizontal"
@@ -282,26 +343,17 @@ function ChartWithLongPressTooltip({
         e.stopPropagation()
         const idx = getIndexFromTouch(touch.clientX)
         setActiveIndex(idx)
-      } else {
-        // Vertical intent → cancel long press, let scroll happen
+      } else if (dy > dx * 1.4) {
+        // Decisively vertical → this is a scroll. Let the page have it.
         directionLockRef.current = "vertical"
         if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
       }
+      /* Ambiguous: decide nothing, and let the hold timer have its chance. */
     } else if (directionLockRef.current === "horizontal") {
       e.preventDefault()
       e.stopPropagation()
     }
   }, [getIndexFromTouch])
-
-  /**
-   * The first placement of the tooltip is a cut; every one after it glides.
-   * Set in an effect, so it flips only once the DOM actually holds that first
-   * position — enabling the transition any earlier is what made the box swoop
-   * in from the edge on every activation.
-   */
-  useEffect(() => {
-    if (tooltipActive && activeIndex != null) tooltipPlacedRef.current = true
-  }, [tooltipActive, activeIndex])
 
   // Attach non-passive touchmove listener
   useEffect(() => {
@@ -324,7 +376,6 @@ function ChartWithLongPressTooltip({
     directionLockRef.current = null
     tooltipActiveRef.current = false
     lastHapticIndexRef.current = null
-    tooltipPlacedRef.current = false
     setTooltipActive(false)
     setActiveIndex(null)
   }, [])
@@ -432,7 +483,7 @@ function ChartWithLongPressTooltip({
      * a static 0 — so a dragging finger never lays this element out, which
      * is the rule tests/analytics-chart.test.ts holds.
      */
-    return `translateX(clamp(8px, calc(${x.toFixed(1)}px - 50%), calc(${track}px - 100% - 8px))) translateZ(0)`
+    return shiftFor(x, track)
   }
 
   // Show a dot on the last data point
@@ -605,9 +656,14 @@ function ChartWithLongPressTooltip({
              * threshold where a following object reads as lag, and it is a
              * transform so it runs on the compositor.
              */
-            transition: tooltipPlacedRef.current
-              ? "transform 90ms cubic-bezier(0.22, 1, 0.36, 1)"
-              : "none",
+            /**
+             * NO TRANSITION. The box is moved imperatively on every frame
+             * now, so it is already continuous — a transition in front of
+             * that is not smoothing, it is lag, and the two fight over the
+             * same property. It was needed when the position came from the
+             * active index and arrived in jumps.
+             */
+            transition: "none",
             /* And it can never be wider than the card it sits in. */
             maxWidth: "calc(100% - 16px)",
             background: "#1a1a2e",
