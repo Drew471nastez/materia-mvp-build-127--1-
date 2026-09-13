@@ -71,7 +71,7 @@ import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/re
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { resetClippedAncestors, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
+import { PIN_AFTER_SELECT_MS, pinScroll, resetClippedAncestors, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
 import { leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
@@ -5090,8 +5090,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * than from the page. Selecting from a list is the case where scrolling is
    * the whole answer.
    */
+  /**
+   * A finger on the canvas releases the pin below; see it for what the pin is.
+   */
+  const touchingCanvas = useRef(false)
+
   const selectSectionFromCanvas = useCallback(
     (sectionId: string, blockId?: string | null) => {
+      const el = document.getElementById("wb-preview-root")
+      if (el) {
+        touchingCanvas.current = false
+        pinScroll(
+          el,
+          PIN_AFTER_SELECT_MS,
+          (cb) => window.requestAnimationFrame(cb),
+          () => Date.now(),
+          () => touchingCanvas.current,
+        )
+      }
       setSelectedPanel({ type: "section", sectionId })
       setSelectedBlockId(blockId ?? null)
     },
@@ -6348,7 +6364,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     const q = new URLSearchParams({ back: "editor" })
     if (path) q.set("path", path)
-    setLeaving(true)
+    // NOT `setLeaving(true)`: that is the "Going back" screen, for leaving the
+    // builder. Opening the code editor is going forward, and the code page
+    // says it is loading in its own words when it arrives.
     router.push(`/website-builder/code/${installId}?${q.toString()}`)
   }
 
@@ -7273,6 +7291,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * above for what was actually freezing it.
              */
             onTouchStart={(e) => {
+              // A finger down is somebody scrolling on purpose: let go of the pin.
+              touchingCanvas.current = true
               if (!isMobileView) return
               const el = e.currentTarget
               const max = el.scrollHeight - el.clientHeight
@@ -7280,6 +7300,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               if (el.scrollTop <= 0) el.scrollTop = 1
               else if (el.scrollTop >= max) el.scrollTop = max - 1
             }}
+            onTouchEnd={() => { touchingCanvas.current = false }}
+            onWheelCapture={() => { touchingCanvas.current = true }}
             /**
              * =============================================================
              *  WITH THE INSPECTOR ON, THE CANVAS IS NOT A PAGE YOU BROWSE

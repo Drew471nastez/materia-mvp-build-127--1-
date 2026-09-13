@@ -221,3 +221,43 @@ export function scrollWithin(
   else scroller.scrollTop = top
   return top
 }
+
+/**
+ * ===========================================================================
+ *  SELECTING A SECTION CANNOT MOVE THE CANVAS. NOT BY A PIXEL.
+ * ===========================================================================
+ * A tap that selects has no business scrolling anything, and yet it kept
+ * being reported doing exactly that, worst on a section near the bottom. Each
+ * cause found so far was real and is fixed at its source: a link that
+ * navigated, a form that submitted, a control that took focus and was
+ * scrolled into view. Rather than wait for the next one, this closes the
+ * whole class: for a moment after the tap the scroll position is held where
+ * the finger left it, and anything that moves it is put back.
+ *
+ * What it is NOT: it never touches overflow, never re-creates a scrolling
+ * layer, never runs during a gesture. A finger on the glass releases it
+ * immediately, so it can never fight a person or a native scroll.
+ *
+ * Pure: the frame scheduler, the clock and "is the person touching" are all
+ * passed in, so a test drives the whole thing without a browser.
+ */
+export function pinScroll(
+  el: { scrollTop: number },
+  durationMs: number,
+  schedule: (cb: () => void) => void,
+  now: () => number,
+  released: () => boolean,
+): void {
+  const top = el.scrollTop
+  const start = now()
+  const tick = () => {
+    // The moment a finger is down this is somebody scrolling on purpose.
+    if (released()) return
+    if (el.scrollTop !== top) el.scrollTop = top
+    if (now() - start < durationMs) schedule(tick)
+  }
+  schedule(tick)
+}
+
+/** Long enough to cover a tap's own settling, short enough to never be felt. */
+export const PIN_AFTER_SELECT_MS = 500

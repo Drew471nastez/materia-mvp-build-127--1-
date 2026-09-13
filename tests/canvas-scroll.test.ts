@@ -16,7 +16,7 @@
 import { readFileSync } from "node:fs"
 import { leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 import { join } from "node:path"
-import { STUCK_DISTANCE_PX, nudgeOffEnds, reviveScroller, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
+import { PIN_AFTER_SELECT_MS, STUCK_DISTANCE_PX, nudgeOffEnds, pinScroll, reviveScroller, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
 
 let passed = 0
 let failed = 0
@@ -360,6 +360,73 @@ function main() {
     "and the canvas blocks both, in either mode, without blocking any handler",
     /onClickCapture=\{\(e\) => \{\s*\n\s*if \(leavesThePage\(/.test(editor) &&
       /onSubmitCapture=\{\(e\) => e\.preventDefault\(\)\}/.test(editor),
+  )
+}
+
+section("Selecting a section cannot move the canvas")
+{
+  /** A fake frame loop and clock, so the whole pin runs without a browser. */
+  const frames: Array<() => void> = []
+  let clock = 0
+  let touching = false
+  const el = { scrollTop: 1200 }
+  pinScroll(el, 500, (cb) => frames.push(cb), () => clock, () => touching)
+
+  const runFrame = (ms: number) => {
+    clock += ms
+    const due = frames.splice(0, frames.length)
+    due.forEach((f) => f())
+  }
+
+  check("nothing happens to a canvas nobody moved", (() => { runFrame(16); return el.scrollTop === 1200 })())
+
+  el.scrollTop = 0
+  runFrame(16)
+  check("something that jumps it to the top is put straight back", el.scrollTop === 1200)
+
+  el.scrollTop = 640
+  runFrame(16)
+  check("and a jump to anywhere else is too", el.scrollTop === 1200)
+
+  check("it is still watching before its time is up", frames.length === 1)
+  runFrame(500)
+  check("and it lets go when the time is up", frames.length === 0)
+
+  el.scrollTop = 30
+  runFrame(16)
+  check("after that the canvas is nobody's business but the person's", el.scrollTop === 30)
+}
+{
+  // A finger releases it at once, so it can never fight a real scroll.
+  const frames: Array<() => void> = []
+  let clock = 0
+  let touching = false
+  const el = { scrollTop: 900 }
+  pinScroll(el, 500, (cb) => frames.push(cb), () => clock, () => touching)
+  touching = true
+  el.scrollTop = 500
+  clock += 16
+  frames.splice(0, frames.length).forEach((f) => f())
+  check("a finger on the glass releases the pin immediately", el.scrollTop === 500 && frames.length === 0)
+}
+{
+  check("half a second, which covers a tap and is never felt", PIN_AFTER_SELECT_MS === 500)
+  const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  check(
+    "a selection from the canvas arms it, and a touch or a wheel releases it",
+    /const selectSectionFromCanvas = useCallback\(\s*\n\s*\(sectionId: string, blockId\?: string \| null\) => \{[\s\S]*?pinScroll\(/.test(editor) &&
+      /touchingCanvas\.current = true\s*\n\s*if \(!isMobileView\) return/.test(editor) &&
+      /onTouchEnd=\{\(\) => \{ touchingCanvas\.current = false \}\}/.test(editor) &&
+      /onWheelCapture=\{\(\) => \{ touchingCanvas\.current = true \}\}/.test(editor),
+  )
+  check(
+    "opening the code editor is going forward, not the Going back screen",
+    /\/\/ NOT `setLeaving\(true\)`/.test(editor) &&
+      !/setLeaving\(true\)\s*\n\s*router\.push\(`\/website-builder\/code/.test(editor),
+  )
+  check(
+    "and it is a page only on a phone: a desktop keeps the pane over the canvas",
+    /if \(!isMobileView\) \{\s*\n\s*setPreviewMode\("code"\)/.test(editor),
   )
 }
 
