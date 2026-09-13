@@ -93,7 +93,22 @@ const DRIVE = `
   var reported = false
   var report = function (o) { if (reported) return; reported = true; o.trace = trace; var pre = document.createElement("pre"); pre.id = "result"; pre.textContent = JSON.stringify(o); document.body.append(pre) }
 
-  /* ---- a finger ------------------------------------------------------- */
+  /* ---- a finger -------------------------------------------------------
+   *
+   * A REAL FINGER DOES NOT LAND ON THE CONTAINER.
+   *
+   * It lands on whatever is drawn at that pixel — a path, a rect, a tick —
+   * deep inside the recharts svg. And every touchmove and touchend after it
+   * goes to THAT node for the rest of the gesture, no matter where the
+   * finger travels, which is how touch events work.
+   *
+   * This probe used to dispatch straight at the container, which quietly
+   * skipped the entire propagation path. So it could not see the one thing
+   * that breaks a gesture without breaking any of the logic: the node the
+   * touch started on being replaced mid-gesture. A detached node still
+   * receives its events and they go nowhere, because there is no longer a
+   * path from it up to the listener.
+   */
   function point(target, x, y) { return new Touch({ identifier: 1, target: target, clientX: x, clientY: y, pageX: x, pageY: y, screenX: x, screenY: y, radiusX: 11, radiusY: 11, force: 1 }) }
   function fire(target, type, x, y) {
     var t = type === "touchend" ? [] : [point(target, x, y)]
@@ -101,6 +116,16 @@ const DRIVE = `
     target.dispatchEvent(ev)
     return ev
   }
+  /** What is actually under the finger at this pixel. */
+  function hit(x, y) { return document.elementFromPoint(x, y) || host }
+  function describe(el) {
+    if (!el) return "(nothing)"
+    if (el.hasAttribute && el.hasAttribute("data-chart-touch-shield")) return "the shield"
+    var cls = (el.getAttribute && el.getAttribute("class")) || ""
+    return el.tagName.toLowerCase() + (cls ? "." + String(cls).split(" ")[0] : "")
+  }
+  /** Can an event on this node still reach the chart's listener? */
+  function reaches(el) { return !!(el && el.isConnected && host.contains(el)) }
 
   /* ---- what the chart is saying --------------------------------------- */
   function chart() { return document.querySelector("#app div[style*='user-select']") }
@@ -169,15 +194,27 @@ const DRIVE = `
     window.scrollTo(0, 300)
     var startScroll = scrollY()
     rect = host.getBoundingClientRect()
-    var el = host
     var log = []
     var first = steps[0]
+    /* The node the finger lands on owns the rest of this gesture. */
+    var el = hit(first.x, first.y)
+    var landedOn = describe(el)
     var startEv = fire(el, "touchstart", first.x, first.y)
+    /*
+     * CAN THE CHART EVEN REFUSE THE SYSTEM'S OWN LONG PRESS?
+     *
+     * React registers touchstart, touchmove and wheel PASSIVELY on its root,
+     * so preventDefault inside an onTouchStart prop is a no-op. On a phone
+     * that matters: the platform runs its own long-press recogniser for
+     * selection and the callout, and the way to tell it no is to cancel the
+     * touchstart. A passive handler cannot.
+     */
+    var startCancelled = startEv.defaultPrevented
     var i = 1
     function next() {
       if (i >= steps.length) {
         fire(el, "touchend", steps[steps.length - 1].x, steps[steps.length - 1].y)
-        setTimeout(function () { done({ name: name, log: log, haptics: globalThis.__haptics.slice(), startScroll: startScroll, touchActionAtRest: touchAction(), afterEnd: { active: !!tooltip(), scrollY: scrollY() } }) }, 120)
+        setTimeout(function () { done({ name: name, log: log, haptics: globalThis.__haptics.slice(), startScroll: startScroll, landedOn: landedOn, startCancelled: startCancelled, touchActionAtRest: touchAction(), afterEnd: { active: !!tooltip(), scrollY: scrollY() } }) }, 120)
         return
       }
       var s = steps[i++]
@@ -186,7 +223,7 @@ const DRIVE = `
       /* A frame, so the rAF the handler queued gets to run. */
       var done2 = false
       var onFrame = function () { if (done2) return; done2 = true
-        log.push({ x: Math.round(s.x - rect.left), want: s.want == null ? null : s.want, got: reading(), active: !!tooltip(), defaultPrevented: ev.defaultPrevented, tip: tipBox(), touchAction: touchAction(), scrollY: scrollY() })
+        log.push({ x: Math.round(s.x - rect.left), want: s.want == null ? null : s.want, got: reading(), active: !!tooltip(), defaultPrevented: ev.defaultPrevented, tip: tipBox(), touchAction: touchAction(), scrollY: scrollY(), reaches: reaches(el), target: describe(el) })
         next()
       }
       /* A frame for the rAF the handler queued, and a timer in case frames
@@ -312,6 +349,9 @@ const show = (a) => {
   console.log(`\n${a.name}:`)
   a.log.forEach((s) => console.log(`  x=${String(s.x).padStart(4)}  want ${s.want === null ? "nothing" : "day " + s.want}  got ${s.got === null ? "nothing" : "day " + s.got}  ${s.active ? "showing" : "idle"}${s.defaultPrevented ? " (scroll held)" : ""}`))
   console.log(`  haptics: ${a.haptics.length} (${a.haptics.join(", ") || "none"})`)
+  console.log(`  the finger landed on: ${a.landedOn}, touchstart ${a.startCancelled ? "cancelled (the chart refused the system gesture)" : "NOT cancelled (passive: the chart cannot refuse)"}`)
+  const unreachable = a.log.filter((s) => !s.reaches)
+  if (unreachable.length) console.log(`  the touched node stopped reaching the listener at ${unreachable.length} steps (was ${a.log[0].target})`)
   console.log(`  touch-action throughout: ${[...new Set(a.log.map((s) => s.touchAction))].join(" then ") || "(none seen)"}`)
   console.log(`  page scrolled: ${a.startScroll} -> ${a.afterEnd.scrollY} (${a.afterEnd.scrollY - a.startScroll >= 0 ? "+" : ""}${a.afterEnd.scrollY - a.startScroll}px)`)
   console.log(`  after the finger lifts: ${a.afterEnd.active ? "STILL SHOWING" : "gone"}`)
@@ -333,6 +373,10 @@ for (const key of ["oneShot", "holdThenDrag"]) {
   const clipped = a.log.filter((s) => s.tip && (s.tip.left < 0 || s.tip.right > 420))
   if (clipped.length) problems.push(`[${metric}] ${a.name}: the tooltip hung outside the screen at ${clipped.length} positions.`)
   if (a.afterEnd.active) problems.push(`[${metric}] ${a.name}: the tooltip stayed up after the finger lifted.`)
+  if (!/shield/i.test(a.landedOn) && a.landedOn !== "div") problems.push(`[${metric}] ${a.name}: the finger landed on ${a.landedOn}, a node recharts draws and can redraw. The touch has to land on the shield, which never changes.`)
+  if (!a.startCancelled) problems.push(`[${metric}] ${a.name}: touchstart was not cancellable, so the chart cannot refuse the platform's own long press. React registers touchstart passively; this one has to be a native non-passive listener.`)
+  const gone = a.log.filter((s) => !s.reaches)
+  if (gone.length) problems.push(`[${metric}] ${a.name}: the node the touch landed on (${a.log[0].target}) stopped reaching the chart's listener at ${gone.length} of ${a.log.length} steps. A detached target still gets its events and they go nowhere.`)
   const held = a.log.filter((s) => s.active && !s.defaultPrevented)
   if (held.length) problems.push(`[${metric}] ${a.name}: ${held.length} moves did not prevent the default, so the page can scroll mid scrub.`)
 }

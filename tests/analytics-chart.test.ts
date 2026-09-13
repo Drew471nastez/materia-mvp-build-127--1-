@@ -239,6 +239,40 @@ for (const [name, src] of CHARTS) {
 }
 
 // ===========================================================================
+section("A hold the platform cannot take away")
+// ===========================================================================
+/**
+ * Two things a phone does that a desktop never does, both measured by
+ * scripts/check-chart-scrub.mjs after it was fixed to press the node a finger
+ * actually presses rather than the container.
+ *
+ * REACT REGISTERS touchstart PASSIVELY. So `preventDefault` inside an
+ * `onTouchStart` prop does nothing, and the platform's own long-press
+ * recogniser — selection, the callout, drag — takes the press and sends a
+ * touchcancel. The gesture is over before the finger has moved, which is a
+ * hold you have to lift out of and start again. The listener has to be
+ * native and non-passive, like the touchmove one beside it.
+ *
+ * A TOUCH BELONGS TO THE NODE IT STARTED ON, for the whole gesture, and it
+ * keeps going there after that node leaves the document — where it reaches
+ * nothing, because there is no path up to the listener any more. The probe
+ * landed one press on `path.recharts-curve`. Everything lands on the shield
+ * now, which is one div, rendered unconditionally, never re-keyed.
+ */
+for (const [name, src] of CHARTS) {
+  check(
+    `${name}: touchstart is native and non-passive`,
+    /el\.addEventListener\("touchstart", touchStartHandler, \{ passive: false \}\)/.test(src) &&
+      /const touchStartHandler = useCallback\(\(e: TouchEvent\) => \{\n\s*e\.preventDefault\(\)/.test(src) &&
+      !/onTouchStart=\{handleTouchStart\}/.test(src.slice(src.indexOf("ref={containerRef}"), src.indexOf("ref={containerRef}") + 2000)),
+  )
+  check(
+    `${name}: the touches land on one node that never changes`,
+    /data-chart-touch-shield/.test(src) && /pointerEvents: isTouchDevice \? "auto" : "none"/.test(src),
+  )
+}
+
+// ===========================================================================
 section("A ref that is used is a ref that is declared")
 // ===========================================================================
 /**
