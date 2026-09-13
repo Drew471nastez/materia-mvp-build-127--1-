@@ -19,6 +19,13 @@ import {
   type ThemePackageManifest,
 } from "@/lib/website-builder/theme-package-schema"
 import { readPackage, sectionsFromTemplate } from "@/lib/storelib-theme"
+import {
+  MAX_BYTES,
+  MEDIA_TYPES,
+  describeMedia,
+  extensionOf,
+  type MediaKind,
+} from "@/lib/storelib-theme/media"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { STORELIB_DEFAULT_ID, THEME_REGISTRY, themeCatalogRow } from "@/lib/website-builder/theme-registry"
 
@@ -95,25 +102,49 @@ export async function POST(req: Request) {
     }
     const pkg = read.value
 
-    /** Assets, stored under this account, and every reference to them rewritten. */
+    /**
+     * Assets, stored under THIS account, and every reference rewritten.
+     *
+     * THE TYPE IS TAKEN FROM THE EXTENSION, NEVER FROM THE MANIFEST. A
+     * package is a file a stranger sent; the `mime_type` written in it is
+     * whatever its author felt like writing. The extension is checked
+     * against one table, and what is served is the type that table gives —
+     * so a file claiming to be a PNG is served as a PNG whatever is inside
+     * it, rather than as something a browser would run.
+     */
     const refToUrl: Record<string, string> = {}
-    await Promise.all(Object.entries(pkg.assets).map(async ([hash, asset]) => {
+    const imported: Partial<Record<MediaKind, number>> = {}
+    /**
+     * Sequential, for the same reason the export is: a package may carry
+     * several videos, and holding all of them in memory at once on a
+     * serverless function is how an import of a real site fails.
+     */
+    for (const [hash, asset] of Object.entries(pkg.assets)) {
+      /**
+       * A reference that does not end up with a URL is CLEARED, not left
+       * as `asset://<hash>` — a dangling reference reaches the renderer and
+       * prints as literal text where a picture should be. Set up front so
+       * every path out of this loop leaves the same, safe result.
+       */
+      refToUrl[`asset://${hash}`] = ""
       try {
-        const ext = (asset.filename.split(".").pop() ?? "").toLowerCase()
-        if (!(ALLOWED_IMAGE_EXTENSIONS as readonly string[]).includes(ext)) return
-        if (asset.bytes.byteLength > MAX_IMAGE_BYTES_IN_ZIP) return
+        const ext = extensionOf(asset.filename)
+        const type = MEDIA_TYPES[ext]
+        if (!type) continue
+        if (asset.bytes.byteLength > MAX_BYTES[type.kind]) continue
         const path = `${user.id}/imported/${hash.slice(0, 32)}.${ext}`
         const { error: upErr } = await admin.storage.from(BUCKET).upload(path, Buffer.from(asset.bytes), {
-          contentType: extToMime(ext),
+          contentType: type.mime,
           upsert: true,
           cacheControl: "31536000",
         })
-        if (upErr) return
+        if (upErr) continue
         refToUrl[`asset://${hash}`] = admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
+        imported[type.kind] = (imported[type.kind] ?? 0) + 1
       } catch {
-        /* an asset that will not store leaves its reference alone */
+        /* cleared above: the section takes its "nothing chosen yet" branch */
       }
-    }))
+    }
 
     const settings = rewriteUrls(JSON.parse(pkg.files["config/settings.json"] ?? "{}"), refToUrl) as Record<string, unknown>
     const pages: { page_key: string; sections: unknown }[] = []
@@ -185,7 +216,14 @@ export async function POST(req: Request) {
       .map(([path, content]) => ({ install_id: created.id, path, content }))
     if (rows.length > 0) await admin.from("store_theme_custom_files").insert(rows)
 
-    return NextResponse.json({ ok: true, install_id: created.id, name: installName, migrated: pkg.legacy })
+    return NextResponse.json({
+      ok: true,
+      install_id: created.id,
+      name: installName,
+      migrated: pkg.legacy,
+      /** What came with it, so the reply can say so rather than leaving somebody to scroll the page looking. */
+      media: describeMedia(imported),
+    })
   }
 
   const manifestFile = zip.file("manifest.json")
@@ -219,26 +257,30 @@ export async function POST(req: Request) {
     imagesFolder.forEach((relPath, f) => {
       if (!f.dir) entries.push({ name: relPath, file: f })
     })
-    await Promise.all(entries.map(async entry => {
+    /** Sequential, and through the same one table as everything else. */
+    for (const entry of entries) {
+      /* Cleared unless it lands, so a local path never survives into a page. */
+      localToRemote[`images/${entry.name}`] = ""
       try {
-        const ext = (entry.name.split(".").pop() ?? "").toLowerCase()
-        if (!(ALLOWED_IMAGE_EXTENSIONS as readonly string[]).includes(ext)) return
+        const ext = extensionOf(entry.name)
+        const type = MEDIA_TYPES[ext]
+        if (!type) continue
         const data = await entry.file.async("nodebuffer")
-        if (data.byteLength > MAX_IMAGE_BYTES_IN_ZIP) return
+        if (data.byteLength > MAX_BYTES[type.kind]) continue
         const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`
         const path = `${user.id}/imported/${safeName}`
         const { error: upErr } = await admin.storage.from(BUCKET).upload(path, data, {
-          contentType: extToMime(ext),
+          contentType: type.mime,
           upsert: true,
           cacheControl: "31536000",
         })
-        if (upErr) return
+        if (upErr) continue
         const { data: pub } = admin.storage.from(BUCKET).getPublicUrl(path)
         localToRemote[`images/${entry.name}`] = pub.publicUrl
       } catch {
-        // skip — manifest will keep the original local path which won't render
+        /* cleared above */
       }
-    }))
+    }
   }
 
   // Rewrite manifest URLs back to the freshly uploaded URLs
