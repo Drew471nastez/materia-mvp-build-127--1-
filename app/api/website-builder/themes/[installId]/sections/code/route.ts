@@ -15,6 +15,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
+import { reviewImages } from "@/lib/sites/agent/attachments"
 import { createClient } from "@/lib/supabase/server"
 import { resolveProvider } from "@/lib/sites/agent/provider"
 import { writeSection } from "@/lib/website-builder/agent/write-section"
@@ -27,8 +28,17 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 const BodySchema = z.object({
-  /** What the creator asked for, in their words. */
-  prompt: z.string().min(3).max(2000),
+  /**
+   * What the creator asked for, in their words — WHICH MAY BE NONE OF THEM.
+   *
+   * There used to be a `.min(3)` here. It meant that attaching a picture of
+   * a section and typing nothing failed validation, and the panel reported
+   * "the assistant could not produce a section that compiles": a true
+   * sentence about the wrong thing. A picture is a request.
+   */
+  prompt: z.string().max(2000),
+  /** Checked by reviewImages, never trusted as shaped. */
+  images: z.array(z.unknown()).max(16).optional(),
   provider: z.enum(["anthropic", "openai"]).optional(),
   tier: z.enum(["fast", "strong"]).optional(),
 })
@@ -55,6 +65,19 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
 
   const parsed = BodySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: "Invalid body", issues: parsed.error.issues }, { status: 400 })
+
+  /**
+   * The pictures are checked at the edge, against the limits in one module:
+   * type, size, count, and the total the platform will carry. Nothing here
+   * is stored by this route — the bytes go to the model and are gone.
+   */
+  const { images, rejected } = reviewImages(parsed.data.images)
+  if (!parsed.data.prompt.trim() && images.length === 0) {
+    return NextResponse.json(
+      { error: "Describe the section you want, or attach a picture of one." },
+      { status: 400 },
+    )
+  }
 
   /**
    * EVERY NAME AND TYPE ALREADY HERE: the theme's, and this creator's own. The
@@ -89,6 +112,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     provider: resolved.provider,
     model: resolved.model,
     prompt: parsed.data.prompt,
+    images,
     takenTypes,
     takenNames,
     signal: request.signal,
@@ -115,5 +139,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     type: written.value.type,
     name: written.value.name,
     drafted: saved.drafts,
+    /**
+     * An attachment that was refused is named rather than dropped in
+     * silence: otherwise the section comes back written from a picture the
+     * creator thinks it saw and it never did.
+     */
+    ignored: rejected.length ? rejected.map((r) => r.reason) : undefined,
   })
 }

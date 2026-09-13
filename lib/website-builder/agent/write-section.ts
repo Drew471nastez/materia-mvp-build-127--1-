@@ -18,6 +18,7 @@ import { compileSection } from "@/lib/storelib-theme/storelib/compile"
 import { CONTROL_TYPES } from "@/lib/storelib-theme/controls/registry"
 import { FILTER_NAMES } from "@/lib/storelib-theme/storelib/template"
 import type { AgentProvider } from "@/lib/sites/agent/types"
+import { describeImages, type AgentImage } from "@/lib/sites/agent/attachments"
 import type { ThemeError } from "@/lib/storelib-theme/types"
 
 /** What the model is told about the format. Short on purpose: it is a page. */
@@ -117,12 +118,33 @@ export async function writeSection(opts: {
   provider: AgentProvider
   model: string
   prompt: string
+  /**
+   * A picture of the section they want, if they attached one.
+   *
+   * This path used to take the words and nothing else, so a creator who
+   * attached a screenshot and typed nothing sent an empty request and got
+   * back "the assistant could not produce a section that compiles" — which
+   * was true, and said nothing about why. See lib/sites/agent/attachments.ts.
+   */
+  images?: AgentImage[]
   takenTypes: string[]
   takenNames: string[]
   signal?: AbortSignal
 }): Promise<WriteResult> {
   const system = writeSectionSystem(opts.takenNames, opts.takenTypes)
-  const turns: { role: "user" | "assistant"; content: string }[] = [{ role: "user", content: opts.prompt }]
+  const images = opts.images ?? []
+  const asked = opts.prompt.trim()
+  /**
+   * The instruction about the picture goes BEFORE the request, so what they
+   * typed is read in the light of the image rather than the other way round.
+   * With no words at all it carries the whole request on its own.
+   */
+  const opening = [describeImages(images, asked.length > 0), asked && `REQUEST\n${asked}`]
+    .filter(Boolean)
+    .join("\n\n")
+  const turns: { role: "user" | "assistant"; content: string; images?: AgentImage[] }[] = [
+    { role: "user", content: opening, images: images.length ? images : undefined },
+  ]
 
   for (let attempt = 0; attempt < 2; attempt++) {
     let text: string

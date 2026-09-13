@@ -167,16 +167,84 @@ const DRIVE = `
       fileInput: (function () { var i = document.querySelector('input[type="file"]'); return i ? { accept: i.getAttribute("accept"), multiple: i.multiple, shown: visible(i) } : null })(),
     }
 
-    /* And taking it back off leaves the composer as it was. */
-    if (remove && !window.__hold) remove.click()
+    /*
+     * THE VIEWER. Click the thumbnail, and see whether a picture you can
+     * actually look at appears — bigger than the thumbnail, on top of
+     * everything, and gone again on Escape.
+     */
+    var opener = document.querySelector('button[aria-label="Open screenshot.png"]')
+    if (opener) opener.click()
     setTimeout(function () {
-      result.afterRemove = {
-        thumbs: document.querySelectorAll('img[alt="screenshot.png"]').length,
-        sendDisabled: sendButton() ? sendButton().disabled : null,
-        composerHeight: box(field.closest("div.rounded-xl")) ? box(field.closest("div.rounded-xl")).h : null,
+      var layer = document.querySelector('[role="dialog"][aria-label="screenshot.png"]')
+      var big = layer ? layer.querySelector("img") : null
+      var bb = box(big)
+      var lb = box(layer)
+      result.viewer = {
+        opened: !!layer,
+        covers: lb ? lb.w >= window.innerWidth - 1 && lb.h >= window.innerHeight - 1 : false,
+        opacity: layer ? Number(getComputedStyle(layer).opacity) : 0,
+        zIndex: layer ? getComputedStyle(layer).zIndex : null,
+        picture: bb,
+        /* Does it fit, rather than overflow the screen it is shown on? */
+        fits: bb ? bb.w <= window.innerWidth && bb.h <= window.innerHeight : false,
+        copy: !!(layer && layer.querySelector('button[aria-label="Copy the picture"]')),
+        save: !!(layer && layer.querySelector('button[aria-label="Save the picture"]')),
+        /* Nothing may be written to the body: that is what froze this editor before. */
+        bodyPointerEvents: document.body.style.pointerEvents || "(unset)",
+        bodyOverflow: document.body.style.overflow || "(unset)",
+        scrollLocked: document.body.hasAttribute("data-scroll-locked"),
       }
-      report(result)
-    }, 60)
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+      setTimeout(function () {
+        result.viewer.closedOnEscape = !document.querySelector('[role="dialog"][aria-label="screenshot.png"]')
+        result.viewer.bodyAfter = (document.body.style.pointerEvents || "(unset)") + "/" + (document.body.style.overflow || "(unset)")
+        step4(field, result)
+      }, 250)
+    }, 260)
+  }
+
+  function step4(field, result) {
+    /*
+     * A FILE IN THE AIR. dragenter with a Files type should put a target on
+     * the panel; without one the gesture is undiscoverable.
+     */
+    var panel = field.closest("div.relative.flex.h-full")
+    var dt2 = new DataTransfer()
+    try { dt2.items.add(new File([new Uint8Array([1])], "x.png", { type: "image/png" })) } catch (e) {}
+    var enter = new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: dt2 })
+    ;(panel || document.body).dispatchEvent(enter)
+    setTimeout(function () {
+      /*
+       * BY ITS OWN ATTRIBUTE. Searching for the text matched the PANEL, whose
+       * textContent also starts with it because the target is its first
+       * child — querySelectorAll returns document order, so the ancestor won
+       * and the probe reported the panel's pointer-events as the target's.
+       */
+      var target = document.querySelector("[data-drop-target]")
+      var tb = box(target)
+      result.dropTarget = {
+        shown: !!target,
+        size: tb,
+        /* It must not eat the drop it is advertising. */
+        pointerEvents: target ? getComputedStyle(target).pointerEvents : null,
+      }
+      /* And it goes away again when the file leaves. */
+      ;(panel || document.body).dispatchEvent(new DragEvent("dragleave", { bubbles: true, cancelable: true, dataTransfer: dt2 }))
+      setTimeout(function () {
+        result.dropTarget.goesAway = !document.querySelector("[data-drop-target]")
+
+        var remove = document.querySelector('button[aria-label="Remove screenshot.png"]')
+        if (remove && !window.__hold) remove.click()
+        setTimeout(function () {
+          result.afterRemove = {
+            thumbs: document.querySelectorAll('img[alt="screenshot.png"]').length,
+            sendDisabled: sendButton() ? sendButton().disabled : null,
+            composerHeight: box(field.closest("div.rounded-xl")) ? box(field.closest("div.rounded-xl")).h : null,
+          }
+          report(result)
+        }, 60)
+      }, 120)
+    }, 120)
   }
   waitForComposer()
 })()
@@ -186,6 +254,14 @@ const file = join(out, "index.html")
 const page = (hold) => `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style><style>
   body{margin:0;background:#f8f9fa;font-family:Inter,system-ui,sans-serif}
   #app{padding:16px}
+  /*
+   * NO TRANSITIONS IN HERE. Headless Chromium under --virtual-time-budget
+   * never advances one, so anything that fades in reads as opacity 0 for
+   * ever and every fading layer looks like a bug. What this probe is for is
+   * the SETTLED state: is the viewer visible once it has opened. The motion
+   * itself is not measurable here and is not claimed to be.
+   */
+  *,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important}
 </style></head><body><div id="app"></div>${hold ? "<script>window.__hold=true</script>" : ""}<script src="probe.js"></script>${DRIVE}</body></html>`
 writeFileSync(file, page(false))
 /** The same run with the picture left on, for looking at. */
@@ -217,6 +293,9 @@ console.log(`  its cross: ${r.remove ? `${r.remove.w}x${r.remove.h}px drawn, ${r
 console.log(`  Send: ${r.before.sendDisabledEmpty ? "off" : "on"} with nothing, ${r.sendDisabledWithPicture ? "OFF" : "on"} with a picture and no words`)
 console.log(`  composer: ${r.before.composerHeight}px empty, ${r.composerHeight}px holding a picture, ${r.afterRemove.composerHeight}px after taking it off`)
 console.log(`  placeholder while holding one: "${r.placeholder}"`)
+console.log(`  viewer: ${r.viewer.opened ? "opens" : "DID NOT OPEN"}, covers the screen: ${r.viewer.covers}, picture ${r.viewer.picture ? `${r.viewer.picture.w}x${r.viewer.picture.h}px` : "none"}, fits: ${r.viewer.fits}, closes on Escape: ${r.viewer.closedOnEscape}`)
+console.log(`  viewer left on body: ${r.viewer.bodyAfter} (scroll-locked while open: ${r.viewer.scrollLocked})`)
+console.log(`  drop target: ${r.dropTarget.shown ? `${r.dropTarget.size.w}x${r.dropTarget.size.h}px, pointer-events ${r.dropTarget.pointerEvents}` : "NEVER SHOWN"}, goes away again: ${r.dropTarget.goesAway}`)
 
 const problems = []
 if (!r.before.attach) problems.push("there is no attach control in the composer")
@@ -249,9 +328,34 @@ else if (!r.hitIsRemove) problems.push(`a press on the cross lands on ${r.hitWas
 else if (r.target < 32) problems.push(`the cross is only ${r.target}px to a thumb, which is a target people miss`)
 if (r.before.sendDisabledEmpty !== true) problems.push("Send is live with an empty composer")
 if (r.sendDisabledWithPicture !== false) problems.push("Send is still off with a picture attached: a picture alone cannot be sent")
+/* The viewer */
+if (!r.viewer.opened) problems.push("clicking a thumbnail opens nothing")
+else {
+  if (!r.viewer.covers) problems.push("the viewer does not cover the screen, so the picture competes with the page behind it")
+  if (r.viewer.opacity < 0.9) problems.push(`the viewer settled at opacity ${r.viewer.opacity}: it faded in and stopped`)
+  if (!r.viewer.picture || r.viewer.picture.w <= 56) problems.push("the viewer shows the picture no bigger than the thumbnail did")
+  if (!r.viewer.fits) problems.push(`the picture is ${r.viewer.picture.w}x${r.viewer.picture.h}px in a ${window ? "" : ""}screen it does not fit`)
+  if (!r.viewer.copy || !r.viewer.save) problems.push("the viewer has no Copy or no Save")
+  if (!r.viewer.closedOnEscape) problems.push("Escape does not close the viewer")
+  /*
+   * THE FREEZE THIS EDITOR KEEPS GETTING. Every modal layer that wrote to
+   * the body left it locked at some point. This one must write nothing.
+   */
+  if (r.viewer.bodyPointerEvents !== "(unset)") problems.push(`the viewer set body pointer-events to ${r.viewer.bodyPointerEvents}`)
+  if (r.viewer.bodyOverflow !== "(unset)") problems.push(`the viewer set body overflow to ${r.viewer.bodyOverflow}`)
+  if (r.viewer.scrollLocked) problems.push("the viewer scroll-locked the document, which is how the editor froze before")
+  if (r.viewer.bodyAfter !== "(unset)/(unset)") problems.push(`the viewer left ${r.viewer.bodyAfter} on the body after closing`)
+}
+/* The drop target */
+if (!r.dropTarget.shown) problems.push("dragging a file over the panel shows no drop target")
+else {
+  if (r.dropTarget.pointerEvents !== "none") problems.push(`the drop target has pointer-events ${r.dropTarget.pointerEvents}, so it can swallow the drop it is advertising`)
+  if (r.dropTarget.size.w < 100 || r.dropTarget.size.h < 100) problems.push("the drop target is too small to read")
+  if (!r.dropTarget.goesAway) problems.push("the drop target stays after the file leaves the panel")
+}
 if (r.afterRemove.thumbs !== 0) problems.push("the thumbnail survives being removed")
 if (r.afterRemove.sendDisabled !== true) problems.push("Send stays live after the last picture is taken off")
 if (r.afterRemove.composerHeight !== r.before.composerHeight) problems.push(`the composer does not return to its own height: ${r.before.composerHeight}px then ${r.afterRemove.composerHeight}px`)
 
 if (problems.length) { console.error("\n" + problems.map((p) => `  ${p}`).join("\n") + "\n"); process.exit(1) }
-console.log("\na screenshot pasted into Ask Storelib appears as a thumbnail you can take back off, and a picture on its own is enough to send.")
+console.log("\na screenshot pasted into Ask Storelib appears as a thumbnail you can open full size, copy, save and take back off; a picture on its own is enough to send; and a file dragged over the panel says what dropping it will do.")
