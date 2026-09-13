@@ -169,9 +169,27 @@ function LoginFormContent() {
       return
     }
 
-    if (failure.retryable && provider && claimRetry(provider)) {
-      setError(null)
-      setRetryingProvider(provider)
+    if (failure.retryable && provider) {
+      if (claimRetry(provider)) {
+        setError(null)
+        setRetryingProvider(provider)
+        return
+      }
+
+      /**
+       * THE SECOND FAILURE IN A ROW, AND IT MUST NOT SAY "TRY ONCE MORE".
+       *
+       * The retry has already happened by the time this runs, silently,
+       * which is the whole point of it. Repeating the first sentence asks
+       * somebody to do a thing that has just been done for them and failed,
+       * and they will do it several times before giving up.
+       *
+       * Twice is past the transient causes: a code that aged out or arrived
+       * twice works on the next go. What is left is the provider being down
+       * or misconfigured at our end, so the advice becomes the one that
+       * actually gets them in, and the buttons it names are directly below.
+       */
+      setError(messageForCode("provider_unavailable", provider))
       return
     }
 

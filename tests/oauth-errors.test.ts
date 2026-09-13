@@ -274,7 +274,22 @@ function main() {
     check("the login page reads the code, not a sentence", page.includes('searchParams.get("authError")'))
     check("it still understands the old shape", page.includes('searchParams.get("error")'))
     check("a retry is claimed from storage before it runs", /claimRetry/.test(page) && /sessionStorage.setItem\(key, "1"\)/.test(page))
-    check("the retry is gated on the failure being retryable", /failure\.retryable && provider && claimRetry\(provider\)/.test(page))
+    check("the retry is gated on the failure being retryable", /failure\.retryable && provider/.test(page) && /claimRetry\(provider\)/.test(page))
+    /**
+     * The screenshot that reopened this: "Apple did not finish signing you
+     * in. Try once more." shown AFTER the automatic retry had already been
+     * spent, which is advice for something that had just happened and failed.
+     */
+    check(
+      "a second failure stops saying try once more",
+      /claimRetry\(provider\)\)? \{[\s\S]{0,1400}?messageForCode\("provider_unavailable", provider\)/.test(page),
+    )
+    check(
+      "and points at the sign in options that do work",
+      messageForCode("provider_unavailable", "apple").includes("Google") === false &&
+        /email and password|another sign in option/i.test(messageForCode("provider_unavailable", "apple")),
+      messageForCode("provider_unavailable", "apple"),
+    )
     check("cancelling shows nothing at all", /failure\.code === "cancelled"[\s\S]{0,80}setError\(null\)/.test(page))
     check("and the provider is remembered when the button is pressed", page.includes('rememberProvider("apple")') && page.includes('rememberProvider("google")'))
   }
