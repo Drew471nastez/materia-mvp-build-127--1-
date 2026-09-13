@@ -772,6 +772,53 @@ const DRIVE = `
       press("Switch to desktop preview"); await sleep(900)
       steps.push(tryScroll("back to the desktop frame", 300))
     }
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     *  THE ADD SECTION LIBRARY ACTUALLY HAS SECTIONS IN IT
+     * ═══════════════════════════════════════════════════════════════════════
+     * Reported with a screenshot: the categories are all there down the side
+     * and the panel beside them is blank. Not "no sections in this category" —
+     * blank, which means the list was not empty and simply never drew.
+     */
+    /** The list has to be on screen before its "Add section" button exists. */
+    if (phone) { press("Sections"); await sleep(800) }
+    var addBtn = btn("Add section")
+    if (addBtn) {
+      /**
+       * How long the main thread is BUSY, not how long we waited. A long task
+       * is what a dropped frame is made of; wall time here is mostly the
+       * sleep. Measured by watching for gaps where a 16ms interval did not
+       * get to run.
+       */
+      var longest = 0
+      var last = performance.now()
+      var tick = setInterval(function () {
+        var now = performance.now()
+        var gap = now - last
+        if (gap > longest) longest = gap
+        last = now
+      }, 16)
+      var t0 = performance.now()
+      tap(addBtn)
+      await sleep(1600)
+      clearInterval(tick)
+      var opened = longest
+      var modal = document.querySelector("[role=dialog][data-state=open], [data-mobile-bottom-sheet][aria-modal=true]")
+      var cards = document.querySelectorAll("[data-library-card]")
+      var cats = modal ? modal.querySelectorAll("button") : []
+      var txt = modal ? (modal.innerText || "").replace(/\s+/g, " ").slice(0, 90) : "(no modal)"
+      var st = { label: "ADD SECTION", cards: cards.length, openedIn: Math.round(opened), modal: modal ? describe(modal) : "none", text: txt }
+      /**
+       * A library with no sections in it is the bug as reported. The list is
+       * never legitimately empty here: the thirty that ship are always
+       * addable, so zero means it did not draw.
+       */
+      if (cards.length === 0) { st.brokenLibrary = true }
+      steps.push(st)
+      escape(); await sleep(600)
+    } else {
+      steps.push({ label: "ADD SECTION: no button found" })
+    }
     steps.push({ label: "chrome buttons", labels: [], fetches: (window.probeCalls || []).slice(0, 12) })
   }
   window.addEventListener("error", function (e) { steps.push({ label: "window error", message: String(e.message) }) })
@@ -817,6 +864,11 @@ for (const [w, h, label] of [[390, 844, "phone"], [1280, 900, "desktop"]]) {
     if (s.keyboardRevived !== undefined) {
       if (!s.keyboardRevived) failures++
       console.log(`  ${s.keyboardRevived ? "ok  " : "✗   "} ${s.label}${s.keyboardRevived ? "" : ": nothing revived the canvas after the blur"}  window.scrollY=${s.windowScrollY}  ${s.field}`)
+      continue
+    }
+    if (s.label === "ADD SECTION") {
+      console.log(`  add-section library: ${s.cards} cards, longest blocked frame while opening: ${s.openedIn}ms`)
+      if (s.brokenLibrary) { failures++; console.log(`  ✗ the Add section library drew NOTHING. Text was: ${JSON.stringify(s.text)}`) }
       continue
     }
     if (s.listeners) { console.log(`  touch listeners: ${[...new Set(s.listeners)].join("  |  ")}`); continue }
