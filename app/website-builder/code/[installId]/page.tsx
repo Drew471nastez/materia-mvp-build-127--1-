@@ -2057,7 +2057,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                       type="submit"
                       disabled={!fileNameOf(pendingAction.path).name || creating}
                       aria-busy={creating}
-                      className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded bg-[#111114] px-2 text-[12px] font-[550] text-white transition-colors hover:bg-[#26262c] active:bg-black disabled:opacity-40 disabled:pointer-events-none md:h-7"
+                      className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded bg-[#8B56FA] px-2 text-[12px] font-[550] text-white transition-colors hover:bg-[#7b46ec] active:bg-[#6d3ade] disabled:opacity-40 disabled:pointer-events-none md:h-7"
                     >
                       {creating && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
                       {creating ? "Creating" : "Create"}

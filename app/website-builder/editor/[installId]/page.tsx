@@ -805,6 +805,9 @@ function FieldEditor({
  */
 const AUTOSAVE_DELAY_MS = 1_500
 
+/** How long the screen that says you are leaving is on the glass before the page goes. */
+const LEAVING_SEEN_MS = 280
+
 /**
  * ===========================================================================
  *  THE THREE DEVICES
@@ -5131,37 +5134,31 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const selectSectionFromCanvas = useCallback(
     (sectionId: string, blockId?: string | null) => {
       const el = document.getElementById("wb-preview-root")
-      const section = document.getElementById(`wb-section-${sectionId}`)
       if (el) {
-        if (isMobileView && section) {
-          /**
-           * ON A PHONE THE SELECTED SECTION COMES TO THE TOP, SMOOTHLY.
-           * The screen is one column and the sheet takes the bottom of it, so
-           * a section selected anywhere is worth the same thing: bring it to
-           * the top of the canvas so the whole of it is in front of the
-           * person editing it. One smooth move, on purpose, rather than the
-           * accidental jumps this replaced.
-           */
-          touchingCanvas.current = true
-          scrollWithin(el, section, "smooth")
-        } else {
-          // A desktop has the section and its settings side by side already:
-          // moving the canvas would only take the section out from under the
-          // pointer. Held still instead; see pinScroll.
-          touchingCanvas.current = false
-          pinScroll(
-            el,
-            PIN_AFTER_SELECT_MS,
-            (cb) => window.requestAnimationFrame(cb),
-            () => Date.now(),
-            () => touchingCanvas.current,
-          )
-        }
+        /**
+         * SELECTING A SECTION MOVES NOTHING. ANYWHERE.
+         *
+         * It brought the section to the top of the canvas on a phone for one
+         * deploy, and even done smoothly and on purpose that is the same
+         * thing the accidental jumps were: the page moving under a thumb
+         * that asked for a section and not for a scroll. What was tapped is
+         * already in front of the person who tapped it. The canvas is held
+         * where they left it, and a finger or a wheel releases the hold at
+         * once.
+         */
+        touchingCanvas.current = false
+        pinScroll(
+          el,
+          PIN_AFTER_SELECT_MS,
+          (cb) => window.requestAnimationFrame(cb),
+          () => Date.now(),
+          () => touchingCanvas.current,
+        )
       }
       setSelectedPanel({ type: "section", sectionId })
       setSelectedBlockId(blockId ?? null)
     },
-    [isMobileView],
+    [],
   )
   /**
    * AND THE SIDEBAR GOES TO IT. Selecting the ninth FAQ entry on the canvas
@@ -6443,12 +6440,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     leavingHref.current = href
     setLeaving(true)
     cancelCeiling.current?.()
-    cancelCeiling.current = navigateWithCeiling(
-      () => router.push(href),
-      () => window.location.assign(href),
-      (cb, ms) => window.setTimeout(cb, ms),
-      (id) => window.clearTimeout(id),
-    )
+    /**
+     * THE SCREEN THAT SAYS YOU ARE LEAVING IS WORTH SEEING.
+     *
+     * Prefetching the way out made the navigation instant, and an instant
+     * navigation paints the next page before this one has drawn the screen
+     * that says where you are going. What was left was a press, a pause,
+     * and then somewhere else. The navigation waits a moment for that screen
+     * to be on the glass: long enough to read the first word, short enough
+     * that nobody waits for it. The ceiling starts from the push.
+     */
+    const start = window.setTimeout(() => {
+      cancelCeiling.current = navigateWithCeiling(
+        () => router.push(href),
+        () => window.location.assign(href),
+        (cb, ms) => window.setTimeout(cb, ms),
+        (id) => window.clearTimeout(id),
+      )
+    }, LEAVING_SEEN_MS)
+    cancelCeiling.current = () => window.clearTimeout(start)
   }, [router])
   // Navigating unmounts this page, and that cancels the fallback: a hard load
   // happens only when the soft one did not.

@@ -252,6 +252,10 @@ section("It is reachable, and it works on a file longer than the window")
       ),
   )
   check(
+    "Create is the accent colour, like every other action that goes ahead",
+    /rounded bg-\[#8B56FA\] px-2 text-\[12px\] font-\[550\] text-white transition-colors hover:bg-\[#7b46ec\]/.test(codeSrc),
+  )
+  check(
     "New file asks its question on the surface the button was pressed on, and moves nobody to the explorer",
     // It opened inside the file list: on a phone that threw the list over the
     // editor, and on a desktop it answered in a different column from the one
@@ -626,7 +630,8 @@ section("Create writes the file, and you name it rather than its path")
    */
   check("and they stay finger-sized on a phone, with a field iOS will not zoom",
     /h-10 flex-1 rounded-md bg-\[#111114\][^"]*md:h-7 md:flex-none/.test(codePage)
-    && /h-8 flex-1 items-center justify-center gap-1\.5 rounded bg-\[#111114\][^"]*md:h-7/.test(codePage)
+    // Create is the accent now; the sizes are what this check is about.
+    && /h-8 flex-1 items-center justify-center gap-1\.5 rounded bg-\[#8B56FA\][^"]*md:h-7/.test(codePage)
     && /h-9 w-full min-w-0 rounded border[^"]*text-\[16px\] md:h-7 md:text-\[11\.5px\]/.test(codePage)
     && /h-10 min-w-0 flex-1 rounded-md border[^"]*text-\[16px\] md:h-7 md:text-\[12px\]/.test(codePage))
   // Two buttons guard the name. Create also refuses while a create is in

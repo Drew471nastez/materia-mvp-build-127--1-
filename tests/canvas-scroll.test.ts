@@ -414,12 +414,15 @@ section("Selecting a section cannot move the canvas")
   check("half a second, which covers a tap and is never felt", PIN_AFTER_SELECT_MS === 500)
   const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   check(
-    "on a phone the selected section comes to the top of the canvas, smoothly and on purpose",
-    /if \(isMobileView && section\) \{[\s\S]*?scrollWithin\(el, section, "smooth"\)/.test(editor),
+    "selecting a section moves the canvas nowhere, on a phone as on a desktop",
+    // It came to the top of the canvas on a phone for one deploy. Done
+    // smoothly and on purpose it is still the page moving under a thumb that
+    // asked for a section and not for a scroll.
+    !/scrollWithin\(el, section/.test(editor) && !/isMobileView && section/.test(editor),
   )
   check(
-    "a selection from the canvas arms it on a desktop, and a touch or a wheel releases it",
-    /const selectSectionFromCanvas = useCallback\(\s*\n\s*\(sectionId: string, blockId\?: string \| null\) => \{[\s\S]*?\} else \{[\s\S]*?pinScroll\(/.test(editor) &&
+    "a selection from the canvas arms the hold, and a touch or a wheel releases it",
+    /const selectSectionFromCanvas = useCallback\(\s*\n\s*\(sectionId: string, blockId\?: string \| null\) => \{[\s\S]*?pinScroll\(/.test(editor) &&
       /touchingCanvas\.current = true\s*\n\s*if \(!isMobileView\) return/.test(editor) &&
       /onTouchEnd=\{\(\) => \{ touchingCanvas\.current = false \}\}/.test(editor) &&
       /onWheelCapture=\{\(\) => \{ touchingCanvas\.current = true \}\}/.test(editor),
@@ -460,6 +463,14 @@ section("Leaving a page always ends, one way or the other")
 }
 {
   const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  check(
+    "the screen that says you are leaving is on the glass before the page goes",
+    // Prefetching made the navigation instant, and an instant navigation
+    // paints the next page before this one has drawn the screen at all.
+    /const LEAVING_SEEN_MS = 280/.test(editor) &&
+      /const start = window\.setTimeout\(\(\) => \{\s*\n\s*cancelCeiling\.current = navigateWithCeiling\([\s\S]*?\}, LEAVING_SEEN_MS\)/.test(editor) &&
+      /cancelCeiling\.current = \(\) => window\.clearTimeout\(start\)/.test(editor),
+  )
   check(
     "every way out of the builder goes through one function that cannot hang",
     /const leaveFor = useCallback\(\(href: string\) => \{[\s\S]*?navigateWithCeiling\(\s*\n\s*\(\) => router\.push\(href\),\s*\n\s*\(\) => window\.location\.assign\(href\)/.test(editor) &&
