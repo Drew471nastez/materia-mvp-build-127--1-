@@ -237,7 +237,27 @@ function ChartWithLongPressTooltip({
     return Math.round(ratio * (displayChartData.length - 1))
   }, [displayChartData.length])
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+  /**
+   * =========================================================================
+   *  THE CHART HAS TO BE ABLE TO REFUSE THE PLATFORM'S OWN LONG PRESS
+   * =========================================================================
+   * This was an `onTouchStart` prop, and React registers touchstart, touchmove
+   * and wheel PASSIVELY on its root — so `preventDefault` inside one is a
+   * no-op. Measured, not assumed: check-chart-scrub reported the touchstart
+   * coming back with defaultPrevented false.
+   *
+   * On a phone that is the difference between a hold and no hold. The system
+   * runs its own long-press recogniser for selection, the callout and drag,
+   * and the only way to tell it this press is ours is to cancel the
+   * touchstart. A passive listener cannot, so the system takes the press,
+   * sends a touchcancel, and the gesture is over before the finger has moved
+   * — which is a hold you have to lift out of and start again.
+   *
+   * Native and non-passive, registered beside the touchmove listener that is
+   * already here for exactly the same reason.
+   */
+  const touchStartHandler = useCallback((e: TouchEvent) => {
+    e.preventDefault()
     const touch = e.touches[0]
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
     lastTouchXRef.current = touch.clientX
@@ -274,6 +294,7 @@ function ChartWithLongPressTooltip({
       hapticTap("medium")
     }, 100)
   }, [getIndexFromTouch])
+
 
   // Use a native event listener for touchmove with { passive: false }
   // so preventDefault() actually works and swiping doesn't get stuck
@@ -407,9 +428,13 @@ function ChartWithLongPressTooltip({
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
+    el.addEventListener("touchstart", touchStartHandler, { passive: false })
     el.addEventListener("touchmove", touchMoveHandler, { passive: false })
-    return () => el.removeEventListener("touchmove", touchMoveHandler)
-  }, [touchMoveHandler])
+    return () => {
+      el.removeEventListener("touchstart", touchStartHandler)
+      el.removeEventListener("touchmove", touchMoveHandler)
+    }
+  }, [touchStartHandler, touchMoveHandler])
 
   const handleTouchEnd = useCallback(() => {
     if (longPressTimerRef.current) {
@@ -544,7 +569,6 @@ function ChartWithLongPressTooltip({
   return (
     <div
       ref={containerRef}
-      onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
       style={{
@@ -709,6 +733,32 @@ function ChartWithLongPressTooltip({
           </ResponsiveContainer>
         )}
       </LazyAreaChart>
+
+      {/*
+        ONE STABLE THING FOR A FINGER TO LAND ON.
+
+        A touch belongs to the node it started on for the whole gesture, and
+        it keeps going to that node even after the node leaves the document —
+        where the events reach nothing, because there is no longer a path up
+        to the listener. Without this, a finger lands on whatever recharts
+        happened to draw at that pixel: check-chart-scrub landed one press on
+        `path.recharts-curve`, which is a node recharts redraws.
+
+        So the touches land here instead, on one div that is rendered
+        unconditionally and never re-keyed. It is invisible and it is only in
+        the way on a touch screen — a mouse passes straight through, because
+        the hover tooltip below belongs to recharts and needs the real marks.
+      */}
+      <div
+        aria-hidden
+        data-chart-touch-shield
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 5,
+          pointerEvents: isTouchDevice ? "auto" : "none",
+        }}
+      />
 
       {/* Custom tooltip for touch — inside the chart area, at fixed top position */}
       {tooltipActive && activePoint && (
