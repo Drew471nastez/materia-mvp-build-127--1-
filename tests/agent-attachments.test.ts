@@ -549,6 +549,135 @@ section("Code a section: the picture reaches that model too")
 }
 
 // ---------------------------------------------------------------------------
+section("Kept for thirty days, and then not")
+// ---------------------------------------------------------------------------
+
+/**
+ * A picture is now stored so a conversation read back next week shows what
+ * was asked about, rather than a sentence saying there was a picture. That
+ * puts one creator's screenshots — of their unreleased work, and of other
+ * people's pages — in a bucket, so the rules around that bucket are the
+ * thing worth checking. These are assertions about configuration and about
+ * the shape of the code that touches it; the migration itself is SQL this
+ * suite cannot execute.
+ */
+{
+  const sql = read("sql/20260924_theme_chat_attachments.sql")
+
+  check(
+    "the bucket is private, unlike the one for a website's own images",
+    /'theme-chat-attachments',\s*'theme-chat-attachments',\s*false/.test(sql),
+  )
+  check(
+    "and a re-run cannot quietly make it public",
+    /on conflict \(id\) do update/.test(sql) && /set public = false/.test(sql),
+  )
+  check(
+    "it takes images and nothing else",
+    /allowed_mime_types/.test(sql) && /'image\/png', 'image\/jpeg', 'image\/webp', 'image\/gif'/.test(sql),
+  )
+  check(
+    "no storage policy is granted, so there is no client-side path to the bytes",
+    !/create policy[^;]*storage\.objects/i.test(sql) && /NO POLICY ON storage\.objects/.test(sql),
+  )
+  check(
+    "rows are readable only by the creator who owns the theme",
+    /create policy tca_own/.test(sql) &&
+      /join public\.creators c on c\.id = i\.creator_id/.test(sql) &&
+      /where c\.user_id = auth\.uid\(\)/.test(sql),
+  )
+  check(
+    "a picture expires thirty days out, by default rather than by a caller remembering",
+    /expires_at timestamptz not null default \(now\(\) \+ interval '30 days'\)/.test(sql),
+  )
+  check(
+    "the collector has an index to find them by",
+    /theme_chat_attachments_expiry_idx/.test(sql) && /\(expires_at\)/.test(sql),
+  )
+  check(
+    "deleting a theme takes its pictures with it",
+    /references public\.store_theme_installs\(id\) on delete cascade/.test(sql),
+  )
+}
+
+{
+  const store = read("lib/website-builder/agent/attachment-store.ts")
+
+  check("the bytes never reach a browser except through a signed URL", /createSignedUrls/.test(store) && !/getPublicUrl/.test(store))
+  check(
+    "the signature is short-lived rather than a permanent link",
+    /SIGNED_FOR_SECONDS = 60 \* 60/.test(store),
+  )
+  check(
+    "rows are read through the USER's client, so RLS decides what comes back",
+    /const supabase = await createClient\(\)[\s\S]{0,400}from\("theme_chat_attachments"\)/.test(store),
+  )
+  check(
+    "and the signer only ever sees paths that read already returned",
+    /rows\.map\(\(r\) => r\.storage_path\), SIGNED_FOR_SECONDS/.test(store),
+  )
+  check(
+    "a caller cannot hand it a storage path of their own choosing",
+    !/storage_path:\s*(input|opts|body|params)\./.test(store),
+  )
+  check(
+    "one theme's pictures are one prefix, and no path can be built across to another",
+    /\$\{input\.installId\}\/\$\{crypto\.randomUUID\(\)\}/.test(store),
+  )
+  check(
+    "bytes whose row did not land are taken back rather than left uncollectable",
+    /if \(rowError\) await admin\.storage\.from\(BUCKET\)\.remove\(\[path\]\)/.test(store),
+  )
+  check(
+    "the collector removes the object BEFORE the row",
+    (() => {
+      const purge = store.slice(store.indexOf("export async function purgeExpiredAttachments"))
+      const object = purge.indexOf(".remove(")
+      const row = purge.indexOf(".delete()")
+      /* A row deleted first leaves bytes nobody will ever collect again. */
+      return object > 0 && row > 0 && object < row
+    })(),
+  )
+  check(
+    "and it never deletes rows whose bytes it failed to remove",
+    /if \(removeError\) return \{ removed: 0, failed: rows\.length \}/.test(store),
+  )
+  check(
+    "storing a picture can never fail an edit somebody already asked for",
+    /export async function keepImages[\s\S]{0,2000}catch \{/.test(store),
+  )
+  check("it is server-only", store.startsWith('import "server-only"'))
+}
+
+{
+  const cron = read("app/api/cron/purge-chat-attachments/route.ts")
+  check(
+    "the collector is behind the same secret as every other job here",
+    /authorization"\) !== `Bearer \$\{process\.env\.CRON_SECRET\}`/.test(cron),
+  )
+  check("and it actually runs on a schedule", /purge-chat-attachments/.test(read("vercel.json")))
+}
+
+{
+  const chat = read("lib/website-builder/agent/chat.ts")
+  check(
+    "the history asks for every message's pictures in one query, not one per message",
+    /attachmentsFor\(rows\.map\(\(row\) => row\.id\)\)/.test(chat),
+  )
+  const route = read("app/api/website-builder/themes/[installId]/agent/route.ts")
+  check(
+    "the picture is kept against the message it was attached to",
+    /const messageId = await startThemeExchange/.test(route) &&
+      /keepImages\(\{ installId, messageId, images \}\)/.test(route),
+  )
+  const panel = read("components/website-builder/theme-chat.tsx")
+  check(
+    "a restored conversation shows the picture rather than a note about it",
+    /message\.images\?\.length/.test(panel) && /an image\|\\d\+ images\) attached/.test(panel),
+  )
+}
+
+// ---------------------------------------------------------------------------
 section("The composer")
 // ---------------------------------------------------------------------------
 

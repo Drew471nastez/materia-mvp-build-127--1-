@@ -13,6 +13,10 @@
     {
       "path": "/api/cron/rollup-daily",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/purge-chat-attachments",
+      "schedule": "20 3 * * *"
     }
   ],
   "rewrites": [

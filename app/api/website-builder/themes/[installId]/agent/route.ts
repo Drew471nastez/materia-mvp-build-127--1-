@@ -38,6 +38,7 @@ import {
 import { classifyRequest } from "@/lib/website-builder/agent/ambition"
 import { reviewImages } from "@/lib/sites/agent/attachments"
 import { completeThemeExchange, startThemeExchange } from "@/lib/website-builder/agent/chat"
+import { keepImages } from "@/lib/website-builder/agent/attachment-store"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -166,14 +167,22 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
 
   /**
    * What goes in the history is the text and a note of what came with it.
-   * The bytes are not kept: they are carried with the request that mentions
-   * them and gone afterwards, so there is no store of one creator's
-   * screenshots to keep away from another's.
+   * The picture itself goes to a PRIVATE bucket for thirty days, under this
+   * install's own prefix, so reading the conversation back next week shows
+   * the screenshot rather than a sentence saying there was one. The note
+   * stays for after the thirty days are up, when the words are all there is.
    */
   const noted = images.length
     ? `${body.prompt.trim()}${body.prompt.trim() ? "\n\n" : ""}[${images.length === 1 ? "an image" : `${images.length} images`} attached]`
     : body.prompt
-  await startThemeExchange({ installId, pageKey: body.page, prompt: noted })
+  const messageId = await startThemeExchange({ installId, pageKey: body.page, prompt: noted })
+  /**
+   * Ownership was proved above against the USER'S client before a single
+   * byte was read. Storing never blocks the run: a picture that could not be
+   * kept is one the thread will not show later, not a reason to refuse an
+   * edit somebody already asked for.
+   */
+  await keepImages({ installId, messageId, images })
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
