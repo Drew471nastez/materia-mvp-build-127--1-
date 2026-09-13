@@ -207,14 +207,63 @@ function AnalyticsChartWithTooltipInner({
     active index. The same position expressed as a translate is a compositor
     transform. The clamp maths is unchanged; only its unit is.
   */
-  const getClampedLeftPx = () => {
-    const containerEl = containerRef.current
-    const containerWidth = containerEl?.offsetWidth ?? 0
-    const tooltipWidth = tooltipRef.current?.offsetWidth ?? 0
-    const half = tooltipWidth / 2
-    const wanted = (tooltipLeftPercent / 100) * containerWidth
-    if (!containerWidth) return wanted
-    return Math.max(half + 4, Math.min(containerWidth - half - 4, wanted))
+  /**
+   * ANCHORED AT THE EDGES, NOT CENTRED AND CLIPPED.
+   *
+   * The clamp this replaces divided by the tooltip's own width, read from a
+   * ref that is null on the render which first shows it — so the width came
+   * back 0, the clamp did nothing, and `translateX(-50%)` pushed half the
+   * box outside the card at the first and last points. No measurement here:
+   * near an edge the box anchors to that edge, which is the flip a menu does
+   * near the side of a screen, and nothing centred on a point can overflow
+   * because nothing near an edge is centred. Same as dashboard-client.
+   */
+  /**
+   * =========================================================================
+   *  CSS RESOLVES THE BOX'S OWN WIDTH. WE NEVER MEASURE IT.
+   * =========================================================================
+   * Two earlier attempts at this were wrong in the same way — both needed
+   * the tooltip's width and could not have it in time.
+   *
+   *   1. `Math.min(containerWidth - half, ...)` read `tooltipRef.offsetWidth`
+   *      during the render that first CREATES the tooltip. The ref is null
+   *      then, so half was 0, the clamp did nothing, and translateX(-50%)
+   *      pushed half the box off the card. That is the "p 6 / ews: 3" in the
+   *      screenshot.
+   *   2. Anchoring to the edge inside a fixed 18% zone. Whether centring is
+   *      safe depends on how wide the box is relative to the card, so a fixed
+   *      zone cannot be right: check-chart-tooltip found a 264px box centred
+   *      at 19% of a 320px card hanging 71px past the left edge.
+   *
+   * The way out is that a percentage inside `translateX` resolves against the
+   * ELEMENT'S OWN border box. So `50%` is half the tooltip and `100%` is all
+   * of it, computed by the browser at paint time, for a width nothing in
+   * JavaScript ever has to know.
+   *
+   * What JavaScript does supply is the TRACK — the container's width — which
+   * is stable, changes on resize rather than on every frame of a drag, and is
+   * already being measured for other reasons.
+   *
+   *   left edge:   8px
+   *   centred:     x - 50%          (half the box left of the point)
+   *   right edge:  track - 100% - 8px
+   *
+   * clamp() picks the middle one unless it would cross a bound. And where the
+   * box cannot fit at all, clamp() returns its minimum, which pins it left —
+   * with `max-width: calc(100% - 16px)` making sure that case is only ever a
+   * rounding away.
+   */
+  const tooltipShift = (): string => {
+    const track = containerRef.current?.offsetWidth ?? 0
+    const x = (tooltipLeftPercent / 100) * track
+    if (!track) return "translateX(-50%)"
+    /**
+     * `translateZ(0)` keeps the layer promotion the old `translate3d` gave
+     * for free. The movement is still entirely in the transform — `left` is
+     * a static 0 — so a dragging finger never lays this element out, which
+     * is the rule tests/analytics-chart.test.ts holds.
+     */
+    return `translateX(clamp(8px, calc(${x.toFixed(1)}px - 50%), calc(${track}px - 100% - 8px))) translateZ(0)`
   }
 
   const lastDotIndex = chartDisplayData.length - 1
@@ -319,7 +368,13 @@ function AnalyticsChartWithTooltipInner({
       } as React.CSSProperties}
     >
       <ResponsiveContainer width="100%" height={200}>
-        <AreaChart data={chartDisplayData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+        {/*
+          ROOM FOR THE DOTS. The y axis used to reserve 40px on the left;
+          without it, `left: 0` drew the first point's active dot — six pixels
+          of radius plus a two pixel ring — half outside the card, which reads
+          as a stray spike rather than as a clipped dot.
+        */}
+        <AreaChart data={chartDisplayData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
           <defs>
             <linearGradient id="gradViews" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor={CHART_COLORS.views} stopOpacity={0.15} />
@@ -466,7 +521,8 @@ function AnalyticsChartWithTooltipInner({
               position: "absolute",
               top: 8,
               left: 0,
-              transform: `translate3d(${getClampedLeftPx()}px, 0, 0) translateX(-50%)`,
+              transform: tooltipShift(),
+              maxWidth: "calc(100% - 16px)",
               background: "#1a1a2e",
               borderRadius: "8px",
               fontSize: "12px",
