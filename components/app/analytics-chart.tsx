@@ -28,6 +28,7 @@ import {
 } from "recharts"
 
 import { hapticTap } from "@/lib/native-bridge"
+import { CHART_ANIM_MS } from "@/lib/chart-motion"
 import { GlidingActiveDot, GlidingCursor } from "@/components/app/chart-glide"
 
 // Chart colors - matching reference image
@@ -131,7 +132,7 @@ function AnalyticsChartWithTooltipInner({
   */
   useEffect(() => {
     setShouldAnimate(true)
-    const timer = setTimeout(() => setShouldAnimate(false), 750)
+    const timer = setTimeout(() => setShouldAnimate(false), CHART_ANIM_MS)
     return () => clearTimeout(timer)
   /**
    * THE DATA ONLY, same as dashboard-client.
@@ -191,7 +192,7 @@ function AnalyticsChartWithTooltipInner({
       lastHapticIndexRef.current = idx
       setActiveIndex(idx)
       hapticTap("medium")
-    }, 120)
+    }, 100)
   }, [getIndexFromTouch])
 
   const touchMoveHandler = useCallback((e: TouchEvent) => {
@@ -226,9 +227,19 @@ function AnalyticsChartWithTooltipInner({
     /** Per axis, and large enough that a resting thumb cannot cross it. */
     const dx = Math.abs(touch.clientX - touchStartPosRef.current.x)
     const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
-    const SLOP = 12
+    /**
+     * Horizontal engages sooner than vertical gives up.
+     *
+     * One threshold for both meant a deliberate sideways drag had to travel
+     * as far as a scroll before anything happened, which is the "hard to get
+     * into it". Eight pixels is past a resting thumb's tremor and well short
+     * of a gesture; vertical keeps twelve, because cancelling a hold by
+     * mistake costs more than starting a scroll a few pixels late.
+     */
+    const SLOP_X = 8
+    const SLOP_Y = 12
 
-    if (directionLockRef.current === null && (dx > SLOP || dy > SLOP)) {
+    if (directionLockRef.current === null && (dx > SLOP_X || dy > SLOP_Y)) {
       if (dx > dy) {
         directionLockRef.current = "horizontal"
         if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }

@@ -62,6 +62,7 @@ import { useLanguage } from "@/lib/i18n"
 import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal, hapticTap } from "@/lib/native-bridge"
+import { CHART_ANIM_MS } from "@/lib/chart-motion"
 import { useToast } from "@/hooks/use-toast"
 import { GlidingActiveDot, GlidingCursor } from "@/components/app/chart-glide"
 
@@ -116,6 +117,8 @@ function plotLeftFor(labels: string[]): number {
 }
 /** The right margin. */
 const PLOT_RIGHT = 10
+
+
 
 /**
  * WHERE A BOX OF UNKNOWN WIDTH GOES, given where it wants to be.
@@ -205,7 +208,7 @@ function ChartWithLongPressTooltip({
    */
   useEffect(() => {
     setShouldAnimate(true)
-    const timer = setTimeout(() => setShouldAnimate(false), 900)
+    const timer = setTimeout(() => setShouldAnimate(false), CHART_ANIM_MS)
     return () => clearTimeout(timer)
   }, [displayChartData])
 
@@ -250,7 +253,7 @@ function ChartWithLongPressTooltip({
       lastHapticIndexRef.current = idx
       setActiveIndex(idx)
       hapticTap("medium")
-    }, 120)
+    }, 100)
   }, [getIndexFromTouch])
 
   // Use a native event listener for touchmove with { passive: false }
@@ -329,9 +332,19 @@ function ChartWithLongPressTooltip({
      */
     const dx = Math.abs(touch.clientX - touchStartPosRef.current.x)
     const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
-    const SLOP = 12
+    /**
+     * Horizontal engages sooner than vertical gives up.
+     *
+     * One threshold for both meant a deliberate sideways drag had to travel
+     * as far as a scroll before anything happened, which is the "hard to get
+     * into it". Eight pixels is past a resting thumb's tremor and well short
+     * of a gesture; vertical keeps twelve, because cancelling a hold by
+     * mistake costs more than starting a scroll a few pixels late.
+     */
+    const SLOP_X = 8
+    const SLOP_Y = 12
 
-    if (directionLockRef.current === null && (dx > SLOP || dy > SLOP)) {
+    if (directionLockRef.current === null && (dx > SLOP_X || dy > SLOP_Y)) {
       if (dx > dy) {
         // Horizontal intent → activate scrub immediately (no long press needed)
         directionLockRef.current = "horizontal"
@@ -2677,7 +2690,27 @@ export function DashboardClient({
                 </div>
               ) : (
                 <div className="relative">
-                  <div className={`transition-all duration-500 ease-out ${isChartLoading ? "opacity-30 blur-[2px]" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100 blur-0"}`}>
+                  {/*
+                    NO BLUR WHEN THE METRIC CHANGES.
+
+                    This used to drop to 30% opacity with a 2px blur for as
+                    long as `isChartLoading` was true, over 500ms each way.
+                    Tapping Revenue therefore played three things at once: the
+                    chart blurring out, the chart blurring back in, and the
+                    line re-drawing itself. That is the pumping and the double
+                    loading — one tap, three animations, none of which was
+                    telling you anything you did not already know.
+
+                    A first load with no data at all still gets the skeleton
+                    above; it is the only moment there is genuinely nothing to
+                    look at. From then on the old line simply becomes the new
+                    one, which is what recharts does well and what the eye
+                    reads as a change rather than a reload.
+
+                    The sample-data dimming stays, because that is not a
+                    loading state — it says these numbers are not yours.
+                  */}
+                  <div className={`transition-opacity duration-300 ease-out ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
                   <ChartWithLongPressTooltip displayChartData={displayChartData} openKPIModal={openKPIModal} t={t} />
                   </div>
                   {!hasRealData && (
