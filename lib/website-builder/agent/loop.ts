@@ -31,6 +31,7 @@
  * button, writing what is on screen.
  */
 
+import { describeImages, type AgentImage } from "@/lib/sites/agent/attachments"
 import {
   applyOp,
   blockFieldsFor,
@@ -397,6 +398,13 @@ export interface ThemeAgentInput {
   sources?: Record<string, string>
   model: string
   prompt: string
+  /**
+   * Pictures the creator attached to this request. They are shown to the
+   * model, not described to it: a section written from a screenshot the
+   * model can see is a different section from one written from a summary of
+   * it. See lib/sites/agent/attachments.ts.
+   */
+  images?: AgentImage[]
   state: ThemeState
   page: string
   addable: string[]
@@ -453,6 +461,7 @@ export async function* themeAgent(
   input: ThemeAgentInput,
 ): AsyncGenerator<ThemeAgentEvent, ThemeAgentResult> {
   const { provider, model, prompt, page, addable, signal } = input
+  const images = input.images ?? []
   /** Only meaningful with a section actually selected. */
   const locked = input.lockToSelection ? input.selectedSectionId : undefined
   const maxTurns = input.maxTurns ?? MAX_TURNS
@@ -528,10 +537,17 @@ export async function* themeAgent(
           : selected
             ? `THE CREATOR HAS THIS SECTION SELECTED AND OPEN. "this section", "this", "it" and "here" all mean THIS one unless they clearly name another.\n\n${describeSection(selected, schemas)}`
             : "",
+        /**
+         * AFTER the theme and BEFORE the request. What the picture is for is
+         * read in the light of what this theme can do; what they typed is
+         * read in the light of the picture.
+         */
+        describeImages(images, prompt.trim().length > 0),
         `REQUEST\n${prompt}`,
       ]
         .filter(Boolean)
         .join("\n\n"),
+      images: images.length ? images : undefined,
     },
   ]
 
