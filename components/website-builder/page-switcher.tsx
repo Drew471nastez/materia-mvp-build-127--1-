@@ -57,6 +57,9 @@ export interface SwitcherProduct {
   title: string
 }
 
+/** How many of your own pages are listed before the group scrolls. */
+const PAGES_BEFORE_SCROLL = 3
+
 export function PageSwitcher({
   pages,
   current,
@@ -94,7 +97,16 @@ export function PageSwitcher({
    * In the row rather than in a dialog, because the row is the thing.
    */
   const [confirming, setConfirming] = useState<string | null>(null)
-  const [yoursOpen, setYoursOpen] = useState(true)
+  /**
+   * SHUT, like the products group beside it.
+   *
+   * It used to open by default on the reasoning that a folded group of your
+   * own pages is one you unfold every time. That was true when the group was
+   * pages somebody had made on purpose; every site now ships three policy
+   * pages, so the default state was a list of legal pages covering the pages
+   * somebody actually works on.
+   */
+  const [yoursOpen, setYoursOpen] = useState(false)
   const [productsOpen, setProductsOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
   /** The pill the menu hangs from, and the menu itself, which is portalled
@@ -309,8 +321,7 @@ export function PageSwitcher({
             {builtIn.map((p) => row(p))}
 
             {/* The seller's own pages fold, because this is the group that
-                grows. It opens by default: a folded group of things you made
-                is a group you have to unfold every time. */}
+                grows, and it is shut until asked. */}
             {yours.length > 0 && (
               <>
                 <div className="mx-1 my-1.5 border-t border-white/10" />
@@ -327,7 +338,26 @@ export function PageSwitcher({
                     strokeWidth={2}
                   />
                 </button>
-                {yoursOpen && yours.map((p) => row(p, true))}
+                {/**
+                  * THREE, THEN IT SCROLLS INSIDE ITSELF.
+                  *
+                  * Unfolded, this group is as long as the site has pages, and
+                  * it pushed Products and everything under it off the bottom
+                  * of a panel that is already scrolling. A nested scroller is
+                  * usually a mistake; here it is what keeps the groups BELOW
+                  * this one reachable without collapsing it first.
+                  *
+                  * The height is three rows exactly, so the fourth is half
+                  * visible and the list reads as continuing rather than
+                  * ending.
+                  */}
+                {yoursOpen && (
+                  <div
+                    className={cn(yours.length > PAGES_BEFORE_SCROLL && "wb-slim-scroll max-h-[132px] overflow-y-auto overscroll-contain")}
+                  >
+                    {yours.map((p) => row(p, true))}
+                  </div>
+                )}
               </>
             )}
 

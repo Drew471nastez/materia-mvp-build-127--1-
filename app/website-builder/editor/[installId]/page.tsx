@@ -65,6 +65,8 @@ import { ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/w
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey } from "@/lib/website-builder/site-pages"
+import { AutoTextarea } from "@/components/website-builder/auto-textarea"
+import { RichTextAssistant, RichTextField } from "@/components/website-builder/rich-text-field"
 import { toPageSlug } from "@/lib/sites/slug"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/registry"
@@ -471,13 +473,30 @@ function FieldEditor({
     )
   }
 
-  if (kind === "textarea" || kind === "richtext") {
+  /**
+   * A RICHTEXT FIELD IS WRITTEN IN, NOT TYPED AS MARKUP.
+   *
+   * Both of these used to be the same fixed-height textarea, so the body of a
+   * policy page read `<p><em>Last updated…</em></p>` in a box four lines
+   * tall. Now the one that holds HTML gets an editor, and the one that holds
+   * plain text gets a box the size of what is in it.
+   */
+  if (kind === "richtext") {
     return (
-      <textarea
-        className="w-full min-h-[80px] px-3 py-2.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 resize-y transition-colors"
-        placeholder={field.placeholder ?? ""}
+      <RichTextField
         value={typeof raw === "string" ? raw : ""}
-        onChange={e => onChange(e.target.value)}
+        onChange={onChange}
+        placeholder={field.placeholder ?? "Write something"}
+      />
+    )
+  }
+
+  if (kind === "textarea") {
+    return (
+      <AutoTextarea
+        value={typeof raw === "string" ? raw : ""}
+        onChange={onChange}
+        placeholder={field.placeholder ?? ""}
       />
     )
   }
@@ -5447,6 +5466,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * React types declare `React` as a UMD global — and the build does not
    * fail on type errors. tests/react-binding.test.ts is what catches it now.
    */
+  /**
+   * The assistant, for the button in a rich text toolbar.
+   *
+   * Memoised because it is a context value: a new function every render
+   * would re-render every field in the panel on every keystroke elsewhere.
+   */
+  const askAiFromField = useCallback(() => {
+    setAiOpen(true)
+    if (isMobileView) setMobileSidebarOpen(false)
+  }, [isMobileView])
+
   const sidebarGoingBack = useRef(false)
   const lastPanelKey = useRef(sidebarPanelKey)
   if (lastPanelKey.current !== sidebarPanelKey) {
@@ -7070,6 +7100,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         installId={installId}
         name={install?.name ?? ""}
         onRenamed={(name) => setInstall((cur) => (cur ? { ...cur, name } : cur))}
+        /* Policies are found in settings and edited in the builder. */
+        onEditPage={(pageKey) => handlePageChange(pageKey as PageKey)}
         websiteUrl={websiteUrl}
         websiteUrlDisplay={websiteUrlDisplay}
         live={install?.status === "published"}
@@ -7193,12 +7225,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             >
               <div data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
                 <LinkTargetsProvider targets={linkTargets}>
+                  {/* The assistant button in a rich text toolbar opens the
+                      chat. A context, because these fields are several layers
+                      below anything that knows the chat exists. */}
+                  <RichTextAssistant.Provider value={askAiFromField}>
                   <div
                     key={sidebarPanelKey}
                     className={sidebarGoingBack.current ? "wb-panel-swap-back h-full" : "wb-panel-swap h-full"}
                   >
                     {renderSidebarContent()}
                   </div>
+                  </RichTextAssistant.Provider>
                 </LinkTargetsProvider>
               </div>
             </div>
@@ -7297,12 +7334,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
             <div data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
               <LinkTargetsProvider targets={linkTargets}>
+                  {/* The assistant button in a rich text toolbar opens the
+                      chat. A context, because these fields are several layers
+                      below anything that knows the chat exists. */}
+                  <RichTextAssistant.Provider value={askAiFromField}>
                   <div
                     key={sidebarPanelKey}
                     className={sidebarGoingBack.current ? "wb-panel-swap-back h-full" : "wb-panel-swap h-full"}
                   >
                     {renderSidebarContent()}
                   </div>
+                  </RichTextAssistant.Provider>
                 </LinkTargetsProvider>
             </div>
           </MobileEditorSheet>

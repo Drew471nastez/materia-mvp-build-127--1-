@@ -25,6 +25,10 @@ import { ensurePolicyPages, type PageRow, type PagesTable } from "@/lib/website-
 import { pageTitleFromKey, BUILT_IN_PAGE_KEYS } from "@/lib/website-builder/site-pages"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+
+const root = process.cwd()
 
 let passed = 0
 let failed = 0
@@ -251,6 +255,64 @@ async function main() {
     }
     const failedRead = await ensurePolicyPages(broken, "install-5", "Acme")
     check("a database that will not answer is reported rather than thrown", failedRead.error === "no" && failedRead.created.length === 0)
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  section("They are reachable, and they are edited where the editor is")
+  // ════════════════════════════════════════════════════════════════════════
+  {
+    const settings = readFileSync(join(root, "components/website-builder/project-settings.tsx"), "utf8")
+    const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const switcher = readFileSync(join(root, "components/website-builder/page-switcher.tsx"), "utf8")
+
+    check("project settings has a Policies section", /id: "policies"/.test(settings) && /POLICY_PAGES\.map/.test(settings))
+    check("it lists them from the one definition, not a second copy", /from "@\/lib\/website-builder\/policy-pages"/.test(settings))
+    check("and editing opens the page in the builder", /onEditPage\?\.\(page\.key\)/.test(settings) && /onEditPage=\{\(pageKey\) =>/.test(editor))
+
+    /**
+     * The editor resolves an in-site link to a page it knows about, which is
+     * what makes a footer link to /refund-policy arrive somewhere.
+     */
+    check(
+      "a footer link to a policy resolves to that page in the editor",
+      /const customMatch = customPages\.find\(p => p\.key === pageKeyGuess\)/.test(editor),
+    )
+
+    check("the pages group is shut until it is asked for", /const \[yoursOpen, setYoursOpen\] = useState\(false\)/.test(switcher))
+    check(
+      "and it scrolls inside itself past three",
+      /PAGES_BEFORE_SCROLL = 3/.test(switcher) && /yours\.length > PAGES_BEFORE_SCROLL/.test(switcher),
+    )
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  section("A policy is written in, not typed as markup")
+  // ════════════════════════════════════════════════════════════════════════
+  {
+    const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+    const rich = readFileSync(join(root, "components/website-builder/rich-text-field.tsx"), "utf8")
+    const auto = readFileSync(join(root, "components/website-builder/auto-textarea.tsx"), "utf8")
+    const css = readFileSync(join(root, "app/globals.css"), "utf8")
+
+    check("a richtext field gets the editor", /if \(kind === "richtext"\)[\s\S]{0,200}<RichTextField/.test(editor))
+    check("a plain one gets a box that grows", /if \(kind === "textarea"\)[\s\S]{0,200}<AutoTextarea/.test(editor))
+    check("and neither is the old fixed-height textarea", !/min-h-\[80px\][\s\S]{0,80}resize-y/.test(editor))
+
+    check("the toolbar is the six things these fields hold", ["Bold", "Italic", "Link", "Bulleted list", "Numbered list"].every((l) => rich.includes(l)))
+    check("the assistant button only exists when there is an assistant", /askAi \? \(/.test(rich))
+    check(
+      "a toolbar press keeps the selection, or there is nothing to format",
+      /onMouseDown=\{\(e\) => \{\s*e\.preventDefault\(\)/.test(rich),
+    )
+    check("everything that leaves it is sanitised", /sanitizeRichText\(el\.innerHTML\)/.test(rich))
+    check("a paste arrives as text, not as someone else's markup", /insertText/.test(rich) && /e\.preventDefault\(\)/.test(rich))
+    check("and the value is only written in when it came from elsewhere", /if \(el\.innerHTML !== incoming\)/.test(rich))
+    check("what it can produce is styled, so formatting is visible", /\.wb-richtext h2/.test(css) && /\.wb-richtext ul/.test(css))
+
+    check("the box starts at one line", /rows=\{1\}/.test(auto))
+    check("and is measured rather than counted", /el\.style\.height = "auto"/.test(auto) && /scrollHeight/.test(auto))
+    check("with a ceiling, so it cannot push the panel away", /Math\.min\(wanted, ceiling\)/.test(auto))
+    check("and it re-fits when the sidebar is resized", /ResizeObserver/.test(auto))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

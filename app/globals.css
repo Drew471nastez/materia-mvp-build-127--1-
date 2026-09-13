@@ -793,6 +793,25 @@ html.capacitor body {
     .settings-panel { animation: none; }
   }
 
+  /* ── The rich text editor's own content ─────────────────────────────────
+     A contentEditable inherits nothing, so headings and lists inside it
+     render as plain paragraphs and the formatting somebody just applied is
+     invisible until they look at the page. These are the shapes the field
+     can actually produce and nothing else. */
+  .wb-richtext > * + * { margin-top: 0.65em; }
+  .wb-richtext h2 { font-size: 1.15rem; font-weight: 650; line-height: 1.3; }
+  .wb-richtext h3 { font-size: 1.02rem; font-weight: 650; line-height: 1.35; }
+  .wb-richtext h4 { font-size: 0.95rem; font-weight: 650; line-height: 1.4; }
+  .wb-richtext p { line-height: 1.55; }
+  .wb-richtext ul,
+  .wb-richtext ol { padding-left: 1.25rem; }
+  .wb-richtext ul { list-style: disc; }
+  .wb-richtext ol { list-style: decimal; }
+  .wb-richtext li { line-height: 1.55; }
+  .wb-richtext li + li { margin-top: 0.25em; }
+  .wb-richtext a { color: #8b5cf6; text-decoration: underline; }
+  .wb-richtext strong, .wb-richtext b { font-weight: 650; }
+
   /* ── A panel arrives from the side, never from below ────────────────────
      Forward came from 6px below, and a scroll container counts anything
      translated past its bottom edge as scrollable overflow: for the 180ms of

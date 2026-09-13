@@ -1,11 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { ArrowLeft, Check, Copy, ExternalLink, Globe, History, Loader2, Rocket, Settings, Sparkles, Upload } from "lucide-react"
+import { ArrowLeft, Check, Copy, ExternalLink, FileText, Globe, History, Loader2, Rocket, Scale, Settings, Sparkles, Upload } from "lucide-react"
 
 import { relativeTime } from "@/components/website-builder/publish-panel"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
+import { POLICY_PAGES } from "@/lib/website-builder/policy-pages"
 
 /**
  * ===========================================================================
@@ -32,7 +33,7 @@ import { cn } from "@/lib/utils"
  * restore that takes a safety copy first).
  */
 
-type Section = "general" | "domains" | "publishing" | "backups"
+type Section = "general" | "domains" | "policies" | "publishing" | "backups"
 
 interface BackupRow {
   id: string
@@ -68,6 +69,7 @@ export function ProjectSettings({
   live,
   publishedAt,
   onRestored,
+  onEditPage,
 }: {
   open: boolean
   onClose: () => void
@@ -80,6 +82,15 @@ export function ProjectSettings({
   publishedAt: string | null
   /** A backup has been written into the draft; the editor must reload it. */
   onRestored?: () => void
+  /**
+   * Open one of the site's pages in the builder.
+   *
+   * The policies are EDITED THERE, not here. They are ordinary pages made of
+   * ordinary sections, and the builder already has the rich text editor, the
+   * preview, the undo and the save. A second editor in this panel would be a
+   * second way to write the same rows, which is how a draft gets lost.
+   */
+  onEditPage?: (pageKey: string) => void
 }) {
   const [section, setSection] = useState<Section>("general")
   const [draft, setDraft] = useState(name)
@@ -216,6 +227,7 @@ export function ProjectSettings({
   const NAV: { id: Section; label: string; Icon: typeof Settings }[] = [
     { id: "general", label: "General", Icon: Settings },
     { id: "domains", label: "Domains & Hosting", Icon: Globe },
+    { id: "policies", label: "Policies", Icon: Scale },
     { id: "publishing", label: "Publishing", Icon: Rocket },
     { id: "backups", label: "Backups", Icon: History },
   ]
@@ -364,6 +376,44 @@ export function ProjectSettings({
                   address.
                 </div>
               </div>
+            </>
+          )}
+
+          {section === "policies" && (
+            <>
+              <h1 className="text-[26px] font-semibold tracking-[-0.01em] md:text-[30px]">Policies</h1>
+              <p className="mt-3 max-w-[560px] text-[15px] leading-relaxed text-white/60">
+                Every website ships with these three pages and links to them from its footer. They are written as
+                templates, so read them and replace anything in square brackets with your own terms before you publish.
+              </p>
+              <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                {POLICY_PAGES.map((page, i) => (
+                  <div
+                    key={page.key}
+                    className={cn("flex items-center gap-3 px-5 py-4", i > 0 && "border-t border-white/10")}
+                  >
+                    <FileText className="h-4 w-4 shrink-0 text-white/50" strokeWidth={1.75} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15px] text-white">{page.title}</p>
+                      <p className="truncate text-[13px] text-white/40">/{page.key}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onEditPage?.(page.key)
+                        onClose()
+                      }}
+                      className="shrink-0 rounded-xl border border-white/20 bg-white/[0.08] px-4 py-2 text-[14px] font-medium text-white transition-colors hover:bg-white/[0.14]"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 text-[13px] leading-relaxed text-white/40">
+                Editing opens the page in the builder, where the text, the layout and everything else about it can be
+                changed like any other page.
+              </p>
             </>
           )}
 
