@@ -540,6 +540,76 @@ const DRIVE = `
       steps.push({ label: "no control in view inside a section to tap", message: "found " + focusables.length + " focusable elements, none fully in view" })
     }
 
+    /**
+     * AND THE LAST SECTION, FROM THE BOTTOM. "It redirects me back to the
+     * top, especially when I click on the last section." The bottom of the
+     * page is where the newsletter and the footer are, which is where the
+     * forms are, and a form that submits takes the whole page with it.
+     */
+    scrollerForKeep.scrollTop = scrollerForKeep.scrollHeight
+    await sleep(300)
+    var atBottom = scrollerForKeep.scrollTop
+    var lastSections = scrollerForKeep.querySelectorAll("[id^=wb-section-]")
+    var last = lastSections[lastSections.length - 1]
+    var lowestLast = atBottom
+    var samplingLast = true
+    var sampleLast = function () {
+      if (!samplingLast) return
+      if (scrollerForKeep.scrollTop < lowestLast) lowestLast = scrollerForKeep.scrollTop
+      requestAnimationFrame(sampleLast)
+    }
+    requestAnimationFrame(sampleLast)
+    // The section itself, then a control that would submit a form: a thumb
+    // finds both, and a submit is the one that takes the whole page with it.
+    tap(last); await sleep(500)
+    var submitter = scrollerForKeep.querySelector("form button[type=submit], form button:not([type]), form input[type=submit]")
+    /**
+     * No form in the fixture, so put one there. A newsletter written in the
+     * theme language IS this: a form with an action and a submit button,
+     * whose own script does not run in the editor. Submitting it navigates
+     * the page for real, which is what "it redirected me back to the top"
+     * was. With the canvas blocking the default, the address does not move.
+     */
+    var injected = false
+    if (!submitter && last) {
+      var f = document.createElement("form")
+      f.setAttribute("action", "/products")
+      f.setAttribute("method", "get")
+      var b = document.createElement("button")
+      b.setAttribute("type", "submit")
+      b.textContent = "Join"
+      f.appendChild(b)
+      last.appendChild(f)
+      submitter = b
+      injected = true
+      await sleep(120)
+    }
+    if (submitter) {
+      // Bring it under the thumb first, the way a person would.
+      var box = scrollerForKeep.getBoundingClientRect()
+      var r = submitter.getBoundingClientRect()
+      scrollerForKeep.scrollTop = Math.max(0, scrollerForKeep.scrollTop + (r.top - box.top) - 200)
+      await sleep(300)
+      atBottom = scrollerForKeep.scrollTop
+      lowestLast = atBottom
+      tap(submitter)
+      await sleep(1200)
+    }
+    samplingLast = false
+    steps.push({
+      label: "the LAST section, tapped from the bottom, keeps the scroll position",
+      keptScroll: scrollerForKeep.scrollTop,
+      beforeTap: atBottom,
+      lowest: lowestLast,
+      room: scrollerForKeep.scrollHeight - scrollerForKeep.clientHeight,
+      heightBefore: scrollerForKeep.scrollHeight,
+      heightAfter: scrollerForKeep.scrollHeight,
+      clientAfter: scrollerForKeep.clientHeight,
+      what: submitter ? "section then a " + submitter.tagName.toLowerCase() + " that submits a form" + (injected ? " (put there by the probe)" : "") : "section only, no form on the page",
+      focused: document.activeElement === document.body ? "no focus" : "focus on " + (document.activeElement ? document.activeElement.tagName.toLowerCase() : "none"),
+      stillHere: location.pathname,
+    })
+
     // THE REPORT: selecting a section. With touch, as a thumb does it.
     tap(secs[2] || secs[1]); await sleep(700)
     steps.push(touchDrag("a finger after TAPPING a section on the canvas"))

@@ -72,6 +72,7 @@ import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { resetClippedAncestors, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
+import { leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
@@ -7312,10 +7313,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              * are gone, which is the mode for walking the site.
              */
             onMouseDownCapture={inspectorEnabled ? (e) => e.preventDefault() : undefined}
-            onClickCapture={inspectorEnabled ? (e) => {
-              const target = e.target as HTMLElement | null
-              if (target?.closest?.("a")) e.preventDefault()
-            } : undefined}
+            /**
+             * And this pair is not about the inspector at all: the canvas
+             * never takes the BROWSER anywhere, in either mode. A link goes
+             * through the editor's own `onEditorNavigate`, which changes the
+             * page being edited; a form in here has nowhere to post to, and
+             * a section written in the theme language has no submit handler
+             * running in the editor, so its button submits for real and the
+             * builder is gone. That is the "it redirected me and I am back at
+             * the top" in the report. Only the DEFAULT is blocked: every
+             * handler, ours and the section's, still runs.
+             */
+            onClickCapture={(e) => {
+              if (leavesThePage(e.target as unknown as ClickTargetLike | null)) e.preventDefault()
+            }}
+            onSubmitCapture={(e) => e.preventDefault()}
             className={cn(
               /**
                * `isolate` is the whole reason the page switcher's panel stopped

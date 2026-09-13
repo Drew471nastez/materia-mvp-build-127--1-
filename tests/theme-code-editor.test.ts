@@ -261,7 +261,10 @@ section("It is reachable, and it works on a file longer than the window")
     // here runs, which on a short page is a jump to the top; and a link that
     // no renderer intercepted navigated the whole builder away, measured.
     /onMouseDownCapture=\{inspectorEnabled \? \(e\) => e\.preventDefault\(\) : undefined\}/.test(editor) &&
-      /onClickCapture=\{inspectorEnabled \? \(e\) => \{[\s\S]*?target\?\.closest\?\.\("a"\)\) e\.preventDefault\(\)/.test(editor),
+      // and the page-leaving pair, which is not about the inspector at all:
+      // see "The canvas never takes the browser anywhere" in canvas-scroll.
+      /onClickCapture=\{\(e\) => \{\s*\n\s*if \(leavesThePage\(/.test(editor) &&
+      /onSubmitCapture=\{\(e\) => e\.preventDefault\(\)\}/.test(editor),
   )
   check(
     "a closed code pane is visibility: hidden once its fade is done, not a transparent full-screen frame over the canvas",

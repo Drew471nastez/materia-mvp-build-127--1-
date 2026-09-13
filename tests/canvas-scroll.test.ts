@@ -14,6 +14,7 @@
  * scroller's wrapper on a phone — is held by reading the editor.
  */
 import { readFileSync } from "node:fs"
+import { leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 import { join } from "node:path"
 import { STUCK_DISTANCE_PX, nudgeOffEnds, reviveScroller, watchForStuckScroll } from "@/lib/website-builder/canvas-scroll"
 
@@ -305,7 +306,64 @@ function main() {
       !/sheet\.addEventListener\("touchend"/.test(sheet) && !/sheet\.addEventListener\("touchcancel"/.test(sheet),
     )
   }
-  console.log(`\n${passed} passed, ${failed} failed`)
+  section("The canvas never takes the browser anywhere")
+{
+  /** A fake element tree: `closest` walks up by the selectors it is asked for. */
+  type Fake = ClickTargetLike & { parent: Fake | null; attrs: Record<string, string>; matches: string[] }
+  const el = (tag: string, matches: string[], attrs: Record<string, string> = {}, parent: Fake | null = null): Fake => {
+    const node: Fake = {
+      tagName: tag.toUpperCase(),
+      attrs,
+      matches,
+      parent,
+      getAttribute: (name: string) => attrs[name] ?? null,
+      closest(selector: string): ClickTargetLike | null {
+        const wanted = selector.split(",").map((p) => p.trim())
+        let cur: Fake | null = node
+        while (cur) {
+          if (cur.matches.some((m) => wanted.includes(m))) return cur
+          cur = cur.parent
+        }
+        return null
+      },
+    }
+    return node
+  }
+
+  const link = el("a", ["a[href]"], { href: "/products" })
+  const inLink = el("span", [], {}, link)
+  check("a tap inside a link would leave, so its default is blocked", leavesThePage(inLink))
+
+  const form = el("form", ["form"])
+  const submit = el("button", ["button, input", "button"], { type: "submit" }, form)
+  check("a submit button inside a form would leave", leavesThePage(submit))
+
+  const bare = el("button", ["button, input", "button"], {}, form)
+  check("a button with no type inside a form is a submit button", leavesThePage(bare))
+
+  const plain = el("button", ["button, input", "button"], { type: "button" }, form)
+  check("a button that says it is not a submit is left alone", !leavesThePage(plain))
+
+  const loose = el("button", ["button, input", "button"], {})
+  check("a button outside any form is left alone", !leavesThePage(loose))
+
+  const text = el("input", ["button, input", "input"], { type: "text" }, form)
+  check("a text field is left alone", !leavesThePage(text))
+
+  const inputSubmit = el("input", ["button, input", "input"], { type: "submit" }, form)
+  check("an input that submits would leave", leavesThePage(inputSubmit))
+
+  check("nothing is nothing", !leavesThePage(null))
+
+  const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  check(
+    "and the canvas blocks both, in either mode, without blocking any handler",
+    /onClickCapture=\{\(e\) => \{\s*\n\s*if \(leavesThePage\(/.test(editor) &&
+      /onSubmitCapture=\{\(e\) => e\.preventDefault\(\)\}/.test(editor),
+  )
+}
+
+console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
 
