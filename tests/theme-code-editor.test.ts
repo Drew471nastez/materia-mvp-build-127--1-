@@ -635,10 +635,19 @@ section("The library draws what you would actually get")
   /**
    * Thirty cards measuring themselves was thirty observers agreeing, each
    * reporting after the first paint — so every card drew once at a guess and
-   * then jumped. Measured once, before paint, and kept across a category
-   * change so the next set of cards is right on its first frame.
+   * then jumped. It is still ONE observer, on the grid, for the whole set.
+   *
+   * What changed is when it is created. A ref read inside an effect keyed on
+   * `[open, isMobileLayout]` never ran for the desktop modal, because a
+   * dialog that mounts its content through a presence wrapper has not
+   * attached the ref by then — the effect returned early and the deps never
+   * changed again. The grid was drawn only `gridWidth > 0`, so the library
+   * came up completely blank: `cards=0`, measured on the real editor.
+   *
+   * A callback ref is handed the node the moment the node exists, so the one
+   * measurement still happens once and can no longer be missed.
    */
-  check("the column is measured once, by the grid, before it paints", /const gridRef = useRef<HTMLDivElement>\(null\)/.test(editor) && /useLayoutEffect\(\(\) => \{[\s\S]{0,400}new ResizeObserver\(read\)/.test(editor) && !/new ResizeObserver\(\(\[entry\]\) => \{/.test(editor))
+  check("the column is measured once, by the grid, the moment the grid exists", /const gridRef = useCallback\(\(el: HTMLDivElement \| null\) => \{/.test(editor) && (editor.match(/new ResizeObserver\(/g) ?? []).length >= 1 && !/new ResizeObserver\(\(\[entry\]\) => \{/.test(editor))
   check("and a card takes that width rather than finding its own", /\/\*\* Measured once by the grid, not thirty times by thirty cards\. \*\//.test(editor) && /width: number/.test(editor))
   // A box whose height is known before anything renders cannot shift when it does.
   check("a preview box is a known shape before it draws, so the grid never resettles", /const PREVIEW_RATIO = 0\.5/.test(editor) && /height,\s*\n\s*contentVisibility: "auto"/.test(editor) && /containIntrinsicSize:/.test(editor))

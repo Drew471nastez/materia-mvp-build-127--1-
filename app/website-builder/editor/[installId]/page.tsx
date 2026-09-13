@@ -1078,6 +1078,9 @@ const SectionLibraryCard = memo(function SectionLibraryCard({
   return (
     <button
       onClick={() => onAdd(type, presetIndex)}
+      /* A stable hook so the library can be counted from outside: an empty
+         list and a list that failed to draw look identical in a screenshot. */
+      data-library-card={type}
       className={cn(
         "flex flex-col w-full rounded-xl border border-border bg-background overflow-hidden text-left",
         "transition-all duration-200 ease-out will-change-transform",
@@ -1279,8 +1282,40 @@ function AddSectionModal({
    * cards are the right size on their first frame. There is nothing to
    * settle into.
    */
-  const gridRef = useRef<HTMLDivElement>(null)
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE LIBRARY IS NOT ALLOWED TO DEPEND ON A MEASUREMENT ARRIVING
+   * ═════════════════════════════════════════════════════════════════════════
+   * This was a ref read inside an effect keyed on `[open, isMobileLayout]`,
+   * and the grid below was drawn only when `gridWidth > 0`. If the ref was
+   * not attached in the commit that effect ran in — which is what a dialog
+   * mounting its content through a presence wrapper does — the effect
+   * returned early, nothing ever set the width, and the deps never changed
+   * again to give it a second chance.
+   *
+   * That is the bug as reported: every category down the side and, beside
+   * them, nothing. Not "no sections in this category" — the list was never
+   * empty, it simply never drew. Measured on the real editor: `cards=0` in a
+   * modal reading "Add New Section … All, Hero, Products, Features …".
+   *
+   * A CALLBACK REF CANNOT MISS IT. React calls it with the node the moment
+   * the node exists, whenever that is, and with null when it goes away. The
+   * observer is created there, so the first measurement and every later one
+   * come from the same place and there is no window to fall through.
+   */
   const [gridWidth, setGridWidth] = useState(0)
+  const gridObserver = useRef<ResizeObserver | null>(null)
+  const gridRef = useCallback((el: HTMLDivElement | null) => {
+    gridObserver.current?.disconnect()
+    gridObserver.current = null
+    if (!el) return
+    setGridWidth(el.getBoundingClientRect().width)
+    if (typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(() => setGridWidth(el.getBoundingClientRect().width))
+    ro.observe(el)
+    gridObserver.current = ro
+  }, [])
+  useEffect(() => () => gridObserver.current?.disconnect(), [])
   /**
    * The card has a 1px border, and the preview sits inside it, so the space
    * the preview actually has is the column less those two pixels. Scaling to
@@ -1290,15 +1325,6 @@ function AddSectionModal({
    * the section.
    */
   const previewWidth = Math.max(0, gridWidth - 2)
-  useLayoutEffect(() => {
-    const el = gridRef.current
-    if (!el) return
-    const read = () => setGridWidth(el.getBoundingClientRect().width)
-    read()
-    const ro = new ResizeObserver(read)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [open, isMobileLayout])
 
   const cards = (mobile: boolean) => (
     <>
@@ -1312,7 +1338,11 @@ function AddSectionModal({
         */}
       <StorelibLiveProvider sources={sources}>
         <div ref={gridRef} className={mobile ? "flex flex-col gap-3" : "grid grid-cols-1 gap-4"}>
-          {gridWidth > 0 && visible.map(e => (
+          {/* The width no longer gates the list. A card whose preview does
+              not yet know how wide it is can still be drawn and still be
+              pressed; a library nobody can see is worse than a preview that
+              arrives a frame late. */}
+          {visible.map(e => (
             <SectionLibraryCard
               key={`${e.type}-${e.presetIndex}`}
               type={e.type}
