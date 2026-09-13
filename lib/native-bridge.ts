@@ -312,7 +312,7 @@ export async function handleNativeOAuthCallback(
     return { success: true, isCreator: false, nextPath: "/welcome" }
   } catch (err) {
     console.error("[handleNativeOAuthCallback]", err)
-    return { success: false, isCreator: false, nextPath: "/login?error=oauth_failed" }
+    return { success: false, isCreator: false, nextPath: "/login?authError=exchange_failed" }
   }
 }
 

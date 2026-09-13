@@ -16,7 +16,7 @@
  *       creator  → /app
  *       buyer    → /library
  *       new user → /welcome  (no role chosen yet)
- *       error    → /login?error=oauth_failed
+ *       error    → /login?authError=exchange_failed
  */
 
 import { useEffect, useRef } from "react"
@@ -64,7 +64,7 @@ export function NativeAuthHandler() {
           router.replace(nextPath)
         } catch (err) {
           console.error("[NativeAuthHandler] appUrlOpen error:", err)
-          router.replace("/login?error=oauth_failed")
+          router.replace("/login?authError=exchange_failed")
         } finally {
           // Remove overlay after navigation starts (generous timeout so
           // loading.tsx and destination page have time to paint first).

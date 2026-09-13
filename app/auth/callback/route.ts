@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
 
 /**
  * GET /auth/callback?code=<code>
@@ -19,12 +20,32 @@ export async function GET(request: Request) {
   const code = searchParams.get("code")
   const error = searchParams.get("error")
   const errorDescription = searchParams.get("error_description")
+  const errorCode = searchParams.get("error_code")
+  /**
+   * Supabase does not say which provider failed and the redirect URL cannot
+   * carry it, so this is usually null here. The login page fills the name in
+   * from the button that was pressed; all this decides is whether the server
+   * log gets to name it too.
+   */
+  const provider = searchParams.get("provider")
 
   if (error) {
-    console.error("[auth/callback] OAuth error:", error, errorDescription)
-    return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent(errorDescription || error)}`
+    /**
+     * WHAT SUPABASE SAID STAYS ON THE SERVER.
+     *
+     * `error_description` is GoTrue's own wording and, for the Apple failure
+     * that shipped, it ENDS WITH APPLE'S AUTHORIZATION CODE. Putting it in
+     * the redirect put a credential in the URL bar, in history, and in red
+     * text under the email field. The redirect carries a code we wrote; the
+     * log carries upstream's words with the token cut out.
+     */
+    const failure = classifyOAuthError({ error, errorCode, errorDescription }, provider)
+    console.error(
+      `[auth/callback] OAuth ${failure.operational ? "FAILURE (ours to fix)" : "error"}:`,
+      failure.code,
+      describeForLog({ error, errorCode, errorDescription }),
     )
+    return NextResponse.redirect(`${origin}/login?${loginErrorQuery(failure, provider)}`)
   }
 
   if (!code) {
@@ -36,7 +57,7 @@ export async function GET(request: Request) {
   const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
   if (exchangeError || !data.user || !data.session) {
-    console.error("[auth/callback] Exchange error:", exchangeError)
+    console.error("[auth/callback] Exchange error:", describeForLog({ message: exchangeError?.message }))
 
     // ── Recover from the "code verifier missing" case silently ──
     // This error happens when the browser no longer has the PKCE verifier
@@ -59,9 +80,17 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/login`)
     }
 
-    // Any other exchange error — also don't expose raw SDK messages. Send
-    // them to /login cleanly.
-    return NextResponse.redirect(`${origin}/login`)
+    /**
+     * Any other exchange failure. The SDK's message is classified and
+     * dropped, and the person gets a sentence with a next step in it rather
+     * than silence: landing back on a login form with no explanation is its
+     * own kind of dead end.
+     */
+    const failure = classifyOAuthError({ message: exchangeError?.message }, provider)
+    if (failure.operational) {
+      console.error(`[auth/callback] sign in FAILURE (ours to fix): ${failure.code}`, describeForLog({ message: exchangeError?.message }))
+    }
+    return NextResponse.redirect(`${origin}/login?${loginErrorQuery(failure, provider)}`)
   }
 
   // 2. Upsert profile

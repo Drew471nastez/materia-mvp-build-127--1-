@@ -31,6 +31,7 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { cacheNativeHome } from "@/lib/native-bridge"
+import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
 
 const TAG = "[NativeOAuth]"
 const DEBUG =
@@ -348,19 +349,27 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     console.log(`${TAG}   error : ${oauthErr ?? "none"}`)
 
     // ── Handle OAuth errors (user cancelled, etc.) ───────────────────────────
+    /**
+     * THE LINE THAT PUT APPLE'S AUTHORIZATION CODE ON THE LOGIN FORM.
+     *
+     * `error_description` here is GoTrue's "Unable to exchange external code:
+     * c300..." — its internal wording with Apple's code appended — and it was
+     * being pasted straight into the next URL. Classified and dropped now:
+     * the redirect carries a code, the console carries upstream's words with
+     * the token cut out.
+     */
     if (oauthErr) {
-      const desc = oauthErrDesc ?? (oauthErr === "access_denied" ? "Sign-in was cancelled." : oauthErr)
-      console.error(`${TAG} OAuth provider returned error: "${desc}"`)
-      showToast(`Error: ${desc}`, "err")
-      window.location.assign(`/login?error=${encodeURIComponent(desc)}`)
+      const failure = classifyOAuthError({ error: oauthErr, errorCode: u.searchParams.get("error_code"), errorDescription: oauthErrDesc })
+      console.error(`${TAG} provider returned an error: ${failure.code}`, describeForLog({ error: oauthErr, errorDescription: oauthErrDesc }))
+      showToast(`Error: ${failure.code}`, "err")
+      window.location.assign(`/login?${loginErrorQuery(failure)}`)
       return
     }
 
     if (!code) {
-      const msg = "No authorization code in callback URL."
-      console.error(`${TAG} ${msg} Full URL: "${rawUrl}"`)
-      showToast(`Error: ${msg}`, "err")
-      window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
+      console.error(`${TAG} No authorization code in callback URL.`)
+      showToast(`Error: no code`, "err")
+      window.location.assign(`/login?${loginErrorQuery(classifyOAuthError("flow state missing"))}`)
       return
     }
 
@@ -390,17 +399,17 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     console.log(`${TAG}   email      : ${data?.session?.user?.email ?? "null"}`)
 
     if (exchangeErr) {
-      console.error(`${TAG} Exchange FAILED:`, exchangeErr)
-      showToast(`Exchange error: ${exchangeErr.message}`, "err")
-      window.location.assign(`/login?error=${encodeURIComponent(exchangeErr.message)}`)
+      const failure = classifyOAuthError({ message: exchangeErr.message })
+      console.error(`${TAG} Exchange FAILED: ${failure.code}`, describeForLog({ message: exchangeErr.message }))
+      showToast(`Exchange error: ${failure.code}`, "err")
+      window.location.assign(`/login?${loginErrorQuery(failure)}`)
       return
     }
 
     if (!data?.session) {
-      const msg = "No session returned after code exchange."
-      console.error(`${TAG} ${msg}`)
-      showToast(`Error: ${msg}`, "err")
-      window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
+      console.error(`${TAG} No session returned after code exchange.`)
+      showToast(`Error: no session`, "err")
+      window.location.assign(`/login?${loginErrorQuery(classifyOAuthError("server_error"))}`)
       return
     }
 
@@ -413,10 +422,9 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     showToast(`Session verified: ${email}`, "ok")
 
     if (!verifiedSession) {
-      const msg = "Session was not persisted. Please try again."
-      console.error(`${TAG} ${msg}`)
-      showToast(`Error: ${msg}`, "err")
-      window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
+      console.error(`${TAG} Session was not persisted.`)
+      showToast(`Error: session not persisted`, "err")
+      window.location.assign(`/login?${loginErrorQuery(classifyOAuthError("flow state was lost"))}`)
       return
     }
 
@@ -489,10 +497,11 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     window.location.assign(syncUrl)
 
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unexpected error."
-    console.error(`${TAG} Handler threw:`, err)
-    showToast(`Error: ${msg}`, "err")
-    window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
+    const raw = err instanceof Error ? err.message : ""
+    const failure = classifyOAuthError({ message: raw })
+    console.error(`${TAG} Handler threw: ${failure.code}`, describeForLog({ message: raw }))
+    showToast(`Error: ${failure.code}`, "err")
+    window.location.assign(`/login?${loginErrorQuery(failure)}`)
   } finally {
     isHandling = false
     try { sessionStorage.removeItem('nativeAuthInProgress') } catch {}

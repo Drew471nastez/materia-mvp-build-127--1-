@@ -19,6 +19,7 @@ import { readSessionBounded } from "@/lib/auth/session-read"
 import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 import { useLocale } from "@/components/locale-provider"
+import { alreadyRegisteredHint, classifyOAuthError, type SignInMethod } from "@/lib/auth/oauth-errors"
 
 function SignUpFormContent() {
   const { t } = useLocale()
@@ -174,13 +175,18 @@ function SignUpFormContent() {
       setIsContinueLoading(true)
       try {
         const origin = await lookupAccountOrigin(email)
-        if (origin?.exists && origin?.googleOnly) {
-          setGoogleOnlyEmail(email.trim().toLowerCase())
-          setError(t("auth.err_email_exists_google"))
-          return
-        }
-        if (origin?.exists && origin?.passwordEnabled) {
-          setError(t("auth.err_account_exists_login"))
+        /**
+         * SAY WHICH ACCOUNT THEY ALREADY HAVE, AND HOW TO GET INTO IT.
+         *
+         * The old pair of checks knew Google and knew passwords, so an email
+         * registered through Sign in with Apple matched neither: signup
+         * carried on, Supabase refused it, and the person was told something
+         * generic about an account they could not find a way into.
+         */
+        if (origin?.exists) {
+          const methods = (origin?.methods ?? []) as SignInMethod[]
+          if (!methods.includes("email")) setGoogleOnlyEmail(email.trim().toLowerCase())
+          setError(alreadyRegisteredHint(methods))
           return
         }
       } catch {}
@@ -307,11 +313,17 @@ function SignUpFormContent() {
         router.refresh()
       }
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t("auth.err_generic")
-      if (msg.toLowerCase().includes("already registered")) {
+      /**
+       * Supabase's own wording never reaches the form. The one case worth
+       * naming is an account that already exists; everything else becomes a
+       * sentence from the same classifier the OAuth routes use.
+       */
+      const msg = error instanceof Error ? error.message : ""
+      const failure = classifyOAuthError({ message: msg })
+      if (failure.code === "wrong_method") {
         setError(t("auth.err_email_registered"))
       } else {
-        setError(msg)
+        setError(failure.code === "unknown" ? t("auth.err_generic") : failure.message)
       }
     } finally {
       setIsLoading(false)
@@ -377,7 +389,7 @@ function SignUpFormContent() {
       window.location.href = `${canonicalUrl}/auth/start?provider=google&next=/app`
       return
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : t("auth.err_google_failed"))
+      setError(classifyOAuthError({ message: error instanceof Error ? error.message : null }, "google").message)
       ;(window as any).__oauthStarting = false
       setIsGoogleLoading(false)
       setIsGoogleRedirecting(false)
@@ -430,7 +442,22 @@ function SignUpFormContent() {
           ;(window as any).__appleOAuthStarting = false
           setIsAppleLoading(false)
           setError(t("auth.err_signin_timeout"))
-        }, 20_000)
+        /**
+         * TWENTY SECONDS WAS NOT ENOUGH TIME TO SIGN IN.
+         *
+         * This fires while the Apple or Google sheet is still open, sets an
+         * error behind it, and clears the loading state. Sign in with Apple
+         * routinely takes longer than twenty seconds: Face ID, then the
+         * "Share My Email" choice, then two factor to another device that has
+         * to be fetched from another room. The sign in then completes anyway
+         * and the deep link navigates away, so the only thing the timeout
+         * achieved was an error message on the way past.
+         *
+         * Two minutes is the ceiling for a person who has genuinely walked
+         * off, and the browser closing still cancels it immediately, which is
+         * the case this was really for.
+         */
+        }, 120_000)
 
         try {
           browserFinishedHandle = await Browser.addListener("browserFinished", () => {
@@ -454,7 +481,7 @@ function SignUpFormContent() {
         return
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t("auth.err_apple_failed"))
+      setError(classifyOAuthError({ message: err instanceof Error ? err.message : null }, "apple").message)
     }
     ;(window as any).__appleOAuthStarting = false
     setIsAppleLoading(false)

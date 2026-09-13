@@ -15,6 +15,77 @@ import { AppleSignInButton } from "@/components/auth/apple-sign-in-button"
 import { useAuthGate } from "@/lib/use-auth-gate"
 import { nativeAuthStart, nativeAppReady, cacheNativeHome } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
+import { classifyOAuthError, existingAccountHint, messageForCode, type OAuthErrorCode, type OAuthProvider, type SignInMethod } from "@/lib/auth/oauth-errors"
+
+/**
+ * ===========================================================================
+ *  WHICH BUTTON WAS PRESSED, AND ONE MORE GO
+ * ===========================================================================
+ * Supabase's error redirect does not say which provider failed, and the
+ * redirect URL cannot carry it: Supabase validates redirectTo against an
+ * allow-list, and an entry written as an exact URL stops matching the moment
+ * a parameter is added. Risking every social sign in on the site to name one
+ * in a sentence is not a trade worth making.
+ *
+ * So the tab remembers. It is the tab that pressed the button and the tab
+ * that gets the answer back, on web and inside the WebView alike.
+ */
+const PROVIDER_KEY = "storelib_oauth_provider"
+/**
+ * ONE RETRY, AND IT HAS TO BE ONE.
+ *
+ * "Unable to exchange external code" is Supabase failing to trade Apple's
+ * authorization code for a token. Apple's codes are single use and last five
+ * minutes, so the ordinary causes are a person who spent longer than that on
+ * the Apple screen and a callback that arrived twice, and both are fixed by
+ * starting over. Doing that automatically is the difference between a dead
+ * end and a hiccup.
+ *
+ * It is also the exact shape of an infinite redirect loop, so: sessionStorage,
+ * per provider, set BEFORE the retry starts and never during a render. A
+ * second failure shows the sentence and stops.
+ */
+const RETRY_KEY = "storelib_oauth_retry"
+
+/** Kept beside the classifier's own list so a code in a URL agrees with it. */
+const RETRYABLE_CODES = new Set<OAuthErrorCode>(["exchange_failed", "flow_lost", "expired", "unknown"])
+
+function readProvider(): OAuthProvider | null {
+  try {
+    const v = sessionStorage.getItem(PROVIDER_KEY)
+    return v === "apple" || v === "google" ? v : null
+  } catch {
+    return null
+  }
+}
+
+function rememberProvider(provider: OAuthProvider) {
+  try {
+    sessionStorage.setItem(PROVIDER_KEY, provider)
+  } catch {
+    /* a WebView with storage disabled loses the name, not the sign in */
+  }
+}
+
+/** True the first time it is asked for a provider, false every time after. */
+function claimRetry(provider: OAuthProvider | null): boolean {
+  if (!provider) return false
+  try {
+    const key = `${RETRY_KEY}:${provider}`
+    if (sessionStorage.getItem(key)) return false
+    sessionStorage.setItem(key, "1")
+    return true
+  } catch {
+    return false
+  }
+}
+
+function clearRetries() {
+  try {
+    sessionStorage.removeItem(`${RETRY_KEY}:apple`)
+    sessionStorage.removeItem(`${RETRY_KEY}:google`)
+  } catch {}
+}
 
 function LoginFormContent() {
   const [email, setEmail] = useState("")
@@ -30,6 +101,8 @@ function LoginFormContent() {
   const [showPasswordField, setShowPasswordField] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
+  /** Set when a retryable failure came back and this tab has a go left. */
+  const [retryingProvider, setRetryingProvider] = useState<OAuthProvider | null>(null)
   const { loading: authGateLoading, session: gateSession, nativeAuthInProgress } = useAuthGate()
   const redirectTimeoutRef = useRef<number | null>(null)
   // Prevent elastic / rubber-band body scroll in the native WebView.
@@ -54,17 +127,71 @@ function LoginFormContent() {
   // Get redirect URL from search params (for returning to receipt page after login)
   const redirectUrl = searchParams.get("redirect")
 
-  // Show any OAuth error forwarded by CapacitorAuthHandler via /login?error=...
-  // (e.g. exchangeCodeForSession failure, user cancelled consent)
+  /**
+   * A FAILED SIGN IN, ARRIVING BACK HERE.
+   *
+   * `?authError=<code>` is what every auth route now redirects with: a code
+   * we wrote, never a sentence somebody upstream wrote. `?error=` is the old
+   * shape and still reaches this page from a tab that was already open, from
+   * a bookmark, and from the handful of routes whose messages are our own; it
+   * goes through the same classifier, so even a raw upstream string arriving
+   * from anywhere is read, identified, and dropped rather than rendered.
+   *
+   * THE RETRY. For the failures that a second attempt fixes, and only on the
+   * first one, the flow starts again by itself instead of leaving somebody on
+   * a form that has just told them in red that they cannot come in.
+   */
   useEffect(() => {
     if (authGateLoading || nativeAuthInProgress) return
-    const oauthError = searchParams.get("error")
-    if (oauthError) {
-      setError(oauthError)
-      setIsGoogleLoading(false)
-      setIsAppleLoading(false)
+
+    const code = searchParams.get("authError")
+    const legacy = searchParams.get("error")
+    if (!code && !legacy) {
+      /** A clean arrival is the end of any retry that was in flight. */
+      clearRetries()
+      return
     }
+
+    const provider = readProvider()
+    const failure = code
+      ? { code: code as OAuthErrorCode, message: messageForCode(code as OAuthErrorCode, provider), retryable: RETRYABLE_CODES.has(code as OAuthErrorCode) }
+      : classifyOAuthError(legacy, provider)
+
+    setIsGoogleLoading(false)
+    setIsAppleLoading(false)
+
+    /**
+     * Cancelling is not an error. Somebody who pressed cancel knows what they
+     * did and does not need it in red.
+     */
+    if (failure.code === "cancelled") {
+      setError(null)
+      return
+    }
+
+    if (failure.retryable && provider && claimRetry(provider)) {
+      setError(null)
+      setRetryingProvider(provider)
+      return
+    }
+
+    setError(failure.message)
   }, [authGateLoading, nativeAuthInProgress]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * The retry itself, in its own effect so it runs after the handlers exist
+   * and after the state above has settled. A tick of delay keeps it off the
+   * same frame as the paint, so the overlay is on screen before the browser
+   * or the redirect takes over.
+   */
+  useEffect(() => {
+    if (!retryingProvider) return
+    const id = window.setTimeout(() => {
+      if (retryingProvider === "apple") handleAppleSignIn()
+      else handleGoogleSignIn()
+    }, 60)
+    return () => window.clearTimeout(id)
+  }, [retryingProvider]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // If user is already authenticated, redirect — never show the form.
   // Uses the session resolved by useAuthGate() instead of a manual getSession().
@@ -233,10 +360,19 @@ function LoginFormContent() {
       setIsContinueLoading(true)
       try {
         const origin = await lookupAccountOrigin(email)
-        if (origin?.googleOnly) {
+        /**
+         * NAME THE WAY IN, WHICHEVER IT IS.
+         *
+         * This used to ask only "is it Google?", so an account created with
+         * Sign in with Apple fell through to the password field and then to
+         * "Invalid login credentials" — their own account, telling them they
+         * had the wrong one.
+         */
+        const hint = existingAccountHint((origin?.methods ?? []) as SignInMethod[])
+        if (hint) {
           setGoogleOnlyEmail(email.trim().toLowerCase())
           setShowPasswordField(false)
-          setError("This account was created with Google. Continue with Google to sign in.")
+          setError(hint)
           return
         }
       } catch {}
@@ -259,9 +395,10 @@ function LoginFormContent() {
 
     try {
       const origin = await lookupAccountOrigin(trimmedEmail)
-      if (origin?.googleOnly) {
+      const hint = existingAccountHint((origin?.methods ?? []) as SignInMethod[])
+      if (hint) {
         setGoogleOnlyEmail(trimmedEmail)
-        setError("No password exists for this account. Continue with Google.")
+        setError(hint)
         setIsLoading(false)
         return
       }
@@ -387,6 +524,7 @@ function LoginFormContent() {
     // "invalid flow state" on the callback.
     if ((window as any).__oauthStarting) return
     ;(window as any).__oauthStarting = true
+    rememberProvider("google")
     setIsGoogleLoading(true)
     setError(null)
     setGoogleOnlyEmail(null)
@@ -474,8 +612,23 @@ function LoginFormContent() {
           browserFinishedHandle?.remove()
           ;(window as any).__oauthStarting = false
           setIsGoogleLoading(false)
-          setError("Sign in timed out. Please try again.")
-        }, 20_000)
+          setError(messageForCode("expired", "apple"))
+        /**
+         * TWENTY SECONDS WAS NOT ENOUGH TIME TO SIGN IN.
+         *
+         * This fires while the Apple or Google sheet is still open, sets an
+         * error behind it, and clears the loading state. Sign in with Apple
+         * routinely takes longer than twenty seconds: Face ID, then the
+         * "Share My Email" choice, then two factor to another device that has
+         * to be fetched from another room. The sign in then completes anyway
+         * and the deep link navigates away, so the only thing the timeout
+         * achieved was an error message on the way past.
+         *
+         * Two minutes is the ceiling for a person who has genuinely walked
+         * off, and the browser closing still cancels it immediately, which is
+         * the case this was really for.
+         */
+        }, 120_000)
 
         try {
           browserFinishedHandle = await Browser.addListener(
@@ -520,7 +673,7 @@ function LoginFormContent() {
         return
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to sign in with Google")
+      setError(classifyOAuthError({ message: err instanceof Error ? err.message : null }, "google").message)
     }
     ;(window as any).__oauthStarting = false
     setIsGoogleLoading(false)
@@ -530,6 +683,7 @@ function LoginFormContent() {
     // Single-flight lock — prevents double-tap and conflicts with Google flow
     if (isAppleLoading || (window as any).__appleOAuthStarting || (window as any).__oauthStarting) return
     ;(window as any).__appleOAuthStarting = true
+    rememberProvider("apple")
     setIsAppleLoading(true)
     setError(null)
     setGoogleOnlyEmail(null)
@@ -577,8 +731,9 @@ function LoginFormContent() {
           browserFinishedHandle?.remove()
           ;(window as any).__appleOAuthStarting = false
           setIsAppleLoading(false)
-          setError("Sign in timed out. Please try again.")
-        }, 20_000)
+          setError(messageForCode("expired", "apple"))
+        /** Two minutes, for the reason given on the other handler. */
+        }, 120_000)
 
         try {
           browserFinishedHandle = await Browser.addListener("browserFinished", () => {
@@ -608,7 +763,7 @@ function LoginFormContent() {
         return
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to sign in with Apple")
+      setError(classifyOAuthError({ message: err instanceof Error ? err.message : null }, "apple").message)
     }
     ;(window as any).__appleOAuthStarting = false
     setIsAppleLoading(false)
@@ -618,6 +773,18 @@ function LoginFormContent() {
   // This guarantees the login form is never shown after auth succeeds.
   if (authGateLoading || nativeAuthInProgress) {
     return <AuthResolvingScreen message={nativeAuthInProgress ? "Signing you in..." : undefined} />
+  }
+
+  /**
+   * THE RETRY IS NOT A BLANK MOMENT ON A LOGIN FORM.
+   *
+   * Between the failure landing here and the flow restarting there is a tick
+   * where the form is on screen with nothing happening. Covering it says what
+   * is going on, and it is the same screen the first attempt showed, so a
+   * second try looks like the first rather than like a fault.
+   */
+  if (retryingProvider) {
+    return <AuthResolvingScreen message={`Finishing sign in with ${retryingProvider === "apple" ? "Apple" : "Google"}...`} />
   }
 
   if (isRedirecting || gateSession || isGoogleRedirecting || isAppleRedirecting) {
@@ -676,7 +843,11 @@ function LoginFormContent() {
 
             {googleOnlyEmail && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
-                <p className="text-xs text-blue-800">Use Google sign-in for <span className="font-medium">{googleOnlyEmail}</span>.</p>
+                {/* The buttons that work for this email are right below this
+                    note, so it points at them rather than naming one. */}
+                <p className="text-xs text-blue-800">
+                  Use one of the sign in options below for <span className="font-medium">{googleOnlyEmail}</span>.
+                </p>
               </div>
             )}
 

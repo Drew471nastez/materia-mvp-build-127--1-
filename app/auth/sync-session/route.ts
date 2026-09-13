@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
 
 /**
  * GET /auth/sync-session?access_token=...&refresh_token=...&next=/app
@@ -47,10 +48,14 @@ export async function GET(request: Request) {
   })
 
   if (error) {
-    console.error("[sync-session] setSession error:", error.message)
-    return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent(error.message)}`
-    )
+    /**
+     * setSession fails when the tokens have aged out between the exchange and
+     * this request. The SDK's message is the wrong thing to show and, like
+     * every other upstream string in this flow, it is classified and dropped.
+     */
+    const failure = classifyOAuthError({ message: error.message })
+    console.error("[sync-session] setSession failed:", failure.code, describeForLog({ message: error.message }))
+    return NextResponse.redirect(`${origin}/login?${loginErrorQuery(failure)}`)
   }
 
   // Cookies are now written via Set-Cookie on this redirect response.

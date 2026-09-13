@@ -64,18 +64,38 @@ export async function POST(request: Request) {
     const user = await findAuthUserByEmail(adminSupabase, email)
 
     if (!user) {
-      return NextResponse.json({ exists: false, googleOnly: false, passwordEnabled: false })
+      return NextResponse.json({ exists: false, methods: [], googleOnly: false, passwordEnabled: false })
     }
 
     const providers = getProviders(user)
     const hasGoogle = providers.has("google")
+    const hasApple = providers.has("apple")
     const hasEmailProvider = providers.has("email")
-    const googleOnly = hasGoogle && !hasEmailProvider
+
+    /**
+     * WHAT THIS ROUTE USED TO SAY, AND WHY IT WAS WRONG FOR APPLE.
+     *
+     * It knew two answers: Google, or a password. An account created with
+     * Sign in with Apple has `apple` and nothing else, so `googleOnly` was
+     * false, `passwordEnabled` came back true, and the login form asked for a
+     * password that has never existed. The person then got "Invalid login
+     * credentials" — an account they own, told they have the wrong one.
+     *
+     * So the answer is the list of ways in, and the caller names them. The
+     * two old fields are still returned because other callers read them, and
+     * `passwordEnabled` now means what it says: there is a password.
+     */
+    const methods = [
+      ...(hasEmailProvider ? (["email"] as const) : []),
+      ...(hasGoogle ? (["google"] as const) : []),
+      ...(hasApple ? (["apple"] as const) : []),
+    ]
 
     return NextResponse.json({
       exists: true,
-      googleOnly,
-      passwordEnabled: !googleOnly,
+      methods,
+      googleOnly: hasGoogle && !hasEmailProvider && !hasApple,
+      passwordEnabled: hasEmailProvider,
       providers: Array.from(providers),
     })
   } catch (error) {

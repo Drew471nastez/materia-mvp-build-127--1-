@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import type { Provider } from "@supabase/supabase-js"
+import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
 
 /**
  * GET /auth/start?provider=google|apple&next=/app
@@ -64,6 +65,15 @@ export async function GET(request: Request) {
       // Clean URL with no nested query params — avoids double-encoding the
       // ?next=... value. /auth/callback already determines the correct
       // destination (/app vs /library) from the database.
+      /**
+       * NO QUERY STRING ON THIS. Supabase validates redirectTo against the
+       * Site URL and the allow-list, and an allow-list entry written as an
+       * exact URL would stop matching the moment a parameter is added. The
+       * provider is remembered in sessionStorage by the login page instead,
+       * which is the tab that pressed the button and is still the tab that
+       * gets the answer back. A URL is not worth the risk to every social
+       * sign in on the site.
+       */
       redirectTo: `${callbackOrigin}/auth/callback`,
       ...(googleQueryParams ? { queryParams: googleQueryParams } : {}),
       // Do NOT let the library navigate — we want the URL to return here so we
@@ -73,10 +83,10 @@ export async function GET(request: Request) {
   })
 
   if (error || !data.url) {
-    console.error(`[auth/start] ${provider} OAuth init error:`, error)
-    return NextResponse.redirect(
-      `${canonicalUrl}/login?error=${encodeURIComponent(error?.message ?? "OAuth initialisation failed")}`
-    )
+    /** Same rule as the callback: classify, log upstream, redirect a code. */
+    const failure = classifyOAuthError({ message: error?.message }, provider)
+    console.error(`[auth/start] ${provider} OAuth init failed:`, failure.code, describeForLog({ message: error?.message }))
+    return NextResponse.redirect(`${canonicalUrl}/login?${loginErrorQuery(failure, provider)}`)
   }
 
   // The Supabase client has already written the PKCE code-verifier cookie to
