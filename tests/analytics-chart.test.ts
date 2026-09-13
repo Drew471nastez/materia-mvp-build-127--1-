@@ -198,6 +198,47 @@ for (const [name, src] of CHARTS) {
 }
 
 // ===========================================================================
+section("The chart owns the touch, and scrolls the page itself")
+// ===========================================================================
+/**
+ * TOUCH-ACTION IS READ ONCE, AT TOUCHSTART.
+ *
+ * It used to be `tooltipActive ? "none" : "pan-y pinch-zoom"`, and that
+ * ternary could not do what it looked like it did: the compositor latches the
+ * value when the finger lands and keeps it for the whole gesture, so the
+ * "none" branch only ever reached the NEXT touch. Every hold therefore began
+ * having already promised the browser it could take the gesture away as a
+ * vertical scroll — and it did, the moment the finger started to slide. Lift,
+ * tap again, and it worked, because the second touch landed on "none".
+ *
+ * That was "hold, untap, tap, slide". A value computed from state the gesture
+ * itself sets is always this bug, so the rule is that it is a constant.
+ *
+ * The price of owning the gesture is that the browser will not scroll the
+ * page from this 200px band any more, so the vertical branch has to. Both
+ * halves are checked, because either one alone is a regression: constant
+ * "none" without the scrolling freezes the page under a thumb, and the
+ * scrolling without "none" leaves the hold stealable.
+ */
+for (const [name, src] of CHARTS) {
+  const line = src.match(/touchAction: [^\n]*/)?.[0] ?? "(no touchAction on the chart)"
+  check(
+    `${name}: touch-action is a constant none`,
+    /touchAction: "none"/.test(src) && !/touchAction: \w+ \?/.test(src),
+    `found: ${line}`,
+  )
+  check(
+    `${name}: a vertical drag scrolls the page by hand`,
+    /scrollByPx\(scrollerRef\.current, step\)/.test(src) && /findScroller\(containerRef\.current\)/.test(src),
+  )
+  check(
+    `${name}: a flick keeps going, and a new touch stops it`,
+    /stopFlingRef\.current = fling\(scrollerRef\.current, scrollVelocityRef\.current\)/.test(src) &&
+      /stopFlingRef\.current\(\)\n\s*stopFlingRef\.current = noFling/.test(src),
+  )
+}
+
+// ===========================================================================
 section("A ref that is used is a ref that is declared")
 // ===========================================================================
 /**

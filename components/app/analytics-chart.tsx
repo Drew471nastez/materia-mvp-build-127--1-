@@ -29,6 +29,7 @@ import {
 
 import { hapticTap } from "@/lib/native-bridge"
 import { CHART_ANIM_MS } from "@/lib/chart-motion"
+import { findScroller, fling, noFling, scrollByPx } from "@/lib/chart-scroll"
 import { GlidingActiveDot, GlidingCursor } from "@/components/app/chart-glide"
 
 // Chart colors - matching reference image
@@ -133,12 +134,24 @@ function AnalyticsChartWithTooltipInner({
    * found it on its first run, because it presses the chart.
    */
   const lastTouchXRef = useRef(0)
+  /**
+   * SCROLLING THE PAGE OURSELVES, because this element told the browser not
+   * to. See the container's touch-action below for why it has to.
+   */
+  const lastTouchYRef = useRef(0)
+  const scrollerRef = useRef<HTMLElement | null>(null)
+  const scrollVelocityRef = useRef(0)
+  const lastMoveAtRef = useRef(0)
+  const stopFlingRef = useRef<() => void>(noFling)
   const [shouldAnimate, setShouldAnimate] = useState(true)
 
   useEffect(() => {
     return () => {
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      /* A fling outlives the component otherwise, scrolling a page it no
+         longer has any business scrolling. */
+      stopFlingRef.current()
     }
   }, [])
 
@@ -233,6 +246,12 @@ function AnalyticsChartWithTooltipInner({
     const touch = e.touches[0]
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
     lastTouchXRef.current = touch.clientX
+    lastTouchYRef.current = touch.clientY
+    /* A new touch stops the last flick, or the two fight over the scroller. */
+    stopFlingRef.current()
+    stopFlingRef.current = noFling
+    scrollVelocityRef.current = 0
+    lastMoveAtRef.current = performance.now()
     directionLockRef.current = null
     longPressTimerRef.current = setTimeout(() => {
       /**
@@ -310,14 +329,30 @@ function AnalyticsChartWithTooltipInner({
         const idx = getIndexFromTouch(touch.clientX)
         setActiveIndex(idx)
       } else if (dy > dx * 1.4) {
-        // Decisively vertical → this is a scroll. Let the page have it.
+        /*
+         * Decisively vertical: a scroll. The browser will not perform it —
+         * this element is touch-action:none on purpose — so we do, from here
+         * to the lift and on into a short fling.
+         */
         directionLockRef.current = "vertical"
         if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
+        scrollerRef.current = findScroller(containerRef.current)
+        lastTouchYRef.current = touch.clientY
+        lastMoveAtRef.current = performance.now()
       }
       /* Ambiguous: decide nothing, and let the hold timer have its chance. */
     } else if (directionLockRef.current === "horizontal") {
       e.preventDefault()
       e.stopPropagation()
+    } else if (directionLockRef.current === "vertical") {
+      /* A finger moving up the screen sends the page down. */
+      const step = lastTouchYRef.current - touch.clientY
+      lastTouchYRef.current = touch.clientY
+      const now = performance.now()
+      const elapsed = now - lastMoveAtRef.current
+      if (elapsed > 0) scrollVelocityRef.current = step / elapsed
+      lastMoveAtRef.current = now
+      scrollByPx(scrollerRef.current, step)
     }
   }, [getIndexFromTouch])
 
@@ -343,6 +378,10 @@ function AnalyticsChartWithTooltipInner({
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
+    }
+    /* A flick carries on after the finger leaves. See lib/chart-scroll. */
+    if (directionLockRef.current === "vertical") {
+      stopFlingRef.current = fling(scrollerRef.current, scrollVelocityRef.current)
     }
     touchStartPosRef.current = null
     directionLockRef.current = null
@@ -525,7 +564,29 @@ function AnalyticsChartWithTooltipInner({
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
       style={{
-        touchAction: tooltipActive ? "none" : "pan-y pinch-zoom",
+        /**
+         * =====================================================================
+         *  THE CHART OWNS THE TOUCH FROM THE MOMENT IT LANDS
+         * =====================================================================
+         * This was `tooltipActive ? "none" : "pan-y pinch-zoom"`, and that
+         * ternary could never do what it looked like it did.
+         *
+         * The compositor reads touch-action ONCE, at touchstart, and keeps
+         * that answer for the whole gesture. So the "none" branch never
+         * applied to the gesture that set tooltipActive — only to the NEXT
+         * touch. Every hold therefore began with the chart having promised
+         * the browser it could take this gesture away as a vertical scroll,
+         * and the browser took it: the tooltip opened, the finger slid, the
+         * page scrolled instead, and the scrub was gone. Lift, tap again,
+         * and now it worked, because the second touch landed on "none".
+         *
+         * That is the whole of "hold, untap, tap, slide". It is fixed by
+         * owning the gesture from the start, which is what a scrubbable
+         * chart has to do — and the price is that a thumb dragged down this
+         * band no longer scrolls the page by itself, so the vertical branch
+         * of touchMoveHandler scrolls it by hand instead.
+         */
+        touchAction: "none",
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",
