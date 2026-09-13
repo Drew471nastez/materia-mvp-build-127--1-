@@ -312,17 +312,39 @@ export function MobileEditorSheet({
        * resize, and moving the content by it is a twitch.
        */
       const covered = vv ? window.innerHeight - vv.height - vv.offsetTop : 0
-      setKeyboardInset(covered > 1 ? Math.round(covered) : 0)
+      const keyboard = covered > 1 ? Math.round(covered) : 0
+      setKeyboardInset(keyboard)
       /**
-       * The toolbar gap is measured here and the home indicator is NOT, and
-       * the difference matters: `visualViewport.scroll` fires on every frame
-       * of a scroll on iOS, and each probe appends an element and reads its
-       * box, which forces a layout. A collapsing toolbar genuinely changes
-       * mid-scroll so it has to be re-read; a home indicator only changes on
-       * rotation, so paying for it per frame buys nothing. It gets its own
+       * =====================================================================
+       *  THE KEYBOARD IS NOT PART OF THE BROWSER'S CHROME
+       * =====================================================================
+       * `browserChromeGap` works out how much of a bottom-anchored fixed
+       * element the browser's own toolbar covers, and the only way to ask
+       * that is `innerHeight - visualViewport.height`. A KEYBOARD SHRINKS
+       * THAT NUMBER TOO. So with a keyboard up the gap measured the keyboard,
+       * `keyboardInset` measured the same keyboard again, and the panel was
+       * padded by the sum: measured at 672px of padding for a 336px keyboard,
+       * which left the whole library in a 44px strip with the rest of the
+       * sheet showing as blank background. That is the white band.
+       *
+       * A toolbar does not appear or disappear because somebody tapped a text
+       * field, so the gap is simply not re-measured while a keyboard is up:
+       * it keeps the value it had, `keyboardInset` carries the keyboard, and
+       * the two add up to the strip that is actually covered.
+       *
+       * This also protects the sheet's GEOMETRY, which depends on chromeGap.
+       * A chrome gap that moved with the keyboard would resize the sheet and
+       * every detent under it on focus, which is the collapse this file
+       * already refuses to do by sizing itself to `innerHeight`.
+       *
+       * The home indicator is deliberately NOT measured here: a collapsing
+       * toolbar genuinely changes mid-scroll so it has to be re-read, and
+       * `visualViewport.scroll` fires on every frame of a scroll on iOS, so
+       * a probe that appends an element and reads its box is a layout per
+       * frame. A home indicator only changes on rotation. It has its own
        * listeners below.
        */
-      setChromeGap(browserChromeGap())
+      if (!keyboard) setChromeGap(browserChromeGap())
     }
     measureViewport()
     window.addEventListener("resize", update)

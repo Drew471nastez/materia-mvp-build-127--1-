@@ -169,6 +169,28 @@ check(
   "the same measurement is used in the code editor, so the two agree",
   /window\.innerHeight - vv\.height - vv\.offsetTop/.test(read("app/website-builder/code/[installId]/page.tsx")),
 )
+/**
+ * AND IT IS PADDED ONCE, NOT TWICE.
+ *
+ * `browserChromeGap` asks `innerHeight - visualViewport.height`, which is the
+ * only way to find a browser toolbar and is ALSO the keyboard whenever one is
+ * up. So the gap measured the keyboard, `keyboardInset` measured the same
+ * keyboard again, and the panel was padded by the sum. Measured with
+ * scripts/check-sheet-keyboard.mjs: 672px of padding for a 336px keyboard,
+ * the content box ending at 172px instead of 508px, and the whole library in
+ * a 44px strip with the rest of the sheet showing as blank background.
+ *
+ * A toolbar does not come or go because somebody tapped a text field, so the
+ * gap is simply not re-measured while a keyboard is up.
+ */
+check(
+  "the chrome gap is not re-measured while a keyboard is up, or the keyboard is counted twice",
+  /if \(!keyboard\) setChromeGap\(browserChromeGap\(\)\)/.test(sheet),
+)
+check(
+  "and the keyboard is read once into a name both uses share",
+  /const keyboard = covered > 1 \? Math\.round\(covered\) : 0/.test(sheet) && /setKeyboardInset\(keyboard\)/.test(sheet),
+)
 
 
 // ---------------------------------------------------------------------------
