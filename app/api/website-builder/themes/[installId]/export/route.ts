@@ -17,52 +17,24 @@ import {
   type ThemePackageManifest,
 } from "@/lib/website-builder/theme-package-schema"
 import { buildPackage, sha256, templateFromSections, type PackageAsset } from "@/lib/storelib-theme"
+import {
+  MAX_BYTES,
+  MAX_TOTAL_MEDIA_BYTES,
+  collectMediaUrls,
+  describeMedia,
+  extensionOf,
+  mediaTypeFor,
+  rewriteMediaUrls,
+  type MediaKind,
+} from "@/lib/storelib-theme/media"
 import { THEME_FORMAT, THEME_FORMAT_VERSION } from "@/lib/storelib-theme/types"
 
 type Params = { params: Promise<{ installId: string }> }
 
 // Walk an arbitrary JSON value and collect every URL that points to an image.
-function collectImageUrls(node: unknown, out: Set<string>) {
-  if (!node) return
-  if (typeof node === "string") {
-    if (/^https?:\/\//i.test(node) && /\.(jpe?g|png|gif|webp|svg|avif)(\?|$)/i.test(node)) {
-      out.add(node)
-    }
-    return
-  }
-  if (Array.isArray(node)) {
-    for (const v of node) collectImageUrls(v, out)
-    return
-  }
-  if (typeof node === "object") {
-    for (const v of Object.values(node as Record<string, unknown>)) collectImageUrls(v, out)
-  }
-}
-
-// Walk an arbitrary JSON value and replace any matching URL with the local
-// path from `imageMap` (returns a new structure).
-function rewriteImageUrls(node: unknown, imageMap: Record<string, string>): unknown {
-  if (typeof node === "string") {
-    return imageMap[node] ?? node
-  }
-  if (Array.isArray(node)) {
-    return node.map(v => rewriteImageUrls(v, imageMap))
-  }
-  if (node && typeof node === "object") {
-    const out: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
-      out[k] = rewriteImageUrls(v, imageMap)
-    }
-    return out
-  }
-  return node
-}
-
-const extToMime = (ext: string): string => ({
-  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
-  webp: "image/webp", svg: "image/svg+xml", avif: "image/avif",
-  mp4: "video/mp4", webm: "video/webm",
-}[ext] ?? "application/octet-stream")
+/* Extensions, sizes and mime types all live in lib/storelib-theme/media.ts now,
+   so the export and the import cannot drift into disagreeing about what a
+   theme is allowed to carry. */
 
 function safeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9-_]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "theme"
@@ -125,39 +97,88 @@ export async function GET(_req: Request, { params }: Params) {
    * anything that reads that format.
    */
   const legacyImages: Record<string, Buffer> = {}
-  const urls = new Set<string>()
-  collectImageUrls(settings, urls)
-  collectImageUrls(exportPages, urls)
+  /**
+   * EVERY KIND OF MEDIA, not only pictures.
+   *
+   * This used to match image extensions and nothing else, so the video
+   * behind a hero was never fetched and its URL travelled untouched —
+   * pointing at THIS creator's bucket. The imported site then served its
+   * video off a stranger's storage: they paid the bandwidth, and tidying up
+   * their own files broke somebody else's page with no way to find out why.
+   */
+  const urls = collectMediaUrls(settings, collectMediaUrls(exportPages))
 
   const legacy = new URL(_req.url).searchParams.get("legacy") === "1"
 
   const assets: Record<string, PackageAsset> = {}
   const urlToRef: Record<string, string> = {}
   const imageMap: Record<string, string> = {}
-  await Promise.all(Array.from(urls).map(async url => {
+  /** What went in, and what would not fit, so the reply can say so. */
+  const carried: Partial<Record<MediaKind, number>> = {}
+  const skipped: string[] = []
+  let mediaBytes = 0
+
+  /**
+   * ONE AT A TIME, LARGEST BUDGET FIRST — not Promise.all.
+   *
+   * Videos are tens of megabytes. Fetching six of them at once holds all six
+   * in memory on a serverless function that has a few hundred megabytes, and
+   * the budget below cannot be spent correctly by callers racing each other
+   * to add to it.
+   */
+  for (const url of Array.from(urls).sort()) {
+    const type = mediaTypeFor(url)
+    if (!type) continue
     try {
       const res = await fetch(url)
-      if (!res.ok) return
+      if (!res.ok) { skipped.push(url); continue }
+
+      /**
+       * Checked BEFORE the body is read where the server says how big it is.
+       * Reading a 400MB video to then decide it is too big is the failure
+       * this is here to avoid, not a check to do afterwards.
+       */
+      const declared = Number(res.headers.get("content-length") ?? "0")
+      if (declared > MAX_BYTES[type.kind]) { skipped.push(url); continue }
+
       const buf = Buffer.from(await res.arrayBuffer())
-      const ext = (url.split(".").pop() ?? "bin").split("?")[0].toLowerCase()
+      if (buf.byteLength > MAX_BYTES[type.kind]) { skipped.push(url); continue }
+      if (mediaBytes + buf.byteLength > MAX_TOTAL_MEDIA_BYTES) { skipped.push(url); continue }
+      mediaBytes += buf.byteLength
+
+      const ext = extensionOf(url) || "bin"
       if (legacy) {
         const sha = crypto.createHash("sha1").update(buf).digest("hex").slice(0, 16)
         imageMap[url] = `images/${sha}.${ext}`
         legacyImages[`${sha}.${ext}`] = buf
-        return
+        continue
       }
       const bytes = new Uint8Array(buf)
       const hash = sha256(bytes)
       assets[hash] = {
         bytes,
-        filename: (url.split("/").pop() ?? `image.${ext}`).split("?")[0].slice(0, 120),
-        mime_type: extToMime(ext),
+        filename: (url.split("/").pop() ?? `asset.${ext}`).split("?")[0].slice(0, 120),
+        mime_type: type.mime,
       }
       urlToRef[url] = `asset://${hash}`
+      carried[type.kind] = (carried[type.kind] ?? 0) + 1
     } catch {
-      // ignore — keep the original URL
+      skipped.push(url)
     }
-  }))
+  }
+
+  /**
+   * ANYTHING THAT COULD NOT TRAVEL IS CLEARED, NOT LEFT AS IT WAS.
+   *
+   * The old comment here said an export that silently loses a picture is
+   * worse than one that keeps a link. That is true between two copies of the
+   * SAME account and false the moment a package changes hands, which is what
+   * a package is for: the kept link is this creator's bucket, and it makes
+   * the importer's site depend on storage they do not own and cannot see.
+   * Emptied, the section takes the branch it already has for a picture
+   * nobody has chosen yet.
+   */
+  for (const url of skipped) urlToRef[url] = ""
 
   if (legacy) {
     const zip = new JSZip()
@@ -167,8 +188,8 @@ export async function GET(_req: Request, { params }: Params) {
       format: CURRENT_THEME_PACKAGE_FORMAT,
       exported_at: new Date().toISOString(),
       install: { name: install.name, theme_id: install.theme_id, sort_order: install.sort_order },
-      settings: rewriteImageUrls(settings, imageMap) as Record<string, unknown>,
-      pages: rewriteImageUrls(exportPages, imageMap) as { page_key: string; sections: unknown }[],
+      settings: rewriteMediaUrls(settings, imageMap) as Record<string, unknown>,
+      pages: rewriteMediaUrls(exportPages, imageMap) as { page_key: string; sections: unknown }[],
       image_map: imageMap,
     }
     zip.file("manifest.json", JSON.stringify(manifest, null, 2))
@@ -183,10 +204,10 @@ export async function GET(_req: Request, { params }: Params) {
   }
 
   const files: Record<string, string> = {}
-  files["config/settings.json"] = JSON.stringify(rewriteImageUrls(settings, urlToRef), null, 2) + "\n"
+  files["config/settings.json"] = JSON.stringify(rewriteMediaUrls(settings, urlToRef), null, 2) + "\n"
   for (const page of exportPages) {
     if (!/^[A-Za-z0-9_.\-]+$/.test(page.page_key)) continue
-    const list = rewriteImageUrls(page.sections ?? [], urlToRef) as Parameters<typeof templateFromSections>[0]
+    const list = rewriteMediaUrls(page.sections ?? [], urlToRef) as Parameters<typeof templateFromSections>[0]
     files[`templates/${page.page_key}.json`] = JSON.stringify(templateFromSections(Array.isArray(list) ? list : []), null, 2) + "\n"
   }
 
@@ -233,6 +254,16 @@ export async function GET(_req: Request, { params }: Params) {
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="${filename}"`,
       "Cache-Control": "no-store",
+      /**
+       * WHAT CAME WITH IT, and what did not.
+       *
+       * The body is a zip, so there is nowhere in it to say "your 90MB
+       * video was left out". A download that quietly drops the one thing
+       * somebody was checking for is the failure worth avoiding here.
+       */
+      "X-Storelib-Media": describeMedia(carried),
+      "X-Storelib-Media-Bytes": String(mediaBytes),
+      ...(skipped.length > 0 ? { "X-Storelib-Media-Skipped": String(skipped.length) } : {}),
     },
   })
 }
