@@ -333,14 +333,50 @@ export function ThemeChat({
           return
         }
         const body = (await response.json()) as {
-          messages: Array<{ id: string; role: string; content: string; ops: unknown[]; error: string | null }>
+          messages: Array<{
+            id: string
+            role: string
+            content: string
+            ops: unknown[]
+            error: string | null
+            images?: { id: string; name: string; url: string }[]
+          }>
         }
         if (cancelled) return
 
         const restored: Exchange[] = []
         for (const message of body.messages) {
           if (message.role === "user") {
-            restored.push({ id: message.id, prompt: message.content, changes: [], running: false })
+            restored.push({
+              id: message.id,
+              /**
+               * The note the route wrote is for the day the pictures have
+               * expired and the words are all there is. While the picture is
+               * still there, showing "[an image attached]" underneath it is
+               * a caption nobody needs.
+               */
+              prompt: message.images?.length
+                ? message.content.replace(/\n*\[(?:an image|\d+ images) attached\]\s*$/, "").trim() ||
+                  (message.images.length === 1 ? "Build this." : "Build these.")
+                : message.content,
+              changes: [],
+              running: false,
+              /**
+               * The pictures come back too, as signed URLs the server minted
+               * for this read. After thirty days there are none and the words
+               * are what is left, which is the trade the expiry buys.
+               */
+              images: message.images?.length
+                ? message.images.map((image) => ({
+                    id: image.id,
+                    name: image.name,
+                    /* Kept only to satisfy the viewer's shape; unused on a restored picture. */
+                    mediaType: "image/png" as AllowedImageType,
+                    data: "",
+                    url: image.url,
+                  }))
+                : undefined,
+            })
             continue
           }
           const open = restored[restored.length - 1]

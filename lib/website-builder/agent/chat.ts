@@ -15,6 +15,7 @@ import "server-only"
  */
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { attachmentsFor } from "./attachment-store"
 import { createClient } from "@/lib/supabase/server"
 
 import type { ThemeOp } from "./operations"
@@ -23,6 +24,12 @@ export interface ThemeMessage {
   id: string
   role: "user" | "assistant"
   content: string
+  /**
+   * What was attached to this message, as signed URLs good for the hour.
+   * Empty once the pictures have passed their thirty days and been
+   * collected — the words stay, which is the trade the expiry buys.
+   */
+  images: { id: string; name: string; mediaType: string; url: string }[]
   /** The changes this exchange made, so the transcript shows them. */
   ops: ThemeOp[]
   error: string | null
@@ -98,10 +105,20 @@ export async function readThemeChat(installId: string): Promise<ThemeMessage[]> 
     created_at: string
   }
 
-  return ((data as Row[] | null) ?? []).reverse().map((row) => ({
+  const rows = ((data as Row[] | null) ?? []).reverse()
+
+  /**
+   * ONE QUERY FOR THE LOT, not one per message. A hundred messages would
+   * otherwise be a hundred round trips and a hundred signing calls to open a
+   * panel.
+   */
+  const pictures = await attachmentsFor(rows.map((row) => row.id))
+
+  return rows.map((row) => ({
     id: row.id,
     role: row.role,
     content: row.content,
+    images: pictures.get(row.id) ?? [],
     ops: Array.isArray(row.ops) ? row.ops : [],
     error: row.error,
     createdAt: row.created_at,
