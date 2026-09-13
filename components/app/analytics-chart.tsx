@@ -23,7 +23,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ComponentProps } from "react"
 import {
-  XAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, ReferenceLine,
 } from "recharts"
 
@@ -31,6 +31,26 @@ import { hapticTap } from "@/lib/native-bridge"
 import { GlidingActiveDot, GlidingCursor } from "@/components/app/chart-glide"
 
 // Chart colors - matching reference image
+/**
+ * ===========================================================================
+ *  ONE NUMBER FOR WHERE THE PLOT STARTS
+ * ===========================================================================
+ * The chart's left inset was written down twice: once as the y axis's
+ * `width`, and once as a literal `rect.left + 40` in the maths that turns a
+ * finger's x position into a data point. Two copies of a number that had to
+ * agree — and when the axis was removed, only one of them changed. So every
+ * touch landed thirty pixels from where it looked like it landed and the
+ * tooltip trailed the finger by most of a column. That is the "clunky".
+ *
+ * The axis is told this, the chart's margin is told this, and so is the
+ * touch maths. They cannot drift apart again.
+ */
+const PLOT_LEFT = 40
+/** The right margin, for the same reason. */
+const PLOT_RIGHT = 10
+/** Room above for the active dot: six pixels of radius plus its white ring. */
+const PLOT_TOP = 10
+
 export const CHART_COLORS = {
   views: "#8b5cf6",
   clicks: "#a78bfa",
@@ -104,8 +124,8 @@ function AnalyticsChartWithTooltipInner({
     const el = containerRef.current
     if (!el || !chartDisplayData.length) return null
     const rect = el.getBoundingClientRect()
-    const chartLeft = rect.left + 40
-    const chartRight = rect.right - 4
+    const chartLeft = rect.left + PLOT_LEFT
+    const chartRight = rect.right - PLOT_RIGHT
     const chartWidth = chartRight - chartLeft
     const x = clientX - chartLeft
     const ratio = Math.max(0, Math.min(1, x / chartWidth))
@@ -148,8 +168,8 @@ function AnalyticsChartWithTooltipInner({
     const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
     const totalMove = dx + dy
 
-    if (directionLockRef.current === null && totalMove > 8) {
-      if (dx > dy * 1.2) {
+    if (directionLockRef.current === null && totalMove > 5) {
+      if (dx > dy) {
         directionLockRef.current = "horizontal"
         if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
         tooltipActiveRef.current = true
@@ -374,7 +394,7 @@ function AnalyticsChartWithTooltipInner({
           of radius plus a two pixel ring — half outside the card, which reads
           as a stray spike rather than as a clipped dot.
         */}
-        <AreaChart data={chartDisplayData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+        <AreaChart data={chartDisplayData} margin={{ top: PLOT_TOP, right: PLOT_RIGHT, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="gradViews" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor={CHART_COLORS.views} stopOpacity={0.15} />
@@ -418,16 +438,21 @@ function AnalyticsChartWithTooltipInner({
             interval="preserveStartEnd"
           />
           {/*
-            NO Y AXIS.
-            It cost 40px of width on the left of every chart to print five
-            numbers that nobody reads off a chart — the exact figure comes
-            from the tooltip, and the shape is what the chart is for. The
-            horizontal grid lines stay, so the rise and fall still has
-            something to be read against.
-
-            `domain` and the formatter went with it: both existed only to
-            label ticks that are no longer drawn.
+            THE NUMBERS ARE BACK, at the width the touch maths reads.
+            PLOT_LEFT is the single place that number lives.
           */}
+          <YAxis
+            tick={{ fontSize: 11, fill: "#9ca3af" }}
+            tickLine={false}
+            axisLine={false}
+            domain={[0, "auto"]}
+            width={PLOT_LEFT}
+            tickFormatter={(v: number) => {
+              if (chartMetricFilter === "conversion" || onePageChartFilter === "ctr") return `${v}%`
+              if (chartMetricFilter === "revenue") return `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}`
+              return v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)
+            }}
+          />
           {/* Desktop-only Recharts tooltip */}
           {!isTouchDevice && (
             <Tooltip
@@ -522,6 +547,8 @@ function AnalyticsChartWithTooltipInner({
               top: 8,
               left: 0,
               transform: tooltipShift(),
+              /* Glides between points; see the dashboard chart for why. */
+              transition: "transform 90ms cubic-bezier(0.22, 1, 0.36, 1)",
               maxWidth: "calc(100% - 16px)",
               background: "#1a1a2e",
               borderRadius: "8px",

@@ -84,6 +84,26 @@ interface ChartDataPoint {
 type KPIType = "views" | "orders" | "revenue" | "conversion" | null
 
 /**
+ * ===========================================================================
+ *  ONE NUMBER FOR WHERE THE PLOT STARTS
+ * ===========================================================================
+ * The chart's left inset was written down twice: once as the y axis's
+ * `width`, and once as a literal `rect.left + 40` in the maths that turns a
+ * finger's x position into a data point. Two copies of a number that had to
+ * agree — and when the axis was removed, only one of them changed. So every
+ * touch landed thirty pixels from where it looked like it landed and the
+ * tooltip trailed the finger by most of a column. That is the "clunky".
+ *
+ * The axis is told this, the chart's margin is told this, and so is the
+ * touch maths. They cannot drift apart again.
+ */
+const PLOT_LEFT = 40
+/** The right margin, for the same reason. */
+const PLOT_RIGHT = 10
+/** Room above for the active dot: six pixels of radius plus its white ring. */
+const PLOT_TOP = 10
+
+/**
  * Chart wrapper with smooth long-press tooltip for mobile.
  * - 250ms long-press to activate
  * - Custom tooltip positioned inside chart area at fixed top
@@ -121,19 +141,31 @@ function ChartWithLongPressTooltip({
     }
   }, [])
 
-  // When KPI modal changes or data changes, play animation once then stop
+  /**
+   * ONE ANIMATION PER SWITCH, WHEN THE DATA FOR IT ARRIVES.
+   *
+   * `openKPIModal` used to be a dependency here alongside the data, and that
+   * is the double refresh: tapping Revenue fired this once immediately — so
+   * the chart redrew itself with the OLD numbers still in it — and then
+   * again a moment later when the fetch came back with the new ones. Two
+   * draws, the first of them of the wrong thing, which is exactly what a
+   * double reload looks like.
+   *
+   * The data is the only honest trigger. The metric changing is a request
+   * for data, not the arrival of any.
+   */
   useEffect(() => {
     setShouldAnimate(true)
     const timer = setTimeout(() => setShouldAnimate(false), 900)
     return () => clearTimeout(timer)
-  }, [openKPIModal, displayChartData])
+  }, [displayChartData])
 
   const getIndexFromTouch = useCallback((clientX: number) => {
     const el = containerRef.current
     if (!el || !displayChartData.length) return null
     const rect = el.getBoundingClientRect()
-    const chartLeft = rect.left + 40
-    const chartRight = rect.right - 4
+    const chartLeft = rect.left + PLOT_LEFT
+    const chartRight = rect.right - PLOT_RIGHT
     const chartWidth = chartRight - chartLeft
     const x = clientX - chartLeft
     const ratio = Math.max(0, Math.min(1, x / chartWidth))
@@ -181,8 +213,8 @@ function ChartWithLongPressTooltip({
     const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
     const totalMove = dx + dy
 
-    if (directionLockRef.current === null && totalMove > 8) {
-      if (dx > dy * 1.2) {
+    if (directionLockRef.current === null && totalMove > 5) {
+      if (dx > dy) {
         // Horizontal intent → activate scrub immediately (no long press needed)
         directionLockRef.current = "horizontal"
         if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
@@ -349,7 +381,7 @@ function ChartWithLongPressTooltip({
               card. That clipped stub at the top left of the chart was the
               dot, not a spike in the data.
             */}
-            <AreaChart data={displayChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+            <AreaChart data={displayChartData} margin={{ top: PLOT_TOP, right: PLOT_RIGHT, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
@@ -365,16 +397,19 @@ function ChartWithLongPressTooltip({
                 interval="preserveStartEnd"
               />
               {/*
-                NO Y AXIS, same as the analytics chart.
-                Forty pixels on the left of the chart to print five numbers
-                nobody reads off a chart: the exact figure is in the tooltip
-                and the shape is what the chart is for. The grid lines stay
-                so the rise and fall still has something to be read against.
-
-                The payouts chart keeps its axis, and that is not an
-                inconsistency: money wants a scale you can judge at a glance,
-                a count over time does not.
+                THE NUMBERS ARE BACK, and this is the width the touch maths
+                reads. PLOT_LEFT is the one place it is written down — the
+                thirty pixel drift between the axis and the finger came from
+                there being two.
               */}
+              <YAxis
+                tick={{ fontSize: 11, fill: "#9ca3af" }}
+                tickLine={false}
+                axisLine={false}
+                domain={[0, "auto"]}
+                width={PLOT_LEFT}
+                tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
+              />
               {/* Desktop-only Recharts tooltip */}
               {!isTouchDevice && (
                 <Tooltip
@@ -478,6 +513,17 @@ function ChartWithLongPressTooltip({
             /* Pinned left; the whole position is in the transform. See tooltipShift. */
             left: 0,
             transform: tooltipShift(),
+            /**
+             * IT SLIDES BETWEEN POINTS RATHER THAN TELEPORTING.
+             *
+             * A finger moves continuously and the data does not: the active
+             * index steps from one column to the next, so without this the
+             * box jumps in discrete hops while the thumb slides smoothly,
+             * which is most of what "clunky" was. 90ms is under the
+             * threshold where a following object reads as lag, and it is a
+             * transform so it runs on the compositor.
+             */
+            transition: "transform 90ms cubic-bezier(0.22, 1, 0.36, 1)",
             /* And it can never be wider than the card it sits in. */
             maxWidth: "calc(100% - 16px)",
             background: "#1a1a2e",

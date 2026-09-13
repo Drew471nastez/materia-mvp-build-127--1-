@@ -208,17 +208,37 @@ section("Upgrade opens and closes")
 section("The chart and the icon")
 // ---------------------------------------------------------------------------
 
+/**
+ * THE AXIS IS BACK, at the owner's request, and the guard changed with the
+ * decision rather than being argued with. What it holds now is the thing
+ * that actually broke when it was removed: the axis width and the maths that
+ * turns a finger into a data point were two separate copies of one number,
+ * so taking the axis away moved one and not the other, and every touch
+ * landed thirty pixels from where it looked like it did.
+ */
 check(
-  "the charts of counts over time have no y axis eating their left edge",
-  !/<YAxis/.test(code("components/app/analytics-chart.tsx")) &&
-    !/<YAxis/.test(code("components/app/dashboard-client.tsx")),
+  "the numbers are on the charts again",
+  /<YAxis/.test(code("components/app/analytics-chart.tsx")) &&
+    /<YAxis/.test(code("components/app/dashboard-client.tsx")),
+)
+check(
+  "and its width is the same constant the touch maths reads, in both charts",
+  ["components/app/analytics-chart.tsx", "components/app/dashboard-client.tsx"].every((f) => {
+    const src = code(f)
+    return (
+      /const PLOT_LEFT = \d+/.test(src) &&
+      /width=\{PLOT_LEFT\}/.test(src) &&
+      /rect\.left \+ PLOT_LEFT/.test(src) &&
+      !/rect\.left \+ 40/.test(src)
+    )
+  }),
 )
 check(
   "the grid lines stay, so the shape still has something to read against",
   /<CartesianGrid/.test(read("components/app/analytics-chart.tsx")),
 )
 check(
-  "and the payouts chart keeps its scale, because money is not a count",
+  "and the payouts chart keeps its scale",
   /<YAxis/.test(read("app/app/payouts/payouts-client.tsx")),
 )
 check(
@@ -346,11 +366,38 @@ section("The chart tooltip stays in its card")
       /maxWidth: "calc\(100% - 16px\)"/.test(src),
     )
     check(
-      `${name}: the chart reserves room for the dot the axis used to leave`,
-      /margin=\{\{ top: 10, right: 10, left: 10, bottom: 0 \}\}/.test(src),
+      `${name}: the chart's margin comes from the same constants, not from literals`,
+      /margin=\{\{ top: PLOT_TOP, right: PLOT_RIGHT, left: 0, bottom: 0 \}\}/.test(src),
+    )
+    check(
+      `${name}: there is room above for the active dot, which is 8px of ring and radius`,
+      /const PLOT_TOP = (\d+)/.test(src) && Number(src.match(/const PLOT_TOP = (\d+)/)![1]) >= 8,
+    )
+    check(
+      `${name}: the tooltip slides between points instead of hopping`,
+      /transition: "transform 90ms/.test(src),
+    )
+    check(
+      `${name}: a drag is recognised without having to out-argue the vertical`,
+      /totalMove > 5/.test(src) && /if \(dx > dy\) \{/.test(src),
     )
   }
 }
+
+
+check(
+  "switching metric redraws the chart once, when its data arrives",
+  (() => {
+    /**
+     * `openKPIModal` used to sit in these deps beside the data. Tapping
+     * Revenue fired the animation immediately — redrawing the chart with the
+     * OLD numbers still in it — and again when the fetch returned. Two draws,
+     * the first of the wrong thing: the double refresh.
+     */
+    const src = code("components/app/dashboard-client.tsx")
+    return /setShouldAnimate\(true\)[\s\S]{0,200}\}, \[displayChartData\]\)/.test(src)
+  })(),
+)
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
