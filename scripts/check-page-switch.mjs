@@ -88,14 +88,37 @@ const DRIVE = `
     return ""
   }
 
+  /**
+   * THE ONE THING A REMOUNT CANNOT HIDE.
+   *
+   * React replacing a keyed subtree removes the old element and inserts a
+   * new one. The node is not the same object, and no amount of matching
+   * section lists would show that: the content can be identical and the
+   * page still visibly falls into place, because the DOM was rebuilt and
+   * the entrance animation ran again.
+   *
+   * So the element is stamped on the first sample and checked on every one
+   * after. A stamp that is missing is a node that was not there before.
+   */
+  var STAMP = "__probe_seen"
+  function stampedFresh(el) {
+    if (!el) return false
+    if (el[STAMP]) return false
+    el[STAMP] = true
+    return true
+  }
+
   function sample() {
     var root = canvas()
     if (!root) return null
     var boxes = root.querySelectorAll("[data-section-box]")
     var types = []
     for (var i = 0; i < boxes.length; i++) types.push(boxes[i].getAttribute("data-section-type") || "?")
+    var shell = document.querySelector(".wb-canvas-in")
     return {
       label: pageLabel(),
+      /** True on the frame a new canvas element appeared. */
+      remounted: stampedFresh(shell),
       types: types.join(","),
       count: types.length,
       scrollTop: Math.round(root.scrollTop),
@@ -217,6 +240,18 @@ ok(
   "the page's name never moves ahead of its content",
   mixed.length === 0,
   mixed.length ? `${mixed.length} frames showing "${after.label}" with the previous page's sections` : "",
+)
+/**
+ * The canvas being REBUILT is the flash, whatever the section lists say: a
+ * frame with nothing in it, then a 360ms rise-in of the whole page. This is
+ * measurable without a server, which is what makes it the check that counts
+ * here.
+ */
+const remounts = frames.filter((f) => f.remounted).length
+ok(
+  "the canvas is not rebuilt when the page changes",
+  remounts === 0,
+  remounts ? `${remounts} remounts during the switch` : "",
 )
 ok("and the scroll is still once it has arrived", !drifted, drifted ? "it moved after the content landed" : "")
 

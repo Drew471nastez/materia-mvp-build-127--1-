@@ -476,6 +476,26 @@ async function main() {
       /useLayoutEffect\(\(\) => \{[\s\S]{0,220}wb-preview-root[\s\S]{0,120}\}, \[currentPage, selectedProductPage\]\)/.test(editor),
     )
 
+    /**
+     * AND THE CANVAS IS NOT REBUILT. `key={currentPage}` threw away the whole
+     * canvas on every page change and replayed a 360ms rise-in of the page
+     * from 6px down, which no amount of fixing the ORDER of state updates
+     * could help: the remount happens whatever order they arrive in.
+     * Measured with scripts/check-page-switch.mjs, which stamps the element
+     * and counts new ones: 1 remount with the key, 0 without.
+     */
+    check(
+      "the canvas is not keyed by the page, so a switch does not rebuild it",
+      !/key=\{currentPage\} className="wb-canvas-in/.test(editor) && /className="wb-canvas-in/.test(editor),
+    )
+    check(
+      "and the logo is a real link home, intercepted inside the editor",
+      (() => {
+        const header = readFileSync(join(root, "components/website-builder/sections/renderers/HeaderSection.tsx"), "utf8")
+        return /href="\/"[\s\S]{0,320}onEditorNavigate\("\/"\)/.test(header)
+      })(),
+    )
+
     /** A refresh looks like a page switch. */
     check("the sidebar shows its skeleton on a first load too", /\{sectionsLoading \|\| loading \? \(/.test(editor))
   }

@@ -2562,12 +2562,23 @@ check(
 
 check(
   "and when the page arrives the loader fades over it and the page rises in, rather than swapping in one frame",
-  // The surface is kept for a beat after the work ends so it can fade; the
-  // page is keyed by its id so each arrival rises in and a re-render does not.
+  /**
+   * The surface is kept for a beat after the work ends so it can fade, and
+   * the page rises in when it mounts.
+   *
+   * NOT KEYED BY THE PAGE ANY MORE. It was, so that "each arrival rises in",
+   * and the cost of that was the whole canvas being thrown away and rebuilt
+   * on every page change: a frame with nothing in it, then a 360ms rise-in
+   * of the entire page. That is the flash that was reported three times.
+   * Measured with scripts/check-page-switch.mjs: 1 remount with the key, 0
+   * without. The rise-in still plays exactly once, when this mounts as the
+   * editor finishes loading, which is the arrival worth animating.
+   */
   /const canvasLoaderLingers = useLinger\(canvasBusy, 280\)/.test(editor) &&
     /\(canvasBusy \|\| canvasLoaderLingers\) && \(/.test(editor) &&
     /data-leaving=\{!canvasBusy\}/.test(editor) &&
-    /<div key=\{currentPage\} className="wb-canvas-in flex w-full flex-1 flex-col">/.test(editor) &&
+    /<div className="wb-canvas-in flex w-full flex-1 flex-col">/.test(editor) &&
+    !/key=\{currentPage\} className="wb-canvas-in/.test(editor) &&
     /export function useLinger\(active: boolean, ms = 280\)/.test(loaderSrc) &&
     /\.wb-canvas-loader\[data-leaving="true"\] \{\s*opacity: 0;/.test(editorCss) &&
     /@keyframes wb-canvas-in/.test(editorCss),

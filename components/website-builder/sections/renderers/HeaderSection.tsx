@@ -1098,9 +1098,37 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     </nav>
   )
 
+  /**
+   * ═════════════════════════════════════════════════════════════════════
+   *  THE LOGO GOES HOME
+   * ═════════════════════════════════════════════════════════════════════
+   * It was a bare <span> or <img>, so it was not a link anywhere: not in
+   * the editor and not on the published site. Every website on earth puts
+   * its home page behind its logo, and a visitor who clicks it and stays
+   * where they are concludes the site is broken before they conclude
+   * anything about the shop.
+   *
+   * A real <a href="/"> so it is one for a visitor, a keyboard and a search
+   * engine, and the same interception the nav uses so that inside the
+   * editor it changes the page being edited rather than taking the builder
+   * to storelib.com.
+   */
   const logoNode = (
     <div className="flex items-center gap-2 shrink-0">
-      {renderLogo()}
+      <a
+        href="/"
+        aria-label="Go to the home page"
+        className="inline-flex items-center no-underline"
+        style={{ color: "inherit" }}
+        onClick={(e) => {
+          if (!onEditorNavigate) return
+          e.preventDefault()
+          e.stopPropagation()
+          onEditorNavigate("/")
+        }}
+      >
+        {renderLogo()}
+      </a>
     </div>
   )
 

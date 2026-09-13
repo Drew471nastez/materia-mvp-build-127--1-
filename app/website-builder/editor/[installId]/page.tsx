@@ -7882,9 +7882,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             )}
 
             {!canvasBusy && (
-              /* Keyed by the page, so each page arrives with the rise-in and
-                 a re-render of the same page does not. */
-              <div key={currentPage} className="wb-canvas-in flex w-full flex-1 flex-col">
+              /**
+               * ═══════════════════════════════════════════════════════════
+               *  NOT KEYED BY THE PAGE. THAT WAS THE FLASH.
+               * ═══════════════════════════════════════════════════════════
+               * `key={currentPage}` threw away the ENTIRE canvas on every
+               * page change and built a new one, which is a frame with
+               * nothing in it followed by a 360ms rise-in of the whole page
+               * from 6px down. On a switcher click, on a nav link, on the
+               * logo: the site visibly fell into place every time, and no
+               * amount of fixing the ORDER of the state updates could help,
+               * because the remount happens whatever order they arrive in.
+               *
+               * Without the key React reconciles instead: the header and
+               * footer are the same instances and do not move at all, and
+               * only the body sections that actually differ are replaced.
+               *
+               * The rise-in is kept, and it still plays exactly once — when
+               * this element mounts, which is when `canvasBusy` first goes
+               * false and the editor finishes loading. Arriving at the
+               * builder is worth an entrance; walking between two pages of
+               * a site you are editing is not.
+               */
+              <div className="wb-canvas-in flex w-full flex-1 flex-col">
               {/**
                * THE SAME PAGE THE STOREFRONT RENDERS.
                *
