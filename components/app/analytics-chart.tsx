@@ -116,6 +116,23 @@ function AnalyticsChartWithTooltipInner({
   const rafRef = useRef<number | null>(null)
   /** One tick per point crossed, not one per frame. */
   const lastHapticIndexRef = useRef<number | null>(null)
+  /**
+   * WHERE THE THUMB IS NOW, which is not where it started.
+   *
+   * This line was missing, and nothing caught it: next.config.mjs sets
+   * `ignoreBuildErrors`, so a production build compiled a component that
+   * threw `lastTouchXRef is not defined` on the first line of every
+   * touchstart. The hold timer below was never even scheduled, and once the
+   * scrub did start by dragging, every touchmove threw before it could queue
+   * a frame — so the reading froze on the day the gesture began and the
+   * tooltip stopped following the finger.
+   *
+   * That is the whole of "I hold and try to move left or right and it just
+   * loses the hold" on the analytics page. Reading this file against
+   * dashboard-client three times did not find it. scripts/check-chart-scrub.mjs
+   * found it on its first run, because it presses the chart.
+   */
+  const lastTouchXRef = useRef(0)
   const [shouldAnimate, setShouldAnimate] = useState(true)
 
   useEffect(() => {
@@ -155,10 +172,50 @@ function AnalyticsChartWithTooltipInner({
     return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)
   }, [chartMetricFilter, onePageChartFilter])
 
+  /**
+   * The series actually drawn below, in one place, so the axis is measured
+   * against the numbers on it rather than against a key this data never had.
+   */
+  const visibleKeys = useMemo<(keyof AnalyticsChartData)[]>(() => {
+    if (analyticsMode === "store") {
+      const k: (keyof AnalyticsChartData)[] = []
+      if (chartMetricFilter === "all" || chartMetricFilter === "views") k.push("views")
+      if (chartMetricFilter === "all" || chartMetricFilter === "orders") k.push("sales")
+      if (chartMetricFilter === "all" || chartMetricFilter === "orders" || chartMetricFilter === "revenue") k.push("refunds")
+      if (chartMetricFilter === "all" || chartMetricFilter === "revenue") k.push("revenue")
+      if (chartMetricFilter === "conversion") k.push("conversion")
+      return k
+    }
+    const k: (keyof AnalyticsChartData)[] = []
+    if (onePageChartFilter === "all" || onePageChartFilter === "views") k.push("views")
+    if (onePageChartFilter === "all" || onePageChartFilter === "clicks") k.push("clicks")
+    if (onePageChartFilter === "all" || onePageChartFilter === "subscribers") k.push("subscribers")
+    if (onePageChartFilter === "ctr") k.push("ctr")
+    return k
+  }, [analyticsMode, chartMetricFilter, onePageChartFilter])
+
+  /**
+   * THE AXIS IS AS WIDE AS THE NUMBERS ON IT.
+   *
+   * Copied across from dashboard-client, where the series is `{ date, value }`
+   * — and left reading `d.value`, which nothing in AnalyticsChartData is. So
+   * the top of the range came back 0 on every chart, the widest label it
+   * measured was "0", and the axis was pinned at its 22px floor no matter
+   * what was plotted. On revenue that meant "$2.5k" drawn into 22px of room.
+   *
+   * The touch maths reads the same variable, so it stayed honest — measured
+   * with the bug in place, every position still resolved to the right day.
+   * What broke was only what you see: on revenue, four of the five numbers
+   * were cut off by up to 15px. scripts/check-chart-scrub.mjs holds both
+   * halves of that.
+   */
   const plotLeft = useMemo(() => {
-    const top = chartDisplayData.reduce((m: number, d: { value?: number }) => Math.max(m, d.value ?? 0), 0)
+    const top = chartDisplayData.reduce(
+      (m, d) => visibleKeys.reduce((n, k) => Math.max(n, typeof d[k] === "number" ? (d[k] as number) : 0), m),
+      0,
+    )
     return plotLeftFor([axisTick(0), axisTick(top / 2), axisTick(top)])
-  }, [chartDisplayData, axisTick])
+  }, [chartDisplayData, visibleKeys, axisTick])
 
   const getIndexFromTouch = useCallback((clientX: number) => {
     const el = containerRef.current
@@ -211,7 +268,9 @@ function AnalyticsChartWithTooltipInner({
         const box = tooltipRef.current
         if (el && box) {
           const rect = el.getBoundingClientRect()
-          const x = Math.max(plotLeft, Math.min(rect.width - PLOT_RIGHT, clientX - rect.left))
+          const left = plotLeft
+          const right = rect.width - PLOT_RIGHT
+          const x = Math.max(left, Math.min(right, clientX - rect.left))
           box.style.transform = shiftFor(x, rect.width)
         }
         const idx = getIndexFromTouch(clientX)
