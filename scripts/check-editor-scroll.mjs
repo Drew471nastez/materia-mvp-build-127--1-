@@ -467,10 +467,78 @@ const DRIVE = `
     // "Select a section and it takes me back to the top." Scroll first, then
     // tap, then read where the canvas is.
     var scrollerForKeep = document.getElementById("wb-preview-root")
-    scrollerForKeep.scrollTop = 420; await sleep(250)
+    var roomForKeep = scrollerForKeep.scrollHeight - scrollerForKeep.clientHeight
+    scrollerForKeep.scrollTop = Math.min(420, Math.max(0, roomForKeep - 60)); await sleep(250)
     var beforeTap = scrollerForKeep.scrollTop
-    tap(secs[3] || secs[2] || secs[1]); await sleep(900)
-    steps.push({ label: "selecting a section keeps the scroll position", keptScroll: scrollerForKeep.scrollTop, beforeTap: beforeTap })
+    var heightBefore = scrollerForKeep.scrollHeight
+    /**
+     * Sampled every frame, not read once at the end: a clamp to the top and a
+     * scroll back would look like nothing happened, and "it jumps, quick,
+     * like a glitch" is exactly that shape.
+     */
+    var lowest = beforeTap
+    var sampling = true
+    var sample = function () {
+      if (!sampling) return
+      if (scrollerForKeep.scrollTop < lowest) lowest = scrollerForKeep.scrollTop
+      requestAnimationFrame(sample)
+    }
+    requestAnimationFrame(sample)
+    tap(secs[3] || secs[2] || secs[1]); await sleep(1400)
+    sampling = false
+    steps.push({
+      label: "selecting a section keeps the scroll position",
+      keptScroll: scrollerForKeep.scrollTop,
+      beforeTap: beforeTap,
+      lowest: lowest,
+      room: roomForKeep,
+      heightBefore: heightBefore,
+      heightAfter: scrollerForKeep.scrollHeight,
+      clientAfter: scrollerForKeep.clientHeight,
+    })
+
+    /**
+     * AND THE SAME TAP, ON A CONTROL INSIDE THE SECTION. A thumb lands on a
+     * button or a link as often as on the space beside one, and a focusable
+     * element that takes focus is scrolled into view by the browser itself,
+     * which on a short page is a jump to the top. The wrapper tap above
+     * cannot show that; this one can.
+     */
+    var focusables = scrollerForKeep.querySelectorAll("[id^=wb-section-] a[href], [id^=wb-section-] button, [id^=wb-section-] summary, [id^=wb-section-] input, [id^=wb-section-] [tabindex]")
+    var control = Array.prototype.find.call(focusables, function (el) {
+      var r = el.getBoundingClientRect()
+      var box = scrollerForKeep.getBoundingClientRect()
+      // Anywhere a thumb could land on it: overlapping the visible box is enough.
+      return r.width > 0 && r.height > 0 && r.bottom > box.top + 8 && r.top < box.bottom - 8
+    })
+    if (control) {
+      var beforeControl = scrollerForKeep.scrollTop
+      var lowestControl = beforeControl
+      var samplingControl = true
+      var sampleControl = function () {
+        if (!samplingControl) return
+        if (scrollerForKeep.scrollTop < lowestControl) lowestControl = scrollerForKeep.scrollTop
+        requestAnimationFrame(sampleControl)
+      }
+      requestAnimationFrame(sampleControl)
+      tap(control); await sleep(1400)
+      samplingControl = false
+      steps.push({
+        label: "tapping a CONTROL inside a section keeps the scroll position",
+        keptScroll: scrollerForKeep.scrollTop,
+        beforeTap: beforeControl,
+        lowest: lowestControl,
+        room: scrollerForKeep.scrollHeight - scrollerForKeep.clientHeight,
+        heightBefore: scrollerForKeep.scrollHeight,
+        heightAfter: scrollerForKeep.scrollHeight,
+        clientAfter: scrollerForKeep.clientHeight,
+        what: control.tagName.toLowerCase() + (control.getAttribute("href") ? "[href=" + control.getAttribute("href") + "]" : ""),
+        focused: document.activeElement === control ? "took focus" : "no focus",
+        stillHere: location.pathname,
+      })
+    } else {
+      steps.push({ label: "no control in view inside a section to tap", message: "found " + focusables.length + " focusable elements, none fully in view" })
+    }
 
     // THE REPORT: selecting a section. With touch, as a thumb does it.
     tap(secs[2] || secs[1]); await sleep(700)
@@ -652,7 +720,7 @@ function run(width, height, label) {
    * that. A src attribute is immune.
    */
   writeFileSync(join(out, "editor-probe.js"), readFileSync(bundle))
-  writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><div id="app"></div>${SPY}<script src="editor-probe.js"></script>${DRIVE}</body></html>`)
+  writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><div id="app"></div><script>window.PROBE_SHORT=${process.env.SHORT_PAGE === "1"}</script>${SPY}<script src="editor-probe.js"></script>${DRIVE}</body></html>`)
   const dump = execFileSync(CHROMIUM, ["--headless", "--disable-gpu", "--no-sandbox", "--force-device-scale-factor=1", "--enable-logging=stderr", "--v=0",
     `--window-size=${width},${height}`, "--virtual-time-budget=40000", "--dump-dom", `file://${file}`],
     { encoding: "utf8", maxBuffer: 400 * 1024 * 1024, stdio: ["ignore", "pipe", process.env.PROBE_DEBUG ? "inherit" : "ignore"] })
@@ -671,9 +739,9 @@ for (const [w, h, label] of [[390, 844, "phone"], [1280, 900, "desktop"]]) {
   for (const s of run(w, h, label)) {
     if (s.userCanScroll === false) { failures++; console.log(`  ✗ ${s.label}: a person could not scroll the canvas here: ${s.why.join("; ")}`) }
     if (s.keptScroll !== undefined) {
-      var kept = s.beforeTap > 0 && Math.abs(s.keptScroll - s.beforeTap) < 40
+      var kept = s.beforeTap > 0 && Math.abs(s.keptScroll - s.beforeTap) < 40 && Math.abs(s.lowest - s.beforeTap) < 40
       if (!kept) failures++
-      console.log(`  ${kept ? "ok  " : "✗   "} ${s.label}: ${s.beforeTap} → ${s.keptScroll}`)
+      console.log(`  ${kept ? "ok  " : "✗   "} ${s.label}: ${s.beforeTap} → ${s.keptScroll} (lowest ${s.lowest}, room ${s.room}, height ${s.heightBefore}→${s.heightAfter}, client ${s.clientAfter}${s.what ? ", tapped " + s.what + ", " + s.focused + ", at " + s.stillHere : ""})`)
       continue
     }
     if (s.keyboardRevived !== undefined) {

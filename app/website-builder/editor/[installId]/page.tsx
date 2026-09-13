@@ -74,9 +74,6 @@ import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { resetClippedAncestors, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
-
-/** The closed sheet's height while a section is selected: tabs, the section's name, one control. */
-const SECTION_PEEK_HEIGHT = 168
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
 import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
@@ -6988,16 +6985,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               if (next) setAiOpen(false)
             }}
             /**
-             * A SELECTED SECTION LIFTS THE SHEET A LITTLE. Tap a section on
-             * the canvas and its settings are what the sheet now holds; at
-             * the plain peek only the tabs showed, and nothing said the tap
-             * had done anything. With a section selected the closed sheet
-             * rests higher, enough for the section's name and its first
-             * control, and the canvas keeps clear of it as it always does.
-             * Deselect and it settles back. The sheet's own transition
-             * carries the move.
+             * THE SHEET DOES NOT MOVE WHEN A SECTION IS SELECTED. It lifted
+             * a little for one deploy, and it was wrong twice over: nobody
+             * asked the sheet to open by tapping the canvas, and its peek is
+             * what the canvas pads itself by, so changing it changed how much
+             * room the canvas has to scroll. On a short page that turns a
+             * scrollable canvas into one that fits, and the browser puts the
+             * scroll back to zero — the jump to the top that selecting a
+             * section was reported to cause.
              */
-            peekHeight={selectedPanel.type === "section" ? SECTION_PEEK_HEIGHT : undefined}
           >
             {/* Segmented tabs — Sections / Pages / Settings */}
             <div className="px-3 pt-1 pb-2 shrink-0 bg-background">
@@ -7283,6 +7279,43 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               if (el.scrollTop <= 0) el.scrollTop = 1
               else if (el.scrollTop >= max) el.scrollTop = max - 1
             }}
+            /**
+             * =============================================================
+             *  WITH THE INSPECTOR ON, THE CANVAS IS NOT A PAGE YOU BROWSE
+             * =============================================================
+             * Two things a tap does by default, and both of them move the
+             * canvas out from under the person who tapped.
+             *
+             * A LINK FOLLOWS. Sections written in the theme language have
+             * their links intercepted; sections rendered by a React
+             * component wire that up per link, and the ones that were
+             * missed navigate for real. Measured by the probe: a tap on a
+             * card in the features grid took the whole builder to
+             * /products. An `href="#"` is worse in the quiet way, because
+             * it goes nowhere and scrolls to the top on the way.
+             *
+             * A CONTROL TAKES FOCUS. A focused button or field is scrolled
+             * into view by the browser itself, before any code here runs,
+             * and on a short page the only place it can scroll to is the
+             * top. That is the jump reported as "click a section and it
+             * takes me back to the top, quick, like a glitch".
+             *
+             * So with the inspector on, a press inside the canvas does not
+             * focus and a click does not follow a link. Both are capture
+             * handlers on the scroller, which is the one place every
+             * section passes through, whatever it is written in. Neither
+             * touches `touchmove`, so scrolling is untouched: a mouse event
+             * is synthesised after the browser has already decided the
+             * gesture was not a scroll.
+             *
+             * With the inspector OFF the canvas is a preview again and both
+             * are gone, which is the mode for walking the site.
+             */
+            onMouseDownCapture={inspectorEnabled ? (e) => e.preventDefault() : undefined}
+            onClickCapture={inspectorEnabled ? (e) => {
+              const target = e.target as HTMLElement | null
+              if (target?.closest?.("a")) e.preventDefault()
+            } : undefined}
             className={cn(
               /**
                * `isolate` is the whole reason the page switcher's panel stopped

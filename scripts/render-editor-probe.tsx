@@ -32,7 +32,14 @@ function instance(type: string, i: number): SectionInstance {
   })
   return { id: `${type}-${i}`, type, name: schema.name, settings, blocks }
 }
-const PAGE = ["header", "hero_centered", "features_grid", "text_rich", "proof_testimonials", "faq_accordion", "cta_simple", "text_image", "promo_newsletter", "footer"]
+/**
+ * "Two sections on a page and selecting one takes me back to the top." A page
+ * with ten sections is four screens tall and hides that; a short one is the
+ * case being reported, so the probe can ask for it.
+ */
+const PAGE = (globalThis as unknown as { PROBE_SHORT?: boolean }).PROBE_SHORT
+  ? ["header", "hero_centered", "features_grid", "footer"]
+  : ["header", "hero_centered", "features_grid", "text_rich", "proof_testimonials", "faq_accordion", "cta_simple", "text_image", "promo_newsletter", "footer"]
 const sections = PAGE.map((t, i) => instance(t, i))
 
 const now = new Date().toISOString()

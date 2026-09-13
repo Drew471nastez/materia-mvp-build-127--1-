@@ -246,9 +246,22 @@ section("It is reachable, and it works on a file longer than the window")
       /onClick=\{\(\) => router\.push\(backHref\)\}/.test(codeSrc),
   )
   check(
-    "a section selected on the canvas lifts the phone's closed sheet a little",
-    /peekHeight=\{selectedPanel\.type === "section" \? SECTION_PEEK_HEIGHT : undefined\}/.test(editor) &&
-      /const SECTION_PEEK_HEIGHT = 168/.test(editor),
+    "selecting a section does not move the phone's sheet, and the canvas keeps the scroll it had",
+    // The sheet lifted for one deploy. Nobody asked the canvas to open a
+    // sheet, and its peek is what the canvas pads itself by, so moving it
+    // changed how much room the canvas had to scroll: on a short page that
+    // turns a scrollable canvas into one that fits, and the scroll goes to
+    // zero. Measured by scripts/check-editor-scroll.mjs with SHORT_PAGE=1.
+    !/SECTION_PEEK_HEIGHT/.test(editor) &&
+      !/peekHeight=\{selectedPanel/.test(editor),
+  )
+  check(
+    "with the inspector on, a press in the canvas takes no focus and a click follows no link",
+    // A focused control is scrolled into view by the browser before any code
+    // here runs, which on a short page is a jump to the top; and a link that
+    // no renderer intercepted navigated the whole builder away, measured.
+    /onMouseDownCapture=\{inspectorEnabled \? \(e\) => e\.preventDefault\(\) : undefined\}/.test(editor) &&
+      /onClickCapture=\{inspectorEnabled \? \(e\) => \{[\s\S]*?target\?\.closest\?\.\("a"\)\) e\.preventDefault\(\)/.test(editor),
   )
   check(
     "a closed code pane is visibility: hidden once its fade is done, not a transparent full-screen frame over the canvas",
