@@ -197,6 +197,100 @@ for (const [name, src] of CHARTS) {
   )
 }
 
+// ===========================================================================
+section("A ref that is used is a ref that is declared")
+// ===========================================================================
+/**
+ * THE ONE THE BUILD CANNOT CATCH.
+ *
+ * A patch that touched both charts dropped `const lastTouchXRef = useRef(0)`
+ * from the analytics one and left the three lines that use it. That is a
+ * compile error, and it compiled anyway: next.config.mjs sets
+ * `typescript.ignoreBuildErrors`, so a green `pnpm build` proved nothing.
+ *
+ * What shipped was a chart that threw `lastTouchXRef is not defined` on the
+ * first line of every touchstart. The hold timer was never scheduled, and a
+ * scrub that did start by dragging froze on the day it began, because every
+ * touchmove threw before it could queue a frame. Reading this file against
+ * dashboard-client did not find it three times over.
+ * scripts/check-chart-scrub.mjs found it on its first run, by pressing the
+ * chart. This keeps it found.
+ */
+for (const [name, src] of CHARTS) {
+  /* Strings out too, so a ref named in one is not mistaken for a use. */
+  const code = src.replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, '""')
+  const used = new Set(code.match(/\b[A-Za-z_$][\w$]*Ref\b/g) ?? [])
+  const declared = new Set([
+    ...(code.match(/(?:const|let|var)\s+([A-Za-z_$][\w$]*Ref)\b/g) ?? []).map((m) => m.split(/\s+/)[1]),
+    /* Types and imports carry the suffix without being variables. */
+    ...(code.match(/\b([A-Za-z_$][\w$]*Ref)\s*[,}]/g) ?? []).map((m) => m.replace(/\s*[,}]$/, "")),
+  ])
+  const missing = [...used].filter((r) => !declared.has(r) && !/^(?:Ref|MutableRefObject|RefObject)$/.test(r))
+  check(
+    `${name} declares every ref it uses`,
+    missing.length === 0,
+    missing.length ? `used but never declared: ${missing.join(", ")}` : undefined,
+  )
+}
+
+// ===========================================================================
+section("The two charts read the same gesture, character for character")
+// ===========================================================================
+/**
+ * The property-by-property audit in tests/settings-flow.test.ts checks that
+ * each chart HAS each thing. It cannot see a missing declaration, because a
+ * declaration is not a property anyone thought to list — which is exactly how
+ * the bug above got through an audit I wrote for this.
+ *
+ * So this compares the gesture itself, in two pieces that are meant to be
+ * word for word identical: the state the scrub keeps, and the handlers that
+ * drive it. Everything around them legitimately differs — the two charts
+ * format different metrics and take their data under different names — so
+ * neither piece reaches past what it is about. Any drift inside them, in
+ * either direction, shows up here with the exact character it starts at.
+ */
+function between(src: string, from: string, to: string): string {
+  const a = src.indexOf(from)
+  if (a < 0) return ""
+  const b = src.indexOf(to, a)
+  if (b < 0) return ""
+  return src
+    .slice(a, b + to.length)
+    /* The one name that is meant to differ: the series prop. */
+    .replace(/displayChartData/g, "SERIES")
+    .replace(/chartDisplayData/g, "SERIES")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function compare(what: string, a: string, d: string, floor: number) {
+  check(`${what}: both charts were found`, a.length > floor && d.length > floor,
+    `analytics ${a.length} chars, dashboard ${d.length} chars, wanted more than ${floor}`)
+  let detail: string | undefined
+  if (a !== d) {
+    let i = 0
+    while (i < a.length && i < d.length && a[i] === d[i]) i++
+    detail = `they diverge at character ${i}:\n          analytics: ${JSON.stringify(a.slice(i, i + 90))}\n          dashboard: ${JSON.stringify(d.slice(i, i + 90))}`
+  }
+  check(`${what}: identical on both charts`, a === d, detail)
+}
+
+/* What the scrub remembers between events. The missing line was one of these. */
+compare(
+  "the scrub's state",
+  between(ANALYTICS, "const touchStartPosRef", "const lastTouchXRef = useRef(0)"),
+  between(DASHBOARD, "const touchStartPosRef", "const lastTouchXRef = useRef(0)"),
+  200,
+)
+
+/* And what it does with it: the slop, the hold, the lock, the frame, the lift. */
+compare(
+  "the scrub's handlers",
+  between(ANALYTICS, "const getIndexFromTouch", "setActiveIndex(null)\n  }, [])"),
+  between(DASHBOARD, "const getIndexFromTouch", "setActiveIndex(null)\n  }, [])"),
+  2000,
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
