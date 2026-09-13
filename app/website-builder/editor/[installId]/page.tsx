@@ -1097,12 +1097,37 @@ const SectionLibraryCard = memo(function SectionLibraryCard({
       data-library-card={type}
       className={cn(
         "flex flex-col w-full rounded-xl border border-border bg-background overflow-hidden text-left",
-        "transition-all duration-200 ease-out will-change-transform",
+        /**
+         * NAMED PROPERTIES, NOT `all`.
+         *
+         * `transition-all` on a card that contains a live rendered section
+         * animates every property that changes on it, the preview's included.
+         * Thirty-eight of those in a grid is thirty-eight elements the
+         * compositor is asked to keep interpolating while you scroll past.
+         */
+        /**
+         * `translate` and `scale`, NOT `transform`. Tailwind v4 compiles
+         * `-translate-y-*` and `scale-*` to the standalone `translate:` and
+         * `scale:` properties, so a transition naming `transform` animates
+         * nothing at all and the lift snaps — silently, with the border and
+         * shadow still easing, so it half looks right.
+         */
+        "transition-[border-color,box-shadow,translate,scale] duration-200 ease-out",
         mobile
-          ? "rounded-2xl active:scale-[0.98] active:opacity-80 shadow-sm"
-          : "hover:border-foreground/25 hover:shadow-lg hover:shadow-black/8 hover:-translate-y-0.5 active:scale-[0.99] active:shadow-sm",
+          ? /**
+             * NO PRESS EFFECT OF ITS OWN ON A PHONE.
+             *
+             * It had `active:scale-[0.98] active:opacity-80`, and the shell
+             * adds `opacity: .72` to every [role=button] on top of that. So a
+             * thumb landing here — to tap it, or to start a scroll — shrank
+             * the card AND faded it twice, over 200ms. That is the bump and
+             * the whitish fade. The shell's dim is the press feedback, it is
+             * delayed so a scroll never triggers it, and one is enough.
+             */
+            "rounded-2xl shadow-sm"
+          : "hover:border-foreground/25 hover:shadow-lg hover:shadow-black/8 hover:-translate-y-0.5 active:scale-[0.99] active:shadow-sm will-change-transform",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
-        "group cursor-pointer",
+        "group cursor-pointer select-none [-webkit-touch-callout:none]",
       )}
     >
       <div className="px-4 pt-3 pb-2.5 shrink-0">
@@ -1351,7 +1376,24 @@ function AddSectionModal({
         * than as it shipped.
         */}
       <StorelibLiveProvider sources={sources}>
-        <div ref={gridRef} className={mobile ? "flex flex-col gap-3" : "grid grid-cols-1 gap-4"}>
+        {/*
+          KEYED ON THE FILTER, so choosing a category replaces the grid rather
+          than editing it in place — which is what lets the new set arrive
+          instead of appearing. React would otherwise reconcile card against
+          card, keep the DOM nodes, and swap their contents: no element is new,
+          so nothing can animate, and a category with a live preview in every
+          card changes under you in one frame.
+
+          The animation is on the CONTAINER, once, not on thirty-eight cards.
+          Thirty-eight staggered entrances is thirty-eight composited layers
+          arriving together on a phone, which is the lag this modal is being
+          blamed for rather than a cure for it.
+        */}
+        <div
+          key={`${activeCategory ?? "all"}:${searching ? "q" : ""}`}
+          ref={gridRef}
+          className={cn("wb-panel-swap", mobile ? "flex flex-col gap-3" : "grid grid-cols-1 gap-4")}
+        >
           {/* The width no longer gates the list. A card whose preview does
               not yet know how wide it is can still be drawn and still be
               pressed; a library nobody can see is worse than a preview that
@@ -5375,6 +5417,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     )
   }
 
+  /**
+   * WHICH PANEL IS IN THE SIDEBAR, as one string.
+   *
+   * Used as a React key so a panel replacing another remounts and replays its
+   * entrance. Without it the swap is a cut — the same element with different
+   * children on the next frame — which reads as a glitch rather than as
+   * navigation, because nothing connects the two states.
+   */
+  const sidebarPanelKey = pageBrowserOpen
+    ? "pages"
+    : selectedPanel.type === "section"
+      ? `section:${(selectedPanel as { sectionId?: string }).sectionId ?? ""}`
+      : `${sidebarMode}:${selectedPanel.type}`
+
+  /**
+   * Going back up the stack comes from the left, going in comes from below.
+   * The direction is the only thing that says which way you moved, and a
+   * back step that looks identical to a forward one is a transition that has
+   * been added without being made to mean anything.
+   */
+  const sidebarGoingBack = React.useRef(false)
+  const lastPanelKey = React.useRef(sidebarPanelKey)
+  if (lastPanelKey.current !== sidebarPanelKey) {
+    sidebarGoingBack.current =
+      lastPanelKey.current.startsWith("section:") && !sidebarPanelKey.startsWith("section:")
+    lastPanelKey.current = sidebarPanelKey
+  }
+
   const renderSidebarContent = () => {
     // ── Page browser mode ──
     if (pageBrowserOpen) return renderPageBrowser()
@@ -7112,7 +7182,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
             >
               <div data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
-                <LinkTargetsProvider targets={linkTargets}>{renderSidebarContent()}</LinkTargetsProvider>
+                <LinkTargetsProvider targets={linkTargets}>
+                  <div
+                    key={sidebarPanelKey}
+                    className={sidebarGoingBack.current ? "wb-panel-swap-back h-full" : "wb-panel-swap h-full"}
+                  >
+                    {renderSidebarContent()}
+                  </div>
+                </LinkTargetsProvider>
               </div>
             </div>
             {/* The grab edge. Wider than it looks, so it can be found; drawn
@@ -7209,7 +7286,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
 
             <div data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
-              <LinkTargetsProvider targets={linkTargets}>{renderSidebarContent()}</LinkTargetsProvider>
+              <LinkTargetsProvider targets={linkTargets}>
+                  <div
+                    key={sidebarPanelKey}
+                    className={sidebarGoingBack.current ? "wb-panel-swap-back h-full" : "wb-panel-swap h-full"}
+                  >
+                    {renderSidebarContent()}
+                  </div>
+                </LinkTargetsProvider>
             </div>
           </MobileEditorSheet>
           )

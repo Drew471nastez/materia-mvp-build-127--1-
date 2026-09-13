@@ -1753,12 +1753,17 @@ check(
    * publish card went further under the bar. What is correct is to measure
    * the overlap with a probe and pad past it — zero where there is no
    * overlap, so it is safe on every browser.
+   *
+   * The keyboard is added to the same number rather than given a second
+   * mechanism: both are "something is covering the bottom of this sheet",
+   * and a sheet that corrected for them in two places would eventually
+   * correct twice for one of them.
    */
   /fixed left-0 right-0 bottom-0 flex flex-col/.test(sheetSrc) &&
     !/viewportTop/.test(sheetSrc) &&
     /function browserChromeGap\(\): number/.test(sheetSrc) &&
     /probe\.getBoundingClientRect\(\)\.top/.test(sheetSrc) &&
-    /paddingBottom: `calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{chromeGap\}px\)`/.test(sheetSrc) &&
+    /paddingBottom: `calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{chromeGap \+ keyboardInset\}px\)`/.test(sheetSrc) &&
     // and the height grows by it too, or padding just pushes content out again
     /const safe = safeAreaBottom\(\) \+ browserChromeGap\(\)/.test(sheetSrc),
 )
