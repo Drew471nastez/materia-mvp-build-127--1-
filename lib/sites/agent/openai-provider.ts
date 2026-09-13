@@ -58,12 +58,27 @@ export class MissingKeyError extends Error {
  * provider put there that we do not model, and tool-call metadata is exactly
  * the sort of thing that goes missing that way.
  */
-function toInput(turns: AgentTurn[]): OpenAI.Responses.ResponseInputItem[] {
+export function toInput(turns: AgentTurn[]): OpenAI.Responses.ResponseInputItem[] {
   const input: OpenAI.Responses.ResponseInputItem[] = []
 
   for (const turn of turns) {
     if (turn.role === "user") {
-      input.push({ role: "user", content: turn.content })
+      /** The same picture-then-words order as the other provider. */
+      input.push(
+        turn.images?.length
+          ? {
+              role: "user",
+              content: [
+                ...turn.images.map((image) => ({
+                  type: "input_image" as const,
+                  image_url: `data:${image.mediaType};base64,${image.data}`,
+                  detail: "high" as const,
+                })),
+                { type: "input_text" as const, text: turn.content },
+              ],
+            }
+          : { role: "user", content: turn.content },
+      )
       continue
     }
 

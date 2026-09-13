@@ -31,6 +31,7 @@ import {
   Loader2,
   Lock,
   RotateCcw,
+  ImagePlus,
   Square,
   TriangleAlert,
   X,
@@ -38,6 +39,14 @@ import {
 
 import { StorelibMark } from "@/components/storelib-mark"
 import { cn } from "@/lib/utils"
+import {
+  ALLOWED_IMAGE_TYPES,
+  LONG_EDGE,
+  MAX_IMAGES,
+  MAX_IMAGE_BYTES,
+  MAX_TOTAL_IMAGE_BYTES,
+  type AllowedImageType,
+} from "@/lib/sites/agent/attachments"
 import type { ThemeOp } from "@/lib/website-builder/agent/operations"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
@@ -56,6 +65,12 @@ interface Exchange {
    * Latest line only — this is commentary, not a transcript.
    */
   note?: string
+  /**
+   * What they attached, kept for the thread only. The bytes go to the model
+   * once and are never written down anywhere; reloading the editor leaves the
+   * words and drops the pictures, which is the trade we want.
+   */
+  images?: Attachment[]
 }
 
 /**
@@ -117,6 +132,19 @@ const ENGINES = [
 type EngineId = (typeof ENGINES)[number]["id"]
 
 const ENGINE_KEY = "storelib.theme-chat.engine"
+
+/**
+ * One picture in the composer. `data` is what goes to the model; `url` is the
+ * same bytes as a data URL, purely so the thumbnail can be drawn without a
+ * second read.
+ */
+interface Attachment {
+  id: string
+  name: string
+  mediaType: AllowedImageType
+  data: string
+  url: string
+}
 
 export function ThemeChat({
   installId,
@@ -337,15 +365,160 @@ export function ThemeChat({
     }
   }, [installId])
 
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  A PICTURE OF WHAT THEY WANT, HANDED STRAIGHT TO THE ASSISTANT
+   * ═════════════════════════════════════════════════════════════════════════
+   * "Attach a screenshot and tell it to build a section like that." Three
+   * ways in, because people reach for whichever is nearest: the button, a
+   * paste, and a drop onto the composer.
+   *
+   * Read here as base64 rather than uploaded anywhere. The bytes travel with
+   * the one request that mentions them and are gone after it — no bucket, no
+   * path, and nothing of one creator's to keep away from another's.
+   */
+  const [attached, setAttached] = React.useState<Attachment[]>([])
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const [attachError, setAttachError] = React.useState<string | null>(null)
+
+  /**
+   * A SCREENSHOT IS SHRUNK BEFORE IT IS SENT.
+   *
+   * Two reasons, and the second is the hard one. The model scales anything
+   * over LONG_EDGE down before it looks at it and charges for the pixels
+   * either way, so a 4K screenshot buys nothing. And this posts to a Node
+   * serverless function, whose request body the platform caps at 4.5MB —
+   * base64 is a third larger than the file, so two phone screenshots would
+   * be refused with a 413 raised before any of our code runs, which is a
+   * failure nobody could explain to the person who hit it.
+   *
+   * A picture already inside the limit is left exactly as it is: re-encoding
+   * a small PNG only makes it worse.
+   */
+  const shrink = React.useCallback(
+    (url: string, mediaType: AllowedImageType): Promise<{ url: string; mediaType: AllowedImageType }> =>
+      new Promise((resolve) => {
+        const keep = { url, mediaType }
+        const image = new Image()
+        image.onerror = () => resolve(keep)
+        image.onload = () => {
+          const long = Math.max(image.naturalWidth, image.naturalHeight)
+          /* Under the edge AND under the size: nothing to gain. */
+          if (long <= LONG_EDGE && url.length * 0.75 <= MAX_IMAGE_BYTES / 2) { resolve(keep); return }
+          const scale = Math.min(1, LONG_EDGE / long)
+          const canvas = document.createElement("canvas")
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale))
+          const context = canvas.getContext("2d")
+          if (!context) { resolve(keep); return }
+          /* White underneath, because a transparent PNG becomes black in JPEG. */
+          context.fillStyle = "#ffffff"
+          context.fillRect(0, 0, canvas.width, canvas.height)
+          context.imageSmoothingQuality = "high"
+          context.drawImage(image, 0, 0, canvas.width, canvas.height)
+          try {
+            /**
+             * 0.92, not 0.8. The point of the picture is the detail in it,
+             * and JPEG artefacts around small text are exactly the detail
+             * that gets read wrong.
+             */
+            const out = canvas.toDataURL("image/jpeg", 0.92)
+            resolve(out.length < url.length ? { url: out, mediaType: "image/jpeg" } : keep)
+          } catch {
+            resolve(keep)
+          }
+        }
+        image.src = url
+      }),
+    [],
+  )
+
+  const attach = React.useCallback(async (files: FileList | File[] | null) => {
+    if (!files) return
+    const picked = Array.from(files).filter((f) => f.type.startsWith("image/"))
+    if (picked.length === 0) return
+    setAttachError(null)
+    const read = await Promise.all(
+      picked.map(
+        (file) =>
+          new Promise<Attachment | string>((resolve) => {
+            if (!ALLOWED_IMAGE_TYPES.includes(file.type as AllowedImageType)) {
+              resolve(`${file.name} is not a PNG, JPEG, WebP or GIF.`)
+              return
+            }
+            if (file.size > MAX_IMAGE_BYTES) {
+              resolve(`${file.name} is over ${MAX_IMAGE_BYTES / (1024 * 1024)}MB.`)
+              return
+            }
+            const reader = new FileReader()
+            reader.onerror = () => resolve(`${file.name} could not be read.`)
+            reader.onload = () => {
+              const url = String(reader.result ?? "")
+              const comma = url.indexOf(",")
+              if (comma < 0) { resolve(`${file.name} could not be read.`); return }
+              void shrink(url, file.type as AllowedImageType).then((small) => {
+                const cut = small.url.indexOf(",")
+                resolve({
+                  id: crypto.randomUUID(),
+                  name: file.name,
+                  mediaType: small.mediaType,
+                  data: small.url.slice(cut + 1),
+                  url: small.url,
+                })
+              })
+            }
+            reader.readAsDataURL(file)
+          }),
+      ),
+    )
+    const ok = read.filter((r): r is Attachment => typeof r !== "string")
+    const bad = read.filter((r): r is string => typeof r === "string")
+    setAttached((previous) => {
+      const room = MAX_IMAGES - previous.length
+      if (ok.length > room) bad.push(`Only ${MAX_IMAGES} images at a time.`)
+      /**
+       * And under the total the request can carry. Said here rather than
+       * left to the server, so it reads as "that is too much" in the
+       * composer instead of arriving as a failed run.
+       */
+      const kept: Attachment[] = []
+      let total = previous.reduce((sum, a) => sum + a.data.length * 0.75, 0)
+      for (const image of ok.slice(0, Math.max(0, room))) {
+        const size = image.data.length * 0.75
+        if (total + size > MAX_TOTAL_IMAGE_BYTES) {
+          bad.push(`That is more than ${MAX_TOTAL_IMAGE_BYTES / (1024 * 1024)}MB of pictures in one go.`)
+          break
+        }
+        total += size
+        kept.push(image)
+      }
+      return [...previous, ...kept]
+    })
+    if (bad.length) setAttachError(bad[0])
+  }, [shrink])
+
+  const removeAttachment = React.useCallback((id: string) => {
+    setAttached((previous) => previous.filter((a) => a.id !== id))
+  }, [])
+
   const send = React.useCallback(
-    async (text: string) => {
+    async (text: string, images: Attachment[] = []) => {
       const prompt = text.trim()
-      if (!prompt || busy) return
+      /**
+       * A picture on its own is a whole request. "Even if it says nothing and
+       * uploads an image, it should try to replicate it."
+       */
+      if ((!prompt && images.length === 0) || busy) return
 
       const id = crypto.randomUUID()
       setDraft("")
+      setAttached([])
+      setAttachError(null)
       setBusy(true)
-      setExchanges((previous) => [...previous, { id, prompt, changes: [], running: true }])
+      setExchanges((previous) => [
+        ...previous,
+        { id, prompt: prompt || (images.length === 1 ? "Build this." : "Build these."), changes: [], running: true, images },
+      ])
 
       const patch = (change: (exchange: Exchange) => Exchange) =>
         setExchanges((previous) => previous.map((e) => (e.id === id ? change(e) : e)))
@@ -375,6 +548,7 @@ export function ThemeChat({
           signal: controller.signal,
           body: JSON.stringify({
             prompt,
+            images: images.map((a) => ({ mediaType: a.mediaType, data: a.data, name: a.name })),
             page: live.current.page,
             sections: live.current.sections,
             settings: live.current.settings,
@@ -529,7 +703,8 @@ export function ThemeChat({
   const submit = React.useCallback(
     (text: string) => {
       const prompt = text.trim()
-      if (!prompt) return
+      const images = attached
+      if (!prompt && images.length === 0) return
       setDraft("")
       if (mode === "code") {
         if (writing) return
@@ -540,9 +715,9 @@ export function ThemeChat({
         setQueued(prompt)
         return
       }
-      void send(prompt)
+      void send(prompt, images)
     },
-    [busy, send, mode, writing, writeOne],
+    [busy, send, mode, writing, writeOne, attached],
   )
 
   /**
@@ -689,6 +864,19 @@ export function ThemeChat({
           <ul className="space-y-5">
             {exchanges.map((exchange) => (
               <li key={exchange.id} className="space-y-2">
+                {exchange.images && exchange.images.length > 0 && (
+                  <div className="mb-1.5 flex flex-wrap gap-1.5">
+                    {exchange.images.map((image) => (
+                      /* eslint-disable-next-line @next/next/no-img-element -- a data URL held in memory for this thread only. */
+                      <img
+                        key={image.id}
+                        src={image.url}
+                        alt={image.name}
+                        className="h-16 w-16 rounded-lg border border-border object-cover"
+                      />
+                    ))}
+                  </div>
+                )}
                 <p className="text-[13px] text-foreground">{exchange.prompt}</p>
 
                 {exchange.changes.length > 0 && (
@@ -873,7 +1061,52 @@ export function ThemeChat({
             )}
           </div>
         )}
-        <div className="rounded-xl border border-border bg-background focus-within:border-foreground/30">
+        <div
+          className="rounded-xl border border-border bg-background focus-within:border-foreground/30"
+          /**
+           * A drop anywhere on the composer, not just on the button. The
+           * dragover has to be cancelled or the browser opens the file
+           * instead, which loses whatever was typed.
+           */
+          onDragOver={(event) => {
+            if (event.dataTransfer.types.includes("Files")) event.preventDefault()
+          }}
+          onDrop={(event) => {
+            if (!event.dataTransfer.files.length) return
+            event.preventDefault()
+            void attach(event.dataTransfer.files)
+          }}
+        >
+          {attached.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-3 pt-3">
+              {attached.map((image) => (
+                <div key={image.id} className="group/att relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a data URL from the creator's own file; there is nothing to optimise and nowhere to fetch it from. */}
+                  <img
+                    src={image.url}
+                    alt={image.name}
+                    className="h-14 w-14 rounded-lg border border-border object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(image.id)}
+                    aria-label={`Remove ${image.name}`}
+                    /**
+                     * The cross is 20px because a bigger one would sit on the
+                     * picture rather than beside it. The `after` box is the
+                     * part a thumb hits: 36px, invisible, over the corner.
+                     */
+                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors after:absolute after:-inset-2 after:content-[''] hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" strokeWidth={2.5} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {attachError && (
+            <p className="px-3 pt-2 text-[11px] text-amber-600">{attachError}</p>
+          )}
           {/*
             NOT `disabled` while a run is going. Waiting for a spinner before
             you are allowed to type your next thought is the difference between
@@ -890,7 +1123,14 @@ export function ThemeChat({
                 submit(draft)
               }
             }}
-            placeholder={mode === "code" ? "Describe a section to write…" : busy ? "Ask for the next change…" : "Change this page…"}
+            /** A screenshot goes to the clipboard; this is where it lands. */
+            onPaste={(event) => {
+              const files = Array.from(event.clipboardData.files)
+              if (!files.some((f) => f.type.startsWith("image/"))) return
+              event.preventDefault()
+              void attach(files)
+            }}
+            placeholder={mode === "code" ? "Describe a section, or attach a picture of one…" : busy ? "Ask for the next change…" : attached.length ? "Say what this is for, or just send it" : "Change this page, or attach a picture…"}
             className="w-full resize-none bg-transparent px-3 pt-2.5 text-[13px] leading-snug outline-none placeholder:text-muted-foreground/50"
           />
           <div className="flex items-center justify-between px-2 pb-2">
@@ -898,6 +1138,28 @@ export function ThemeChat({
               {busy ? "Enter queues it" : "Enter to send, ⇧Enter for a new line"}
             </span>
             <div className="flex items-center gap-1.5">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ALLOWED_IMAGE_TYPES.join(",")}
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  void attach(event.target.files)
+                  /* So choosing the same file twice in a row still fires. */
+                  event.target.value = ""
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={attached.length >= MAX_IMAGES}
+                aria-label="Attach a picture"
+                title={attached.length >= MAX_IMAGES ? `${MAX_IMAGES} images is the limit` : "Attach a picture of what you want"}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+              >
+                <ImagePlus className="h-3.5 w-3.5" strokeWidth={2} />
+              </button>
               {busy && (
                 <button
                   type="button"
@@ -912,11 +1174,11 @@ export function ThemeChat({
               <button
                 type="button"
                 onClick={() => submit(draft)}
-                disabled={draft.trim().length === 0}
+                disabled={draft.trim().length === 0 && attached.length === 0}
                 aria-label={busy ? "Queue" : "Send"}
                 className={cn(
                   "flex h-7 w-7 items-center justify-center rounded-lg transition-opacity",
-                  draft.trim().length === 0
+                  draft.trim().length === 0 && attached.length === 0
                     ? "bg-muted text-muted-foreground/50"
                     : "bg-foreground text-background",
                 )}

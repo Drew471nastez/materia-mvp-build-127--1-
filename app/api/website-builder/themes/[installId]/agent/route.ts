@@ -35,6 +35,7 @@ import {
   substitutionNotice,
 } from "@/lib/sites/agent/provider"
 import { classifyRequest } from "@/lib/website-builder/agent/ambition"
+import { reviewImages } from "@/lib/sites/agent/attachments"
 import { completeThemeExchange, startThemeExchange } from "@/lib/website-builder/agent/chat"
 
 export const dynamic = "force-dynamic"
@@ -60,7 +61,14 @@ const SectionSchema = z.object({
 })
 
 const BodySchema = z.object({
-  prompt: z.string().min(1).max(MAX_PROMPT),
+  /**
+   * EMPTY IS ALLOWED NOW, but only with a picture. "Even if it says nothing
+   * and uploads an image, it should try to replicate it." A request with
+   * neither is still refused below, where the reason can be said plainly.
+   */
+  prompt: z.string().max(MAX_PROMPT),
+  /** Validated by `reviewImages`, not here: the limits live in one place. */
+  images: z.array(z.unknown()).max(16).optional(),
   page: z.string().min(1).max(64),
   sections: z.array(SectionSchema).max(500),
   settings: z.record(z.unknown()),
@@ -145,7 +153,26 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    * transcript. A transcript that only records what succeeded is one where
    * nobody can see the model was asked the same thing three times.
    */
-  await startThemeExchange({ installId, pageKey: body.page, prompt: body.prompt })
+  /**
+   * The pictures are checked here, at the edge, before anything is stored or
+   * sent: type, size and count, against the limits in one module. Anything
+   * refused is named in the reply rather than dropped silently.
+   */
+  const { images, rejected } = reviewImages(body.images)
+  if (!body.prompt.trim() && images.length === 0) {
+    return NextResponse.json({ error: "Describe what you want changed, or attach a picture of it." }, { status: 400 })
+  }
+
+  /**
+   * What goes in the history is the text and a note of what came with it.
+   * The bytes are not kept: they are carried with the request that mentions
+   * them and gone afterwards, so there is no store of one creator's
+   * screenshots to keep away from another's.
+   */
+  const noted = images.length
+    ? `${body.prompt.trim()}${body.prompt.trim() ? "\n\n" : ""}[${images.length === 1 ? "an image" : `${images.length} images`} attached]`
+    : body.prompt
+  await startThemeExchange({ installId, pageKey: body.page, prompt: noted })
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
@@ -188,6 +215,19 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         const resolved = resolveProvider({ requested: body.provider, tier: body.tier })
         const notice = substitutionNotice(resolved)
         if (notice) send({ type: "thinking", text: notice })
+        /**
+         * An attachment that was refused is said out loud. Dropping one
+         * quietly means the assistant answers about a picture the creator
+         * thinks it is looking at and it never saw.
+         */
+        if (rejected.length) {
+          send({
+            type: "thinking",
+            text: rejected.length === 1
+              ? `One attachment was not used: ${rejected[0].reason}`
+              : `${rejected.length} attachments were not used: ${[...new Set(rejected.map((r) => r.reason))].join(" ")}`,
+          })
+        }
 
         /**
          * THE SECTIONS THIS CREATOR WROTE. Read through their own client, so
@@ -227,6 +267,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
            */
           effort: shape.scope === "build" ? "high" : "medium",
           prompt: body.prompt,
+          images,
           page: body.page,
           state: { sections: body.sections, settings: body.settings },
           /**

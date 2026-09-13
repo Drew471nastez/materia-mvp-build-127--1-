@@ -82,6 +82,8 @@ export interface ToolResult {
   output: string
 }
 
+import type { AgentImage } from "./attachments"
+
 /**
  * One turn of the conversation, in the shape the loop keeps.
  *
@@ -91,7 +93,13 @@ export interface ToolResult {
  * how a loop starts silently dropping reasoning or tool-call metadata.
  */
 export type AgentTurn =
-  | { role: "user"; content: string }
+  /**
+   * `images` are what the creator attached to THIS turn. They ride with the
+   * text rather than being described in it, because a model that is told
+   * about a picture and a model that is shown one write different sections.
+   * Providers that cannot take an image say so; see `describeImages`.
+   */
+  | { role: "user"; content: string; images?: AgentImage[] }
   | { role: "assistant"; content: string; toolCalls: ToolCall[]; raw?: unknown }
   | { role: "tool"; results: ToolResult[] }
 

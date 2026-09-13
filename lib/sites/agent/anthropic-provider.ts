@@ -76,7 +76,25 @@ export function toMessages(turns: AgentTurn[]): Anthropic.MessageParam[] {
 
   for (const turn of turns) {
     if (turn.role === "user") {
-      messages.push({ role: "user", content: turn.content })
+      /**
+       * A picture goes BEFORE the words that talk about it. Claude reads a
+       * message in order, and a reference that arrives after the instruction
+       * to copy it has to be held in mind rather than looked at.
+       */
+      messages.push(
+        turn.images?.length
+          ? {
+              role: "user",
+              content: [
+                ...turn.images.map((image) => ({
+                  type: "image" as const,
+                  source: { type: "base64" as const, media_type: image.mediaType, data: image.data },
+                })),
+                { type: "text" as const, text: turn.content },
+              ],
+            }
+          : { role: "user", content: turn.content },
+      )
       continue
     }
 
