@@ -22,6 +22,7 @@ import { StorelibSourcesProvider } from "@/components/website-builder/sections/s
 import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
 import { mayPreview, pageSections, previewTokenFrom, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import { publishedSiteByName } from "@/lib/website-builder/published-site"
+import { SiteNotPublished } from "./not-published"
 import { shopProducts } from "@/lib/website-builder/shop-products"
 import { getMainDomain } from "@/lib/url-helpers"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
@@ -165,8 +166,15 @@ export async function renderSite(
   const found = await publishedSiteByName(username, pageKey)
   if (found.kind === "renamed") redirect(`https://${found.to}.${getMainDomain()}`)
   if (found.kind === "missing") notFound()
-  // Nothing published: the creator page, which always exists for a creator.
-  if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
+  /**
+   * NOTHING PUBLISHED IS NOT THE SAME AS "GO TO THE CREATOR PAGE". This used
+   * to redirect to storelib.com/<name>, which made the website's address and
+   * the creator's page look like one address with two spellings: you typed
+   * the site, you got the profile, and the bar rewrote itself to say you had
+   * asked for the profile. The page below says what is true and offers the
+   * creator page as a link. See app/(site)/w/[username]/not-published.tsx.
+   */
+  if (found.kind === "unpublished") return <SiteNotPublished username={username} displayName={found.displayName} />
 
   const { site } = found
   const template = templateForPage(pageKey)

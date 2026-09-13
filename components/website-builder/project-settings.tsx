@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { ArrowLeft, Check, Copy, ExternalLink, Globe, History, Loader2, Rocket, Settings, Sparkles, Upload } from "lucide-react"
 
 import { relativeTime } from "@/components/website-builder/publish-panel"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
 /**
@@ -176,6 +177,7 @@ export function ProjectSettings({
   }
 
   if (!open) return null
+  if (typeof document === "undefined") return null
 
   const dirty = draft.trim() !== name.trim() && draft.trim().length > 0
 
@@ -220,15 +222,27 @@ export function ProjectSettings({
 
   const ago = relativeTime(publishedAt)
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Project settings"
-      className="wb-settings-in fixed inset-0 z-[150] flex flex-col bg-[#0f0f0f] text-white md:flex-row"
+      className="wb-settings-in fixed inset-0 z-[150] flex flex-col overflow-hidden bg-[#0f0f0f] text-white md:flex-row"
+      /**
+       * THE PHONE'S OWN FURNITURE IS NOT A SUGGESTION. This is pinned to the
+       * viewport, and the viewport on a phone starts underneath the clock and
+       * ends under the home indicator, so "Back to project" was printed on top
+       * of the time and the last card sat under the bar at the bottom. The
+       * insets are real numbers the device gives us; they are read once here
+       * and the whole surface stands inside them.
+       */
+      style={{
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
     >
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
-      <aside className="shrink-0 border-b border-white/10 md:w-[280px] md:border-b-0 md:border-r">
+      <aside className="shrink-0 overflow-hidden border-b border-white/10 md:w-[280px] md:border-b-0 md:border-r">
         <div className="px-5 pt-5 md:px-6 md:pt-7">
           <button
             type="button"
@@ -268,7 +282,7 @@ export function ProjectSettings({
 
       {/* ── Panel ───────────────────────────────────────────────────────── */}
       <main className="wb-slim-scroll min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[880px] px-5 py-8 md:px-12 md:py-14">
+        <div className="mx-auto w-full max-w-[880px] px-5 pb-16 pt-8 md:px-12 md:pb-14 md:pt-14">
           {section === "general" && (
             <>
               <h1 className="text-[26px] font-semibold tracking-[-0.01em] md:text-[30px]">Project General Settings</h1>
@@ -511,6 +525,7 @@ export function ProjectSettings({
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body,
   )
 }

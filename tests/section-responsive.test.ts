@@ -487,7 +487,9 @@ check(
    * sidebar first.
    */
   !/!publishOpen && previewMode/.test(editor) &&
-    /previewMode !== "code" && \(\s*<MobileEditorSheet/.test(editor) &&
+    // And the project settings page, which covers the screen from the body
+    // and would otherwise have the sheet printed across it.
+    /previewMode !== "code" && !projectSettingsOpen && \(\s*<MobileEditorSheet/.test(editor) &&
     /if \(isMobileView\) \{ setMobileSidebarOpen\(false\); setAiOpen\(false\) \}/.test(editor),
 )
 

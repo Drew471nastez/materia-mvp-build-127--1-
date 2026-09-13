@@ -7098,7 +7098,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
              with a small peek at the bottom when "closed", expands to ~50% of
              the viewport when opened. Drag the pill handle to move between
              states — finger tracks in real time. */
-          previewMode !== "code" && (
+          /**
+           * AND NOTHING OF THE EDITOR IS LEFT OVER A PAGE THAT COVERS THE
+           * SCREEN. Project settings is a full surface; the sheet is a
+           * separate layer in the body, so it kept its place at the bottom
+           * of the screen and printed itself over the settings page. It is
+           * not rendered while that page is open.
+           */
+          previewMode !== "code" && !projectSettingsOpen && (
           <MobileEditorSheet
             open={mobileSidebarOpen}
             onOpenChange={(next) => {

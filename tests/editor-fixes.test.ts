@@ -46,7 +46,25 @@ function main() {
     // The front page and every sub-page hand their work to one renderer.
     const w = read("app/(site)/w/[username]/render-site.tsx")
     check("the website route serves from the cache", /await publishedSiteByName\(username, pageKey\)/.test(w))
-    check("nothing published sends the visitor to the creator page, never to a placeholder", /found\.kind === "unpublished"\) redirect\(`https:\/\/\$\{getMainDomain\(\)\}\/\$\{username\.toLowerCase\(\)\}`\)/.test(w) && !/Coming Soon/.test(w))
+    /**
+     * AND THEN THE REDIRECT CAME OFF. A website's address and its creator's
+     * page are two things; sending one to the other made them look like one
+     * address with two spellings. The page it renders instead names the
+     * address, says it is not published, and offers the creator page as a
+     * link rather than as a destination.
+     */
+    check(
+      "a site with nothing published stays on its own address and says so",
+      /found\.kind === "unpublished"\) return <SiteNotPublished username=\{username\} displayName=\{found\.displayName\} \/>/.test(w) &&
+        !/found\.kind === "unpublished"\) redirect\(/.test(w) &&
+        !/Coming Soon/.test(w) &&
+        ((page) =>
+          /This website is not published yet/.test(page) &&
+          /See \{name\} on Storelib/.test(page) &&
+          /const creator = `https:\/\/\$\{getMainDomain\(\)\}\/\$\{lower\}`/.test(page))(
+            readFileSync(join(root, "app/(site)/w/[username]/not-published.tsx"), "utf8"),
+          ),
+    )
     check("a renamed creator's site follows them to the new subdomain", /found\.kind === "renamed"\) redirect\(`https:\/\/\$\{found\.to\}\.\$\{getMainDomain\(\)\}`\)/.test(w))
     check("its metadata reads published settings only", /const settings: ThemeSettingsValues = settingsRow\.settings \?\? \{\}/.test(w) && !/settingsRow\.draft_settings/.test(w))
     check("the preview path draws the shop too", /shopProducts\(admin as never, creatorId\)/.test(w))

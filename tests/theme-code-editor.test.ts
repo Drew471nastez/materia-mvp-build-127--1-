@@ -252,6 +252,25 @@ section("It is reachable, and it works on a file longer than the window")
       ),
   )
   check(
+    "New file asks its question on the surface the button was pressed on, and moves nobody to the explorer",
+    // It opened inside the file list: on a phone that threw the list over the
+    // editor, and on a desktop it answered in a different column from the one
+    // being looked at.
+    /\{\/\* Code area \*\/\}[\s\S]{0,900}?\{pendingAction\?\.kind === "new" && \(/.test(codeSrc) &&
+      /max-w-\[520px\]/.test(codeSrc) &&
+      !/onClick=\{\(\) => \{ setShowFiles\(true\); setPendingAction\(\{ kind: "new"/.test(codeSrc) &&
+      /if \(narrow\) setShowFiles\(false\)/.test(codeSrc),
+  )
+  check(
+    "project settings is its own layer, inside the phone's safe areas, with no sheet left over it",
+    ((settings) =>
+      /createPortal\(/.test(settings) &&
+      /paddingTop: "env\(safe-area-inset-top, 0px\)"/.test(settings) &&
+      /paddingBottom: "env\(safe-area-inset-bottom, 0px\)"/.test(settings))(
+        readFileSync(join(root, "components/website-builder/project-settings.tsx"), "utf8"),
+      ) && /previewMode !== "code" && !projectSettingsOpen && \(/.test(editor),
+  )
+  check(
     "the code page's Back says the builder is coming, in the same place and at the same size",
     /const \[goingBack, setGoingBack\] = useState\(false\)/.test(codeSrc) &&
       /if \(goingBack\) return\s*\n\s*setGoingBack\(true\)/.test(codeSrc) &&
