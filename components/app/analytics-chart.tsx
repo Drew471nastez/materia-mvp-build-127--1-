@@ -133,7 +133,19 @@ function AnalyticsChartWithTooltipInner({
     setShouldAnimate(true)
     const timer = setTimeout(() => setShouldAnimate(false), 750)
     return () => clearTimeout(timer)
-  }, [chartDisplayData, chartMetricFilter, onePageChartFilter])
+  /**
+   * THE DATA ONLY, same as dashboard-client.
+   *
+   * The metric filters were dependencies here too, so switching to Revenue
+   * fired this once immediately — redrawing the chart with the OLD numbers
+   * still in it — and again when the new ones arrived. Two draws, the first
+   * of the wrong thing. A metric changing is a request for data, not the
+   * arrival of any.
+   *
+   * Found by auditing the two charts against each other rather than by
+   * anything failing: the dashboard was fixed and this was not.
+   */
+  }, [chartDisplayData])
 
   /** One formatter, used to draw the ticks and to measure how wide they are. */
   const axisTick = useCallback((v: number) => {
