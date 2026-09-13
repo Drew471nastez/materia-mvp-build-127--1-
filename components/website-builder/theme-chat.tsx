@@ -157,6 +157,7 @@ export function ThemeChat({
   onOp,
   onClose,
   onOpenCodeEditor,
+  onSourcesChanged,
 }: {
   installId: string
   /**
@@ -165,6 +166,8 @@ export function ThemeChat({
    * appeared on their site without them seeing what it was.
    */
   onOpenCodeEditor?: (path: string) => void
+  /** A section's code was rewritten during a run, so the theme's files are stale. */
+  onSourcesChanged?: () => void
   page: string
   sections: SectionInstance[]
   settings: Record<string, unknown>
@@ -613,6 +616,9 @@ export function ThemeChat({
               onOp(event.op)
               const label = event.label ?? "Changed the page"
               patch((e) => ({ ...e, changes: [...e.changes, label] }))
+            } else if (event.type === "sources-changed") {
+              // The canvas is drawing the old source; the editor holds the files.
+              onSourcesChanged?.()
             } else if (event.type === "message") {
               const reply = event.text ?? ""
               patch((e) => ({ ...e, reply, running: false }))

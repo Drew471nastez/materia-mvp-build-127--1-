@@ -7218,6 +7218,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onRunEnd={backupAfterTask}
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}
+              onSourcesChanged={() => { void loadStorelibSources() }}
               onOpenCodeEditor={(path) => {
                 setAiOpen(false)
                 void openCode(path)
@@ -7242,6 +7243,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onRunEnd={backupAfterTask}
               onOp={applyAiOp}
               onClose={() => setAiOpen(false)}
+              onSourcesChanged={() => { void loadStorelibSources() }}
               onOpenCodeEditor={(path) => {
                 setAiOpen(false)
                 void openCode(path)
@@ -8107,7 +8109,7 @@ function SectionToolbar({
        * in words, which is the same job by another route, so it sits with
        * them rather than in a menu somewhere else.
        */}
-      <Item label="Ask Storelib about this section" onClick={onAskAi}>
+      <Item label="Ask AI" onClick={onAskAi}>
         <StorelibMark className="h-4 w-4 rounded-[4px]" />
       </Item>
       <span aria-hidden className="mx-0.5 h-5 w-px bg-neutral-200" />

@@ -21,6 +21,7 @@ import { z } from "zod"
 
 import { createClient } from "@/lib/supabase/server"
 import { sourceMap } from "@/lib/website-builder/theme-file-drafts"
+import { compileSection } from "@/lib/storelib-theme"
 import { customAddableSections, customSectionSchemas } from "@/lib/website-builder/storelib-schemas"
 // `MissingKeyError` only: the provider itself now comes from the resolver.
 import { MissingKeyError } from "@/lib/sites/agent/openai-provider"
@@ -256,9 +257,54 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           /* the assistant works without them, as it always did */
         }
 
+        /**
+         * =====================================================================
+         *  THE ASSISTANT CAN EDIT A SECTION'S SOURCE, NOT ONLY ITS SETTINGS
+         * =====================================================================
+         * Asked for a smoother accordion, it used to answer that the section
+         * exposes no animation control. A section is a file. These two give it
+         * the file, and take a new one back on exactly the terms the code
+         * editor's own save uses: it must compile, or nothing is stored and
+         * the compiler's words go back to the model to fix.
+         *
+         * Only sections the creator has in their own theme can be written;
+         * the product's built-in ones have no file here and the read says so.
+         */
+        const code = agentSources
+          ? {
+              read(sectionType: string): string | null {
+                const path = `sections/${sectionType}.storelib`
+                return agentSources?.[path] ?? null
+              },
+              async write(sectionType: string, source: string): Promise<{ ok: true } | { ok: false; error: string }> {
+                const path = `sections/${sectionType}.storelib`
+                if (!agentSources || !(path in agentSources)) {
+                  return { ok: false, error: `There is no ${path} in this theme to replace.` }
+                }
+                const compiled = compileSection(source, { file: path })
+                if (compiled.ok === false) {
+                  const lines = compiled.errors
+                    .map((e) => `${e.line !== undefined ? `line ${e.line}: ` : ""}${e.message}`)
+                    .join("\n")
+                  return { ok: false, error: `${path} did not compile.\n${lines}` }
+                }
+                const { error } = await supabase
+                  .from("store_theme_custom_files")
+                  .update({ content: source, draft_content: null, updated_at: new Date().toISOString() })
+                  .eq("install_id", installId)
+                  .eq("path", path)
+                if (error) return { ok: false, error: `The file could not be saved: ${error.message}` }
+                // The next turn reads what was just written, not what was there.
+                agentSources[path] = source
+                return { ok: true }
+              },
+            }
+          : undefined
+
         const loop = themeAgent({
           provider: resolved.provider,
           sources: agentSources,
+          code,
           model: resolved.model,
           maxTurns: shape.maxTurns,
           /**
@@ -339,6 +385,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         }
 
         const result = step.value
+        /**
+         * A SECTION'S SOURCE CHANGED, so the canvas is drawing the old one.
+         * Said before the closing message, so the editor has reloaded by the
+         * time somebody reads what was done.
+         */
+        if (result.wroteCode) send({ type: "sources-changed" })
         if (result.status === "failed") {
           send({ type: "error", message: result.error ?? "The edit failed." })
         } else {

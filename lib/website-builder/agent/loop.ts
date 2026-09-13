@@ -95,6 +95,8 @@ export type ThemeAgentEvent =
   /** One change, the moment it is made, so the preview moves as it happens. */
   | { type: "op"; op: ThemeOp; label: string }
   | { type: "message"; text: string }
+  /** A section's source was rewritten: whoever is drawing it should reload. */
+  | { type: "sources-changed" }
   | { type: "error"; message: string }
 
 export interface ThemeAgentResult {
@@ -103,9 +105,11 @@ export interface ThemeAgentResult {
   error: string | null
   usage: TokenUsage
   ops: ThemeOp[]
+  /** A section's source was rewritten, so the editor reloads its files. */
+  wroteCode?: boolean
 }
 
-const SYSTEM_PROMPT = `You edit a website in a visual theme editor. The page is a list of SECTIONS, each with settings defined by a schema. You change the page by calling tools; there is no code and no file to write.
+const SYSTEM_PROMPT = `You edit a website in a visual theme editor. The page is a list of SECTIONS, each with settings defined by a schema, and each KIND of section is a file you can read and rewrite: its markup, its CSS, its script and that schema. You change the page by calling tools.
 
 Rules:
 - Address a section by the id shown in square brackets. Never invent an id.
@@ -130,9 +134,17 @@ Rules:
 - Do not add a product section to a store with no products. It renders empty, which looks broken rather than new.
 - MATCH THE PAGE YOU ARE ON. It has a palette, a spacing rhythm and a way of alternating backgrounds, and you are shown them. Reuse a colour that is already there rather than introducing one three shades off it; keep padding on the values the rest of the page uses. Coherence is what separates a designed page from an assembled one, and it comes from using a small vocabulary consistently — not from making each section interesting on its own.
 - YOUR WORK IS CHECKED BEFORE YOU FINISH. Contrast, empty text, repeated entries, and a section left holding its preset's demo copy are all checked against the page as it stands after your changes. If anything is wrong you will be told and you fix it. So get it right first: text needs at least 4.5:1 against what is behind it, every section you add gets real copy about this store, and no two entries say the same thing.
+- START FROM WHAT WAS ASKED FOR, NOT FROM WHAT IS EASY TO REACH. Settings are one way to make a change. They are not the edge of what is possible, and "the section exposes no control for that" is not an answer while the section is a file you can edit. If somebody asks for a smoother accordion, a hover effect, tighter spacing between two particular things, a different layout on a phone, an animation, or anything else no setting covers:
+    1. read_section_code on that section type and look at what is actually there.
+    2. Change the markup, the CSS or the script to do the thing.
+    3. write_section_code with the whole file.
+   Keep everything you were not asked about exactly as it was: the schema, every setting the file reads, the blocks, the class names the rest of the theme uses, and the way it behaves at every width. A request about an animation is not permission to rewrite the copy.
+- ADD A SETTING ONLY WHEN SOMEBODY WOULD WANT TO CHANGE IT AGAIN LATER. A one-off fix belongs in the CSS. A choice a creator will revisit — a speed, a style, on or off — is worth a field in the schema with a sensible default, and then the default is what they already have.
+- IF A WRITE IS REFUSED IT DID NOT HAPPEN. The compiler says what is wrong; fix that in the source and write it again. Do not report a change you were not able to save, and do not abandon the request because the first attempt did not compile.
+- READ A FOLLOW-UP AS A CORRECTION OF THE LAST THING YOU DID. "I meant the opening animation" after you renamed something means the rename was not what was wanted: go and do the animation. Never take a word in the request as licence to change content that happens to contain it.
 - When you are done, reply with one plain sentence saying what you changed. No preamble, no markdown, no lists.`
 
-function toolSpecs(addable: string[], schemas?: SchemaMap): ToolSpec<string>[] {
+function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): ToolSpec<string>[] {
   return [
     {
       name: "read_section",
@@ -311,6 +323,37 @@ function toolSpecs(addable: string[], schemas?: SchemaMap): ToolSpec<string>[] {
         additionalProperties: false,
       },
     },
+    ...(code
+      ? [
+          {
+            name: "read_section_code",
+            description:
+              "Read the SOURCE of a kind of section: its markup, its CSS, its script and its schema. Use this the moment a request is about something no setting covers — an animation, a transition, hover behaviour, spacing between two particular things, how a part behaves on a phone.",
+            parameters: {
+              type: "object" as const,
+              properties: {
+                sectionType: { type: "string", description: 'The section type, e.g. "faq_accordion".' },
+              },
+              required: ["sectionType"],
+              additionalProperties: false,
+            },
+          },
+          {
+            name: "write_section_code",
+            description:
+              "Replace the source of a kind of section with a new one. Send the WHOLE file, not a patch. It is compiled before it is stored and refused if it does not compile, so keep every part you were not asked to change exactly as it was: the schema, the settings it reads, the blocks, the classes the rest of the theme uses. Changes every place this kind of section is used.",
+            parameters: {
+              type: "object" as const,
+              properties: {
+                sectionType: { type: "string", description: "The section type you read." },
+                source: { type: "string", description: "The complete new file." },
+              },
+              required: ["sectionType", "source"],
+              additionalProperties: false,
+            },
+          },
+        ]
+      : []),
     {
       name: "read_store",
       description:
@@ -396,6 +439,25 @@ export interface ThemeAgentInput {
    * what it saw before.
    */
   sources?: Record<string, string>
+  /**
+   * ===========================================================================
+   *  A SETTING IS ONE WAY TO MAKE A CHANGE, NOT THE LIMIT OF WHAT IS POSSIBLE
+   * ===========================================================================
+   * Asked to make an accordion open more smoothly, the agent used to answer
+   * that the section exposes no animation control and stop. The section is a
+   * file: markup, CSS, a little script and a schema, all editable. What it
+   * lacked was a way in.
+   *
+   * Given this, it can read a section's source and write it back. The write
+   * compiles the file first and refuses a source that does not, so a request
+   * for a nicer animation can never leave somebody with a section that will
+   * not render. Absent, the two tools are simply not offered, and the agent
+   * works with settings alone as it always did.
+   */
+  code?: {
+    read(sectionType: string): string | null
+    write(sectionType: string, source: string): Promise<{ ok: true } | { ok: false; error: string }>
+  }
   model: string
   prompt: string
   /**
@@ -480,6 +542,8 @@ export async function* themeAgent(
   const schemas = schemaMapFor(input.sources)
 
   let state: ThemeState = { sections: [...input.state.sections], settings: { ...input.state.settings } }
+  /** Whether any section's source was rewritten, so the caller can reload it. */
+  let wroteCode = false
   const ops: ThemeOp[] = []
   let usage: TokenUsage = ZERO_USAGE
   let message = ""
@@ -564,7 +628,7 @@ export async function* themeAgent(
         model,
         system: SYSTEM_PROMPT,
         turns: [...turns],
-        tools: toolSpecs(addable, schemas),
+        tools: toolSpecs(addable, schemas, !!input.code),
         maxOutputTokens: 8_000,
         cacheKey: input.cacheKey,
         effort: input.effort,
@@ -647,6 +711,23 @@ export async function* themeAgent(
               ? describeStore(facts)
               : "The catalogue is not available from here. Write copy that does not depend on knowing the products, and say so in your reply.",
           })
+          continue
+        }
+
+        /**
+         * THE TWO CODE TOOLS ARE THE ONLY ONES THAT TOUCH A FILE, so they are
+         * the only ones that have to wait for anything. Everything else is a
+         * change to the page held in memory here and stays instant.
+         */
+        if (input.code && (call.name === "read_section_code" || call.name === "write_section_code")) {
+          const result = await runCodeTool(call.name, call.argumentsJson, input.code)
+          results.push({ id: call.id, output: result })
+          if (call.name === "write_section_code" && result.startsWith("sections/")) {
+            // The canvas has to be told, the same way an operation tells it.
+            const type = String(JSON.parse(call.argumentsJson || "{}").sectionType ?? "")
+            done.push(`Rewrote the ${type.replace(/_/g, " ")} section's code`)
+            wroteCode = true
+          }
           continue
         }
 
@@ -737,7 +818,7 @@ export async function* themeAgent(
     }
   }
 
-  return { status, message, error, usage, ops }
+  return { status, message, error, usage, ops, wroteCode }
 }
 
 /**
@@ -748,6 +829,43 @@ export async function* themeAgent(
  * something the model can correct on its next turn, and throwing would end a
  * run over a typo.
  */
+/**
+ * Reading a section's source, and writing one back. Kept apart from `execute`
+ * because these two are the only tools that touch anything outside this run,
+ * and because a refusal here has to say WHY in a way the model can act on:
+ * a file that did not compile comes back with the compiler's own words.
+ */
+async function runCodeTool(
+  name: string,
+  argumentsJson: string,
+  code: NonNullable<ThemeAgentInput["code"]>,
+): Promise<string> {
+  let args: Record<string, unknown> = {}
+  try {
+    args = JSON.parse(argumentsJson || "{}") as Record<string, unknown>
+  } catch {
+    return "The arguments were not JSON. Send sectionType, and for a write the whole source as a string."
+  }
+  const sectionType = typeof args.sectionType === "string" ? args.sectionType.trim() : ""
+  if (!sectionType) return "Name the section type, e.g. \"faq_accordion\"."
+
+  if (name === "read_section_code") {
+    const source = code.read(sectionType)
+    if (source === null) {
+      return `There is no source for "${sectionType}" in this theme. It is one of the sections built into the product, so it has no file to edit: do what you can with its settings and say plainly in your reply what the settings cannot do.`
+    }
+    return `The whole of sections/${sectionType}.storelib:\n\n${source}`
+  }
+
+  const source = typeof args.source === "string" ? args.source : ""
+  if (!source.trim()) return "Send the whole file in `source`. A patch or a fragment cannot be stored."
+  const written = await code.write(sectionType, source)
+  if (written.ok === true) {
+    return `sections/${sectionType}.storelib was compiled and saved. It is live on the canvas. If the change was meant to be visible, say what you changed in one sentence when you finish.`
+  }
+  return `That source was refused and NOTHING was saved: ${written.error}\n\nRead the errors, fix them in the source you sent, and write it again. Do not give up on the request because of a compile error.`
+}
+
 function execute(
   name: string,
   argumentsJson: string,

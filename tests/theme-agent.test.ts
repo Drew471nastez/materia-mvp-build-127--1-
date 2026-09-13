@@ -3269,3 +3269,71 @@ if (failed > 0) {
   console.log("Failing:", failures.join(", "))
   process.exit(1)
 }
+
+// ===========================================================================
+section("A setting is one way to make a change, not the limit of what is possible")
+// ===========================================================================
+{
+  /**
+   * "Make the FAQ opening smoother" came back as "this section exposes no
+   * animation control, and theme settings are locked". The section is a file:
+   * markup, CSS, a script and a schema. What the assistant lacked was a way
+   * in, so it answered from the only thing it could see.
+   */
+  const loop = readFileSync(join(process.cwd(), "lib/website-builder/agent/loop.ts"), "utf8")
+  const route = readFileSync(join(process.cwd(), "app/api/website-builder/themes/[installId]/agent/route.ts"), "utf8")
+
+  check(
+    "it can read a section's source and write a new one",
+    /name: "read_section_code"/.test(loop) && /name: "write_section_code"/.test(loop),
+  )
+  check(
+    "the two tools are offered only when there is a theme to edit",
+    /tools: toolSpecs\(addable, schemas, !!input\.code\)/.test(loop) &&
+      /code\?: \{\s*\n\s*read\(sectionType: string\): string \| null/.test(loop),
+  )
+  check(
+    "the prompt no longer says there is no file to write",
+    !/there is no code and no file to write/.test(loop) &&
+      /each KIND of section is a file you can read and rewrite/.test(loop),
+  )
+  check(
+    "and it says to go to the code when no setting covers the request",
+    /Settings are one way to make a change\. They are not the edge of what is possible/.test(loop) &&
+      /read_section_code on that section type/.test(loop) &&
+      /write_section_code with the whole file/.test(loop),
+  )
+  check(
+    "a setting is added only for something somebody would change again",
+    /ADD A SETTING ONLY WHEN SOMEBODY WOULD WANT TO CHANGE IT AGAIN LATER/.test(loop),
+  )
+  check(
+    "a follow-up is read as a correction, not as licence to rename things",
+    /READ A FOLLOW-UP AS A CORRECTION OF THE LAST THING YOU DID/.test(loop),
+  )
+  check(
+    "a source that does not compile is refused, and nothing is stored",
+    /const compiled = compileSection\(source, \{ file: path \}\)/.test(route) &&
+      /did not compile/.test(route) &&
+      /IF A WRITE IS REFUSED IT DID NOT HAPPEN/.test(loop),
+  )
+  check(
+    "a write goes to the same table the code editor saves to, draft cleared",
+    /\.from\("store_theme_custom_files"\)\s*\n\s*\.update\(\{ content: source, draft_content: null/.test(route),
+  )
+  check(
+    "the next turn reads what was just written",
+    /agentSources\[path\] = source/.test(route),
+  )
+  check(
+    "and the canvas is told, so it stops drawing the old source",
+    /if \(result\.wroteCode\) send\(\{ type: "sources-changed" \}\)/.test(route) &&
+      /\{ type: "sources-changed" \}/.test(loop) &&
+      /onSourcesChanged\?\.\(\)/.test(readFileSync(join(process.cwd(), "components/website-builder/theme-chat.tsx"), "utf8")) &&
+      /onSourcesChanged=\{\(\) => \{ void loadStorelibSources\(\) \}\}/.test(readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")),
+  )
+  check(
+    "the section's own button says Ask AI",
+    /<Item label="Ask AI" onClick=\{onAskAi\}>/.test(readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")),
+  )
+}
