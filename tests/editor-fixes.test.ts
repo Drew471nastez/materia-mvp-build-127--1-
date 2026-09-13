@@ -135,6 +135,36 @@ function main() {
     check("the flag is cleared whatever the server says", /\} finally \{\s*setCreating\(false\)/.test(code))
   }
 
+  // ════════════════════════════════════════════════════════════════════════
+  section("The touch rules do not undo the things they are painted over")
+  // ════════════════════════════════════════════════════════════════════════
+  /**
+   * Two `!important` rules under `@media (hover: none)` were reaching past
+   * the components they were written for. Both were measured with
+   * scripts/check-section-library.mjs, which now emulates a finger: before
+   * the fix it reported the selected pill's background overridden by
+   * `[data-mobile-bottom-sheet] button:hover` and the preview's scale
+   * overridden by `.group *`.
+   */
+  {
+    const css = read("app/globals.css")
+    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+
+    // A tapped pill keeps :hover on a phone until something else is tapped,
+    // so the row-flash suppressor landed on the one chip you had chosen.
+    check("the sheet's hover wipe skips the chips", /\[data-mobile-bottom-sheet\] button:not\(\.wb-chip\):hover/.test(css) && /\[data-mobile-top-sheet\] button:not\(\.wb-chip\):hover/.test(css))
+    check("and it still flattens everything else in a sheet", /background-color: transparent !important/.test(css))
+
+    // The preview's scale is what makes a section drawn at 390 or 800 fit a
+    // card a third of that, so it is not hover decoration.
+    check("a load-bearing transform survives touch", /\.group \*:not\(\[data-keep-transform\]\) \{/.test(css))
+    check("and its transitions are still killed like the rest", /\.group \*\[data-keep-transform\] \{\s*transition-property: none !important;/.test(css))
+    check("both preview boxes claim their transform", (editor.match(/data-keep-transform/g) ?? []).length >= 2)
+
+    // The state a stylesheet, a test and a screen reader can all read.
+    check("the selected chip says so in the DOM, not only in a class", /data-on=\{on \? "true" : "false"\}/.test(editor) && /aria-pressed=\{on\}/.test(editor))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }

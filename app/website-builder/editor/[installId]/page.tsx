@@ -1019,7 +1019,7 @@ function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, 
       }}
     >
       {markup === null ? (
-        <div ref={captureRef} className="absolute left-0 top-0 origin-top-left" style={inner}>
+        <div ref={captureRef} className="absolute left-0 top-0 origin-top-left" data-keep-transform style={inner}>
           {/* `deviceMode` for the header's sake. It is the one section kept
               out of the container-query wrapper — it positions things `fixed`
               and containment would make an ancestor their containing block —
@@ -1042,6 +1042,10 @@ function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, 
          */
         <div
           className="absolute left-0 top-0 origin-top-left"
+          /* The scale is what makes the preview fit the card. On a touch
+             device a blanket `transform: none` under `.group` used to remove
+             it: see the rule in globals.css that this opts out of. */
+          data-keep-transform
           style={inner}
           aria-hidden
           dangerouslySetInnerHTML={{ __html: markup }}
@@ -1427,6 +1431,24 @@ function AddSectionModal({
                       key={cat.key}
                       type="button"
                       onClick={() => setActiveCategory(cat.key === "all" ? null : cat.key)}
+                      /**
+                       * THE SELECTED PILL SAYS SO IN AN ATTRIBUTE, NOT ONLY IN
+                       * A UTILITY CLASS.
+                       *
+                       * A tapped pill went white and read as untouched. The
+                       * cause was a sheet-wide `:hover { background-color:
+                       * transparent !important }` for touch, which on a phone
+                       * stays on the last element tapped, so it landed on
+                       * exactly the chip you had just selected. That rule now
+                       * excludes `.wb-chip` (see globals.css).
+                       *
+                       * The attribute is what a class cannot be: something a
+                       * stylesheet, a test and a screen reader can all read.
+                       * `aria-pressed` because that is what this control is,
+                       * a toggle, and it never announced itself as one.
+                       */
+                      data-on={on ? "true" : "false"}
+                      aria-pressed={on}
                       className={cn(
                         /**
                          * Named properties, not `transition-all`. Tailwind v4

@@ -182,8 +182,8 @@ const DRIVE = `
         after: cardCount(),
         chipBefore: beforeLook,
         chipAfter: after.length > 1 ? look(after[1]) : null,
-        classBefore: (list[1].className || "").slice(-60),
-        classAfter: after.length > 1 ? (after[1].className || "").slice(-60) : null,
+        classBefore: String(list[1].className || ""),
+        classAfter: after.length > 1 ? String(after[1].className || "") : null,
         rows: document.querySelectorAll(".wb-chip-row").length,
         firstChipAfter: after.length ? look(after[0]) : null,
       })
@@ -215,6 +215,65 @@ const DRIVE = `
         overflows: section ? Math.round(section.getBoundingClientRect().right) > Math.round(r.right) + 2 : null,
       })
     }
+    /**
+     * WHAT THE TOUCH STYLESHEET DOES TO THESE TWO ELEMENTS.
+     *
+     * A synthetic click cannot produce a real ":hover", so the pill's white
+     * flash is not reproducible by driving the page. The rule that caused it
+     * is, though: it is in the stylesheet, it declares a background, and it
+     * either matches this chip or it does not. So this reads the rules the
+     * browser actually parsed, keeps the ones whose media condition is live
+     * right now, drops ":hover" and the like from the selector, and asks the
+     * element whether it is one of the things being styled.
+     *
+     * Anything that comes back is a rule that would repaint the element with
+     * "!important" behind the component's back.
+     */
+    function overriders(el, prop) {
+      var hits = []
+      function walk(rules) {
+        for (var i = 0; i < rules.length; i++) {
+          var rule = rules[i]
+          if (rule.media) {
+            if (window.matchMedia(rule.conditionText || rule.media.mediaText).matches) walk(rule.cssRules || [])
+            continue
+          }
+          if (rule.cssRules && !rule.selectorText) { walk(rule.cssRules); continue }
+          if (!rule.selectorText || !rule.style) continue
+          if (!rule.style.getPropertyValue(prop)) continue
+          if (rule.style.getPropertyPriority(prop) !== "important") continue
+          var parts = String(rule.selectorText).split(",")
+          for (var j = 0; j < parts.length; j++) {
+            var plain = parts[j].replace(/:hover|:active|:focus(-visible)?/g, "").trim()
+            if (!plain) continue
+            var matched = false
+            try { matched = el.matches(plain) } catch (e) { matched = false }
+            if (matched) { hits.push(parts[j].trim() + " { " + prop + ": " + rule.style.getPropertyValue(prop) + " !important }"); break }
+          }
+        }
+      }
+      var sheets = document.styleSheets
+      for (var k = 0; k < sheets.length; k++) {
+        try { walk(sheets[k].cssRules || []) } catch (e) { /* a cross-origin sheet has no rules to read */ }
+      }
+      return hits
+    }
+
+    var liveChips = chips()
+    var selected = null
+    for (var c = 0; c < liveChips.length; c++) {
+      if (liveChips[c].getAttribute("data-on") === "true") { selected = liveChips[c]; break }
+    }
+    var firstInner = document.querySelector("[data-library-card] .origin-top-left")
+    steps.push({
+      label: "the touch stylesheet",
+      hoverNone: window.matchMedia("(hover: none)").matches,
+      coarse: window.matchMedia("(pointer: coarse)").matches,
+      selectedChipFound: !!selected,
+      chipBackgroundOverridden: selected ? overriders(selected, "background-color") : null,
+      previewTransformOverridden: firstInner ? overriders(firstInner, "transform") : null,
+    })
+
     var sheet = document.querySelector("[data-mobile-bottom-sheet]")
     steps.push({
       label: "previews",
@@ -228,7 +287,30 @@ const DRIVE = `
   setTimeout(waitReady, 200)
 })()
 </script>`
-function run(width, height, label) {
+/**
+ * A PHONE IS NOT A SMALL WINDOW.
+ *
+ * This probe used to report the library as healthy while it was visibly
+ * broken on a phone, because the two bugs both lived inside
+ * `@media (hover: none)` and a headless window has a mouse. A narrow viewport
+ * alone never matched that block, so the probe was measuring a different
+ * stylesheet from the one the user was looking at.
+ *
+ * These flags are how Chromium is told it has a finger and no pointer:
+ * `(hover: none)` and `(pointer: coarse)` then match, and the touch rules are
+ * in play. 1 = HoverTypeNone, 2 = PointerTypeCoarse in Blink's own enums.
+ */
+const TOUCH = "--blink-settings=primaryHoverType=1,availableHoverTypes=1,primaryPointerType=2,availablePointerTypes=2"
+
+/**
+ * And the desktop run needs the opposite said out loud. A headless window has
+ * no pointing device at all, so Chromium answers `(hover: none)` there too,
+ * and the desktop run was reading the phone's stylesheet as well. 2 =
+ * HoverTypeHover, 4 = PointerTypeFine.
+ */
+const MOUSE = "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4"
+
+function run(width, height, label, touch = false) {
   const file = join(out, `${label}.html`)
   /**
    * The bundle is LOADED, not inlined. Three megabytes of application code
@@ -241,6 +323,7 @@ function run(width, height, label) {
   writeFileSync(join(out, "editor-probe.js"), readFileSync(bundle))
   writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><div id="app"></div><script>window.PROBE_SHORT=${process.env.SHORT_PAGE === "1"}</script><script src="editor-probe.js"></script>${DRIVE}</body></html>`)
   const dump = execFileSync(CHROMIUM, ["--headless", "--disable-gpu", "--no-sandbox", "--force-device-scale-factor=1", "--enable-logging=stderr", "--v=0",
+    touch ? TOUCH : MOUSE,
     `--window-size=${width},${height}`, "--virtual-time-budget=40000", "--dump-dom", `file://${file}`],
     { encoding: "utf8", maxBuffer: 400 * 1024 * 1024, stdio: ["ignore", "pipe", process.env.PROBE_DEBUG ? "inherit" : "ignore"] })
   // A src'd script loads asynchronously to the parser, so the driver polls for it; see waitReady.
@@ -253,9 +336,9 @@ function run(width, height, label) {
 }
 
 let failures = 0
-for (const [w, h, label] of [[390, 844, "phone"], [1280, 900, "desktop"]]) {
-  console.log(`\n══ ${label} ${w}×${h} ══`)
-  for (const s of run(w, h, label)) {
+for (const [w, h, label, touch] of [[390, 844, "phone", true], [1280, 900, "desktop", false]]) {
+  console.log(`\n══ ${label} ${w}×${h}${touch ? " with a finger" : ""} ══`)
+  for (const s of run(w, h, label, touch)) {
     if (s.label === "tapping a category") {
       const worked = s.after !== s.before || s.chipAfter?.bg !== s.chipBefore?.bg
       if (!worked) failures++
@@ -266,6 +349,18 @@ for (const [w, h, label] of [[390, 844, "phone"], [1280, 900, "desktop"]]) {
       console.log(`        classes before: ${s.classBefore}`)
       console.log(`        classes after:  ${s.classAfter}`)
       console.log(`        chip rows in the page: ${s.rows}`)
+      continue
+    }
+    if (s.label === "the touch stylesheet") {
+      console.log(`  the browser reports hover:none=${s.hoverNone}, pointer:coarse=${s.coarse}`)
+      const chipHits = s.chipBackgroundOverridden ?? []
+      const previewHits = s.previewTransformOverridden ?? []
+      if (touch && !s.hoverNone) { failures++; console.log("  ✗   the touch rules are not in play, so this run measured the wrong stylesheet") }
+      if (touch && !s.selectedChipFound) { failures++; console.log("  ✗   no chip reports data-on=\"true\", so the selected state is not in the DOM") }
+      if (chipHits.length) { failures++; console.log(`  ✗   the selected pill's background is overridden by: ${chipHits.join(" | ")}`) }
+      else console.log("  ok   nothing repaints the selected pill's background")
+      if (previewHits.length) { failures++; console.log(`  ✗   the preview's scale is overridden by: ${previewHits.join(" | ")}`) }
+      else console.log("  ok   nothing removes the preview's scale")
       continue
     }
     if (s.label === "previews") {

@@ -2261,11 +2261,18 @@ html.capacitor .creator-quick-nav {
      The mobile bottom/top sheets have menu items with hover:bg-gray-100.
      On touch, :hover fires on tap and lights up the whole row — jarring.
      Suppress all :hover background-color on tappable elements inside sheets.
-     active: state still works (provides sub-50ms tap confirmation). */
-  [data-mobile-bottom-sheet] button:hover,
-  [data-mobile-bottom-sheet] a:hover,
-  [data-mobile-top-sheet] button:hover,
-  [data-mobile-top-sheet] a:hover {
+     active: state still works (provides sub-50ms tap confirmation).
+
+     NOT THE CHIPS. A category pill's background IS its selected state, and
+     on a touch screen :hover sticks to the last thing tapped until something
+     else is tapped. So this rule fired on exactly the pill you had just
+     chosen and erased its background: you tapped a category, the list did
+     filter, and the pill went white and looked untouched. Anything whose
+     background carries meaning has to opt out of this, not just the chips. */
+  [data-mobile-bottom-sheet] button:not(.wb-chip):hover,
+  [data-mobile-bottom-sheet] a:not(.wb-chip):hover,
+  [data-mobile-top-sheet] button:not(.wb-chip):hover,
+  [data-mobile-top-sheet] a:not(.wb-chip):hover {
     background-color: transparent !important;
   }
 
@@ -2278,10 +2285,21 @@ html.capacitor .creator-quick-nav {
   .group {
     transition-property: none !important;
   }
-  /* Also kill transitions on all descendants that use group-hover utilities */
-  .group * {
+  /* Also kill transitions on all descendants that use group-hover utilities.
+
+     `transform: none` here is about hover decoration: a nudge or a zoom that
+     should not fire on a tap. It is not about transforms that are doing
+     layout. The section previews in the add-section library draw a section
+     at its real width and scale it down to fit the card, and that scale is
+     the only reason the preview fits at all — killing it left every preview
+     on a phone rendered at full width and cropped to its top-left corner.
+     An element that says the transform is load-bearing keeps it. */
+  .group *:not([data-keep-transform]) {
     transition-property: none !important;
     transform: none !important;
+  }
+  .group *[data-keep-transform] {
+    transition-property: none !important;
   }
   .group:hover {
     box-shadow: none !important;
