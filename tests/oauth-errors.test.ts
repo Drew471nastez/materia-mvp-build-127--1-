@@ -294,6 +294,30 @@ function main() {
     check("and the provider is remembered when the button is pressed", page.includes('rememberProvider("apple")') && page.includes('rememberProvider("google")'))
   }
 
+  // ── A native failure has to leave the phone ────────────────────────────
+  {
+    /**
+     * The web flow logs Apple's own words on our server. The native flow
+     * goes Supabase -> deep link -> app and never touches it, so for several
+     * rounds the only copy of the reason why sign in failed was a console
+     * inside a WebView on somebody else's phone.
+     */
+    const native = readFileSync(join(root, "lib/native-oauth.ts"), "utf8")
+    check("a native OAuth failure is reported off the device", native.includes("reportOAuthFailure"))
+    check("to the endpoint that already exists for it", /reportOAuthFailure[\s\S]{0,900}\/api\/client-errors/.test(native))
+    check(
+      "it survives the navigation that happens next",
+      /reportOAuthFailure[\s\S]{0,900}keepalive: true/.test(native),
+    )
+    check(
+      "and it carries the redacted wording, not the raw one",
+      /reportOAuthFailure\(failure\.code, detail\)/.test(native) && /const detail = describeForLog\(/.test(native),
+    )
+    /** Nothing about the person goes in it. */
+    const body = native.slice(native.indexOf("function reportOAuthFailure"), native.indexOf("function reportOAuthFailure") + 900)
+    check("no email, token or session in the report", !/email|access_token|refresh_token|session/i.test(body), body.slice(0, 0))
+  }
+
   // ── account-origin answers with the real list ──────────────────────────
   {
     const route = readFileSync(join(root, "app/api/auth/account-origin/route.ts"), "utf8")

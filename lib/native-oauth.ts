@@ -299,6 +299,45 @@ async function handleHttpsResetPasswordLink(rawUrl: string): Promise<void> {
   }
 }
 
+
+/**
+ * ===========================================================================
+ *  A FAILURE ON A PHONE THAT SOMEBODY CAN ACTUALLY READ
+ * ===========================================================================
+ * The web flow goes through our own /auth/callback, so when Apple refuses,
+ * the server logs its exact words and they are there to read afterwards.
+ *
+ * THE NATIVE FLOW NEVER TOUCHES OUR SERVER. The deep link goes straight from
+ * Supabase to the app, so the one place the provider says WHY is a console
+ * inside a WebView on somebody else's phone. That is how "sign in with Apple
+ * does not work" stayed a guess through several rounds: the answer existed,
+ * on a device, and nothing carried it anywhere.
+ *
+ * So it is posted to the endpoint that already exists for exactly this. What
+ * goes in it is what goes in the server log: the classified code and
+ * upstream's own wording with any token cut out of it, and nothing about the
+ * person. No email, no tokens, no profile.
+ *
+ * keepalive, because the very next statement navigates away and an ordinary
+ * fetch would be cancelled mid flight.
+ */
+function reportOAuthFailure(code: string, detail: string): void {
+  try {
+    void fetch("/api/client-errors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: detail.slice(0, 300),
+        digest: code,
+        path: "/native/oauth-callback",
+      }),
+      keepalive: true,
+    }).catch(() => {})
+  } catch {
+    /* reporting a failure must never be the reason for another one */
+  }
+}
+
 // ── Core handler (exported so it can be called manually for testing) ──────────
 export async function handleOAuthCallback(rawUrl: string): Promise<void> {
   // ── LOG 1: appUrlOpen fired ────────────────────────────────────────────────
@@ -360,7 +399,9 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
      */
     if (oauthErr) {
       const failure = classifyOAuthError({ error: oauthErr, errorCode: u.searchParams.get("error_code"), errorDescription: oauthErrDesc })
-      console.error(`${TAG} provider returned an error: ${failure.code}`, describeForLog({ error: oauthErr, errorDescription: oauthErrDesc }))
+      const detail = describeForLog({ error: oauthErr, errorCode: u.searchParams.get("error_code"), errorDescription: oauthErrDesc })
+      console.error(`${TAG} provider returned an error: ${failure.code}`, detail)
+      reportOAuthFailure(failure.code, detail)
       showToast(`Error: ${failure.code}`, "err")
       window.location.assign(`/login?${loginErrorQuery(failure)}`)
       return
@@ -400,7 +441,9 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
 
     if (exchangeErr) {
       const failure = classifyOAuthError({ message: exchangeErr.message })
-      console.error(`${TAG} Exchange FAILED: ${failure.code}`, describeForLog({ message: exchangeErr.message }))
+      const detail = describeForLog({ message: exchangeErr.message })
+      console.error(`${TAG} Exchange FAILED: ${failure.code}`, detail)
+      reportOAuthFailure(failure.code, detail)
       showToast(`Exchange error: ${failure.code}`, "err")
       window.location.assign(`/login?${loginErrorQuery(failure)}`)
       return
@@ -499,7 +542,9 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
   } catch (err) {
     const raw = err instanceof Error ? err.message : ""
     const failure = classifyOAuthError({ message: raw })
-    console.error(`${TAG} Handler threw: ${failure.code}`, describeForLog({ message: raw }))
+    const detail = describeForLog({ message: raw })
+    console.error(`${TAG} Handler threw: ${failure.code}`, detail)
+    reportOAuthFailure(failure.code, detail)
     showToast(`Error: ${failure.code}`, "err")
     window.location.assign(`/login?${loginErrorQuery(failure)}`)
   } finally {
