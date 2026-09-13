@@ -56,6 +56,11 @@ function plotLeftFor(labels: string[]): number {
 }
 /** The right margin. */
 const PLOT_RIGHT = 10
+
+/** See dashboard-client: the percentages resolve against the box's own width. */
+function shiftFor(x: number, track: number): string {
+  return `translateX(clamp(8px, calc(${x.toFixed(1)}px - 50%), calc(${track}px - 100% - 8px))) translateZ(0)`
+}
 /** Room above for the active dot: six pixels of radius plus its white ring. */
 const PLOT_TOP = 10
 
@@ -110,8 +115,6 @@ function AnalyticsChartWithTooltipInner({
   const rafRef = useRef<number | null>(null)
   /** One tick per point crossed, not one per frame. */
   const lastHapticIndexRef = useRef<number | null>(null)
-  /** The first placement is a cut; only then may it glide. See dashboard-client. */
-  const tooltipPlacedRef = useRef(false)
   const [shouldAnimate, setShouldAnimate] = useState(true)
 
   useEffect(() => {
@@ -159,16 +162,23 @@ function AnalyticsChartWithTooltipInner({
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0]
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+    lastTouchXRef.current = touch.clientX
     directionLockRef.current = null
     longPressTimerRef.current = setTimeout(() => {
-      if (directionLockRef.current === null) {
-        directionLockRef.current = "horizontal"
-        tooltipActiveRef.current = true
-        setTooltipActive(true)
-        const idx = getIndexFromTouch(touch.clientX)
-        setActiveIndex(idx)
-        hapticTap("medium")
-      }
+      /**
+       * A HOLD IS A HOLD EVEN THOUGH A THUMB IS NEVER STILL. The old test
+       * bailed unless nothing had been decided, and five pixels of tremor
+       * leaning vertical decided it — which was most holds. See
+       * dashboard-client for the whole story.
+       */
+      if (directionLockRef.current === "vertical") return
+      directionLockRef.current = "horizontal"
+      tooltipActiveRef.current = true
+      setTooltipActive(true)
+      const idx = getIndexFromTouch(lastTouchXRef.current)
+      lastHapticIndexRef.current = idx
+      setActiveIndex(idx)
+      hapticTap("medium")
     }, 120)
   }, [getIndexFromTouch])
 
@@ -180,8 +190,17 @@ function AnalyticsChartWithTooltipInner({
       e.preventDefault()
       e.stopPropagation()
       const clientX = touch.clientX
+      lastTouchXRef.current = clientX
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(() => {
+        /* Follows the thumb every frame; the values snap. See dashboard-client. */
+        const el = containerRef.current
+        const box = tooltipRef.current
+        if (el && box) {
+          const rect = el.getBoundingClientRect()
+          const x = Math.max(plotLeft, Math.min(rect.width - PLOT_RIGHT, clientX - rect.left))
+          box.style.transform = shiftFor(x, rect.width)
+        }
         const idx = getIndexFromTouch(clientX)
         if (idx !== null && idx !== lastHapticIndexRef.current) {
           lastHapticIndexRef.current = idx
@@ -192,11 +211,12 @@ function AnalyticsChartWithTooltipInner({
       return
     }
 
+    /** Per axis, and large enough that a resting thumb cannot cross it. */
     const dx = Math.abs(touch.clientX - touchStartPosRef.current.x)
     const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
-    const totalMove = dx + dy
+    const SLOP = 12
 
-    if (directionLockRef.current === null && totalMove > 5) {
+    if (directionLockRef.current === null && (dx > SLOP || dy > SLOP)) {
       if (dx > dy) {
         directionLockRef.current = "horizontal"
         if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
@@ -207,10 +227,12 @@ function AnalyticsChartWithTooltipInner({
         e.stopPropagation()
         const idx = getIndexFromTouch(touch.clientX)
         setActiveIndex(idx)
-      } else {
+      } else if (dy > dx * 1.4) {
+        // Decisively vertical → this is a scroll. Let the page have it.
         directionLockRef.current = "vertical"
         if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
       }
+      /* Ambiguous: decide nothing, and let the hold timer have its chance. */
     } else if (directionLockRef.current === "horizontal") {
       e.preventDefault()
       e.stopPropagation()
@@ -230,9 +252,6 @@ function AnalyticsChartWithTooltipInner({
    * position — enabling the transition any earlier is what made the box swoop
    * in from the edge on every activation. Same as dashboard-client.
    */
-  useEffect(() => {
-    if (tooltipActive && activeIndex != null) tooltipPlacedRef.current = true
-  }, [tooltipActive, activeIndex])
 
   const handleTouchEnd = useCallback(() => {
     if (longPressTimerRef.current) {
@@ -247,7 +266,6 @@ function AnalyticsChartWithTooltipInner({
     directionLockRef.current = null
     tooltipActiveRef.current = false
     lastHapticIndexRef.current = null
-    tooltipPlacedRef.current = false
     setTooltipActive(false)
     setActiveIndex(null)
   }, [])
@@ -328,7 +346,7 @@ function AnalyticsChartWithTooltipInner({
      * a static 0 — so a dragging finger never lays this element out, which
      * is the rule tests/analytics-chart.test.ts holds.
      */
-    return `translateX(clamp(8px, calc(${x.toFixed(1)}px - 50%), calc(${track}px - 100% - 8px))) translateZ(0)`
+    return shiftFor(x, track)
   }
 
   const lastDotIndex = chartDisplayData.length - 1
@@ -589,9 +607,8 @@ function AnalyticsChartWithTooltipInner({
               left: 0,
               transform: tooltipShift(),
               /* Glides between points; see the dashboard chart for why. */
-              transition: tooltipPlacedRef.current
-                ? "transform 90ms cubic-bezier(0.22, 1, 0.36, 1)"
-                : "none",
+              /* Moved imperatively every frame; a transition here is lag. */
+              transition: "none",
               maxWidth: "calc(100% - 16px)",
               background: "#1a1a2e",
               borderRadius: "8px",
