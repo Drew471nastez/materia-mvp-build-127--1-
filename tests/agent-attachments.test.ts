@@ -40,6 +40,7 @@ import {
 } from "@/lib/sites/agent/attachments"
 import { toMessages } from "@/lib/sites/agent/anthropic-provider"
 import { themeAgent } from "@/lib/website-builder/agent/loop"
+import { writeSection } from "@/lib/website-builder/agent/write-section"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import type { AgentProvider, AgentTurn } from "@/lib/sites/agent/types"
 import { toInput } from "@/lib/sites/agent/openai-provider"
@@ -441,6 +442,109 @@ async function runWith(prompt: string, images: AgentImage[]) {
   check(
     "and a request with no picture carries no image and no instruction about one",
     turn?.images === undefined && !/THE CREATOR ATTACHED/.test(turn?.content ?? ""),
+  )
+}
+
+// ---------------------------------------------------------------------------
+section("Code a section: the picture reaches that model too")
+// ---------------------------------------------------------------------------
+
+/**
+ * THE BUG THIS SECTION EXISTS FOR.
+ *
+ * "Code a section" is a different path from "Change this page": it writes a
+ * FILE rather than calling tools, and it had its own request shape that took
+ * the words and nothing else. So a creator who attached a screenshot and
+ * typed nothing sent an empty prompt, failed the route's own `.min(3)`, and
+ * was told "the assistant could not produce a section that compiles" — a
+ * true sentence about the wrong thing, and unanswerable.
+ *
+ * Both halves are checked: what writeSection actually sends, and that the
+ * composer no longer drops the attachment on the floor before it gets there.
+ */
+{
+  const seen: AgentTurn[][] = []
+  const provider: AgentProvider = {
+    id: "capturing",
+    async complete(request) {
+      seen.push(request.turns)
+      /* Enough to end the loop; what it produces is not what is under test. */
+      return {
+        text: "no file here",
+        toolCalls: [],
+        raw: [],
+        usage: { inputTokens: 10, cachedInputTokens: 0, cacheWriteTokens: 0, outputTokens: 2 },
+        stop: "done",
+      }
+    },
+  }
+
+  await writeSection({
+    provider,
+    model: "test",
+    prompt: "",
+    images: one,
+    takenTypes: [],
+    takenNames: [],
+  })
+
+  const turn = (seen[0] ?? []).find((t) => t.role === "user") as
+    | { role: "user"; content: string; images?: AgentImage[] }
+    | undefined
+
+  check(
+    "a picture with no words reaches the section writer",
+    turn?.images?.length === 1 && turn.images[0].data === PNG,
+    JSON.stringify(turn?.images?.map((i) => i.mediaType)),
+  )
+  check(
+    "and it is told that typing nothing was the whole request",
+    /THEY TYPED NOTHING, AND THAT IS THE WHOLE REQUEST/.test(turn?.content ?? ""),
+  )
+  check(
+    "an empty request does not reach it as an empty string",
+    (turn?.content ?? "").trim().length > 100,
+    `${(turn?.content ?? "").length} characters`,
+  )
+}
+
+{
+  const seen: AgentTurn[][] = []
+  const provider: AgentProvider = {
+    id: "capturing",
+    async complete(request) {
+      seen.push(request.turns)
+      return { text: "", toolCalls: [], raw: [], usage: { inputTokens: 1, cachedInputTokens: 0, cacheWriteTokens: 0, outputTokens: 1 }, stop: "done" }
+    },
+  }
+  await writeSection({ provider, model: "test", prompt: "A pricing table", images: [], takenTypes: [], takenNames: [] })
+  const turn = (seen[0] ?? []).find((t) => t.role === "user") as { role: "user"; content: string; images?: AgentImage[] } | undefined
+  check(
+    "and words with no picture still arrive as just the request",
+    turn?.images === undefined && turn?.content.includes("A pricing table") === true && !/THE CREATOR ATTACHED/.test(turn?.content ?? ""),
+  )
+}
+
+{
+  const route = read("app/api/website-builder/themes/[installId]/sections/code/route.ts")
+  check(
+    "the code route no longer refuses a request that is only a picture",
+    !/prompt: z\.string\(\)\.min\(3\)/.test(route) && /prompt: z\.string\(\)\.max\(2000\)/.test(route),
+  )
+  check("it checks attachments through the one door", /reviewImages\(parsed\.data\.images\)/.test(route))
+  check("and hands them to the writer", /prompt: parsed\.data\.prompt,\n    images,/.test(route))
+  check(
+    "it still refuses a request that is neither words nor pictures",
+    /!parsed\.data\.prompt\.trim\(\) && images\.length === 0/.test(route),
+  )
+}
+
+{
+  const chat = read("components/website-builder/theme-chat.tsx")
+  check(
+    "the composer sends the pictures in code mode instead of dropping them",
+    /void writeOne\(prompt, images\)/.test(chat) &&
+      /images: images\.map\(\(a\) => \(\{ mediaType: a\.mediaType, data: a\.data, name: a\.name \}\)\),/.test(chat),
   )
 }
 
