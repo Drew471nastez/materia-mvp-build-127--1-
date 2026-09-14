@@ -163,9 +163,43 @@ function main() {
         !code("components/storefront/color-field.tsx").includes('type="color"'),
     )
 
-    /** Radix owns the open and the close, which is the whole of "no glitch". */
+    /**
+     * ONE SHELL. Radix owns the open and the close on a desktop, which is the
+     * whole of "no glitch"; on a phone every editor is the builder's bottom
+     * sheet, with its detents, its drag physics and its keyboard inset. All
+     * three editors go through it, so there is one idea of an editor.
+     */
     const sheet = read("components/storefront/editor-sheet.tsx")
-    check("the editors open on Dialog, like the profile one does", sheet.includes("<Dialog") && bar.includes("<EditorSheet"))
+    check("the editors open on Dialog on a desktop", sheet.includes("<Dialog"))
+    check("and on the builder's sheet on a phone", sheet.includes("<MobileEditorSheet") && sheet.includes("useIsPhone()"))
+    for (const [name, file] of [["the bar", "edit-cta-button"], ["the profile", "edit-profile-button"], ["About", "edit-about-button"]] as const) {
+      const src = read(`components/storefront/${file}.tsx`)
+      check(`${name} editor uses that shell`, src.includes("<EditorSheet") && !src.includes("<Dialog "))
+    }
+    /**
+     * NO PEEK. The sheet's default is the builder's BASE sheet, which stays
+     * 72px above the bottom edge when closed because the builder's tab row
+     * lives there. Left at the default, a closed editor is a permanent strip
+     * across the bottom of the page — which is what "your page is live is
+     * always at the bottom" was.
+     */
+    /* Comment-stripped: the shell's own note quotes the prop it is checked for. */
+    const sheetCode = code("components/storefront/editor-sheet.tsx")
+    check("closed sheets are off screen, not peeking", sheetCode.includes("peekHeight={0}") && code("components/app/creator-page-share.tsx").includes("peekHeight={0}"))
+    check("and raised above the page", sheetCode.includes('layer="raised"'))
+
+    /** Six sentences as pills were six things competing for the eye. */
+    check("the presets are a select, not a row of pills", bar.includes("<EditorSelect") && !bar.includes("SchemeSwatchRow"))
+    /**
+     * THE PICKER OPENS IN THE FLOW. A portal inside a modal dialog cannot be
+     * clicked (Radix puts pointer-events: none on everything outside) and
+     * dismisses the dialog on the first press, which was "the colour picker
+     * is not working".
+     */
+    check("the colour picker is the builder's panel", field.includes("<ColorPickerPanel") && read("components/website-builder/editor/color-chip.tsx").includes("export function ColorPickerPanel"))
+    check("opened in the flow rather than a portal", !field.includes("createPortal") && field.includes('aria-expanded={open}'))
+    check("and the builder's chip composes the same panel", read("components/website-builder/editor/color-chip.tsx").includes("<ColorPickerPanel value={value} onChange={onChange} existing={existing}"))
+    check("one colour per row, so the label is not truncated", bar.includes('<EditorField label="Colours">') && !/grid grid-cols-2 gap-3[\s\S]{0,200}<ColorField/.test(bar))
 
     /** The scheme, in the dialog that owns how the page presents itself. */
     check("the colour scheme is in Edit profile", profile.includes("<SchemePicker"))
@@ -1342,6 +1376,29 @@ function main() {
       "the picker no longer claims the niche is shown on the page",
       !/niche shown on your profile/.test(sidebar),
     )
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * THE EDITOR IS ITS OWN SCREEN ON A PHONE TOO. The platform header was
+     * drawn above the workspace's own bar, a second black band eating a
+     * quarter of a phone's height on a page that is supposed to fill it.
+     */
+    const header = code("components/marketing/conditional-header.tsx")
+    check("the platform header stands down on the editor", header.includes('p === "/creator-page" || p.startsWith("/creator-page/")'))
+    check("before any host rule can put it back", /if \(isOwnScreen\(pathname\)\) \{\s*setShowPlatformHeader\(false\)\s*return/.test(header))
+    check("and on the first paint too", header.includes("!isOwnScreen(pathname) &&"))
+
+    /** A click in the canvas that fetches a whole page has to look like one. */
+    const nav = code("components/storefront/embedded-navigation.tsx")
+    check("leaving the page in the canvas dims it and starts a bar", nav.includes("setLeaving(true)") && nav.includes("creator-nav-bar"))
+    check("which a bfcache return clears", nav.includes('"pageshow"'))
+    check("the bar is honest about not knowing how far along it is", read("app/globals.css").includes("@keyframes creator-nav-bar"))
+
+    /** The product page's strip reads as a bar, not the top of the page. */
+    const pbar = read("components/store-builder/product-creator-bar.tsx")
+    check("the product page's bar casts a little shadow", /boxShadow: "0 1px 2px rgba\(15, 23, 42, 0\.05\), 0 8px 24px -16px/.test(pbar))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { EditorSheet } from "@/components/storefront/editor-sheet"
 import { ImageUpload } from "@/components/app/image-upload"
 import { Loader2, Pencil, Plus } from "lucide-react"
 import type { AboutMediaItem } from "@/lib/store-builder/types"
@@ -128,13 +128,16 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
         <Pencil className="h-3.5 w-3.5" />
       </button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
-          <DialogHeader className="border-b border-border px-6 py-4">
-            <DialogTitle>Your story</DialogTitle>
-          </DialogHeader>
-
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+      <EditorSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Your story"
+        wide
+        busy={saving}
+        error={error}
+        onSave={() => void save()}
+        saveLabel={saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+      >
             <div className="space-y-2">
               <Label htmlFor="ea-headline">Story headline</Label>
               <Input
@@ -242,22 +245,7 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
                 </>
               )}
             </div>
-
-            {error && <p className="text-sm text-destructive">{error}</p>}
-          </div>
-
-          {/* Cancel left, Save right, equal columns — the same footer as Edit profile. */}
-          <DialogFooter className="grid shrink-0 grid-cols-2 gap-3 border-t border-border bg-background px-6 py-4 sm:flex-none sm:justify-stretch">
-            <Button type="button" variant="outline" className="w-full" onClick={() => setOpen(false)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button type="button" className="w-full" onClick={save} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </EditorSheet>
     </>
   )
 }

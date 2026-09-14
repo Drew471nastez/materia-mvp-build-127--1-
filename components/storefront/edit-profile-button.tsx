@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { EditorSheet } from "@/components/storefront/editor-sheet"
 import { ImageUpload } from "@/components/app/image-upload"
 import { Pencil, Loader2, Wand2 } from "lucide-react"
 import { SocialLinksEditor } from "@/components/social/social-links-editor"
@@ -234,23 +234,17 @@ export function EditProfileButton({
         </button>
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        {/*
-          THE FOOTER IS STICKY, and that is why the scroll moved.
-
-          The whole dialog used to scroll, so on a short window Save was below
-          the fold and you had to scroll a form you had already filled in just
-          to submit it. Now the dialog is a column — header, scrolling body,
-          footer — and only the middle moves. `gap-0` and `p-0` because the
-          padding has to belong to the three parts separately, or the header
-          keeps its padding while the body scrolls under it.
-        */}
-        <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
-          <DialogHeader className="border-b border-border px-6 py-4">
-            <DialogTitle>Profile details</DialogTitle>
-          </DialogHeader>
-
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+      <EditorSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Profile details"
+        wide
+        busy={saving}
+        error={error}
+        onSave={() => void save()}
+        saveDisabled={name.trim().length === 0}
+        saveLabel={saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+      >
             {/*
               Cover first, then the avatar sitting half over it — the same
               relationship they have on the page, so what you are editing looks
@@ -373,46 +367,7 @@ export function EditProfileButton({
                 somebody reviews you.
               </p>
             </div>
-
-            {error && <p className="text-sm text-destructive">{error}</p>}
-          </div>
-
-          {/*
-            TWO EQUAL BUTTONS, Cancel on the left and Save on the right.
-
-            DialogFooter's default is `sm:justify-end`, which put both of them
-            in the right-hand corner sized to their own words — so "Cancel" was
-            narrower than "Save", the pair sat in the corner of a 512px dialog
-            with a stretch of empty white beside them, and the destructive
-            choice was the one nearer the middle. A grid gives them the width
-            and puts each at the end it belongs to: leaving on the left, the
-            thing you came to do on the right, under your thumb on a phone.
-
-            `sm:justify-*` is overridden explicitly because the footer applies
-            it at that breakpoint and a grid quietly loses to it otherwise.
-          */}
-          <DialogFooter className="grid shrink-0 grid-cols-2 gap-3 border-t border-border bg-background px-6 py-4 sm:flex-none sm:justify-stretch">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => setOpen(false)}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              className="w-full"
-              onClick={save}
-              disabled={saving || name.trim().length === 0}
-            >
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </EditorSheet>
     </>
   )
 }

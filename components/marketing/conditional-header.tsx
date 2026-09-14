@@ -26,6 +26,14 @@ function HeaderPlaceholder() {
   )
 }
 
+/**
+ * Screens that carry their own chrome and must not get the platform's on top.
+ * The creator page editor is a full-screen workspace with a bar of its own.
+ */
+function isOwnScreen(p: string): boolean {
+  return p === "/creator-page" || p.startsWith("/creator-page/")
+}
+
 /** Paths that are always platform pages (never custom-domain seller pages). */
 function isKnownPlatformPath(p: string): boolean {
   return (
@@ -77,10 +85,21 @@ export function ConditionalHeader({
   // "/" is intentionally excluded (ambiguous: could be a custom-domain home).
   // Seller paths (/u/ /p/ /l/) are excluded; host-based check below handles them.
   const [showPlatformHeader, setShowPlatformHeader] = useState(
-    () => isKnownPlatformPath(pathname) || (pathname === "/" && onPlatformDomain)
+    () => !isOwnScreen(pathname) && (isKnownPlatformPath(pathname) || (pathname === "/" && onPlatformDomain))
   )
 
   useEffect(() => {
+    /*
+      THE CREATOR PAGE EDITOR IS ITS OWN SCREEN. It has its own bar with the
+      way back in it, and the platform header above that was a second black
+      band on a phone, eating a quarter of the screen the page is supposed
+      to fill. Decided first, before the host rules: it is true on every
+      domain.
+    */
+    if (isOwnScreen(pathname)) {
+      setShowPlatformHeader(false)
+      return
+    }
     const host = window.location.host
     const isSubdomain = extractUsernameFromHost(host) !== null
     const isOnCustomDomain = isCustomDomain(host)

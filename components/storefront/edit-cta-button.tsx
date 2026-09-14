@@ -31,7 +31,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, Pencil } from "lucide-react"
 
-import { EditorField, EditorSheet, SchemeSwatchRow } from "@/components/storefront/editor-sheet"
+import { EditorField, EditorSelect, EditorSheet } from "@/components/storefront/editor-sheet"
 import { ColorField } from "@/components/storefront/color-field"
 import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
 
@@ -112,6 +112,9 @@ export function EditCtaButton({
     onPreview?.(null)
   }
 
+  /** The bar's own four, offered under each picker so one can borrow another's. */
+  const palette = [v.backgroundColor, v.textColor, v.buttonColor, v.buttonTextColor].filter((c) => /^#[0-9a-f]{6}$/i.test(c))
+
   const save = async () => {
     setSaving(true)
     setError(null)
@@ -171,12 +174,14 @@ export function EditCtaButton({
         onSave={() => void save()}
         saveLabel={saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
       >
+        {/*
+          A SELECT, NOT SIX PILLS. Six sentences laid out as buttons were six
+          things competing for the eye on a form that has one question here:
+          which one. A closed control says the current answer and opens on
+          request, which is the builder's own shape for a choice like this.
+        */}
         <EditorField label="Message">
-          <SchemeSwatchRow
-            options={MESSAGE_PRESETS}
-            value={v.style}
-            onChange={(x) => set("style", x)}
-          />
+          <EditorSelect ariaLabel="Message" options={MESSAGE_PRESETS} value={v.style} onChange={(x) => set("style", x)} />
         </EditorField>
 
         <EditorField label="Or your own message" hint={`${v.text.length}/${MAX_TEXT}`}>
@@ -190,11 +195,7 @@ export function EditCtaButton({
         </EditorField>
 
         <EditorField label="Button">
-          <SchemeSwatchRow
-            options={BUTTON_PRESETS}
-            value={v.buttonStyle}
-            onChange={(x) => set("buttonStyle", x)}
-          />
+          <EditorSelect ariaLabel="Button" options={BUTTON_PRESETS} value={v.buttonStyle} onChange={(x) => set("buttonStyle", x)} />
         </EditorField>
 
         <EditorField label="Or your own label" hint={`${v.buttonText.length}/${MAX_BUTTON}`}>
@@ -207,12 +208,19 @@ export function EditCtaButton({
           />
         </EditorField>
 
-        <div className="grid grid-cols-2 gap-3">
-          <ColorField label="Background" value={v.backgroundColor} fallback="#ffffff" onChange={(x) => set("backgroundColor", x)} />
-          <ColorField label="Text" value={v.textColor} fallback="#111827" onChange={(x) => set("textColor", x)} />
-          <ColorField label="Button" value={v.buttonColor} fallback="#2563eb" onChange={(x) => set("buttonColor", x)} />
-          <ColorField label="Button text" value={v.buttonTextColor} fallback="#ffffff" onChange={(x) => set("buttonTextColor", x)} />
-        </div>
+        {/*
+          ONE COLUMN. The two-column grid truncated "Background" to "Back..."
+          at the width of a phone sheet, and a picker that opens in the flow
+          under its row needs the row's full width to open into.
+        */}
+        <EditorField label="Colours">
+          <div className="space-y-2">
+            <ColorField label="Background" value={v.backgroundColor} fallback="#ffffff" onChange={(x) => set("backgroundColor", x)} palette={palette} />
+            <ColorField label="Text" value={v.textColor} fallback="#111827" onChange={(x) => set("textColor", x)} palette={palette} />
+            <ColorField label="Button" value={v.buttonColor} fallback="#2563eb" onChange={(x) => set("buttonColor", x)} palette={palette} />
+            <ColorField label="Button text" value={v.buttonTextColor} fallback="#ffffff" onChange={(x) => set("buttonTextColor", x)} palette={palette} />
+          </div>
+        </EditorField>
       </EditorSheet>
     </>
   )

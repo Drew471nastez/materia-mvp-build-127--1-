@@ -1760,15 +1760,25 @@ check(
      * that appears with the hover overlay rather than the old destructive-red
      * button shouting danger about a photo somebody just chose.
      */
-    const dialog = code("components/storefront/edit-profile-button.tsx")
+    /**
+     * THE SHELL MOVED. Every editor on the creator page renders through
+     * components/storefront/editor-sheet now — a Radix Dialog on a desktop
+     * and the builder's bottom sheet on a phone — so the column, the
+     * scrolling body and the sticky footer are its, once, rather than the
+     * profile dialog's alone. The invariant is unchanged; the file is not.
+     */
+    const dialog = code("components/storefront/editor-sheet.tsx")
+    const profile = code("components/storefront/edit-profile-button.tsx")
     const upload = code("components/app/image-upload.tsx")
     const missing: string[] = []
 
+    if (!profile.includes("<EditorSheet"))
+      missing.push("the profile dialog no longer goes through the shared shell")
     if (!/flex max-h-\[85vh\] flex-col gap-0 overflow-hidden p-0/.test(dialog))
       missing.push("the dialog scrolls as one piece again — Save goes below the fold")
     if (!/min-h-0 flex-1 space-y-5 overflow-y-auto/.test(dialog))
       missing.push("the dialog body is not the part that scrolls")
-    if (!/DialogFooter className="grid shrink-0/.test(dialog))
+    if (!/<div className="grid shrink-0/.test(dialog))
       missing.push("the footer can be pushed off screen again")
 
     /**
@@ -1783,15 +1793,17 @@ check(
      */
     if (!/grid-cols-2 gap-3 border-t/.test(dialog))
       missing.push("the footer buttons are not two equal columns")
-    if (!/sm:justify-stretch/.test(dialog))
+    /* Not DialogFooter at all: its `sm:justify-end` beats a grid quietly. */
+    if (/<DialogFooter/.test(dialog))
       missing.push("DialogFooter's sm:justify-end is winning again — the buttons will bunch up on the right")
-    const buttons = dialog.match(/<Button[\s\S]*?Cancel[\s\S]*?<\/Button>[\s\S]*?<Button[\s\S]*?Save/)?.[0] ?? ""
+    /* The shell's Save renders whatever label the editor hands it. */
+    const buttons = dialog.match(/<Button[\s\S]*?Cancel[\s\S]*?<\/Button>[\s\S]*?<Button[\s\S]*?\{saveLabel\}/)?.[0] ?? ""
     if ((buttons.match(/className="w-full"/g) || []).length < 2)
       missing.push("one of the footer buttons no longer fills its column")
 
-    // The banner may be removed; the avatar may not.
-    const banner = dialog.slice(dialog.indexOf('bucket="covers"'), dialog.indexOf('bucket="avatars"'))
-    const avatar = dialog.slice(dialog.indexOf('bucket="avatars"'))
+    // The banner may be removed; the avatar may not. Those are the profile's own.
+    const banner = profile.slice(profile.indexOf('bucket="covers"'), profile.indexOf('bucket="avatars"'))
+    const avatar = profile.slice(profile.indexOf('bucket="avatars"'))
     if (!/allowRemove/.test(banner)) missing.push("the banner can no longer be removed")
     if (/allowRemove/.test(avatar.slice(0, avatar.indexOf("/>"))))
       missing.push("the avatar can be deleted — there is no profile without a picture")

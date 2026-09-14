@@ -818,11 +818,19 @@ export function LiveProductCreatorBar({
 
   return (
     <div
-      className={cn("w-full overflow-hidden", hideOnMobileDiscover && "hidden")}
+      className={cn("relative z-10 w-full overflow-hidden", hideOnMobileDiscover && "hidden")}
       style={{
         backgroundColor: settings.backgroundColor || "#1a1a1a",
         color: settings.textColor || "#ffffff",
+        /*
+          A LITTLE DEPTH, so the bar reads as a bar and not as the top strip
+          of the page. A hairline alone is a rule; the soft shadow underneath
+          is what says this sits over what follows. Small on purpose: this is
+          a strip across the top of every product page, and a shadow you
+          notice is a shadow that is too big.
+        */
         borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
+        boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px -16px rgba(15, 23, 42, 0.28)",
       }}
     >
       {/*

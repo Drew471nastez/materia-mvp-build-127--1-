@@ -11,34 +11,39 @@
  * X-Frame-Options like everything else, and nothing had told it otherwise.
  *
  * The proxy relaxes framing for a product page carrying `?embedded=1` and for
- * nothing else, so what is left is putting the flag on the link. Two ways to
- * do that were available:
- *
- *   Thread `embedded` through every component that renders a product link.
- *   That is ProductCard, the storefront card, the grids, the carousel, the
- *   About block, and any one of them missed is a dead end that nobody finds
- *   until a creator does.
- *
- *   Catch the click. One listener, on the document, for the whole canvas.
- *
- * The second. It is delegated, so it covers markup that did not exist when it
- * mounted, and it is one place to read rather than a prop with six call
- * sites.
+ * nothing else, so what is left is putting the flag on the link. One
+ * delegated listener on the document, for the whole canvas: it covers markup
+ * that did not exist when it mounted, and it is one place to read rather
+ * than a prop with six call sites.
  *
  * WHAT IT WILL NOT TOUCH. Anything with a modifier held down (a new tab is a
  * real tab, outside the frame, where the flag would be wrong), `target="_top"`
  * — which is how the owner menu deliberately breaks OUT of the canvas —
  * another origin, a download, or a link that has already been handled.
+ * And anything past the buy button: see CANVAS_WILL_NOT_FOLLOW.
  *
- * It only mounts inside a frame, so on a public page there is no listener at
- * all.
+ * ---------------------------------------------------------------------------
+ *  IT SAYS SO WHILE THE NEXT PAGE LOADS
+ * ---------------------------------------------------------------------------
+ * A product page is rendered on request, and inside the canvas it carries
+ * the flag that makes it dynamic, so a click here is a full round trip that
+ * can take seconds. During those seconds nothing changed on screen: the page
+ * a creator had just clicked sat there exactly as before, which reads as
+ * "the click did nothing" and produces a second click and a third. So the
+ * moment a navigation is committed the page dims and a bar starts across the
+ * top — the same bar the app draws — and stays until the document unloads.
+ *
+ * It only mounts inside a frame, so on a public page there is no listener
+ * at all.
  */
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 import { canvasRefusesHref, embeddedHref, isInEditorFrame } from "@/lib/store-builder/editor-channel"
 
 export function EmbeddedNavigation() {
+  const [leaving, setLeaving] = useState(false)
+
   useEffect(() => {
     if (!isInEditorFrame()) return
 
@@ -70,12 +75,31 @@ export function EmbeddedNavigation() {
       if (!next) return
 
       event.preventDefault()
+      setLeaving(true)
       window.location.assign(next)
     }
 
+    /* A back/forward arrival from the bfcache would otherwise keep the dim. */
+    const onShow = () => setLeaving(false)
+
     document.addEventListener("click", onClick)
-    return () => document.removeEventListener("click", onClick)
+    window.addEventListener("pageshow", onShow)
+    return () => {
+      document.removeEventListener("click", onClick)
+      window.removeEventListener("pageshow", onShow)
+    }
   }, [])
 
-  return null
+  if (!leaving) return null
+
+  return (
+    <div aria-live="polite" aria-busy="true" className="pointer-events-none fixed inset-0 z-[100]">
+      {/* The bar: indeterminate, because a full navigation reports no progress. */}
+      <div className="absolute inset-x-0 top-0 h-[3px] overflow-hidden bg-black/5">
+        <div className="creator-nav-bar h-full w-2/5 rounded-r-full bg-[#8b5cf6]" />
+      </div>
+      {/* The dim: enough to say "leaving", not enough to hide where from. */}
+      <div className="absolute inset-0 bg-white/40 transition-opacity duration-200" />
+    </div>
+  )
 }

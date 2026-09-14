@@ -2,23 +2,32 @@
 
 /**
  * ===========================================================================
- *  THE WEBSITE BUILDER'S COLOUR PICKER, ON THE CREATOR PAGE
+ *  THE WEBSITE BUILDER'S COLOUR PICKER, IN THE FLOW OF A DIALOG
  * ===========================================================================
- * Not a copy of it. `ColorChip` IS the control the website builder's design
- * panels use — saturation box, hue slider, hex field, the existing colours on
- * the page — and importing it is the only way the two stay the same control.
+ * The picker is the builder's own — ColorPickerPanel is the saturation box,
+ * hue slider and hex field its design panels use — so the two cannot drift.
+ * What is different is WHERE it opens.
  *
- * What was here before was a native `<input type="color">` behind a rounded
- * square, which opens the operating system's colour dialog: a different shape
- * on every platform, no relationship to the page's own palette, and nothing
- * like the rest of Storelib.
+ * The builder's chip floats its panel in a portal over the page. Inside a
+ * modal dialog that is exactly wrong: Radix sets `pointer-events: none` on
+ * everything outside the dialog, so the floating panel could not be clicked,
+ * and it treats a pointer-down out there as "dismiss", so the first attempt
+ * at picking a colour closed the whole form. That was "the colour picker is
+ * not working".
  *
- * The row is the builder's row too: the name of the thing on the left, the
- * chip on the right, the hex underneath it in the popup rather than in a
- * second field competing with it.
+ * So it opens IN THE FLOW, under its own row, and the rows below it move
+ * down — the same shape the builder's link and icon pickers use, for the
+ * same reasons: nothing to measure, nothing to clip, nothing under the fold.
+ *
+ * One row per colour, full width. The two-column grid these sat in was
+ * truncating "Background" to "Back..." at the width of a phone sheet.
  */
 
-import { ColorChip } from "@/components/website-builder/editor/color-chip"
+import { useState } from "react"
+import { ChevronDown } from "lucide-react"
+
+import { ColorPickerPanel } from "@/components/website-builder/editor/color-chip"
+import { cn } from "@/lib/utils"
 
 export function ColorField({
   label,
@@ -34,14 +43,34 @@ export function ColorField({
   onChange: (value: string) => void
   palette?: string[]
 }) {
+  const [open, setOpen] = useState(false)
   const shown = /^#[0-9a-f]{6}$/i.test(value) ? value : fallback
+
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
-      <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{label}</span>
-      <span className="flex shrink-0 items-center gap-2">
+    <div className={cn("rounded-lg border transition-colors", open ? "border-neutral-400" : "border-border")}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex h-11 w-full items-center gap-3 px-3 text-left"
+      >
+        <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{label}</span>
         <span className="font-mono text-[11px] uppercase tabular-nums text-muted-foreground">{shown}</span>
-        <ColorChip value={shown} onChange={onChange} existing={palette} />
-      </span>
+        <span
+          aria-hidden
+          className="h-5 w-5 shrink-0 rounded-full border border-border"
+          style={{ background: shown }}
+        />
+        <ChevronDown
+          aria-hidden
+          className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200", open && "rotate-180")}
+        />
+      </button>
+      {open && (
+        <div className="border-t border-border px-3 pb-3 pt-3">
+          <ColorPickerPanel value={shown} onChange={onChange} existing={palette} onDone={() => setOpen(false)} />
+        </div>
+      )}
     </div>
   )
 }

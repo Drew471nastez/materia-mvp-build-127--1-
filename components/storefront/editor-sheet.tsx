@@ -5,27 +5,34 @@
  *  ONE SHAPE FOR EVERY EDITOR ON A CREATOR PAGE
  * ===========================================================================
  * The page has four things a creator can open: the profile, the bar at the
- * top, the story, and the colour scheme. Three of them were written
- * separately and the fourth was a panel bolted to the workspace's toolbar, so
- * the page had four different ideas of what an editor looks like and two
- * different ideas of how one opens.
+ * top, the story, and the colour scheme inside the profile. They were four
+ * separately written dialogs, so the page had four ideas of what an editor
+ * looks like. This is the one: a fixed header, a scrolling body, a sticky
+ * footer with Cancel and Save, so Save is never below the fold.
  *
- * This is the shape, taken from the profile dialog because that is the one
- * the owner pointed at: a column with a fixed header, a scrolling body and a
- * sticky footer, so the Save button is never below the fold on a short
- * window.
+ * ---------------------------------------------------------------------------
+ *  A SHEET ON A PHONE, A DIALOG ON A DESKTOP
+ * ---------------------------------------------------------------------------
+ * A centred dialog on a phone is a box in the middle of a small screen with
+ * the keyboard covering half of it. The website builder solved this once,
+ * with a bottom sheet that has detents, drag physics, a keyboard inset and a
+ * measured viewport, and MobileEditorSheet IS that component. On a phone
+ * every editor here is one of those; on a desktop it is the Radix Dialog the
+ * profile editor always was. The content in the middle does not know which.
  *
- * IT OPENS AND CLOSES ON RADIX. That is the whole of "it must not glitch":
- * Dialog keeps the content mounted for the length of the exit animation and
- * restores focus on the way out, and both of those are the sort of thing that
- * is invisible when correct and looks like a flash when hand-rolled. The
- * previous version was a hand-rolled panel and it flashed.
+ * `peekHeight={0}` and `layer="raised"`: the sheet's default is the builder's
+ * BASE sheet, which peeks 72px above the bottom edge when closed because the
+ * builder's tab row lives in it. An editor is not that. Left at the default,
+ * a closed editor sat as a permanent strip across the bottom of the page —
+ * which is what "your page is live is always at the bottom" was.
  */
 
 import * as React from "react"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
+import { useIsPhone } from "@/components/storefront/use-is-phone"
 import { cn } from "@/lib/utils"
 
 export function EditorField({
@@ -49,40 +56,48 @@ export function EditorField({
 }
 
 /**
- * A row of choices that are words rather than colours: which sentence the bar
- * generates, which label the button carries. Wraps, because six presets do
- * not fit on one line of a phone.
+ * A choice among a few words — which sentence the bar generates, which label
+ * the button carries. A SELECT, the website builder's own: a row of pills
+ * was six things competing for the eye where one closed control says the
+ * current answer and opens on request.
  */
-export function SchemeSwatchRow({
-  options,
+export function EditorSelect({
   value,
+  options,
   onChange,
+  ariaLabel,
 }: {
-  options: readonly { value: string; label: string }[]
   value: string
+  options: readonly { value: string; label: string }[]
   onChange: (value: string) => void
+  ariaLabel?: string
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((option) => {
-        const active = option.value === value
-        return (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onChange(option.value)}
-            aria-pressed={active}
-            className={cn(
-              "rounded-lg border px-2.5 py-1.5 text-[13px] transition-colors",
-              active
-                ? "border-foreground bg-foreground text-background"
-                : "border-border text-foreground hover:bg-muted",
-            )}
-          >
-            {option.label}
-          </button>
-        )
-      })}
+    <div className="relative">
+      <select
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-10 w-full cursor-pointer appearance-none rounded-lg border border-border bg-background px-3 pr-9 text-sm text-foreground transition-colors focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <svg
+        aria-hidden
+        viewBox="0 0 24 24"
+        className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="m6 9 6 6 6-6" />
+      </svg>
     </div>
   )
 }
@@ -94,6 +109,7 @@ export function EditorSheet({
   busy,
   error,
   onSave,
+  saveDisabled = false,
   saveLabel = "Save",
   children,
   wide = false,
@@ -104,10 +120,51 @@ export function EditorSheet({
   busy?: boolean
   error?: string | null
   onSave: () => void
+  saveDisabled?: boolean
   saveLabel?: React.ReactNode
   children: React.ReactNode
   wide?: boolean
 }) {
+  const phone = useIsPhone()
+
+  const footer = (
+    <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-border bg-background px-5 py-3 sm:px-6 sm:py-4">
+      <Button type="button" variant="outline" className="w-full" onClick={onClose} disabled={busy}>
+        Cancel
+      </Button>
+      <Button type="button" className="w-full" onClick={onSave} disabled={busy || saveDisabled}>
+        {saveLabel}
+      </Button>
+    </div>
+  )
+
+  if (phone) {
+    return (
+      <MobileEditorSheet
+        open={open}
+        onOpenChange={(next) => { if (!next) onClose() }}
+        peekHeight={0}
+        layer="raised"
+        detents={[0.92]}
+        openFull
+      >
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="shrink-0 border-b border-border px-5 pb-3 pt-1">
+            <h2 className="text-[17px] font-semibold text-foreground">{title}</h2>
+          </div>
+          {/* data-sheet-scroll is what the sheet's drag arbitration reads:
+              a finger on a scroller that can still scroll scrolls it, one at
+              its top edge pulls the sheet. */}
+          <div data-sheet-scroll className="wb-slim-scroll min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
+            {children}
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+          {footer}
+        </div>
+      </MobileEditorSheet>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
       <DialogContent className={cn("flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0", wide ? "sm:max-w-lg" : "sm:max-w-md")}>
@@ -120,14 +177,8 @@ export function EditorSheet({
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
-        <DialogFooter className="grid grid-cols-2 gap-2 border-t border-border px-6 py-4">
-          <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={onSave} disabled={busy}>
-            {saveLabel}
-          </Button>
-        </DialogFooter>
+        {/* Not DialogFooter: its `sm:justify-end` beats a grid quietly. */}
+        {footer}
       </DialogContent>
     </Dialog>
   )
