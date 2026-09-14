@@ -304,7 +304,20 @@ export function CreatorPageWorkspace({
         so it is read, never branched on.
       */}
       <div
-        className="relative flex shrink-0 items-center gap-1.5 border-b border-[#e5e7eb] bg-white px-3 pb-2 sm:gap-2 sm:px-4"
+        /*
+          THE HAIRLINE IS AN INSET SHADOW, NOT A BORDER.
+
+          It was `border-b`, and the dim below is `absolute inset-0` — which
+          resolves against the PADDING box. A border sits outside that, so
+          the one thing on this bar the dim could not reach was the 1px line
+          at the bottom of it: a lit hairline straight across a dimmed
+          screen, which is exactly what it looked like.
+
+          An inset shadow is painted inside the padding box, so it is under
+          the dim like everything else and goes with it. Same 1px, same
+          colour, same place.
+        */
+        className="relative flex shrink-0 items-center gap-1.5 bg-white px-3 pb-2 shadow-[inset_0_-1px_0_#e5e7eb] sm:gap-2 sm:px-4"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}
       >
         {/*
