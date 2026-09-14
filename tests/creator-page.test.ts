@@ -1228,6 +1228,54 @@ function main() {
     )
   }
 
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * THE KEYBOARD DOES NOT MOVE CANCEL AND SAVE.
+     *
+     * The creator page runs inside the workspace's iframe, and the app shell
+     * shrinks that frame to the strip above the keyboard. A panel centred in
+     * the viewport re-centres in the strip: the sheet jumped to the middle of
+     * the screen and took its buttons with it. Anchored to the bottom there is
+     * nothing to re-centre.
+     *
+     * scripts/check-editor-keyboard.mjs is the measurement; these guard the
+     * pieces it depends on, which a refactor can remove without failing a
+     * build.
+     */
+    const sheet = code("components/storefront/editor-sheet.tsx")
+    const guard = code("components/platform/keyboard-guard.tsx")
+    const css = read("app/globals.css")
+    const about = code("components/storefront/edit-about-button.tsx")
+
+    check("on a phone the editor is anchored to the bottom", /max-sm:top-auto/.test(sheet) && /max-sm:translate-y-0/.test(sheet))
+    check("and lifted by exactly the keyboard's reach", /max-sm:bottom-\[var\(--keyboard-inset-height,0px\)\]/.test(sheet))
+    check("its height is capped to what is left above the keyboard", /max-sm:max-h-\[calc\(100dvh-var\(--keyboard-inset-height,0px\)-2rem\)\]/.test(sheet))
+    /** If the body could not shrink, the footer would be pushed off instead. */
+    check("the scrolling body is the part that gives up the height", /min-h-0 flex-1[^"]*overflow-y-auto/.test(sheet))
+    check("the header cannot shrink", /DialogHeader className="shrink-0/.test(sheet))
+    check("nor the footer", /DialogFooter[\s\S]{0,120}shrink-0/.test(sheet))
+
+    /**
+     * The lift is per-document on purpose. Inside the shrunken frame it is 0
+     * because the frame already ends at the keyboard; on the page opened
+     * directly it is the keyboard's full height.
+     */
+    check("the guard publishes the keyboard's reach", /setProperty\("--keyboard-inset-height"/.test(guard))
+    check("using the same formula as the app shell", /innerHeight - vv\.offsetTop - vv\.height/.test(guard))
+    check("and puts it back to zero when the keyboard closes", /setProperty\("--keyboard-inset-height", "0px"\)/.test(guard))
+
+    /** A sheet ending at the keyboard has no home indicator under it. */
+    check("the home-indicator reserve is dropped while the keyboard is up", /html\.keyboard-open \[data-editor-footer\]/.test(css))
+
+    /**
+     * ONE SHAPE. The story editor kept its own copy of the same three rows,
+     * which is how it stayed centred after the others were anchored.
+     */
+    check("the story editor uses the shared sheet", about.includes("<EditorSheet"))
+    check("and no longer builds its own dialog", !/<DialogContent/.test(about))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

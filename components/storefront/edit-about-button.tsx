@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { EditorSheet } from "@/components/storefront/editor-sheet"
 import { ImageUpload } from "@/components/app/image-upload"
 import { Loader2, Pencil, Plus } from "lucide-react"
 import type { AboutMediaItem } from "@/lib/store-builder/types"
@@ -128,136 +128,142 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
         <Pencil className="h-3.5 w-3.5" />
       </button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
-          <DialogHeader className="border-b border-border px-6 py-4">
-            <DialogTitle>Your story</DialogTitle>
-          </DialogHeader>
+      {/*
+        THE SHELL IS THE SHARED ONE.
 
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
-            <div className="space-y-2">
-              <Label htmlFor="ea-headline">Story headline</Label>
-              <Input
-                id="ea-headline"
-                value={title}
-                maxLength={120}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="What you want people to know first."
-              />
-            </div>
+        This dialog was written before EditorSheet and kept its own copy of
+        the same three rows — header, scrolling body, footer — which is how
+        the story editor ended up being the one that still centred itself on
+        a phone after the others were anchored. There is one shape now, so a
+        fix to it reaches every editor on the page.
+      */}
+      <EditorSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Your story"
+        busy={saving}
+        error={error}
+        onSave={save}
+        saveLabel={
+          saving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Save
+            </>
+          ) : (
+            "Save"
+          )
+        }
+        wide
+      >
+        <div className="space-y-2">
+          <Label htmlFor="ea-headline">Story headline</Label>
+          <Input
+            id="ea-headline"
+            value={title}
+            maxLength={120}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="What you want people to know first."
+          />
+        </div>
 
-            {/*
-              WRITING, RATHER THAN TYPING INTO A BOX.
+        {/*
+          WRITING, RATHER THAN TYPING INTO A BOX.
 
-              This was a six-row textarea, so the one block on a creator page
-              that is actually PROSE — the paragraph about who they are — was
-              the one place in the product with no headings, no emphasis and
-              no lists. RichTextField is the control the website builder's
-              rich text settings use; importing it rather than building a
-              second one is the only way the two stay the same editor.
+          This was a six-row textarea, so the one block on a creator page
+          that is actually PROSE — the paragraph about who they are — was
+          the one place in the product with no headings, no emphasis and
+          no lists. RichTextField is the control the website builder's
+          rich text settings use; importing it rather than building a
+          second one is the only way the two stay the same editor.
 
-              Every value that leaves it has been through `sanitizeRichText`,
-              and the API sanitises again on save because that is where the
-              authority is.
-            */}
-            <div className="space-y-2">
-              <Label htmlFor="ea-story">Your story</Label>
-              <RichTextField
-                value={text}
-                onChange={setText}
-                placeholder="Tell shoppers a little about your business."
-                minHeight={150}
-                maxHeight={320}
-              />
-            </div>
+          Every value that leaves it has been through `sanitizeRichText`,
+          and the API sanitises again on save because that is where the
+          authority is.
+        */}
+        <div className="space-y-2">
+          <Label htmlFor="ea-story">Your story</Label>
+          <RichTextField
+            value={text}
+            onChange={setText}
+            placeholder="Tell shoppers a little about your business."
+            minHeight={150}
+            maxHeight={320}
+          />
+        </div>
 
-            {/*
-              A PUBLIC ADDRESS, TYPED ON PURPOSE.
+        {/*
+          A PUBLIC ADDRESS, TYPED ON PURPOSE.
 
-              The obvious implementation of "let people contact me" is to print
-              the address somebody signs in with, and that is the wrong one:
-              nobody agreed to publish it, and it is the address that resets
-              their password. This is a separate field, empty until they fill
-              it, and emptying it takes the link off the page again.
-            */}
-            <div className="space-y-2">
-              <Label htmlFor="ea-contact">Contact email</Label>
-              <Input
-                id="ea-contact"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                value={email}
-                maxLength={254}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="hello@yourdomain.com"
-              />
-              <p className="text-xs text-muted-foreground">
-                Shown as a Contact link on your page. Leave empty to hide it.
-              </p>
-            </div>
+          The obvious implementation of "let people contact me" is to print
+          the address somebody signs in with, and that is the wrong one:
+          nobody agreed to publish it, and it is the address that resets
+          their password. This is a separate field, empty until they fill
+          it, and emptying it takes the link off the page again.
+        */}
+        <div className="space-y-2">
+          <Label htmlFor="ea-contact">Contact email</Label>
+          <Input
+            id="ea-contact"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={email}
+            maxLength={254}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="hello@yourdomain.com"
+          />
+          <p className="text-xs text-muted-foreground">
+            Shown as a Contact link on your page. Leave empty to hide it.
+          </p>
+        </div>
 
-            <div className="space-y-3">
-              <div className="flex items-baseline justify-between">
-                <Label>Photos and video</Label>
-                <span className="text-xs text-muted-foreground">
-                  {items.length}/{MAX_MEDIA}
-                </span>
-              </div>
-
-              {/*
-                The shared editor: thumbnails, captions, drag-to-reorder, and
-                an editable link on a video. This was a column of raw Supabase
-                storage URLs — which tell a creator nothing they can act on,
-                take the whole width doing it, and look like an error message.
-              */}
-              <MediaItemsEditor items={items} onChange={setItems} />
-
-              {items.length < MAX_MEDIA && (
-                <>
-                  <ImageUpload
-                    bucket="store-builder-images"
-                    aspectRatio="video"
-                    onChange={(url) => {
-                      if (url) setItems((list) => [...list, { id: newId(), type: "image", url }])
-                    }}
-                  />
-                  <div className="flex gap-2">
-                    <Input
-                      value={video}
-                      maxLength={300}
-                      onChange={(e) => setVideo(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault()
-                          addVideo()
-                        }
-                      }}
-                      placeholder="Paste a YouTube or Vimeo link"
-                    />
-                    <Button type="button" variant="outline" onClick={addVideo} disabled={!video.trim()}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {error && <p className="text-sm text-destructive">{error}</p>}
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <Label>Photos and video</Label>
+            <span className="text-xs text-muted-foreground">
+              {items.length}/{MAX_MEDIA}
+            </span>
           </div>
 
-          {/* Cancel left, Save right, equal columns — the same footer as Edit profile. */}
-          <DialogFooter className="grid shrink-0 grid-cols-2 gap-3 border-t border-border bg-background px-6 py-4 sm:flex-none sm:justify-stretch">
-            <Button type="button" variant="outline" className="w-full" onClick={() => setOpen(false)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button type="button" className="w-full" onClick={save} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {/*
+            The shared editor: thumbnails, captions, drag-to-reorder, and
+            an editable link on a video. This was a column of raw Supabase
+            storage URLs — which tell a creator nothing they can act on,
+            take the whole width doing it, and look like an error message.
+          */}
+          <MediaItemsEditor items={items} onChange={setItems} />
+
+          {items.length < MAX_MEDIA && (
+            <>
+              <ImageUpload
+                bucket="store-builder-images"
+                aspectRatio="video"
+                onChange={(url) => {
+                  if (url) setItems((list) => [...list, { id: newId(), type: "image", url }])
+                }}
+              />
+              <div className="flex gap-2">
+                <Input
+                  value={video}
+                  maxLength={300}
+                  onChange={(e) => setVideo(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      addVideo()
+                    }
+                  }}
+                  placeholder="Paste a YouTube or Vimeo link"
+                />
+                <Button type="button" variant="outline" onClick={addVideo} disabled={!video.trim()}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </EditorSheet>
     </>
   )
 }

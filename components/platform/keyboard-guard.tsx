@@ -136,6 +136,24 @@ export function KeyboardGuard() {
         // height, preventing them from extending into the blank area below the
         // keyboard and eliminating the rubber-band / blank-space effect.
         root.style.setProperty("--vvh", `${Math.round(vv.height)}px`)
+        /**
+         * HOW FAR THE KEYBOARD REACHES INTO THIS DOCUMENT.
+         *
+         * Same number, same formula as AppLayoutWrapper, published under the
+         * same name — `--keyboard-inset-height` is declared 0px on :root in
+         * globals.css and both writers agree, so a page that has one, the
+         * other, or both gets one answer.
+         *
+         * It is per-document on purpose, which is what makes it correct
+         * inside the creator-page workspace. There the page is an iframe, and
+         * the app shell has ALREADY shrunk it to the area above the keyboard;
+         * inside that frame innerHeight is the visible height, so this comes
+         * out 0 and a sheet pinned to the bottom is already sitting on the
+         * keyboard. On the same page opened directly, nothing shrank and this
+         * is the full keyboard height. Anything that lifts by this value is
+         * right in both places without knowing which one it is in.
+         */
+        root.style.setProperty("--keyboard-inset-height", `${Math.round(kbHeight)}px`)
         // Clamp scroll positions immediately after the CSS variable is set so
         // no blank space is visible at the bottom while the keyboard is open.
         // Two frames: first for the browser to apply the new height via CSS,
@@ -147,6 +165,7 @@ export function KeyboardGuard() {
         const wasOpen = root.classList.contains("keyboard-open")
         root.classList.remove("keyboard-open")
         root.style.removeProperty("--vvh")
+        root.style.setProperty("--keyboard-inset-height", "0px")
         if (wasOpen) {
           // Wait two frames: first for the CSS class removal to trigger a
           // layout recalculation (padding-bottom restored), second to read
@@ -187,6 +206,7 @@ export function KeyboardGuard() {
       focusTimers.forEach(clearTimeout)
       root.classList.remove("keyboard-open")
       root.style.removeProperty("--vvh")
+      root.style.removeProperty("--keyboard-inset-height")
     }
   }, [])
 

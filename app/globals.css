@@ -1957,6 +1957,20 @@ html.keyboard-open [data-page="library"] main {
  *
  * Safe on desktop — `keyboard-open` is never added there (kbHeight is always 0).
  * ──────────────────────────────────────────────────────────────────────────── */
+/* ── A sheet that ends at the keyboard needs no home-indicator reserve ───────
+ *
+ * The creator page's editors sit on the bottom of the screen on a phone, so
+ * their footer reserves env(safe-area-inset-bottom) to keep Cancel and Save
+ * clear of the home indicator. With the keyboard up the sheet ends at the
+ * keyboard instead — there is no home indicator under it, and the reserve is
+ * a strip of empty background between the buttons and the sheet's edge.
+ * ──────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 639px) {
+  html.keyboard-open [data-editor-footer] {
+    padding-bottom: 1rem !important;
+  }
+}
+
 html.keyboard-open main,
 html.keyboard-open .app-content-scroll {
   height: var(--vvh, 100svh) !important;

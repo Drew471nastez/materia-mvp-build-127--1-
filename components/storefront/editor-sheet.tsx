@@ -110,8 +110,42 @@ export function EditorSheet({
 }) {
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent className={cn("flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0", wide ? "sm:max-w-lg" : "sm:max-w-md")}>
-        <DialogHeader className="border-b border-border px-6 py-4">
+      <DialogContent
+        className={cn(
+          "flex flex-col gap-0 overflow-hidden p-0",
+          "max-h-[85vh]",
+          wide ? "sm:max-w-lg" : "sm:max-w-md",
+          /*
+            ==================================================================
+             ON A PHONE THIS IS A SHEET, AND THE KEYBOARD DOES NOT MOVE IT
+            ==================================================================
+            It was a centred box capped at 85vh, and centred is the part that
+            broke. The creator page runs inside the workspace's iframe, and
+            when the keyboard opens the app shell shrinks that frame to the
+            strip above it. A centred box re-centres in the strip: the panel
+            jumped to the middle of the screen, Cancel and Save came with it,
+            and the page showed above and below a floating card. Nothing was
+            wrong with the buttons — they were where the box put them.
+
+            Anchored to the bottom there is nothing to re-centre. The footer
+            stays against the bottom edge, the body is what gives up the
+            height, and the keyboard arriving changes how much you can scroll
+            rather than where the buttons are.
+
+            `--keyboard-inset-height` is how far the keyboard reaches into
+            THIS document (keyboard-guard.tsx). Inside the shrunken frame it
+            is 0, because the frame already ends at the keyboard. On the page
+            opened directly, where nothing shrank, it is the keyboard's full
+            height and lifts the sheet onto it. One expression, both places.
+          */
+          "max-sm:top-auto max-sm:translate-y-0",
+          "max-sm:bottom-[var(--keyboard-inset-height,0px)]",
+          "max-sm:max-h-[calc(100dvh-var(--keyboard-inset-height,0px)-2rem)]",
+          "max-sm:w-full max-sm:max-w-none",
+          "max-sm:rounded-b-none max-sm:rounded-t-2xl max-sm:border-x-0 max-sm:border-b-0",
+        )}
+      >
+        <DialogHeader className="shrink-0 border-b border-border px-6 py-4">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
@@ -120,7 +154,17 @@ export function EditorSheet({
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
-        <DialogFooter className="grid grid-cols-2 gap-2 border-t border-border px-6 py-4">
+        {/*
+          The home indicator sits under a sheet that reaches the bottom of the
+          screen, so the buttons keep clear of it — and only while there is a
+          bottom of the screen under them. With the keyboard up the sheet ends
+          at the keyboard instead, and the reserve would be a strip of nothing.
+          globals.css zeroes it on html.keyboard-open.
+        */}
+        <DialogFooter
+          data-editor-footer
+          className="grid shrink-0 grid-cols-2 gap-2 border-t border-border bg-background px-6 py-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-none sm:justify-stretch"
+        >
           <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
