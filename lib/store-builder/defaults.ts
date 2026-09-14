@@ -1296,7 +1296,6 @@ export const defaultShopHeaderSettings: ShopHeaderSettings = {
   profileImageBorderColor: undefined, // Controlled by theme preset by default
   showHeadline: false,
   showBio: true,
-  showNicheTags: true,
   showStats: true,
   showTotalSalesBadge: true,
   showSocialMedia: true,

@@ -3077,18 +3077,24 @@ export function UnifiedShopHeader({
             </p>
           )}
 
-          {(settings.showCategory ?? settings.showNicheTags) && (() => {
-            const nicheTags = (globalSettings?.storeNicheTags !== undefined ? globalSettings.storeNicheTags : creator?.niche_tags) ?? []
-            return nicheTags.length > 0 ? (
-              <div className={cn("flex flex-wrap justify-center gap-2", isMobile ? "mt-3" : "mt-4")}>
-                {nicheTags.map((tag) => (
-                  <Badge key={tag} variant="secondary" className={isMobile ? "text-xs" : ""}>
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            ) : null
-          })()}
+          {/*
+            =====================================================================
+             NO CATEGORY PILL ABOVE THE BIO
+            =====================================================================
+            A grey badge reading "Design" or "Music" sat between the handle and
+            the bio, on the one line a visitor reads to find out who somebody
+            is. It said less than the bio directly under it and it said it in
+            the shape of a system label rather than in the creator's own words.
+
+            The niche itself is NOT gone: creators.niche_tags is what
+            /explore and /explore/<category> browse by, so it is how a creator
+            gets found. It is a filing detail, and a filing detail does not
+            belong on the front of somebody's page.
+
+            The "Show Category" switch went with it, because a switch that
+            controls nothing is worse than no switch, and the picker that sets
+            the niche now says what the niche is actually for.
+          */}
 
           {settings.showBio && (settings.bio || creator?.bio) && (
             <div className="relative group/bio inline-flex items-center justify-center">

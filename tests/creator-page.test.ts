@@ -1193,6 +1193,41 @@ function main() {
     check("written text is given typography", css.includes(".storelib-prose ul { list-style: disc"))
   }
 
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * NO CATEGORY PILL ABOVE THE BIO. A grey badge naming the creator's niche
+     * sat between the handle and the bio. The niche still exists, because it
+     * is what /explore browses by, but it is a filing detail and it does not
+     * belong on the line a visitor reads to find out who somebody is.
+     *
+     * These read comment-stripped source. The guard that checked the contact
+     * line was passed by a comment quoting the code it was meant to forbid,
+     * four separate times, which is why `code()` exists at the top of this
+     * file and why it is used here.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const sidebar = code("components/store-builder/sections-sidebar.tsx")
+    const types = code("lib/store-builder/types.ts")
+    const defaults = code("lib/store-builder/defaults.ts")
+
+    check("the profile no longer renders niche pills", !/settings\.showCategory|settings\.showNicheTags/.test(renderer))
+    check("and no switch is left controlling nothing", !/label="Show Category"/.test(sidebar))
+    check("the dead settings keys are gone from the type", !/showNicheTags|showCategory\?:/.test(types))
+    check("and from the defaults", !/showNicheTags/.test(defaults))
+    /**
+     * The niche is kept. Removing the field would take creators out of
+     * Explore, which is a far worse outcome than the pill ever was.
+     */
+    check("the niche is still editable", /storeNicheTags/.test(sidebar))
+    check("and Explore still reads it", read("app/(marketing)/explore/page.tsx").includes("niche_tags"))
+    /** Saying it is shown on the profile would now be untrue. */
+    check(
+      "the picker no longer claims the niche is shown on the page",
+      !/niche shown on your profile/.test(sidebar),
+    )
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

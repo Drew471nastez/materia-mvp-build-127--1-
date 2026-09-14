@@ -746,8 +746,15 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
 
                 <div className="space-y-2">
                   <Label>Niche</Label>
+                  {/*
+                    It is not shown on the profile any more — the pill above
+                    the bio is gone — so saying so would be a lie a creator
+                    would only catch by looking. What it still does is decide
+                    where they turn up in Explore, which is the reason to set
+                    it.
+                  */}
                   <p className="text-xs text-muted-foreground mb-1">
-                    Select 1 niche shown on your profile
+                    Where you appear in Explore. Not shown on your page.
                   </p>
                   {(() => {
                     const currentTag: string = (globalSettings.storeNicheTags ?? creator?.niche_tags ?? [])[0] ?? ""
@@ -2388,11 +2395,12 @@ function ShopHeaderSettingsForm({
             checked={settings.showTotalSalesBadge}
             onChange={(checked) => onChange({ showTotalSalesBadge: checked })}
           />
-          <ToggleField
-            label="Show Category"
-            checked={settings.showCategory ?? true}
-            onChange={(checked) => onChange({ showCategory: checked })}
-          />
+          {/*
+            "Show Category" was here, and it switched a grey pill above the bio
+            on and off. The pill is gone, so the switch would have controlled
+            nothing. The niche it named is still set below, under Niche, and
+            still decides where a creator appears in Explore.
+          */}
         </div>
       </div>
 
