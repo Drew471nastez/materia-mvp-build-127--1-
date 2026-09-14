@@ -40,6 +40,7 @@ const SUITES = [
   "tests/short-bio.test.ts",
   "tests/hook-order.test.ts",
   "tests/sheet-reserve.test.ts",
+  "tests/featured-order.test.ts",
   "tests/policy-pages.test.ts",
   "tests/section-responsive.test.ts",
   "tests/anthropic-provider.test.ts",

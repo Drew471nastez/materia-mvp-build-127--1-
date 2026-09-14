@@ -114,7 +114,15 @@ function main() {
     check("no bar editor in the toolbar", !workspace.includes("CtaEditor") && !workspace.includes("MESSAGE_PRESETS"))
     check("no colour-scheme menu in the toolbar", !workspace.includes("applyScheme") && !workspace.includes("SCHEMES"))
     check("no reload button in the toolbar", !workspace.includes("RotateCw"))
-    check("the loader is only for the first load", workspace.includes("firstLoad &&"))
+    /*
+      Still only the FIRST load — a reframe after a save swaps two iframes and
+      must not put a loading screen over the page. It is no longer gated on
+      `firstLoad` directly: it lingers past it, so the loader can fade out
+      across the page instead of being deleted in one frame. What matters is
+      that `firstLoad` is the only thing it derives from.
+    */
+    check("the loader is only for the first load", /useLinger\(firstLoad,/.test(workspace))
+    check("and nothing else turns it back on", !/loaderVisible = [^\n]*(front|reframe|version)/.test(workspace))
     /** A control that shrinks under the cursor reads as a toy. */
     check("nothing in the toolbar scales on press", !workspace.includes("active:scale"))
 
@@ -1741,6 +1749,56 @@ function main() {
      */
     check("the keyboard resize is a move, not a snap", /height \$\{KEYBOARD_MS\}ms/.test(sheet) && /padding-bottom \$\{KEYBOARD_MS\}ms/.test(sheet))
     check("and the drag itself still has no transition at all", /const motion = dragging/.test(sheet) && /\? "none"/.test(sheet))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * ARRIVING AND LEAVING.
+     */
+    const workspace = code("components/app/creator-page-workspace.tsx")
+    const ceiling = code("lib/website-builder/navigate-ceiling.ts")
+    const builder = code("app/website-builder/editor/[installId]/page.tsx")
+    const link = code("components/smart-link.tsx")
+
+    /**
+     * The loader was removed from the tree the instant the frame reported
+     * loaded, while the page under it was still part-way through a 320ms
+     * fade-in. One frame with neither on screen is the cut.
+     */
+    check("the loader lingers past the load", /useLinger\(firstLoad, 320\)/.test(workspace))
+    check("and leaves by fading, over the page", /wb-canvas-loader/.test(workspace) && /data-leaving=\{!firstLoad\}/.test(workspace))
+
+    /**
+     * /app is warm, so the push beat the paint and the going-back screen was
+     * never on the glass — which is why it read as missing when the code for
+     * it was already there.
+     */
+    check("going back holds the screen before it pushes", /\}, LEAVING_SEEN_MS\)/.test(workspace))
+    check("and warms the way out so the wait is the only wait", /router\.prefetch\("\/app"\)/.test(workspace))
+    /** One number for one question: both editors leave. */
+    check("the hold is shared, not copied", /export const LEAVING_SEEN_MS/.test(ceiling))
+    check("and the builder uses that one", /LEAVING_SEEN_MS, navigateWithCeiling/.test(builder) && !/const LEAVING_SEEN_MS =/.test(builder))
+
+    /**
+     * A bare anchor is a FULL DOCUMENT LOAD: nothing prefetched, and the
+     * route's loading.tsx never reached, because a loading boundary only
+     * exists inside a client navigation. The product page is force-dynamic,
+     * so what a visitor got after pressing a card was a white page for as
+     * long as the server took.
+     */
+    check("an internal link on the web is a link Next knows about", /<Link\s+href=\{resolvedHref!\}/.test(link))
+    check("and the routes that must reload still do", /useClientNav === false \|\|/.test(link) && /startsWith\("\/library"\)/.test(link))
+    check("the product page has a skeleton to show while it streams", existsSync(join(root, "app/(marketing)/p/[slug]/loading.tsx")))
+    check("and so does the creator page", existsSync(join(root, "app/(marketing)/u/[username]/loading.tsx")))
+
+    /**
+     * Home is the creator's arrangement; the Products tab is newest first.
+     * `.filter()` kept the query's order, so the arrangement was saved and
+     * then ignored and the two tabs were the same list twice.
+     */
+    check("the featured section orders by the creator's picks", /pickFeatured\(products, settings\.productIds\)/.test(code("components/store-builder/unified-section-renderer.tsx")))
+    check("through a helper that can be run rather than read", existsSync(join(root, "lib/store-builder/featured-order.ts")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

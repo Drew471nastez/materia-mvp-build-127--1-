@@ -21,6 +21,19 @@
  * clock.
  */
 
+/**
+ * HOW LONG THE SCREEN THAT SAYS YOU ARE LEAVING STAYS BEFORE THE PUSH.
+ *
+ * A warm route paints the next page before this one has drawn the screen
+ * saying where you are going, and what is left is a press, a pause, and then
+ * somewhere else. Long enough to read the first word, short enough that
+ * nobody waits for it.
+ *
+ * Here rather than in either editor, because both of them leave and a second
+ * copy of this number is a second answer to the same question.
+ */
+export const LEAVING_SEEN_MS = 3_000
+
 /** Long enough for a warm route, short enough that nobody wonders. */
 export const NAVIGATE_CEILING_MS = 2500
 
