@@ -39,6 +39,7 @@ export function SectionRenderer({
   sellerMemberSince,
   sellerTotalSales,
   sellerProductsCount,
+  sellerContactEmail,
   aboutOwnerActions,
 }: {
   section: Section
@@ -57,6 +58,23 @@ export function SectionRenderer({
   sellerMemberSince?: string
   sellerTotalSales?: number
   sellerProductsCount?: number
+  /**
+   * =========================================================================
+   *  THE PROP THIS WRAPPER USED TO SWALLOW
+   * =========================================================================
+   * This component forwards by NAME, not by spread, and this one was never
+   * in the list. So the creator page passed a contact address, the wrapper
+   * dropped it on the floor, and the About block rendered no Contact at all —
+   * for as long as the feature has existed. Nothing failed: the page's call
+   * had a prop the wrapper's type does not declare, which is a type error,
+   * and next.config.mjs sets `ignoreBuildErrors`.
+   *
+   * The same shape as the chart's missing `lastTouchXRef`: a green build over
+   * code that cannot work. tests/creator-page.test.ts now checks that every
+   * prop this wrapper accepts is also passed on, so a name added to one half
+   * and not the other is caught here rather than by a blank space on a page.
+   */
+  sellerContactEmail?: string
   /** The owner's About edit control; only the page knows who is looking. */
   aboutOwnerActions?: React.ReactNode
 }) {
@@ -86,6 +104,7 @@ export function SectionRenderer({
       sellerMemberSince={sellerMemberSince}
       sellerTotalSales={sellerTotalSales}
       sellerProductsCount={sellerProductsCount}
+      sellerContactEmail={sellerContactEmail}
       aboutOwnerActions={aboutOwnerActions}
     />
   )
