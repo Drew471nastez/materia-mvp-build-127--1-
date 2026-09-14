@@ -2,64 +2,80 @@
 
 /**
  * ===========================================================================
- *  THE CREATOR PAGE, ON A CANVAS, EDITED WHERE IT LIVES
+ *  THE CREATOR PAGE, EDITED WHERE IT LIVES, INSIDE THE APP
  * ===========================================================================
  * The frame holds the real /u/<handle>, signed in, so every control a creator
  * already has on their page is the control they use here. Nothing is
  * reimplemented, so nothing can drift from what a visitor sees.
  *
- * `?embedded=1` is what tells it that it is inside the workspace, and the
- * proxy relaxes X-Frame-Options only for that exact combination. Opened at
- * its own address the page is still unframeable by anybody, us included.
+ * `?embedded=1` tells the page it is inside the workspace, and the proxy
+ * relaxes X-Frame-Options only for that exact combination. At its own address
+ * the page stays unframeable by anybody, us included.
  *
  * ---------------------------------------------------------------------------
- *  WHY THE CHROME IS LIGHT AND NOT DARK
+ *  TWO FRAMES, SO A CHANGE IS NEVER A WHITE FLASH
  * ---------------------------------------------------------------------------
- * It was near-black for one round. A dark bar over a white page is a hard
- * edge with nothing in between: the page reads as a bright rectangle stuck
- * to a control panel rather than as the thing you are working on. A very
- * light ground puts the two a shade apart, so the canvas is the brightest
- * thing on screen and the tools recede, which is the right order.
+ * A colour scheme is applied server side, so seeing it means fetching the
+ * page again. Reloading the one frame in place unmounts the document first,
+ * and for the width of a network round trip the canvas is white — which read
+ * as "it broke and came back" on every single change.
+ *
+ * So there are two frames and only one is ever visible. A change loads into
+ * the hidden one; when it says it has loaded, the two swap. The old page
+ * stays on screen until the new page is ready to replace it, and the
+ * replacement is a cut, not a blank.
  *
  * ---------------------------------------------------------------------------
- *  RELOADING WITHOUT A LOADING SCREEN
+ *  THE TOOLS ARE THE BUILDER'S TOOLS
  * ---------------------------------------------------------------------------
- * A colour scheme is applied server side, so seeing it means the frame has to
- * fetch again. It does NOT put the loader up for that: a browser keeps the
- * old document painted until the new one is ready, so swapping the src is
- * very nearly a cut. The loader is only for the first load, when there is
- * genuinely nothing to look at yet. Flashing a spinner over a page that is
- * already on screen is what made every small change feel like a page load.
+ * The bar editor is a panel that rises in at the side on a desktop and the
+ * builder's own MobileEditorSheet on a phone. Its colour control is the
+ * builder's colour control — the same swatch beside the same hex field —
+ * because two editors in one product that draw the same control two ways
+ * feel like two products.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { useRouter } from "next/navigation"
-import { ArrowLeft, Check, ExternalLink, Loader2, Palette, RotateCw, SlidersHorizontal, X } from "lucide-react"
+import { Check, ChevronDown, ExternalLink, Loader2, Palette, RotateCw, SlidersHorizontal, X } from "lucide-react"
 
 import { BuilderLoader } from "@/components/website-builder/builder-loader"
+import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { CreatorPageShare } from "@/components/app/creator-page-share"
 import { themePresets } from "@/lib/store-builder/defaults"
 import type { ThemePreset } from "@/lib/store-builder/types"
+import { cn } from "@/lib/utils"
 
 /**
  * FIVE, AND THEY HAVE TO BE FIVE DIFFERENT ANSWERS.
  *
- * The engine ships eight, and three of them were the same decision twice:
- * `air` is white with dark accents and so is `blacks`; `bubble` is purple
- * where `pink` is pink; `fusion` is a second near-black beside `astrid`. A
- * picker where three of the eight look like each other is a picker somebody
- * scrolls rather than chooses from.
- *
- * What is left is five shapes nobody confuses: blue, monochrome, warm, pink,
- * dark. The other three still exist in the engine and a page already using
- * one keeps it — this is what is OFFERED, not what is supported.
+ * The engine ships eight and three were the same decision twice: `air` is
+ * white with dark accents and so is `blacks`; `bubble` is purple where `pink`
+ * is pink; `fusion` is a second near-black beside `astrid`. What is offered is
+ * blue, monochrome, warm, pink, dark. The other three still exist, and a page
+ * already on one keeps it: this is what is OFFERED, not what is supported.
  */
 const SCHEMES: ThemePreset[] = ["default", "blacks", "cream", "pink", "astrid"]
+
+/** The bar's generated sentences, in the words the bar itself uses. */
+const MESSAGE_PRESETS = [
+  { value: "style1", label: "Join <name>'s newsletter" },
+  { value: "style2", label: "Join our family" },
+  { value: "style3", label: "Join our community" },
+] as const
+
+const BUTTON_PRESETS = [
+  { value: "style1", label: "Subscribe" },
+  { value: "style2", label: "Join Now" },
+  { value: "style3", label: "Get It" },
+  { value: "style4", label: "Follow" },
+] as const
 
 export interface CtaValues {
   text: string
   buttonText: string
+  style: string
+  buttonStyle: string
   backgroundColor: string
   textColor: string
   buttonColor: string
@@ -79,13 +95,9 @@ export function CreatorPageWorkspace({
   themePreset: string
   cta: CtaValues
 }) {
-  const router = useRouter()
-  const [firstLoad, setFirstLoad] = useState(true)
   const [shareOpen, setShareOpen] = useState(false)
-  const [leaving, setLeaving] = useState(false)
   const [portalReady, setPortalReady] = useState(false)
   const [isPhone, setIsPhone] = useState(false)
-  const [nonce, setNonce] = useState(0)
 
   useEffect(() => {
     setPortalReady(true)
@@ -96,15 +108,31 @@ export function CreatorPageWorkspace({
     return () => mq.removeEventListener("change", sync)
   }, [])
 
-  const src = `/u/${encodeURIComponent(handle)}?embedded=1&v=${nonce}`
+  const srcFor = (v: number) => `/u/${encodeURIComponent(handle)}?embedded=1&v=${v}`
 
-  /** Swap the src. No loader: the old document stays painted until the new one is. */
-  const reframe = useCallback(() => setNonce((n) => n + 1), [])
+  // ── The two frames ──────────────────────────────────────────────────────
+  /** Which frame is showing, and what each one has been told to load. */
+  const [front, setFront] = useState<0 | 1>(0)
+  const [srcs, setSrcs] = useState<[string, string]>([srcFor(0), ""])
+  const [firstLoad, setFirstLoad] = useState(true)
+  const version = useRef(0)
 
-  const leave = useCallback(() => {
-    setLeaving(true)
-    window.setTimeout(() => router.push("/app"), 220)
-  }, [router])
+  /** Load the page again, into the frame nobody is looking at. */
+  const reframe = useCallback(() => {
+    version.current += 1
+    const back = front === 0 ? 1 : 0
+    setSrcs((s) => {
+      const next: [string, string] = [s[0], s[1]]
+      next[back] = srcFor(version.current)
+      return next
+    })
+  }, [front, handle]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onFrameLoad = (index: 0 | 1) => {
+    if (firstLoad) setFirstLoad(false)
+    /** The hidden frame finished: it becomes the front, and the old front is idle. */
+    if (index !== front && srcs[index]) setFront(index)
+  }
 
   // ── The colour scheme ────────────────────────────────────────────────────
   const [scheme, setScheme] = useState(themePreset)
@@ -132,10 +160,7 @@ export function CreatorPageWorkspace({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ themePreset: preset }),
         })
-        if (!res.ok) {
-          setScheme(previous)
-          return
-        }
+        if (!res.ok) return setScheme(previous)
         reframe()
       } catch {
         setScheme(previous)
@@ -147,25 +172,44 @@ export function CreatorPageWorkspace({
   // ── The bar across the top of the page ───────────────────────────────────
   const [ctaOpen, setCtaOpen] = useState(false)
 
+  /**
+   * A SWATCH IS A TINY PAGE, not three stripes. The page colour, a card on it
+   * in the card colour, and a pill in the primary: the three things a scheme
+   * decides, in the arrangement the page puts them in.
+   */
+  const Swatch = ({ preset }: { preset: ThemePreset }) => {
+    const t = themePresets[preset]
+    return (
+      <span
+        aria-hidden
+        className="relative flex h-9 w-12 shrink-0 flex-col gap-1 overflow-hidden rounded-md border border-[#e5e7eb] p-1.5"
+        style={{ background: t.sections.pageBackgroundColor }}
+      >
+        <span className="h-1.5 w-5 rounded-full" style={{ background: t.colors.primary }} />
+        <span
+          className="h-3 w-full rounded-[3px] border"
+          style={{ background: t.productCard.backgroundColor, borderColor: t.productCard.borderColor }}
+        />
+      </span>
+    )
+  }
+
   const schemeList = (
     <div className="p-1">
       {SCHEMES.map((preset) => {
-        const theme = themePresets[preset]
         const active = preset === scheme
         return (
           <button
             key={preset}
             type="button"
             onClick={() => applyScheme(preset)}
-            className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-[#f3f4f6]"
+            className={cn(
+              "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[#f3f4f6]",
+              active && "bg-[#f3f4f6]",
+            )}
           >
-            {/* The scheme, not its name: three of its own colours in a row. */}
-            <span aria-hidden className="flex h-7 w-7 shrink-0 overflow-hidden rounded-md border border-[#e5e7eb]">
-              <span className="h-full w-1/2" style={{ background: theme.colors.background }} />
-              <span className="h-full w-1/4" style={{ background: theme.colors.primary }} />
-              <span className="h-full w-1/4" style={{ background: theme.colors.secondary }} />
-            </span>
-            <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e] md:text-[13px]">{theme.name}</span>
+            <Swatch preset={preset} />
+            <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e] md:text-[13px]">{themePresets[preset].name}</span>
             {active && <Check className="h-4 w-4 shrink-0 text-[#6b7280]" />}
           </button>
         )
@@ -174,20 +218,10 @@ export function CreatorPageWorkspace({
   )
 
   return (
-    <div className="flex h-svh min-h-0 flex-col bg-[#f1f1f3]">
+    <div className="relative flex h-full min-h-0 flex-col bg-[#f1f1f3]">
       {/* ONE LIGHT ROW. The handle first, because it is the subject. */}
-      <div className="flex shrink-0 items-center gap-1.5 border-b border-[#e5e7eb] bg-white px-2 py-2 sm:gap-2 sm:px-3">
-        <button
-          type="button"
-          onClick={leave}
-          aria-label="Back to Storelib"
-          title="Back to Storelib"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
-        >
-          <ArrowLeft className="h-[18px] w-[18px]" />
-        </button>
-
-        <div className="min-w-0 flex-1 px-1">
+      <div className="flex shrink-0 items-center gap-1.5 border-b border-[#e5e7eb] bg-white px-3 py-2 sm:gap-2 sm:px-4">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-semibold leading-tight text-[#1a1a2e]">{displayName}</p>
           <p className="truncate text-[11px] leading-tight text-[#9ca3af]">
             storelib.com/u/{handle}
@@ -195,11 +229,6 @@ export function CreatorPageWorkspace({
           </p>
         </div>
 
-        {/*
-          NO active:scale ON ANY OF THESE. A control that shrinks under the
-          cursor reads as a toy; these are a toolbar, and a colour change is
-          the feedback for a colour button.
-        */}
         <button
           type="button"
           onClick={() => setCtaOpen(true)}
@@ -222,9 +251,8 @@ export function CreatorPageWorkspace({
             <Palette className="h-4 w-4 text-[#6b7280]" />
             <span className="hidden lg:inline">{themePresets[scheme as ThemePreset]?.name ?? "Theme"}</span>
           </button>
-
           {schemeOpen && !isPhone && (
-            <div className="absolute right-0 top-full z-30 mt-2 w-52 overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_16px_40px_-16px_rgba(0,0,0,0.28)]">
+            <div className="wb-settings-in absolute right-0 top-full z-30 mt-2 w-60 overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_16px_40px_-16px_rgba(0,0,0,0.28)]">
               {schemeList}
             </div>
           )}
@@ -260,10 +288,9 @@ export function CreatorPageWorkspace({
       </div>
 
       {/*
-        THE CANVAS. On a desktop it is inset and bordered, so the page has
-        edges of its own. ON A PHONE IT IS NOT: a 4px gutter and a hairline
-        around a page that is already only 390px wide is a border eating the
-        content it frames. There, the page simply is the screen.
+        THE CANVAS. Inset and bordered on a desktop so the page has edges of
+        its own. Not on a phone: a gutter and a hairline around a 390px page
+        eats the content it frames. There, the page simply is the screen.
       */}
       <div className="min-h-0 flex-1 overflow-hidden p-0 md:p-2.5">
         <div className="relative h-full w-full overflow-hidden bg-white md:rounded-xl md:border md:border-[#e5e7eb] md:shadow-[0_12px_36px_-20px_rgba(0,0,0,0.35)]">
@@ -272,82 +299,123 @@ export function CreatorPageWorkspace({
               <BuilderLoader tone="light" lines={["Loading your page"]} />
             </div>
           )}
-          <iframe
-            key={nonce}
-            src={src}
-            title={`${displayName}'s creator page`}
-            onLoad={() => setFirstLoad(false)}
-            className="block h-full w-full border-0 bg-white"
-          />
+          {([0, 1] as const).map((i) =>
+            srcs[i] ? (
+              <iframe
+                key={i}
+                src={srcs[i]}
+                title={i === front ? `${displayName}'s creator page` : "Loading the next version"}
+                aria-hidden={i !== front}
+                onLoad={() => onFrameLoad(i)}
+                className={cn(
+                  "absolute inset-0 block h-full w-full border-0 bg-white",
+                  i === front ? "z-[1] opacity-100" : "z-0 opacity-0 pointer-events-none",
+                )}
+              />
+            ) : null,
+          )}
         </div>
       </div>
 
-      {/* A phone gets a sheet, not a popover anchored to a 36px button. */}
-      {isPhone && schemeOpen && portalReady && createPortal(
-        <div className="fixed inset-0 z-[80]" role="dialog" aria-label="Colour scheme">
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={() => setSchemeOpen(false)}
-            className="absolute inset-0 bg-black/35"
-          />
-          <div className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-8px_40px_-12px_rgba(0,0,0,0.35)]">
-            <div className="flex items-center justify-between border-b border-[#f3f4f6] px-4 py-3">
-              <p className="text-[15px] font-semibold text-[#1a1a2e]">Colour scheme</p>
-              <button
-                type="button"
-                onClick={() => setSchemeOpen(false)}
-                aria-label="Close"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f3f4f6]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="px-2 py-2">{schemeList}</div>
+      {/* A phone gets the builder's own sheet, not a popover on a 36px button. */}
+      {isPhone && portalReady && (
+        <MobileEditorSheet open={schemeOpen} onOpenChange={setSchemeOpen} fit>
+          <div className="px-2 pb-2">
+            <p className="px-3 pb-2 pt-1 text-[15px] font-semibold text-[#1a1a2e]">Colour scheme</p>
+            {schemeList}
           </div>
-        </div>,
-        document.body,
+        </MobileEditorSheet>
       )}
 
-      {ctaOpen && portalReady && createPortal(
-        <CtaDialog initial={cta} onClose={() => setCtaOpen(false)} onSaved={reframe} isPhone={isPhone} />,
-        document.body,
-      )}
+      <CreatorPageShare open={shareOpen} onClose={() => setShareOpen(false)} handle={handle} isPhone={isPhone} />
 
-      <CreatorPageShare open={shareOpen} onClose={() => setShareOpen(false)} handle={handle} />
-
-      {leaving && portalReady && createPortal(
-        <div className="wb-leaving" role="status" aria-live="polite" aria-label="Going back">
-          <BuilderLoader className="wb-leaving-content" tone="dark" lines={["Going back"]} />
-        </div>,
-        document.body,
+      {/* The bar editor: a panel at the side on a desktop, the sheet on a phone. */}
+      {isPhone ? (
+        portalReady && (
+          <MobileEditorSheet open={ctaOpen} onOpenChange={setCtaOpen} detents={[0.92]} openFull>
+            <CtaEditor initial={cta} onClose={() => setCtaOpen(false)} onSaved={reframe} />
+          </MobileEditorSheet>
+        )
+      ) : (
+        ctaOpen && (
+          <>
+            <button type="button" aria-label="Close" onClick={() => setCtaOpen(false)} className="absolute inset-0 z-20 bg-black/10" />
+            <div className="wb-settings-in absolute bottom-3 right-3 top-[56px] z-30 w-[360px] overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_24px_60px_-24px_rgba(0,0,0,0.35)]">
+              <CtaEditor initial={cta} onClose={() => setCtaOpen(false)} onSaved={reframe} />
+            </div>
+          </>
+        )
       )}
     </div>
   )
 }
 
 /**
- * The bar across the top of the creator's page: what it says, what the button
- * says, and the four colours it is painted with. It writes through the same
- * /api/creator-profile everything else on the page uses, which validates every
- * colour as a hex before it reaches a style attribute on a public page.
+ * THE BUILDER'S COLOUR CONTROL, to the class. A swatch that is the picker
+ * itself, and the hex beside it in a monospace field. Copied rather than
+ * imported because the builder's is a branch inside a 400-line field
+ * renderer, and lifting that out is a change to the builder for the sake of
+ * this one panel.
  */
-function CtaDialog({
-  initial,
-  onClose,
-  onSaved,
-  isPhone,
-}: {
-  initial: CtaValues
-  onClose: () => void
-  onSaved: () => void
-  isPhone: boolean
-}) {
-  const [values, setValues] = useState<CtaValues>(initial)
+function ColorControl({ label, value, fallback, onChange }: { label: string; value: string; fallback: string; onChange: (v: string) => void }) {
+  const valid = /^#[0-9a-f]{6}$/i.test(value)
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-[12px] font-medium text-[#374151]">{label}</span>
+      <span className="flex items-center gap-2">
+        <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb]">
+          <input
+            type="color"
+            aria-label={label}
+            className="absolute -inset-1 cursor-pointer"
+            value={valid ? value : fallback}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </span>
+        <input
+          type="text"
+          aria-label={`${label} hex`}
+          className="h-9 min-w-0 flex-1 rounded-lg border border-[#e5e7eb] bg-white px-3 font-mono text-sm text-[#111827] outline-none transition-colors focus:border-[#9ca3af] focus:ring-2 focus:ring-neutral-900/10"
+          value={value}
+          placeholder={fallback}
+          onChange={(e) => onChange(e.target.value.trim())}
+        />
+      </span>
+    </label>
+  )
+}
+
+function Select({ label, value, options, onChange }: { label: string; value: string; options: readonly { value: string; label: string }[]; onChange: (v: string) => void }) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-[12px] font-medium text-[#374151]">{label}</span>
+      <span className="relative block">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 w-full cursor-pointer appearance-none rounded-lg border border-[#e5e7eb] bg-white px-3 pr-8 text-sm text-[#111827] outline-none transition-colors focus:border-[#9ca3af] focus:ring-2 focus:ring-neutral-900/10"
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9ca3af]" />
+      </span>
+    </label>
+  )
+}
+
+/**
+ * The bar across the top of the creator's page: which sentence, or a custom
+ * one; which button label, or a custom one; and the four colours. It writes
+ * through the same /api/creator-profile everything else on the page uses,
+ * which validates every colour as a hex before it reaches a public page.
+ */
+function CtaEditor({ initial, onClose, onSaved }: { initial: CtaValues; onClose: () => void; onSaved: () => void }) {
+  const [v, setV] = useState<CtaValues>(initial)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const set = (key: keyof CtaValues, value: string) => setValues((v) => ({ ...v, [key]: value }))
+  const set = <K extends keyof CtaValues>(key: K, value: CtaValues[K]) => setV((s) => ({ ...s, [key]: value }))
 
   const save = async () => {
     setSaving(true)
@@ -356,12 +424,9 @@ function CtaDialog({
       const res = await fetch("/api/creator-profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscribeBar: values }),
+        body: JSON.stringify({ subscribeBar: v }),
       })
-      if (!res.ok) {
-        setError("That could not be saved. Try again.")
-        return
-      }
+      if (!res.ok) return setError("That could not be saved. Try again.")
       onClose()
       onSaved()
     } catch {
@@ -371,95 +436,57 @@ function CtaDialog({
     }
   }
 
-  const COLOURS: Array<[keyof CtaValues, string, string]> = [
-    ["backgroundColor", "Background", "#ffffff"],
-    ["textColor", "Text", "#111827"],
-    ["buttonColor", "Button", "#2563eb"],
-    ["buttonTextColor", "Button text", "#ffffff"],
-  ]
-
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center" role="dialog" aria-label="Top bar">
-      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/35" />
-      <div
-        className={`relative w-full overflow-hidden bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.4)] ${
-          isPhone ? "rounded-t-2xl pb-[env(safe-area-inset-bottom,0px)]" : "m-4 max-w-md rounded-2xl"
-        }`}
-      >
-        <div className="flex items-center justify-between border-b border-[#f3f4f6] px-5 py-3.5">
-          <p className="text-[15px] font-semibold text-[#1a1a2e]">Top bar</p>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f3f4f6]"
-          >
-            <X className="h-4 w-4" />
-          </button>
+    <div className="flex h-full max-h-[85vh] flex-col md:max-h-none">
+      <div className="flex shrink-0 items-center justify-between border-b border-[#f3f4f6] px-4 py-3">
+        <p className="text-[14px] font-semibold text-[#1a1a2e]">Top bar</p>
+        <button type="button" onClick={onClose} aria-label="Close" className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f3f4f6]">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="wb-slim-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        <Select label="Message" value={v.style} options={MESSAGE_PRESETS} onChange={(x) => set("style", x)} />
+        <label className="block space-y-1.5">
+          <span className="text-[12px] font-medium text-[#374151]">Or your own message</span>
+          <input
+            value={v.text}
+            maxLength={120}
+            onChange={(e) => set("text", e.target.value)}
+            placeholder="Leave empty to use the preset above"
+            className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white px-3 text-sm text-[#111827] outline-none transition-colors focus:border-[#9ca3af] focus:ring-2 focus:ring-neutral-900/10"
+          />
+        </label>
+
+        <Select label="Button" value={v.buttonStyle} options={BUTTON_PRESETS} onChange={(x) => set("buttonStyle", x)} />
+        <label className="block space-y-1.5">
+          <span className="text-[12px] font-medium text-[#374151]">Or your own label</span>
+          <input
+            value={v.buttonText}
+            maxLength={30}
+            onChange={(e) => set("buttonText", e.target.value)}
+            placeholder="Leave empty to use the preset above"
+            className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white px-3 text-sm text-[#111827] outline-none transition-colors focus:border-[#9ca3af] focus:ring-2 focus:ring-neutral-900/10"
+          />
+        </label>
+
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          <ColorControl label="Background" value={v.backgroundColor} fallback="#ffffff" onChange={(x) => set("backgroundColor", x)} />
+          <ColorControl label="Text" value={v.textColor} fallback="#111827" onChange={(x) => set("textColor", x)} />
+          <ColorControl label="Button" value={v.buttonColor} fallback="#2563eb" onChange={(x) => set("buttonColor", x)} />
+          <ColorControl label="Button text" value={v.buttonTextColor} fallback="#ffffff" onChange={(x) => set("buttonTextColor", x)} />
         </div>
 
-        <div className="max-h-[70vh] space-y-4 overflow-y-auto px-5 py-4">
-          <label className="block space-y-1.5">
-            <span className="text-[13px] font-medium text-[#374151]">Message</span>
-            <input
-              value={values.text}
-              maxLength={120}
-              onChange={(e) => set("text", e.target.value)}
-              placeholder="Join my newsletter"
-              className="h-10 w-full rounded-lg border border-[#e5e7eb] px-3 text-[14px] text-[#111827] outline-none transition-colors focus:border-[#9ca3af]"
-            />
-          </label>
+        {error && <p className="text-[13px] text-red-600">{error}</p>}
+      </div>
 
-          <label className="block space-y-1.5">
-            <span className="text-[13px] font-medium text-[#374151]">Button</span>
-            <input
-              value={values.buttonText}
-              maxLength={30}
-              onChange={(e) => set("buttonText", e.target.value)}
-              placeholder="Follow"
-              className="h-10 w-full rounded-lg border border-[#e5e7eb] px-3 text-[14px] text-[#111827] outline-none transition-colors focus:border-[#9ca3af]"
-            />
-          </label>
-
-          <div className="grid grid-cols-2 gap-3">
-            {COLOURS.map(([key, label, fallback]) => (
-              <label key={key} className="block space-y-1.5">
-                <span className="text-[13px] font-medium text-[#374151]">{label}</span>
-                <span className="flex h-10 items-center gap-2 rounded-lg border border-[#e5e7eb] px-2">
-                  <input
-                    type="color"
-                    aria-label={label}
-                    value={/^#[0-9a-f]{6}$/i.test(values[key]) ? values[key] : fallback}
-                    onChange={(e) => set(key, e.target.value)}
-                    className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0"
-                  />
-                  <span className="truncate text-[12px] text-[#6b7280]">{values[key] || fallback}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-
-          {error && <p className="text-[13px] text-red-600">{error}</p>}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 border-t border-[#f3f4f6] px-5 py-3.5">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="h-10 rounded-lg border border-[#e5e7eb] text-[14px] font-medium text-[#374151] transition-colors hover:bg-[#f9fafb] disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving}
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-[#1a1a2e] text-[14px] font-semibold text-white transition-colors hover:bg-[#2a2a3e] disabled:opacity-50"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-          </button>
-        </div>
+      <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-[#f3f4f6] px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom,0px))]">
+        <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-lg border border-[#e5e7eb] text-[14px] font-medium text-[#374151] transition-colors hover:bg-[#f9fafb] disabled:opacity-50">
+          Cancel
+        </button>
+        <button type="button" onClick={save} disabled={saving} className="inline-flex h-10 items-center justify-center rounded-lg bg-[#1a1a2e] text-[14px] font-semibold text-white transition-colors hover:bg-[#2a2a3e] disabled:opacity-50">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+        </button>
       </div>
     </div>
   )

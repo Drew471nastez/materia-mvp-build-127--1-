@@ -1322,7 +1322,7 @@ check(
     if (!/OwnerMenu/.test(slot))
       missing.push("the owner menu is outside the owner-only slot — every visitor would see it")
 
-    for (const href of ["/app/products", "/creator-page", "/app/analytics", "/app/settings"]) {
+    for (const href of ["/app/products", "/app/creator-page", "/app/analytics", "/app/settings"]) {
       if (!menu.includes(`"${href}"`)) {
         missing.push(`the menu no longer links to ${href}`)
         continue

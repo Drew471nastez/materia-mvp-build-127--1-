@@ -43,6 +43,8 @@ export interface StorefrontProductCardProps {
    * hidden.
    */
   isOwner?: boolean
+  /** The four colours the page's theme gives a card. See ProductCard. */
+  surface?: { backgroundColor?: string; borderColor?: string; textColor?: string; priceColor?: string }
 }
 
 export function StorefrontProductCard({
@@ -52,9 +54,11 @@ export function StorefrontProductCard({
   creatorAvatarUrl,
   priority = false,
   isOwner = false,
+  surface,
 }: StorefrontProductCardProps) {
   const card = (
     <ProductCard
+      surface={surface}
       priority={priority}
       discoverLayout={false}
       /**

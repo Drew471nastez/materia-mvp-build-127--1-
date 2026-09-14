@@ -31,7 +31,7 @@ import { MoreHorizontal } from "lucide-react"
  */
 const LINKS = [
   { href: "/app/products", label: "Manage products", detail: "Add, edit and price" },
-  { href: "/creator-page", label: "Customize page", detail: "Lay out this page" },
+  { href: "/app/creator-page", label: "Customize page", detail: "Lay out this page" },
   { href: "/app/analytics", label: "Analytics", detail: "Views and sales" },
   { href: "/app/settings", label: "Settings", detail: "Account and payouts" },
 ] as const

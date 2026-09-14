@@ -175,11 +175,20 @@ export async function PATCH(request: NextRequest) {
         out[key] = v.trim().toLowerCase()
       }
     }
+    /** The bar's own presets: which generated sentence, which button label. */
+    if (typeof value.style === "string" && ["style1", "style2", "style3"].includes(value.style)) out.style = value.style
+    if (typeof value.buttonStyle === "string" && ["style1", "style2", "style3", "style4"].includes(value.buttonStyle)) {
+      out.buttonStyle = value.buttonStyle
+    }
     if (typeof value.buttonText === "string") {
       const label = value.buttonText.trim().slice(0, MAX_CTA_BUTTON)
       if (label) {
         out.buttonText = label
         out.buttonTextPreset = "custom"
+      } else {
+        /** Cleared: the preset label shows again, and a stale custom one cannot. */
+        out.buttonText = ""
+        out.buttonTextPreset = "subscribe"
       }
     }
     return Object.keys(out).length > 0 ? out : undefined
