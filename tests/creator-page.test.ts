@@ -833,20 +833,23 @@ function main() {
      */
     const renderer = code("components/store-builder/unified-section-renderer.tsx")
     const page = code("app/(marketing)/u/[username]/page.tsx")
-    check(
-      "the header line carries a way to reach the seller",
-      /if \(contactEmail\) \{/.test(renderer) && /<ContactReveal/.test(renderer),
-    )
     /**
-     * ONE CONTROL, TWO PLACES. The About block and the header's meta line
-     * show the same thing, so a page cannot end up offering two different
-     * affordances for it — a printed address in one and a button in the
-     * other, which is what it briefly did.
+     * IN THE ABOUT BLOCK, AND NOWHERE ELSE.
+     *
+     * It sat on the header's line under the bio for a day. That line is the
+     * follower count, the sales badge and the creator's social links — who
+     * they are and where else they are — and a way to email them read oddly
+     * among them. About is where dealing with this person belongs, and it is
+     * a LOCKED default section, so every creator page has one.
      */
     check(
-      "and About uses the same control rather than its own",
-      (renderer.match(/<ContactReveal/g) ?? []).length === 2 &&
-        !/href=\{`mailto:\$\{contactEmail\}`\}/.test(renderer),
+      "the contact is in About and on no other line",
+      (renderer.match(/<ContactReveal/g) ?? []).length === 1 &&
+        renderer.includes("<ContactReveal email={contactEmail} />"),
+    )
+    check(
+      "and the header carries no contact of its own",
+      !/contactEmail\?: string\n\}/.test(renderer.slice(renderer.indexOf("UnifiedShopHeaderProps"))),
     )
     const reveal = code("components/storefront/contact-reveal.tsx")
     check(
@@ -863,19 +866,14 @@ function main() {
       /const publicContactEmail = headerSettings\.contactEmail \|\| profile\.email \|\| undefined/.test(page) &&
         (page.match(/headerSettings\.contactEmail \|\| profile\.email/g) ?? []).length === 1,
     )
-    check(
-      "the page with no stored config has one too",
-      /contactEmail=\{defaultShopHeaderSettings\.contactEmail \|\| profile\.email \|\| undefined\}/.test(page),
-    )
     /**
-     * The builder canvas has no session, so it cannot apply the account
-     * fallback. It shows what has been typed, or nothing — never an address
-     * it made up.
+     * About is a locked default section — hideable, not deletable — so this
+     * is what makes "in About" the same as "on every creator page".
      */
-    const canvas = code("components/store-builder/preview-canvas.tsx")
+    const defaults = code("lib/store-builder/defaults.ts")
     check(
-      "the builder shows the typed address and invents none",
-      /contactEmail=\{\(draftConfig\.headerSettings as ShopHeaderSettings\)\?\.contactEmail \|\| undefined\}/.test(canvas),
+      "About is a locked default section, so every creator page has one",
+      /type: "about",[\s\S]{0,200}locked: true/.test(defaults),
     )
   }
 

@@ -767,14 +767,6 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               onCoverEdit={handleCoverEdit}
               onBioEdit={handleBioEdit}
               globalSettings={draftConfig.globalSettings}
-              /**
-               * So the creator sees the line their visitors see. The canvas
-               * has no session, so the account-email fallback the live page
-               * applies is not available here: what shows is what has been
-               * typed, and an empty one simply shows nothing rather than
-               * inventing an address.
-               */
-              contactEmail={(draftConfig.headerSettings as ShopHeaderSettings)?.contactEmail || undefined}
             />
 
             {(() => {

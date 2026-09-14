@@ -4,10 +4,11 @@
  * ===========================================================================
  * Two separate things, and both have been wrong here before.
  *
- * REACHABILITY. The address used to be rendered only inside the About block,
- * and About is a section a creator may never have added — so on most creator
- * pages there was no way to write to the person selling. It is on the
- * header's meta line now, which is always under the bio.
+ * WHERE IT LIVES. The About block at the bottom of the creator page, which
+ * is a LOCKED default section — every creator page has one, and it can be
+ * hidden but not deleted. It was on the header's line under the bio for a
+ * day and it read oddly there, among the follower count and the social
+ * links.
  *
  * AND IT IS BEHIND A BUTTON. The address is not in the page until somebody
  * asks for it: before the press there is no `mailto` and no text to harvest;
@@ -88,7 +89,19 @@ setTimeout(function () {
     }
   }
 
-  var result = { withBefore: readBefore('[data-case="with"]'), withoutBefore: readBefore('[data-case="without"]') }
+  var result = {
+    withBefore: readBefore('[data-case="with"]'),
+    withoutBefore: readBefore('[data-case="without"]'),
+    /*
+     * Nothing may print the address on the page around the button either.
+     *
+     * Scoped to #app, not the body: body.textContent includes the text of
+     * SCRIPT elements, and this driver has the address written in it as the
+     * very string it is searching for — so it found itself and called a
+     * working reveal decoration.
+     */
+    pageLeaks: (document.getElementById("app") || document.body).textContent.indexOf("hello@andrewrullz.com") >= 0,
+  }
   var b = trigger(document.querySelector('[data-case="with"]'))
   if (b) b.click()
   setTimeout(function () {
@@ -109,13 +122,15 @@ const r = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace
 
 console.log(`\n  with an address, before the press: ${r.withBefore.hasButton ? "a Contact button" : "NO BUTTON"}, address in the page: ${r.withBefore.leaksText || r.withBefore.leaksLink ? "YES" : "no"}`)
 console.log(`  after the press:                  ${r.withAfter.hasLink ? `${r.withAfter.shown} → ${r.withAfter.href}${r.withAfter.visible ? ", visible" : ", NOT VISIBLE"}${r.withAfter.hasCopy ? ", with copy" : ", no copy"}` : "nothing appeared"}`)
-console.log(`  without an address:               ${r.withoutBefore.hasButton ? "a Contact button anyway" : "nothing, which is right"}\n`)
+console.log(`  without an address:               ${r.withoutBefore.hasButton ? "a Contact button anyway" : "nothing, which is right"}`)
+console.log(`  the @handle beside it:            ${r.withBefore.leaksText ? "MISTAKEN for an address" : "not mistaken for an address"}`)
+console.log("")
 
 const problems = []
 if (!r.withBefore.mounted || !r.withoutBefore.mounted) problems.push(`The header did not mount, so nothing below was measured.`)
 if (!r.withBefore.hasButton) problems.push(`A creator with a contact address has no way to be written to on the header line. That is the whole point of the line.`)
 if (!r.withBefore.buttonVisible) problems.push(`The Contact button is in the markup but has no size, so nobody can see or press it.`)
-if (r.withBefore.leaksLink || r.withBefore.leaksText) problems.push(`The address is in the page before anybody presses Contact, so the reveal is decoration.`)
+if (r.withBefore.leaksLink || r.withBefore.leaksText || r.pageLeaks) problems.push(`The address is in the page before anybody presses Contact, so the reveal is decoration.`)
 if (!r.withAfter?.hasLink) problems.push(`Pressing Contact revealed nothing.`)
 else {
   if (r.withAfter.href !== "mailto:hello@andrewrullz.com") problems.push(`The revealed link points at ${r.withAfter.href}, not at the address it was given.`)
