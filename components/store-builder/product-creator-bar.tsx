@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { Mail, ArrowLeft, ArrowRight, Check } from "lucide-react"
-import { getStoreUrl } from "@/lib/url-helpers"
+import { getStoreInternalPath } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 import { SmartLink } from "@/components/smart-link"
@@ -180,7 +180,37 @@ function getCreatorHref(creatorUsername?: string, creatorId?: string, creatorNam
   if (!creatorUsername) return "#"
   const raw = creatorUsername.toString().trim()
   if (!raw) return "#"
-  return getStoreUrl(raw)
+  /**
+   * =========================================================================
+   *  THE CREATOR'S PAGE, NOT THEIR WEBSITE
+   * =========================================================================
+   * This used `getStoreUrl`, which returns the SUBDOMAIN —
+   * https://<handle>.storelib.com — and that is the site a creator builds in
+   * the website builder. It is not the page this bar is about.
+   *
+   * The two have been separate since websites moved to the subdomain and
+   * profiles stayed on the main domain; the bar simply kept calling the
+   * helper it always had. So a visitor pressing the name of the person
+   * selling them something landed on a different product entirely: a site
+   * that may be unpublished, empty, or nothing to do with the item they were
+   * looking at.
+   *
+   * `/u/<handle>` on the main domain is the creator page. Relative, so it
+   * works on the subdomain, on a custom domain and inside the native shell
+   * without three branches — the proxy rewrites it the same way everywhere.
+   */
+  return getStoreInternalPath(sanitiseHandle(raw))
+}
+
+/** The same sanitising getStoreUrl does, so a handle cannot carry a path. */
+function sanitiseHandle(raw: string): string {
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
 }
 
 /**
@@ -625,6 +655,31 @@ export function LiveProductCreatorBar({
   const [isHydrated, setIsHydrated] = useState(false)
   const [hideOnMobileDiscover, setHideOnMobileDiscover] = useState(false)
 
+  const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
+  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
+
+  const creatorHref = useMemo(
+    () => getCreatorHref(creatorUsername, creatorId, creatorName),
+    [creatorUsername, creatorId, creatorName],
+  )
+
+  /**
+   * THE WAY BACK — and it is declared HERE, after `creatorHref`, on purpose.
+   *
+   * It was above it, and a useCallback's dependency array is evaluated at
+   * render: naming a `const` that is declared further down is a temporal
+   * dead zone, so the live bar threw a ReferenceError before it could paint
+   * and every product page showed the error screen. TypeScript says exactly
+   * that — "Block-scoped variable used before its declaration" — and
+   * next.config.mjs sets `ignoreBuildErrors`, so the build was green.
+   *
+   * `router.back()` alone is a trap on a product page: most visits arrive
+   * from a link somebody was sent, so there is nothing behind them and the
+   * control would do nothing, which reads as broken rather than as empty. A
+   * referrer on this site means there IS somewhere of ours to return to.
+   * Anything else goes to the creator's page, which is where the product
+   * belongs.
+   */
   const goBack = useCallback(() => {
     if (typeof window === "undefined") return
     const referrer = document.referrer
@@ -640,14 +695,6 @@ export function LiveProductCreatorBar({
     }
     if (creatorHref && creatorHref !== "#") window.location.href = creatorHref
   }, [creatorHref])
-
-  const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
-  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
-
-  const creatorHref = useMemo(
-    () => getCreatorHref(creatorUsername, creatorId, creatorName),
-    [creatorUsername, creatorId, creatorName],
-  )
 
   useEffect(() => {
     setIsHydrated(true)
