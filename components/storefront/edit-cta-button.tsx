@@ -29,7 +29,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, Pencil } from "lucide-react"
+import { Pencil } from "lucide-react"
 
 import { EditorField, EditorSelect, EditorSheet } from "@/components/storefront/editor-sheet"
 import { ColorField } from "@/components/storefront/color-field"
@@ -204,7 +204,10 @@ export function EditCtaButton({
         busy={saving}
         error={error}
         onSave={() => void save()}
-        saveLabel={saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+        /* The spinner is the sheet's, beside the word. `busy` already says
+           a save is in flight; a label that changes as well took the word
+           away at the moment it was pressed. */
+        saveLabel="Save"
       >
         {/*
           A SELECT, NOT SIX PILLS. Six sentences laid out as buttons were six

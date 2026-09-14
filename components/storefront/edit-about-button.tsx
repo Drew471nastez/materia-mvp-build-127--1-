@@ -25,7 +25,7 @@ import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
 import { EditorSheet } from "@/components/storefront/editor-sheet"
 import { ImageUpload } from "@/components/app/image-upload"
-import { Loader2, Pencil, Plus } from "lucide-react"
+import { Pencil, Plus } from "lucide-react"
 import type { AboutMediaItem } from "@/lib/store-builder/types"
 import { parseVideoUrl } from "@/lib/social/video"
 import { MediaItemsEditor } from "@/components/social/media-items-editor"
@@ -136,7 +136,10 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
         busy={saving}
         error={error}
         onSave={() => void save()}
-        saveLabel={saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+        /* The spinner is the sheet's, beside the word. `busy` already says
+           a save is in flight; a label that changes as well took the word
+           away at the moment it was pressed. */
+        saveLabel="Save"
       >
             <div className="space-y-2">
               <Label htmlFor="ea-headline">Story headline</Label>

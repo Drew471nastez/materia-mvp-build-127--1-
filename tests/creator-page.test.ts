@@ -1443,8 +1443,57 @@ function main() {
      * scroll the form resized the sheet instead, and it could be left at
      * either. One stop is a fixed sheet with a scroller in it.
      */
-    check("editors open to 60% and stay there", sheet.includes("detents={[0.6]}") && !sheet.includes("openFull"))
+    /*
+      78%, up from 60%. One stop is still the point; the number is the part
+      that was wrong. At 60% a form with four fields in it was a three-field
+      window with a scrollbar, and what is visible above the sheet either way
+      is a strip of the page saying which page this is.
+    */
+    check("editors open to one stop and stay there", sheet.includes("detents={[0.78]}") && !sheet.includes("openFull"))
     check("and the body is the sheet's own scroller", sheet.includes("data-sheet-scroll"))
+
+    /*
+      AND THE KEYBOARD DOES NOT TAKE IT BACK. The sheet pads itself by the
+      keyboard's height out of its own height, so a fixed stop meant the
+      panel shrank by the whole keyboard: at 60% that left 170px for a
+      header, a form and two buttons, and the field being typed into was not
+      on screen.
+    */
+    check(
+      "a keyboard grows the sheet rather than crushing it",
+      mobileSheet.includes("sheetHeightWithKeyboard(detentHeight, keyboardInset, viewport)"),
+    )
+    check(
+      "and the field being typed into is scrolled into the sheet's own scroller",
+      /closest<HTMLElement>\("\[data-sheet-scroll\]"\)/.test(mobileSheet),
+    )
+
+    /*
+      THE DIM REACHES THE BAR ABOVE THE FRAME. These editors run inside the
+      workspace's iframe, so the sheet's overlay covered the page and stopped
+      at a hard line with the workspace's own bar lit above it.
+    */
+    check("the editor tells the workspace it is open", sheet.includes("notifyEditorSheet(open)"))
+    check("and closes that when it goes", sheet.includes("notifyEditorSheet(false)"))
+    check("the workspace dims its bar to match", workspace.includes('data.kind === "sheet"'))
+
+    /*
+      LEAVING LOOKS LIKE LEAVING THE OTHER EDITOR: the same glass, the same
+      squares, and a ceiling on the navigation so it cannot hang.
+    */
+    check("going back puts up the builder's own leaving screen", workspace.includes('className="wb-leaving"'))
+    check("with a ceiling on the navigation", workspace.includes("navigateWithCeiling("))
+    check("and it can always come back down", /window\.addEventListener\("pageshow", onPageShow\)/.test(workspace))
+
+    /*
+      THE SAVE BUTTON KEEPS ITS WORD. Its whole label was swapped for a
+      spinner, so pressing Save removed the word and left a mark in the
+      middle of a wide button for as long as the request took.
+    */
+    check("the spinner sits beside the word, not instead of it", /\{busy && <Loader2[\s\S]{0,80}\{saveLabel\}/.test(sheet))
+    for (const f of ["edit-cta-button", "edit-profile-button", "edit-about-button"]) {
+      check(`${f} passes a word, not a spinner`, /saveLabel="Save"/.test(code(`components/storefront/${f}.tsx`)))
+    }
 
     /**
      * THE KEYBOARD, FROM INSIDE A FRAME. An iframe's own visualViewport on
@@ -1524,6 +1573,39 @@ function main() {
 
     /** 290px of dashed box for a control whose content is one line of text. */
     check("the add-another picker is compact", code("components/storefront/edit-about-button.tsx").includes('aspectRatio="compact"'))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * THE PRODUCT PAGE'S BAR IS ONE ROW ON A PHONE, AND THE MENU IS GONE.
+     *
+     * The bar was two rows deep — the way back and the creator on one, the
+     * email form underneath — on the page where the product photo is the
+     * thing somebody came for. scripts/check-product-bar-row.mjs is the
+     * measurement; this guards the pieces it needs.
+     */
+    const bar = code("components/store-builder/product-creator-bar.tsx")
+    const product = code("app/(marketing)/p/[slug]/page.tsx")
+
+    check("the phone bar is a single row", /<form onSubmit=\{handleSubmit\} className="flex w-full items-center gap-2 px-3 py-2 sm:hidden">/.test(bar))
+    check("and the form is not a second line under it", !/className="mt-2 flex w-full items-center gap-2"/.test(bar))
+    /**
+     * The field needs a floor or flexbox splits the shortage with the name
+     * and a long display name leaves 70px of email field: a row that fits
+     * and cannot be typed in.
+     */
+    check("the email field has a floor", /min-w-\[104px\]/.test(bar))
+    check("and the name is what yields", /className="flex min-w-0 shrink items-center gap-1\.5"/.test(bar) && /truncate text-\[13px\] font-medium/.test(bar))
+
+    /**
+     * The floating creator menu was a second copy of the app's own
+     * navigation, laid over the product photo on every product page its
+     * owner looked at. The app is one tap away through the bar.
+     */
+    check("no creator menu on the product page", !/CreatorQuickNav/.test(product))
+    check("and the component is gone rather than orphaned", !existsSync(join(root, "components/creator-quick-nav.tsx")))
+    check("with no rule left hiding something that does not exist", !/html\.capacitor \.creator-quick-nav/.test(read("app/globals.css")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

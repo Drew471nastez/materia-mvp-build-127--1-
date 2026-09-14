@@ -42,10 +42,13 @@
 
 import * as React from "react"
 
+import { Loader2 } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
+import { notifyEditorSheet } from "@/lib/store-builder/editor-channel"
 import { cn } from "@/lib/utils"
 
 export function EditorField({
@@ -140,12 +143,43 @@ export function EditorSheet({
 }) {
   const phone = useIsPhone()
 
+  /**
+   * THE DIM HAS TO REACH THE BAR ABOVE THE FRAME.
+   *
+   * These editors run inside the workspace's iframe, and a sheet dims the
+   * page behind it — but "the page" is the frame, and the workspace's bar is
+   * above it in the other document. So the dim stopped at a hard horizontal
+   * edge with a lit bar over it. The workspace dims its bar when this says
+   * so; outside the frame this is a no-op and nothing changes.
+   *
+   * Closed on unmount as well as on close, because a creator navigating the
+   * canvas away with an editor open would otherwise leave the bar dark.
+   */
+  React.useEffect(() => {
+    if (!phone) return
+    notifyEditorSheet(open)
+    return () => notifyEditorSheet(false)
+  }, [open, phone])
+
   const footer = (
     <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-border bg-background px-5 py-3 sm:px-6 sm:py-4">
       <Button type="button" variant="outline" className="w-full" onClick={onClose} disabled={busy}>
         Cancel
       </Button>
+      {/*
+        THE BUTTON DOES NOT CHANGE SHAPE WHEN IT IS PRESSED.
+
+        Its whole label was swapped for a spinner while the save was in
+        flight, so at the moment a creator presses Save the word goes away and
+        a 16px mark appears in the middle of a wide button. The button reads
+        as broken for as long as the request takes, which on a phone is long
+        enough to photograph.
+
+        The word stays and the spinner sits beside it. Nothing about the
+        button's size depends on which state it is in.
+      */}
       <Button type="button" className="w-full" onClick={onSave} disabled={busy || saveDisabled}>
+        {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
         {saveLabel}
       </Button>
     </div>
@@ -159,14 +193,20 @@ export function EditorSheet({
         peekHeight={0}
         layer="raised"
         /*
-          ONE STOP, AT 60%. Two stops made the height a thing a creator had to
+          ONE STOP. Two stops made the height a thing a creator had to
           manage: the sheet could be left at any of them, a drag meant to
           scroll the form resized it instead, and nothing in it needs the
           whole screen. One stop is a fixed sheet with a scroller in it — the
-          drag is only ever "close" — and 60% keeps the thing being edited
-          visible above it.
+          drag is only ever "close".
+
+          78%, up from 60%. At 60% a form with four fields in it was a
+          three-field window with a scrollbar, and the thing being edited is
+          visible above the sheet either way — a strip of cover photo says
+          which page this is, and a creator does not need half the screen of
+          it to know that. A keyboard grows this further, by its own height,
+          so the panel above it stays this size: see sheet-gestures.ts.
         */
-        detents={[0.6]}
+        detents={[0.78]}
       >
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="shrink-0 border-b border-border px-5 pb-3 pt-1">
