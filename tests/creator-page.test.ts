@@ -235,6 +235,40 @@ function main() {
     )
   }
 
+  // ── 8. A new account is publishable from its first minute ─────────────
+  {
+    const finalize = read("app/api/onboarding/finalize/route.ts")
+    const helper = read("lib/onepage/ensure-onepage.ts")
+    const route = read("app/api/onepage/route.ts")
+
+    check("onboarding publishes the creator page", finalize.includes("ensureStorePublished"))
+    /**
+     * THE GAP. The OnePage row was created lazily on the first visit to
+     * /app/onepage, so a creator who never opened that screen had no OnePage
+     * at all: no row, no slug, no address. The dashboard offered to "set up"
+     * a link that could have existed on day one.
+     */
+    check("and creates the OnePage", finalize.includes("ensureOnePage("))
+    check("published, not as a draft", helper.includes('status: "published"') && helper.includes("published_at:"))
+    check("from the name and picture already gathered", helper.includes("profile?.display_name") && helper.includes("profile?.avatar_url"))
+
+    /**
+     * ONE DEFINITION. "The defaults" here are a theme, six blocks and a
+     * published snapshot; a second copy is a second thing to keep in step, so
+     * the screen and onboarding call the same function.
+     */
+    check("the OnePage screen uses the same function", route.includes("ensureOnePage("))
+    check("and no longer carries its own copy of the defaults", !route.includes("const newOnepage = {"))
+
+    /**
+     * Onboarding and a first visit can race, so creating twice must not be an
+     * error. The duplicate-key path was already there and is kept.
+     */
+    check("creating is idempotent", helper.includes("if (existing) return existing"))
+    check("and survives losing a race", helper.includes('result.error.code === "23505"'))
+    check("it never runs in a browser", helper.startsWith('import "server-only"'))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

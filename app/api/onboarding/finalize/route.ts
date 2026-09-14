@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ensureStorePublished } from "@/lib/store-builder/ensure-store-published"
+import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
 
 /**
  * POST /api/onboarding/finalize
@@ -148,12 +149,29 @@ export async function POST(request: NextRequest) {
       // Re-fetch the creator id (might have just been inserted above)
       const { data: finalCreator } = await admin
         .from("creators")
-        .select("id")
+        .select("id, slug")
         .eq("user_id", userId)
         .maybeSingle()
 
       if (finalCreator) {
         await ensureStorePublished(finalCreator.id)
+
+        /**
+         * AND THE ONEPAGE, WHICH DID NOT EXIST UNTIL SOMEBODY ASKED FOR IT.
+         *
+         * The creator page has been published from here for a while. The
+         * OnePage row was created lazily, on the first visit to /app/onepage,
+         * so a creator who never opened that screen had no OnePage at all: no
+         * row, no slug, no address. The dashboard said "Set up your OnePage to
+         * create a link" and a link they could have handed somebody on day one
+         * did not exist.
+         *
+         * It is created published, from the name and picture already gathered,
+         * by the same function that screen uses, so the two cannot drift into
+         * making different OnePages. Idempotent, because this and a first
+         * visit can race.
+         */
+        await ensureOnePage(admin, userId, { id: finalCreator.id, slug: finalCreator.slug })
       }
     } catch (autoPublishErr) {
       // Non-critical — the store builder can still be published later manually
