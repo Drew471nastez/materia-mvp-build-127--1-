@@ -38,6 +38,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, Check, ExternalLink, Loader2, Palette, RotateCw, SlidersHorizontal, X } from "lucide-react"
 
 import { BuilderLoader } from "@/components/website-builder/builder-loader"
+import { CreatorPageShare } from "@/components/app/creator-page-share"
 import { themePresets } from "@/lib/store-builder/defaults"
 import type { ThemePreset } from "@/lib/store-builder/types"
 
@@ -80,6 +81,7 @@ export function CreatorPageWorkspace({
 }) {
   const router = useRouter()
   const [firstLoad, setFirstLoad] = useState(true)
+  const [shareOpen, setShareOpen] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const [portalReady, setPortalReady] = useState(false)
   const [isPhone, setIsPhone] = useState(false)
@@ -95,7 +97,6 @@ export function CreatorPageWorkspace({
   }, [])
 
   const src = `/u/${encodeURIComponent(handle)}?embedded=1&v=${nonce}`
-  const liveUrl = `/u/${encodeURIComponent(handle)}`
 
   /** Swap the src. No loader: the old document stays painted until the new one is. */
   const reframe = useCallback(() => setNonce((n) => n + 1), [])
@@ -239,15 +240,23 @@ export function CreatorPageWorkspace({
           <RotateCw className="h-4 w-4" />
         </button>
 
-        <a
-          href={liveUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-semibold text-white no-underline transition-colors hover:bg-[#2a2a3e]"
+        {/*
+          THE ADDRESS, NOT A ONE-WAY DOOR.
+
+          This was a bare link out, so the only thing the bar could do with
+          the page's own address was leave for it. Opening the card first puts
+          the address somewhere it can be copied, says in words that a creator
+          page needs no publishing, and is the way to a custom domain.
+          Opening the page is still one tap inside it.
+        */}
+        <button
+          type="button"
+          onClick={() => setShareOpen(true)}
+          className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-semibold text-white transition-colors hover:bg-[#2a2a3e]"
         >
           <ExternalLink className="h-4 w-4" />
-          <span className="hidden sm:inline">View live</span>
-        </a>
+          <span className="hidden sm:inline">Share</span>
+        </button>
       </div>
 
       {/*
@@ -304,6 +313,8 @@ export function CreatorPageWorkspace({
         <CtaDialog initial={cta} onClose={() => setCtaOpen(false)} onSaved={reframe} isPhone={isPhone} />,
         document.body,
       )}
+
+      <CreatorPageShare open={shareOpen} onClose={() => setShareOpen(false)} handle={handle} />
 
       {leaving && portalReady && createPortal(
         <div className="wb-leaving" role="status" aria-live="polite" aria-label="Going back">

@@ -46,6 +46,15 @@ function check(name: string, ok: boolean, detail?: string) {
 }
 
 const read = (p: string) => readFileSync(join(root, p), "utf8")
+/**
+ * Source with its comments taken out.
+ *
+ * A guard that forbids a line of code will match the comment explaining why
+ * that line was removed — this file lost two checks to exactly that, in the
+ * same sitting. Anything asking "is this code still here" reads through this.
+ */
+const code = (p: string) =>
+  read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1")
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ")
 
 function main() {
@@ -148,7 +157,16 @@ function main() {
     const workspace = read("components/app/creator-page-workspace.tsx")
     check("it frames the public creator page", /\/u\/\$\{encodeURIComponent\(handle\)\}\?embedded=1/.test(workspace))
     check("the handle is encoded, so a handle cannot inject a parameter", workspace.includes("encodeURIComponent(handle)"))
-    check("there is a way to open the real thing", /target="_blank"/.test(workspace) && workspace.includes("View live"))
+    /**
+     * Opening the real page is now inside the share card rather than being
+     * the bar's only action — so this asks the card, which is where it went.
+     */
+    const shareCard = read("components/app/creator-page-share.tsx")
+    check(
+      "there is a way to open the real thing",
+      /target="_blank"/.test(shareCard) && shareCard.includes("Open my page") &&
+        /<CreatorPageShare/.test(workspace),
+    )
     /**
      * NO DOOR INTO THE SECTION BUILDER. A "Sections and theme" button was here
      * and it was the old mistake wearing a new label: this screen exists so a
@@ -488,6 +506,71 @@ function main() {
       "and the depth is two soft layers rather than one wide blur",
       /boxShadow: "0 1px 2px rgba\(15, 23, 42, 0\.06\), 0 10px 28px -8px rgba\(15, 23, 42, 0\.20\)"/.test(renderer) &&
         !/className="shadow-lg shrink-0 bg-gray-200"/.test(renderer),
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * THE FAVICON IS THE CREATOR'S PICTURE, NOT A SQUASHED ONE.
+     *
+     * It was drawn with `drawImage(img, 0, 0, size, size)`, which scales a
+     * source to fit a square exactly — so a portrait photo came out
+     * compressed along one axis. The crop is measured in a browser by
+     * scripts/check-favicon.mjs, which feeds it a 1:3 source and reads the
+     * pixels back; with the old call the red top and blue bottom are still
+     * in the icon, which is the squashing.
+     */
+    const favicon = code("components/store-builder/dynamic-favicon.tsx")
+    check(
+      "the favicon covers its square rather than stretching to it",
+      /Math\.max\(size \/ sw, size \/ sh\)/.test(favicon) &&
+        !/drawImage\(img, 0, 0, size, size\)/.test(favicon),
+    )
+    check(
+      "and it is drawn large enough for a high-density tab",
+      /const ICON_SIZE = (?:128|256|512)/.test(favicon),
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * THE CREATOR PAGE IS A PERSON, NOT A SHOPFRONT — in the rail and in
+     * search, which are two lists that had drifted apart before.
+     */
+    const rail = read("components/app/sidebar-desktop-nav.tsx")
+    const sidebar = read("components/app/sidebar.tsx")
+    check(
+      "the rail's Creator Page icon is a person",
+      /storeBuilder: \{ line: CreatorPageLinear, fill: CreatorPageBold \}/.test(rail) &&
+        /linear\/user-rounded/.test(rail),
+    )
+    check(
+      "and so is the one in search",
+      /\{ label: "Creator Page", href: "\/creator-page", icon: UserRound, category: "Pages" \}/.test(sidebar),
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * THE BAR OPENS THE ADDRESS RATHER THAN LEAVING FOR IT.
+     *
+     * And the card says there is nothing to publish, because a creator page
+     * has no draft: an edit is live when it is saved. A publish button here
+     * would be a button that does nothing.
+     */
+    const share = read("components/app/creator-page-share.tsx")
+    const workspace = code("components/app/creator-page-workspace.tsx")
+    check("the bar opens the share card", /onClick=\{\(\) => setShareOpen\(true\)\}/.test(workspace))
+    check("and no longer leaves for the page as its only action", !/View live/.test(workspace))
+    check("the card says the page needs no publishing", /There is nothing to publish/.test(share))
+    check("it has no publish button", !/Publish changes/.test(share) && !/>Publish</.test(share))
+    check("the address can be copied and opened", /navigator\.clipboard\.writeText\(absolute\)/.test(share))
+    check(
+      "a custom domain links to the one flow that adds one",
+      /href="\/app\/settings\?tab=domains"/.test(share) && /\/api\/domains/.test(share),
     )
   }
 
