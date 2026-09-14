@@ -289,7 +289,45 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
     ) : null
   ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials])
 
-  // Early return AFTER all hooks
+  /*
+    `isSticky` is only READ below the early return, but the height effect
+    under it depends on it, and that effect has to be above the return. It
+    is a pure expression and isNativeApp() is false on the server, so
+    computing it here changes nothing about what gets drawn.
+  */
+  const isSticky = settings.enableStickyBar && !isNativeApp()
+
+  /**
+   * The bar's real height, for the spacer that stands in for it.
+   *
+   * `undefined` until it has been measured, which is what makes the Tailwind
+   * fallback below the value on the server and on the first frame.
+   *
+   * THIS HAS TO STAY ABOVE THE EARLY RETURN. It was added below it, and
+   * that is React error #310: the first render bails at `isHydrated` false
+   * having run the hooks above, the second render gets past the bail and
+   * runs three more, and React throws on the count. It took down every
+   * creator page carrying a visible bar, for everybody, not just its owner.
+   */
+  const barRef = useRef<HTMLDivElement>(null)
+  const [barHeight, setBarHeight] = useState<number | undefined>(undefined)
+  useEffect(() => {
+    const el = barRef.current
+    if (!el) return
+    /* `offsetHeight`, not the rect: the bar slides on `transform` when it
+       hides on scroll, and a transformed rect is the drawn box rather than
+       the laid-out one — so a hidden bar would have measured as itself
+       translated and a rounding of it. offsetHeight ignores the transform. */
+    const measure = () => setBarHeight(el.offsetHeight || undefined)
+    measure()
+    if (typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [isSticky, settings.style, settings.showAvatar, settings.text, settings.customCtaText])
+
+  // Early return AFTER all hooks. Every hook in this component belongs above
+  // this line; see the note on the height effect for what happens otherwise.
   if (!settings.visible || !isHydrated) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -348,7 +386,6 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
 
   // In Capacitor native apps, disable sticky/fixed mode so the subscribe bar
   // sits in normal document flow — avoids overlapping the platform header.
-  const isSticky = settings.enableStickyBar && !isNativeApp()
 
   // Always use solid color for live subscriber bar (no gradients)
   const solidBackgroundColor = extractSolidColor(settings.backgroundColor)
@@ -451,29 +488,6 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
       </div>
     </>
   )
-
-  /**
-   * The bar's real height, for the spacer that stands in for it.
-   *
-   * `undefined` until it has been measured, which is what makes the Tailwind
-   * fallback below the value on the server and on the first frame.
-   */
-  const barRef = useRef<HTMLDivElement>(null)
-  const [barHeight, setBarHeight] = useState<number | undefined>(undefined)
-  useEffect(() => {
-    const el = barRef.current
-    if (!el) return
-    /* `offsetHeight`, not the rect: the bar slides on `transform` when it
-       hides on scroll, and a transformed rect is the drawn box rather than
-       the laid-out one — so a hidden bar would have measured as itself
-       translated and a rounding of it. offsetHeight ignores the transform. */
-    const measure = () => setBarHeight(el.offsetHeight || undefined)
-    measure()
-    if (typeof ResizeObserver === "undefined") return
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [isSticky, settings.style, settings.showAvatar, settings.text, settings.customCtaText])
 
   // STICKY MODE: Use fixed positioning for live pages
   // In Capacitor apps, offset below the platform header and use lower z-index

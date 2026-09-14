@@ -68,6 +68,17 @@ export function EditorStickyAddToCart({
   onSelect,
   scrollY = 0,
 }: StickyAddToCartProps) {
+  /*
+    HOOKS FIRST. `settings.visible` is a switch the creator flips in the
+    sidebar, so it changes between renders of this same component: with
+    these two below the early return, turning the bar off and on again
+    rendered a different number of hooks than the time before and React
+    threw (#310), taking the preview down. Nothing renders differently for
+    having declared them up here.
+  */
+  const [showFilesModal, setShowFilesModal] = useState(false)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+
   // If settings say not visible, don't render
   if (!settings.visible) return null
 
@@ -79,8 +90,6 @@ export function EditorStickyAddToCart({
   const buttonText = isPurchased
     ? (downloadFiles.length > 0 ? "Download" : "Access")
     : getButtonText(settings.buttonStyle)
-  const [showFilesModal, setShowFilesModal] = useState(false)
-  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   const handleDownloadFile = async (assetId: string) => {
     setDownloadingId(assetId)

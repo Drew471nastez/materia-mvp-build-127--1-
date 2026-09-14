@@ -52,3 +52,6 @@ tsconfig.*.generated.json
 
 # Written by scripts/check-product-bar.mjs while it bundles the probe.
 .prodbar-probe/
+
+# Written by scripts/check-bar-hydrate.mjs while it bundles the probe.
+.hydrate-probe/
