@@ -616,6 +616,22 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   // Use published config if it exists and has sections
   if (publishedConfig && publishedConfig.sections && publishedConfig.sections.length > 0) {
     const headerSettings = (publishedConfig.headerSettings as ShopHeaderSettings) || defaultShopHeaderSettings
+    /**
+     * =====================================================================
+     *  ONE ADDRESS, RESOLVED ONCE
+     * =====================================================================
+     * ALWAYS AN ADDRESS. The creator's typed one wins; when it is empty or
+     * they cleared it, the account's own email stands in, so a page can
+     * never end up with nowhere to be reached. That is the owner's explicit
+     * call: a creator page without a contact was the thing they did not
+     * want.
+     *
+     * Resolved HERE rather than at each place that shows it. It used to be
+     * worked out inline where About was rendered, which is how the header's
+     * line and the About block would have come to show different addresses
+     * the first time either expression was edited.
+     */
+    const publicContactEmail = headerSettings.contactEmail || profile.email || undefined
     const globalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
     /**
      * ONE RESOLUTION FOR THE WHOLE OF THE CHROME.
@@ -897,6 +913,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           productCount={products?.length || 0}
           globalSettings={globalSettings}
           ownerActions={buildOwnerActions(headerSettings)}
+          contactEmail={publicContactEmail}
           reviewCount={creatorReviewCount}
           reviewAverage={creatorRating}
           followerCount={followerCount ?? 0}
@@ -955,14 +972,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               sellerMemberSince={profile.created_at}
               sellerTotalSales={totalSales}
               sellerProductsCount={productsCount}
-              /**
-               * ALWAYS AN ADDRESS. The creator's typed one wins; when it is
-               * empty or they cleared it, the account's own email stands in,
-               * so a page can never end up with nowhere to be reached. That
-               * is the owner's explicit call: a creator page without a
-               * contact was the thing they did not want.
-               */
-              sellerContactEmail={headerSettings.contactEmail || profile.email || undefined}
+              sellerContactEmail={publicContactEmail}
               /**
                * The owner's way into the story block, decided here because
                * this is the only place that knows who is looking. The
@@ -976,7 +986,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                     headline={(aboutSection.settings as AboutSettings).headline || ""}
                     story={(aboutSection.settings as AboutSettings).aboutContent || ""}
                     media={(aboutSection.settings as AboutSettings).mediaItems || []}
-                    contactEmail={headerSettings.contactEmail || profile.email || ""}
+                    contactEmail={publicContactEmail ?? ""}
                   />
                 ) : null
               }
@@ -1163,6 +1173,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         products={products || []}
         productCount={productCount}
         ownerActions={buildOwnerActions(defaultShopHeaderSettings)}
+        /**
+         * The page a creator has never opened the builder on still has a
+         * seller behind it, so it still needs a way to reach them. Nothing
+         * is stored for this branch, so it is the account's own email — the
+         * same fallback, for the same reason, as the published branch above.
+         */
+        contactEmail={defaultShopHeaderSettings.contactEmail || profile.email || undefined}
         reviewCount={creatorReviewCount}
         reviewAverage={creatorRating}
         followerCount={followerCount ?? 0}

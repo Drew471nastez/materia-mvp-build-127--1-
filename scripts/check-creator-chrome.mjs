@@ -123,6 +123,7 @@ function run() {
       read(scope, "h1 ~ p", "the handle"),
       read(scope, '[data-region="tabs"] [role="tab"][aria-selected="true"]', "the selected tab"),
       tabs[1] ? (function () { var r = read(scope, '[data-region="tabs"] [role="tab"]:not([aria-selected="true"])', "an unselected tab"); return r })() : { label: "an unselected tab", missing: true },
+      read(scope, '[data-region="header"] button[aria-expanded="false"]', "the Contact control"),
       read(scope, '[data-region="empty"] p', "an empty tab's heading"),
       read(scope, '[data-region="empty"] p ~ p', "its line underneath"),
       read(scope, '[data-region="card"] h3', "a product title"),

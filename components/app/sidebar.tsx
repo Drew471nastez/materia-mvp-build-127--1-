@@ -29,7 +29,7 @@ import {
   MonitorSmartphone,
   Search,
   Globe,
-  UserRound,
+  ContactRound,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
@@ -784,8 +784,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "New Product", href: "/app/products/new", icon: Package, category: "Pages" },
     { label: "Analytics", href: "/app/analytics", icon: BarChart3, category: "Pages" },
     { label: "Orders", href: "/app/orders", icon: ShoppingCart, category: "Pages" },
-    /* A person, not a shopfront — the same reason as the rail's own icon. */
-    { label: "Creator Page", href: "/creator-page", icon: UserRound, category: "Pages" },
+    /* A profile card, the same as the rail's own icon and for the same
+       reason: a plain silhouette is the account menu, not a page. */
+    { label: "Creator Page", href: "/creator-page", icon: ContactRound, category: "Pages" },
     { label: "Website", href: "/app/website-builder", icon: MonitorSmartphone, category: "Pages" },
     { label: "OnePage", href: "/app/onepage", icon: Link2, category: "Pages" },
     { label: "Emails", href: "/app/emails", icon: Mail, category: "Pages" },

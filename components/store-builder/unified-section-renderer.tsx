@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { ProductGallery } from "@/components/product/product-gallery"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
+import { ContactReveal } from "@/components/storefront/contact-reveal"
 import { SocialMediaIcons } from "./social-media-icons"
 import { CatalogHeader } from "@/components/storefront/catalog-controls"
 
@@ -760,20 +761,18 @@ function UnifiedAboutSection({
               plain mailto, under the stats, in the column that already says
               who this is.
 
-              It is only ever an address the creator typed into the About
-              dialog themselves. The email they sign in with is never printed
-              here: nobody agreed to publish that, and it is the address that
-              resets their password.
+              The creator's own typed address when they have one, and the
+              account's own email when they have not. That fallback is the
+              owner's explicit call, made where it is resolved — see the
+              creator page's ShopHeaderRenderer — because a creator page with
+              no way to be reached was the thing they did not want. This
+              comment used to claim the opposite, which had stopped being
+              true.
             */}
             {contactEmail && (
-              <a
-                href={`mailto:${contactEmail}`}
-                className="mt-6 inline-flex items-center gap-2 text-sm underline-offset-4 hover:underline"
-                style={{ color: textColor || undefined }}
-              >
-                <Mail aria-hidden className="h-4 w-4 opacity-70" />
-                Contact
-              </a>
+              <div className="mt-6 text-sm" style={{ color: textColor || undefined }}>
+                <ContactReveal email={contactEmail} />
+              </div>
             )}
           </div>
 
@@ -2589,6 +2588,19 @@ export interface UnifiedShopHeaderProps {
    * A colour the creator ACTUALLY typed still wins; see `isInheritedBlack`.
    */
   surface?: { textColor?: string; mutedColor?: string }
+  /**
+   * WHERE A BUYER WRITES TO THIS SELLER.
+   *
+   * It was only ever rendered inside the About block, and About is a section
+   * a creator may never have added — so on most pages there was no way to
+   * reach the person selling. It belongs on the line under the bio, beside
+   * the social links, which is where somebody already looks for how to get
+   * in touch.
+   *
+   * Resolved by the page, not here, and resolved ONCE so this line and the
+   * About block cannot end up showing different addresses.
+   */
+  contactEmail?: string
 }
 
 export function UnifiedShopHeader({
@@ -2606,6 +2618,7 @@ export function UnifiedShopHeader({
   onBioEdit,
   globalSettings,
   ownerActions,
+  contactEmail,
   reviewCount = 0,
   reviewAverage = 0,
   followerCount = 0,
@@ -3164,6 +3177,31 @@ export function UnifiedShopHeader({
                   </span>,
                 )
               }
+            }
+
+            /**
+             * A WAY TO WRITE TO THE SELLER, ON EVERY PAGE.
+             *
+             * This lived only inside the About block, and About is a section
+             * a creator may never have added — so on most creator pages a
+             * buyer had no way to reach the person selling to them. Here it
+             * is on the line that is always under the bio.
+             *
+             * BEHIND A BUTTON, not printed. The address in full on a public
+             * page is one line for a buyer and a free afternoon for anybody
+             * harvesting addresses, and it makes a page about someone's work
+             * lead with their inbox. The same control the About block uses,
+             * so one page does not offer two different affordances for the
+             * same thing. See components/storefront/contact-reveal.
+             */
+            if (contactEmail) {
+              parts.push(
+                <ContactReveal
+                  key="contact"
+                  email={contactEmail}
+                  iconClassName={isMobile ? "h-3.5 w-3.5" : "h-4 w-4"}
+                />,
+              )
             }
 
             if (settings.socialLinks && (!isMobile || (settings.showSocialIconsOnMobile ?? true))) {

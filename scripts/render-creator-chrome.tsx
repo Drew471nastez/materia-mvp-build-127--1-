@@ -90,6 +90,10 @@ const parts = SCHEMES.map((preset) => {
           products={[]}
           productCount={0}
           followerCount={2}
+          /* The Contact control lives on the meta line and inherits its
+             colour, so it is worth measuring that the line it inherits from
+             is the scheme's and not the design system's. */
+          contactEmail="hello@example.com"
           surface={{ textColor: chrome.text, mutedColor: chrome.muted }}
         />
       </div>

@@ -324,7 +324,16 @@ function main() {
     const renderer = read("components/store-builder/unified-section-renderer.tsx")
 
     check("About can hold a contact address", about.includes('id="ea-contact"'))
-    check("and the block renders it as a mailto", renderer.includes("href={`mailto:${contactEmail}`}"))
+    /**
+     * The block still surfaces it as a mail link — the link is just produced
+     * by ContactReveal, after the button is pressed, rather than printed into
+     * the block. Both halves are checked so neither can quietly go away.
+     */
+    check(
+      "and the block offers it, revealed by a button",
+      renderer.includes("<ContactReveal email={contactEmail} />") &&
+        read("components/storefront/contact-reveal.tsx").includes("href={`mailto:${email}`}"),
+    )
     check("only when one is set", /\{contactEmail && \(/.test(renderer))
     check("it is validated as an address before being stored", /\^\[\^\\s@\]\+@/.test(api))
     check("and clearing it removes the link", api.includes("next.contactEmail = contactEmail || undefined"))
@@ -343,10 +352,16 @@ function main() {
      * The typed address wins; the account's stands in only when there is
      * none — at render, never written. The API must never store the login
      * address as the contact address, so clearing it always falls back.
+     *
+     * The ORDER is the rule, not where it is written. It used to be this
+     * expression inline at the About call site; it is one constant now,
+     * because the header line shows the same address and two copies of a
+     * fallback are two things to keep in step.
      */
     check(
       "the typed address wins and the account's only stands in",
-      page.includes("sellerContactEmail={headerSettings.contactEmail || profile.email || undefined}"),
+      page.includes("const publicContactEmail = headerSettings.contactEmail || profile.email || undefined") &&
+        page.includes("sellerContactEmail={publicContactEmail}"),
     )
     check("and the login address is never written as the contact address", !/contactEmail\s*=\s*(user|profile)\.email/.test(api))
   }
@@ -679,19 +694,24 @@ function main() {
   /* ------------------------------------------------------------------ */
   {
     /**
-     * THE CREATOR PAGE IS A PERSON, NOT A SHOPFRONT — in the rail and in
-     * search, which are two lists that had drifted apart before.
+     * THE CREATOR PAGE IS A PROFILE CARD — in the rail and in search, which
+     * are two lists that had drifted apart before.
+     *
+     * Not a shopfront, which named the one thing it is not. And not a plain
+     * silhouette either: that is what the account menu's avatar is, and a
+     * lighter version of the People row below it, so the rail ended up with
+     * two people in it and one of them was a page.
      */
     const rail = read("components/app/sidebar-desktop-nav.tsx")
     const sidebar = read("components/app/sidebar.tsx")
     check(
-      "the rail's Creator Page icon is a person",
+      "the rail's Creator Page icon is a profile card",
       /storeBuilder: \{ line: CreatorPageLinear, fill: CreatorPageBold \}/.test(rail) &&
-        /linear\/user-rounded/.test(rail),
+        /linear\/user-id/.test(rail),
     )
     check(
       "and so is the one in search",
-      /\{ label: "Creator Page", href: "\/creator-page", icon: UserRound, category: "Pages" \}/.test(sidebar),
+      /\{ label: "Creator Page", href: "\/creator-page", icon: ContactRound, category: "Pages" \}/.test(sidebar),
     )
   }
 
@@ -795,6 +815,68 @@ function main() {
     check("but a leftover default is not", !/settings\.buttonText\?\.trim\(\) \|\| preset\.default/.test(text))
     check("the page carries the flag that tells them apart", page.includes("buttonTextPreset: savedSettings.buttonTextPreset"))
     check("and the preview applies the same rule", live.includes('buttonText.trim() ? "custom" : "subscribe"'))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * A BUYER CAN REACH THE SELLER, ON EVERY CREATOR PAGE.
+     *
+     * The address was rendered only inside the About block, and About is a
+     * section a creator may never have added — so on most pages there was no
+     * way to write to the person selling. It is on the header's meta line
+     * now, the one that is always under the bio.
+     *
+     * That the link is really there, points at the right address and is not
+     * a dead `mailto:` when a creator has none, is measured in a browser by
+     * scripts/check-contact-line.mjs.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    check(
+      "the header line carries a way to reach the seller",
+      /if \(contactEmail\) \{/.test(renderer) && /<ContactReveal/.test(renderer),
+    )
+    /**
+     * ONE CONTROL, TWO PLACES. The About block and the header's meta line
+     * show the same thing, so a page cannot end up offering two different
+     * affordances for it — a printed address in one and a button in the
+     * other, which is what it briefly did.
+     */
+    check(
+      "and About uses the same control rather than its own",
+      (renderer.match(/<ContactReveal/g) ?? []).length === 2 &&
+        !/href=\{`mailto:\$\{contactEmail\}`\}/.test(renderer),
+    )
+    const reveal = code("components/storefront/contact-reveal.tsx")
+    check(
+      "the address is not rendered until the button is pressed",
+      /if \(!shown\) \{/.test(reveal) && /setShown\(true\)/.test(reveal),
+    )
+    /**
+     * ONE EXPRESSION, NOT THREE. The address was worked out inline at each
+     * place that showed it, which is how the header's line and the About
+     * block would have come to disagree the first time either was edited.
+     */
+    check(
+      "and it is resolved once for the whole page",
+      /const publicContactEmail = headerSettings\.contactEmail \|\| profile\.email \|\| undefined/.test(page) &&
+        (page.match(/headerSettings\.contactEmail \|\| profile\.email/g) ?? []).length === 1,
+    )
+    check(
+      "the page with no stored config has one too",
+      /contactEmail=\{defaultShopHeaderSettings\.contactEmail \|\| profile\.email \|\| undefined\}/.test(page),
+    )
+    /**
+     * The builder canvas has no session, so it cannot apply the account
+     * fallback. It shows what has been typed, or nothing — never an address
+     * it made up.
+     */
+    const canvas = code("components/store-builder/preview-canvas.tsx")
+    check(
+      "the builder shows the typed address and invents none",
+      /contactEmail=\{\(draftConfig\.headerSettings as ShopHeaderSettings\)\?\.contactEmail \|\| undefined\}/.test(canvas),
+    )
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
