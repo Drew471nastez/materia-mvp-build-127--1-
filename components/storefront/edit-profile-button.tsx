@@ -1,16 +1,19 @@
 "use client"
 
 /**
- * The creator's own "Edit profile" control, shown on their public page.
+ * The creator's own controls, shown on their own public page: "Customize
+ * page", which opens the creator page editor, and a pencil for the details
+ * that are quicker to finish in place.
  *
  * It is rendered into UnifiedShopHeader's `ownerActions` slot by the storefront
  * page, which is the only thing that knows who is looking. The header itself
  * stays free of session logic, and there is exactly one place this button can
  * come from — it is not a second profile block bolted beside the real one.
  *
- * What it edits is deliberately small: the name, the bio, and the social links.
- * Everything else about the page is the store builder's job, and the dialog
- * says so rather than growing into a worse copy of it.
+ * What the DIALOG edits is deliberately small: the name, the bio, the picture
+ * and the social links. Everything else about the page belongs to the creator
+ * page editor, and the dialog says so rather than growing into a worse copy
+ * of it.
  */
 
 import * as React from "react"
@@ -22,7 +25,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ImageUpload } from "@/components/app/image-upload"
-import { Pencil, Loader2 } from "lucide-react"
+import { Pencil, Loader2, Wand2 } from "lucide-react"
 import { SocialLinksEditor } from "@/components/social/social-links-editor"
 import type { SocialPlatformKey } from "@/lib/social/platforms"
 
@@ -148,18 +151,38 @@ export function EditProfileButton({
 
   return (
     <>
-      <Button
-        type="button"
-        size="sm"
-        onClick={() => setOpen(true)}
-        // rounded-lg (8px), not a pill. A fully rounded control reads as a
-        // chip or a tag; this is a button, and it sits beside a card grid whose
-        // corners are the same 8px.
-        className="h-9 gap-2 rounded-lg bg-white/95 px-4 text-gray-900 shadow-md backdrop-blur hover:bg-white"
-      >
-        <Pencil className="h-3.5 w-3.5" />
-        Edit profile
-      </Button>
+      {/*
+        TWO CONTROLS, AND THE BIGGER ONE IS THE PAGE.
+
+        This used to be a single "Edit profile" button, which named the
+        smallest thing on the screen. What somebody is looking at is not a
+        profile: it is their page, with products, communities, a newsletter
+        and a layout. So the primary action goes to the editor for all of
+        that, and the dialog that edits the name, the picture and the links
+        stays exactly where it was, behind the pencil, because finishing that
+        in place is the whole reason it exists.
+      */}
+      <div className="flex items-center gap-2">
+        <a
+          href="/creator-page"
+          className="inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-4 text-sm font-medium text-gray-900 no-underline shadow-md backdrop-blur transition-colors hover:bg-white"
+        >
+          <Wand2 className="h-3.5 w-3.5" />
+          Customize page
+        </a>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Edit profile details"
+          title="Edit profile details"
+          // rounded-lg (8px), not a pill. A fully rounded control reads as a
+          // chip or a tag; this is a button, and it sits beside a card grid whose
+          // corners are the same 8px.
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-gray-900 shadow-md backdrop-blur transition-colors hover:bg-white"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         {/*
@@ -174,7 +197,7 @@ export function EditProfileButton({
         */}
         <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
           <DialogHeader className="border-b border-border px-6 py-4">
-            <DialogTitle>Edit profile</DialogTitle>
+            <DialogTitle>Profile details</DialogTitle>
           </DialogHeader>
 
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">

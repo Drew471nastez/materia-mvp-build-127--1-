@@ -10,7 +10,7 @@ async function isCapacitorWebView(): Promise<boolean> {
   return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
 }
 
-export default async function StoreBuilderLayout({
+export default async function CreatorPageLayout({
   children,
 }: {
   children: React.ReactNode

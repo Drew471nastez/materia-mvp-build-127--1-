@@ -99,6 +99,7 @@ export function SmartLink({
       const needsHardNav =
         useClientNav === false ||
         resolvedHref.startsWith("/app") ||
+        resolvedHref.startsWith("/creator-page") ||
         resolvedHref.startsWith("/store-builder") ||
         resolvedHref.startsWith("/library")
       return (

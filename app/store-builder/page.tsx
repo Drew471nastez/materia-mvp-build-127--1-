@@ -1,121 +1,21 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { StoreBuilderEditor } from "@/components/store-builder/store-builder-editor"
-import type { Metadata } from "next"
 
-export const metadata: Metadata = {
-  title: "Store Builder - Customize Storelib",
-}
-
-export const dynamic = "force-dynamic"
-
-export default async function StoreBuilderPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ pageType?: string; productId?: string }>
-}) {
-  const { pageType, productId } = await searchParams
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
-
-  // Get creator + profile in parallel
-  const [{ data: creator }, { data: profile }] = await Promise.all([
-    supabase.from("creators").select("id, slug, cover_url, headline, bio, niche_tags, show_total_sales_badge, avatar_url").eq("user_id", user.id).single(),
-    supabase.from("profiles").select("display_name, avatar_url, username").eq("id", user.id).single(),
-  ])
-
-  if (!creator) {
-    redirect("/onboarding")
-  }
-
-const { data: products, error: productsError } = await supabase
-  .from("products")
-  .select(`
-    id,
-    slug,
-    title,
-    thumbnail_url,
-    price_cents,
-    compare_at_cents,
-    sales_count,
-    description,
-    whats_included,
-    gallery_urls,
-    video_url,
-    faqs,
-    refund_policy_enabled,
-    refund_policy_type,
-    refund_policy_fine_print,
-    refund_policy_updated_at,
-    product_categories (
-      category_id,
-      category:categories (
-        id,
-        name,
-        slug,
-        type
-      )
-    )
-  `)
-  .eq("creator_id", creator.id)
-  .eq("status", "published")
-  .order("created_at", { ascending: false })
-
-if (productsError) {
-  console.error("[store-builder] Products query error:", productsError)
-}
-
-const productsData =
-  products?.map((p: any) => ({
-    id: p.id,
-    slug: p.slug,
-    title: p.title,
-    thumbnail_url: p.thumbnail_url,
-    price_cents: p.price_cents,
-    compare_at_cents: p.compare_at_cents,
-    sales_count: p.sales_count,
-    description: p.description,
-    whats_included: p.whats_included,
-    gallery_urls: p.gallery_urls,
-    video_url: p.video_url,
-    faqs: p.faqs,
-    refund_policy_enabled: p.refund_policy_enabled,
-    refund_policy_type: p.refund_policy_type,
-    refund_policy_fine_print: p.refund_policy_fine_print,
-    refund_policy_updated_at: p.refund_policy_updated_at,
-    categories: p.product_categories?.map((pc: any) => pc.category).filter(Boolean) || [],
-  })) || []
-
-  const initialPageType = pageType === "product" ? "product" : "shop"
-  const initialProductId = productId || null
-
-  return (
-    <StoreBuilderEditor
-      creatorId={creator.id}
-      creatorSlug={creator.slug}
-      creator={{
-        cover_url: creator.cover_url,
-        headline: creator.headline,
-        bio: creator.bio,
-        niche_tags: creator.niche_tags,
-        show_total_sales_badge: creator.show_total_sales_badge,
-        avatar_url: creator.avatar_url,
-      }}
-      profile={{
-        display_name: profile?.display_name,
-        avatar_url: profile?.avatar_url,
-        username: profile?.username,
-      }}
-      products={productsData}
-      initialPageType={initialPageType}
-      initialProductId={initialProductId}
-    />
-  )
+/**
+ * ===========================================================================
+ *  /store-builder IS NOW /creator-page
+ * ===========================================================================
+ * "Store Builder", "Website" and "OnePage" in one menu asked somebody to work
+ * out, on their first visit, which of three things builds the page their name
+ * points at. Two of them sound like the answer and only one is.
+ *
+ * The thing this edits is the creator's page at storelib.com/u/<handle>: a
+ * picture, a bio, links, products, communities, a newsletter. It is not a
+ * store and it is not a website, so it is called what it is.
+ *
+ * THE OLD ADDRESS STILL WORKS, and has to. It is in bookmarks, in the owner
+ * menu on published pages, and in links people have sent each other. A rename
+ * that breaks those is not a rename, it is a removal.
+ */
+export default function StoreBuilderRedirect() {
+  redirect("/creator-page")
 }

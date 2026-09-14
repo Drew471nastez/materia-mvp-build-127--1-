@@ -46,7 +46,7 @@
     // whatever `next` happened to be), and sending the app to "/" bounces it
     // straight back to /native-start, which loops forever on the launch screen.
     // Kept deliberately in sync with NATIVE_HOME_ALLOWED there.
-    var ALLOWED  = ['/app', '/library', '/dashboard', '/store-builder'];
+    var ALLOWED  = ['/app', '/library', '/dashboard', '/creator-page', '/store-builder'];
     var cached   = localStorage.getItem(HOME_KEY) || '';
     var home     = '/app';
     if (cached.charAt(0) === '/' && cached.charAt(1) !== '/') {

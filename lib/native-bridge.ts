@@ -116,7 +116,7 @@ const NATIVE_HOME_KEY = "sb-native-home"
  * decides, so the login page and the OAuth callback cannot disagree with
  * /native-start about what a valid home is.
  */
-const NATIVE_HOME_ALLOWED = ["/app", "/library", "/dashboard", "/store-builder"]
+const NATIVE_HOME_ALLOWED = ["/app", "/library", "/dashboard", "/creator-page", "/store-builder"]
 
 export function sanitizeNativeHome(destination: string | null | undefined): string {
   if (!destination) return "/app"

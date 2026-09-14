@@ -8938,7 +8938,7 @@ function BlockEditor({
                   Edit Product
                 </a>
                 <a
-                  href="/store-builder?pageType=product"
+                  href="/creator-page?pageType=product"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-700 font-medium transition-colors"

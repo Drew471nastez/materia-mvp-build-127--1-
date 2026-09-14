@@ -1080,7 +1080,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   // Same-layout routes (/explore, /u/, /p/, /l/, /library, /wishlist) use
   // router.push to keep client-side navigation and preserve the auth session.
   const isCrossLayoutPath = (path: string) =>
-    path.startsWith("/app") || path.startsWith("/store-builder") || path.startsWith("/library")
+    path.startsWith("/app") || path.startsWith("/creator-page") || path.startsWith("/store-builder") || path.startsWith("/library")
 
   const navigateReliably = useCallback(
     (targetPath: string) => {

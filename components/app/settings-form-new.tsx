@@ -2066,7 +2066,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   }}
                   className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
                 >
-                  <p className="text-[13px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" width={14} height={14} className="w-3.5 h-3.5" loading="eager" decoding="async" /></span>Store</p>
+                  <p className="text-[13px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" width={14} height={14} className="w-3.5 h-3.5" loading="eager" decoding="async" /></span>Creator page</p>
                   <p className="text-[11px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
                 </button>
               </div>
@@ -2087,7 +2087,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               setIsQuickAccessOpen(false)
               openExternal(storeUrlWithDomain || navStoreUrlWithDomain)
             }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
-              <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" className="w-4 h-4" loading="eager" decoding="async" /></span>Store</p>
+              <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" className="w-4 h-4" loading="eager" decoding="async" /></span>Creator page</p>
               <p className="text-[12px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
             </button>
           </div>
@@ -2211,11 +2211,21 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 </div>
               )}
 
+              {/*
+                LOG OUT LIVES IN SETTINGS TOO.
+                It was only in the avatar menu in the header, which is not
+                where anybody looks for it: on a phone that menu is behind a
+                tap most people never make, and "how do I sign out" is a
+                settings question everywhere else they have ever used. Placed
+                last, after everything that changes the account, because it is
+                a way out rather than a thing to configure.
+              */}
+
               {/* Profile Image Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center gap-4">
                   <a
-                    href="/store-builder"
+                    href="/creator-page"
                     className="relative group cursor-pointer"
                   >
                     {avatarUrl ? (
@@ -2237,7 +2247,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     <p className="font-semibold text-[#1a1a2e] text-[15px]">Profile Photo</p>
                     <p className="text-[13px] text-[#6b7280] mb-2">JPG, PNG or GIF. Max 2MB.</p>
                     <a
-                      href="/store-builder"
+                      href="/creator-page"
                       className="inline-flex px-3 py-1.5 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-lg transition-colors items-center gap-1.5"
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -2560,6 +2570,37 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       Get help
                     </button>
                   </a>
+                </div>
+              </div>
+
+              {/*
+                THE WAY OUT, WHERE PEOPLE LOOK FOR IT.
+
+                Signing out was only in the avatar menu in the header, which on
+                a phone is behind a tap most people never make. "How do I sign
+                out" is a settings question everywhere else they have used, so
+                it is answered in settings.
+
+                Last on the tab, quiet, and it does not pretend to be a
+                destructive action: it is one click and they can come back.
+                Signing out of every device already has its own control under
+                Security, where a decision that logs out a phone in a drawer
+                belongs.
+              */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-[#1a1a2e] text-[15px]">Log out</p>
+                    <p className="text-[13px] text-[#6b7280]">Sign out of Storelib on this device.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="shrink-0 inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-[#374151] border border-[#e5e7eb] rounded-lg hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                  >
+                    <LogOut className="h-4 w-4 text-[#6b7280]" />
+                    Log out
+                  </button>
                 </div>
               </div>
 
@@ -3096,7 +3137,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">{t("settings.storeCustomization")}</h3>
                 <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.storeCustomizationDesc")}</p>
                 <a
-                  href="/store-builder"
+                  href="/creator-page"
                   className="inline-flex items-center gap-2 px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors"
                 >
                   <Palette className="h-4 w-4" />

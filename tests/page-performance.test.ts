@@ -368,7 +368,7 @@ check(
     const offline = read("out/index.html")
 
     const sanitiserRejectsRoot =
-      /NATIVE_HOME_ALLOWED\s*=\s*\["\/app", "\/library", "\/dashboard", "\/store-builder"\]/.test(bridge) &&
+      /NATIVE_HOME_ALLOWED\s*=\s*\["\/app", "\/library", "\/dashboard", "\/creator-page", "\/store-builder"\]/.test(bridge) &&
       // Protocol-relative "//host" leaves the app entirely, so a leading "/"
       // alone must not be accepted.
       /startsWith\("\/\/"\)/.test(bridge)
@@ -377,7 +377,7 @@ check(
     const startGuards =
       /sanitizeNativeHome\(url\)/.test(start) &&
       /target === "\/native-start"/.test(start)
-    const offlineGuards = /ALLOWED\s*=\s*\['\/app', '\/library', '\/dashboard', '\/store-builder'\]/.test(offline)
+    const offlineGuards = /ALLOWED\s*=\s*\['\/app', '\/library', '\/dashboard', '\/creator-page', '\/store-builder'\]/.test(offline)
 
     const missing: string[] = []
     if (!sanitiserRejectsRoot) missing.push("lib/native-bridge.ts: sanitizeNativeHome allowlist")
@@ -385,6 +385,14 @@ check(
     if (!sanitisedOnRead) missing.push("lib/native-bridge.ts: getCachedNativeHome does not sanitise")
     if (!startGuards) missing.push("app/native-start/page.tsx: safeRedirect unguarded")
     if (!offlineGuards) missing.push("out/index.html: offline fallback unguarded")
+    /**
+     * "Store Builder" became "Creator Page", and a rename that breaks the old
+     * address is a removal. /store-builder is in bookmarks and in links people
+     * have sent each other, so it still answers.
+     */
+    if (!existsSync(join(root, "app/store-builder/page.tsx")))
+      missing.push("the old /store-builder address no longer answers")
+
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
   })(),
@@ -1313,12 +1321,12 @@ check(
     if (!/OwnerMenu/.test(slot))
       missing.push("the owner menu is outside the owner-only slot — every visitor would see it")
 
-    for (const href of ["/app/products", "/store-builder", "/app/analytics", "/app/settings"]) {
+    for (const href of ["/app/products", "/creator-page", "/app/analytics", "/app/settings"]) {
       if (!menu.includes(`"${href}"`)) {
         missing.push(`the menu no longer links to ${href}`)
         continue
       }
-      const route = href === "/store-builder" ? "app/store-builder/page.tsx" : `app${href}/page.tsx`
+      const route = href === "/creator-page" ? "app/creator-page/page.tsx" : `app${href}/page.tsx`
       if (!existsSync(join(root, route))) missing.push(`${href} has no route behind it — the menu item 404s`)
     }
 

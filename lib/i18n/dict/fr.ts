@@ -775,6 +775,7 @@ export const frDict: Record<string, string> = {
   "nav.sign_up": "S'inscrire",
   "nav.start_selling": "Commencer à vendre",
   "nav.storeBuilder": "Éditeur de boutique",
+  "nav.creatorPage": "Page créateur",
   "nav.websiteBuilder": "Site web",
   "nav.unlockBenefits": "Débloque plus d'avantages",
   "nav.upgradeToPro": "Passer à Pro",

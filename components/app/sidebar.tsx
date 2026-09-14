@@ -318,9 +318,22 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     },
     { href: "/app/analytics", label: t("nav.analytics"), icon: NAV_ICONS.analytics },
     { href: "/app/orders", label: t("nav.sales"), icon: NAV_ICONS.orders },
-    { href: "/app/onepage", label: t("nav.onepage"), icon: NAV_ICONS.onepage, forceNavigation: true },
-    { href: "/store-builder", label: t("nav.storeBuilder"), icon: NAV_ICONS.storeBuilder, forceNavigation: true },
+    /**
+     * THREE PLACES A CREATOR CAN PUBLISH, IN THE ORDER THEY MATTER.
+     *
+     * "Store Builder" used to sit here beside "Website" and "OnePage", and
+     * between them they asked somebody to work out on their first visit which
+     * of three things builds the page their own name points at. Two of the
+     * three sounded like the answer.
+     *
+     * Creator Page is what storelib.com/u/<handle> actually is: a picture, a
+     * bio, links, products, communities, a newsletter. Website is a site they
+     * build. OnePage is a link in bio. Named for what they are, and grouped,
+     * because they are the same kind of decision.
+     */
+    { href: "/creator-page", label: t("nav.creatorPage"), icon: NAV_ICONS.storeBuilder, forceNavigation: true },
     { href: "/app/website-builder", label: t("nav.websiteBuilder"), icon: NAV_ICONS.websiteBuilder, forceNavigation: true },
+    { href: "/app/onepage", label: t("nav.onepage"), icon: NAV_ICONS.onepage, forceNavigation: true },
     /*
       Storelib AI is NOT LISTED HERE ANY MORE.
 
@@ -769,9 +782,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "New Product", href: "/app/products/new", icon: Package, category: "Pages" },
     { label: "Analytics", href: "/app/analytics", icon: BarChart3, category: "Pages" },
     { label: "Orders", href: "/app/orders", icon: ShoppingCart, category: "Pages" },
+    { label: "Creator Page", href: "/creator-page", icon: Store, category: "Pages" },
+    { label: "Website", href: "/app/website-builder", icon: MonitorSmartphone, category: "Pages" },
     { label: "OnePage", href: "/app/onepage", icon: Link2, category: "Pages" },
-    { label: "Store Builder", href: "/store-builder", icon: Store, category: "Pages" },
-    { label: "Website Builder", href: "/app/website-builder", icon: MonitorSmartphone, category: "Pages" },
     { label: "Emails", href: "/app/emails", icon: Mail, category: "Pages" },
     { label: "Payouts", href: "/app/payouts", icon: Wallet, category: "Pages" },
     { label: "Settings", href: "/app/settings", icon: Settings, category: "Settings" },
@@ -851,6 +864,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   // Check if we should show setup widget (hide on store-builder, onepage, and new product page)
   const showSetupWidget = setupProgress &&
     setupProgress.completed < setupProgress.total &&
+    !pathname.startsWith("/creator-page") &&
     !pathname.startsWith("/store-builder") &&
     !pathname.startsWith("/app/onepage") &&
     !pathname.startsWith("/app/products/new")
@@ -1307,7 +1321,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                         // /explore always opens in external browser on native
                         if (isNativeApp() && item.href === "/explore") {
                           openExternal(EXPLORE_FULL_URL)
-                        } else if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
+                        } else if (!isNativePlatform() && (item.href.startsWith("/creator-page") || item.href.startsWith("/app/onepage"))) {
                           window.location.href = item.href
                         } else {
                           router.push(item.href)
@@ -1348,7 +1362,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                               // /explore always opens in external browser on native
                               if (isNativeApp() && item.href === "/explore") {
                                 openExternal(EXPLORE_FULL_URL)
-                              } else if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
+                              } else if (!isNativePlatform() && (item.href.startsWith("/creator-page") || item.href.startsWith("/app/onepage"))) {
                                 window.location.href = item.href
                               } else {
                                 router.push(item.href)

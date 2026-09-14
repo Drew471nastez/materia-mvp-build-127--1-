@@ -668,8 +668,18 @@ function UnifiedAboutSection({
                 </div>
               )}
 
-              {/* Products - only shown when showProductsStats is true */}
-              {settings.showProductsStats !== false && (
+              {/* Products - the setting must be on AND there must be at least
+                  one, which is the rule Sales already follows three blocks up:
+                  "PRODUCTS 0" is among the first things a buyer reads about a
+                  creator and it says nothing a new page wants said. Absent
+                  beats zero, and the stat appears the moment a first product
+                  is published.
+
+                  Communities was asked for here too, conditionally, and it is
+                  not built: see the note beside the Communities tab in
+                  app/(marketing)/u/[username]/page.tsx. There is no count to
+                  show, and inventing one would be a number that means nothing. */}
+              {settings.showProductsStats !== false && displayProductsCount > 0 && (
                 <div>
                   <p
                     className="text-xs uppercase tracking-wide mb-1"

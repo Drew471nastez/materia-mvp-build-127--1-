@@ -3,7 +3,7 @@
 /**
  * The creator's own shortcuts, on their own page.
  *
- * "Edit profile" beside it opens a dialog because what it edits — the name,
+ * "Customize page" beside it opens a dialog because what it edits — the name,
  * the bio, the picture, the links — is small enough to finish in place. This
  * menu is for the things that are not: managing products, laying the page out,
  * reading the numbers. Those have whole screens in /app already, and rebuilding
@@ -31,7 +31,7 @@ import { MoreHorizontal } from "lucide-react"
  */
 const LINKS = [
   { href: "/app/products", label: "Manage products", detail: "Add, edit and price" },
-  { href: "/store-builder", label: "Store builder", detail: "Lay out this page" },
+  { href: "/creator-page", label: "Customize page", detail: "Lay out this page" },
   { href: "/app/analytics", label: "Analytics", detail: "Views and sales" },
   { href: "/app/settings", label: "Settings", detail: "Account and payouts" },
 ] as const

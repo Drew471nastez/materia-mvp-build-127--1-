@@ -2565,6 +2565,38 @@ export function DashboardClient({
                   {isProfileAccessVisible && (
                     <div className={`absolute left-0 top-full mt-2 w-[280px] sm:w-[320px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50 origin-top-left transition-all duration-180 ease-out ${isProfileAccessAnimating ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-1 scale-[0.98]"}`}>
                       <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">Quick access</p>
+                      {/*
+                        THE TWO THINGS SOMEBODY OPENS THIS FOR.
+
+                        The rows below are addresses to copy and share. These
+                        are the actions on the page itself, and they were
+                        missing entirely: the way in to the editor was a menu
+                        item called "Store Builder" that did not sound like it
+                        had anything to do with the handle printed above it.
+                      */}
+                      <div className="mb-1 grid grid-cols-2 gap-2 px-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            openExternal(publicStoreUrl || navStoreUrl)
+                            setIsProfileAccessOpen(false)
+                          }}
+                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[#e5e7eb] bg-white text-[12px] font-medium text-[#374151] transition-colors hover:bg-[#f9fafb]"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 text-[#9ca3af]" />
+                          View page
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsProfileAccessOpen(false)
+                            window.location.href = "/creator-page"
+                          }}
+                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#1a1a2e] text-[12px] font-medium text-white transition-colors hover:bg-[#2a2a3e]"
+                        >
+                          Customize page
+                        </button>
+                      </div>
                       <div
                         role="button"
                         tabIndex={0}
@@ -2601,7 +2633,7 @@ export function DashboardClient({
                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { openExternal(publicStoreUrl || navStoreUrl); setIsProfileAccessOpen(false) } }}
                         className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
                       >
-                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="Storelib" width={14} height={14} className="w-3.5 h-3.5 object-contain" loading="eager" decoding="async" /></span>Store</div>
+                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="Storelib" width={14} height={14} className="w-3.5 h-3.5 object-contain" loading="eager" decoding="async" /></span>Creator page</div>
                         <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{publicStoreUrl}</p><button type="button" onClick={(e) => { e.stopPropagation(); copyQuickAccessUrl("store") }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${copiedTarget === "store" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white"}`}>{copiedTarget === "store" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />}{copiedTarget === "store" ? "Copied" : "Copy"}</button></div>
                       </div>
                     </div>
