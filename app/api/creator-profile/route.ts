@@ -30,6 +30,7 @@ import type { AboutMediaItem, ShopHeaderSettings, SocialLinksConfig } from "@/li
 import { SOCIAL_PLATFORM_KEYS, resolveSocialInput, type SocialPlatformKey } from "@/lib/social/platforms"
 import { toPublicHttpUrl } from "@/lib/url/public-url"
 import { canonicalVideoUrl } from "@/lib/social/video"
+import { themePresets } from "@/lib/store-builder/defaults"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -174,6 +175,24 @@ export async function PATCH(request: NextRequest) {
   })()
 
   /**
+   * THE COLOUR SCHEME, WHICH IS ONE STORED WORD.
+   *
+   * The storefront resolves `globalSettings.themePreset` through
+   * lib/store-builder/defaults at render and paints every section from it, so
+   * changing the look of the whole page is storing a different name. That is
+   * why this can be a control in the workspace rather than a trip into the
+   * section editor.
+   *
+   * Validated against the preset list itself, so an unknown name cannot be
+   * written and leave a page resolving a theme that does not exist.
+   */
+  const themePreset = (() => {
+    const raw = body.themePreset
+    if (typeof raw !== "string") return undefined
+    return raw in themePresets ? (raw as keyof typeof themePresets) : undefined
+  })()
+
+  /**
    * A PUBLIC CONTACT ADDRESS, WHICH IS NOT THE LOGIN ADDRESS.
    *
    * "A contact link so the creator can be contacted" is worth having and the
@@ -308,7 +327,13 @@ export async function PATCH(request: NextRequest) {
     }
     /** "" is a real value here: it means take the link off the page. */
     if (contactEmail !== undefined) next.contactEmail = contactEmail || undefined
-    return { ...cfg, headerSettings: next, sections: mergeAbout(cfg.sections) }
+
+    const cfgAny = cfg as { globalSettings?: Record<string, unknown> }
+    const globalSettings = themePreset
+      ? { ...(cfgAny.globalSettings || {}), themePreset }
+      : cfgAny.globalSettings
+
+    return { ...cfg, headerSettings: next, globalSettings, sections: mergeAbout(cfg.sections) }
   }
 
   const { error } = await supabase

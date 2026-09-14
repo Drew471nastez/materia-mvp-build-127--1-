@@ -69,6 +69,39 @@ function main() {
      */
     check("and carries a way back", workspace.includes("ArrowLeft") && workspace.includes('router.push("/app")'))
     check("which fades rather than cutting", /setLeaving\(true\)/.test(workspace))
+
+    /**
+     * LEAVING AND ARRIVING ARE THE BUILDER'S OWN SCREENS, not a second pair.
+     * BuilderLoader on the `.wb-leaving` glass is what the website builder
+     * shows when it closes; reimplementing either is how two editors in one
+     * product end up feeling like two products.
+     */
+    check("leaving uses the builder's glass", workspace.includes('className="wb-leaving"'))
+    check("and the builder's loader", workspace.includes("BuilderLoader"))
+    check("arriving has a loading screen at all", existsSync(join(root, "app/creator-page/loading.tsx")))
+    check(
+      "on the same ground the editor uses, not white then dark",
+      read("app/creator-page/loading.tsx").includes("#131316") && workspace.includes("bg-[#131316]"),
+    )
+
+    /**
+     * THE CANVAS. A page rendered edge to edge inside another page has no
+     * edges of its own, so nothing says where the thing being edited stops
+     * and the tool starts.
+     */
+    check("the page sits on a canvas with its own edges", /rounded-xl border border-white/.test(workspace))
+    check("inset on every side, so the gap is deliberate", /flex-1 overflow-hidden p-2/.test(workspace))
+    check("and the bar is dark", workspace.includes("bg-[#18181c]"))
+
+    // The colour scheme, from the bar.
+    const api = read("app/api/creator-profile/route.ts")
+    check("the scheme can be changed without leaving", workspace.includes("applyScheme"))
+    check("each row is painted in its own scheme", workspace.includes("theme.colors.background"))
+    check("it writes through the route that already does auth", /applyScheme[\s\S]{0,600}\/api\/creator-profile/.test(workspace))
+    check("and the frame reloads so it is the real thing", /applyScheme[\s\S]{0,900}setNonce/.test(workspace))
+    /** An unknown name would leave a page resolving a theme that does not exist. */
+    check("an unknown preset cannot be stored", api.includes("raw in themePresets"))
+    check("and it lands in globalSettings, where the page reads it", api.includes("globalSettings"))
     /** The setup widget floated over the page; it stays out of both addresses. */
     const sidebar2 = read("components/app/sidebar.tsx")
     check(

@@ -44,11 +44,28 @@ export default async function CreatorPageWorkspaceRoute() {
   if (!user) redirect("/login")
 
   const [{ data: creator }, { data: profile }] = await Promise.all([
-    supabase.from("creators").select("slug, store_published").eq("user_id", user.id).single(),
+    supabase.from("creators").select("id, slug, store_published").eq("user_id", user.id).single(),
     supabase.from("profiles").select("username, display_name").eq("id", user.id).single(),
   ])
 
   if (!creator) redirect("/onboarding")
+
+  /**
+   * The colour scheme is one stored word. The storefront resolves it through
+   * lib/store-builder/defaults at render and paints every section from it,
+   * which is why it can be a control up here rather than a trip into the
+   * section editor.
+   */
+  const { data: storeConfig } = await supabase
+    .from("store_builder_configs")
+    .select("published_config, draft_config")
+    .eq("creator_id", creator.id)
+    .eq("page_type", "shop")
+    .maybeSingle()
+
+  const readPreset = (cfg: unknown) =>
+    (cfg as { globalSettings?: { themePreset?: string } } | null)?.globalSettings?.themePreset
+  const themePreset = readPreset(storeConfig?.published_config) || readPreset(storeConfig?.draft_config) || "default"
 
   /**
    * The handle the public page is addressed by. `profiles.username` is what a
@@ -62,6 +79,7 @@ export default async function CreatorPageWorkspaceRoute() {
       handle={handle}
       displayName={profile?.display_name || handle}
       published={!!creator.store_published}
+      themePreset={themePreset}
     />
   )
 }
