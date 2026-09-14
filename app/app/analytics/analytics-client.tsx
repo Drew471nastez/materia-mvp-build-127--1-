@@ -891,6 +891,30 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   })
 
   const [trendData, setTrendData] = useState<TrendData[]>([])
+  /**
+   * =========================================================================
+   *  THE CHART CHANGES MODE WHEN THE DATA FOR THAT MODE ARRIVES
+   * =========================================================================
+   * Store and One page plot different series: Views/Orders/Revenue against
+   * Views/Clicks/Subscribers. `analyticsMode` was handed straight to the
+   * chart, so tapping the other tab swapped the series IMMEDIATELY — while
+   * the numbers underneath were still the previous mode's, because the mode
+   * is in the fetch's dependencies and the fetch had not come back.
+   *
+   * So one tap drew the chart twice: once with the new lines over the old
+   * figures, which is a shape that never existed, and again when the real
+   * ones landed. Recharts re-mounts a series whose key it has not seen, so
+   * each of those draws is a full animation. That is the flashing and the
+   * reloading.
+   *
+   * This is the mode the numbers in `trendData` actually belong to, set in
+   * the same commit as the numbers. The tabs still highlight instantly off
+   * `analyticsMode`, because the tap should feel answered; it is the chart
+   * that waits, and it waits for the only thing worth waiting for.
+   *
+   * The same rule the editor's page switcher uses, for the same reason.
+   */
+  const [trendMode, setTrendMode] = useState<AnalyticsMode>(initialMode === "onepage" ? "onepage" : "store")
   const [trafficSources, setTrafficSources] = useState<TrafficSource[]>([])
   const [countryData, setCountryData] = useState<CountryData[]>([])
   const [deviceData, setDeviceData] = useState<DeviceData[]>([])
@@ -1613,6 +1637,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
       })
 
       setTrendData(trendArray)
+      /* Batched into the same commit, so the series and their numbers change together. */
+      setTrendMode(analyticsMode)
 
       // Traffic sources (use source_category column from database)
       const trafficBySource: Record<string, { views: number; orders: number }> = {}
@@ -2629,7 +2655,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 >
                   <AnalyticsChartWithTooltip
                     chartDisplayData={chartDisplayData}
-                    analyticsMode={analyticsMode}
+                    /* The mode the data is, not the mode the tabs are. See trendMode. */
+                    analyticsMode={trendMode}
                     chartMetricFilter={chartMetricFilter}
                     onePageChartFilter={onePageChartFilter}
                     isTouchDevice={isTouchDevice}

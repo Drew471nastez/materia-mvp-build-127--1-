@@ -31,6 +31,7 @@ import {
   Globe,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useRef, useCallback } from "react"
@@ -1491,65 +1492,19 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               />
             </button>
 
-            {/* Mobile Profile Dropdown Menu */}
-            <div
-              className={cn(
-                "absolute left-0 top-full mt-2 z-[60] min-w-[200px] transition-all duration-200 ease-out origin-top-left",
-                mobileProfileDropdownOpen
-                  ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
-                  : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
-              )}
-            >
-              <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
-                {profileDropdownItems.map((item) => {
-                  const Icon = item.icon
-                  const isExplore = item.href === "/explore"
-                  const isHelp = item.href === "/help"
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
-                      onClick={(e) => {
-                        if (isHelp && isNativeApp()) {
-                          e.preventDefault()
-                          openExternal(HELP_FULL_URL)
-                        } else if (isExplore && isNativeApp()) {
-                          e.preventDefault()
-                          openExternal(EXPLORE_FULL_URL)
-                        }
-                        setMobileProfileDropdownOpen(false)
-                      }}
-                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
-                    >
-                      <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                      <span>{item.label}</span>
-                    </Link>
-                  )
-                })}
-                <button
-                  onClick={() => {
-                    setMobileProfileDropdownOpen(false)
-                    setLanguageOpen(true)
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
-                >
-                  <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                  <span>{t("settings.language")}</span>
-                </button>
-                <div className="my-1 h-px bg-neutral-100" />
-                <button
-                  onClick={() => {
-                    setMobileProfileDropdownOpen(false)
-                    handleSignOut()
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-red-50 hover:text-red-600"
-                >
-                  <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                  <span>Logout</span>
-                </button>
-              </div>
-            </div>
+            {/*
+              THE ACCOUNT MENU IS A SHEET, NOT A DROPDOWN.
+
+              A 200px card hanging off the avatar is a desktop shape: on a
+              phone it opens under the thumb that pressed it, covers the page
+              it belongs to, and has nothing to grab. A sheet comes from the
+              bottom, where the hand is, and can be pushed back down.
+
+              The drag is in components/ui/bottom-sheet — the sheet follows
+              the finger every frame, a flick closes it, and the listeners are
+              native because React registers touchmove passively and a sheet
+              that cannot refuse the page's scroll slides against it.
+            */}
           </div>
 
           {/* Right side: Notifications + Home */}
@@ -1577,6 +1532,76 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           </div>
         </div>
       </header>
+
+      <BottomSheet
+        isOpen={mobileProfileDropdownOpen}
+        onClose={() => setMobileProfileDropdownOpen(false)}
+        label="Account"
+      >
+        <div className="px-3 pb-3">
+          <div className="flex items-center gap-3 px-2 pb-3 pt-1">
+            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-neutral-200">
+              <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-[13px] font-medium text-neutral-500">
+                {userInitials}
+              </div>
+              {avatarUrl && (
+                <img src={avatarSrc} alt={userDisplayName} className="absolute inset-0 h-full w-full object-cover" loading="eager" decoding="async" />
+              )}
+            </div>
+            <span className="truncate text-[15px] font-semibold text-neutral-900">{userDisplayName}</span>
+          </div>
+
+          {profileDropdownItems.map((item) => {
+            const Icon = item.icon
+            const isExplore = item.href === "/explore"
+            const isHelp = item.href === "/help"
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
+                onClick={(e) => {
+                  if (isHelp && isNativeApp()) {
+                    e.preventDefault()
+                    openExternal(HELP_FULL_URL)
+                  } else if (isExplore && isNativeApp()) {
+                    e.preventDefault()
+                    openExternal(EXPLORE_FULL_URL)
+                  }
+                  setMobileProfileDropdownOpen(false)
+                }}
+                className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-neutral-800 active:bg-neutral-100"
+              >
+                <Icon className="h-[18px] w-[18px] shrink-0 text-neutral-400" strokeWidth={1.75} />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+          <button
+            onClick={() => {
+              setMobileProfileDropdownOpen(false)
+              setLanguageOpen(true)
+            }}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-neutral-800 active:bg-neutral-100"
+          >
+            <Globe className="h-[18px] w-[18px] shrink-0 text-neutral-400" strokeWidth={1.75} />
+            <span>{t("settings.language")}</span>
+          </button>
+
+          <div className="my-1.5 h-px bg-neutral-100" />
+
+          <button
+            onClick={() => {
+              setMobileProfileDropdownOpen(false)
+              handleSignOut()
+            }}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-red-600 active:bg-red-50"
+          >
+            <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
+            <span>Logout</span>
+          </button>
+        </div>
+      </BottomSheet>
 
       {/* Notifications Modal */}
       <NotificationsModal
