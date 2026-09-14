@@ -38,7 +38,7 @@ export function EmbeddedBackBar() {
         type="button"
         onClick={() => {
           if (canGoBack) window.history.back()
-          else window.location.assign("/app/creator-page")
+          else window.location.assign("/creator-page")
         }}
         className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-gray-700 transition-colors hover:bg-black/5 hover:text-gray-900"
       >

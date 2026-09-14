@@ -202,7 +202,7 @@ export function EditProfileButton({
         {/* Not inside the workspace: there, this page already is the editor. */}
         {!embedded && !framed && (
         <a
-          href="/app/creator-page"
+          href="/creator-page"
           className="inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-3 text-sm font-medium text-gray-900 no-underline shadow-md backdrop-blur transition-colors hover:bg-white sm:px-4"
         >
           <Wand2 className="h-3.5 w-3.5" />

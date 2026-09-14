@@ -65,6 +65,41 @@ export function isInEditorFrame(): boolean {
  *
  * Returns the address to go to, or null to leave the click alone.
  */
+/**
+ * ===========================================================================
+ *  WHAT THE CANVAS WILL NOT FOLLOW
+ * ===========================================================================
+ * BROWSING, NOT BUYING. The canvas is for looking at the shop the way a
+ * visitor does — products, the creator page, back again — and that is the
+ * whole reason it holds the real page. Everything past the buy button is a
+ * real transaction on a real account, and none of those pages is framable, so
+ * following one turned the canvas into "refused to connect" rather than into
+ * a purchase. Refused here AND at the button, because a button is not a link:
+ * see components/storefront/use-editor-frame.
+ *
+ * The rest of the app is on the list for the second reason only. A creator
+ * clicking through to their own dashboard inside a 900px frame is not
+ * something to support; the controls that mean to leave carry `target="_top"`
+ * and are untouched by any of this.
+ */
+const CANVAS_WILL_NOT_FOLLOW = new Set([
+  "checkout", "purchase", "access", "downloads", "library", "receipt", "upgrade",
+  "pricing", "app", "api", "auth", "login", "signup", "onboarding", "welcome",
+])
+
+/** Is this somewhere the editor's canvas refuses to go? */
+export function canvasRefusesHref(href: string | null | undefined, base: string): boolean {
+  if (!href) return false
+  try {
+    const url = new URL(href.trim(), base)
+    if (url.origin !== new URL(base).origin) return false
+    const first = url.pathname.split("/").filter(Boolean)[0]?.toLowerCase()
+    return !!first && CANVAS_WILL_NOT_FOLLOW.has(first)
+  } catch {
+    return false
+  }
+}
+
 export function embeddedHref(href: string | null | undefined, base: string): string | null {
   if (!href) return null
   const trimmed = href.trim()

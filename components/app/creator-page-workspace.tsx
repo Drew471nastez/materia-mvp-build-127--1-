@@ -13,12 +13,12 @@
  * the page stays unframeable by anybody, us included.
  *
  * ---------------------------------------------------------------------------
- *  UNDER /app, AND THE BAR IS NEARLY EMPTY
+ *  ITS OWN SCREEN, AND THE BAR IS NEARLY EMPTY
  * ---------------------------------------------------------------------------
- * The sidebar is the way out, so there is no back control. And the three
- * tools that used to sit up here are gone from it: the bar's own editor
- * opens from the bar, the colour schemes live in Edit profile, and the
- * reload button was asking a creator to do the editor's job.
+ * There is no sidebar, so the arrow at the left of the bar is the way back.
+ * And the three tools that used to sit up here are gone from it: the bar's
+ * own editor opens from the bar, the colour schemes live in Edit profile,
+ * and the reload button was asking a creator to do the editor's job.
  *
  * What is left is whose page this is and where it lives. Everything that
  * changes the page is ON the page, next to the thing it changes, which is
@@ -47,7 +47,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { ExternalLink } from "lucide-react"
+import { ArrowLeft, ExternalLink } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 import { BuilderLoader } from "@/components/website-builder/builder-loader"
 import { CreatorPageShare } from "@/components/app/creator-page-share"
@@ -63,6 +64,7 @@ export function CreatorPageWorkspace({
   displayName: string
   published: boolean
 }) {
+  const router = useRouter()
   const [shareOpen, setShareOpen] = useState(false)
   const [isPhone, setIsPhone] = useState(false)
 
@@ -125,7 +127,7 @@ export function CreatorPageWorkspace({
   }, [reframe])
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#f1f1f3]">
+    <div className="relative flex h-svh min-h-0 flex-col overflow-hidden bg-[#f1f1f3]">
       {/*
         ONE LIGHT ROW, AND ALMOST NOTHING IN IT.
 
@@ -134,10 +136,20 @@ export function CreatorPageWorkspace({
         the things they change, and the third was the editor asking a creator
         to fetch the page again after a save it already knows about.
 
-        What is left says whose page this is and where it lives, and offers the
-        address. The sidebar to the left is the way back to the app.
+        What is left is the way back, whose page this is and where it lives,
+        and the address.
       */}
       <div className="flex shrink-0 items-center gap-1.5 border-b border-[#e5e7eb] bg-white px-3 py-2 sm:gap-2 sm:px-4">
+        <button
+          type="button"
+          onClick={() => router.push("/app")}
+          aria-label="Back to Storelib"
+          title="Back to Storelib"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
+        >
+          <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={1.75} />
+        </button>
+
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-semibold leading-tight text-[#1a1a2e]">{displayName}</p>
           <p className="truncate text-[11px] leading-tight text-[#9ca3af]">

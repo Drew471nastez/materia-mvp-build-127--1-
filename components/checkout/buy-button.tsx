@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+
+import { useEditorFrame } from "@/components/storefront/use-editor-frame"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 
@@ -29,6 +31,15 @@ export function BuyButton({
   customPriceCents,
 }: BuyButtonProps) {
   const [loading, setLoading] = useState(false)
+  /**
+   * INSIDE THE EDITOR'S CANVAS THIS DOES NOT BUY ANYTHING.
+   *
+   * The workspace frames the real product page, so this really is the real
+   * buy button — and pressing it started a real checkout for the creator's
+   * own product, in a frame that cannot show the checkout page. See
+   * use-editor-frame for why browsing stays and buying goes.
+   */
+  const inEditorFrame = useEditorFrame()
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
     return new Intl.NumberFormat("en-US", {
@@ -38,6 +49,7 @@ export function BuyButton({
   }
 
   const handleClick = async () => {
+    if (inEditorFrame) return
     setLoading(true)
 
     if (creatorId) {
@@ -82,8 +94,9 @@ export function BuyButton({
         backgroundColor: backgroundColor || "#2563eb",
         color: textColor || "#ffffff",
       }}
-      disabled={disabled || loading}
+      disabled={disabled || loading || inEditorFrame}
       onClick={handleClick}
+      title={inEditorFrame ? "This is your page as visitors see it. Open it at its own address to buy." : undefined}
     >
       {loading ? (
         <>

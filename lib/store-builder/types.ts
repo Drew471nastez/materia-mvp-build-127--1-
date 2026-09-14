@@ -509,6 +509,11 @@ export interface ProductHeaderSettings {
 // Creator bar settings for product pages (like Subscribe Bar but with creator name)
 export interface ProductCreatorBarSettings {
   visible: boolean
+  /**
+   * Whether the follow form is on the bar. Absent means yes, because every
+   * config predates the switch and the bar has always had one.
+   */
+  showSubscribe?: boolean
   backgroundColor: string
   textColor: string
   buttonColor: string

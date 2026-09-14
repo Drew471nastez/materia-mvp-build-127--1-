@@ -20,6 +20,19 @@ interface SubscribeBarProps {
   settings: SubscribeBarSettings
   creatorId: string
   onSubmit?: (email: string) => Promise<void>
+  /**
+   * THE OWNER'S PENCIL, INSIDE THE BAR'S OWN ROW.
+   *
+   * It used to be positioned over a wrapper around this component, and that
+   * cannot work: a sticky bar renders `position: fixed` plus a 76px spacer,
+   * so the wrapper contributes no height of its own and an absolutely
+   * positioned child landed on the SPACER — floating in the empty strip under
+   * the bar, which is exactly what it looked like.
+   *
+   * A slot instead. It sits beside the sentence, inside the row, wherever the
+   * row happens to be.
+   */
+  ownerAction?: React.ReactNode
 }
 
 /** Compute if a hex background is "dark" */
@@ -138,7 +151,7 @@ function getPlaceholderStyle(placeholderColor?: string): string {
  * Live subscribe bar component used on public pages
  * Uses FIXED positioning when sticky is enabled
  */
-export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProps) {
+export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: SubscribeBarProps) {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
@@ -392,9 +405,13 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
 
       {/* MOBILE */}
       <div className="sm:hidden flex flex-col items-center gap-2">
-        <div className="flex items-center gap-2 justify-center">
+        <div className="flex items-center gap-1.5 justify-center">
           {mobileAvatar}
           <p className="text-xs font-medium">{displayText}</p>
+          {/* On a phone the row is already the whole width; the pencil is the
+              smallest thing that can still be tapped and sits right after the
+              sentence rather than floating anywhere. */}
+          {ownerAction}
         </div>
 
         {successMessage && <p className={cn("text-xs", isDarkBackground ? "text-white/80" : "text-green-600")}>{successMessage}</p>}
@@ -437,6 +454,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
         <div className="flex items-center gap-2 shrink-0">
           {desktopAvatar}
           <p className="text-sm font-medium">{displayText}</p>
+          {ownerAction}
           {successMessage && (
             <p className={cn("text-xs ml-2", isDarkBackground ? "text-white/80" : "text-green-600")}>{successMessage}</p>
           )}

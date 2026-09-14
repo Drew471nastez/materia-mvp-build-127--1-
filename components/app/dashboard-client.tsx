@@ -2601,7 +2601,7 @@ export function DashboardClient({
                           type="button"
                           onClick={() => {
                             setIsProfileAccessOpen(false)
-                            window.location.href = "/app/creator-page"
+                            window.location.href = "/creator-page"
                           }}
                           className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#1a1a2e] text-[12px] font-medium text-white transition-colors hover:bg-[#2a2a3e]"
                         >

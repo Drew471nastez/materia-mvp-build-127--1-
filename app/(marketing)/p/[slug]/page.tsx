@@ -40,6 +40,7 @@ import { EmbeddedBackBar } from "@/components/storefront/embedded-back-bar"
 import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
 
 import { themePresets } from "@/lib/store-builder/defaults"
+import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
 
 // Icon mapping for what's included items
 function getIncludedItemIcon(item: string, iconColor?: string) {
@@ -1470,7 +1471,46 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     // Get creator bar and sticky add to cart settings from published config
     // Use optional chaining to prevent server-side exceptions
     const headerSettings = productPageConfig?.headerSettings as ProductHeaderSettings | undefined
-    const creatorBarSettings = headerSettings?.creatorBar || defaultProductCreatorBarSettings
+    /**
+     * ONE BAR, TWO PAGES.
+     *
+     * The strip across the top of a product page and the strip across the top
+     * of the creator page are the same object in a visitor's head, and they
+     * were two unrelated settings blocks: editing the bar on the creator page
+     * changed nothing here, and the scheme painted one and not the other.
+     *
+     * `resolveStorefrontChrome` is what the creator page uses, given the SHOP
+     * config's stored bar — so the four colours are decided in one place, by
+     * one rule, and the creator's own choices win in both.
+     */
+    const shopChrome = resolveStorefrontChrome(
+      (shopConfig?.published_config?.globalSettings as { themePreset?: string } | undefined)?.themePreset,
+      {
+        bar: {
+          backgroundColor:
+            shopHeaderSettings?.subscribeBar?.colors?.backgroundColor ||
+            (shopHeaderSettings?.subscribeBar as Record<string, string> | undefined)?.backgroundColor,
+          textColor:
+            shopHeaderSettings?.subscribeBar?.colors?.textColor ||
+            (shopHeaderSettings?.subscribeBar as Record<string, string> | undefined)?.textColor,
+          buttonColor: shopHeaderSettings?.subscribeBar?.buttonColor,
+          buttonTextColor: shopHeaderSettings?.subscribeBar?.buttonTextColor,
+        },
+      },
+    )
+    const storedCreatorBar = headerSettings?.creatorBar || defaultProductCreatorBarSettings
+    const creatorBarSettings: typeof storedCreatorBar = {
+      ...storedCreatorBar,
+      backgroundColor: shopChrome.bar.backgroundColor,
+      textColor: shopChrome.bar.textColor,
+      buttonColor: shopChrome.bar.buttonColor,
+      buttonTextColor: shopChrome.bar.buttonTextColor,
+    }
+    /** The label the creator typed on their own page, when they typed one. */
+    const creatorBarLabel =
+      shopHeaderSettings?.subscribeBar?.buttonTextPreset === "custom"
+        ? shopHeaderSettings?.subscribeBar?.buttonText
+        : undefined
     const stickyAddToCartSettings = headerSettings?.stickyAddToCart || defaultStickyAddToCartSettings
     // Get theme colors from published config
     const pageBackgroundColor = productPageConfig?.globalColors?.backgroundColor
@@ -1498,6 +1538,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             creatorId={product.creator_id}
             creatorUsername={creatorUsername}
             avatarUrl={creatorAvatarUrl}
+            buttonLabel={creatorBarLabel}
           />
         </DiscoverStickyWrapper>
 

@@ -31,7 +31,7 @@ import { join } from "node:path"
 
 import { themePresets } from "../lib/store-builder/defaults"
 import { cardAccents, resolveStorefrontChrome } from "../lib/store-builder/storefront-chrome"
-import { embeddedHref } from "../lib/store-builder/editor-channel"
+import { canvasRefusesHref, embeddedHref } from "../lib/store-builder/editor-channel"
 import { contrastRatio, parseColor } from "../lib/storelib-theme/contrast"
 
 const root = process.cwd()
@@ -65,28 +65,27 @@ const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/
 function main() {
   console.log("\nThe creator page is edited where it lives")
 
-  // ── 1. Under /app, and the toolbar is nearly empty ─────────────────────
+  // ── 1. Its own screen, and the toolbar is nearly empty ─────────────────
   {
-    check("the workspace exists", existsSync(join(root, "app/app/creator-page/page.tsx")))
+    check("the workspace exists", existsSync(join(root, "app/creator-page/page.tsx")))
     /**
-     * UNDER /app, WITH THE SIDEBAR. This has moved three times on the owner's
-     * instruction and it is their product. Being a route under /app is the
-     * whole of how it keeps the sidebar: the layout renders the rail and the
-     * header, so a workspace that drew its own would be a second one to keep
-     * in step.
+     * ITS OWN SCREEN. This has moved four times on the owner's instruction
+     * and it is their product. Being a route OUTSIDE /app is the whole of how
+     * it gets the screen: the layout beside it gates on the session and
+     * renders the children bare.
      */
-    const layout = read("app/app/layout.tsx")
-    check("the /app layout is what supplies the sidebar", layout.includes("<AppSidebar"))
+    const layout = read("app/creator-page/layout.tsx")
+    check("its layout renders no app chrome", !/<AppSidebar|DesktopSidebarContent/.test(layout))
     const workspace = strip(read("components/app/creator-page-workspace.tsx"))
     check("and the workspace does not rebuild one", !/AppSidebar|DesktopSidebarContent/.test(workspace))
-    check("it fills the layout's content area rather than the viewport", workspace.includes("h-full min-h-0") && !workspace.includes("h-svh"))
-    check("and carries no back control, because the sidebar is the way out", !workspace.includes("ArrowLeft"))
+    check("it fills the viewport rather than a content area", workspace.includes("h-svh") && !workspace.includes("h-full min-h-0"))
+    check("and carries a back control, because there is no sidebar to leave by", workspace.includes("ArrowLeft"))
     const sidebar2 = read("components/app/sidebar.tsx")
     check(
       "the setup widget is not shown over the creator page",
       sidebar2.includes('!pathname.startsWith("/creator-page")') && sidebar2.includes('!pathname.startsWith("/app/creator-page")'),
     )
-    check("the address it had outside /app still answers", read("app/creator-page/page.tsx").includes('redirect("/app/creator-page")'))
+    check("the address it had under /app still answers", read("app/app/creator-page/page.tsx").includes('redirect("/creator-page")'))
 
     /**
      * THE CANVAS. Inset and bordered on a desktop so the page has edges of
@@ -172,7 +171,9 @@ function main() {
     check("the colour scheme is in Edit profile", profile.includes("<SchemePicker"))
     check("and it saves with the rest of it", profile.includes("themePreset: scheme"))
     check("five schemes are offered", (picker.match(/"(default|blacks|cream|pink|astrid)"/g) ?? []).length === 5)
-    check("drawn as overlapping discs, not stripes or a tiny page", picker.includes("rounded-full") && picker.includes("left: i * 11"))
+    check("drawn as overlapping discs, not stripes or a tiny page", picker.includes("rounded-full") && picker.includes("left: i * step"))
+    /** A picker whose only change is which border is dark reads as a radio button. */
+    check("and selecting one settles rather than snapping", picker.includes("transition-[left]") && picker.includes("-translate-y-px"))
 
     /** Every one of them tells the workspace, so nothing needs a reload button. */
     for (const [name, src] of [["the bar", bar], ["the profile", profile], ["About", about]] as const) {
@@ -269,10 +270,10 @@ function main() {
   // ── 5. One destination, and the old addresses still answer ─────────────
   {
     const entries: Array<[string, string]> = [
-      ["components/app/sidebar.tsx", '"/app/creator-page"'],
-      ["components/app/dashboard-client.tsx", '"/app/creator-page"'],
-      ["components/storefront/owner-menu.tsx", '"/app/creator-page"'],
-      ["components/app/settings-form-new.tsx", '"/app/creator-page"'],
+      ["components/app/sidebar.tsx", '"/creator-page"'],
+      ["components/app/dashboard-client.tsx", '"/creator-page"'],
+      ["components/storefront/owner-menu.tsx", '"/creator-page"'],
+      ["components/app/settings-form-new.tsx", '"/creator-page"'],
     ]
     for (const [file, href] of entries) {
       check(`${file} points at the workspace`, read(file).includes(href))
@@ -284,10 +285,10 @@ function main() {
      * section editor and is linked from the workspace itself.
      */
     check("the old /store-builder address still answers", existsSync(join(root, "app/store-builder/page.tsx")))
-    check("and it lands on the workspace", read("app/store-builder/page.tsx").includes('redirect("/app/creator-page")'))
+    check("and it lands on the workspace", read("app/store-builder/page.tsx").includes('redirect("/creator-page")'))
     check("the section editor is still a real route", existsSync(join(root, "app/creator-page/sections/page.tsx")))
-    check("and the address the workspace used to have still answers", existsSync(join(root, "app/creator-page/page.tsx")))
-    check("and it lands on the workspace too", read("app/creator-page/page.tsx").includes('redirect("/app/creator-page")'))
+    check("and the address the workspace used to have still answers", existsSync(join(root, "app/app/creator-page/page.tsx")))
+    check("and it lands on the workspace too", read("app/app/creator-page/page.tsx").includes('redirect("/creator-page")'))
 
     const sidebar = read("components/app/sidebar.tsx")
     check("the sidebar no longer says Store Builder", !/label: "Store Builder"/.test(sidebar))
@@ -772,7 +773,7 @@ function main() {
     )
     check(
       "and so is the one in search",
-      /\{ label: "Creator Page", href: "\/app\/creator-page", icon: ContactRound, category: "Pages" \}/.test(sidebar),
+      /\{ label: "Creator Page", href: "\/creator-page", icon: ContactRound, category: "Pages" \}/.test(sidebar),
     )
   }
 
@@ -998,11 +999,16 @@ function main() {
      * =====================================================================
      *  THE PRODUCT PAGE'S TOP BAR, AND ITS BUYING CARD
      * =====================================================================
-     * THE BAR was a newsletter form — an email field and a Follow button
-     * across the top of every product page. The first thing a visitor met on
-     * a page they came to look at a thing was a request for their address.
-     * It is who is selling and the way back now; following is still offered
-     * on the creator's own page, one tap away through the name.
+     * THE BAR carries a newsletter form again. It was taken out on the
+     * argument that the first thing a visitor meets on a page they came to
+     * look at a thing should not be a request for their address; the owner
+     * asked for it back and it is their shop. The argument is answered by
+     * ORDER rather than by absence — who is selling and the way back come
+     * first, reading left to right, and the field is at the far end.
+     *
+     * ONE BAR, TWO PAGES. Its colours and its button label are the creator
+     * page's own bar's, resolved by resolveStorefrontChrome from the shop
+     * config, so editing one changes both and the scheme paints both.
      *
      * THE CARD carried `sticky top-6` and has never stuck, because the grid
      * used `items-start` — which shrinks a grid item to its content, so the
@@ -1013,8 +1019,18 @@ function main() {
      */
     const bar = code("components/store-builder/product-creator-bar.tsx")
     const live = bar.slice(bar.indexOf("export function LiveProductCreatorBar"))
-    check("the live bar asks for no email address", !/<Input/.test(live) && !/type="email"/.test(live))
-    check("and offers no follow button", !/<Button/.test(live))
+    check("the live bar asks for an email address", /<Input/.test(live) && /type="email"/.test(live))
+    check("and offers a follow button", /<Button/.test(live))
+    /** The two facts a product page's top edge is for come first in the row. */
+    check(
+      "with the way back and the seller ahead of it",
+      live.indexOf("<BackControl") < live.indexOf("<Input") && live.indexOf("<SmartLink") < live.indexOf("<Input"),
+    )
+    /** One bar, two pages: the product page resolves it from the shop's. */
+    const productPage = code("app/(marketing)/p/[slug]/page.tsx")
+    check("the product page resolves the bar from the creator's", productPage.includes("resolveStorefrontChrome("))
+    check("colours and all", productPage.includes("buttonColor: shopChrome.bar.buttonColor"))
+    check("and the label the creator typed", productPage.includes("creatorBarLabel") && /buttonLabel\?\.trim\(\)/.test(bar))
     check(
       "it carries a way back",
       /<BackControl onBack=\{goBack\}/.test(live) && /window\.history\.back\(\)/.test(bar),
@@ -1038,9 +1054,20 @@ function main() {
       /"grid gap-8", !isMobile && "lg:grid-cols-5 lg:gap-12"/.test(renderer) &&
         !/lg:items-start/.test(renderer),
     )
+    /**
+     * AND IT IS THE PAGE'S HEADING THERE. The card's title was an h2 under a
+     * duplicate h1 three hundred pixels to the left, so a wide screen printed
+     * the product's name twice. The left one is hidden from `lg` up — which
+     * is exactly where this card renders — so the name is read once, beside
+     * its price.
+     */
     check(
       "and the card is headed by the product, not by a number",
-      /<h2[\s\S]{0,240}\{productTitle\}/.test(renderer),
+      /<h1[\s\S]{0,420}\{productTitle\}/.test(renderer),
+    )
+    check(
+      "with the left heading standing down where this one appears",
+      /"mt-6", !isMobile && "sm:mt-8 lg:hidden"/.test(renderer),
     )
   }
 
@@ -1164,6 +1191,95 @@ function main() {
     check("and a plain story still keeps its line breaks", renderer.includes('<p className="whitespace-pre-wrap">{settings.aboutContent}</p>'))
     /** Preflight flattens h2 and ul to nothing, so markup needs typography. */
     check("written text is given typography", css.includes(".storelib-prose ul { list-style: disc"))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * ===================================================================
+     *  THE PENCIL IS IN THE BAR, NOT OVER IT
+     * ===================================================================
+     * It was positioned against a `relative` div wrapping the bar, and that
+     * cannot work for the bar this product ships: sticky renders
+     * `position: fixed` plus a 76px spacer, so the wrapper contributes no
+     * height of its own and an absolutely positioned child lands on the
+     * SPACER — floating in the empty strip underneath, which is exactly what
+     * it looked like. A slot in the row instead.
+     */
+    const live = code("components/store-builder/live-subscribe-bar.tsx")
+    const bar = code("components/store-builder/subscribe-bar.tsx")
+    check("the bar takes the owner's control as a slot", bar.includes("ownerAction?: React.ReactNode"))
+    check("and renders it in the row, beside the sentence", (bar.match(/\{ownerAction\}/g) ?? []).length === 2)
+    check("nothing positions it over a wrapper any more", !/absolute inset-y-0 left-2/.test(live))
+    check("because the bar can be fixed", bar.includes('"fixed left-0 right-0 w-full'))
+    /** A 28px chip beside a sentence on a 390px screen competes with it. */
+    const pencil = read("components/storefront/edit-cta-button.tsx")
+    check("and it is smaller and plainer on a phone", pencil.includes("h-6 w-6") && pencil.includes("sm:h-7 sm:w-7"))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * ===================================================================
+     *  THE CANVAS BROWSES, IT DOES NOT BUY
+     * ===================================================================
+     * The workspace frames the real product page, so the buy button on it is
+     * the real buy button: pressing it started a real checkout for the
+     * creator's own product, in a frame that cannot show the checkout page.
+     * What a creator saw was the canvas going white with "refused to
+     * connect".
+     *
+     * Refused twice, because a button is not a link.
+     */
+    const HERE = "https://storelib.com/u/andrewrullz?embedded=1"
+    for (const href of ["/checkout?productId=1", "/purchase/success", "/library/my-downloads", "/app/settings", "/downloads"]) {
+      check(`${href} is not followed inside the canvas`, canvasRefusesHref(href, HERE), href)
+    }
+    for (const href of ["/p/a-tee", "/u/someone", "/andrewrullz/a-tee", "https://example.com/checkout"]) {
+      check(`${href} still is`, !canvasRefusesHref(href, HERE), href)
+    }
+
+    const buy = code("components/checkout/buy-button.tsx")
+    const sticky = code("components/store-builder/sticky-add-to-cart.tsx")
+    const hook = read("components/storefront/use-editor-frame.ts")
+    check("the buy button stands down in a frame", buy.includes("if (inEditorFrame) return") && buy.includes("disabled={disabled || loading || inEditorFrame}"))
+    check("and so does the sticky one", sticky.includes("if (inEditorFrame) return"))
+    check("both ask the same question", buy.includes("useEditorFrame()") && sticky.includes("useEditorFrame()"))
+    /**
+     * STATE, NOT A BARE READ. The server renders this false and the first
+     * client render has to agree, or every product page throws a hydration
+     * mismatch.
+     */
+    check("and it is state, so the first client render matches the server", hook.includes("useState(false)") && hook.includes("useEffect("))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * ===================================================================
+     *  ONE PRODUCT CARD IN THIS PRODUCT
+     * ===================================================================
+     * "More from the seller" drew its own: a thumbnail, a truncated title and
+     * a price, with its own hover and its own colour plumbing. So the cards
+     * on a product page were a different size, a different type scale and a
+     * different shape from the ones on the creator page two clicks away, and
+     * the rating, the category pill and the struck-through original price
+     * simply did not exist on them.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const section = renderer.slice(renderer.indexOf("function UnifiedMoreFromSellerSection"))
+    check("More from the seller renders the shared card", section.includes("<StorefrontProductCard"))
+    check("and draws none of its own", !/aspect-video bg-muted relative overflow-hidden/.test(section))
+    check("with the colours the theme gives it", section.includes("cardAccents(cardBgColor, cardTextColor)"))
+    /** It sat in a 1150px column while the page's own content is 1200. */
+    check(
+      "in the same column as every other section on the page",
+      section.includes('"mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6"'),
+    )
+    check(
+      "which is the product page's own column",
+      /className="mx-auto w-full max-w-\[1200px\] px-3 sm:px-4 lg:px-6/.test(code("app/(marketing)/p/[slug]/page.tsx")),
+    )
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

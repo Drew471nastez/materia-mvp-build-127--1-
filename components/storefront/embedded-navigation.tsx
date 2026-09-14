@@ -36,7 +36,7 @@
 
 import { useEffect } from "react"
 
-import { embeddedHref, isInEditorFrame } from "@/lib/store-builder/editor-channel"
+import { canvasRefusesHref, embeddedHref, isInEditorFrame } from "@/lib/store-builder/editor-channel"
 
 export function EmbeddedNavigation() {
   useEffect(() => {
@@ -54,9 +54,19 @@ export function EmbeddedNavigation() {
       if (target && target !== "_self") return
       if (anchor.hasAttribute("download")) return
 
+      const href = anchor.getAttribute("href")
+
+      /* Browsing, not buying. A link into checkout or into the app is not
+         followed at all rather than followed into a page that cannot be
+         framed. See CANVAS_WILL_NOT_FOLLOW. */
+      if (canvasRefusesHref(href, window.location.href)) {
+        event.preventDefault()
+        return
+      }
+
       /* What to refuse is the interesting half, and it is a pure function so
          it can be tested without a browser. See editor-channel. */
-      const next = embeddedHref(anchor.getAttribute("href"), window.location.href)
+      const next = embeddedHref(href, window.location.href)
       if (!next) return
 
       event.preventDefault()

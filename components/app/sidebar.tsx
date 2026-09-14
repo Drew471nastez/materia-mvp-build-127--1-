@@ -333,7 +333,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
      * build. OnePage is a link in bio. Named for what they are, and grouped,
      * because they are the same kind of decision.
      */
-    { href: "/app/creator-page", label: t("nav.creatorPage"), icon: NAV_ICONS.storeBuilder },
+    { href: "/creator-page", label: t("nav.creatorPage"), icon: NAV_ICONS.storeBuilder },
     { href: "/app/website-builder", label: t("nav.websiteBuilder"), icon: NAV_ICONS.websiteBuilder, forceNavigation: true },
     { href: "/app/onepage", label: t("nav.onepage"), icon: NAV_ICONS.onepage, forceNavigation: true },
     /*
@@ -786,7 +786,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Orders", href: "/app/orders", icon: ShoppingCart, category: "Pages" },
     /* A profile card, the same as the rail's own icon and for the same
        reason: a plain silhouette is the account menu, not a page. */
-    { label: "Creator Page", href: "/app/creator-page", icon: ContactRound, category: "Pages" },
+    { label: "Creator Page", href: "/creator-page", icon: ContactRound, category: "Pages" },
     { label: "Website", href: "/app/website-builder", icon: MonitorSmartphone, category: "Pages" },
     { label: "OnePage", href: "/app/onepage", icon: Link2, category: "Pages" },
     { label: "Emails", href: "/app/emails", icon: Mail, category: "Pages" },
@@ -1326,7 +1326,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                         // /explore always opens in external browser on native
                         if (isNativeApp() && item.href === "/explore") {
                           openExternal(EXPLORE_FULL_URL)
-                        } else if (!isNativePlatform() && (item.href.startsWith("/app/creator-page") || item.href.startsWith("/app/onepage"))) {
+                        } else if (!isNativePlatform() && (item.href.startsWith("/creator-page") || item.href.startsWith("/app/onepage"))) {
                           window.location.href = item.href
                         } else {
                           router.push(item.href)
@@ -1367,7 +1367,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                               // /explore always opens in external browser on native
                               if (isNativeApp() && item.href === "/explore") {
                                 openExternal(EXPLORE_FULL_URL)
-                              } else if (!isNativePlatform() && (item.href.startsWith("/app/creator-page") || item.href.startsWith("/app/onepage"))) {
+                              } else if (!isNativePlatform() && (item.href.startsWith("/creator-page") || item.href.startsWith("/app/onepage"))) {
                                 window.location.href = item.href
                               } else {
                                 router.push(item.href)

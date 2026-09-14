@@ -148,9 +148,18 @@ export function EditCtaButton({
         onClick={() => setOpen(true)}
         aria-label="Edit this bar"
         title="Edit this bar"
-        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-black/5 text-current opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        /*
+          SMALLER ON A PHONE, and no filled background there. The bar's own
+          row on a 390px screen is an avatar, a sentence and this; a 28px
+          chip with a panel behind it competes with the sentence for the line
+          it is attached to. On a desktop there is room for the chip.
+
+          `bg-current/[0.08]` rather than black or white: the bar can be any
+          colour a creator picked, and a fixed tint disappears on half of them.
+        */
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-current opacity-60 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 sm:h-7 sm:w-7 sm:bg-current/[0.08] sm:opacity-70"
       >
-        <Pencil className="h-3.5 w-3.5" />
+        <Pencil className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
       </button>
 
       <EditorSheet
