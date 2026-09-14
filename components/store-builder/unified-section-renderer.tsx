@@ -3339,13 +3339,9 @@ export function UnifiedProductPage({
   const productType = product?.type || "digital"
   const salesCount = product?.sales_count || 0
   const showSalesBadge = !isPreviewMode && product?.show_sales_badge !== false
-  // Combined sales announcement logic:
-  // 1. If product setting is explicitly ON → always show
-  // 2. If product setting is explicitly OFF → never show
-  // 3. If product setting is not set → follow Store Builder setting
-  const productExplicitlyOn = product?.show_sales_badge === true
-  const productExplicitlyOff = product?.show_sales_badge === false
-  const shouldShowSalesAnnouncement = productExplicitlyOn || (settings.showSalesAnnouncement && !productExplicitlyOff)
+  /* The "N people have purchased this" line is gone, and so is the pair of
+     switches that decided whether to print it. `show_sales_badge` still
+     drives the badge on the card, above. */
 
   // Get category badge text (use first category name, fallback to type)
   const categoryBadgeText = product?.categories?.[0]?.name || productType
@@ -3620,7 +3616,7 @@ export function UnifiedProductPage({
                   >
                     {/* Price display - only show static price if no variants */}
                     {variants.length === 0 && (
-                      <div className="mb-4">
+                      <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                         <div
                           className={cn("text-xl font-bold", !priceContainerText && "text-foreground")}
                           style={{ color: priceContainerText }}
@@ -3628,7 +3624,7 @@ export function UnifiedProductPage({
                           {productPrice === 0 ? "Free" : formatPrice(productPrice)}
                         </div>
                         {compareAtPrice && compareAtPrice > productPrice && (
-                          <div className="mt-1 flex items-center gap-2">
+                          <div className="flex items-center gap-2">
                             <span
                               className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
                               style={{ color: priceContainerMuted }}
@@ -3645,7 +3641,7 @@ export function UnifiedProductPage({
 
                     {/* Dynamic price display when variants exist */}
                     {variants.length > 0 && (
-                      <div className="mb-4">
+                      <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                         <div
                           className={cn("text-xl font-bold", !priceContainerText && "text-foreground")}
                           style={{ color: priceContainerText }}
@@ -3653,7 +3649,7 @@ export function UnifiedProductPage({
                           {currentDisplayPrice === 0 ? "Free" : formatPrice(currentDisplayPrice)}
                         </div>
                         {compareAtPrice && compareAtPrice > currentDisplayPrice && (
-                          <div className="mt-1 flex items-center gap-2">
+                          <div className="flex items-center gap-2">
                             <span
                               className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
                               style={{ color: priceContainerMuted }}
@@ -3797,19 +3793,17 @@ export function UnifiedProductPage({
                       </div>
                     )}
 
-                    {shouldShowSalesAnnouncement && salesCount > 0 && (
-                      <div
-                        className={cn("mt-4 pt-4 border-t", !cardBorderColor && "border-border")}
-                        style={{ borderColor: cardBorderColor }}
-                      >
-                        <p
-                          className={cn("text-sm text-center", !priceContainerMuted && "text-muted-foreground")}
-                          style={{ color: priceContainerMuted }}
-                        >
-                          {salesCount} {salesCount === 1 ? "person has" : "people have"} purchased this
-                        </p>
-                      </div>
-                    )}
+                    {/*
+                      =====================================================================
+                       NO "8 PEOPLE HAVE PURCHASED THIS"
+                      =====================================================================
+                      It sat under What's included on every product page, and on a shop that
+                      is getting started it is a small number printed in the place a buyer
+                      looks to decide. Nobody is persuaded by eight, and the ones who are
+                      reading it are the ones deciding. The sales count is still on the
+                      product in the app, where it is a fact for the person selling rather
+                      than a line of copy for the person buying.
+                    */}
                   </div>
 
                   {/* Mobile: Creator info OUTSIDE the price card */}
@@ -3927,7 +3921,7 @@ export function UnifiedProductPage({
                 >
                   {/* Price display - only show static price if no variants */}
                   {variants.length === 0 && (
-                    <div className="mb-4">
+                    <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       <div
                         className={cn("text-2xl sm:text-3xl font-bold", !priceContainerText && "text-foreground")}
                         style={{ color: priceContainerText }}
@@ -3935,7 +3929,7 @@ export function UnifiedProductPage({
                         {productPrice === 0 ? "Free" : formatPrice(productPrice)}
                       </div>
                       {compareAtPrice && compareAtPrice > productPrice && (
-                        <div className="mt-1 flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                           <span
                             className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
                             style={{ color: priceContainerMuted }}
@@ -3952,7 +3946,7 @@ export function UnifiedProductPage({
 
                   {/* Dynamic price display when variants exist */}
                   {variants.length > 0 && (
-                    <div className="mb-4">
+                    <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       <div
                         className={cn("text-2xl sm:text-3xl font-bold", !priceContainerText && "text-foreground")}
                         style={{ color: priceContainerText }}
@@ -3960,7 +3954,7 @@ export function UnifiedProductPage({
                         {currentDisplayPrice === 0 ? "Free" : formatPrice(currentDisplayPrice)}
                       </div>
                       {compareAtPrice && compareAtPrice > currentDisplayPrice && (
-                        <div className="mt-1 flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                           <span
                             className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
                             style={{ color: priceContainerMuted }}
@@ -4102,19 +4096,6 @@ export function UnifiedProductPage({
                     </div>
                   )}
 
-                  {shouldShowSalesAnnouncement && salesCount > 0 && (
-                    <div
-                      className={cn("mt-4 pt-4 border-t", !cardBorderColor && "border-border")}
-                      style={{ borderColor: cardBorderColor }}
-                    >
-                      <p
-                        className={cn("text-sm text-center", !priceContainerMuted && "text-muted-foreground")}
-                        style={{ color: priceContainerMuted }}
-                      >
-                        {salesCount} {salesCount === 1 ? "person has" : "people have"} purchased this
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -4226,7 +4207,7 @@ export function UnifiedProductPage({
 
                 {/* Price display - only show static price if no variants */}
                 {variants.length === 0 && (
-                  <div className="mb-4">
+                  <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <div
                       className={cn("text-3xl font-bold", !priceContainerText && "text-foreground")}
                       style={{ color: priceContainerText }}
@@ -4234,7 +4215,7 @@ export function UnifiedProductPage({
                       {productPrice === 0 ? "Free" : formatPrice(productPrice)}
                     </div>
                     {compareAtPrice && compareAtPrice > productPrice && (
-                      <div className="mt-1 flex items-center gap-2">
+                      <div className="flex items-center gap-2">
                         <span
                           className={cn("text-lg line-through", !priceContainerMuted && "text-muted-foreground")}
                           style={{ color: priceContainerMuted }}
@@ -4249,7 +4230,7 @@ export function UnifiedProductPage({
 
                 {/* Dynamic price display when variants exist */}
                 {variants.length > 0 && (
-                  <div className="mb-4">
+                  <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <div
                       className={cn("text-3xl font-bold", !priceContainerText && "text-foreground")}
                       style={{ color: priceContainerText }}
@@ -4257,7 +4238,7 @@ export function UnifiedProductPage({
                       {currentDisplayPrice === 0 ? "Free" : formatPrice(currentDisplayPrice)}
                     </div>
                     {compareAtPrice && compareAtPrice > currentDisplayPrice && (
-                      <div className="mt-1 flex items-center gap-2">
+                      <div className="flex items-center gap-2">
                         <span
                           className={cn("text-lg line-through", !priceContainerMuted && "text-muted-foreground")}
                           style={{ color: priceContainerMuted }}
@@ -4399,19 +4380,6 @@ export function UnifiedProductPage({
                   </div>
                 )}
 
-                {shouldShowSalesAnnouncement && salesCount > 0 && (
-                  <div
-                    className={cn("mt-4 pt-4 border-t", !cardBorderColor && "border-border")}
-                    style={{ borderColor: cardBorderColor }}
-                  >
-                    <p
-                      className={cn("text-sm text-center", !priceContainerMuted && "text-muted-foreground")}
-                      style={{ color: priceContainerMuted }}
-                    >
-                      {salesCount} {salesCount === 1 ? "person has" : "people have"} purchased this
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           )}

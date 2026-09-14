@@ -356,19 +356,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     (productPageConfig?.headerSettings as ProductHeaderSettings | undefined)?.mobileGalleryDots ?? false
   const desktopGalleryDots =
     (productPageConfig?.headerSettings as ProductHeaderSettings | undefined)?.desktopGalleryDots ?? false
-  // Extract new toggle settings
-  // Show Sales Announcement from Store Builder setting (global store preference)
-  const storeBuilderShowSalesAnnouncement =
-    (productPageConfig?.headerSettings as ProductHeaderSettings | undefined)?.showSalesAnnouncement ?? false
-  // Product-level show_sales_badge setting (from product Settings tab)
-  // This is the per-product control
-  const productExplicitlyOn = product.show_sales_badge === true
-  const productExplicitlyOff = product.show_sales_badge === false
-  // Combined logic for showing sales count:
-  // 1. If product setting is explicitly ON → always show
-  // 2. If product setting is explicitly OFF → never show
-  // 3. If product setting is not set → follow Store Builder setting
-  const showSalesAnnouncement = productExplicitlyOn || (storeBuilderShowSalesAnnouncement && !productExplicitlyOff)
+  /* The "N people have purchased this" line is gone, and with it the store
+     switch and the per-product override that decided whether to print it. */
   const showRatingNextToSeller =
     (productPageConfig?.headerSettings as ProductHeaderSettings | undefined)?.showRatingNextToSeller ?? true
 
@@ -1155,19 +1144,17 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 </ul>
               </div>
 
-              {showSalesAnnouncement && product.sales_count > 0 && (
-                <div
-                  className="mt-4 pt-4 border-t"
-                  style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
-                >
-                  <p
-                    className="text-sm text-center"
-                    style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-                  >
-                    {product.sales_count} {product.sales_count === 1 ? "person has" : "people have"} purchased this
-                  </p>
-                </div>
-              )}
+              {/*
+                =====================================================================
+                 NO "8 PEOPLE HAVE PURCHASED THIS"
+                =====================================================================
+                It sat under What's included on every product page, and on a shop that
+                is getting started it is a small number printed in the place a buyer
+                looks to decide. Nobody is persuaded by eight, and the ones who are
+                reading it are the ones deciding. The sales count is still on the
+                product in the app, where it is a fact for the person selling rather
+                than a line of copy for the person buying.
+              */}
             </div>
 
             {/* Mobile: Creator info OUTSIDE the card with share button */}
@@ -1444,19 +1431,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             </ul>
           </div>
 
-          {showSalesAnnouncement && product.sales_count > 0 && (
-            <div
-              className="mt-4 pt-4 border-t"
-              style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
-            >
-              <p
-                className="text-sm text-center"
-                style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-              >
-                {product.sales_count} {product.sales_count === 1 ? "person has" : "people have"} purchased this
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -1537,6 +1511,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             creatorUsername={creatorUsername}
             avatarUrl={creatorAvatarUrl}
             buttonLabel={creatorBarLabel}
+            /* The phone's bar is the product's. See the note in the bar. */
+            productTitle={product.title}
+            productImageUrl={product.thumbnail_url || galleryUrls?.[0] || undefined}
+            productSlug={product.slug}
           />
         </DiscoverStickyWrapper>
 
@@ -1559,8 +1537,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           />
         )}
 
-        {/* ✅ Mobile wider (px-3), desktop unchanged */}
-        <div className="mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12 pb-24 lg:pb-12">
+        {/* The buy bar's reserve is at the END of the page, not here — see the
+            note on the other branch's wrapper. */}
+        <div className="mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12">
           {AlertsBlock}
           {MainProductContent}
         </div>
@@ -1622,7 +1601,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           backgroundColor={pageBackgroundColor}
         />
 
-        <SellerFooter />
+        {/* The room the fixed buy bar needs, at the bottom of the page where
+          the bar is. `sticky-buy-reserve` is zero on a desktop, where the bar
+          is part of the flow rather than over it. */}
+      <SellerFooter />
+      <div aria-hidden className="h-20 lg:h-0" />
       </div>
     )
   }
@@ -1754,6 +1737,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           creatorId={product.creator_id}
           creatorUsername={creatorUsername}
           avatarUrl={creatorAvatarUrl}
+          /* The phone's bar is the product's. See the note in the bar. */
+          productTitle={product.title}
+          productImageUrl={product.thumbnail_url || galleryUrls?.[0] || undefined}
+          productSlug={product.slug}
         />
       </DiscoverStickyWrapper>
 
@@ -1774,8 +1761,21 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           downloadFiles={productDownloadFiles}
         />
 
-      {/* ✅ Mobile wider (px-3), desktop unchanged */}
-      <div className="mx-auto w-full max-w-[1100px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12 pb-24 lg:pb-12">
+      {/*
+        =====================================================================
+         THE ADD-TO-CART BAR IS RESERVED FOR AT THE END, NOT IN THE MIDDLE
+        =====================================================================
+        This carried `pb-24` so the buy bar would not cover the bottom of the
+        page. The bar is `position: fixed`, so it floats over everything at
+        the bottom of the SCREEN — but this wrapper is not the bottom of the
+        page. More from the seller, the reviews and the footer all come after
+        it, so the reserve was a 96px hole between the FAQ and the next
+        section and the actual end of the page was still under the bar.
+
+        The reserve moved to the end of the page, where the thing it is
+        reserving for actually sits. Ordinary section spacing here now.
+      */}
+      <div className="mx-auto w-full max-w-[1100px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12">
         {AlertsBlock}
         {MainProductContent}
       </div>
@@ -1822,7 +1822,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         backgroundColor={defaultPageBackgroundColor}
       />
 
+      {/* The room the fixed buy bar needs, at the bottom of the page where
+          the bar is. `sticky-buy-reserve` is zero on a desktop, where the bar
+          is part of the flow rather than over it. */}
       <SellerFooter />
+      <div aria-hidden className="h-20 lg:h-0" />
 
     </div>
   )

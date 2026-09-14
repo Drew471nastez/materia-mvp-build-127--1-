@@ -2505,12 +2505,9 @@ function ProductHeaderSettingsForm({
 
       <div className="space-y-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Display Options</h4>
-        <ToggleField
-          label="Show Sales Announcement"
-          checked={settings.showSalesAnnouncement ?? false}
-          onChange={(checked) => onChange({ showSalesAnnouncement: checked })}
-          description="Show how many people purchased this item"
-        />
+        {/* "Show Sales Announcement" was here. The line it switched — "N people
+            have purchased this", under What's included — is gone, so the
+            switch controlled nothing. */}
         <ToggleField
           label="Show Rating Next To Seller"
           checked={settings.showRatingNextToSeller ?? true}

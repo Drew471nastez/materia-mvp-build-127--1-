@@ -6,11 +6,13 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { Mail, ArrowLeft, ArrowRight, Check } from "lucide-react"
+import { Mail, ArrowLeft, ArrowRight, Check, Flag, MoreHorizontal, Share2 } from "lucide-react"
 import { getStoreInternalPath } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 import { SmartLink } from "@/components/smart-link"
+import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { hapticTap } from "@/lib/native-bridge"
 
 // Button style presets (same as subscribe bar)
 export const creatorBarButtonPresets: Record<string, { default: string; subscribed: string }> = {
@@ -621,14 +623,122 @@ function BackControl({ onBack, label }: { onBack: () => void; label: string }) {
   return (
     <button
       type="button"
-      onClick={onBack}
+      onClick={() => {
+        /*
+          IT HAS TO FEEL PRESSED.
+
+          A phone has no hover, so a control whose only state is `hover:` has
+          no pressed state at all — you touch it, nothing acknowledges the
+          touch, and the page changes a moment later. The three together are
+          what a native control does: the tap goes in (scale), the surface
+          lights under the finger (the ring), and the phone answers (the
+          haptic). None of them waits for the navigation, which is the whole
+          point — the navigation is the slow part.
+        */
+        hapticTap("light")
+        onBack()
+      }}
       aria-label={label}
       title={label}
-      className="-ml-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/10 active:scale-95 dark:hover:bg-white/10"
-      style={{ color: "inherit" }}
+      className={cn(
+        "-ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+        "transition-[transform,background-color] duration-100 ease-out",
+        "hover:bg-black/10 dark:hover:bg-white/10",
+        "active:scale-[0.88] active:bg-black/15 dark:active:bg-white/20",
+      )}
+      style={{ color: "inherit", WebkitTapHighlightColor: "transparent" }}
     >
-      <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
+      <ArrowLeft className="h-[19px] w-[19px]" strokeWidth={2} />
     </button>
+  )
+}
+
+/**
+ * ===========================================================================
+ *  THE THREE DOTS: SHARE, AND REPORT
+ * ===========================================================================
+ * A sheet on a phone and a dropdown on a desktop, which is ResponsiveActionMenu
+ * and is what the rest of the product already uses for a row of actions.
+ *
+ * SHARE uses the phone's own share sheet where there is one, because that is
+ * the one place every app a visitor actually wants to send this to already
+ * lives. Where there is not, it copies the address, which is the honest
+ * fallback rather than a grid of network buttons nobody presses.
+ *
+ * REPORT opens a mail to support with the address already in it. There is no
+ * reports table and no moderation queue behind this yet, so a form that said
+ * "thanks, we'll look into it" would be a lie about what happens next. A mail
+ * arrives somewhere a person reads.
+ */
+function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const url = typeof window !== "undefined" && slug
+    ? `${window.location.origin}/p/${slug}`
+    : typeof window !== "undefined"
+      ? window.location.href
+      : ""
+
+  const share = async () => {
+    hapticTap("light")
+    const nav = typeof navigator !== "undefined" ? navigator : undefined
+    if (nav?.share) {
+      try {
+        await nav.share({ title: title || document.title, url })
+        return
+      } catch {
+        /* Dismissing the system sheet rejects. That is not a failure and it
+           must not fall through to copying something nobody asked for. */
+        return
+      }
+    }
+    try {
+      await nav?.clipboard?.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* A clipboard that refuses leaves the address in the bar, where it
+         already was. Nothing to say about it. */
+    }
+  }
+
+  const report = () => {
+    hapticTap("light")
+    const subject = encodeURIComponent(`Reporting a product: ${title || slug}`)
+    const body = encodeURIComponent(`I want to report this product:\n${url}\n\nWhat is wrong with it:\n`)
+    window.location.href = `mailto:support@storelib.com?subject=${subject}&body=${body}`
+  }
+
+  return (
+    <ResponsiveActionMenu
+      title={title || "This product"}
+      items={[
+        /* An ELEMENT, not a component: ActionMenuItem.icon is a ReactNode and
+           a lucide icon passed bare is a forwardRef object, which React
+           refuses to render as a child. */
+        {
+          label: copied ? "Link copied" : "Share",
+          icon: copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />,
+          onClick: share,
+        },
+        { label: "Report", icon: <Flag className="h-4 w-4" />, onClick: report },
+      ]}
+      trigger={
+        <button
+          type="button"
+          aria-label="More"
+          className={cn(
+            "-mr-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+            "transition-[transform,background-color] duration-100 ease-out",
+            "hover:bg-black/10 dark:hover:bg-white/10",
+            "active:scale-[0.88] active:bg-black/15 dark:active:bg-white/20",
+          )}
+          style={{ color: "inherit", WebkitTapHighlightColor: "transparent" }}
+        >
+          <MoreHorizontal className="h-[19px] w-[19px]" strokeWidth={2} />
+        </button>
+      }
+    />
   )
 }
 
@@ -647,6 +757,17 @@ interface LiveProductCreatorBarProps {
    * One bar, two places: see the note in the markup below.
    */
   buttonLabel?: string
+  /**
+   * WHAT THE PHONE'S BAR IS ABOUT.
+   *
+   * On a phone the bar is the product's, not the creator's: a visitor who
+   * scrolled past the title has nothing else telling them which product they
+   * are on, and the creator's name is the one fact they already had — it is
+   * how they got here. The desktop bar is unchanged.
+   */
+  productTitle?: string
+  productImageUrl?: string
+  productSlug?: string
 }
 
 export function LiveProductCreatorBar({
@@ -656,6 +777,9 @@ export function LiveProductCreatorBar({
   creatorUsername,
   avatarUrl,
   buttonLabel,
+  productTitle,
+  productImageUrl,
+  productSlug,
 }: LiveProductCreatorBarProps) {
   // IMPORTANT: All hooks must be called BEFORE any early returns to avoid React error #310
   const [subscribed, setSubscribed] = useState(false)
@@ -855,70 +979,64 @@ export function LiveProductCreatorBar({
         the two is looking at one shop.
       */}
       {/*
-        ONE ROW ON A PHONE, NOT TWO.
+        =====================================================================
+         ON A PHONE THE BAR IS THE PRODUCT'S
+        =====================================================================
+        It carried the creator's name, an email field and a Follow button.
+        The name is the one fact a visitor already has — it is how they got
+        here — and the field asks for an address before they have decided
+        anything, on a page they opened to look at a thing. Meanwhile the one
+        piece of information a sticky bar could be carrying, WHICH PRODUCT AM
+        I LOOKING AT, was nowhere on it once the title had scrolled away.
 
-        The two facts had the first line and the form had its own underneath,
-        which made the bar two rows deep on the page where the product photo
-        is the thing somebody came for. It fits on one: the way back and the
-        avatar are fixed widths, the button is as wide as its word, and the
-        name and the field share what is left.
+        So: the way back, the product, and the things you can do with it.
+        The field has not moved somewhere worse — it is on the creator page,
+        which is where somebody who wants the creator goes.
 
-        THE NAME YIELDS FIRST. It is the only part with no floor — a long
-        display name would otherwise push the field down to nothing — so it
-        truncates, and the field keeps a width it can still be typed into.
+        THE DESKTOP BAR IS UNCHANGED. There is room for both there, and none
+        of the above is about a 1200px window.
       */}
-      <form onSubmit={handleSubmit} className="flex w-full items-center gap-2 px-3 py-2 sm:hidden">
+      <div data-product-bar="phone" className="flex w-full items-center gap-2.5 px-3 py-2 sm:hidden">
         <BackControl onBack={goBack} label="Back" />
-        <SmartLink
-          href={creatorHref}
-          className="flex min-w-0 shrink items-center gap-1.5"
-          aria-label={`Go to ${creatorName}'s page`}
+
+        {/*
+          The thumbnail and the name are one target and it is the way back to
+          the top of the page, which is where the picture and the buy button
+          are. A bar that names a thing and does nothing when you press it is
+          a label.
+        */}
+        <button
+          type="button"
+          onClick={() => {
+            hapticTap("light")
+            window.scrollTo({ top: 0, behavior: "smooth" })
+          }}
+          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg py-0.5 text-left transition-transform duration-100 active:scale-[0.98]"
+          aria-label={productTitle ? `Back to the top of ${productTitle}` : "Back to the top"}
         >
-          <Avatar className="h-7 w-7 shrink-0">
-            {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
-            <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-          </Avatar>
-          <p className="truncate text-[13px] font-medium">{creatorName}</p>
-        </SmartLink>
-        {settings.showSubscribe !== false && (
-          <>
-            <Input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onFocus={() => setInputFocus(true)}
-              onBlur={() => setInputFocus(false)}
-              required
-              disabled={loading}
-              /*
-                A FLOOR, NOT `min-w-0`. Both the name and the field were free
-                to shrink, so flexbox split the shortage between them and a
-                long display name left 70px of email field — a row that fits
-                but cannot be typed in. The field stops at a width that works
-                and the name, which has no floor and truncates, gives up the
-                rest.
-              */
-              className={cn(adaptiveInputClass, "h-8 min-w-[104px] flex-1 basis-24 text-xs", inputOpacityClass)}
-              style={{ borderRadius: `${settings.buttonBorderRadius ?? 8}px` }}
+          {productImageUrl ? (
+            /*
+              A rounded square, not a circle: a circle is a person and this is
+              a thing. 8px on a 32px tile is the same corner the product cards
+              use, so the two read as the same object.
+            */
+            <img
+              src={productImageUrl}
+              alt=""
+              className="h-8 w-8 shrink-0 rounded-lg object-cover"
+              style={{ boxShadow: "0 0 0 1px rgba(15, 23, 42, 0.08)" }}
             />
-            <Button
-              type="submit"
-              size="sm"
-              disabled={loading || !email || isCurrentEmailSubscribed}
-              onClick={() => { if (!loading && email && !isCurrentEmailSubscribed) triggerAnim() }}
-              className={cn("h-8 shrink-0 px-2.5 text-xs", buttonOpacityClass, pulse && "animate-[btnPop_520ms_ease-out]")}
-              style={{
-                backgroundColor: settings.buttonColor || "#4b5563",
-                color: settings.buttonTextColor || "#ffffff",
-                borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
-              }}
-            >
-              {loading ? "..." : buttonText}
-            </Button>
-          </>
-        )}
-      </form>
+          ) : null}
+          <span className="truncate text-[13px] font-medium">{productTitle || creatorName}</span>
+        </button>
+
+        {/*
+          Share and Report. ResponsiveActionMenu is the established shape for
+          a row of actions here: a dropdown on a desktop, a bottom sheet on a
+          phone, which is what a phone expects from three dots.
+        */}
+        <ProductBarMenu title={productTitle || ""} slug={productSlug || ""} />
+      </div>
 
       {/* Desktop - with reduced width (1170px instead of 1200px) */}
       <div className={cn("hidden sm:block py-[calc(0.625rem+5px)] px-4 sm:px-5")}>
