@@ -87,6 +87,23 @@ interface ProductCardProps {
    * name, which tells the visitor nothing and costs a row on every card.
    */
   showCreator?: boolean
+  /**
+   * THE COLOURS A THEME GIVES THE CARD, applied inline.
+   *
+   * The root is `bg-card border-border/60`, which is the design system's
+   * white. A creator page paints its sections from a theme preset, and for
+   * every dark preset that meant a white card with near-white text on it —
+   * invisible titles, invisible prices. The featured-products renderer had
+   * been computing exactly these four colours from the theme and then not
+   * passing them anywhere, so this is the prop that was missing. Inline,
+   * because an inline style beats a class and nothing else does.
+   */
+  surface?: {
+    backgroundColor?: string
+    borderColor?: string
+    textColor?: string
+    priceColor?: string
+  }
 }
 
 export const ProductCard = memo(function ProductCard({
@@ -96,6 +113,7 @@ export const ProductCard = memo(function ProductCard({
   clientNav = false,
   discoverLayout = true,
   showCreator = true,
+  surface,
 }: ProductCardProps) {
   // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
   // Hooks must be declared before any early return (React rules).
@@ -153,6 +171,11 @@ export const ProductCard = memo(function ProductCard({
   return (
     <div
       className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
+      style={
+        surface?.backgroundColor || surface?.borderColor || surface?.textColor
+          ? { backgroundColor: surface.backgroundColor, borderColor: surface.borderColor, color: surface.textColor }
+          : undefined
+      }
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onClickCapture={onClickCapture}
@@ -214,13 +237,13 @@ export const ProductCard = memo(function ProductCard({
 
         <SmartLink href={productUrl} useClientNav={clientNav} className="flex-1 flex flex-col">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="text-[17px] font-medium leading-tight break-words min-w-0">{product.title}</h3>
+            <h3 className="text-[17px] font-medium leading-tight break-words min-w-0" style={surface?.textColor ? { color: surface.textColor } : undefined}>{product.title}</h3>
             <Badge variant="secondary" className="shrink-0 text-xs capitalize">
               {product.categoryName || product.categories?.[0]?.name || product.category || product.type}
             </Badge>
           </div>
           <div className="mt-auto pt-4">
-            <span className="font-semibold">{product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}</span>
+            <span className="font-semibold" style={surface?.priceColor ? { color: surface.priceColor } : undefined}>{product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}</span>
             {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
               <span className="ml-2 text-sm text-muted-foreground line-through">
                 {formatPrice(product.compare_at_cents)}

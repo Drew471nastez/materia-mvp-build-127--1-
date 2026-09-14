@@ -332,7 +332,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
      * build. OnePage is a link in bio. Named for what they are, and grouped,
      * because they are the same kind of decision.
      */
-    { href: "/creator-page", label: t("nav.creatorPage"), icon: NAV_ICONS.storeBuilder, forceNavigation: true },
+    { href: "/app/creator-page", label: t("nav.creatorPage"), icon: NAV_ICONS.storeBuilder },
     { href: "/app/website-builder", label: t("nav.websiteBuilder"), icon: NAV_ICONS.websiteBuilder, forceNavigation: true },
     { href: "/app/onepage", label: t("nav.onepage"), icon: NAV_ICONS.onepage, forceNavigation: true },
     /*
@@ -783,7 +783,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "New Product", href: "/app/products/new", icon: Package, category: "Pages" },
     { label: "Analytics", href: "/app/analytics", icon: BarChart3, category: "Pages" },
     { label: "Orders", href: "/app/orders", icon: ShoppingCart, category: "Pages" },
-    { label: "Creator Page", href: "/creator-page", icon: Store, category: "Pages" },
+    { label: "Creator Page", href: "/app/creator-page", icon: Store, category: "Pages" },
     { label: "Website", href: "/app/website-builder", icon: MonitorSmartphone, category: "Pages" },
     { label: "OnePage", href: "/app/onepage", icon: Link2, category: "Pages" },
     { label: "Emails", href: "/app/emails", icon: Mail, category: "Pages" },

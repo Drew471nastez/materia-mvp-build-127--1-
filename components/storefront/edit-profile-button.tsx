@@ -68,6 +68,21 @@ export function EditProfileButton({
 }: EditProfileButtonProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
+  /**
+   * BELT AND BRACES FOR THE WORKSPACE. `embedded` arrives as a prop from the
+   * query string; this also asks the window itself, so a frame that lost the
+   * parameter to a rewrite still never shows a button that opens the editor
+   * inside the editor. State rather than a bare read, so the server and the
+   * first client render agree.
+   */
+  const [framed, setFramed] = React.useState(false)
+  React.useEffect(() => {
+    try {
+      setFramed(window.self !== window.top)
+    } catch {
+      setFramed(true)
+    }
+  }, [])
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -167,13 +182,13 @@ export function EditProfileButton({
       */}
       <div className="flex items-center gap-2">
         {/* Not inside the workspace: there, this page already is the editor. */}
-        {!embedded && (
+        {!embedded && !framed && (
         <a
-          href="/creator-page"
-          className="inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-4 text-sm font-medium text-gray-900 no-underline shadow-md backdrop-blur transition-colors hover:bg-white"
+          href="/app/creator-page"
+          className="inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-3 text-sm font-medium text-gray-900 no-underline shadow-md backdrop-blur transition-colors hover:bg-white sm:px-4"
         >
           <Wand2 className="h-3.5 w-3.5" />
-          Customize page
+          <span className="hidden sm:inline">Customize page</span>
         </a>
         )}
         {/*
@@ -192,10 +207,12 @@ export function EditProfileButton({
           // rounded-lg (8px), not a pill. A fully rounded control reads as a
           // chip or a tag; this is a button, and it sits beside a card grid whose
           // corners are the same 8px.
-          className="inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-4 text-sm font-medium text-gray-900 shadow-md backdrop-blur transition-colors hover:bg-white"
+          className="inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-3 text-sm font-medium text-gray-900 shadow-md backdrop-blur transition-colors hover:bg-white sm:px-4"
         >
           <Pencil className="h-3.5 w-3.5" />
-          Edit profile
+          {/* The word on a desktop; on a phone the cover is 128px tall and a
+              labelled button over it covers a quarter of the picture. */}
+          <span className="hidden sm:inline">Edit profile</span>
         </button>
       </div>
 

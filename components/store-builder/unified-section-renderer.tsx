@@ -212,13 +212,17 @@ function ShareModal({
 
   if (!isOpen) return null
 
+  /**
+   * INLINE, NOT CENTRED. A centred dialog with a dimmed page behind it says
+   * "stop and decide"; three share targets are not that. This is a small
+   * panel that rises in at the corner, the way the website builder's own
+   * panels do (same wb-settings-in), and any click outside it closes it.
+   * The scrim is there only to catch that click, not to darken anything.
+   */
   return (
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center" onClick={onClose}>
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" />
-      {/* Modal */}
+    <div className="fixed inset-0 z-[999999]" onClick={onClose}>
       <div
-        className="relative bg-background max-w-[240px] w-full mx-4 p-4 rounded-2xl shadow-xl"
+        className="wb-settings-in absolute bottom-[calc(16px+env(safe-area-inset-bottom,0px))] right-4 w-[240px] rounded-2xl border border-border bg-background p-3 shadow-[0_18px_50px_-18px_rgba(0,0,0,0.35)] sm:bottom-auto sm:right-6 sm:top-20"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col gap-3">
@@ -2465,6 +2469,15 @@ function UnifiedFeaturedProductsSection({
               const cardPriceColor = settings.productCardColors?.priceColor || (cardTextColor ? `${cardTextColor}99` : undefined)
               const cardBorderColor = settings.productCardColors?.borderColor || (cardTextColor ? `${cardTextColor}20` : undefined)
 
+              /**
+               * THE FOUR COLOURS ABOVE USED TO STOP HERE.
+               *
+               * They were computed from the theme on every render and then
+               * the card was given the product and the creator and nothing
+               * else, so the card painted itself the design system's white.
+               * On every dark scheme that was a white card with near-white
+               * text on it. This is the line that was missing.
+               */
               const content = (
                 <StorefrontProductCard
                   product={product}
@@ -2472,6 +2485,12 @@ function UnifiedFeaturedProductsSection({
                   creatorUsername={creatorUsername}
                   creatorAvatarUrl={creatorAvatarUrl}
                   isOwner={viewerIsOwner}
+                  surface={{
+                    backgroundColor: cardBgColor,
+                    borderColor: cardBorderColor,
+                    textColor: cardTextColor,
+                    priceColor: cardPriceColor,
+                  }}
                 />
               )
 

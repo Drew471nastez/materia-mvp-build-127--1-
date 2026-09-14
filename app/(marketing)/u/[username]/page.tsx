@@ -30,6 +30,7 @@ import { deservesIndexing } from "@/lib/security/spam-signals"
 import {
   STOREFRONT_PAGE_BACKGROUND,
   storefrontPageBackground,
+  isInheritedWhite,
   storefrontSectionBackground,
 } from "@/lib/store-builder/page-surface"
 
@@ -77,7 +78,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, display_name, username, avatar_url")
+    .select("id, display_name, username, avatar_url, email")
     .eq("username", username)
     .maybeSingle()
 
@@ -591,8 +592,30 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     const globalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
     const subscribeBarSettings = buildSubscribeBarSettings(headerSettings)
     // Get theme colors from published config
-    const pageBackgroundColor = publishedConfig.globalColors?.backgroundColor
-    const pageTextColor = headerSettings?.colors?.textColor
+    /**
+     * THE PAGE COLOUR COMES FROM THE THEME WHEN NOBODY CHOSE ONE.
+     *
+     * This read only the STORED page colour, so switching to a dark scheme
+     * repainted every section and left the body on the light grey field —
+     * a black cover, a black Featured band, and a pale page in between them.
+     * The theme knows what the page should be (`sections.pageBackgroundColor`)
+     * and its foreground; they are the fallback now.
+     *
+     * The grey-field rule still applies to light schemes: a theme whose page
+     * is white is a theme that "did not choose", exactly like a stored white,
+     * and the field is what keeps white cards visible on it. Only a theme
+     * that actually paints its page a colour gets to.
+     */
+    const themePresetKey = globalSettings?.themePreset || "default"
+    const themeForPage = themePresets[themePresetKey as keyof typeof themePresets]
+    const themePage = themeForPage?.sections?.pageBackgroundColor
+    const pageBackgroundColor =
+      publishedConfig.globalColors?.backgroundColor ||
+      (themePage && !isInheritedWhite(themePage) ? themePage : undefined)
+    const themeForeground = themeForPage?.colors?.foreground
+    const pageTextColor =
+      headerSettings?.colors?.textColor ||
+      (themeForeground && themeForeground.toLowerCase() !== "#000000" ? themeForeground : undefined)
     // Calculate total sales for About section
     const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
     // Calculate products count for About section
@@ -865,7 +888,14 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               sellerMemberSince={profile.created_at}
               sellerTotalSales={totalSales}
               sellerProductsCount={productsCount}
-              sellerContactEmail={headerSettings.contactEmail}
+              /**
+               * ALWAYS AN ADDRESS. The creator's typed one wins; when it is
+               * empty or they cleared it, the account's own email stands in,
+               * so a page can never end up with nowhere to be reached. That
+               * is the owner's explicit call: a creator page without a
+               * contact was the thing they did not want.
+               */
+              sellerContactEmail={headerSettings.contactEmail || profile.email || undefined}
               /**
                * The owner's way into the story block, decided here because
                * this is the only place that knows who is looking. The
@@ -879,7 +909,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                     headline={(aboutSection.settings as AboutSettings).headline || ""}
                     story={(aboutSection.settings as AboutSettings).aboutContent || ""}
                     media={(aboutSection.settings as AboutSettings).mediaItems || []}
-                    contactEmail={headerSettings.contactEmail || ""}
+                    contactEmail={headerSettings.contactEmail || profile.email || ""}
                   />
                 ) : null
               }

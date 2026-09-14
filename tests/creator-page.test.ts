@@ -29,6 +29,9 @@
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { themePresets } from "../lib/store-builder/defaults"
+import { contrastRatio, parseColor } from "../lib/storelib-theme/contrast"
+
 const root = process.cwd()
 let passed = 0
 let failed = 0
@@ -53,80 +56,71 @@ function main() {
 
   // ── 1. It is under /app, so it keeps the sidebar ───────────────────────
   {
-    check("the workspace exists", existsSync(join(root, "app/creator-page/page.tsx")))
+    check("the workspace exists", existsSync(join(root, "app/app/creator-page/page.tsx")))
     /**
-     * FULL SCREEN, which reverses where this started. Under /app it inherited
-     * the sidebar and the header, and a full-width design then had about two
-     * thirds of a narrow window to render in. The sidebar was not worth that.
+     * UNDER /app, WITH THE SIDEBAR. It went full screen for a round; the
+     * owner wants the sidebar, and it is their product. Being a route under
+     * /app is the whole of how it keeps it: the layout renders the sidebar
+     * and the header, so a workspace that drew its own would be a second one
+     * to keep in step.
      */
+    const layout = read("app/app/layout.tsx")
+    check("the /app layout is what supplies the sidebar", layout.includes("<AppSidebar"))
     const workspace = strip(read("components/app/creator-page-workspace.tsx"))
-    check("it does not rebuild any app chrome", !/AppSidebar|DesktopSidebarContent/.test(workspace))
-    check("it takes the whole screen", workspace.includes("h-svh"))
-    /**
-     * With no sidebar there is no way out, so the bar carries one — and it
-     * fades before navigating rather than cutting between two unrelated
-     * layouts mid-paint, the way the website builder leaves its own editor.
-     */
-    check("and carries a way back", workspace.includes("ArrowLeft") && workspace.includes('router.push("/app")'))
-    check("which fades rather than cutting", /setLeaving\(true\)/.test(workspace))
-
-    /**
-     * LEAVING AND ARRIVING ARE THE BUILDER'S OWN SCREENS, not a second pair.
-     * BuilderLoader on the `.wb-leaving` glass is what the website builder
-     * shows when it closes; reimplementing either is how two editors in one
-     * product end up feeling like two products.
-     */
-    check("leaving uses the builder's glass", workspace.includes('className="wb-leaving"'))
-    check("and the builder's loader", workspace.includes("BuilderLoader"))
-    check("arriving has a loading screen at all", existsSync(join(root, "app/creator-page/loading.tsx")))
-    /** A loading screen that is not the colour of what follows it is a flash. */
+    check("and the workspace does not rebuild one", !/AppSidebar|DesktopSidebarContent/.test(workspace))
+    check("it fills the layout's content area rather than the viewport", workspace.includes("h-full") && !workspace.includes("h-svh"))
+    check("and carries no back control, because the sidebar is the way out", !workspace.includes("ArrowLeft"))
+    const sidebar2 = read("components/app/sidebar.tsx")
     check(
-      "on the same ground the editor uses",
-      read("app/creator-page/loading.tsx").includes("#f1f1f3") && workspace.includes("bg-[#f1f1f3]"),
+      "the setup widget is not shown over the creator page",
+      sidebar2.includes('!pathname.startsWith("/creator-page")') && sidebar2.includes('!pathname.startsWith("/app/creator-page")'),
     )
+    check("the old full-screen address still answers", read("app/creator-page/page.tsx").includes('redirect("/app/creator-page")'))
 
     /**
-     * THE CANVAS. A page rendered edge to edge inside another page has no
-     * edges of its own, so nothing says where the thing being edited stops
-     * and the tool starts.
-     */
-    check("the page sits on a canvas with its own edges", /md:rounded-xl md:border md:border-\[#e5e7eb\]/.test(workspace))
-    /**
-     * Inset and bordered on a desktop, and NOT on a phone: a gutter and a
-     * hairline around a 390px page is a border eating the content it frames.
+     * THE CANVAS. Inset and bordered on a desktop so the page has edges of
+     * its own; not on a phone, where a gutter and a hairline around a 390px
+     * page is a border eating the content it frames.
      */
     check("inset on a desktop only", /flex-1 overflow-hidden p-0 md:p-2\.5/.test(workspace))
     check("and bordered on a desktop only", /md:rounded-xl md:border/.test(workspace))
     /** A dark bar over a white page is a hard edge with nothing in between. */
-    check("the chrome is light", workspace.includes("bg-white") && !workspace.includes("#18181c"))
+    check("the chrome is light", workspace.includes("bg-[#f1f1f3]") && !workspace.includes("#18181c") && !workspace.includes("#131316"))
+
+    /**
+     * THE TOOLS ARE THE BUILDER'S TOOLS. Two editors in one product that draw
+     * the same control two ways feel like two products.
+     */
+    check("a phone gets the builder's own sheet", workspace.includes("MobileEditorSheet"))
+    check("the desktop panel rises in like the builder's do", workspace.includes("wb-settings-in"))
+    check("and it is inline at the side, not a centred dialog", /absolute bottom-3 right-3 top-\[56px\]/.test(workspace))
+    check("the colour control is the builder's swatch", workspace.includes('className="absolute -inset-1 cursor-pointer"'))
+    check("beside the builder's hex field", /font-mono text-sm/.test(workspace))
 
     // The colour scheme, from the bar.
     const api = read("app/api/creator-profile/route.ts")
     check("the scheme can be changed without leaving", workspace.includes("applyScheme"))
-    check("each row is painted in its own scheme", workspace.includes("theme.colors.background"))
     check("it writes through the route that already does auth", /applyScheme[\s\S]{0,600}\/api\/creator-profile/.test(workspace))
     check("and the frame reloads so it is the real thing", /applyScheme[\s\S]{0,900}reframe\(\)/.test(workspace))
-    /**
-     * A browser keeps the old document painted until the new one is ready, so
-     * swapping the src is nearly a cut. Putting the loader up over a page that
-     * is already on screen is what made every small change feel like a reload.
-     */
-    check("without a loading screen over a page already on screen", /const reframe = useCallback\(\(\) => setNonce/.test(workspace))
     check("the loader is only for the first load", workspace.includes("firstLoad &&"))
 
     /** Five answers, not eight, three of which were the same answer twice. */
     const schemes = workspace.match(/const SCHEMES: ThemePreset\[\] = \[([^\]]+)\]/)?.[1] ?? ""
     check("five schemes are offered", schemes.split(",").filter((x) => x.trim()).length === 5, schemes)
     check("and they are five different shapes", /default[\s\S]*blacks[\s\S]*cream[\s\S]*pink[\s\S]*astrid/.test(schemes))
-    check("each swatch shows the scheme rather than its name", workspace.includes("theme.colors.primary"))
+    /** A swatch is a tiny page: the page colour, a card on it, a pill in the primary. */
+    check("the swatch is a tiny page, not three stripes", workspace.includes("t.sections.pageBackgroundColor") && workspace.includes("t.productCard.backgroundColor") && workspace.includes("t.colors.primary"))
 
     /** A control that shrinks under the cursor reads as a toy. */
     check("nothing in the toolbar scales on press", !workspace.includes("active:scale"))
 
     // ── A phone gets a sheet, and the bar is editable from here ──────────
-    check("a phone gets a bottom sheet, not a popover on a 36px button", /isPhone && schemeOpen && portalReady/.test(workspace))
-    check("the top bar can be edited from the workspace", workspace.includes("CtaDialog"))
+    check("a phone gets a sheet, not a popover on a 36px button", /isPhone && portalReady && \(\s*<MobileEditorSheet open=\{schemeOpen\}/.test(workspace))
+    check("the top bar can be edited from the workspace", workspace.includes("CtaEditor"))
     check("including its four colours", workspace.includes("buttonTextColor"))
+    check("with the bar's own message presets", workspace.includes("MESSAGE_PRESETS") && workspace.includes('"Join our community"'))
+    check("and its button presets", workspace.includes("BUTTON_PRESETS") && workspace.includes('"Get It"'))
+    check("which the API accepts as stored words", api.includes('["style1", "style2", "style3"].includes(value.style)'))
     check(
       "and every colour is validated as a hex before it reaches a public page",
       api.includes("^#(?:[0-9a-f]{3}|[0-9a-f]{6})$"),
@@ -134,19 +128,23 @@ function main() {
     /** An unknown name would leave a page resolving a theme that does not exist. */
     check("an unknown preset cannot be stored", api.includes("raw in themePresets"))
     check("and it lands in globalSettings, where the page reads it", api.includes("globalSettings"))
-    /** The setup widget floated over the page; it stays out of both addresses. */
-    const sidebar2 = read("components/app/sidebar.tsx")
-    check(
-      "the setup widget is not shown over the creator page",
-      sidebar2.includes('!pathname.startsWith("/creator-page")') &&
-        sidebar2.includes('!pathname.startsWith("/app/creator-page")'),
-    )
   }
 
   // ── 2. The frame is the real page ──────────────────────────────────────
   {
     const workspace = read("components/app/creator-page-workspace.tsx")
     check("it frames the public creator page", /\/u\/\$\{encodeURIComponent\(handle\)\}\?embedded=1/.test(workspace))
+    /**
+     * TWO FRAMES, SO A CHANGE IS NEVER A WHITE FLASH. Reloading one frame in
+     * place unmounts the document first and the canvas is white for a
+     * network round trip. A change loads into the hidden frame and the two
+     * swap when it has loaded, so the old page stays until the new one is
+     * ready to replace it.
+     */
+    check("there are two frames", /\(\[0, 1\] as const\)\.map/.test(workspace))
+    check("only the front one is visible", workspace.includes('i === front ? "z-[1] opacity-100" : "z-0 opacity-0 pointer-events-none"'))
+    check("a change loads into the hidden one", /const back = front === 0 \? 1 : 0/.test(workspace))
+    check("and the swap happens on load, not on request", /if \(index !== front && srcs\[index\]\) setFront\(index\)/.test(workspace))
     check("the handle is encoded, so a handle cannot inject a parameter", workspace.includes("encodeURIComponent(handle)"))
     check("there is a way to open the real thing", /target="_blank"/.test(workspace) && workspace.includes("View live"))
     /**
@@ -157,7 +155,7 @@ function main() {
      */
     check("and no button that leaves for a different editor", !workspace.includes("Sections and theme"))
     /** A frame that never says it is loading reads as a broken page. */
-    check("the frame reports when it has arrived", workspace.includes("onLoad={() => setFirstLoad(false)}"))
+    check("the frame reports when it has arrived", workspace.includes("onLoad={() => onFrameLoad(i)}"))
   }
 
   // ── 3. Framing is narrow ───────────────────────────────────────────────
@@ -189,10 +187,10 @@ function main() {
     const button = read("components/storefront/edit-profile-button.tsx")
     check(
       "Customize page is hidden inside the workspace, where it would nest",
-      /\{!embedded && \(/.test(button),
+      /\{!embedded && !framed && \(/.test(button),
     )
     /** It says what it does: inside the workspace it has no neighbour to explain it. */
-    check("but the profile editor is not, and it is labelled", /aria-label="Edit profile"/.test(button) && button.includes(">\n          Edit profile"))
+    check("but the profile editor is not, and it is labelled", /aria-label="Edit profile"/.test(button) && button.includes('<span className="hidden sm:inline">Edit profile</span>'))
 
     const menu = read("components/storefront/owner-menu.tsx")
     check(
@@ -204,10 +202,10 @@ function main() {
   // ── 5. One destination, and the old addresses still answer ─────────────
   {
     const entries: Array<[string, string]> = [
-      ["components/app/sidebar.tsx", "/creator-page"],
-      ["components/app/dashboard-client.tsx", "/creator-page"],
-      ["components/storefront/owner-menu.tsx", "/creator-page"],
-      ["components/app/settings-form-new.tsx", "/creator-page"],
+      ["components/app/sidebar.tsx", "/app/creator-page"],
+      ["components/app/dashboard-client.tsx", "/app/creator-page"],
+      ["components/storefront/owner-menu.tsx", "/app/creator-page"],
+      ["components/app/settings-form-new.tsx", "/app/creator-page"],
     ]
     for (const [file, href] of entries) {
       check(`${file} points at the workspace`, read(file).includes(href))
@@ -219,7 +217,7 @@ function main() {
      * section editor and is linked from the workspace itself.
      */
     check("the old /store-builder address still answers", existsSync(join(root, "app/store-builder/page.tsx")))
-    check("and it lands on the workspace", read("app/store-builder/page.tsx").includes('redirect("/creator-page")'))
+    check("and it lands on the workspace", read("app/store-builder/page.tsx").includes('redirect("/app/creator-page")'))
     check("the section editor is still a real route", existsSync(join(root, "app/creator-page/sections/page.tsx")))
     check("and the address the workspace used to have still answers", existsSync(join(root, "app/app/creator-page/page.tsx")))
 
@@ -312,10 +310,16 @@ function main() {
       "the login address is never published as the contact address",
       !/user\.email/.test(renderer) && !/profile\.email/.test(renderer),
     )
+    /**
+     * The typed address wins; the account's stands in only when there is
+     * none — at render, never written. The API must never store the login
+     * address as the contact address, so clearing it always falls back.
+     */
     check(
-      "the contact address comes from stored settings a creator typed",
-      page.includes("sellerContactEmail={headerSettings.contactEmail}"),
+      "the typed address wins and the account's only stands in",
+      page.includes("sellerContactEmail={headerSettings.contactEmail || profile.email || undefined}"),
     )
+    check("and the login address is never written as the contact address", !/contactEmail\s*=\s*(user|profile)\.email/.test(api))
   }
 
   // ── 8. A new account is publishable from its first minute ─────────────
@@ -489,6 +493,83 @@ function main() {
       /boxShadow: "0 1px 2px rgba\(15, 23, 42, 0\.06\), 0 10px 28px -8px rgba\(15, 23, 42, 0\.20\)"/.test(renderer) &&
         !/className="shadow-lg shrink-0 bg-gray-200"/.test(renderer),
     )
+  }
+
+  // ── 11. The schemes apply, and readable is a number ────────────────────
+  {
+    /**
+     * "THE COLOUR SCHEMES DON'T APPLY AT ALL." They did not, and the reason
+     * was not the presets. Two breaks on the way from a preset to a pixel:
+     *
+     *   THE CARDS. The live featured grid computed four card colours from
+     *   the theme and then rendered StorefrontProductCard with the product
+     *   and the creator and nothing else. ProductCard's root is `bg-card`,
+     *   the design system's white, with no way in. On every dark scheme that
+     *   was a white card with near-white text: invisible titles, invisible
+     *   prices, which is the screenshot.
+     *
+     *   THE PAGE. The body colour was read from the STORED page colour only,
+     *   never from the theme's own `sections.pageBackgroundColor`, so a dark
+     *   scheme repainted every section and left the page itself on the light
+     *   grey field between them.
+     */
+    const renderer = read("components/store-builder/unified-section-renderer.tsx")
+    const card = read("components/explore/product-card.tsx")
+    const storefrontCard = read("components/storefront/storefront-product-card.tsx")
+    const page = read("app/(marketing)/u/[username]/page.tsx")
+
+    check("the live grid passes the card colours it computes", /surface=\{\{\s*backgroundColor: cardBgColor/.test(renderer))
+    check("StorefrontProductCard threads them through", storefrontCard.includes("surface={surface}"))
+    check("and ProductCard paints its root with them", /style=\{\s*surface\?\.backgroundColor/.test(card))
+    check("its title", /<h3[^>]*style=\{surface\?\.textColor/.test(card))
+    check("and its price", /style=\{surface\?\.priceColor/.test(card))
+    check("the page background falls back to the theme's", page.includes("themeForPage?.sections?.pageBackgroundColor"))
+    check("but a white theme page still gets the grey field", /!isInheritedWhite\(themePage\)/.test(page))
+    check("and the page text falls back to the theme's foreground", page.includes("themeForPage?.colors?.foreground"))
+
+    /**
+     * READABLE, MEASURED. Every pair the page actually paints, for each of
+     * the five schemes offered, held to WCAG AA (4.5) for body text and 3.0
+     * for the large Featured heading. This turns "applies well" from an
+     * opinion into a number.
+     */
+    const AA = 4.5
+    const LARGE = 3.0
+    const r = (fg: string, bg: string) => contrastRatio(parseColor(fg)!, parseColor(bg)!)
+    const PAGE_FIELD = "#f7f7f8"
+    const white = (c: string) => /^#(fff|ffffff)$/i.test(c.trim())
+    for (const key of ["default", "blacks", "cream", "pink", "astrid"] as const) {
+      const t = themePresets[key]
+      const pageBg = white(t.sections.pageBackgroundColor) ? PAGE_FIELD : t.sections.pageBackgroundColor
+      const pairs: Array<[string, string, string, number]> = [
+        ["card title on card", t.productCard.textColor, t.productCard.backgroundColor, AA],
+        ["card price on card", t.productCard.priceColor, t.productCard.backgroundColor, AA],
+        ["featured heading on its band", t.sections.featuredProductsTextColor, white(t.sections.featuredProductsBackgroundColor) ? pageBg : t.sections.featuredProductsBackgroundColor, LARGE],
+        ["about text on its block", t.about.textColor, t.about.backgroundColor === "transparent" ? pageBg : t.about.backgroundColor, AA],
+        ["page text on page", t.colors.foreground, pageBg, AA],
+        ["bar text on bar", t.subscribeBar.textColor, t.subscribeBar.backgroundColor, AA],
+        ["bar button label on button", t.subscribeBar.buttonTextColor, t.subscribeBar.buttonColor, AA],
+      ]
+      for (const [what, fg, bg, min] of pairs) {
+        const ratio = r(fg, bg)
+        check(`${t.name}: ${what} is readable`, ratio >= min, `${fg} on ${bg} = ${ratio.toFixed(2)}, needs ${min}`)
+      }
+    }
+  }
+
+  // ── 12. The rest of the round ──────────────────────────────────────────
+  {
+    const renderer = read("components/store-builder/unified-section-renderer.tsx")
+    const button = read("components/storefront/edit-profile-button.tsx")
+    const page = read("app/(marketing)/u/[username]/page.tsx")
+
+    check("the share panel is inline, not centred", renderer.includes("wb-settings-in absolute bottom-[calc(16px+env(safe-area-inset-bottom,0px))] right-4"))
+    check("and nothing is dimmed behind it", !/fixed inset-0 z-\[999999\] flex items-center justify-center/.test(renderer))
+    check("Customize page is hidden inside any frame, parameter or not", /!embedded && !framed/.test(button) && button.includes("window.self !== window.top"))
+    check("owner controls are icon-only on a phone", button.includes('<span className="hidden sm:inline">Edit profile</span>') && button.includes('<span className="hidden sm:inline">Customize page</span>'))
+    check("the page fetches the account email for the contact default", page.includes('"id, display_name, username, avatar_url, email"'))
+    check("and the contact link falls back to it", page.includes("headerSettings.contactEmail || profile.email || undefined"))
+    check("and the About editor opens on the same value", page.includes("headerSettings.contactEmail || profile.email ||"))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

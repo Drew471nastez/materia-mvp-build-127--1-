@@ -658,8 +658,15 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     borderRadius: 8,
     buttonBorderRadius: 8,
     profileImageBorderColor: "#fce7f3",
+    /**
+     * THE BUTTONS ARE #db2777, NOT THE ACCENT #ec4899. White text on the
+     * accent pink measures 3.53 to 1, under WCAG AA (4.5); on pink-600 it is
+     * 4.60, the lightest pink that passes. The accent stays where nothing
+     * sits on it: borders, the active filter, the price. Held to the number
+     * by tests/creator-page.test.ts.
+     */
     subscribeBar: {
-      buttonColor: "#ec4899",
+      buttonColor: "#db2777",
       buttonTextColor: "#ffffff",
       backgroundColor: "#ffffff",
       textColor: "#000000",
@@ -672,7 +679,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     creatorBar: {
       backgroundColor: "#ffffff",
       textColor: "#000000",
-      buttonColor: "#ec4899",
+      buttonColor: "#db2777",
       buttonTextColor: "#ffffff",
       buttonBorderRadius: 8,
     },
