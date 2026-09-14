@@ -1,12 +1,12 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { Mail, ArrowRight, Check } from "lucide-react"
+import { Mail, ArrowLeft, ArrowRight, Check } from "lucide-react"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
@@ -569,6 +569,34 @@ export function ProductCreatorBar({
 }
 
 /**
+ * THE WAY BACK.
+ *
+ * `router.back()` alone is a trap on a product page: most visits arrive from
+ * a link somebody was sent, so there is nothing behind them and the control
+ * does nothing at all — which reads as broken rather than as empty.
+ *
+ * So it asks where the visit came from. A referrer on this site means there
+ * IS somewhere of ours to return to, and history is used. Anything else — a
+ * search result, a message, a fresh tab — goes to the creator's page, which
+ * is the page this product belongs to and the one somebody was on their way
+ * to anyway.
+ */
+function BackControl({ onBack, label }: { onBack: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onBack}
+      aria-label={label}
+      title={label}
+      className="-ml-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/10 active:scale-95 dark:hover:bg-white/10"
+      style={{ color: "inherit" }}
+    >
+      <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
+    </button>
+  )
+}
+
+/**
  * LiveProductCreatorBar - Used on actual live product pages
  * Responsive using CSS breakpoints (sm:, md:, etc.)
  */
@@ -596,6 +624,22 @@ export function LiveProductCreatorBar({
   const [loading, setLoading] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
   const [hideOnMobileDiscover, setHideOnMobileDiscover] = useState(false)
+
+  const goBack = useCallback(() => {
+    if (typeof window === "undefined") return
+    const referrer = document.referrer
+    let cameFromHere = false
+    try {
+      cameFromHere = !!referrer && new URL(referrer).origin === window.location.origin
+    } catch {
+      cameFromHere = false
+    }
+    if (cameFromHere && window.history.length > 1) {
+      window.history.back()
+      return
+    }
+    if (creatorHref && creatorHref !== "#") window.location.href = creatorHref
+  }, [creatorHref])
 
   const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
   const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
@@ -717,114 +761,56 @@ export function LiveProductCreatorBar({
         borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
       }}
     >
-      {/* Mobile: Responsive layout using CSS */}
-      <form onSubmit={handleSubmit} className="sm:hidden w-full px-4 py-2.5">
+      {/*
+        =====================================================================
+         WHOSE PRODUCT THIS IS, AND THE WAY BACK
+        =====================================================================
+        This bar used to be a newsletter form: an email field and a Follow
+        button, across the top of every product page. The first thing a
+        visitor met on a page they came to look at a thing was a request for
+        their address — before they knew whose shop it was or what the thing
+        cost.
+
+        What belongs here is the two facts a product page's top edge is for:
+        who is selling, and how to get back to where you were. Following is
+        still offered on the creator's own page, which is one tap away
+        through the name.
+      */}
+      <div className="sm:hidden w-full px-4 py-2.5">
         <div className="flex items-center gap-2 w-full">
-          <SmartLink href={creatorHref} className="shrink-0" aria-label={`Go to ${creatorName}'s shop`}>
+          <BackControl onBack={goBack} label="Back" />
+          <SmartLink
+            href={creatorHref}
+            className="flex items-center gap-2 min-w-0"
+            aria-label={`Go to ${creatorName}'s page`}
+          >
             <Avatar className="h-7 w-7 shrink-0">
               {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
               <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
             </Avatar>
+            <p className="truncate text-sm font-medium">{creatorName}</p>
           </SmartLink>
-
-          <Input
-            type="email"
-            placeholder="Your email…"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onFocus={() => setInputFocus(true)}
-            onBlur={() => setInputFocus(false)}
-            required
-            disabled={loading}
-            className={cn(adaptiveInputClass, "h-10 text-sm flex-1 min-w-0", inputOpacityClass)}
-          />
-
-          <Button
-            type="submit"
-            disabled={loading || !email || isCurrentEmailSubscribed}
-            onClick={() => {
-              if (!loading && email && !isCurrentEmailSubscribed) triggerAnim()
-            }}
-            className={cn(
-              "h-10 shrink-0 px-3 text-sm flex items-center gap-2 relative overflow-hidden",
-              buttonOpacityClass,
-              pulse && "animate-[btnPop_520ms_ease-out]",
-            )}
-            style={{
-              backgroundColor: settings.buttonColor || "#4b5563",
-              color: settings.buttonTextColor || "#ffffff",
-              borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
-            }}
-          >
-            {buttonText === "🔥" ? null : isCurrentEmailSubscribed ? (
-              <Check size={16} className="text-current" />
-            ) : (
-              <Mail size={16} className="text-current" />
-            )}
-            <span>{loading ? "..." : buttonText}</span>
-            {!isCurrentEmailSubscribed && !loading && buttonText !== "🔥" && (
-              <ArrowRight size={16} className="text-current" />
-            )}
-          </Button>
         </div>
-      </form>
+      </div>
 
       {/* Desktop - with reduced width (1170px instead of 1200px) */}
       <div className={cn("hidden sm:block py-[calc(0.625rem+5px)] px-4 sm:px-5")}>
         <div className={cn("mx-auto w-full", LIVE_DESKTOP_MAX_W)}>
-          <div className="w-full flex items-center justify-between gap-4">
+          <div className="w-full flex items-center gap-3">
+            <BackControl onBack={goBack} label="Back" />
             <SmartLink
               href={creatorHref}
-              className="flex items-center gap-2 shrink-0 group"
-              aria-label={`Go to ${creatorName}'s shop`}
+              className="flex items-center gap-2 min-w-0 group"
+              aria-label={`Go to ${creatorName}'s page`}
             >
               <Avatar className="h-8 w-8 shrink-0 cursor-pointer">
                 {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
                 <AvatarFallback className="text-xs">{initials}</AvatarFallback>
               </Avatar>
-              <p className="text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
+              <p className="truncate text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
                 {creatorName}
               </p>
             </SmartLink>
-
-            <form onSubmit={handleSubmit} className="flex gap-2 items-center shrink-0">
-              <Input
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onFocus={() => setInputFocus(true)}
-                onBlur={() => setInputFocus(false)}
-                required
-                disabled={loading}
-                className={cn(adaptiveInputClass, "h-9 w-48 text-sm", inputOpacityClass)}
-              />
-              <Button
-                size="sm"
-                type="submit"
-                disabled={loading || !email || isCurrentEmailSubscribed}
-                onClick={() => {
-                  if (!loading && email && !isCurrentEmailSubscribed) triggerAnim()
-                }}
-                className={cn(
-                  "shrink-0 h-9 px-4 text-sm md:text-[calc(0.875rem+2px)] flex items-center gap-2 relative overflow-hidden",
-                  buttonOpacityClass,
-                  pulse && "animate-[btnPop_520ms_ease-out]",
-                )}
-                style={{
-                  backgroundColor: settings.buttonColor || "#4b5563",
-                  color: settings.buttonTextColor || "#ffffff",
-                  borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
-                }}
-              >
-                {buttonText === "🔥" ? null : isCurrentEmailSubscribed ? (
-                  <Check size={16} className="text-current relative z-10" />
-                ) : (
-                  <Mail size={16} className="text-current relative z-10" />
-                )}
-                <span className="relative z-10">{loading ? "..." : buttonText}</span>
-              </Button>
-            </form>
           </div>
         </div>
       </div>

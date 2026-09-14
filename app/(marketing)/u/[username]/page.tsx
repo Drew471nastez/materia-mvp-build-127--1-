@@ -911,7 +911,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           productCount={products?.length || 0}
           globalSettings={globalSettings}
           ownerActions={buildOwnerActions(headerSettings, chrome.preset)}
-          contactEmail={publicContactEmail}
           reviewCount={creatorReviewCount}
           reviewAverage={creatorRating}
           followerCount={followerCount ?? 0}
@@ -1171,13 +1170,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         products={products || []}
         productCount={productCount}
         ownerActions={buildOwnerActions(defaultShopHeaderSettings)}
-        /**
-         * The page a creator has never opened the builder on still has a
-         * seller behind it, so it still needs a way to reach them. Nothing
-         * is stored for this branch, so it is the account's own email — the
-         * same fallback, for the same reason, as the published branch above.
-         */
-        contactEmail={defaultShopHeaderSettings.contactEmail || profile.email || undefined}
         reviewCount={creatorReviewCount}
         reviewAverage={creatorRating}
         followerCount={followerCount ?? 0}

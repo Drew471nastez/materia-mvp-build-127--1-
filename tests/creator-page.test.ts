@@ -907,20 +907,23 @@ function main() {
      */
     const renderer = code("components/store-builder/unified-section-renderer.tsx")
     const page = code("app/(marketing)/u/[username]/page.tsx")
-    check(
-      "the header line carries a way to reach the seller",
-      /if \(contactEmail\) \{/.test(renderer) && /<ContactReveal/.test(renderer),
-    )
     /**
-     * ONE CONTROL, TWO PLACES. The About block and the header's meta line
-     * show the same thing, so a page cannot end up offering two different
-     * affordances for it — a printed address in one and a button in the
-     * other, which is what it briefly did.
+     * IN THE ABOUT BLOCK, AND NOWHERE ELSE.
+     *
+     * It sat on the header's line under the bio for a day. That line is the
+     * follower count, the sales badge and the creator's social links — who
+     * they are and where else they are — and a way to email them read oddly
+     * among them. About is where dealing with this person belongs, and it is
+     * a LOCKED default section, so every creator page has one.
      */
     check(
-      "and About uses the same control rather than its own",
-      (renderer.match(/<ContactReveal/g) ?? []).length === 2 &&
-        !/href=\{`mailto:\$\{contactEmail\}`\}/.test(renderer),
+      "the contact is in About and on no other line",
+      (renderer.match(/<ContactReveal/g) ?? []).length === 1 &&
+        renderer.includes("<ContactReveal email={contactEmail} />"),
+    )
+    check(
+      "and the header carries no contact of its own",
+      !/contactEmail\?: string\n\}/.test(renderer.slice(renderer.indexOf("UnifiedShopHeaderProps"))),
     )
     const reveal = code("components/storefront/contact-reveal.tsx")
     check(
@@ -937,19 +940,107 @@ function main() {
       /const publicContactEmail = headerSettings\.contactEmail \|\| profile\.email \|\| undefined/.test(page) &&
         (page.match(/headerSettings\.contactEmail \|\| profile\.email/g) ?? []).length === 1,
     )
-    check(
-      "the page with no stored config has one too",
-      /contactEmail=\{defaultShopHeaderSettings\.contactEmail \|\| profile\.email \|\| undefined\}/.test(page),
-    )
     /**
-     * The builder canvas has no session, so it cannot apply the account
-     * fallback. It shows what has been typed, or nothing — never an address
-     * it made up.
+     * About is a locked default section — hideable, not deletable — so this
+     * is what makes "in About" the same as "on every creator page".
      */
-    const canvas = code("components/store-builder/preview-canvas.tsx")
+    const defaults = code("lib/store-builder/defaults.ts")
     check(
-      "the builder shows the typed address and invents none",
-      /contactEmail=\{\(draftConfig\.headerSettings as ShopHeaderSettings\)\?\.contactEmail \|\| undefined\}/.test(canvas),
+      "About is a locked default section, so every creator page has one",
+      /type: "about",[\s\S]{0,200}locked: true/.test(defaults),
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * =====================================================================
+     *  A WRAPPER THAT FORWARDS BY NAME CAN DROP ONE
+     * =====================================================================
+     * SectionRenderer lists every prop it takes and passes them on one by
+     * one. `sellerContactEmail` was never in that list, so the creator page
+     * handed it an address, the wrapper dropped it, and the About block
+     * showed no Contact — for as long as the feature had existed.
+     *
+     * Nothing failed. The page's call had a prop the wrapper's type does not
+     * declare, which IS a type error, and next.config.mjs sets
+     * `ignoreBuildErrors`. Same shape as the chart's missing
+     * `lastTouchXRef`: a green build over code that cannot work.
+     *
+     * So this compares the two halves. Every name the wrapper accepts has to
+     * come out the other side, and adding one to either half alone is caught
+     * here rather than by somebody noticing a blank space on a page.
+     */
+    const wrapper = read("components/store-builder/section-renderer.tsx")
+    const body = wrapper.slice(wrapper.indexOf("export function SectionRenderer"), wrapper.indexOf("// ====== SHOP HEADER RENDERER"))
+    const destructured = body.slice(0, body.indexOf("}: {"))
+    const forwarded = body.slice(body.indexOf("<UnifiedSectionRenderer"))
+
+    const taken = [...destructured.matchAll(/^\s{2}([a-zA-Z][\w]*)(?:\s*=[^,]*)?,$/gm)].map((m) => m[1])
+    const given = new Set([...forwarded.matchAll(/^\s*([a-zA-Z][\w]*)=\{/gm)].map((m) => m[1]))
+    const dropped = taken.filter((n) => !given.has(n))
+
+    check("the wrapper's props were found", taken.length > 10, `found ${taken.length}`)
+    check(
+      "every prop SectionRenderer takes is passed on",
+      dropped.length === 0,
+      dropped.length ? `dropped on the floor: ${dropped.join(", ")}` : undefined,
+    )
+    check(
+      "and the contact address is one of them",
+      taken.includes("sellerContactEmail") && given.has("sellerContactEmail"),
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * =====================================================================
+     *  THE PRODUCT PAGE'S TOP BAR, AND ITS BUYING CARD
+     * =====================================================================
+     * THE BAR was a newsletter form — an email field and a Follow button
+     * across the top of every product page. The first thing a visitor met on
+     * a page they came to look at a thing was a request for their address.
+     * It is who is selling and the way back now; following is still offered
+     * on the creator's own page, one tap away through the name.
+     *
+     * THE CARD carried `sticky top-6` and has never stuck, because the grid
+     * used `items-start` — which shrinks a grid item to its content, so the
+     * column was exactly the card's height and a sticky element with nowhere
+     * to travel behaves like one with no sticky at all. The geometry is
+     * measured in scripts/check-buy-card.mjs; the rule is held here, because
+     * the class is invisible in a screenshot and looks right in the source.
+     */
+    const bar = code("components/store-builder/product-creator-bar.tsx")
+    const live = bar.slice(bar.indexOf("export function LiveProductCreatorBar"))
+    check("the live bar asks for no email address", !/<Input/.test(live) && !/type="email"/.test(live))
+    check("and offers no follow button", !/<Button/.test(live))
+    check(
+      "it carries a way back",
+      /<BackControl onBack=\{goBack\}/.test(live) && /window\.history\.back\(\)/.test(bar),
+    )
+    check(
+      "which falls back to the creator's page when there is no history of ours",
+      /new URL\(referrer\)\.origin === window\.location\.origin/.test(bar) &&
+        /window\.location\.href = creatorHref/.test(bar),
+    )
+    check(
+      "the avatar and the name both lead to the creator's page",
+      (live.match(/<SmartLink\s+href=\{creatorHref\}/g) ?? []).length === 2,
+    )
+    /* getStoreUrl is what makes that /u/<handle>, and it is already tested
+       elsewhere; this only checks the bar goes through it. */
+    check("through the one helper that builds that address", /return getStoreUrl\(raw\)/.test(bar))
+
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    check(
+      "the buying card's column can stretch, so the card has room to stick",
+      /"grid gap-8", !isMobile && "lg:grid-cols-5 lg:gap-12"/.test(renderer) &&
+        !/lg:items-start/.test(renderer),
+    )
+    check(
+      "and the card is headed by the product, not by a number",
+      /<h2[\s\S]{0,240}\{productTitle\}/.test(renderer),
     )
   }
 
