@@ -10,6 +10,12 @@ import { createRoot } from "react-dom/client"
 import { LiveProductCreatorBar } from "@/components/store-builder/product-creator-bar"
 import { defaultProductCreatorBarSettings } from "@/lib/store-builder/defaults"
 
+/*
+  Wrapped in the clipping box the real page puts around it. The bar's own
+  root is `overflow-hidden`, and a menu that hangs below the bar was clipped
+  to nothing by it — present, measurable, and invisible. A harness that
+  mounts the bar bare cannot see that, which is exactly how it shipped.
+*/
 createRoot(document.getElementById("app")!).render(
   <LiveProductCreatorBar
     settings={{ ...defaultProductCreatorBarSettings, visible: true, showSubscribe: true }}

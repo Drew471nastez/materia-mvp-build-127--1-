@@ -68,10 +68,43 @@ setTimeout(function () {
       dots.click()
       setTimeout(function () {
         var menu = document.querySelector('[role="menu"]')
+        var box = menu ? r(menu) : null
+        /*
+          WHAT IS ACTUALLY AT THAT POINT ON THE SCREEN.
+
+          The first version of this measured the menu's rectangle and passed
+          while every pixel of the menu was clipped away by an
+          overflow-hidden ancestor. A clipped element still has a rect. Hit
+          testing is the question that was actually being asked: elementFromPoint
+          returns what a finger would land on, so a menu nobody can see fails
+          here even though its geometry is perfect.
+        */
+        var hit = null, hitIsMenu = false
+        if (box) {
+          hit = document.elementFromPoint(box.x + box.w / 2, box.y + box.h / 2)
+          hitIsMenu = !!(hit && menu.contains(hit))
+        }
+        /* And the reason it can be seen: nothing between it and the body clips. */
+        var clippedBy = null
+        if (menu) {
+          var n = menu.parentElement
+          while (n && n !== document.body && n !== document.documentElement) {
+            var o = getComputedStyle(n)
+            if (o.overflow !== "visible" || o.overflowX !== "visible" || o.overflowY !== "visible") {
+              clippedBy = n.tagName + "." + String(n.className).slice(0, 40)
+              break
+            }
+            n = n.parentElement
+          }
+        }
         steps.push({
           at: "menu open",
           menu: !!menu,
-          rect: menu ? r(menu) : null,
+          rect: box,
+          parentIsBody: !!(menu && menu.parentElement === document.body),
+          hitIsMenu: hitIsMenu,
+          hitTag: hit ? hit.tagName : null,
+          clippedBy: clippedBy,
           items: menu ? [].map.call(menu.querySelectorAll('[role="menuitem"]'), function (b) { return b.textContent.trim() }) : [],
           animation: menu ? getComputedStyle(menu).animationName : null,
         })
@@ -101,29 +134,33 @@ else {
   if (before.menu) problems.push("the menu is open before anything was pressed.")
 
   /* THE PRESS. A pointerdown with no click still has to show. */
-  if (!rest.discClass || !/opacity-0/.test(rest.discClass)) problems.push(`at rest the mark is not hidden (${rest.discClass}).`)
-  if (!pressed.discClass || !/opacity-\[0\.14\]/.test(pressed.discClass)) {
+  if (!rest.discClass || /is-on/.test(rest.discClass)) problems.push(`at rest the mark is already showing (${rest.discClass}).`)
+  if (!pressed.discClass || !/is-on/.test(pressed.discClass)) {
     problems.push(`a press leaves no visible mark (${pressed.discClass}) — this is the "it feels cheap".`)
   }
-  if (!after.discClass || !/opacity-0/.test(after.discClass)) problems.push(`the mark never clears (${after.discClass}).`)
+  if (!after.discClass || /is-on/.test(after.discClass)) problems.push(`the mark never clears (${after.discClass}).`)
 
   /* THE MENU. Inline, anchored, at the size of what is in it. */
   if (!open.menu) problems.push("pressing the dots opened nothing.")
+  /* THE BUG THIS PROBE MISSED ONCE. */
+  if (open.menu && !open.hitIsMenu) {
+    problems.push(`the menu is in the DOM but nothing of it is at its own centre (found ${open.hitTag}) — it is being clipped or covered.`)
+  }
+  if (open.clippedBy) problems.push(`an ancestor clips it: ${open.clippedBy}.`)
+  if (open.menu && !open.parentIsBody) problems.push("the menu is not portalled, so any clipping ancestor the bar grows can hide it again.")
   if (open.rect) {
     /*
-      Measured against THE BAR, not the window. This Chromium reports an
-      innerWidth of 500 for a 390px window, so anchoring judged against the
-      viewport called a correctly placed menu misplaced — the harness's
-      number, not the page's.
+      Anchored to the TRIGGER, which is what it is positioned from now that it
+      is fixed to the window rather than absolute inside the bar.
     */
-    const barRight = before.bar.x + before.bar.w
+    const dotsRight = before.dots.x + before.dots.w
     const menuRight = open.rect.x + open.rect.w
+    const dotsBottom = before.dots.y + before.dots.h
     if (open.rect.w > before.bar.w * 0.6) problems.push(`the menu is ${open.rect.w}px of the bar's ${before.bar.w} — that is a sheet, not a menu.`)
-    if (barRight - menuRight > 24) problems.push(`the menu's right edge is ${barRight - menuRight}px in from the bar's, so it is not under the dots.`)
-    if (menuRight > barRight) problems.push(`the menu runs ${menuRight - barRight}px past the bar's right edge.`)
-    /* Under the bar, not up from the bottom of the screen. */
-    const barBottom = before.bar.y + before.bar.h
-    if (Math.abs(open.rect.y - barBottom) > 20) problems.push(`the menu opens ${open.rect.y}px down with the bar ending at ${barBottom}: it is not anchored to the bar.`)
+    if (Math.abs(menuRight - dotsRight) > 12) problems.push(`the menu's right edge is ${Math.abs(menuRight - dotsRight)}px from the dots' — it is not under them.`)
+    if (open.rect.y < dotsBottom || open.rect.y - dotsBottom > 16) {
+      problems.push(`the menu opens at y=${open.rect.y} with the dots ending at ${dotsBottom}: it is not hanging from them.`)
+    }
   }
   if (open.items.join("/") !== "Share/Report") problems.push(`the menu holds ${JSON.stringify(open.items)}, not Share then Report.`)
   if (open.animation !== "product-bar-menu-in") problems.push(`the menu does not grow from its corner (animation: ${open.animation}).`)
