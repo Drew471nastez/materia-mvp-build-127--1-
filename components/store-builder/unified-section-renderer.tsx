@@ -2589,18 +2589,15 @@ export interface UnifiedShopHeaderProps {
    */
   surface?: { textColor?: string; mutedColor?: string }
   /**
-   * WHERE A BUYER WRITES TO THIS SELLER.
+   * THE CONTACT IS NOT ON THIS LINE.
    *
-   * It was only ever rendered inside the About block, and About is a section
-   * a creator may never have added — so on most pages there was no way to
-   * reach the person selling. It belongs on the line under the bio, beside
-   * the social links, which is where somebody already looks for how to get
-   * in touch.
-   *
-   * Resolved by the page, not here, and resolved ONCE so this line and the
-   * About block cannot end up showing different addresses.
+   * It was, for a day. The line under the bio is followers, sales and the
+   * creator's social links — who they are and where else they are — and a
+   * way to email them sat oddly among them. It belongs in the About block,
+   * which is the part of the page that is about dealing with this person,
+   * and the About block is a LOCKED default section, so every creator page
+   * has one. See UnifiedAboutSection's `contactEmail`.
    */
-  contactEmail?: string
 }
 
 export function UnifiedShopHeader({
@@ -2618,7 +2615,6 @@ export function UnifiedShopHeader({
   onBioEdit,
   globalSettings,
   ownerActions,
-  contactEmail,
   reviewCount = 0,
   reviewAverage = 0,
   followerCount = 0,
@@ -3177,31 +3173,6 @@ export function UnifiedShopHeader({
                   </span>,
                 )
               }
-            }
-
-            /**
-             * A WAY TO WRITE TO THE SELLER, ON EVERY PAGE.
-             *
-             * This lived only inside the About block, and About is a section
-             * a creator may never have added — so on most creator pages a
-             * buyer had no way to reach the person selling to them. Here it
-             * is on the line that is always under the bio.
-             *
-             * BEHIND A BUTTON, not printed. The address in full on a public
-             * page is one line for a buyer and a free afternoon for anybody
-             * harvesting addresses, and it makes a page about someone's work
-             * lead with their inbox. The same control the About block uses,
-             * so one page does not offer two different affordances for the
-             * same thing. See components/storefront/contact-reveal.
-             */
-            if (contactEmail) {
-              parts.push(
-                <ContactReveal
-                  key="contact"
-                  email={contactEmail}
-                  iconClassName={isMobile ? "h-3.5 w-3.5" : "h-4 w-4"}
-                />,
-              )
             }
 
             if (settings.socialLinks && (!isMobile || (settings.showSocialIconsOnMobile ?? true))) {

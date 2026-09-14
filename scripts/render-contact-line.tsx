@@ -1,30 +1,29 @@
 /**
- * The real shop header, with and without a contact address, so the line a
- * buyer reads can be measured rather than described. The address used to
- * exist only inside the About block — a section a creator may never have
- * added — so most pages had no way to reach the seller at all.
+ * The reveal itself, with an address and without one.
+ *
+ * It lives in the About block at the bottom of a creator page. It was on the
+ * header's line under the bio for a day and it read oddly there, among the
+ * follower count and the social links — that line says who somebody is and
+ * where else they are, not how to email them.
+ *
+ * The control is what is measured rather than the block around it: About
+ * renders it directly, and mounting the whole block drags in the section
+ * machinery without telling us anything more about the button.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { UnifiedShopHeader } from "@/components/store-builder/unified-section-renderer"
-import { defaultShopHeaderSettings } from "@/lib/store-builder/defaults"
-
-const common = {
-  settings: { ...defaultShopHeaderSettings, bio: "Building cool stuff on the internet" },
-  creator: { id: "c1", slug: "andrewrullz" } as never,
-  profile: { display_name: "Andrew Rullz", username: "andrewrullz" },
-  productCount: 3,
-  followerCount: 2,
-  isPreviewMode: false,
-} as const
+import { ContactReveal } from "@/components/storefront/contact-reveal"
 
 createRoot(document.getElementById("app")!).render(
-  <div style={{ background: "#fff" }}>
+  <div style={{ background: "#fff", padding: 24, fontFamily: "Inter, system-ui, sans-serif" }}>
+    {/* The @handle sits near it on the real page; it is here so a check
+        looking for an address cannot mistake a username for one. */}
+    <p data-case="handle">@andrewrullz</p>
     <div data-case="with">
-      <UnifiedShopHeader {...common} contactEmail="hello@andrewrullz.com" />
+      <ContactReveal email="hello@andrewrullz.com" />
     </div>
     <div data-case="without">
-      <UnifiedShopHeader {...common} />
+      <ContactReveal email="" />
     </div>
   </div>,
 )
