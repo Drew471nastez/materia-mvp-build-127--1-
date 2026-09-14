@@ -50,8 +50,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { ArrowLeft, ExternalLink } from "lucide-react"
 import { useRouter } from "next/navigation"
 
-import { BuilderLoader } from "@/components/website-builder/builder-loader"
-import { navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
+import { BuilderLoader, useLinger } from "@/components/website-builder/builder-loader"
+import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { CreatorPageShare } from "@/components/app/creator-page-share"
 import { CREATOR_EDITOR_CHANNEL } from "@/lib/store-builder/editor-channel"
 import { cn } from "@/lib/utils"
@@ -90,13 +90,50 @@ export function CreatorPageWorkspace({
     if (leaving) return
     setLeaving(true)
     cancelCeiling.current?.()
-    cancelCeiling.current = navigateWithCeiling(
-      () => router.push("/app"),
-      () => window.location.assign("/app"),
-      (cb, ms) => window.setTimeout(cb, ms),
-      (id) => window.clearTimeout(id),
-    )
+    /**
+     * THE SCREEN THAT SAYS YOU ARE LEAVING IS WORTH SEEING.
+     *
+     * This pushed immediately. /app is warm — it is the page a creator came
+     * from and it is prefetched below — so the navigation beat the paint and
+     * the screen was never on the glass: a press, and then somewhere else.
+     * That is why "there should be the going back loading" reads as missing
+     * when the code for it is right there.
+     *
+     * The push waits long enough for the first word to be readable and short
+     * enough that nobody waits for it. Same number as the website builder,
+     * from the same reasoning, because these are the same moment.
+     */
+    const start = window.setTimeout(() => {
+      cancelCeiling.current = navigateWithCeiling(
+        () => router.push("/app"),
+        () => window.location.assign("/app"),
+        (cb, ms) => window.setTimeout(cb, ms),
+        (id) => window.clearTimeout(id),
+      )
+    }, LEAVING_SEEN_MS)
+    cancelCeiling.current = () => window.clearTimeout(start)
   }, [leaving, router])
+
+  /**
+   * The way out, warmed while nothing else is happening, so leaving is a
+   * repaint rather than a round trip.
+   */
+  useEffect(() => {
+    const warm = () => {
+      try {
+        router.prefetch("/app")
+      } catch {
+        /* A router that will not prefetch still navigates. */
+      }
+    }
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+    if (typeof w.requestIdleCallback === "function") {
+      const id = w.requestIdleCallback(warm, { timeout: 4000 })
+      return () => (w as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback?.(id)
+    }
+    const id = window.setTimeout(warm, 1500)
+    return () => window.clearTimeout(id)
+  }, [router])
 
   /**
    * The glass BLOCKS, which is the point of it — a second press on a control
@@ -187,6 +224,8 @@ export function CreatorPageWorkspace({
   const [front, setFront] = useState<0 | 1>(0)
   const [srcs, setSrcs] = useState<[string, string]>([srcFor(0), ""])
   const [firstLoad, setFirstLoad] = useState(true)
+  /** Mounted while loading AND for the length of its own fade afterwards. */
+  const loaderVisible = useLinger(firstLoad, 320)
   const version = useRef(0)
   const frames = useRef<Array<HTMLIFrameElement | null>>([null, null])
 
@@ -326,8 +365,29 @@ export function CreatorPageWorkspace({
       */}
       <div className="min-h-0 flex-1 overflow-hidden p-0 md:p-2.5">
         <div className="relative h-full w-full overflow-hidden bg-white md:rounded-xl md:border md:border-[#e5e7eb] md:shadow-[0_12px_36px_-20px_rgba(0,0,0,0.35)]">
-          {firstLoad && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
+          {/*
+            =================================================================
+             THE LOADER LEAVES ACROSS THE PAGE, IT DOES NOT VANISH
+            =================================================================
+            It was removed from the tree the instant the frame reported
+            loaded. The page under it plays a 320ms fade-in, so what was
+            actually on screen was: a loader, gone in one frame, and then a
+            page part-way through arriving. That single frame of nothing is
+            the cut — the page "appears too abruptly" because the thing in
+            front of it disappeared rather than got out of the way.
+
+            `useLinger` keeps it mounted for a beat after the frame is ready
+            and `data-leaving` fades it out over 260ms, which is the same
+            pair the website builder's canvas uses. The page rises in
+            underneath while the loader goes, so there is never a frame with
+            neither on it.
+          */}
+          {loaderVisible && (
+            <div
+              className="wb-canvas-loader absolute inset-0 z-10 flex items-center justify-center bg-white"
+              data-leaving={!firstLoad}
+              aria-hidden={!firstLoad}
+            >
               <BuilderLoader tone="light" lines={["Loading your page"]} />
             </div>
           )}

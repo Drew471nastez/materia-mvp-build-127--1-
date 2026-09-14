@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button"
 import { BadgeCheck, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Download, Facebook, Files, Heart, Infinity, Link2, Mail, Package, Share2, ShoppingBag, Star, Users, X } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { pickFeatured } from "@/lib/store-builder/featured-order"
 import { cn } from "@/lib/utils"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { ProductGallery } from "@/components/product/product-gallery"
@@ -2340,14 +2341,23 @@ function UnifiedFeaturedProductsSection({
    * one somebody reaches for next time.
    */
 
-  /** The products this section is about: the creator's picks, or everything. */
-  const sectionProducts = useMemo(() => {
-    // ✅ show ALL products by default (no maxProducts)
-    if (settings.productIds && settings.productIds.length > 0) {
-      return products?.filter((p) => settings.productIds.includes(p.id)) || []
-    }
-    return products || []
-  }, [products, settings.productIds])
+  /**
+   * The products this section is about: the creator's picks, IN THEIR ORDER.
+   *
+   * This was a `.filter()`, and a filter keeps the order of the array it
+   * filters — which is the page's query, newest first. So a creator could
+   * drag their products into the arrangement they wanted, it was saved in
+   * `productIds`, and the page then ignored it. Home and the Products tab
+   * were the same list twice.
+   *
+   * The ordering itself is in lib/store-builder/featured-order, where it can
+   * be run rather than read: tests/featured-order.test.ts covers the
+   * arrangement surviving, an id that no longer resolves, and the empty case.
+   */
+  const sectionProducts = useMemo(
+    () => pickFeatured(products, settings.productIds),
+    [products, settings.productIds],
+  )
 
   /**
    * "Featured", not "Featured Products".

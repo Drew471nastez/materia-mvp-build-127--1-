@@ -75,7 +75,7 @@ import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { PIN_AFTER_SELECT_MS, pinScroll, resetClippedAncestors, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
-import { navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
+import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
@@ -865,7 +865,8 @@ const AUTOSAVE_DELAY_MS = 1_500
  * were written for. The ceiling that stops a slow route hanging starts
  * after this, so nothing waits twice.
  */
-const LEAVING_SEEN_MS = 3_000
+/* LEAVING_SEEN_MS moved to lib/website-builder/navigate-ceiling, beside the
+   ceiling it starts, because the creator page editor leaves too. */
 
 /**
  * ===========================================================================

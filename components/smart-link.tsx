@@ -1,6 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 
@@ -143,6 +144,54 @@ export function SmartLink({
         </a>
       )
     }
+  }
+
+  /**
+   * ===========================================================================
+   *  ON THE WEB, AN INTERNAL LINK IS A LINK NEXT KNOWS ABOUT
+   * ===========================================================================
+   * This returned a bare `<a href>` for everything. A bare anchor is a FULL
+   * DOCUMENT LOAD: the browser throws this page away, asks the server for the
+   * next one, and waits. Nothing is prefetched, the route's `loading.tsx` is
+   * never reached — a loading boundary only exists inside a client navigation
+   * — and the product page is `force-dynamic`, so what a visitor gets after
+   * pressing a product card is a white page for as long as the server takes.
+   * That is the "more than two seconds".
+   *
+   * `next/link` changes both halves. It prefetches the route when the link
+   * comes into view, so the work is already done before the press; and it
+   * navigates on the client, so the route's own skeleton is on screen in the
+   * same frame as the tap and the content streams in under it.
+   *
+   * THE HARD-NAVIGATION LIST IS THE SAME ONE THE NATIVE BRANCH USES, and for
+   * the same reason: /app, /library and the builders are a different layout
+   * and a different auth context, and a soft navigation into them carries
+   * state that a full load is relied upon to clear. `useClientNav === false`
+   * is a caller saying the same thing about a specific link.
+   *
+   * Anything not internal — another origin, a mailto, an anchor — is not
+   * Next's to route and stays exactly as it was.
+   */
+  const internal = !!resolvedHref && resolvedHref.startsWith("/")
+  const needsHardNav =
+    useClientNav === false ||
+    (internal &&
+      (resolvedHref!.startsWith("/app") ||
+        resolvedHref!.startsWith("/creator-page") ||
+        resolvedHref!.startsWith("/store-builder") ||
+        resolvedHref!.startsWith("/website-builder") ||
+        resolvedHref!.startsWith("/library")))
+
+  if (internal && !needsHardNav) {
+    return (
+      <Link
+        href={resolvedHref!}
+        {...props}
+        style={{ ...TOUCH_STYLES, ...(props.style as React.CSSProperties) }}
+      >
+        {children}
+      </Link>
+    )
   }
 
   return (
