@@ -66,11 +66,25 @@ export async function loadSettingsData() {
     created_at: new Date().toISOString(),
   }
 
+  /**
+   * PUBLISHED, not "has an install". Every account is seeded with theme
+   * installs the first time it opens the website builder, so existence would
+   * put an address in Quick access for a site nobody has made.
+   */
+  const { data: publishedSite } = await supabase
+    .from("store_theme_installs")
+    .select("id")
+    .eq("creator_id", creator.id)
+    .not("published_at", "is", null)
+    .limit(1)
+    .maybeSingle()
+
   return {
     profile: safeProfile,
     creator,
     storeBuilderAvatarUrl,
     onepageAvatarUrl: onepage?.avatar_url || null,
     googleAvatarUrl,
+    websitePublished: !!publishedSite,
   }
 }

@@ -20,11 +20,11 @@ import {
   CreditCard, Store, Shield, Settings, Wallet, Landmark,
   Camera, ExternalLink, ChevronRight, Globe,
   User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Pencil,
-  ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus
+  ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, MonitorSmartphone
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
-import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay } from "@/lib/url-helpers"
+import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay, getWebsiteUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { useLanguage, LANGUAGES } from "@/lib/i18n"
@@ -225,6 +225,8 @@ interface SettingsFormProps {
   storeBuilderAvatarUrl?: string | null
   onepageAvatarUrl?: string | null
   googleAvatarUrl?: string | null
+  /** True only when a site has actually been published, never when one merely exists. */
+  websitePublished?: boolean
   initialTab?: TabId
 }
 
@@ -843,7 +845,7 @@ function ImageUploadModal({
   )
 }
 
-export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl, initialTab = "general" }: SettingsFormProps) {
+export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl, websitePublished = false, initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
   const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage)
@@ -1984,6 +1986,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   // Canonical subdomain URLs for display text and clipboard copy
   const onepageUrl = connectedDomain ? `https://${connectedDomain}/links` : getLinksShareUrl(settingsHandleBase)
   const storeUrlWithDomain = connectedDomain ? `https://${connectedDomain}` : getStoreShareUrl(settingsHandleBase)
+  /**
+   * The third surface. <name>.storelib.com is the WEBSITE; storelib.com/<name>
+   * is the creator PAGE. Quick access listed the page and the OnePage and
+   * stopped, so the address a creator is most often asked for was the one
+   * missing from the list.
+   */
+  const websiteUrl = websitePublished && settingsHandleBase ? getWebsiteUrl(settingsHandleBase) : ""
   // Internal-path URLs for in-app navigation (preserves auth in Capacitor)
   const navOnepageUrl = connectedDomain ? `https://${connectedDomain}/links` : getLinksUrl(settingsHandleBase)
   const navStoreUrlWithDomain = connectedDomain ? `https://${connectedDomain}` : storeUrl
@@ -2069,6 +2078,19 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <p className="text-[13px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" width={14} height={14} className="w-3.5 h-3.5" loading="eager" decoding="async" /></span>Creator page</p>
                   <p className="text-[11px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
                 </button>
+                {websiteUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsQuickAccessOpen(false)
+                      openExternal(websiteUrl)
+                    }}
+                    className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                  >
+                    <p className="text-[13px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-[#1a1a2e] flex items-center justify-center"><MonitorSmartphone className="w-3 h-3 text-white" /></span>Website</p>
+                    <p className="text-[11px] text-[#6b7280] truncate mt-1">{websiteUrl.replace(/^https?:\/\//, "")}</p>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -2090,6 +2112,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" className="w-4 h-4" loading="eager" decoding="async" /></span>Creator page</p>
               <p className="text-[12px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
             </button>
+            {websiteUrl && (
+              <button type="button" onClick={() => {
+                setIsQuickAccessOpen(false)
+                openExternal(websiteUrl)
+              }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
+                <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#1a1a2e] flex items-center justify-center"><MonitorSmartphone className="w-3.5 h-3.5 text-white" /></span>Website</p>
+                <p className="text-[12px] text-[#6b7280] truncate mt-1">{websiteUrl.replace(/^https?:\/\//, "")}</p>
+              </button>
+            )}
           </div>
         </MobileBottomSheet>
 

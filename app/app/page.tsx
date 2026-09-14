@@ -70,6 +70,7 @@ export default async function AppDashboard() {
     { data: products },
     { data: onepage },
     { data: activeDomain },
+    { data: publishedSite },
   ] = await Promise.all([
     adminSupabase
       .from("profiles")
@@ -90,6 +91,23 @@ export default async function AppDashboard() {
       .select("domain")
       .eq("creator_id", creator.id)
       .eq("status", "active")
+      .maybeSingle(),
+    /**
+     * HAS THIS CREATOR GOT A WEBSITE THAT IS ACTUALLY LIVE?
+     *
+     * Quick access lists the addresses somebody hands to another person, so
+     * the test is PUBLISHED, not "has a theme installed". Every account is
+     * seeded with installs the first time it opens the website builder, so
+     * existence would put a link to a 404 in front of people who have never
+     * built anything. `published_at` is written when they publish, and one
+     * row is enough to know.
+     */
+    adminSupabase
+      .from("store_theme_installs")
+      .select("id")
+      .eq("creator_id", creator.id)
+      .not("published_at", "is", null)
+      .limit(1)
       .maybeSingle(),
   ])
 
@@ -194,6 +212,7 @@ export default async function AppDashboard() {
       creatorHandle={profile?.username || creator.slug || ""}
       connectedDomain={activeDomain?.domain || null}
       brandingDetail={{ hasAvatar, hasName, hasBio }}
+      websitePublished={!!publishedSite}
       subscriptionPlanId={creator.subscription_plan_id || "free"}
     />
   )

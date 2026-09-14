@@ -149,6 +149,41 @@ function main() {
     )
   }
 
+  // ── 6. Quick access lists all three surfaces ───────────────────────────
+  {
+    /**
+     * <name>.storelib.com is the WEBSITE; storelib.com/<name> is the creator
+     * PAGE. lib/url-helpers is explicit about the difference. Quick access
+     * listed the page and the OnePage and stopped, so the address a creator is
+     * most often asked for by somebody else was the one missing.
+     */
+    const dash = read("components/app/dashboard-client.tsx")
+    const settings = read("components/app/settings-form-new.tsx")
+
+    for (const [name, code] of [["the dashboard", dash], ["settings", settings]] as const) {
+      check(`${name} builds the website address from the helper`, code.includes("getWebsiteUrl("))
+      check(`${name} lists Website in quick access`, />Website<\/(div|p)>/.test(code))
+      /**
+       * PUBLISHED, NOT INSTALLED. Every account is seeded with theme installs
+       * the first time it opens the website builder, so listing on existence
+       * would hand people a link to a page nobody has made.
+       */
+      check(`${name} only shows it once something is published`, /websitePublished/.test(code))
+    }
+
+    for (const server of ["app/app/page.tsx", "app/app/settings/_server.ts"]) {
+      const code = read(server)
+      check(`${server} asks for a published install`, code.includes("store_theme_installs"))
+      check(
+        `${server} tests published_at rather than existence`,
+        /\.not\("published_at", "is", null\)/.test(code),
+      )
+    }
+
+    /** All three surfaces, and the page is not listed twice under two names. */
+    check("the creator page is no longer called Store in quick access", !/>Store<\/(p|div)>/.test(dash + settings))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

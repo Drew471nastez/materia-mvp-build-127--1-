@@ -36,6 +36,7 @@ import {
   Blocks,
   BarChart3,
   Globe,
+  MonitorSmartphone,
 } from "lucide-react"
 import dynamic from "next/dynamic"
 
@@ -59,7 +60,7 @@ const LazyAreaChart = dynamic(
 )
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
-import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl } from "@/lib/url-helpers"
+import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getWebsiteUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal, hapticTap } from "@/lib/native-bridge"
 import { CHART_ANIM_MS } from "@/lib/chart-motion"
@@ -883,6 +884,8 @@ interface DashboardClientProps {
   creatorHandle?: string
   connectedDomain?: string | null
   brandingDetail?: { hasAvatar: boolean; hasName: boolean; hasBio: boolean }
+  /** True only when a site has actually been published, never when one merely exists. */
+  websitePublished?: boolean
   subscriptionPlanId?: string
 }
 
@@ -1542,6 +1545,7 @@ export function DashboardClient({
   creatorHandle = "",
   connectedDomain = null,
   brandingDetail,
+  websitePublished = false,
   subscriptionPlanId = "free",
 }: DashboardClientProps) {
   const [timeframe, setTimeframe] = useState(() => {
@@ -1567,6 +1571,13 @@ export function DashboardClient({
 
   // Canonical subdomain URLs for display text and clipboard copy
   const publicStoreUrl = connectedDomain ? `https://${connectedDomain}` : (creatorHandle ? getStoreShareUrl(creatorHandle) : "")
+  /**
+   * TWO ADDRESSES, TWO THINGS, and url-helpers is explicit about which is
+   * which: <name>.storelib.com is the WEBSITE built in the website builder,
+   * storelib.com/<name> is the creator PAGE. Quick access listed the page
+   * twice under two names and never listed the website at all.
+   */
+  const publicWebsiteUrl = creatorHandle && websitePublished ? getWebsiteUrl(creatorHandle) : ""
   const publicOnePageUrl = connectedDomain ? `https://${connectedDomain}/links` : (creatorHandle ? getLinksShareUrl(creatorHandle) : "")
   // Internal-path URLs for in-app navigation (preserves auth in Capacitor)
   const navStoreUrl = connectedDomain ? `https://${connectedDomain}` : (creatorHandle ? getStoreUrl(creatorHandle) : "")
@@ -1681,7 +1692,7 @@ export function DashboardClient({
   const [liveVisitors, setLiveVisitors] = useState(0)
   const { t } = useLanguage()
   const { toast } = useToast()
-  const [copiedTarget, setCopiedTarget] = useState<"onepage" | "store" | null>(null)
+  const [copiedTarget, setCopiedTarget] = useState<"onepage" | "store" | "website" | null>(null)
   const [copyNotice, setCopyNotice] = useState<string | null>(null)
 
   const formatCurrency = (cents: number, compact = false) => {
@@ -2167,8 +2178,8 @@ export function DashboardClient({
   }, [liveOrders]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close dropdown when clicking outside (desktop only)
-  const copyQuickAccessUrl = async (target: "onepage" | "store") => {
-    const url = target === "onepage" ? publicOnePageUrl : publicStoreUrl
+  const copyQuickAccessUrl = async (target: "onepage" | "store" | "website") => {
+    const url = target === "onepage" ? publicOnePageUrl : target === "website" ? publicWebsiteUrl : publicStoreUrl
     if (!url) return
     try {
       await navigator.clipboard.writeText(url)
@@ -2636,6 +2647,32 @@ export function DashboardClient({
                         <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="Storelib" width={14} height={14} className="w-3.5 h-3.5 object-contain" loading="eager" decoding="async" /></span>Creator page</div>
                         <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{publicStoreUrl}</p><button type="button" onClick={(e) => { e.stopPropagation(); copyQuickAccessUrl("store") }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${copiedTarget === "store" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white"}`}>{copiedTarget === "store" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />}{copiedTarget === "store" ? "Copied" : "Copy"}</button></div>
                       </div>
+                      {/*
+                        THE THIRD SURFACE, WHICH WAS NEVER LISTED.
+
+                        Quick access held the creator page and the OnePage and
+                        stopped, so the one address a creator is most likely to
+                        be asked for by somebody else was the one they could
+                        not find. It appears only when a site has actually been
+                        PUBLISHED: every account is seeded with theme installs
+                        on first visit, so listing it on existence would hand
+                        people a link to a page nobody has made.
+                      */}
+                      {publicWebsiteUrl && (
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => {
+                            openExternal(publicWebsiteUrl)
+                            setIsProfileAccessOpen(false)
+                          }}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { openExternal(publicWebsiteUrl); setIsProfileAccessOpen(false) } }}
+                          className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-[#1a1a2e] flex items-center justify-center"><MonitorSmartphone className="w-2.5 h-2.5 text-white" /></span>Website</div>
+                          <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{publicWebsiteUrl.replace(/^https?:\/\//, "")}</p><button type="button" onClick={(e) => { e.stopPropagation(); copyQuickAccessUrl("website") }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${copiedTarget === "website" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white"}`}>{copiedTarget === "website" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />}{copiedTarget === "website" ? "Copied" : "Copy"}</button></div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
