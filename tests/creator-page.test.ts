@@ -877,6 +877,47 @@ function main() {
     )
   }
 
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * =====================================================================
+     *  A WRAPPER THAT FORWARDS BY NAME CAN DROP ONE
+     * =====================================================================
+     * SectionRenderer lists every prop it takes and passes them on one by
+     * one. `sellerContactEmail` was never in that list, so the creator page
+     * handed it an address, the wrapper dropped it, and the About block
+     * showed no Contact — for as long as the feature had existed.
+     *
+     * Nothing failed. The page's call had a prop the wrapper's type does not
+     * declare, which IS a type error, and next.config.mjs sets
+     * `ignoreBuildErrors`. Same shape as the chart's missing
+     * `lastTouchXRef`: a green build over code that cannot work.
+     *
+     * So this compares the two halves. Every name the wrapper accepts has to
+     * come out the other side, and adding one to either half alone is caught
+     * here rather than by somebody noticing a blank space on a page.
+     */
+    const wrapper = read("components/store-builder/section-renderer.tsx")
+    const body = wrapper.slice(wrapper.indexOf("export function SectionRenderer"), wrapper.indexOf("// ====== SHOP HEADER RENDERER"))
+    const destructured = body.slice(0, body.indexOf("}: {"))
+    const forwarded = body.slice(body.indexOf("<UnifiedSectionRenderer"))
+
+    const taken = [...destructured.matchAll(/^\s{2}([a-zA-Z][\w]*)(?:\s*=[^,]*)?,$/gm)].map((m) => m[1])
+    const given = new Set([...forwarded.matchAll(/^\s*([a-zA-Z][\w]*)=\{/gm)].map((m) => m[1]))
+    const dropped = taken.filter((n) => !given.has(n))
+
+    check("the wrapper's props were found", taken.length > 10, `found ${taken.length}`)
+    check(
+      "every prop SectionRenderer takes is passed on",
+      dropped.length === 0,
+      dropped.length ? `dropped on the floor: ${dropped.join(", ")}` : undefined,
+    )
+    check(
+      "and the contact address is one of them",
+      taken.includes("sellerContactEmail") && given.has("sellerContactEmail"),
+    )
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
