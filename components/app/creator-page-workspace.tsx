@@ -68,6 +68,52 @@ export function CreatorPageWorkspace({
   const [shareOpen, setShareOpen] = useState(false)
   const [isPhone, setIsPhone] = useState(false)
 
+  /**
+   * =========================================================================
+   *  THE WORKSPACE DOES NOT SCROLL, AND iOS IS TOLD SO TWICE
+   * =========================================================================
+   * The canvas is a frame that fills the screen and scrolls inside itself;
+   * this document has nothing to scroll. iOS disagrees the moment a keyboard
+   * opens over a field in the frame: it scrolls the OUTER page up by the
+   * keyboard's height to reveal the field, whatever overflow says, and the
+   * result is the toolbar gone off the top and a strip of grey under the
+   * canvas. The sheet inside the frame now pads its own content for the
+   * keyboard (see mobile-editor-sheet), so the field is already visible and
+   * that scroll buys nothing — and it is put back the moment it happens,
+   * again once the keyboard's animation has landed, because iOS re-applies
+   * it during the animation.
+   */
+  useEffect(() => {
+    const root = document.documentElement
+    const body = document.body
+    const prev = [root.style.overflow, root.style.height, body.style.overflow, body.style.height]
+    root.style.overflow = "hidden"
+    root.style.height = "100%"
+    body.style.overflow = "hidden"
+    body.style.height = "100%"
+
+    const vv = window.visualViewport
+    let settle = 0
+    const putBack = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0)
+    }
+    const onViewport = () => {
+      requestAnimationFrame(putBack)
+      window.clearTimeout(settle)
+      settle = window.setTimeout(putBack, 320)
+    }
+    vv?.addEventListener("resize", onViewport)
+    vv?.addEventListener("scroll", onViewport)
+    window.addEventListener("scroll", putBack)
+    return () => {
+      vv?.removeEventListener("resize", onViewport)
+      vv?.removeEventListener("scroll", onViewport)
+      window.removeEventListener("scroll", putBack)
+      window.clearTimeout(settle)
+      ;[root.style.overflow, root.style.height, body.style.overflow, body.style.height] = prev
+    }
+  }, [])
+
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)")
     const sync = () => setIsPhone(mq.matches)
@@ -139,7 +185,18 @@ export function CreatorPageWorkspace({
         What is left is the way back, whose page this is and where it lives,
         and the address.
       */}
-      <div className="flex shrink-0 items-center gap-1.5 border-b border-[#e5e7eb] bg-white px-3 py-2 sm:gap-2 sm:px-4">
+      {/*
+        UNDER THE STATUS BAR, NOT BEHIND IT. In the iOS shell the webview runs
+        edge to edge, so a bar at top:0 is painted behind the clock and the
+        battery — 44 points of it, which is nearly all of it. That is why
+        "the top bar is not showing" on a phone: it was there, and the status
+        bar was on top of it. The inset is real on iOS and zero in a browser,
+        so it is read, never branched on.
+      */}
+      <div
+        className="flex shrink-0 items-center gap-1.5 border-b border-[#e5e7eb] bg-white px-3 pb-2 sm:gap-2 sm:px-4"
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}
+      >
         <button
           type="button"
           onClick={() => router.push("/app")}

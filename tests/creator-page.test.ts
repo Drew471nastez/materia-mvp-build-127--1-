@@ -207,7 +207,8 @@ function main() {
     check("five schemes are offered", (picker.match(/"(default|blacks|cream|pink|astrid)"/g) ?? []).length === 5)
     check("drawn as overlapping discs, not stripes or a tiny page", picker.includes("rounded-full") && picker.includes("left: i * step"))
     /** A picker whose only change is which border is dark reads as a radio button. */
-    check("and selecting one settles rather than snapping", picker.includes("transition-[left]") && picker.includes("-translate-y-px"))
+    /* The lift was the bump; what settles now is the discs and the shadow. */
+    check("and selecting one settles rather than snapping", picker.includes("transition-[left]") && picker.includes("box-shadow] duration-200"))
 
     /** Every one of them tells the workspace, so nothing needs a reload button. */
     for (const [name, src] of [["the bar", bar], ["the profile", profile], ["About", about]] as const) {
@@ -1399,6 +1400,57 @@ function main() {
     /** The product page's strip reads as a bar, not the top of the page. */
     const pbar = read("components/store-builder/product-creator-bar.tsx")
     check("the product page's bar casts a little shadow", /boxShadow: "0 1px 2px rgba\(15, 23, 42, 0\.05\), 0 8px 24px -16px/.test(pbar))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * ===================================================================
+     *  ON A PHONE: THE BAR IS SEEN, THE SHEET OPENS HALFWAY, THE KEYBOARD
+     *  DOES NOT THROW THE PAGE
+     * ===================================================================
+     */
+    const workspace = code("components/app/creator-page-workspace.tsx")
+    const sheet = code("components/storefront/editor-sheet.tsx")
+    const mobileSheet = code("components/website-builder/mobile-editor-sheet.tsx")
+    const picker = code("components/storefront/scheme-picker.tsx")
+
+    /**
+     * In the iOS shell the webview runs edge to edge, so a bar at top:0 is
+     * painted BEHIND the status bar — 44 points of it, nearly all of it —
+     * which is "the top bar is not showing". Read the inset, never branch on
+     * a user agent.
+     */
+    check("the toolbar sits under the status bar, not behind it", workspace.includes('paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)"'))
+    check("and nothing sniffs a user agent to do it", !/navigator\.userAgent|isNativeApp\(\)/.test(workspace))
+
+    /** A form that opens to the whole screen is a page, not a sheet. */
+    check("editors open to half the screen, with the top as a second stop", sheet.includes("detents={[0.55, 0.92]}") && !sheet.includes("openFull"))
+    check("and the body is the sheet's own scroller", sheet.includes("data-sheet-scroll"))
+
+    /**
+     * THE KEYBOARD, FROM INSIDE A FRAME. An iframe's own visualViewport on
+     * iOS does not shrink for the keyboard, so the sheet measured it as zero
+     * and iOS scrolled the outer page instead — the sheet's top off the
+     * screen, a strip of workspace under it. Same origin, so the parent's
+     * viewport is readable, and that is where the keyboard is measured.
+     */
+    check("the sheet measures the keyboard from the window that has one", mobileSheet.includes("function keyboardWindow()") && mobileSheet.includes("const kb = keyboardWindow()"))
+    check("guarded for a cross-origin parent", /window\.top[\s\S]{0,120}location\.origin === window\.location\.origin/.test(mobileSheet))
+    check("and listens to that window's viewport too", mobileSheet.includes('kbvv.addEventListener("resize", update)'))
+    check("the sheet's own height still comes from its own window", mobileSheet.includes("setViewport(Math.round(window.innerHeight"))
+    /** And the outer document is told, twice, that it does not scroll. */
+    check("the workspace locks its document", workspace.includes('root.style.overflow = "hidden"') && workspace.includes('body.style.overflow = "hidden"'))
+    check("and puts a keyboard scroll back where it was", workspace.includes("window.scrollTo(0, 0)") && workspace.includes('vv?.addEventListener("resize", onViewport)'))
+
+    /**
+     * NO BUMP ON SELECT. The row is flex-wrap, so a button that changes
+     * width on selection pushes its neighbours, possibly onto the next line.
+     * Nothing about a button's box may depend on whether it is selected.
+     */
+    check("selecting a scheme changes no button's size", !/w-0|w-3\.5 scale-100/.test(picker) && picker.includes('active ? "opacity-100" : "opacity-0"'))
+    check("nor its position", !/translate-y/.test(picker))
+    check("only colour, shadow, and the discs in their fixed box", picker.includes("transition-[background-color,border-color,box-shadow]") && picker.includes("style={{ width: 52 }}"))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

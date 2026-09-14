@@ -155,7 +155,15 @@ check(
 )
 check(
   "what the keyboard covers is measured the way the code editor measures it",
-  /window\.innerHeight - vv\.height - vv\.offsetTop/.test(sheet),
+  /**
+   * Same three terms — the window's height, less the visual viewport, less
+   * its offset — read from the window that has the keyboard. Inside the
+   * creator page editor's canvas that is the PARENT: an iframe's own visual
+   * viewport on iOS does not shrink for a keyboard, so from in there the
+   * old expression measured zero and iOS scrolled the outer page instead.
+   * `keyboardWindow()` is the sheet's own window everywhere else.
+   */
+  /kb\.innerHeight - kvv\.height - kvv\.offsetTop/.test(sheet) && /const kb = keyboardWindow\(\)/.test(sheet),
 )
 check(
   "a sub-pixel is not treated as a keyboard",

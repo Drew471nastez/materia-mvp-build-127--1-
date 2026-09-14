@@ -64,6 +64,24 @@ function naturalScrollHeight(scroller: HTMLElement): number {
   return inner.getBoundingClientRect().height + padding
 }
 
+/**
+ * The window a keyboard would resize. This one, unless this one is a
+ * same-origin frame inside another — the creator page editor's canvas — in
+ * which case the keyboard opens over the PARENT and only the parent's
+ * `visualViewport` says so. A cross-origin parent throws on access and is
+ * treated as none.
+ */
+function keyboardWindow(): Window {
+  if (typeof window === "undefined") return window
+  try {
+    const top = window.top
+    if (top && top !== window && top.location.origin === window.location.origin) return top
+  } catch {
+    /* Cross-origin: our own window is all there is to read. */
+  }
+  return window
+}
+
 /** The home-indicator inset, as a number, for sizing a content-fit sheet. */
 function safeAreaBottom(): number {
   if (typeof document === "undefined") return 0
@@ -268,6 +286,8 @@ export function MobileEditorSheet({
   React.useEffect(() => {
     setMounted(true)
     const vv = window.visualViewport
+    /** The window whose keyboard matters; its viewport is listened to below. */
+    const kbvv = keyboardWindow().visualViewport
     /**
      * ONE MEASUREMENT PER FRAME, HOWEVER MANY EVENTS.
      *
@@ -311,7 +331,27 @@ export function MobileEditorSheet({
        * sub-pixel: a 0.5px "keyboard" is a rounding artefact on every
        * resize, and moving the content by it is a twitch.
        */
-      const covered = vv ? window.innerHeight - vv.height - vv.offsetTop : 0
+      /**
+       * =====================================================================
+       *  INSIDE A FRAME, THE KEYBOARD IS THE PARENT'S TO REPORT
+       * =====================================================================
+       * The creator page editor holds the real page in an iframe, and this
+       * sheet opens INSIDE that page. An iframe's own `visualViewport` on
+       * iOS is the frame's box and nothing else: it does not shrink when a
+       * keyboard opens over the top document, so from in here the keyboard
+       * measured as zero, nothing was padded, and iOS did the only thing it
+       * could to show the focused field — it scrolled the whole outer page
+       * up by the keyboard's height. That is the sheet with its top pushed
+       * off the screen and a strip of the workspace showing under it.
+       *
+       * Same origin, so the parent's viewport is readable. The keyboard is
+       * measured from whichever window actually has one; the sheet's own
+       * geometry still comes from its own `innerHeight`, because that is the
+       * box it is drawn in.
+       */
+      const kb = keyboardWindow()
+      const kvv = kb.visualViewport
+      const covered = kvv ? kb.innerHeight - kvv.height - kvv.offsetTop : 0
       const keyboard = covered > 1 ? Math.round(covered) : 0
       setKeyboardInset(keyboard)
       /**
@@ -349,6 +389,11 @@ export function MobileEditorSheet({
     measureViewport()
     window.addEventListener("resize", update)
     vv?.addEventListener("resize", update)
+    /* The parent's viewport is where a keyboard shows up when we are framed. */
+    if (kbvv && kbvv !== vv) {
+      kbvv.addEventListener("resize", update)
+      kbvv.addEventListener("scroll", update)
+    }
     /**
      * `scroll` as well as `resize`: iOS reports the keyboard by scrolling the
      * visual viewport, not only by resizing it, and a sheet that ignored that
@@ -359,6 +404,10 @@ export function MobileEditorSheet({
       if (frame) cancelAnimationFrame(frame)
       window.removeEventListener("resize", update)
       vv?.removeEventListener("resize", update)
+      if (kbvv && kbvv !== vv) {
+        kbvv.removeEventListener("resize", update)
+        kbvv.removeEventListener("scroll", update)
+      }
       vv?.removeEventListener("scroll", update)
     }
   }, [])

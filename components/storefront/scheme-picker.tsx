@@ -92,22 +92,31 @@ export function SchemePicker({
               `motion-reduce` turns the movement off and leaves the border,
               which is the part that carries the meaning.
             */
+            /*
+              NOTHING HERE CHANGES SIZE OR POSITION ON SELECT. The first cut
+              lifted the selected one by a pixel and grew the tick from zero
+              width, and both were a BUMP: the row is flex-wrap, so a button
+              that gets 14px wider pushes its neighbours and can push one
+              onto the next line. What moves now is colour, the shadow, and
+              the discs inside their own fixed-width box. Every button is
+              always exactly the size it will be when selected.
+            */
             className={cn(
               "group flex items-center gap-2.5 rounded-xl border px-2.5 py-2",
-              "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out",
-              "motion-reduce:transition-none",
+              "transition-[background-color,border-color,box-shadow] duration-200 ease-out motion-reduce:transition-none",
               active
-                ? "-translate-y-px border-foreground bg-muted shadow-[0_2px_10px_-4px_rgba(15,23,42,0.28)] motion-reduce:translate-y-0"
-                : "border-border hover:bg-muted/60 active:translate-y-px motion-reduce:active:translate-y-0",
+                ? "border-foreground bg-muted shadow-[0_2px_10px_-4px_rgba(15,23,42,0.28)]"
+                : "border-border hover:bg-muted/60",
             )}
           >
             <Discs preset={preset} spread={active} />
             <span className="text-[13px] text-foreground">{themePresets[preset].name}</span>
+            {/* The tick's space is always reserved; only its opacity moves. */}
             <Check
               aria-hidden
               className={cn(
-                "h-3.5 w-3.5 text-foreground transition-[opacity,transform,width] duration-200 ease-out motion-reduce:transition-none",
-                active ? "w-3.5 scale-100 opacity-100" : "w-0 scale-75 opacity-0",
+                "h-3.5 w-3.5 shrink-0 text-foreground transition-opacity duration-200 ease-out motion-reduce:transition-none",
+                active ? "opacity-100" : "opacity-0",
               )}
             />
           </button>

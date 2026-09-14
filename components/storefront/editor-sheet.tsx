@@ -145,8 +145,13 @@ export function EditorSheet({
         onOpenChange={(next) => { if (!next) onClose() }}
         peekHeight={0}
         layer="raised"
-        detents={[0.92]}
-        openFull
+        /*
+          HALF FIRST. A form that opens to the whole screen is a page, and a
+          page has no reason to be a sheet. It opens to half, which keeps the
+          thing being edited visible above it, and a drag on the handle takes
+          it to the top for the long ones. The body scrolls inside either.
+        */
+        detents={[0.55, 0.92]}
       >
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="shrink-0 border-b border-border px-5 pb-3 pt-1">
