@@ -1330,7 +1330,7 @@ check(
     if (!/OwnerMenu/.test(slot))
       missing.push("the owner menu is outside the owner-only slot — every visitor would see it")
 
-    for (const href of ["/app/products", "/creator-page", "/app/analytics", "/app/settings"]) {
+    for (const href of ["/app/products", "/app/creator-page", "/app/analytics", "/app/settings"]) {
       if (!menu.includes(`"${href}"`)) {
         missing.push(`the menu no longer links to ${href}`)
         continue
@@ -2409,9 +2409,18 @@ check(
       missing.push("the featured rail decides its layout in JavaScript again — it will disagree with the Products tab between the two breakpoints")
     if (/runtimeIsMobile|uiIsMobile/.test(body))
       missing.push("the JS 'is this mobile' flag is back in the featured rail")
-    if (!/!isMobile && "sm:grid-cols-2 lg:grid-cols-3"/.test(body))
-      missing.push("the featured grid no longer steps at sm and lg")
-    if (!/"grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"/.test(grid))
+    /**
+     * THREE COLUMNS FROM `md`, NOT FROM `lg`, on both.
+     *
+     * The creator page is edited inside a frame that is a sidebar and two
+     * insets narrower than the window, so at `lg` an ordinary laptop showed
+     * the creator two columns while a visitor on the same laptop saw three.
+     * A card at 768/3 is about 230px, still wider than the phone layout all
+     * of these are designed at.
+     */
+    if (!/!isMobile && "sm:grid-cols-2 md:grid-cols-3"/.test(body))
+      missing.push("the featured grid no longer steps at sm and md")
+    if (!/"grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3"/.test(grid))
       missing.push("the Products grid changed its steps — the two must match")
 
     if (missing.length) console.log("        " + missing.join("\n        "))

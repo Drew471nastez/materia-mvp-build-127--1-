@@ -12,18 +12,12 @@ import type { AboutSettings, ShopHeaderSettings, GlobalStoreSettings, Section } 
 import { defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/defaults"
 import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { LiveSubscribeBar } from "@/components/store-builder/live-subscribe-bar"
-/**
- * FROM THE LIB, NOT FROM THE BAR. subscribe-bar.tsx is "use client", and an
- * export of a client module is a client REFERENCE when a Server Component
- * imports it — calling one here throws and takes the page down.
- */
-import { getButtonText, getDisplayText } from "@/lib/store-builder/subscribe-text"
-import { EditCtaButton } from "@/components/storefront/edit-cta-button"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { EditProfileButton } from "@/components/storefront/edit-profile-button"
 import { EditAboutButton } from "@/components/storefront/edit-about-button"
 import { OwnerMenu } from "@/components/storefront/owner-menu"
+import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
 import { StorefrontTabs, EmptyTabPanel, type StorefrontTab } from "@/components/storefront/storefront-tabs"
 import { AllProductsGrid } from "@/components/storefront/all-products-grid"
 import { ReviewsPanel, type StorefrontReview } from "@/components/storefront/reviews-panel"
@@ -422,7 +416,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * `null` for everyone who is not the owner — a visitor never receives the
    * component, not even hidden.
    */
-  const buildOwnerActions = (headerSettings?: ShopHeaderSettings) => {
+  const buildOwnerActions = (headerSettings?: ShopHeaderSettings, themePreset?: string) => {
     if (!viewerIsOwner) return null
     const links = headerSettings?.socialLinks
     return (
@@ -453,6 +447,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             (headerSettings?.showTotalSalesBadge ?? true) && (creator.show_total_sales_badge ?? true),
           showSocialMedia: headerSettings?.showSocialMedia,
         }}
+        themePreset={themePreset}
       />
       {/* Everything that needs a whole screen rather than a dialog. */}
       <OwnerMenu embedded={embedded} />
@@ -655,6 +650,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     const chrome = resolveStorefrontChrome(globalSettings?.themePreset, {
       pageBackground: publishedConfig.globalColors?.backgroundColor,
       text: headerSettings?.textsColor || headerSettings?.colors?.textColor,
+      avatarBorder: headerSettings?.profileImageBorderColor,
       /**
        * BOTH PLACES. The builder writes the bar's background and text under
        * `colors`; the quick editor writes them at the top level. A reader
@@ -862,47 +858,49 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           }}
         >
           <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
+          {/* In the workspace's canvas, a product link has to stay framable. */}
+          {embedded && <EmbeddedNavigation />}
         <TrackView type="store" creatorId={creator.id} />
 
         {subscribeBarSettings.visible && (
           /**
-           * THE PENCIL SITS ON THE BAR, and only for its owner.
+           * THE BAR EDITS ITSELF, and only for its owner.
            *
-           * The two strings here are the first thing anybody reads on this
-           * page, and changing either used to mean a trip into the section
-           * editor. It is seeded with what the bar ACTUALLY SHOWS rather than
-           * the stored value, because the bar generates its own sentence from
-           * a preset when nothing is stored, and opening a dialog onto two
-           * empty boxes is not editing what you are looking at.
+           * The pencil used to sit here as a sibling and edit two strings; the
+           * bar's colours were a panel in the workspace's toolbar. Both halves
+           * are one control now, and it lives INSIDE LiveSubscribeBar because
+           * a draft that repaints as somebody types is state, and two siblings
+           * in a Server Component cannot share state.
+           *
+           * It is seeded with what the bar ACTUALLY SHOWS rather than the raw
+           * stored value: the bar generates its own sentence from a preset
+           * when nothing is stored, and opening a dialog onto an empty box is
+           * not editing what you are looking at.
+           *
+           * A visitor gets the plain bar, with no listener, no draft state and
+           * no editor in the payload at all.
            */
-          <div className="relative">
-            {/*
-              INSIDE THE EDITOR THE BAR LISTENS; ON A PUBLIC PAGE IT DOES NOT.
-
-              The editor holds this page in a frame, so a change to the bar
-              used to mean a save and a fresh request before the creator could
-              see it. LiveSubscribeBar takes the draft values over postMessage
-              and repaints on the keystroke, which is what the store builder
-              does and what was asked for. It is only mounted for a framed
-              owner: a visitor's page renders the plain bar with no listener
-              on it at all.
-            */}
-            {embedded && viewerIsOwner ? (
-              <LiveSubscribeBar settings={{ ...subscribeBarSettings, creatorUserId: profile.id }} creatorId={creator.id} />
-            ) : (
-              <SubscribeBar settings={{ ...subscribeBarSettings, creatorUserId: profile.id }} creatorId={creator.id} />
-            )}
-            {viewerIsOwner && (
-              <div className="pointer-events-none absolute inset-y-0 left-2 z-20 flex items-center sm:left-3">
-                <div className="pointer-events-auto">
-                  <EditCtaButton
-                    text={getDisplayText(subscribeBarSettings, profile.display_name || undefined)}
-                    buttonText={getButtonText(subscribeBarSettings, false)}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+          viewerIsOwner ? (
+            <LiveSubscribeBar
+              settings={{ ...subscribeBarSettings, creatorUserId: profile.id }}
+              creatorId={creator.id}
+              editor={{
+                values: {
+                  text: subscribeBarSettings.customCtaText || subscribeBarSettings.text || "",
+                  buttonText:
+                    storedBar.buttonTextPreset === "custom" ? subscribeBarSettings.buttonText || "" : "",
+                  style: subscribeBarSettings.style || "style1",
+                  buttonStyle: subscribeBarSettings.buttonStyle || "style1",
+                  backgroundColor: subscribeBarSettings.backgroundColor || "",
+                  textColor: subscribeBarSettings.textColor || "",
+                  buttonColor: subscribeBarSettings.buttonColor || "",
+                  buttonTextColor: subscribeBarSettings.buttonTextColor || "",
+                },
+              }}
+            />
+          ) : (
+            <SubscribeBar settings={{ ...subscribeBarSettings, creatorUserId: profile.id }} creatorId={creator.id} />
+          )
         )}
 
         <ShopHeaderRenderer
@@ -912,7 +910,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           products={products || []}
           productCount={products?.length || 0}
           globalSettings={globalSettings}
-          ownerActions={buildOwnerActions(headerSettings)}
+          ownerActions={buildOwnerActions(headerSettings, chrome.preset)}
           contactEmail={publicContactEmail}
           reviewCount={creatorReviewCount}
           reviewAverage={creatorRating}
@@ -924,7 +922,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            * save — so a creator on a dark scheme got their own name in black
            * on black, which is the screenshot that started this.
            */
-          surface={{ textColor: chrome.text, mutedColor: chrome.muted }}
+          surface={{ textColor: chrome.text, mutedColor: chrome.muted, avatarBorderColor: chrome.avatarBorder }}
         />
 
         {(() => {

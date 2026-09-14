@@ -70,12 +70,20 @@ export function InlinePanel({
   onClose,
   className,
   label,
+  /**
+   * The card's own colours. A default rather than a hardcode, because
+   * `bg-white` and `bg-[#1f1f1f]` in one class string is a coin toss decided
+   * by whichever rule the stylesheet happens to emit last, not by the order
+   * they are written in.
+   */
+  surfaceClassName = "border border-[#e5e7eb] bg-white shadow-[0_24px_60px_-24px_rgba(0,0,0,0.35)]",
   children,
 }: {
   open: boolean
   onClose: () => void
   className?: string
   label?: string
+  surfaceClassName?: string
   children: React.ReactNode
 }) {
   const { render, leaving } = useInlinePresence(open)
@@ -103,7 +111,8 @@ export function InlinePanel({
         aria-modal="true"
         className={cn(
           leaving ? "wb-settings-out" : "wb-settings-in",
-          "absolute z-30 overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_24px_60px_-24px_rgba(0,0,0,0.35)]",
+          "absolute z-30 overflow-hidden rounded-2xl",
+          surfaceClassName,
           className,
         )}
       >

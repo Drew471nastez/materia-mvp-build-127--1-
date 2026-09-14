@@ -34,6 +34,9 @@
 
 import { useEffect, useState } from "react"
 
+import { EditCtaButton, type CtaValues } from "@/components/storefront/edit-cta-button"
+import { CREATOR_EDITOR_CHANNEL } from "@/lib/store-builder/editor-channel"
+
 import { SubscribeBar } from "./subscribe-bar"
 
 /** The four colours and two strings the editor can change. */
@@ -50,7 +53,7 @@ export interface SubscribeBarDraft {
   buttonTextColor?: string
 }
 
-export const CREATOR_EDITOR_CHANNEL = "storelib-creator-editor"
+export { CREATOR_EDITOR_CHANNEL } from "@/lib/store-builder/editor-channel"
 
 /** A hex the browser will accept, or nothing. Never passed through raw. */
 const hex = (v: unknown) => (typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v : undefined)
@@ -84,9 +87,22 @@ function clean(raw: unknown): SubscribeBarDraft | null {
 export function LiveSubscribeBar({
   settings,
   creatorId,
+  editor,
 }: {
   settings: React.ComponentProps<typeof SubscribeBar>["settings"]
   creatorId: string
+  /**
+   * THE PENCIL LIVES HERE, not beside this in the page.
+   *
+   * It has to, now that it edits the bar's colours as well as its words: the
+   * draft it produces is state, and the bar is the thing that renders from
+   * it. Two siblings in a Server Component cannot share state, which is why
+   * the colour half of this used to be a panel in the workspace's toolbar
+   * instead — a control for a thing two inches below it and off to one side.
+   *
+   * Present only when the viewer owns the page; the page decides that.
+   */
+  editor?: { values: CtaValues }
 }) {
   const [draft, setDraft] = useState<SubscribeBarDraft | null>(null)
 
@@ -131,5 +147,38 @@ export function LiveSubscribeBar({
       } as typeof settings)
     : settings
 
-  return <SubscribeBar settings={merged} creatorId={creatorId} />
+  if (!editor) return <SubscribeBar settings={merged} creatorId={creatorId} />
+
+  return (
+    <div className="relative">
+      <SubscribeBar settings={merged} creatorId={creatorId} />
+      {/*
+        On the bar, at the leading edge, over it rather than in the flow: the
+        bar is a row of its own with an email box in it, and a pencil inside
+        that row would be a fourth thing competing for the same line.
+      */}
+      <div className="pointer-events-none absolute inset-y-0 left-2 z-20 flex items-center sm:left-3">
+        <div className="pointer-events-auto">
+          <EditCtaButton values={editor.values} onPreview={(next) => setDraft(next ? toDraft(next) : null)} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** The editor's values in the shape the bar reads. */
+function toDraft(values: CtaValues): SubscribeBarDraft {
+  const label = values.buttonText.trim()
+  return {
+    text: values.text,
+    customCtaText: values.text,
+    buttonText: values.buttonText,
+    buttonTextPreset: label ? "custom" : "subscribe",
+    style: values.style,
+    buttonStyle: values.buttonStyle,
+    backgroundColor: hex(values.backgroundColor),
+    textColor: hex(values.textColor),
+    buttonColor: hex(values.buttonColor),
+    buttonTextColor: hex(values.buttonTextColor),
+  }
 }

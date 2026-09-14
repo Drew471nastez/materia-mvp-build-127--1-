@@ -31,6 +31,7 @@ import { SOCIAL_PLATFORM_KEYS, resolveSocialInput, type SocialPlatformKey } from
 import { toPublicHttpUrl } from "@/lib/url/public-url"
 import { canonicalVideoUrl } from "@/lib/social/video"
 import { themePresets } from "@/lib/store-builder/defaults"
+import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -120,7 +121,24 @@ export async function PATCH(request: NextRequest) {
     const value = raw as Record<string, unknown>
     const out: { headline?: string; aboutContent?: string; mediaItems?: AboutMediaItem[] } = {}
     if (typeof value.headline === "string") out.headline = value.headline.trim().slice(0, MAX_ABOUT_HEADLINE)
-    if (typeof value.aboutContent === "string") out.aboutContent = value.aboutContent.trim().slice(0, MAX_ABOUT_STORY)
+    /**
+     * THE STORY IS RICH TEXT NOW, so it is HTML, so it is sanitised here.
+     *
+     * lib/website-builder/sanitize is the allow list the rest of the product
+     * uses, and its own note is the argument: a creator page is served from
+     * storelib.com, so script in a creator's own story runs on this origin in
+     * the session of whoever opens their page. Sanitised on the way in, which
+     * is where the authority is, and the renderer sanitises again on the way
+     * out for rows that predate this.
+     *
+     * A story with no markup in it stays a plain string: sanitising cannot
+     * damage it, and not putting tags around a line somebody typed keeps the
+     * old rows readable.
+     */
+    if (typeof value.aboutContent === "string") {
+      const raw = value.aboutContent.slice(0, MAX_ABOUT_STORY)
+      out.aboutContent = /<[a-z][\s\S]*>/i.test(raw) ? sanitizeRichText(raw).trim() : raw.trim()
+    }
     if (Array.isArray(value.mediaItems)) {
       out.mediaItems = value.mediaItems
         .slice(0, MAX_ABOUT_MEDIA)
@@ -188,7 +206,10 @@ export async function PATCH(request: NextRequest) {
      */
 
     /** The bar's own presets: which generated sentence, which button label. */
-    if (typeof value.style === "string" && ["style1", "style2", "style3"].includes(value.style)) out.style = value.style
+    /** Six generated sentences now; see getStyleText for what each one says. */
+    if (typeof value.style === "string" && ["style1", "style2", "style3", "style4", "style5", "style6"].includes(value.style)) {
+      out.style = value.style
+    }
     if (typeof value.buttonStyle === "string" && ["style1", "style2", "style3", "style4"].includes(value.buttonStyle)) {
       out.buttonStyle = value.buttonStyle
     }

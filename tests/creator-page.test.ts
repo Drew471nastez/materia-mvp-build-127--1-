@@ -31,6 +31,7 @@ import { join } from "node:path"
 
 import { themePresets } from "../lib/store-builder/defaults"
 import { cardAccents, resolveStorefrontChrome } from "../lib/store-builder/storefront-chrome"
+import { embeddedHref } from "../lib/store-builder/editor-channel"
 import { contrastRatio, parseColor } from "../lib/storelib-theme/contrast"
 
 const root = process.cwd()
@@ -64,29 +65,28 @@ const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/
 function main() {
   console.log("\nThe creator page is edited where it lives")
 
-  // ── 1. It is its own screen, with the arrow as the way back ────────────
+  // ── 1. Under /app, and the toolbar is nearly empty ─────────────────────
   {
-    check("the workspace exists", existsSync(join(root, "app/creator-page/page.tsx")))
+    check("the workspace exists", existsSync(join(root, "app/app/creator-page/page.tsx")))
     /**
-     * ITS OWN SCREEN. This moved into /app for a round and back out again on
-     * the owner's instruction, and their reason holds: a creator page is a
-     * full-width design, so editing one through the two thirds of a window an
-     * /app sidebar leaves means judging a narrower page than the one being
-     * published. Being a route OUTSIDE /app is the whole of how it gets the
-     * screen; the layout beside it gates on the session and renders bare.
+     * UNDER /app, WITH THE SIDEBAR. This has moved three times on the owner's
+     * instruction and it is their product. Being a route under /app is the
+     * whole of how it keeps the sidebar: the layout renders the rail and the
+     * header, so a workspace that drew its own would be a second one to keep
+     * in step.
      */
-    const layout = read("app/creator-page/layout.tsx")
-    check("its layout renders no app chrome", !/<AppSidebar|DesktopSidebarContent/.test(layout))
+    const layout = read("app/app/layout.tsx")
+    check("the /app layout is what supplies the sidebar", layout.includes("<AppSidebar"))
     const workspace = strip(read("components/app/creator-page-workspace.tsx"))
     check("and the workspace does not rebuild one", !/AppSidebar|DesktopSidebarContent/.test(workspace))
-    check("it fills the viewport rather than a content area", workspace.includes("h-svh") && !workspace.includes("h-full min-h-0 flex-col bg-"))
-    check("and carries a back control, because there is no sidebar to leave by", workspace.includes("ArrowLeft"))
+    check("it fills the layout's content area rather than the viewport", workspace.includes("h-full min-h-0") && !workspace.includes("h-svh"))
+    check("and carries no back control, because the sidebar is the way out", !workspace.includes("ArrowLeft"))
     const sidebar2 = read("components/app/sidebar.tsx")
     check(
       "the setup widget is not shown over the creator page",
       sidebar2.includes('!pathname.startsWith("/creator-page")') && sidebar2.includes('!pathname.startsWith("/app/creator-page")'),
     )
-    check("the address it had under /app still answers", read("app/app/creator-page/page.tsx").includes('redirect("/creator-page")'))
+    check("the address it had outside /app still answers", read("app/creator-page/page.tsx").includes('redirect("/app/creator-page")'))
 
     /**
      * THE CANVAS. Inset and bordered on a desktop so the page has edges of
@@ -99,39 +99,36 @@ function main() {
     check("the chrome is light", workspace.includes("bg-[#f1f1f3]") && !workspace.includes("#18181c") && !workspace.includes("#131316"))
 
     /**
-     * THE TOOLS ARE THE BUILDER'S TOOLS. Two editors in one product that draw
-     * the same control two ways feel like two products.
+     * ===================================================================
+     *  THE TOOLBAR HAS NOTHING IN IT BUT THE ADDRESS
+     * ===================================================================
+     * It grew an Edit-the-bar panel, a colour-scheme menu and a reload
+     * button, and all three were in the wrong place. The first two are
+     * controls for things ON the page, two inches below them and off to one
+     * side, and they only existed inside the editor — so a creator looking at
+     * their own live page had no way to either. The third was the editor
+     * asking a creator to notice a save on its behalf.
+     *
+     * They are on the page now: the bar's editor opens from the bar, the
+     * schemes are in the profile dialog, and the frame says when it has saved.
      */
-    check("a phone gets the builder's own sheet", workspace.includes("MobileEditorSheet"))
-    check("the desktop panel rises in like the builder's do", workspace.includes("wb-settings-in"))
-    check("and it is inline at the side, not a centred dialog", /bottom-3 right-3 top-\[56px\]/.test(workspace))
-    check("the colour control is the builder's swatch", workspace.includes('className="absolute -inset-1 cursor-pointer"'))
-    check("beside the builder's hex field", /font-mono text-sm/.test(workspace))
-
-    // The colour scheme, from the bar.
-    const api = read("app/api/creator-profile/route.ts")
-    check("the scheme can be changed without leaving", workspace.includes("applyScheme"))
-    check("it writes through the route that already does auth", /applyScheme[\s\S]{0,600}\/api\/creator-profile/.test(workspace))
-    check("and the frame reloads so it is the real thing", /applyScheme[\s\S]{0,900}reframe\(\)/.test(workspace))
+    check("no bar editor in the toolbar", !workspace.includes("CtaEditor") && !workspace.includes("MESSAGE_PRESETS"))
+    check("no colour-scheme menu in the toolbar", !workspace.includes("applyScheme") && !workspace.includes("SCHEMES"))
+    check("no reload button in the toolbar", !workspace.includes("RotateCw"))
     check("the loader is only for the first load", workspace.includes("firstLoad &&"))
-
-    /** Five answers, not eight, three of which were the same answer twice. */
-    const schemes = workspace.match(/const SCHEMES: ThemePreset\[\] = \[([^\]]+)\]/)?.[1] ?? ""
-    check("five schemes are offered", schemes.split(",").filter((x) => x.trim()).length === 5, schemes)
-    check("and they are five different shapes", /default[\s\S]*blacks[\s\S]*cream[\s\S]*pink[\s\S]*astrid/.test(schemes))
-    /** A swatch is a tiny page: the page colour, a card on it, a pill in the primary. */
-    check("the swatch is a tiny page, not three stripes", workspace.includes("t.sections.pageBackgroundColor") && workspace.includes("t.productCard.backgroundColor") && workspace.includes("t.colors.primary"))
-
     /** A control that shrinks under the cursor reads as a toy. */
     check("nothing in the toolbar scales on press", !workspace.includes("active:scale"))
 
-    // ── A phone gets a sheet, and the bar is editable from here ──────────
-    check("a phone gets a sheet, not a popover on a 36px button", /isPhone && portalReady && \(\s*<MobileEditorSheet open=\{schemeOpen\}/.test(workspace))
-    check("the top bar can be edited from the workspace", workspace.includes("CtaEditor"))
-    check("including its four colours", workspace.includes("buttonTextColor"))
-    check("with the bar's own message presets", workspace.includes("MESSAGE_PRESETS") && workspace.includes('"Join our community"'))
-    check("and its button presets", workspace.includes("BUTTON_PRESETS") && workspace.includes('"Get It"'))
-    check("which the API accepts as stored words", api.includes('["style1", "style2", "style3"].includes(value.style)'))
+    /**
+     * AND THE PAGE TELLS IT WHEN TO RELOAD, which is what replaced the button.
+     */
+    check("the page says when it has saved", workspace.includes('data.kind === "saved"'))
+    check("and only this origin is listened to", workspace.includes("event.origin !== window.location.origin"))
+    const channel = read("lib/store-builder/editor-channel.ts")
+    check("a page that is not framed says nothing", channel.includes("window.parent === window"))
+
+    const api = read("app/api/creator-profile/route.ts")
+    check("which the API accepts as stored words", api.includes('["style1", "style2", "style3", "style4", "style5", "style6"].includes(value.style)'))
     check(
       "and every colour is validated as a hex before it reaches a public page",
       api.includes("^#(?:[0-9a-f]{3}|[0-9a-f]{6})$"),
@@ -139,6 +136,48 @@ function main() {
     /** An unknown name would leave a page resolving a theme that does not exist. */
     check("an unknown preset cannot be stored", api.includes("raw in themePresets"))
     check("and it lands in globalSettings, where the page reads it", api.includes("globalSettings"))
+  }
+
+  // ── 1b. Every control is on the page, beside what it changes ───────────
+  {
+    const bar = read("components/storefront/edit-cta-button.tsx")
+    const live = read("components/store-builder/live-subscribe-bar.tsx")
+    const profile = read("components/storefront/edit-profile-button.tsx")
+    const picker = read("components/storefront/scheme-picker.tsx")
+    const about = read("components/storefront/edit-about-button.tsx")
+
+    /** The bar's whole settings, from the pencil on the bar. */
+    check("the bar editor opens from the bar", live.includes("<EditCtaButton"))
+    check("and it edits the colours, not just the words", bar.includes("buttonTextColor") && bar.includes("<ColorField"))
+    check("with six message presets, not three", (bar.match(/value: "style\d"/g) ?? []).length >= 10)
+    check("and the bar renders all six", read("lib/store-builder/subscribe-text.ts").includes('case "style6"'))
+
+    /**
+     * THE COLOUR PICKER IS THE WEBSITE BUILDER'S. Not one that looks like it:
+     * ColorChip IS the control its design panels use, so the two cannot drift.
+     */
+    const field = read("components/storefront/color-field.tsx")
+    check("the colour control is the builder's own", field.includes('from "@/components/website-builder/editor/color-chip"'))
+    check(
+      "and nothing opens the operating system's colour dialog",
+      !code("components/storefront/edit-cta-button.tsx").includes('type="color"') &&
+        !code("components/storefront/color-field.tsx").includes('type="color"'),
+    )
+
+    /** Radix owns the open and the close, which is the whole of "no glitch". */
+    const sheet = read("components/storefront/editor-sheet.tsx")
+    check("the editors open on Dialog, like the profile one does", sheet.includes("<Dialog") && bar.includes("<EditorSheet"))
+
+    /** The scheme, in the dialog that owns how the page presents itself. */
+    check("the colour scheme is in Edit profile", profile.includes("<SchemePicker"))
+    check("and it saves with the rest of it", profile.includes("themePreset: scheme"))
+    check("five schemes are offered", (picker.match(/"(default|blacks|cream|pink|astrid)"/g) ?? []).length === 5)
+    check("drawn as overlapping discs, not stripes or a tiny page", picker.includes("rounded-full") && picker.includes("left: i * 11"))
+
+    /** Every one of them tells the workspace, so nothing needs a reload button. */
+    for (const [name, src] of [["the bar", bar], ["the profile", profile], ["About", about]] as const) {
+      check(`${name} editor tells the workspace it saved`, src.includes("notifyEditorSaved()"))
+    }
   }
 
   // ── 2. The frame is the real page ──────────────────────────────────────
@@ -230,10 +269,10 @@ function main() {
   // ── 5. One destination, and the old addresses still answer ─────────────
   {
     const entries: Array<[string, string]> = [
-      ["components/app/sidebar.tsx", '"/creator-page"'],
-      ["components/app/dashboard-client.tsx", '"/creator-page"'],
-      ["components/storefront/owner-menu.tsx", '"/creator-page"'],
-      ["components/app/settings-form-new.tsx", '"/creator-page"'],
+      ["components/app/sidebar.tsx", '"/app/creator-page"'],
+      ["components/app/dashboard-client.tsx", '"/app/creator-page"'],
+      ["components/storefront/owner-menu.tsx", '"/app/creator-page"'],
+      ["components/app/settings-form-new.tsx", '"/app/creator-page"'],
     ]
     for (const [file, href] of entries) {
       check(`${file} points at the workspace`, read(file).includes(href))
@@ -245,10 +284,10 @@ function main() {
      * section editor and is linked from the workspace itself.
      */
     check("the old /store-builder address still answers", existsSync(join(root, "app/store-builder/page.tsx")))
-    check("and it lands on the workspace", read("app/store-builder/page.tsx").includes('redirect("/creator-page")'))
+    check("and it lands on the workspace", read("app/store-builder/page.tsx").includes('redirect("/app/creator-page")'))
     check("the section editor is still a real route", existsSync(join(root, "app/creator-page/sections/page.tsx")))
-    check("and the address the workspace used to have still answers", existsSync(join(root, "app/app/creator-page/page.tsx")))
-    check("and it lands on the workspace too", read("app/app/creator-page/page.tsx").includes('redirect("/creator-page")'))
+    check("and the address the workspace used to have still answers", existsSync(join(root, "app/creator-page/page.tsx")))
+    check("and it lands on the workspace too", read("app/creator-page/page.tsx").includes('redirect("/app/creator-page")'))
 
     const sidebar = read("components/app/sidebar.tsx")
     check("the sidebar no longer says Store Builder", !/label: "Store Builder"/.test(sidebar))
@@ -302,7 +341,13 @@ function main() {
 
     check("the CTA bar has an editor", existsSync(join(root, "components/storefront/edit-cta-button.tsx")))
     check("it writes through the route that already does auth and ownership", cta.includes('"/api/creator-profile"'))
-    check("only the owner sees the pencil", /viewerIsOwner && \(/.test(page) && page.includes("<EditCtaButton"))
+    /**
+     * THE PENCIL IS INSIDE THE BAR, not a sibling of it on the page. It has to
+     * be: it edits the bar's colours now, the draft it produces is state, and
+     * two siblings in a Server Component cannot share state.
+     */
+    check("only the owner sees the pencil", /viewerIsOwner \? \(/.test(page) && page.includes("<LiveSubscribeBar"))
+    check("and a visitor gets the plain bar", /\) : \(\s*<SubscribeBar settings=/.test(page))
     /**
      * The bar generates its own sentence from a preset when nothing is
      * stored, so seeding the dialog from the raw value would open two empty
@@ -310,7 +355,8 @@ function main() {
      */
     check(
       "it is seeded with what the bar actually shows",
-      page.includes("getDisplayText(subscribeBarSettings") && page.includes("getButtonText(subscribeBarSettings"),
+      page.includes("subscribeBarSettings.customCtaText || subscribeBarSettings.text") &&
+        page.includes('storedBar.buttonTextPreset === "custom"'),
     )
     check("the API accepts the two strings", api.includes("const subscribeBar = (()"))
     /**
@@ -468,13 +514,24 @@ function main() {
     check("the bar is still a client module", bar.startsWith('"use client"'))
     check("and re-exports them, so nothing else had to change", bar.includes("export { buttonStylePresets, getButtonText, getDisplayText }"))
 
+    /**
+     * The page does not call these AT ALL now: resolving what the bar says is
+     * the bar's own job, and the editor beside it is a client component that
+     * asks the same lib. So the check is the stronger one — the page must not
+     * import a resolver from anywhere, lib included, because importing one is
+     * how it ends up calling one.
+     */
     check(
-      "the server component imports them from the lib",
-      page.includes('from "@/lib/store-builder/subscribe-text"'),
+      "the server component resolves none of this itself",
+      !/import \{[^}]*get(DisplayText|ButtonText)[^}]*\}/.test(page),
     )
     check(
-      "and calls nothing it imported from the client module",
+      "and nothing reaches for one out of the client module",
       !/import \{[^}]*get(DisplayText|ButtonText)[^}]*\} from "@\/components\//.test(page),
+    )
+    check(
+      "the bar's own editor asks the lib, not the bar",
+      read("components/store-builder/live-subscribe-bar.tsx").includes('from "@/lib/store-builder/editor-channel"'),
     )
 
     /**
@@ -511,26 +568,30 @@ function main() {
     /**
      * THE PROFILE PICTURE IS A ROUNDED SQUARE.
      *
-     * A circle is the social-network shape, and it made a creator's shop read
-     * as a profile. It was also throwing away corners the creator had
-     * positioned on purpose, because the crop behind it is square.
+     * A CIRCLE. It was a rounded square for two rounds, on the argument that
+     * the app-icon shape agrees with the Storelib mark above it; the owner has
+     * asked for a circle and it is their page. The known cost stands: the crop
+     * behind it is square, so a circle throws the corners away, which is the
+     * same cost every social network pays.
      *
-     * The radius is measured in a browser by scripts/check-avatar-shape.mjs,
-     * at both sizes a creator can pick. What is held here is what that
-     * measurement depends on: the radius is derived from the size rather than
-     * written down, and it is an INLINE style — components/ui/avatar bakes
-     * `rounded-full` into its root, so a class would lose. Taking the inline
-     * rule out makes the probe report a radius of 3.35e7px, which is that
-     * `rounded-full` and nothing else.
+     * It is still set INLINE, and that is the part worth holding: ui/avatar
+     * bakes `rounded-full` into its root and the ring beside it is an inline
+     * style too, so a class here would be a coin toss between two equally
+     * specific rules.
+     *
+     * THE RING FOLLOWS THE SCHEME. A stored "#e5e7eb" is the platform default
+     * rather than a decision, so a dark page had a light grey hoop around the
+     * one round thing on it.
      */
     const renderer = read("components/store-builder/unified-section-renderer.tsx")
+    check("the avatar is a circle", /borderRadius: "9999px"/.test(renderer))
     check(
-      "the avatar radius scales with the avatar",
-      /borderRadius: `\$\{Math\.round\(avatarSize \* 0\.24\)\}px`/.test(renderer),
+      "set inline, where it outranks ui/avatar's own rule",
+      /style=\{\{[\s\S]{0,400}borderRadius: "9999px"/.test(renderer),
     )
     check(
-      "it is set inline, where it outranks ui/avatar's rounded-full",
-      /style=\{\{[\s\S]{0,400}borderRadius: `\$\{Math\.round\(avatarSize/.test(renderer),
+      "and its ring comes from the scheme when nobody chose one",
+      renderer.includes("surface?.avatarBorderColor") && read("lib/store-builder/storefront-chrome.ts").includes("avatarBorder"),
     )
     check(
       "and the depth is two soft layers rather than one wide blur",
@@ -711,7 +772,7 @@ function main() {
     )
     check(
       "and so is the one in search",
-      /\{ label: "Creator Page", href: "\/creator-page", icon: ContactRound, category: "Pages" \}/.test(sidebar),
+      /\{ label: "Creator Page", href: "\/app\/creator-page", icon: ContactRound, category: "Pages" \}/.test(sidebar),
     )
   }
 
@@ -761,7 +822,13 @@ function main() {
     check("both moving parts are motion-safe", /prefers-reduced-motion[\s\S]*?wb-settings-out/.test(css))
 
     check("the share card uses it", share.includes("<InlinePanel"))
-    check("and the bar editor uses it", workspace.includes("<InlinePanel"))
+    /**
+     * The bar editor does not: it is on the page now, inside the frame, and
+     * there it is a Dialog like every other editor on that page. InlinePanel
+     * is for a card that belongs to the WORKSPACE, and the share card is the
+     * only one of those left.
+     */
+    check("and the workspace has no panel of its own left", !workspace.includes("<InlinePanel"))
     /**
      * NO X. The card decides nothing and traps nothing: clicking off it,
      * Escape and a downward drag on the sheet all close it, so a close button
@@ -788,10 +855,17 @@ function main() {
     const page = code("app/(marketing)/u/[username]/page.tsx")
     const text = read("lib/store-builder/subscribe-text.ts")
 
-    check("every change is posted to the canvas, not just the save", /onPreview\(next\)/.test(workspace))
-    check("into both frames, because the hidden one may be mid-load", /for \(const frame of frames\.current\)/.test(workspace))
-    check("and cancelling puts the page back", /post\(null\)/.test(workspace))
-    check("a reloaded frame asks for the draft again", live.includes('kind: "ready"') && workspace.includes('data.kind !== "ready"'))
+    const bar = read("components/storefront/edit-cta-button.tsx")
+    check("every change is handed to the bar, not just the save", /onPreview\?\.\(next\)/.test(bar))
+    check("and cancelling puts the bar back", /onPreview\?\.\(null\)/.test(bar))
+    check("the bar is what holds the draft", live.includes("setDraft(next ? toDraft(next) : null)"))
+    /**
+     * IT IS ALL IN ONE DOCUMENT NOW. The editor used to live in the workspace
+     * and shout the draft across the frame boundary on every keystroke; it is
+     * beside the bar it edits, so a keystroke is a setState. What still
+     * crosses the boundary is one message after a save.
+     */
+    check("and a save is the only thing that crosses the frame", read("lib/store-builder/editor-channel.ts").includes('kind: "saved"'))
 
     /**
      * THE LISTENER IS NOT ON A PUBLIC PAGE. A message is an input from
@@ -799,7 +873,7 @@ function main() {
      * only rendered for a framed owner, only this origin, only the window
      * that frames us.
      */
-    check("the live bar is only mounted for a framed owner", /embedded && viewerIsOwner \? \(/.test(page))
+    check("the live bar is only mounted for the owner", /viewerIsOwner \? \(/.test(page) && page.includes("<LiveSubscribeBar"))
     check("a visitor gets the plain bar", /<SubscribeBar settings=/.test(page))
     check("the listener refuses another origin", live.includes("event.origin !== window.location.origin"))
     check("and any window that is not the one framing us", live.includes("event.source !== window.parent"))
@@ -877,6 +951,128 @@ function main() {
       "the builder shows the typed address and invents none",
       /contactEmail=\{\(draftConfig\.headerSettings as ShopHeaderSettings\)\?\.contactEmail \|\| undefined\}/.test(canvas),
     )
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * ===================================================================
+     *  A PRODUCT PAGE OPENS INSIDE THE CANVAS
+     * ===================================================================
+     * Clicking a product on the framed creator page ended in "storelib.com
+     * refused to connect": X-Frame-Options doing its job on a page nobody had
+     * told otherwise. A framed page whose own links are dead ends is a
+     * preview, which is the thing this arrangement exists not to be.
+     *
+     * Two halves. The proxy relaxes framing for a product page carrying
+     * ?embedded=1 and for nothing else, and the canvas puts the flag on the
+     * link. What the second half REFUSES is the part worth measuring, so it
+     * is a pure function and this runs it.
+     */
+    const HERE = "https://storelib.com/u/andrewrullz?embedded=1"
+    const cases: Array<[string, string | null | undefined, boolean]> = [
+      ["a product under a handle", "https://storelib.com/andrewrullz/a-tee", true],
+      ["a product at the old address", "/p/a-tee", true],
+      ["a relative link", "a-tee", true],
+      ["one that already carries the flag", "/p/a-tee?embedded=1", false],
+      ["another origin", "https://example.com/p/a-tee", false],
+      ["a mail link", "mailto:hello@example.com", false],
+      ["a phone link", "tel:+40700000000", false],
+      ["an anchor", "#reviews", false],
+      ["a blob", "blob:https://storelib.com/abc", false],
+      ["nothing at all", "", false],
+      ["a missing href", null, false],
+    ]
+    for (const [what, href, rewritten] of cases) {
+      const out = embeddedHref(href, HERE)
+      check(
+        `${what} is ${rewritten ? "carried into the canvas" : "left alone"}`,
+        rewritten ? out !== null && out.includes("embedded=1") : out === null,
+        String(out),
+      )
+    }
+    /** The query it already had has to survive, or a filtered link loses it. */
+    check(
+      "and an existing query survives",
+      (embeddedHref("/p/a-tee?src=platform", HERE) ?? "").includes("src=platform"),
+    )
+
+    const nav = code("components/storefront/embedded-navigation.tsx")
+    check("a modified click is left to the browser", nav.includes("event.metaKey"))
+    check("and so is a link that means to leave the canvas", nav.includes('target !== "_self"'))
+    check("the listener only exists inside a frame", nav.includes("isInEditorFrame()"))
+
+    const proxy = read("proxy.ts")
+    check("the proxy lets a product page be framed", proxy.includes('url.pathname.startsWith("/p/")'))
+    check("but only with the flag, as before", proxy.includes('url.searchParams.get("embedded") === "1"'))
+    check("and never treats an app route as a product", proxy.includes("FRAME_RESERVED_FIRST_SEGMENT"))
+    check("the framed product page offers a way back", existsSync(join(root, "components/storefront/embedded-back-bar.tsx")))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * ===================================================================
+     *  NO SEAM WHERE TWO NEARLY-EQUAL COLOURS MEET
+     * ===================================================================
+     * Astrid painted the page #0a0a0a and the Featured band #0f0f0f. Five
+     * values out of 255: too small to read as a decision, big enough to draw
+     * a LINE across the page under the tab strip, which reads as a rendering
+     * fault. Pink had the same fault at the light end.
+     *
+     * The rule is not "they must match" — cream's band matches its page and
+     * that is fine, and a scheme is allowed a real band. It is that a
+     * difference must be a CHOICE: either none, or one somebody can see.
+     */
+    const SAME = 0
+    const VISIBLE = 12 // out of 255, per channel
+    for (const key of ["default", "blacks", "cream", "pink", "astrid"] as const) {
+      const t = themePresets[key]
+      const page = parseColor(t.sections.pageBackgroundColor)!
+      const band = parseColor(t.sections.featuredProductsBackgroundColor)!
+      const delta = Math.max(Math.abs(page.r - band.r), Math.abs(page.g - band.g), Math.abs(page.b - band.b))
+      check(
+        `${t.name}: the Featured band is either the page or plainly not`,
+        delta === SAME || delta >= VISIBLE,
+        `${t.sections.pageBackgroundColor} vs ${t.sections.featuredProductsBackgroundColor}, ${delta}/255 apart`,
+      )
+    }
+    /** And the dark scheme is a dark grey rather than the panel switching off. */
+    const astrid = parseColor(themePresets.astrid.sections.pageBackgroundColor)!
+    check(
+      "Astrid is dark grey, not pitch black",
+      Math.max(astrid.r, astrid.g, astrid.b) >= 14,
+      themePresets.astrid.sections.pageBackgroundColor,
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * YOUR STORY IS WRITTEN, NOT TYPED INTO A BOX. It was a six-row textarea,
+     * so the one block on a creator page that is actually prose was the one
+     * place in the product with no headings, no emphasis and no lists.
+     */
+    const about = read("components/storefront/edit-about-button.tsx")
+    const api = read("app/api/creator-profile/route.ts")
+    const renderer = read("components/store-builder/unified-section-renderer.tsx")
+    const css = read("app/globals.css")
+
+    check("the story is a rich text field", about.includes("<RichTextField"))
+    check("and it is the website builder's own", about.includes('from "@/components/website-builder/rich-text-field"'))
+    check("not a textarea any more", !about.includes("<Textarea"))
+    /**
+     * IT IS HTML NOW, so it is sanitised where the authority is. A creator
+     * page is served from storelib.com: script in a creator's own story runs
+     * on this origin, in the session of whoever opens their page.
+     */
+    check("what is saved is sanitised", api.includes("sanitizeRichText(raw)"))
+    check("through the allow list the rest of the product uses", api.includes('from "@/lib/website-builder/sanitize"'))
+    check("the renderer prints markup as markup", renderer.includes("dangerouslySetInnerHTML={{ __html: settings.aboutContent"))
+    /** A story with no tags in it keeps its line breaks, which is all it has. */
+    check("and a plain story still keeps its line breaks", renderer.includes('<p className="whitespace-pre-wrap">{settings.aboutContent}</p>'))
+    /** Preflight flattens h2 and ul to nothing, so markup needs typography. */
+    check("written text is given typography", css.includes(".storelib-prose ul { list-style: disc"))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

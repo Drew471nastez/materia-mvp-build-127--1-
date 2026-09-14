@@ -27,6 +27,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { ImageUpload } from "@/components/app/image-upload"
 import { Pencil, Loader2, Wand2 } from "lucide-react"
 import { SocialLinksEditor } from "@/components/social/social-links-editor"
+import { SchemePicker } from "@/components/storefront/scheme-picker"
+import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
 import type { SocialPlatformKey } from "@/lib/social/platforms"
 
 // The platforms, their order and their icons all come from
@@ -54,6 +56,15 @@ export interface EditProfileButtonProps {
     showTotalSalesBadge?: boolean
     showSocialMedia?: boolean
   }
+  /**
+   * THE COLOUR SCHEME IS EDITED HERE, not in the workspace's toolbar.
+   *
+   * It was a palette button up there, which put the one control that changes
+   * how the whole page looks in the one place a creator only sees while the
+   * page is inside an editor. It belongs with the rest of how the page
+   * presents itself, which is this dialog.
+   */
+  themePreset?: string
 }
 
 export function EditProfileButton({
@@ -65,6 +76,7 @@ export function EditProfileButton({
   coverUrl,
   socialLinks,
   display,
+  themePreset = "default",
 }: EditProfileButtonProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
@@ -97,6 +109,7 @@ export function EditProfileButton({
     showTotalSalesBadge: display?.showTotalSalesBadge ?? true,
     showSocialMedia: display?.showSocialMedia ?? true,
   }))
+  const [scheme, setScheme] = React.useState(themePreset)
 
   // Reopening after a cancel should show what is saved, not what was abandoned.
   React.useEffect(() => {
@@ -112,8 +125,9 @@ export function EditProfileButton({
       showTotalSalesBadge: display?.showTotalSalesBadge ?? true,
       showSocialMedia: display?.showSocialMedia ?? true,
     })
+    setScheme(themePreset)
     setError(null)
-  }, [open, displayName, bio, avatarUrl, coverUrl, socialLinks, display])
+  }, [open, displayName, bio, avatarUrl, coverUrl, socialLinks, display, themePreset])
 
   const save = async () => {
     setSaving(true)
@@ -129,6 +143,7 @@ export function EditProfileButton({
           coverUrl: cover,
           socialLinks: links,
           display: shown,
+          themePreset: scheme,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -159,6 +174,9 @@ export function EditProfileButton({
        * used to come straight back from the edge, unchanged, which is why the
        * page had to be hard-reloaded to show a save. See next.config.mjs.
        */
+      /* Inside the workspace the frame around this reloads the page; at its
+         own address the refresh below is the only thing that can. */
+      notifyEditorSaved()
       router.refresh()
     } catch {
       setError("Could not reach the server. Check your connection and try again.")
@@ -184,7 +202,7 @@ export function EditProfileButton({
         {/* Not inside the workspace: there, this page already is the editor. */}
         {!embedded && !framed && (
         <a
-          href="/creator-page"
+          href="/app/creator-page"
           className="inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-3 text-sm font-medium text-gray-900 no-underline shadow-md backdrop-blur transition-colors hover:bg-white sm:px-4"
         >
           <Wand2 className="h-3.5 w-3.5" />
@@ -289,6 +307,19 @@ export function EditProfileButton({
                 placeholder="What you make, and who it is for."
               />
               <p className="text-xs text-muted-foreground">{about.length}/500</p>
+            </div>
+
+            {/*
+              THE COLOUR SCHEME, which paints the whole page rather than
+              anything in this dialog. It is here because this is the only
+              control a creator has for how their page PRESENTS itself, and
+              because its previous home was a button in the workspace toolbar
+              — visible only inside the editor, and nowhere near the thing it
+              changes.
+            */}
+            <div className="space-y-3">
+              <Label>Colour scheme</Label>
+              <SchemePicker value={scheme} onChange={setScheme} />
             </div>
 
             <div className="space-y-3">

@@ -1,0 +1,88 @@
+/**
+ * ===========================================================================
+ *  THE FRAME TALKING TO THE WORKSPACE IT IS INSIDE
+ * ===========================================================================
+ * /app/creator-page holds the real /u/<handle> in an iframe, so every control
+ * a creator uses is the one a visitor's browser runs. That is the point of
+ * the arrangement, and it leaves exactly one gap: the page and the workspace
+ * are two documents, and neither can see the other's state.
+ *
+ * Two messages cross the gap and no more.
+ *
+ *   "saved"  the page has written something, so the workspace should fetch it
+ *            again. It used to be a reload button in the toolbar, which is
+ *            the editor asking a creator to notice a save on its behalf.
+ *
+ *   "bar"    a draft of the top bar, posted while somebody types, so the bar
+ *            repaints on the keystroke instead of after a round trip.
+ *            "ready" is the frame asking for that draft again after a reload.
+ *
+ * Everything here is cheap on purpose: no shared state, no acknowledgement,
+ * nothing that has to stay in step. A message that does not arrive costs a
+ * creator one reload, never a lost edit, because the save itself is an
+ * ordinary PATCH that has already returned before any of this fires.
+ */
+
+export const CREATOR_EDITOR_CHANNEL = "storelib-creator-editor"
+
+/**
+ * Tell the workspace this page has changed. A no-op when the page is not
+ * framed, which is every visitor and the creator's own page at its own
+ * address — so this is safe to call from any control, unconditionally.
+ */
+export function notifyEditorSaved(): void {
+  if (typeof window === "undefined") return
+  if (window.parent === window) return
+  try {
+    window.parent.postMessage({ channel: CREATOR_EDITOR_CHANNEL, kind: "saved" }, window.location.origin)
+  } catch {
+    /* A parent on another origin cannot be posted to, and does not need to be. */
+  }
+}
+
+/** Is this page inside the creator-page workspace right now? */
+export function isInEditorFrame(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    return window.parent !== window
+  } catch {
+    return true
+  }
+}
+
+/**
+ * ===========================================================================
+ *  WHERE A LINK INSIDE THE CANVAS SHOULD GO
+ * ===========================================================================
+ * The proxy relaxes framing for a page carrying `?embedded=1` and for nothing
+ * else, so a product link followed inside the workspace has to carry it or it
+ * ends in "storelib.com refused to connect".
+ *
+ * A pure function rather than logic buried in a click handler, because the
+ * interesting part is what it REFUSES: another origin, a mail link, an
+ * anchor, something already flagged. Each of those is a line somebody could
+ * delete without noticing, and each has a test.
+ *
+ * Returns the address to go to, or null to leave the click alone.
+ */
+export function embeddedHref(href: string | null | undefined, base: string): string | null {
+  if (!href) return null
+  const trimmed = href.trim()
+  if (!trimmed || trimmed.startsWith("#")) return null
+  /* Anything that is not an http(s) navigation: mailto, tel, sms, blob, data. */
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) && !/^https?:/i.test(trimmed)) return null
+
+  let url: URL
+  let origin: string
+  try {
+    url = new URL(trimmed, base)
+    origin = new URL(base).origin
+  } catch {
+    return null
+  }
+  if (url.origin !== origin) return null
+  if (url.searchParams.get("embedded") === "1") return null
+
+  url.searchParams.set("embedded", "1")
+  return url.toString()
+}

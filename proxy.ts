@@ -517,6 +517,22 @@ function retireDomainScopedCookies(response: NextResponse, request: NextRequest)
   )
 }
 
+/**
+ * First segments that are routes rather than creator handles.
+ *
+ * Mirrors app/(marketing)/[sellername]/[productSlug]. It is here so the
+ * framing rule below cannot be talked into treating /app/settings as a
+ * product page — `frame-ancestors 'self'` already limits any of this to our
+ * own origin, so the stake is small, but a rule that says "any two segments"
+ * is a rule nobody can reason about later.
+ */
+const FRAME_RESERVED_FIRST_SEGMENT = new Set([
+  "account-deletion", "admin", "api", "app", "auth", "blog", "c", "creator-page",
+  "explore", "faq", "features", "l", "legal", "library", "login", "p", "pricing",
+  "register", "signup", "site", "sites", "store", "store-builder", "u", "w",
+  "website-builder", "wishlist",
+])
+
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
@@ -1108,9 +1124,33 @@ export async function proxy(request: NextRequest) {
      * 'self'`, and ONLY with ?embedded=1. Opened at its own address the page
      * stays unframeable by anybody, us included.
      */
-    const framed =
-      (url.pathname.startsWith("/website-builder/code/") || url.pathname.startsWith("/u/")) &&
-      url.searchParams.get("embedded") === "1"
+    /**
+     * AND THE PRODUCT PAGES THE CREATOR PAGE LINKS TO.
+     *
+     * Clicking a product inside the workspace loaded /{handle}/{slug} into
+     * the frame and got "storelib.com refused to connect" — X-Frame-Options
+     * doing its job on a page nobody had thought about. The canvas holds the
+     * real page, and the real page has links out of it; a framed page whose
+     * own links are dead ends is a preview, which is the thing this
+     * arrangement exists not to be.
+     *
+     * The condition is unchanged in kind: `frame-ancestors 'self'`, and ONLY
+     * with ?embedded=1. A product page at its own address stays unframeable
+     * by anybody, us included, and no other site can frame it either way.
+     * lib/store-builder/editor-channel adds the flag to links inside the
+     * canvas, so the parameter is only ever present on a request the
+     * workspace made.
+     */
+    const productPath = (() => {
+      /** /p/{slug}, and /{handle}/{slug} where the handle is not a real route. */
+      if (url.pathname.startsWith("/p/")) return true
+      const parts = url.pathname.split("/").filter(Boolean)
+      if (parts.length !== 2) return false
+      return !FRAME_RESERVED_FIRST_SEGMENT.has(parts[0].toLowerCase())
+    })()
+    const framableWhenEmbedded =
+      url.pathname.startsWith("/website-builder/code/") || url.pathname.startsWith("/u/") || productPath
+    const framed = framableWhenEmbedded && url.searchParams.get("embedded") === "1"
     if (framed) {
       const existing = supabaseResponse.headers.get("Content-Security-Policy")
       supabaseResponse.headers.set(

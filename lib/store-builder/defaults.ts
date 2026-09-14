@@ -410,7 +410,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       primary: "#404040",
       secondary: "#525252",
       accent: "#a855f7",
-      background: "#0a0a0a",
+      background: "#111113",
       foreground: "#fafafa",
       muted: "#171717",
       border: "#262626",
@@ -421,7 +421,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     subscribeBar: {
       buttonColor: "#404040",
       buttonTextColor: "#ffffff",
-      backgroundColor: "#0f0f0f",
+      backgroundColor: "#191b1e",
       textColor: "#e5e5e5",
       buttonBorderRadius: 10,
       inputBorderColor: "#262626",
@@ -437,7 +437,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonBorderRadius: 10,
     },
     stickyAddToCart: {
-      backgroundColor: "#0f0f0f",
+      backgroundColor: "#191b1e",
       buttonColor: "#2563eb",
       buttonTextColor: "#ffffff",
       borderRadius: 10,
@@ -448,20 +448,34 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buyButtonTextColor: "#ffffff",
       buttonsBorderRadius: 10,
     },
+    /**
+     * ONE DARK GREY, NOT TWO BLACKS.
+     *
+     * The page was #0a0a0a and the Featured band #0f0f0f, which is a five
+     * point difference: invisible as a colour and perfectly visible as a
+     * LINE across the page where the two meet. A creator sees a seam under
+     * the tab strip and reads it as a rendering fault, which is what it is.
+     *
+     * And it is no longer pitch black. #0a0a0a is four points off #000000 —
+     * on an OLED phone that is the panel switching off, so the page has no
+     * edges, the cover has no edge, and a dark photo bleeds into the page
+     * around it. #111113 is still unmistakably a dark theme and still has a
+     * surface.
+     */
     sections: {
-      headerBackgroundColor: "#0a0a0a",
+      headerBackgroundColor: "#111113",
       headerTextColor: "#fafafa",
-      featuredProductsBackgroundColor: "#0f0f0f",
+      featuredProductsBackgroundColor: "#111113",
       featuredProductsTextColor: "#fafafa",
-      footerBackgroundColor: "#0a0a0a",
+      footerBackgroundColor: "#111113",
       footerTextColor: "#a1a1aa",
-      pageBackgroundColor: "#0a0a0a",
+      pageBackgroundColor: "#111113",
     },
     productCard: {
-      backgroundColor: "#1a1a1a",
+      backgroundColor: "#1c1e22",
       textColor: "#fafafa",
       priceColor: "#a1a1aa",
-      borderColor: "#2a2a2a",
+      borderColor: "#2e3136",
     },
     categoryFilter: {
       textColor: "#a1a1aa",
@@ -472,8 +486,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       backgroundColor: "transparent",
       textColor: "#fafafa",
       starColor: "#fafafa",
-      cardBackgroundColor: "#1a1a1a",
-      cardBorderColor: "#2a2a2a",
+      cardBackgroundColor: "#1c1e22",
+      cardBorderColor: "#2e3136",
     },
     faqSection: {
       textColor: "#fafafa",
@@ -481,10 +495,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       iconColor: "#fafafa",
     },
     priceContainer: {
-      backgroundColor: "#1a1a1a",
+      backgroundColor: "#1c1e22",
       textColor: "#fafafa",
       mutedTextColor: "#a1a1aa",
-      borderColor: "#2a2a2a",
+      borderColor: "#2e3136",
       iconColor: "#fafafa",
     },
     viewInLibraryButton: {
@@ -698,7 +712,17 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     sections: {
       headerBackgroundColor: "#ffffff",
       headerTextColor: "#000000",
-      featuredProductsBackgroundColor: "#fdf2f8",
+      /**
+       * INHERITED, NOT A SIX-POINT TINT.
+       *
+       * #fdf2f8 against the page's field is a difference of six values out of
+       * 255 — too small to read as a choice and big enough to draw a LINE
+       * across the page where the Featured band starts. Astrid had the same
+       * fault at the dark end and it is the one the owner reported. Pink's
+       * identity is in its buttons and its card borders, not in a band nobody
+       * can quite see.
+       */
+      featuredProductsBackgroundColor: "#ffffff",
       featuredProductsTextColor: "#000000",
       footerBackgroundColor: "#fdf2f8",
       footerTextColor: "#6b7280",

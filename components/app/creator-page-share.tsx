@@ -23,14 +23,16 @@
  * way to the place that adds it.
  *
  * ---------------------------------------------------------------------------
- *  INLINE AND LIGHT, AND IT LEAVES THE WAY IT ARRIVED
+ *  THE WEBSITE BUILDER'S PALETTE, TO THE VALUE
  * ---------------------------------------------------------------------------
- * It arrived as a centred black dialog over a dimmed page. A centred dialog
- * says "stop and decide"; an address to copy is not that. And a near-black
- * card in a light editor is a hard edge with nothing in between. So it is
- * the same shape as the bar editor beside it: a panel that rises in at the
- * side on a desktop (the builder's own wb-settings-in), the builder's own
- * MobileEditorSheet on a phone, and the workspace's light palette.
+ * #1f1f1f with white/10 hairlines and white/60 secondary type, because that
+ * is what components/website-builder/publish-panel.tsx is, and this is the
+ * same card answering the same question one product over. It was light for a
+ * round; the owner asked for the builder's, and two cards that do the same
+ * job in one product should not be two colours.
+ *
+ * Inline rather than centred, and it leaves the way it arrives: a centred
+ * dialog says "stop and decide", and an address to copy is not that.
  */
 
 import { useCallback, useEffect, useState } from "react"
@@ -113,24 +115,24 @@ export function CreatorPageShare({
         popover — and an X in the corner made it look like a dialog waiting
         for an answer it does not have a question for.
       */}
-      <div className="flex items-center gap-2.5 border-b border-[#f3f4f6] px-4 py-3">
-        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-        <p className="text-[14px] font-semibold text-[#1a1a2e]">Your page is live</p>
+      <div className="flex items-center gap-2.5 px-5 pb-1 pt-5">
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+        <h2 className="text-[20px] font-semibold leading-none text-white">Your page is live</h2>
       </div>
 
-      <div className="space-y-4 px-4 py-4">
-        <p className="text-[13px] text-[#6b7280]">Every edit shows up straight away. There is nothing to publish.</p>
+      <div className="space-y-5 px-5 pb-5 pt-3 text-white">
+        <p className="text-[15px] text-white/60">Every edit shows up straight away. There is nothing to publish.</p>
 
         <div>
-          <p className="mb-2 text-[12px] font-medium text-[#374151]">Page address</p>
-          <div className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#fafafa]">
-            <div className="flex items-center gap-3 px-3.5 py-3">
-              <Globe className="h-4 w-4 shrink-0 text-[#9ca3af]" strokeWidth={1.75} />
-              <span className="min-w-0 flex-1 truncate text-[14px] text-[#111827]">{display}</span>
+          <p className="mb-2.5 text-[15px] font-medium">Page address</p>
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
+            <div className="flex items-center gap-3 px-4 py-3.5">
+              <Globe className="h-4 w-4 shrink-0 text-white/50" strokeWidth={1.75} />
+              <span className="min-w-0 flex-1 truncate text-[15px]">{display}</span>
               <button
                 type="button"
                 onClick={() => void copy()}
-                className="rounded-md p-1.5 text-[#6b7280] transition-colors hover:bg-[#eef0f3] hover:text-[#111827]"
+                className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
                 aria-label="Copy address"
               >
                 {copied ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.75} />}
@@ -139,7 +141,7 @@ export function CreatorPageShare({
                 href={path}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-md p-1.5 text-[#6b7280] transition-colors hover:bg-[#eef0f3] hover:text-[#111827]"
+                className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
                 aria-label="Open my page"
                 title="Open my page"
               >
@@ -147,8 +149,8 @@ export function CreatorPageShare({
               </a>
             </div>
 
-            <div className="flex items-center gap-3 border-t border-[#e5e7eb] px-3.5 py-2.5 text-[13px] text-[#6b7280]">
-              <Globe className="h-4 w-4 shrink-0 text-[#c4c8cf]" strokeWidth={1.75} />
+            <div className="flex items-center gap-3 border-t border-white/10 px-4 py-3 text-[14px] text-white/70">
+              <Globe className="h-4 w-4 shrink-0 text-white/40" strokeWidth={1.75} />
               Visible to anyone with the link
             </div>
 
@@ -159,23 +161,23 @@ export function CreatorPageShare({
             */}
             <a
               href="/app/settings?tab=domains"
-              className="flex items-center gap-3 border-t border-[#e5e7eb] px-3.5 py-2.5 text-[13px] no-underline transition-colors hover:bg-[#f3f4f6]"
+              className="flex items-center gap-3 border-t border-white/10 px-4 py-3 text-[14px] no-underline transition-colors hover:bg-white/[0.06]"
             >
-              <Globe className="h-4 w-4 shrink-0 text-[#c4c8cf]" strokeWidth={1.75} />
-              <span className="min-w-0 flex-1 truncate text-[#374151]">
+              <Globe className="h-4 w-4 shrink-0 text-white/40" strokeWidth={1.75} />
+              <span className="min-w-0 flex-1 truncate text-white/80">
                 {domain?.domain
                   ? domain.status === "active"
                     ? domain.domain
                     : `${domain.domain} — waiting on DNS`
                   : "Add a custom domain"}
               </span>
-              <span className="shrink-0 text-[#9ca3af]">{domain?.domain ? "Manage" : "Set up"}</span>
+              <span className="shrink-0 text-white/50">{domain?.domain ? "Manage" : "Set up"}</span>
             </a>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 text-[13px] text-[#374151]">
-          <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500" strokeWidth={1.75} />
+        <div className="flex items-center gap-2.5 text-[14px] text-white/80">
+          <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" strokeWidth={1.75} />
           No security issues found
         </div>
 
@@ -183,7 +185,7 @@ export function CreatorPageShare({
           href={path}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#1a1a2e] text-[14px] font-semibold text-white no-underline transition-colors hover:bg-[#2a2a3e]"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#8B56FA] text-[15px] font-medium text-white no-underline transition-colors hover:bg-[#7b46ec]"
         >
           <ExternalLink className="h-4 w-4" />
           Open my page
@@ -194,7 +196,13 @@ export function CreatorPageShare({
 
   if (isPhone) {
     return (
-      <MobileEditorSheet open={open} onOpenChange={(o) => { if (!o) onClose() }} fit>
+      /*
+        The sheet paints itself `bg-background`, which on /app is white. This
+        card is the builder's near-black, so it brings its own surface and
+        fills the sheet edge to edge rather than sitting as a dark rectangle
+        on a white one.
+      */
+      <MobileEditorSheet open={open} onOpenChange={(o) => { if (!o) onClose() }} fit className="bg-[#1f1f1f]">
         {body}
       </MobileEditorSheet>
     )
@@ -205,7 +213,13 @@ export function CreatorPageShare({
     leaves the way it arrived instead of being deleted on a single frame.
   */
   return (
-    <InlinePanel open={open} onClose={onClose} label="Your creator page" className="right-3 top-[56px] w-[380px]">
+    <InlinePanel
+      open={open}
+      onClose={onClose}
+      label="Your creator page"
+      className="right-3 top-[56px] w-[420px] max-w-[calc(100vw-16px)]"
+      surfaceClassName="border border-white/10 bg-[#1f1f1f] shadow-[0_24px_80px_-16px_rgba(0,0,0,0.7)]"
+    >
       {body}
     </InlinePanel>
   )

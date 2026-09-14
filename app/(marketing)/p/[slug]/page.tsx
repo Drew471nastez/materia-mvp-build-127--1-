@@ -35,6 +35,8 @@ import { WishlistButton } from "@/components/wishlist/wishlist-button"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
+import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
+import { EmbeddedBackBar } from "@/components/storefront/embedded-back-bar"
 import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
 
 import { themePresets } from "@/lib/store-builder/defaults"
@@ -63,7 +65,15 @@ export const dynamic = "force-dynamic"
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ purchase?: string; already_owned?: string; src?: string; layout?: string; recommended?: string }>
+  searchParams: Promise<{
+    purchase?: string
+    already_owned?: string
+    src?: string
+    layout?: string
+    recommended?: string
+    /** Set when this page is inside the creator-page workspace's canvas. */
+    embedded?: string
+  }>
 }
 
 export async function generateMetadata({ params }: ProductPageProps) {
@@ -180,8 +190,9 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
 export default async function ProductPage({ params, searchParams }: ProductPageProps) {
   const { slug } = await params
-  const { purchase, already_owned, src, layout, recommended } = await searchParams
+  const { purchase, already_owned, src, layout, recommended, embedded } = await searchParams
   const showDiscoverBreadcrumb = recommended === "1"
+  const inEditorCanvas = embedded === "1"
   const supabase = await createClient()
 
   // First, try to find product by current slug
@@ -1676,6 +1687,20 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         color: defaultPageTextColor || "var(--foreground)",
       }}
     >
+      {/*
+        INSIDE THE WORKSPACE'S CANVAS, this page is reached by clicking a card
+        on the creator page above it. Two things it needs there and nowhere
+        else: its own links keep the flag that makes them framable, and there
+        is a way back, because the frame has no browser chrome around it and
+        the workspace's own bar belongs to the creator page rather than to
+        this one.
+      */}
+      {inEditorCanvas && (
+        <>
+          <EmbeddedNavigation />
+          <EmbeddedBackBar />
+        </>
+      )}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}

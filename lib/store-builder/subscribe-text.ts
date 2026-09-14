@@ -57,7 +57,7 @@ export interface SubscribeBarSettings {
    */
   creatorUserId?: string
   creatorName?: string
-  style?: "style1" | "style2" | "style3"
+  style?: string
   customCtaText?: string
   enableStickyBar?: boolean
   enableStickyOnScrollUp?: boolean
@@ -75,13 +75,28 @@ export interface SubscribeBarSettings {
   }
 }
 
-/** Get text based on style */
+/**
+ * The sentence the bar writes for itself when a creator has not written one.
+ *
+ * SIX, NOT THREE. The first three were the same sentence three times — join
+ * this, join that — so a creator choosing between them was choosing between
+ * synonyms. The three added are the other reasons anybody puts an email box
+ * at the top of a page: the drop, the discount, the release. An unknown style
+ * falls back to the first, so a config written before these existed still
+ * renders.
+ */
 function getStyleText(style: string | undefined, creatorName?: string): string {
   switch (style) {
     case "style2":
       return "Join our family!"
     case "style3":
       return "Join our community!"
+    case "style4":
+      return "Get new drops first"
+    case "style5":
+      return "Subscribers get 10% off"
+    case "style6":
+      return "Never miss a release"
     case "style1":
     default:
       return `Join ${creatorName || "our"}'s newsletter!`

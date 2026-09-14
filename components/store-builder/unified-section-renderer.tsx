@@ -1000,7 +1000,29 @@ function UnifiedAboutSection({
                     transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                 >
-                  <p className="whitespace-pre-wrap">{settings.aboutContent}</p>
+                  {/*
+                    RICH TEXT WHEN THERE IS ANY, plain text when there is not.
+                    The story is written in a real editor now, so it arrives as
+                    markup; every story written before that is a plain string
+                    whose line breaks are the only formatting it has, and
+                    putting THAT through an HTML renderer loses them. The test
+                    is whether the value contains a tag.
+
+                    It is sanitised on save (app/api/creator-profile) and the
+                    class list here allows nothing to execute. `storelib-prose`
+                    is the typography: Tailwind's preflight flattens h2, ul and
+                    blockquote to nothing, so rendered markup without it looks
+                    exactly like the plain text it replaced.
+                  */}
+                  {/<[a-z][\s\S]*>/i.test(settings.aboutContent || "") ? (
+                    <div
+                      className="storelib-prose"
+                      // eslint-disable-next-line react/no-danger
+                      dangerouslySetInnerHTML={{ __html: settings.aboutContent || "" }}
+                    />
+                  ) : (
+                    <p className="whitespace-pre-wrap">{settings.aboutContent}</p>
+                  )}
                 </div>
 
                 {/* Fade gradient and Read more button */}
@@ -2098,7 +2120,7 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
               ? "grid-cols-1"
               : cn(
                   settings.columns === 2 && "grid-cols-1 sm:grid-cols-2",
-                  settings.columns === 3 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+                  settings.columns === 3 && "grid-cols-1 sm:grid-cols-2 md:grid-cols-3",
                   settings.columns === 4 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
                 ),
           )}
@@ -2457,10 +2479,21 @@ function UnifiedFeaturedProductsSection({
             case still has to be told.
           */}
           <div
+            /**
+             * THREE FROM `md`, NOT FROM `lg`.
+             *
+             * The grid dropped to two columns below 1024px, and the creator
+             * page is edited inside a frame that is a sidebar and two insets
+             * narrower than the window — so on an ordinary laptop the page a
+             * creator was arranging had two columns while the page a visitor
+             * on the same laptop sees has three. A card at 768/3 is about
+             * 230px wide, which is still wider than the phone layout every
+             * one of these is designed to work at.
+             */
             className={cn(
               "grid gap-4",
               (settings.mobileListing ?? 1) === 1 ? "grid-cols-1" : "grid-cols-2",
-              !isMobile && "sm:grid-cols-2 lg:grid-cols-3",
+              !isMobile && "sm:grid-cols-2 md:grid-cols-3",
             )}
           >
             {sectionProducts.map((product) => {
@@ -2587,7 +2620,7 @@ export interface UnifiedShopHeaderProps {
    *
    * A colour the creator ACTUALLY typed still wins; see `isInheritedBlack`.
    */
-  surface?: { textColor?: string; mutedColor?: string }
+  surface?: { textColor?: string; mutedColor?: string; avatarBorderColor?: string }
   /**
    * WHERE A BUYER WRITES TO THIS SELLER.
    *
@@ -2892,34 +2925,33 @@ export function UnifiedShopHeader({
             */}
             {/*
               ================================================================
-               A ROUNDED SQUARE, NOT A CIRCLE
+               A CIRCLE
               ================================================================
-              A circle is the social-network shape — it is what Instagram and
-              X put a face in, and it made this page read as a profile rather
-              than as somebody's shop. A rounded square is the app-icon shape,
-              which is what the Storelib mark above it already is, so the two
-              agree instead of arguing.
+              It was a rounded square for two rounds, on the argument that the
+              app-icon shape agrees with the Storelib mark above it. The owner
+              has asked for a circle and it is their page; a circle is also
+              what every profile picture on the internet is, which is the
+              other half of the argument and the half that wins with visitors.
 
-              It is also more honest about the picture: the crop behind it is
-              square (components/shared/square-image-cropper), so a circle was
-              throwing away corners the creator had positioned on purpose.
-
-              THE RADIUS IS A RATIO, NOT A NUMBER. The avatar is 110px or
-              137px depending on what the creator picked, and one fixed radius
-              cannot read the same on both — 32px is a soft square at 137 and
-              nearly a blob at 110. A quarter of the width holds the shape at
-              every size, and at the default 137px it lands on 33, inside the
-              28 to 36 the design asked for.
+              The crop behind it is square (components/shared/square-image-
+              cropper), so a circle does throw away the corners. That is the
+              known cost, and it is the same cost every social network pays.
             */}
             <Avatar
               className="shrink-0 bg-gray-200"
               style={{
                 width: `${avatarSize}px`,
                 height: `${avatarSize}px`,
-                borderRadius: `${Math.round(avatarSize * 0.24)}px`,
+                borderRadius: "9999px",
                 borderWidth: "2.5px",
                 borderStyle: "solid",
-                borderColor: settings.profileImageBorderColor || "#e5e7eb",
+                /**
+                 * The ring follows the scheme. A stored "#e5e7eb" is the
+                 * platform default rather than a decision, so on a dark page
+                 * it was a light grey hoop around the one round thing on it.
+                 * The page resolves which applies; see storefront-chrome.
+                 */
+                borderColor: surface?.avatarBorderColor || settings.profileImageBorderColor || "#e5e7eb",
                 /**
                  * DEPTH, AND ONLY A LITTLE.
                  *
@@ -4404,7 +4436,7 @@ export function UnifiedProductsGrid({
             ? "grid-cols-1"
             : cn(
                 columns === 2 && "grid-cols-1 sm:grid-cols-2",
-                columns === 3 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+                columns === 3 && "grid-cols-1 sm:grid-cols-2 md:grid-cols-3",
               ),
         )}
       >
@@ -4519,7 +4551,7 @@ function UnifiedMoreFromSellerSection({
       return `${mobileGridClass} sm:grid-cols-2`
     }
     // columns === 3 (default)
-    return `${mobileGridClass} sm:grid-cols-2 lg:grid-cols-3`
+    return `${mobileGridClass} sm:grid-cols-2 md:grid-cols-3`
   }
 
   if (displayProducts.length === 0) {

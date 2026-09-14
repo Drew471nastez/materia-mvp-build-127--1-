@@ -260,7 +260,8 @@ export interface SubscribeBarSettings extends BaseSectionSettings {
   inputBackgroundColor?: string // Background color for email input
   showAvatar: boolean
   position: "top" | "bottom"
-  style: "style1" | "style2" | "style3"
+  /** Which sentence the bar generates. Six of them; see getStyleText. */
+  style: "style1" | "style2" | "style3" | "style4" | "style5" | "style6"
   enableStickyBar?: boolean // When on, bar sticks to top when scrolling
   enableStickyOnScrollUp?: boolean // When on, bar only shows when scrolling up (smooth behavior)
   /**

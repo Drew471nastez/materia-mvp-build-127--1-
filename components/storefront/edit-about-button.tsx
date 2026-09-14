@@ -21,7 +21,8 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { RichTextField } from "@/components/website-builder/rich-text-field"
+import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ImageUpload } from "@/components/app/image-upload"
 import { Loader2, Pencil, Plus } from "lucide-react"
@@ -105,6 +106,9 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
       }
       setOpen(false)
       // The server re-renders and the new story appears without a reload.
+      /* Inside the workspace the frame reloads; at its own address the
+         refresh below is the only thing that can show the save. */
+      notifyEditorSaved()
       router.refresh()
     } catch {
       setError("Could not reach the server. Check your connection and try again.")
@@ -142,17 +146,29 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
               />
             </div>
 
+            {/*
+              WRITING, RATHER THAN TYPING INTO A BOX.
+
+              This was a six-row textarea, so the one block on a creator page
+              that is actually PROSE — the paragraph about who they are — was
+              the one place in the product with no headings, no emphasis and
+              no lists. RichTextField is the control the website builder's
+              rich text settings use; importing it rather than building a
+              second one is the only way the two stay the same editor.
+
+              Every value that leaves it has been through `sanitizeRichText`,
+              and the API sanitises again on save because that is where the
+              authority is.
+            */}
             <div className="space-y-2">
               <Label htmlFor="ea-story">Your story</Label>
-              <Textarea
-                id="ea-story"
+              <RichTextField
                 value={text}
-                maxLength={2000}
-                rows={6}
-                onChange={(e) => setText(e.target.value)}
+                onChange={setText}
                 placeholder="Tell shoppers a little about your business."
+                minHeight={150}
+                maxHeight={320}
               />
-              <p className="text-xs text-muted-foreground">{text.length}/2000</p>
             </div>
 
             {/*

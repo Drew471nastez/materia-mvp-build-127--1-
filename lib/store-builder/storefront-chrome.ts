@@ -135,6 +135,13 @@ export interface StorefrontChrome {
   /** The bar across the very top. */
   bar: StorefrontBarColors
   /**
+   * The ring around the profile picture. A stored "#e5e7eb" is the platform
+   * default rather than a decision — the same argument as every other colour
+   * here — so a dark scheme gets its own ring instead of a light grey hoop
+   * around the one round thing on a black page.
+   */
+  avatarBorder: string
+  /**
    * THE DESIGN SYSTEM'S OWN TOKENS, REBOUND TO THE SCHEME.
    *
    * Threading a `surface` prop into every component is exact, and it does not
@@ -166,6 +173,8 @@ export interface StoredChrome {
   pageBackground?: string | null
   /** `headerSettings.colors.textColor` / `textsColor`. */
   text?: string | null
+  /** `headerSettings.profileImageBorderColor`. */
+  avatarBorder?: string | null
   /** `headerSettings.subscribeBar`, flattened. */
   bar?: Partial<StorefrontBarColors> | null
 }
@@ -265,6 +274,12 @@ export function resolveStorefrontChrome(
       : theme.subscribeBar.buttonTextColor,
   }
 
+  /** The platform default ring, which is what almost every config carries. */
+  const DEFAULT_RING = "#e5e7eb"
+  const storedRing = stored.avatarBorder?.trim().toLowerCase()
+  const avatarBorder =
+    storedRing && storedRing !== DEFAULT_RING ? (stored.avatarBorder as string) : theme.profileImageBorderColor
+
   const cardBackground = theme.productCard.backgroundColor
   const cardText = theme.productCard.textColor
   const cardBorder = theme.productCard.borderColor
@@ -298,6 +313,7 @@ export function resolveStorefrontChrome(
     footerText,
     footerMuted,
     bar,
+    avatarBorder,
     tokens,
     dark,
     preset: key,

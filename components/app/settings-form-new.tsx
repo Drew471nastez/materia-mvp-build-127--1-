@@ -2256,7 +2256,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center gap-4">
                   <a
-                    href="/creator-page"
+                    href="/app/creator-page"
                     className="relative group cursor-pointer"
                   >
                     {avatarUrl ? (
@@ -2278,7 +2278,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     <p className="font-semibold text-[#1a1a2e] text-[15px]">Profile Photo</p>
                     <p className="text-[13px] text-[#6b7280] mb-2">JPG, PNG or GIF. Max 2MB.</p>
                     <a
-                      href="/creator-page"
+                      href="/app/creator-page"
                       className="inline-flex px-3 py-1.5 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-lg transition-colors items-center gap-1.5"
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -3168,7 +3168,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">{t("settings.storeCustomization")}</h3>
                 <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.storeCustomizationDesc")}</p>
                 <a
-                  href="/creator-page"
+                  href="/app/creator-page"
                   className="inline-flex items-center gap-2 px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors"
                 >
                   <Palette className="h-4 w-4" />
