@@ -22,14 +22,35 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
     // Priority: custom favicon → header avatar → platform favicon
     const iconUrl = faviconUrl || avatarUrl
 
-    // Function to create rounded favicon from image URL
+    /**
+     * =====================================================================
+     *  THE PICTURE FILLS THE ICON, AND IS NOT SQUEEZED INTO IT
+     * =====================================================================
+     * This drew the source with `drawImage(img, 0, 0, size, size)`, which
+     * scales whatever it is given to fit a square exactly. An avatar is very
+     * often not square — a phone photo is 3:4, a screenshot is wider than it
+     * is tall — so the face was compressed along one axis and left gaps of
+     * canvas along the other. At sixteen pixels in a browser tab that reads
+     * as a small, squashed picture, which is the report.
+     *
+     * COVER, not stretch: the source is scaled by the LARGER of the two
+     * ratios so it covers the square, then centred, and the overflow is
+     * cropped by the clip. Aspect ratio is kept, and nothing is left empty.
+     *
+     * AND IT IS DRAWN BIG. 64px was the whole icon, and a tab on any modern
+     * screen asks for 32 CSS pixels at 2x or 3x — so the browser was
+     * upscaling a 64px bitmap and the result was soft. 256 costs a few
+     * kilobytes of data URL and is sharp everywhere.
+     */
+    const ICON_SIZE = 256
+
     const createRoundedFavicon = (imageUrl: string): Promise<string> => {
       return new Promise((resolve, reject) => {
         const img = new Image()
         img.crossOrigin = "anonymous"
         img.onload = () => {
           const canvas = document.createElement("canvas")
-          const size = 64 // Favicon size
+          const size = ICON_SIZE
           canvas.width = size
           canvas.height = size
           const ctx = canvas.getContext("2d")
@@ -38,8 +59,9 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
             return
           }
 
-          // Draw rounded rectangle clip path (border-radius 7px)
-          const radius = 7 * (size / 32) // Scale radius to canvas size (7px at 32px display)
+          /* The app-icon corner, in proportion, so it is the same shape at
+             any icon size rather than a radius tuned for one of them. */
+          const radius = size * 0.22
           ctx.beginPath()
           ctx.moveTo(radius, 0)
           ctx.lineTo(size - radius, 0)
@@ -53,10 +75,19 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
           ctx.closePath()
           ctx.clip()
 
-          // Draw the image
-          ctx.drawImage(img, 0, 0, size, size)
+          /*
+           * An SVG with no intrinsic size reports 0x0 in some browsers, and
+           * dividing by it gives an infinite scale and a blank icon. Falling
+           * back to the square keeps the old behaviour for that one case.
+           */
+          const sw = img.naturalWidth || img.width || size
+          const sh = img.naturalHeight || img.height || size
+          const scale = Math.max(size / sw, size / sh)
+          const dw = sw * scale
+          const dh = sh * scale
+          ctx.imageSmoothingQuality = "high"
+          ctx.drawImage(img, (size - dw) / 2, (size - dh) / 2, dw, dh)
 
-          // Convert to data URL
           resolve(canvas.toDataURL("image/png"))
         }
         img.onerror = () => reject(new Error("Failed to load image"))
@@ -75,6 +106,8 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
       link.rel = "icon"
       link.href = href
       link.type = type
+      /* Named, so a tab picks this one rather than guessing at its size. */
+      if (type === "image/png") link.setAttribute("sizes", `${ICON_SIZE}x${ICON_SIZE}`)
       document.head.appendChild(link)
 
       // Also add apple-touch-icon for iOS
@@ -86,7 +119,7 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
 
     // Set favicon based on whether we have a seller avatar or not
     if (iconUrl) {
-      // Seller page - use seller's avatar with rounded corners (7px border-radius)
+      // Seller page — the creator's own picture, cropped to the icon's square.
       createRoundedFavicon(iconUrl)
         .then((dataUrl) => {
           setFavicon(dataUrl, "image/png")
@@ -98,7 +131,7 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
             .catch(() => setFavicon(PLATFORM_FAVICON_URL, "image/svg+xml"))
         })
     } else {
-      // Platform page - use platform favicon with rounded corners (7px border-radius)
+      // Platform page — the Storelib mark, through the same crop.
       createRoundedFavicon(PLATFORM_FAVICON_URL)
         .then((dataUrl) => {
           setFavicon(dataUrl, "image/png")
