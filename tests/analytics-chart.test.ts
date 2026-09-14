@@ -366,6 +366,76 @@ compare(
   2000,
 )
 
+// ===========================================================================
+section("Switching Store and One page redraws once, not twice")
+// ===========================================================================
+/**
+ * The two modes plot different series — Views/Orders/Revenue against
+ * Views/Clicks/Subscribers — and `analyticsMode` went straight to the chart.
+ * So tapping the other tab swapped the series IMMEDIATELY, while the numbers
+ * underneath were still the previous mode's, because the mode is in the
+ * fetch's dependencies and the fetch had not returned.
+ *
+ * One tap therefore drew the chart twice: once with the new lines over the
+ * old figures, a shape that never existed, and again when the real ones
+ * landed. Recharts re-mounts a series whose key it has not seen, so each of
+ * those is a full animation. That is the flashing and the reloading.
+ *
+ * `trendMode` is the mode the numbers actually are, set in the same commit as
+ * the numbers. The tabs still highlight off `analyticsMode`, so the tap feels
+ * answered; it is the chart that waits.
+ */
+{
+  const page = stripComments(readFileSync(join(root, "app/app/analytics/analytics-client.tsx"), "utf8"))
+  check(
+    "the chart is given the mode its data belongs to",
+    /analyticsMode=\{trendMode\}/.test(page) && !/analyticsMode=\{analyticsMode\}/.test(page),
+  )
+  check(
+    "and that mode is set in the same commit as the data",
+    /setTrendData\(trendArray\)\s*\n\s*setTrendMode\(analyticsMode\)/.test(page),
+  )
+  check(
+    "the tabs still answer the tap immediately",
+    /analyticsMode === "store" \? "bg-white/.test(page),
+  )
+}
+
+// ===========================================================================
+section("One bottom sheet, and the finger moves it")
+// ===========================================================================
+/**
+ * Geometry and motion are measured in a browser by scripts/check-sheet.mjs,
+ * which opens the sheet, drags it, flicks it and counts the DOM changes. What
+ * is held here is the pair of rules that made the three sheets before it feel
+ * cheap, because either one can be undone without anything failing.
+ */
+{
+  /* Comments stripped: the file explains what `setDragY` did and why it is
+     gone, and a guard reading raw source matches the explanation. */
+  const sheet = stripComments(readFileSync(join(root, "components/ui/bottom-sheet.tsx"), "utf8"))
+  check(
+    "the drag listeners are native and non-passive",
+    /addEventListener\("touchmove", onMove, \{ passive: false \}\)/.test(sheet) &&
+      /addEventListener\("touchstart", onStart, \{ passive: false \}\)/.test(sheet),
+    "React registers touchmove passively, so preventDefault in an onTouchMove prop is a no-op and the page scrolls behind the sheet.",
+  )
+  check(
+    "the finger writes the transform, React is only told at the ends",
+    /sheet\.style\.transform = `translate3d/.test(sheet) && !/setDragY/.test(sheet),
+  )
+  check(
+    "a flick closes it, and a flick that has gone stale does not",
+    /DISMISS_VELOCITY/.test(sheet) && /performance\.now\(\) - lastAtRef\.current > 80 \? 0 : velocityRef\.current/.test(sheet),
+  )
+  const sidebar = readFileSync(join(root, "components/app/sidebar.tsx"), "utf8")
+  check(
+    "and the account menu uses it instead of a dropdown",
+    /<BottomSheet\n\s*isOpen=\{mobileProfileDropdownOpen\}/.test(sidebar) &&
+      !/Mobile Profile Dropdown Menu/.test(sidebar),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
