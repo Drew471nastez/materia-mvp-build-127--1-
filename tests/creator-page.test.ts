@@ -1028,9 +1028,36 @@ function main() {
       "the avatar and the name both lead to the creator's page",
       (live.match(/<SmartLink\s+href=\{creatorHref\}/g) ?? []).length === 2,
     )
-    /* getStoreUrl is what makes that /u/<handle>, and it is already tested
-       elsewhere; this only checks the bar goes through it. */
-    check("through the one helper that builds that address", /return getStoreUrl\(raw\)/.test(bar))
+    /**
+     * THE CREATOR'S PAGE, NOT THEIR WEBSITE.
+     *
+     * This went through `getStoreUrl`, which returns the SUBDOMAIN —
+     * <handle>.storelib.com — and that is the site a creator builds in the
+     * website builder, not the page this bar is about. The two have been
+     * separate since websites moved to the subdomain; the bar kept calling
+     * the helper it always had. So pressing the name of the person selling
+     * you something landed on a different product entirely, one that may be
+     * unpublished or empty.
+     *
+     * Measured in scripts/check-creator-bar.mjs, which reads the href the
+     * bar actually renders: /u/andrewrullz.
+     */
+    check(
+      "and it is the creator's page, not the subdomain website",
+      /return getStoreInternalPath\(sanitiseHandle\(raw\)\)/.test(bar) && !/getStoreUrl\(/.test(bar),
+    )
+    /**
+     * The bar shipped throwing: `goBack` read `creatorHref` in a dependency
+     * array before the const was declared. TypeScript says exactly that and
+     * `ignoreBuildErrors` swallowed it — reintroducing the bug still gives a
+     * green `pnpm build`, and only the probe catches it. The order is held
+     * here so the probe is not the only thing standing between that bug and
+     * a broken product page.
+     */
+    check(
+      "and the way back is declared after the address it uses",
+      live.indexOf("const creatorHref = useMemo") < live.indexOf("const goBack = useCallback"),
+    )
 
     const renderer = code("components/store-builder/unified-section-renderer.tsx")
     check(
