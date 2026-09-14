@@ -53,18 +53,28 @@ function main() {
 
   // ── 1. It is under /app, so it keeps the sidebar ───────────────────────
   {
-    check("the workspace exists", existsSync(join(root, "app/app/creator-page/page.tsx")))
+    check("the workspace exists", existsSync(join(root, "app/creator-page/page.tsx")))
     /**
-     * BEING UNDER /app IS THE FEATURE. app/app/layout.tsx renders AppSidebar
-     * and the header; any route beneath it inherits both. A workspace that
-     * rendered its own sidebar would be a second one to keep in step.
+     * FULL SCREEN, which reverses where this started. Under /app it inherited
+     * the sidebar and the header, and a full-width design then had about two
+     * thirds of a narrow window to render in. The sidebar was not worth that.
      */
-    const layout = read("app/app/layout.tsx")
-    check("the /app layout is what supplies the sidebar", layout.includes("<AppSidebar"))
     const workspace = strip(read("components/app/creator-page-workspace.tsx"))
+    check("it does not rebuild any app chrome", !/AppSidebar|DesktopSidebarContent/.test(workspace))
+    check("it takes the whole screen", workspace.includes("h-svh"))
+    /**
+     * With no sidebar there is no way out, so the bar carries one — and it
+     * fades before navigating rather than cutting between two unrelated
+     * layouts mid-paint, the way the website builder leaves its own editor.
+     */
+    check("and carries a way back", workspace.includes("ArrowLeft") && workspace.includes('router.push("/app")'))
+    check("which fades rather than cutting", /setLeaving\(true\)/.test(workspace))
+    /** The setup widget floated over the page; it stays out of both addresses. */
+    const sidebar2 = read("components/app/sidebar.tsx")
     check(
-      "and the workspace does not rebuild one",
-      !/AppSidebar|DesktopSidebarContent/.test(workspace),
+      "the setup widget is not shown over the creator page",
+      sidebar2.includes('!pathname.startsWith("/creator-page")') &&
+        sidebar2.includes('!pathname.startsWith("/app/creator-page")'),
     )
   }
 
@@ -116,7 +126,8 @@ function main() {
       "Customize page is hidden inside the workspace, where it would nest",
       /\{!embedded && \(/.test(button),
     )
-    check("but the pencil is not, because that is what edits the profile", /aria-label="Edit profile details"/.test(button))
+    /** It says what it does: inside the workspace it has no neighbour to explain it. */
+    check("but the profile editor is not, and it is labelled", /aria-label="Edit profile"/.test(button) && button.includes(">\n          Edit profile"))
 
     const menu = read("components/storefront/owner-menu.tsx")
     check(
@@ -128,10 +139,10 @@ function main() {
   // ── 5. One destination, and the old addresses still answer ─────────────
   {
     const entries: Array<[string, string]> = [
-      ["components/app/sidebar.tsx", "/app/creator-page"],
-      ["components/app/dashboard-client.tsx", "/app/creator-page"],
-      ["components/storefront/owner-menu.tsx", "/app/creator-page"],
-      ["components/app/settings-form-new.tsx", "/app/creator-page"],
+      ["components/app/sidebar.tsx", "/creator-page"],
+      ["components/app/dashboard-client.tsx", "/creator-page"],
+      ["components/storefront/owner-menu.tsx", "/creator-page"],
+      ["components/app/settings-form-new.tsx", "/creator-page"],
     ]
     for (const [file, href] of entries) {
       check(`${file} points at the workspace`, read(file).includes(href))
@@ -143,8 +154,9 @@ function main() {
      * section editor and is linked from the workspace itself.
      */
     check("the old /store-builder address still answers", existsSync(join(root, "app/store-builder/page.tsx")))
-    check("and it lands on the workspace", read("app/store-builder/page.tsx").includes('redirect("/app/creator-page")'))
-    check("the section editor is still a real route", existsSync(join(root, "app/creator-page/page.tsx")))
+    check("and it lands on the workspace", read("app/store-builder/page.tsx").includes('redirect("/creator-page")'))
+    check("the section editor is still a real route", existsSync(join(root, "app/creator-page/sections/page.tsx")))
+    check("and the address the workspace used to have still answers", existsSync(join(root, "app/app/creator-page/page.tsx")))
 
     const sidebar = read("components/app/sidebar.tsx")
     check("the sidebar no longer says Store Builder", !/label: "Store Builder"/.test(sidebar))

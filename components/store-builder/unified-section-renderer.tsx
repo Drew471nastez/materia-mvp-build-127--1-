@@ -518,6 +518,47 @@ function UnifiedAboutSection({
     handleMediaTransition(newIndex)
   }
 
+  /**
+   * ===========================================================================
+   *  DRAG IT, WITH A FINGER OR WITH A MOUSE
+   * ===========================================================================
+   * The carousel had arrows and dots and nothing else, so on a phone — where
+   * the arrows are small and a swipe is what anybody tries first — it read as
+   * not working. Pointer events rather than separate touch and mouse
+   * handlers: one code path, and a trackpad drag behaves the same as a thumb.
+   *
+   * The threshold is 48px, and it is a distance rather than a velocity so a
+   * slow deliberate drag counts. Below it nothing happens, which is what
+   * makes a tap on the image still a tap.
+   *
+   * A VERTICAL DRAG IS A SCROLL, and taking it would trap the page: on a
+   * phone this thing is as wide as the screen, and a carousel that eats
+   * upward swipes is a carousel somebody cannot scroll past. So the gesture
+   * is claimed only once it is clearly sideways.
+   */
+  const dragRef = useRef<{ x: number; y: number; id: number } | null>(null)
+
+  const onMediaPointerDown = (e: React.PointerEvent) => {
+    if (mediaItems.length < 2) return
+    /** A secondary button is a context menu, not a swipe. */
+    if (e.pointerType === "mouse" && e.button !== 0) return
+    dragRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId }
+  }
+
+  const onMediaPointerUp = (e: React.PointerEvent) => {
+    const start = dragRef.current
+    dragRef.current = null
+    if (!start || start.id !== e.pointerId) return
+
+    const dx = e.clientX - start.x
+    const dy = e.clientY - start.y
+    /** Sideways, and meant: 48px across and further across than down. */
+    if (Math.abs(dx) < 48 || Math.abs(dx) <= Math.abs(dy)) return
+
+    if (dx < 0) goToNextMedia()
+    else goToPrevMedia()
+  }
+
   const goToMediaIndex = (index: number) => {
     handleMediaTransition(index)
   }
@@ -738,7 +779,16 @@ function UnifiedAboutSection({
                 {/* Carousel Container */}
                 <div className="relative group">
                   {/* Carousel Track with smooth sliding animation */}
-                  <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+                  <div
+                    className="relative aspect-video rounded-lg overflow-hidden bg-muted"
+                    onPointerDown={onMediaPointerDown}
+                    onPointerUp={onMediaPointerUp}
+                    onPointerCancel={() => { dragRef.current = null }}
+                    /* pan-y: the browser keeps vertical scrolling, we take the
+                       horizontal axis. Without it the compositor claims the
+                       gesture before a single pointermove is delivered. */
+                    style={mediaItems.length > 1 ? { touchAction: "pan-y" } : undefined}
+                  >
                     <div
                       className="flex h-full transition-transform duration-400 ease-out"
                       style={{

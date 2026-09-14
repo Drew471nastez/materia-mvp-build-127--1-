@@ -169,24 +169,33 @@ export function EditProfileButton({
         {/* Not inside the workspace: there, this page already is the editor. */}
         {!embedded && (
         <a
-          href="/app/creator-page"
+          href="/creator-page"
           className="inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-4 text-sm font-medium text-gray-900 no-underline shadow-md backdrop-blur transition-colors hover:bg-white"
         >
           <Wand2 className="h-3.5 w-3.5" />
           Customize page
         </a>
         )}
+        {/*
+          IT SAYS WHAT IT DOES AGAIN.
+
+          This was reduced to a bare pencil when "Customize page" took the
+          primary slot beside it. Inside the workspace that other button is
+          hidden, so the pencil was left alone on a cover image with nothing
+          to say what it opens — an icon with no label and no neighbour is a
+          guess. The word is back; the icon stays as the thing you aim at.
+        */}
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label="Edit profile details"
-          title="Edit profile details"
+          aria-label="Edit profile"
           // rounded-lg (8px), not a pill. A fully rounded control reads as a
           // chip or a tag; this is a button, and it sits beside a card grid whose
           // corners are the same 8px.
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-gray-900 shadow-md backdrop-blur transition-colors hover:bg-white"
+          className="inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-4 text-sm font-medium text-gray-900 shadow-md backdrop-blur transition-colors hover:bg-white"
         >
           <Pencil className="h-3.5 w-3.5" />
+          Edit profile
         </button>
       </div>
 

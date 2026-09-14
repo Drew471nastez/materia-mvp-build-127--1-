@@ -1,121 +1,67 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { StoreBuilderEditor } from "@/components/store-builder/store-builder-editor"
 import type { Metadata } from "next"
 
-export const metadata: Metadata = {
-  title: "Creator page - Storelib",
-}
+import { createClient } from "@/lib/supabase/server"
+import { readCurrentUser } from "@/lib/auth/current-user"
+import { CreatorPageWorkspace } from "@/components/app/creator-page-workspace"
 
+export const metadata: Metadata = { title: "Creator page - Storelib" }
 export const dynamic = "force-dynamic"
 
-export default async function CreatorPageEditor({
-  searchParams,
-}: {
-  searchParams: Promise<{ pageType?: string; productId?: string }>
-}) {
-  const { pageType, productId } = await searchParams
+/**
+ * ===========================================================================
+ *  THE CREATOR PAGE, EDITED WHERE IT LIVES
+ * ===========================================================================
+ * The old editor was a builder: a full-screen shell with its own top bar, its
+ * own sidebar of sections, and a canvas that DREW AN APPROXIMATION of the
+ * page. Two problems with that, and the second is the expensive one.
+ *
+ * It threw away the app. Opening it meant losing the sidebar, so "customise my
+ * page" was a trip out of the product and back, and every other thing a
+ * creator might do next was two navigations away.
+ *
+ * And an approximation is a second implementation. The page already knows how
+ * to render itself, and it already knows how to show its owner the controls
+ * for editing it in place — the pencil, the profile dialog, the About editor,
+ * the owner menu. All of that exists and is what a visitor's browser runs. A
+ * canvas that redraws it is a copy that drifts, and the drift is invisible
+ * until a creator publishes something that does not look like what they
+ * arranged.
+ *
+ * So this renders THE PAGE ITSELF, signed in, inside the app shell. What a
+ * creator edits is not a preview of their page. It is their page.
+ *
+ * AND IT IS FULL SCREEN, which is a reversal of where this started. Under
+ * /app it inherited the sidebar and the header, and the page then had about
+ * two thirds of a narrow window to render a full-width design in. The sidebar
+ * was not worth that: somebody editing their page is editing their page, and
+ * the thing being edited should have the screen. One back control replaces
+ * the navigation, the same way the website builder does it.
+ */
+export default async function CreatorPageWorkspaceRoute() {
   const supabase = await createClient()
+  const { user } = await readCurrentUser(supabase)
+  if (!user) redirect("/login")
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
-
-  // Get creator + profile in parallel
   const [{ data: creator }, { data: profile }] = await Promise.all([
-    supabase.from("creators").select("id, slug, cover_url, headline, bio, niche_tags, show_total_sales_badge, avatar_url").eq("user_id", user.id).single(),
-    supabase.from("profiles").select("display_name, avatar_url, username").eq("id", user.id).single(),
+    supabase.from("creators").select("slug, store_published").eq("user_id", user.id).single(),
+    supabase.from("profiles").select("username, display_name").eq("id", user.id).single(),
   ])
 
-  if (!creator) {
-    redirect("/onboarding")
-  }
+  if (!creator) redirect("/onboarding")
 
-const { data: products, error: productsError } = await supabase
-  .from("products")
-  .select(`
-    id,
-    slug,
-    title,
-    thumbnail_url,
-    price_cents,
-    compare_at_cents,
-    sales_count,
-    description,
-    whats_included,
-    gallery_urls,
-    video_url,
-    faqs,
-    refund_policy_enabled,
-    refund_policy_type,
-    refund_policy_fine_print,
-    refund_policy_updated_at,
-    product_categories (
-      category_id,
-      category:categories (
-        id,
-        name,
-        slug,
-        type
-      )
-    )
-  `)
-  .eq("creator_id", creator.id)
-  .eq("status", "published")
-  .order("created_at", { ascending: false })
-
-if (productsError) {
-  console.error("[store-builder] Products query error:", productsError)
-}
-
-const productsData =
-  products?.map((p: any) => ({
-    id: p.id,
-    slug: p.slug,
-    title: p.title,
-    thumbnail_url: p.thumbnail_url,
-    price_cents: p.price_cents,
-    compare_at_cents: p.compare_at_cents,
-    sales_count: p.sales_count,
-    description: p.description,
-    whats_included: p.whats_included,
-    gallery_urls: p.gallery_urls,
-    video_url: p.video_url,
-    faqs: p.faqs,
-    refund_policy_enabled: p.refund_policy_enabled,
-    refund_policy_type: p.refund_policy_type,
-    refund_policy_fine_print: p.refund_policy_fine_print,
-    refund_policy_updated_at: p.refund_policy_updated_at,
-    categories: p.product_categories?.map((pc: any) => pc.category).filter(Boolean) || [],
-  })) || []
-
-  const initialPageType = pageType === "product" ? "product" : "shop"
-  const initialProductId = productId || null
+  /**
+   * The handle the public page is addressed by. `profiles.username` is what a
+   * visitor types; the creator slug is the fallback for an account that
+   * predates usernames, which is the same order the sidebar uses.
+   */
+  const handle = profile?.username || creator.slug
 
   return (
-    <StoreBuilderEditor
-      creatorId={creator.id}
-      creatorSlug={creator.slug}
-      creator={{
-        cover_url: creator.cover_url,
-        headline: creator.headline,
-        bio: creator.bio,
-        niche_tags: creator.niche_tags,
-        show_total_sales_badge: creator.show_total_sales_badge,
-        avatar_url: creator.avatar_url,
-      }}
-      profile={{
-        display_name: profile?.display_name,
-        avatar_url: profile?.avatar_url,
-        username: profile?.username,
-      }}
-      products={productsData}
-      initialPageType={initialPageType}
-      initialProductId={initialProductId}
+    <CreatorPageWorkspace
+      handle={handle}
+      displayName={profile?.display_name || handle}
+      published={!!creator.store_published}
     />
   )
 }

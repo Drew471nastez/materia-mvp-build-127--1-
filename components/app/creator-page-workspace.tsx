@@ -23,7 +23,8 @@
  */
 
 import { useCallback, useRef, useState } from "react"
-import { ExternalLink, Loader2, RotateCw } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, ExternalLink, Loader2, RotateCw } from "lucide-react"
 
 export function CreatorPageWorkspace({
   handle,
@@ -34,6 +35,8 @@ export function CreatorPageWorkspace({
   displayName: string
   published: boolean
 }) {
+  const router = useRouter()
+  const [leaving, setLeaving] = useState(false)
   const frameRef = useRef<HTMLIFrameElement>(null)
   const [loading, setLoading] = useState(true)
   /**
@@ -54,7 +57,10 @@ export function CreatorPageWorkspace({
   }, [])
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[#f8f9fa]">
+    <div
+      className="wb-canvas-in flex h-svh min-h-0 flex-col bg-[#f8f9fa]"
+      style={leaving ? { opacity: 0, transition: "opacity 160ms ease-out" } : undefined}
+    >
       {/*
         ONE ROW, AND IT SAYS WHERE YOU ARE BEFORE IT OFFERS ANYTHING.
         The handle is the subject of this screen, so it is the first thing on
@@ -62,6 +68,27 @@ export function CreatorPageWorkspace({
         for its own sake.
       */}
       <div className="flex shrink-0 items-center gap-3 border-b border-[#e5e7eb]/70 bg-white px-4 py-2.5 sm:px-6">
+        {/*
+          THE WAY BACK, because there is no sidebar to leave by any more.
+
+          It fades the screen out before navigating rather than cutting to the
+          dashboard mid-paint, which is what the website builder does when it
+          leaves its own editor. Without it, a full-screen editor closing is a
+          hard swap between two unrelated layouts.
+        */}
+        <button
+          type="button"
+          onClick={() => {
+            setLeaving(true)
+            window.setTimeout(() => router.push("/app"), 150)
+          }}
+          aria-label="Back to Storelib"
+          title="Back to Storelib"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
+        >
+          <ArrowLeft className="h-[18px] w-[18px]" />
+        </button>
+
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{displayName}</p>
           <p className="truncate text-[12px] text-[#6b7280]">
