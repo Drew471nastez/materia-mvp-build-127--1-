@@ -458,6 +458,39 @@ function main() {
     )
   }
 
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * THE PROFILE PICTURE IS A ROUNDED SQUARE.
+     *
+     * A circle is the social-network shape, and it made a creator's shop read
+     * as a profile. It was also throwing away corners the creator had
+     * positioned on purpose, because the crop behind it is square.
+     *
+     * The radius is measured in a browser by scripts/check-avatar-shape.mjs,
+     * at both sizes a creator can pick. What is held here is what that
+     * measurement depends on: the radius is derived from the size rather than
+     * written down, and it is an INLINE style — components/ui/avatar bakes
+     * `rounded-full` into its root, so a class would lose. Taking the inline
+     * rule out makes the probe report a radius of 3.35e7px, which is that
+     * `rounded-full` and nothing else.
+     */
+    const renderer = read("components/store-builder/unified-section-renderer.tsx")
+    check(
+      "the avatar radius scales with the avatar",
+      /borderRadius: `\$\{Math\.round\(avatarSize \* 0\.24\)\}px`/.test(renderer),
+    )
+    check(
+      "it is set inline, where it outranks ui/avatar's rounded-full",
+      /style=\{\{[\s\S]{0,400}borderRadius: `\$\{Math\.round\(avatarSize/.test(renderer),
+    )
+    check(
+      "and the depth is two soft layers rather than one wide blur",
+      /boxShadow: "0 1px 2px rgba\(15, 23, 42, 0\.06\), 0 10px 28px -8px rgba\(15, 23, 42, 0\.20\)"/.test(renderer) &&
+        !/className="shadow-lg shrink-0 bg-gray-200"/.test(renderer),
+    )
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

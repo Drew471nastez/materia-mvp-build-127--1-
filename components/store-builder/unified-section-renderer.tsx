@@ -2813,14 +2813,48 @@ export function UnifiedShopHeader({
               `bg-gray-200` on the root keeps the circle a solid disc while it
               decodes, so a slow image shows a plain shape rather than a hole.
             */}
+            {/*
+              ================================================================
+               A ROUNDED SQUARE, NOT A CIRCLE
+              ================================================================
+              A circle is the social-network shape — it is what Instagram and
+              X put a face in, and it made this page read as a profile rather
+              than as somebody's shop. A rounded square is the app-icon shape,
+              which is what the Storelib mark above it already is, so the two
+              agree instead of arguing.
+
+              It is also more honest about the picture: the crop behind it is
+              square (components/shared/square-image-cropper), so a circle was
+              throwing away corners the creator had positioned on purpose.
+
+              THE RADIUS IS A RATIO, NOT A NUMBER. The avatar is 110px or
+              137px depending on what the creator picked, and one fixed radius
+              cannot read the same on both — 32px is a soft square at 137 and
+              nearly a blob at 110. A quarter of the width holds the shape at
+              every size, and at the default 137px it lands on 33, inside the
+              28 to 36 the design asked for.
+            */}
             <Avatar
-              className="shadow-lg shrink-0 bg-gray-200"
+              className="shrink-0 bg-gray-200"
               style={{
                 width: `${avatarSize}px`,
                 height: `${avatarSize}px`,
+                borderRadius: `${Math.round(avatarSize * 0.24)}px`,
                 borderWidth: "2.5px",
                 borderStyle: "solid",
                 borderColor: settings.profileImageBorderColor || "#e5e7eb",
+                /**
+                 * DEPTH, AND ONLY A LITTLE.
+                 *
+                 * `shadow-lg` is a single wide blur, which at this size reads
+                 * as a grey halo rather than as a raised object. Two layers
+                 * instead: a tight one directly underneath, which is what
+                 * makes something look like it is resting ON the page, and a
+                 * wider, softer one below that for the lift. Both are barely
+                 * there on purpose — the picture is the thing being looked
+                 * at, not the shadow.
+                 */
+                boxShadow: "0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 28px -8px rgba(15, 23, 42, 0.20)",
               }}
             >
               {/*
