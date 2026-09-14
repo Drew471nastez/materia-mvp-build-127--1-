@@ -51,6 +51,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { BuilderLoader } from "@/components/website-builder/builder-loader"
+import { navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { CreatorPageShare } from "@/components/app/creator-page-share"
 import { CREATOR_EDITOR_CHANNEL } from "@/lib/store-builder/editor-channel"
 import { cn } from "@/lib/utils"
@@ -65,6 +66,59 @@ export function CreatorPageWorkspace({
   published: boolean
 }) {
   const router = useRouter()
+  /** An editor sheet is open inside the frame, so this bar dims with it. */
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  /**
+   * =======================================================================
+   *  LEAVING THE EDITOR LOOKS LIKE LEAVING THE OTHER ONE
+   * =======================================================================
+   * Back was a bare `router.push`, so on a phone the editor simply sat there
+   * for as long as /app took to arrive and then cut to it. The website
+   * builder already answers this: the glass goes up the instant Back is
+   * pressed, the squares say something is happening, and the navigation has
+   * a ceiling so it cannot hang on a slow route.
+   *
+   * The same three, from the same places — `.wb-leaving` is a global class
+   * and `navigateWithCeiling` is a pure helper — rather than a second
+   * arrangement that drifts from it.
+   */
+  const [leaving, setLeaving] = useState(false)
+  const cancelCeiling = useRef<(() => void) | null>(null)
+
+  const leave = useCallback(() => {
+    if (leaving) return
+    setLeaving(true)
+    cancelCeiling.current?.()
+    cancelCeiling.current = navigateWithCeiling(
+      () => router.push("/app"),
+      () => window.location.assign("/app"),
+      (cb, ms) => window.setTimeout(cb, ms),
+      (id) => window.clearTimeout(id),
+    )
+  }, [leaving, router])
+
+  /**
+   * The glass BLOCKS, which is the point of it — a second press on a control
+   * that is already on its way out is how you get two of whatever it does.
+   * That is also why it has to be able to come back down. A bfcache restore,
+   * an in-history return, or a navigation that simply did not happen would
+   * otherwise leave the editor alive, looking normal, and taking no input.
+   */
+  useEffect(() => {
+    if (!leaving) return
+    const revive = () => setLeaving(false)
+    const onPageShow = (e: PageTransitionEvent) => { if (e.persisted) revive() }
+    window.addEventListener("pageshow", onPageShow)
+    window.addEventListener("popstate", revive)
+    const watchdog = window.setTimeout(revive, 6000)
+    return () => {
+      window.removeEventListener("pageshow", onPageShow)
+      window.removeEventListener("popstate", revive)
+      window.clearTimeout(watchdog)
+      cancelCeiling.current?.()
+    }
+  }, [leaving])
   const [shareOpen, setShareOpen] = useState(false)
   const [isPhone, setIsPhone] = useState(false)
 
@@ -168,9 +222,15 @@ export function CreatorPageWorkspace({
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
-      const data = event.data as { channel?: string; kind?: string } | null
+      const data = event.data as { channel?: string; kind?: string; open?: boolean } | null
       if (!data || data.channel !== CREATOR_EDITOR_CHANNEL) return
       if (data.kind === "saved") reframe()
+      /*
+        An editor opened or closed inside the frame. The sheet dims the page
+        behind it, and the page is only the part below this bar — so without
+        this the dim ended at a hard line with a lit bar above it.
+      */
+      if (data.kind === "sheet") setSheetOpen(!!(data as { open?: boolean }).open)
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
@@ -205,12 +265,26 @@ export function CreatorPageWorkspace({
         so it is read, never branched on.
       */}
       <div
-        className="flex shrink-0 items-center gap-1.5 border-b border-[#e5e7eb] bg-white px-3 pb-2 sm:gap-2 sm:px-4"
+        className="relative flex shrink-0 items-center gap-1.5 border-b border-[#e5e7eb] bg-white px-3 pb-2 sm:gap-2 sm:px-4"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}
       >
+        {/*
+          The same 30% black the sheet lays over the page, over this bar, for
+          the same length of time — so the two read as one dim rather than as
+          a dimmed page under a lit strip.
+
+          It does not take the taps. The controls under it are the way out of
+          the editor, and a creator who wants to leave with a sheet open
+          should not have to close the sheet first to reach them.
+        */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-10 bg-black/30 transition-opacity duration-[360ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+          style={{ opacity: sheetOpen ? 1 : 0 }}
+        />
         <button
           type="button"
-          onClick={() => router.push("/app")}
+          onClick={leave}
           aria-label="Back to Storelib"
           title="Back to Storelib"
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
@@ -288,6 +362,14 @@ export function CreatorPageWorkspace({
       </div>
 
       <CreatorPageShare open={shareOpen} onClose={() => setShareOpen(false)} handle={handle} isPhone={isPhone} />
+
+      {/* The builder's own going-back screen: dark glass over everything, with
+          the loader drawn in white on it. `tone` names the surface it is ON. */}
+      {leaving && (
+        <div className="wb-leaving" role="status" aria-live="polite" aria-label="Going back">
+          <BuilderLoader className="wb-leaving-content" tone="dark" lines={["Going back", "Almost there"]} />
+        </div>
+      )}
     </div>
   )
 }

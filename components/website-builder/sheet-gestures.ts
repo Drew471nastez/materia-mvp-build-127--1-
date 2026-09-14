@@ -130,6 +130,33 @@ export function offsetsFor(input: {
   return { height, offsets: [...list, Math.max(height - input.peekHeight, 0)] }
 }
 
+/**
+ * ===========================================================================
+ *  A KEYBOARD TAKES THE SHEET'S ROOM, SO THE SHEET TAKES IT BACK
+ * ===========================================================================
+ * The sheet pads itself by the keyboard's height so its content clears it.
+ * That padding comes out of the sheet's OWN height, which is a fraction of
+ * the screen — so a 60% sheet with a 336px keyboard up had 170px left for a
+ * header, a form and two buttons. What a creator saw was the title, a sliver
+ * of something, and the buttons: the field they had just tapped was not on
+ * screen at all.
+ *
+ * Growing by exactly the keyboard's height keeps the panel above it the size
+ * it was before the keyboard arrived, which is the size the detent asked for.
+ * Where there is not that much screen the sheet takes what there is, and the
+ * panel is the whole strip above the keyboard.
+ *
+ * OFFSETS ARE DELIBERATELY NOT ADJUSTED. The sheet is anchored by `bottom: 0`
+ * and moved by translateY, so a taller sheet at the same offset has its top
+ * edge higher by exactly the growth — which is the keyboard's height, which
+ * is what the padding then takes back. Every stop shows the same panel it
+ * showed before. Recomputing the offsets as well would move it twice.
+ */
+export function sheetHeightWithKeyboard(height: number, keyboardInset: number, viewport: number): number {
+  if (keyboardInset <= 0) return height
+  return Math.min(viewport, height + keyboardInset)
+}
+
 export const VELOCITY_THRESHOLD = 0.4
 export const FLICK_MIN_DISTANCE = 8
 

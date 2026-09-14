@@ -30,7 +30,6 @@ import {
 import type { ShopHeaderSettings } from "@/lib/store-builder/types"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { ShareButton } from "@/components/product/share-button"
-import { CreatorQuickNav } from "@/components/creator-quick-nav"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { getStoreUrl } from "@/lib/url-helpers"
@@ -821,7 +820,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     .toUpperCase()
 
   // Check if the logged-in user is the creator of this product
-  const isCreatorViewing = !!user && !!creator && user.id === creator.user_id
 
   const getWhatsIncluded = () => {
     if (product.whats_included && product.whats_included.length > 0) {
@@ -1625,11 +1623,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         />
 
         <SellerFooter />
-
-        {/* Creator quick-nav circle for owners viewing their own product */}
-        {isCreatorViewing && (
-          <CreatorQuickNav />
-        )}
       </div>
     )
   }
@@ -1831,10 +1824,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
       <SellerFooter />
 
-      {/* Creator quick-nav circle for owners viewing their own product */}
-      {isCreatorViewing && (
-        <CreatorQuickNav />
-      )}
     </div>
   )
 }

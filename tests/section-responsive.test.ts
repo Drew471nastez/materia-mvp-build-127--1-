@@ -1780,7 +1780,31 @@ check(
   "a content-sized sheet opens all the way up, not to a fraction of a screen it no longer fills",
   // Its stops are its own height and away; the 0.62/0.92 detents describe a
   // sheet sized to the screen and pushed a content-sized one under the bar.
-  /fit && contentHeight > 0\s*\n\s*\? \/\/ One stop[\s\S]{0,80}\[0, Math\.max\(height - peek, 0\)\]/.test(sheetSrc),
+  //
+  // `detentHeight` is that height. It is not `height`, which is the same
+  // number GROWN BY THE KEYBOARD — and the closed position is how far the
+  // sheet travels to be gone, which a keyboard has nothing to do with. Using
+  // the grown one here would leave a keyboard's height of sheet on screen
+  // after a dismissal.
+  /fit && contentHeight > 0\s*\n\s*\? \/\/ One stop[\s\S]{0,400}\[0, Math\.max\(detentHeight - peek, 0\)\]/.test(sheetSrc),
+)
+
+check(
+  /**
+   * A KEYBOARD TAKES THE SHEET'S ROOM, SO THE SHEET TAKES IT BACK.
+   *
+   * The sheet pads itself by the keyboard's height, and that padding comes
+   * out of its own height — so a 60% sheet with a 336px keyboard up had
+   * 170px left for a header, a form and two buttons, and the field being
+   * typed into was not on screen at all.
+   */
+  "a sheet grows by the keyboard, so the panel above it stays the size the detent asked for",
+  /const height = sheetHeightWithKeyboard\(detentHeight, keyboardInset, viewport\)/.test(sheetSrc),
+)
+
+check(
+  "and the field being typed into is brought into the sheet's own scroller",
+  /\[data-sheet-scroll\]/.test(sheetSrc) && /keyboardInset <= 0\) return/.test(sheetSrc),
 )
 
 check(

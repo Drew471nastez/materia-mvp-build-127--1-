@@ -2476,11 +2476,11 @@ html.capacitor.library-layout::before {
   background-color: #ffffff;
 }
 
-/* Hide the floating creator quick-nav button on iOS/Android — native apps
-   have their own sidebar navigation so the floating button is redundant. */
-html.capacitor .creator-quick-nav {
-  display: none !important;
-}
+/* The floating creator quick-nav is gone. It floated over the product
+   photo on every product page a creator looked at their own shop from, and
+   it was a second copy of the app's own navigation — which is one tap away
+   through the bar at the top. This rule hid it on the native shells for
+   that same reason; there is nothing left to hide. */
 
 /* ── Touch device: suppress hover-flash on cards and sheet menu items ─────────
    On iOS/Android the :hover pseudo-class fires on tap and lingers until the
