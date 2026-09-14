@@ -55,6 +55,41 @@ function str(value: unknown, fallback = ""): string {
  * the bar itself. That errs towards a square ring on a page whose bar has
  * been closed, and a square ring is the harmless way to be wrong.
  */
+/**
+ * ===========================================================================
+ *  THE PAGE REACHES THE BOTTOM OF WHATEVER IT IS DRAWN IN
+ * ===========================================================================
+ * A page shorter than the space it is given used to stop where its content
+ * stopped, and whatever was behind it showed below. In the builder that is
+ * the canvas card, which is white — measured at 338px of white under a 362px
+ * page in a 700px card, by scripts/check-short-page.mjs. So the tail of every
+ * short page was a colour the published site never shows there, and on an
+ * empty page it was most of the screen.
+ *
+ * The page is a column that fills its container, so the background it paints
+ * is its own, all the way down. Two containers, because there are two:
+ *
+ *   IN THE BUILDER the container is the canvas card, a flex column of a
+ *   definite height, so the page grows as a flex item. A percentage height
+ *   was tried first and does nothing there, because a percentage needs a
+ *   parent whose height is definite and the canvas wrapper's is not.
+ *
+ *   PUBLISHED the container is the document, so it is the viewport. `dvh`
+ *   rather than `vh` because a phone's toolbars move and `vh` leaves a band
+ *   the colour of the browser under the footer as they do.
+ *
+ * The footer is still the last thing on the page. What grows is the empty
+ * placeholder, and only when a page is empty — a page with sections keeps
+ * natural flow, which is the rule the body deliberately kept: a short page is
+ * short, and the space after it is the site's own background rather than a
+ * filler wedged between the last section and the footer.
+ */
+function pageFill(inEditor: boolean): CSSProperties {
+  return inEditor
+    ? { display: "flex", flexDirection: "column", flex: "1 1 auto" }
+    : { display: "flex", flexDirection: "column", minHeight: "100dvh" }
+}
+
 export function headerTouchesTop(theme: ThemeSettingsValues): boolean {
   const t = theme as Record<string, unknown>
   const announcement = t.announcement_bar_enabled === true && str(t.announcement_bar_text).length > 0
@@ -365,7 +400,7 @@ export function ThemePage({
     <div
       {...{ [THEME_ROOT_ATTRIBUTE]: "" }}
       className={className}
-      style={{ ...(themeVars(theme) as CSSProperties), ...style }}
+      style={{ ...(themeVars(theme) as CSSProperties), ...pageFill(storefront?.inEditor === true), ...style }}
     >
       {/*
         The theme's own rules, scoped to this root. Inline rather than in a
@@ -414,7 +449,7 @@ export function ThemePage({
       {body.length > 0 && renderGap?.(body.length)}
 
       {sections.length === 0 && (
-        <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="flex flex-1 min-h-[50vh] items-center justify-center">
           <div className="text-center text-gray-400">
             <p className="text-lg font-medium">{emptyTitle}</p>
             <p className="mt-1 text-sm">{emptyDetail}</p>
