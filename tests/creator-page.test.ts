@@ -184,6 +184,57 @@ function main() {
     check("the creator page is no longer called Store in quick access", !/>Store<\/(p|div)>/.test(dash + settings))
   }
 
+  // ── 7. Editing in place: the CTA bar and a way to be contacted ─────────
+  {
+    const cta = read("components/storefront/edit-cta-button.tsx")
+    const page = read("app/(marketing)/u/[username]/page.tsx")
+    const api = read("app/api/creator-profile/route.ts")
+
+    check("the CTA bar has an editor", existsSync(join(root, "components/storefront/edit-cta-button.tsx")))
+    check("it writes through the route that already does auth and ownership", cta.includes('"/api/creator-profile"'))
+    check("only the owner sees the pencil", /viewerIsOwner && \(/.test(page) && page.includes("<EditCtaButton"))
+    /**
+     * The bar generates its own sentence from a preset when nothing is
+     * stored, so seeding the dialog from the raw value would open two empty
+     * boxes on a bar that plainly says something.
+     */
+    check(
+      "it is seeded with what the bar actually shows",
+      page.includes("getDisplayText(subscribeBarSettings") && page.includes("getButtonText(subscribeBarSettings"),
+    )
+    check("the API accepts the two strings", api.includes("const subscribeBar = (()"))
+    /**
+     * The bar reads its label from a preset unless told otherwise, so writing
+     * buttonText alone saves a string nothing ever reads.
+     */
+    check('and marks the label custom, or nothing reads it', api.includes('out.buttonTextPreset = "custom"'))
+
+    // ── The contact link ───────────────────────────────────────────────
+    const about = read("components/storefront/edit-about-button.tsx")
+    const renderer = read("components/store-builder/unified-section-renderer.tsx")
+
+    check("About can hold a contact address", about.includes('id="ea-contact"'))
+    check("and the block renders it as a mailto", renderer.includes("href={`mailto:${contactEmail}`}"))
+    check("only when one is set", /\{contactEmail && \(/.test(renderer))
+    check("it is validated as an address before being stored", /\^\[\^\\s@\]\+@/.test(api))
+    check("and clearing it removes the link", api.includes("next.contactEmail = contactEmail || undefined"))
+
+    /**
+     * THE PART THAT IS A DECISION, NOT A DETAIL. The obvious implementation of
+     * "let people contact me" prints the address somebody signs in with.
+     * Nobody agreed to publish that, and it is the address that resets their
+     * password. It has to be a field they typed.
+     */
+    check(
+      "the login address is never published as the contact address",
+      !/user\.email/.test(renderer) && !/profile\.email/.test(renderer),
+    )
+    check(
+      "the contact address comes from stored settings a creator typed",
+      page.includes("sellerContactEmail={headerSettings.contactEmail}"),
+    )
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

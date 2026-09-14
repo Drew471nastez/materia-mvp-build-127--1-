@@ -77,7 +77,7 @@ function getStyleText(style: string | undefined, creatorName?: string): string {
 }
 
 /** Get display text considering customCtaText */
-function getDisplayText(settings: SubscribeBarSettings, creatorName?: string): string {
+export function getDisplayText(settings: SubscribeBarSettings, creatorName?: string): string {
   if (settings.customCtaText && settings.customCtaText.trim()) {
     return settings.customCtaText.trim()
   }
@@ -88,7 +88,7 @@ function getDisplayText(settings: SubscribeBarSettings, creatorName?: string): s
 }
 
 /** Get button text based on buttonStyle preset */
-function getButtonText(settings: SubscribeBarSettings, isSubscribed: boolean): string {
+export function getButtonText(settings: SubscribeBarSettings, isSubscribed: boolean): string {
   const stylePreset = settings.buttonStyle || "style1"
   const preset = buttonStylePresets[stylePreset]
   return isSubscribed ? preset.subscribed : preset.default

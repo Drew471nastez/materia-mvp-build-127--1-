@@ -39,9 +39,11 @@ export interface EditAboutButtonProps {
   headline: string
   story: string
   media: AboutMediaItem[]
+  /** The PUBLIC address, typed by the creator. Never their login email. */
+  contactEmail?: string
 }
 
-export function EditAboutButton({ headline, story, media }: EditAboutButtonProps) {
+export function EditAboutButton({ headline, story, media, contactEmail = "" }: EditAboutButtonProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
@@ -51,6 +53,7 @@ export function EditAboutButton({ headline, story, media }: EditAboutButtonProps
   const [text, setText] = React.useState(story)
   const [items, setItems] = React.useState<AboutMediaItem[]>(media)
   const [video, setVideo] = React.useState("")
+  const [email, setEmail] = React.useState(contactEmail)
 
   // Reopening after a cancel shows what is saved, not what was abandoned.
   React.useEffect(() => {
@@ -58,6 +61,7 @@ export function EditAboutButton({ headline, story, media }: EditAboutButtonProps
     setTitle(headline)
     setText(story)
     setItems(media)
+    setEmail(contactEmail)
     setVideo("")
     setError(null)
   }, [open, headline, story, media])
@@ -84,7 +88,11 @@ export function EditAboutButton({ headline, story, media }: EditAboutButtonProps
       const res = await fetch("/api/creator-profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ about: { headline: title, aboutContent: text, mediaItems: items } }),
+        body: JSON.stringify({
+          about: { headline: title, aboutContent: text, mediaItems: items },
+          /** "" is a real value: it takes the Contact link off the page. */
+          contactEmail: email.trim(),
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -92,7 +100,7 @@ export function EditAboutButton({ headline, story, media }: EditAboutButtonProps
         return
       }
       if (data.storefront === false) {
-        setError("Your storefront has not been set up yet — open the store builder once and publish, then this will show on your page.")
+        setError("Your creator page has not been set up yet. Open Sections and theme once and publish, then this will show on your page.")
         return
       }
       setOpen(false)
@@ -145,6 +153,32 @@ export function EditAboutButton({ headline, story, media }: EditAboutButtonProps
                 placeholder="Tell shoppers a little about your business."
               />
               <p className="text-xs text-muted-foreground">{text.length}/2000</p>
+            </div>
+
+            {/*
+              A PUBLIC ADDRESS, TYPED ON PURPOSE.
+
+              The obvious implementation of "let people contact me" is to print
+              the address somebody signs in with, and that is the wrong one:
+              nobody agreed to publish it, and it is the address that resets
+              their password. This is a separate field, empty until they fill
+              it, and emptying it takes the link off the page again.
+            */}
+            <div className="space-y-2">
+              <Label htmlFor="ea-contact">Contact email</Label>
+              <Input
+                id="ea-contact"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={email}
+                maxLength={254}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="hello@yourdomain.com"
+              />
+              <p className="text-xs text-muted-foreground">
+                Shown as a Contact link on your page. Leave empty to hide it.
+              </p>
             </div>
 
             <div className="space-y-3">

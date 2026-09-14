@@ -23,7 +23,7 @@ import type {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { BadgeCheck, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Download, Facebook, Files, Heart, Infinity, Link2, Package, Share2, ShoppingBag, Star, Users, X } from "lucide-react"
+import { BadgeCheck, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Download, Facebook, Files, Heart, Infinity, Link2, Mail, Package, Share2, ShoppingBag, Star, Users, X } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -130,6 +130,8 @@ export interface UnifiedSectionProps {
   sellerMemberSince?: string // ISO date string
   sellerTotalSales?: number
   sellerProductsCount?: number
+  /** A PUBLIC address the creator typed. Absent means no Contact link. */
+  sellerContactEmail?: string
   // For inline editing in About section
   onUpdateAboutSettings?: (settings: Partial<AboutSettings>) => void
   // For opening About section in sidebar
@@ -457,6 +459,7 @@ function UnifiedAboutSection({
   memberSince,
   totalSales,
   productsCount,
+  contactEmail,
   onUpdateSettings,
   onOpenSidebar,
   pageBackgroundColor,
@@ -470,6 +473,8 @@ function UnifiedAboutSection({
   memberSince?: string
   totalSales?: number
   productsCount?: number
+  /** A PUBLIC address the creator typed. Absent means no Contact link. */
+  contactEmail?: string
   onUpdateSettings?: (settings: Partial<AboutSettings>) => void
   onOpenSidebar?: () => void
   pageBackgroundColor?: string
@@ -699,6 +704,30 @@ function UnifiedAboutSection({
                 </div>
               )}
             </div>
+
+            {/*
+              CONTACT, WHICH THE PAGE HAD NO WAY OF OFFERING.
+
+              A creator page could be read by somebody who wanted to ask a
+              question and there was nothing on it to ask through. This is a
+              plain mailto, under the stats, in the column that already says
+              who this is.
+
+              It is only ever an address the creator typed into the About
+              dialog themselves. The email they sign in with is never printed
+              here: nobody agreed to publish that, and it is the address that
+              resets their password.
+            */}
+            {contactEmail && (
+              <a
+                href={`mailto:${contactEmail}`}
+                className="mt-6 inline-flex items-center gap-2 text-sm underline-offset-4 hover:underline"
+                style={{ color: textColor || undefined }}
+              >
+                <Mail aria-hidden className="h-4 w-4 opacity-70" />
+                Contact
+              </a>
+            )}
           </div>
 
           {/* Right Column - About Content */}
@@ -1206,6 +1235,7 @@ export function UnifiedSectionRenderer({
   sellerMemberSince,
   sellerTotalSales,
   sellerProductsCount,
+  sellerContactEmail,
   onUpdateAboutSettings,
   onOpenAboutSidebar,
   aboutOwnerActions,
@@ -1333,6 +1363,7 @@ export function UnifiedSectionRenderer({
           memberSince={sellerMemberSince}
           totalSales={sellerTotalSales}
           productsCount={sellerProductsCount}
+          contactEmail={sellerContactEmail}
           onUpdateSettings={onUpdateAboutSettings}
           onOpenSidebar={onOpenAboutSidebar}
           pageBackgroundColor={globalSettings?.themeColors?.background}

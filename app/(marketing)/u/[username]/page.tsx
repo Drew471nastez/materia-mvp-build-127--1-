@@ -9,7 +9,8 @@ import { getPublishedConfig } from "@/lib/store-builder/get-published-config"
 import { SectionRenderer, ShopHeaderRenderer, type ProductData } from "@/components/store-builder/section-renderer"
 import type { AboutSettings, ShopHeaderSettings, GlobalStoreSettings, Section } from "@/lib/store-builder/types"
 import { defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/defaults"
-import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
+import { SubscribeBar, getButtonText, getDisplayText } from "@/components/store-builder/subscribe-bar"
+import { EditCtaButton } from "@/components/storefront/edit-cta-button"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { EditProfileButton } from "@/components/storefront/edit-profile-button"
@@ -774,7 +775,31 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
         <TrackView type="store" creatorId={creator.id} />
 
-        {subscribeBarSettings.visible && <SubscribeBar settings={{ ...subscribeBarSettings, creatorUserId: profile.id }} creatorId={creator.id} />}
+        {subscribeBarSettings.visible && (
+          /**
+           * THE PENCIL SITS ON THE BAR, and only for its owner.
+           *
+           * The two strings here are the first thing anybody reads on this
+           * page, and changing either used to mean a trip into the section
+           * editor. It is seeded with what the bar ACTUALLY SHOWS rather than
+           * the stored value, because the bar generates its own sentence from
+           * a preset when nothing is stored, and opening a dialog onto two
+           * empty boxes is not editing what you are looking at.
+           */
+          <div className="relative">
+            <SubscribeBar settings={{ ...subscribeBarSettings, creatorUserId: profile.id }} creatorId={creator.id} />
+            {viewerIsOwner && (
+              <div className="pointer-events-none absolute inset-y-0 left-2 z-20 flex items-center sm:left-3">
+                <div className="pointer-events-auto">
+                  <EditCtaButton
+                    text={getDisplayText(subscribeBarSettings, profile.display_name || undefined)}
+                    buttonText={getButtonText(subscribeBarSettings, false)}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <ShopHeaderRenderer
           settings={headerSettings}
@@ -834,6 +859,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               sellerMemberSince={profile.created_at}
               sellerTotalSales={totalSales}
               sellerProductsCount={productsCount}
+              sellerContactEmail={headerSettings.contactEmail}
               /**
                * The owner's way into the story block, decided here because
                * this is the only place that knows who is looking. The
@@ -847,6 +873,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                     headline={(aboutSection.settings as AboutSettings).headline || ""}
                     story={(aboutSection.settings as AboutSettings).aboutContent || ""}
                     media={(aboutSection.settings as AboutSettings).mediaItems || []}
+                    contactEmail={headerSettings.contactEmail || ""}
                   />
                 ) : null
               }

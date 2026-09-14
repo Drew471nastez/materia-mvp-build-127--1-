@@ -46,6 +46,9 @@ const MAX_URL = 300
 const MAX_ABOUT_HEADLINE = 120
 const MAX_ABOUT_STORY = 2000
 const MAX_ABOUT_MEDIA = 8
+const MAX_CTA_TEXT = 120
+const MAX_CTA_BUTTON = 30
+const MAX_EMAIL = 254
 
 function cleanUrl(raw: unknown): string | null {
   return toPublicHttpUrl(raw, MAX_URL)
@@ -135,6 +138,58 @@ export async function PATCH(request: NextRequest) {
         .filter((m): m is AboutMediaItem => m !== null)
     }
     return Object.keys(out).length > 0 ? out : undefined
+  })()
+
+  /**
+   * ===========================================================================
+   *  THE BAR ACROSS THE TOP OF THE PAGE
+   * ===========================================================================
+   * "Join AndrewRullz's newsletter!" and the button beside it. Two strings,
+   * the most-read two on the page, and until now the only way to change them
+   * was the section editor: a page load, a canvas, a sidebar and a publish.
+   *
+   * `buttonTextPreset: "custom"` is set alongside the text, because the bar
+   * picks its label from a preset unless it is told otherwise, and writing
+   * `buttonText` without it would save a string nothing ever reads.
+   */
+  const subscribeBar = (() => {
+    const raw = body.subscribeBar
+    if (!raw || typeof raw !== "object") return undefined
+    const value = raw as Record<string, unknown>
+    const out: Record<string, unknown> = {}
+    if (typeof value.text === "string") {
+      const text = value.text.trim().slice(0, MAX_CTA_TEXT)
+      out.text = text
+      /** The bar falls back to a generated sentence when both are empty. */
+      out.customCtaText = text
+    }
+    if (typeof value.buttonText === "string") {
+      const label = value.buttonText.trim().slice(0, MAX_CTA_BUTTON)
+      if (label) {
+        out.buttonText = label
+        out.buttonTextPreset = "custom"
+      }
+    }
+    return Object.keys(out).length > 0 ? out : undefined
+  })()
+
+  /**
+   * A PUBLIC CONTACT ADDRESS, WHICH IS NOT THE LOGIN ADDRESS.
+   *
+   * "A contact link so the creator can be contacted" is worth having and the
+   * obvious implementation is wrong: publishing the email somebody signs in
+   * with, without being asked, on a page anybody can read. This is a separate
+   * field a creator types themselves, empty by default, and clearing it takes
+   * the link off the page.
+   */
+  const contactEmail = (() => {
+    if (!("contactEmail" in body)) return undefined
+    const raw = body.contactEmail
+    if (raw === null || raw === "") return ""
+    if (typeof raw !== "string") return undefined
+    const value = raw.trim().slice(0, MAX_EMAIL)
+    /** One @, something either side, a dot in the domain. Anything else is not an address. */
+    return /^[^\s@]+@[^\s@.]+\.[^\s@]+$/.test(value) ? value : undefined
   })()
 
   /**
@@ -248,6 +303,11 @@ export async function PATCH(request: NextRequest) {
       next.socialLinks = buildSocialLinks(body.socialLinks, header.socialLinks)
     }
     if (display) Object.assign(next, display)
+    if (subscribeBar) {
+      next.subscribeBar = { ...(header.subscribeBar || {}), ...subscribeBar } as ShopHeaderSettings["subscribeBar"]
+    }
+    /** "" is a real value here: it means take the link off the page. */
+    if (contactEmail !== undefined) next.contactEmail = contactEmail || undefined
     return { ...cfg, headerSettings: next, sections: mergeAbout(cfg.sections) }
   }
 

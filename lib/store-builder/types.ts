@@ -385,6 +385,15 @@ export interface Section {
 
 // Header settings for shop page
 export interface ShopHeaderSettings {
+  /**
+   * A PUBLIC contact address, typed by the creator, empty by default.
+   *
+   * Deliberately not the address they sign in with: publishing that, without
+   * being asked, on a page anybody can read is not a feature. The About block
+   * shows a Contact link only when this is set, and clearing it removes the
+   * link.
+   */
+  contactEmail?: string
   coverImageUrl?: string
   coverFocalPoint?: FocalPointConfig
   coverBrightness?: number // Added cover image brightness control (0.7-1.3 range)
