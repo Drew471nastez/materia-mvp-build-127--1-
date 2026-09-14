@@ -3249,7 +3249,16 @@ export function UnifiedShopHeader({
             return (
               <div
                 className={cn(
-                  "flex flex-wrap items-center justify-center gap-x-3 gap-y-2",
+                  /*
+                    THE ONE LINE ON THIS BLOCK THAT REACHED THE EDGES.
+                    The name, the handle and the bio all keep `px-4` off the
+                    sides; this had none, so a creator with a rating, a sales
+                    count and five social icons got a row running into both
+                    margins while every line above it sat neatly inside them.
+                    One step more than its siblings, because the others wrap
+                    mid-sentence and this one cannot break inside an icon.
+                  */
+                  "flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-5",
                   isMobile ? "mt-3 text-xs" : "mt-4 text-sm",
                   !subduedColor && "text-muted-foreground",
                 )}

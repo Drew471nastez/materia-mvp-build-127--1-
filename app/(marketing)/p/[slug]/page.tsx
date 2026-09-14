@@ -1522,7 +1522,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                creator and now carries their line too. See the bar. */
             bio={creatorBio}
             productTitle={product.title}
-            productImageUrl={product.thumbnail_url || galleryUrls?.[0] || undefined}
             productSlug={product.slug}
           />
         </DiscoverStickyWrapper>
@@ -1750,7 +1749,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
              creator and now carries their line too. See the bar. */
           bio={creatorBio}
           productTitle={product.title}
-          productImageUrl={product.thumbnail_url || galleryUrls?.[0] || undefined}
           productSlug={product.slug}
         />
       </DiscoverStickyWrapper>

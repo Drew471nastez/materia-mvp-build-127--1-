@@ -144,26 +144,22 @@ const expect = (ok, what, got) => {
 const phone = measure(390, 844)
 const desk = measure(1280, 900)
 
-console.log("\non a phone, the bar is the product's")
+console.log("\non a phone: the way back, who is selling, and a menu")
 expect(phone.width < 640, "measured at phone width", phone.width)
 expect(phone.emails === 0, "no address field", `${phone.emails} showing`)
 expect(phone.buttons === 0, "no follow button", `${phone.buttons} showing`)
 expect(phone.back === 1, "the way back is there", phone.back)
-expect(!!phone.product, "the product is on it", phone.product)
-expect(phone.product?.text === "CineTone Presets", "by name", phone.product?.text)
+expect(phone.avatars === 1, "and the creator's picture", phone.avatars)
 expect(phone.dots === 1, "and three dots for share and report", phone.dots)
-/* One row: the way back, the product and the dots share a vertical centre. */
-if (phone.product) {
-  const mid = (r) => r.y + r.h / 2
-  expect(Math.abs(mid(phone.product.rect) - phone.bar.h / 2) < 8, "on the bar's own line",
-    `${Math.round(mid(phone.product.rect))} of ${phone.bar.h}`)
-}
+/* The product's thumbnail and title had this slot for a round. The page under
+   the bar is already the product, in a picture the size of the screen. */
+expect(!phone.product, "and not the product's thumbnail and title", phone.product && phone.product.text)
 
-console.log("\nthe creator's name and line, on the desktop bar")
-const name = desk.texts[0]
-const bio = desk.texts[1]
+console.log("\nthe creator's name and line")
+const name = phone.texts[0]
+const bio = phone.texts[1]
 expect(!!name && name.text === "AndrewRullz", "the name is the first line", name && name.text)
-expect(!!bio, "the bio is the second", desk.texts.map((t) => t.text).join(" | "))
+expect(!!bio, "the bio is the second", phone.texts.map((t) => t.text).join(" | "))
 if (bio) {
   const words = bio.text.replace(/…$/, "").trim().split(/\s+/)
   expect(words.length === 6, "cut to six words", `${words.length}: ${bio.text}`)
@@ -174,8 +170,8 @@ if (bio) {
   */
   const lh = parseFloat(bio.lineHeight)
   expect(bio.rect.h <= Math.ceil(lh) + 1, "on one line", `${bio.rect.h}px tall, line-height ${bio.lineHeight}`)
-  expect(bio.rect.w > 0 && bio.rect.x + bio.rect.w <= desk.bar.w, "inside the bar, not past its edge",
-    `ends at ${bio.rect.x + bio.rect.w} of ${desk.bar.w}`)
+  expect(bio.rect.w > 0 && bio.rect.x + bio.rect.w <= phone.bar.w, "inside the bar, not past its edge",
+    `ends at ${bio.rect.x + bio.rect.w} of ${phone.bar.w}`)
   expect(name.rect.y < bio.rect.y, "the bio sits under the name", `${name.rect.y} vs ${bio.rect.y}`)
 }
 
@@ -183,10 +179,9 @@ console.log("\nand long text does not break either row")
 {
   const L = phone.longName
   const D = desk.longName
-  const lname = D.texts[0]
-  const lbio = D.texts[1]
+  const lname = L.texts[0]
+  const lbio = L.texts[1]
   expect(L.emails === 0 && L.buttons === 0, "still no form on the phone", `${L.emails}/${L.buttons}`)
-  expect(!!L.product?.overflowing, "the product's title gives way, with an ellipsis", L.product?.text)
   expect(L.back === 1 && L.dots === 1, "and the controls either side survive it", `${L.back}/${L.dots}`)
   /*
     On a DESKTOP a 47-character name has room, so it is not expected to end
@@ -200,10 +195,11 @@ console.log("\nand long text does not break either row")
   */
   expect(!!lbio && lbio.rect.h <= Math.ceil(parseFloat(lbio.lineHeight)) + 1,
     "and the bio under it is still one line", lbio && `${lbio.rect.h}px`)
-  expect(!!lname && lname.rect.x + lname.rect.w <= D.bar.w,
-    "nothing runs past the edge of the desktop bar", lname && `${lname.rect.x + lname.rect.w} of ${D.bar.w}`)
-  expect(!!lbio && lbio.rect.x + lbio.rect.w <= D.bar.w,
-    "nor does the line under it", lbio && `${lbio.rect.x + lbio.rect.w} of ${D.bar.w}`)
+  expect(!!lname && lname.overflowing, "the name is what gives way, with an ellipsis", lname && lname.text)
+  expect(!!lname && lname.rect.x + lname.rect.w <= L.bar.w,
+    "nothing runs past the edge of the bar", lname && `${lname.rect.x + lname.rect.w} of ${L.bar.w}`)
+  expect(!!lbio && lbio.rect.x + lbio.rect.w <= L.bar.w,
+    "nor does the line under it", lbio && `${lbio.rect.x + lbio.rect.w} of ${L.bar.w}`)
 }
 
 console.log("\nand the desktop row is untouched")
