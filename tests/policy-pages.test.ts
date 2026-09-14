@@ -25,8 +25,9 @@ import { ensurePolicyPages, type PageRow, type PagesTable } from "@/lib/website-
 import { pageTitleFromKey, BUILT_IN_PAGE_KEYS } from "@/lib/website-builder/site-pages"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { withLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome, chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 const root = process.cwd()
@@ -411,6 +412,170 @@ async function main() {
     check(
       "and the editor uses the same function rather than a second copy",
       /const mergeWithHomeHeaderFooter = withUniversalChrome/.test(editor),
+    )
+    /**
+     * AND HOME IS NOT EXEMPT FROM IT.
+     *
+     * This was `page !== "home" ? merge : loaded` in both loaders, so every
+     * page had its header put first and its footer put last except the one
+     * page the chrome is copied from. A header dragged into the middle of
+     * home rendered in the middle on home and at the top everywhere else —
+     * the header that "is not universal", seen from the only page a creator
+     * spends any time on.
+     */
+    check(
+      "and home is dressed by the same rule as every other page",
+      !/page !== "home" \? mergeWithHomeHeaderFooter/.test(editor) &&
+        !/currentPage !== "home" \? mergeWithHomeHeaderFooter/.test(editor) &&
+        /mergeWithHomeHeaderFooter\(loadedRaw, currentPage !== "home" \? homeHF : chromeOf\(loadedRaw\)\)/.test(editor),
+    )
+
+    /**
+     * =====================================================================
+     *  EVERY LINK THE DEFAULT THEME SHIPS GOES SOMEWHERE
+     * =====================================================================
+     * The stock footer shipped nine links and only three of them were
+     * addresses a Storelib site has: /new, /sale, /blog, /faq, /shipping
+     * and /returns are pages nothing creates. The stock header shipped
+     * /shop, and the shop lives at /products. So seven links on every site
+     * ever made led nowhere — a 404 for a visitor, and in the builder the
+     * "this page does not exist, create it?" prompt, which is what "I click
+     * the footer and it does not get me there" was.
+     *
+     * A published site answers exactly these addresses:
+     *   /                    home
+     *   /products            the shop, and /products/<slug> a product
+     *   /<page key>          any page the site stores
+     *
+     * and the page keys every site has are home, about, contact and the
+     * three policy pages. A default cannot point anywhere else, because a
+     * default is shipped to sites that have nothing else.
+     */
+    /**
+     * =====================================================================
+     *  THE SITES THAT ALREADY STORED THE DEAD LINKS
+     * =====================================================================
+     * Fixing the default theme fixes a site made from today on. Every site
+     * that exists has the old footer written into every one of its page
+     * rows, so it is repaired on load, beside the policy links, which are
+     * there for the same reason.
+     *
+     * Driven here on the exact footer the default used to ship.
+     */
+    {
+      const link = (id: string, label: string, url: string) => ({ id, type: "footer_link", settings: { label, url } })
+      const column = (id: string, heading: string) => ({ id, type: "footer_column", settings: { heading } })
+      const shipped: SectionInstance = {
+        id: "footer", type: "footer", name: "Footer", settings: {},
+        blocks: [
+          column("c1", "Shop"),
+          link("l1", "All Products", "/products"),
+          link("l2", "New Arrivals", "/new"),
+          link("l3", "Sale", "/sale"),
+          column("c2", "Company"),
+          link("l4", "About", "/about"),
+          link("l5", "Blog", "/blog"),
+          link("l6", "Contact", "/contact"),
+          column("c3", "Support"),
+          link("l7", "FAQ", "/faq"),
+          link("l8", "Shipping", "/shipping"),
+          link("l9", "Returns", "/returns"),
+        ],
+      } as SectionInstance
+      const keys = new Set(["home", "about", "contact", ...POLICY_PAGE_KEYS])
+      const fixed = withLiveLinks(shipped, keys)
+      const urls = (fixed.blocks ?? []).map((b) => String((b.settings as Record<string, unknown>).url ?? ""))
+      check("the six dead stock links are gone", !urls.some((u) => ["/new", "/sale", "/blog", "/faq", "/shipping", "/returns"].includes(u)))
+      check("and the three real ones stay", ["/products", "/about", "/contact"].every((u) => urls.includes(u)))
+      check(
+        "the Support heading goes with the links that were under it",
+        !(fixed.blocks ?? []).some((b) => String((b.settings as Record<string, unknown>).heading ?? "") === "Support"),
+      )
+      check("and Shop keeps its heading, because a link is left under it",
+        (fixed.blocks ?? []).some((b) => String((b.settings as Record<string, unknown>).heading ?? "") === "Shop"))
+      check("running it again changes nothing", JSON.stringify(withLiveLinks(fixed, keys)) === JSON.stringify(fixed))
+
+      /* A creator's own page, and a creator's own words, are not ours to remove. */
+      const withBlog = withLiveLinks(shipped, new Set([...keys, "blog"]))
+      check("a site that has a Blog page keeps its Blog link",
+        (withBlog.blocks ?? []).some((b) => String((b.settings as Record<string, unknown>).url ?? "") === "/blog"))
+      const renamed = { ...shipped, blocks: (shipped.blocks ?? []).map((b) =>
+        (b.settings as Record<string, unknown>).url === "/returns"
+          ? { ...b, settings: { ...(b.settings as Record<string, unknown>), label: "Send it back" } } : b) } as SectionInstance
+      check("a link the creator renamed is left for the creator",
+        (withLiveLinks(renamed, keys).blocks ?? []).some((b) => String((b.settings as Record<string, unknown>).url ?? "") === "/returns"))
+
+      /* The header's Shop is a rename, not a deletion. */
+      const header = { id: "h", type: "header", name: "Header", settings: {}, blocks: [
+        { id: "n1", type: "nav_link", settings: { label: "Shop", url: "/shop" } },
+      ] } as SectionInstance
+      const fixedHeader = withLiveLinks(header, keys)
+      check("the header's Shop is repointed at the shop, keeping its label",
+        String((fixedHeader.blocks![0].settings as Record<string, unknown>).url) === "/products" &&
+        String((fixedHeader.blocks![0].settings as Record<string, unknown>).label) === "Shop")
+
+      /* And it has to be able to reach a site, which is where it used to stop. */
+      const ensure = readFileSync(join(root, "lib/website-builder/ensure-policy-pages.ts"), "utf8")
+      check(
+        "the repair is not skipped on a site that already has its policy pages",
+        !/const missing = POLICY_PAGES[^\n]*\n\s*if \(missing\.length === 0\) return/.test(ensure) &&
+          /if \(rows\.length\) \{/.test(ensure),
+      )
+      check("and it repairs the header as well as the footer",
+        /if \(s\.type === "header"\) return withLiveLinks\(s, pageKeys\)/.test(ensure))
+    }
+
+    /**
+     * =====================================================================
+     *  A SHORT PAGE DOES NOT END IN A WHITE BAND
+     * =====================================================================
+     * The builder's canvas card is a fixed-height white box and the page is
+     * drawn inside it, so a page shorter than the card left the card showing
+     * through: measured at 338px of white under a 362px page in a 700px card
+     * by scripts/check-short-page.mjs, which drives the real ThemePage in a
+     * browser. On an empty page that was most of the canvas.
+     *
+     * The geometry is measured there. What is held here is the rule that
+     * produced it, because a class quietly dropped from either half puts the
+     * band straight back.
+     */
+    {
+      const themePage = readFileSync(join(root, "components/website-builder/theme/ThemePage.tsx"), "utf8")
+      check(
+        "the page fills its container, as a flex item in the builder and the viewport when published",
+        /function pageFill\(inEditor: boolean\): CSSProperties/.test(themePage) &&
+          /flex: "1 1 auto"/.test(themePage) &&
+          /minHeight: "100dvh"/.test(themePage),
+      )
+      check(
+        "and the page root actually uses it",
+        /\.\.\.pageFill\(storefront\?\.inEditor === true\)/.test(themePage),
+      )
+      /* dvh, not vh: a phone's toolbars move, and vh leaves a band the colour
+         of the browser under the footer while they do. */
+      check("the published height is viewport-relative in the unit that follows a phone's toolbars",
+        !/minHeight: "100vh"/.test(themePage))
+      check(
+        "the empty placeholder is the thing that grows, so the footer is still last",
+        /flex flex-1 min-h-\[50vh\]/.test(themePage) &&
+          (editor.match(/className="flex-1 py-24 flex items-center justify-center text-center"/g) ?? []).length === 2,
+      )
+    }
+
+    const SITE_ROUTES = new Set(["/", "/products", "/about", "/contact", ...POLICY_PAGES.map((p) => `/${p.key}`)])
+    const dead: string[] = []
+    for (const file of readdirSync(join(root, "themes/default/sections"))) {
+      if (!file.endsWith(".json")) continue
+      const raw = readFileSync(join(root, "themes/default/sections", file), "utf8")
+      for (const m of raw.matchAll(/"url":\s*"(\/[^"]*)"/g)) {
+        const url = m[1].replace(/\/$/, "") || "/"
+        if (!SITE_ROUTES.has(url)) dead.push(`${file} → ${m[1]}`)
+      }
+    }
+    check(
+      "every internal link in the default theme is an address the site answers",
+      dead.length === 0,
+      dead.length ? dead.join(", ") : undefined,
     )
 
     const panels = readFileSync(join(root, "components/website-builder/editor/design-panels.tsx"), "utf8")

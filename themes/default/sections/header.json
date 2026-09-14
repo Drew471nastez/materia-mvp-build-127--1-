@@ -550,7 +550,7 @@
           "type": "nav_link",
           "settings": {
             "label": "Shop",
-            "url": "/shop",
+            "url": "/products",
             "link_type": "custom"
           }
         },

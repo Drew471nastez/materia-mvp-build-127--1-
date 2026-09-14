@@ -32,7 +32,7 @@
       "id": "copyright",
       "label": "Copyright text",
       "type": "text",
-      "placeholder": "\u00a9 2026 My Store. All rights reserved."
+      "placeholder": "© 2026 My Store. All rights reserved."
     },
     {
       "id": "hdr_newsletter",
@@ -282,7 +282,7 @@
       "settings": {
         "logo_text": "My Store",
         "tagline": "Quality products for modern life.",
-        "copyright": "\u00a9 2026 My Store. All rights reserved.",
+        "copyright": "© 2026 My Store. All rights reserved.",
         "show_newsletter": false,
         "show_social": true,
         "columns": "3",
@@ -302,24 +302,8 @@
           "id": "fl-1",
           "type": "footer_link",
           "settings": {
-            "label": "All Products",
+            "label": "All products",
             "url": "/products"
-          }
-        },
-        {
-          "id": "fl-2",
-          "type": "footer_link",
-          "settings": {
-            "label": "New Arrivals",
-            "url": "/new"
-          }
-        },
-        {
-          "id": "fl-3",
-          "type": "footer_link",
-          "settings": {
-            "label": "Sale",
-            "url": "/sale"
           }
         },
         {
@@ -330,7 +314,7 @@
           }
         },
         {
-          "id": "fl-4",
+          "id": "fl-2",
           "type": "footer_link",
           "settings": {
             "label": "About",
@@ -338,50 +322,11 @@
           }
         },
         {
-          "id": "fl-5",
-          "type": "footer_link",
-          "settings": {
-            "label": "Blog",
-            "url": "/blog"
-          }
-        },
-        {
-          "id": "fl-6",
+          "id": "fl-3",
           "type": "footer_link",
           "settings": {
             "label": "Contact",
             "url": "/contact"
-          }
-        },
-        {
-          "id": "col-3",
-          "type": "footer_column",
-          "settings": {
-            "heading": "Support"
-          }
-        },
-        {
-          "id": "fl-7",
-          "type": "footer_link",
-          "settings": {
-            "label": "FAQ",
-            "url": "/faq"
-          }
-        },
-        {
-          "id": "fl-8",
-          "type": "footer_link",
-          "settings": {
-            "label": "Shipping",
-            "url": "/shipping"
-          }
-        },
-        {
-          "id": "fl-9",
-          "type": "footer_link",
-          "settings": {
-            "label": "Returns",
-            "url": "/returns"
           }
         }
       ]
