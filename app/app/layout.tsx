@@ -2,6 +2,7 @@ import type React from "react"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
+import { readCurrentUser } from "@/lib/auth/current-user"
 import { AppSidebar } from "@/components/app/sidebar"
 import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
 import { Toaster } from "@/components/ui/toaster"
@@ -30,12 +31,27 @@ export default async function AppLayout({
   const supabase = await createClient()
   const isNative = await isCapacitorWebView()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /**
+   * A BLIP IS NOT A SIGN-OUT. See lib/auth/current-user.ts: `getUser()`
+   * returning no user can mean "nobody is signed in" or "Supabase did not
+   * answer", and this guard used to treat both as the first one.
+   */
+  const current = await readCurrentUser(supabase)
+  const user = current.user
 
   if (!user) {
-    if (isNative) {
+    /**
+     * WE COULD NOT TELL, SO THE CLIENT DECIDES.
+     *
+     * The browser is holding the session and can read it without going
+     * anywhere, so it is in a better position than this request was. The gate
+     * below already does exactly that for Capacitor, where the session lives
+     * in Preferences rather than cookies: read it, sync it to cookies, and
+     * come back. If there really is no session it sends them to /login, which
+     * is the same outcome as before but arrived at from evidence instead of
+     * from a failed network call.
+     */
+    if (isNative || current.state === "indeterminate") {
       // In Capacitor, session lives in Preferences (not cookies).
       // A full-page reload won't have a server-side session yet —
       // the client will restore it asynchronously from Preferences.

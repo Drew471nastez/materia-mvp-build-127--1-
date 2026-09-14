@@ -4,6 +4,7 @@ import { useState, useEffect, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { nativeAppReadyForce } from "@/lib/native-bridge"
+import { hasStoredSessionToken } from "@/lib/auth/session-read"
 
 /**
  * Lightweight client gate for server-rendered layouts.
@@ -27,6 +28,51 @@ import { nativeAppReadyForce } from "@/lib/native-bridge"
  *   return <NativeAuthGate>{children}</NativeAuthGate>           // mode 1
  *   return <NativeAuthGate requireAuth>{children}</NativeAuthGate> // mode 2
  */
+
+/**
+ * ===========================================================================
+ *  RECOVERY IS BOUNDED, OR IT IS A LOOP
+ * ===========================================================================
+ * requireAuth mode recovers a session the server could not see: read it on
+ * the client, write it back through /auth/sync-session, reload. That is the
+ * right move once, and it is an infinite reload if the server keeps failing
+ * to see it.
+ *
+ * Which is now reachable on the web too. The layout sends anybody here when
+ * Supabase did not answer, rather than throwing them at /login for a blip —
+ * and a blip that lasts can otherwise become a page that reloads itself
+ * forever while somebody watches.
+ *
+ * So: at most two goes, counted per tab. After that it stops and says so,
+ * with a button. Stopping keeps the session; looping and /login both lose it
+ * or look broken.
+ */
+const RECOVERY_KEY = "storelib_auth_recovery"
+const MAX_RECOVERIES = 2
+
+function recoveryCount(): number {
+  try {
+    return Number(sessionStorage.getItem(RECOVERY_KEY) || "0") || 0
+  } catch {
+    return 0
+  }
+}
+
+function noteRecovery() {
+  try {
+    sessionStorage.setItem(RECOVERY_KEY, String(recoveryCount() + 1))
+  } catch {
+    /* a tab with no storage gets no counter, and the timeout still bounds it */
+  }
+}
+
+/** Cleared the moment a layout renders normally, which is the success signal. */
+function clearRecoveries() {
+  try {
+    sessionStorage.removeItem(RECOVERY_KEY)
+  } catch {}
+}
+
 export function NativeAuthGate({
   children,
   requireAuth = false,
@@ -42,10 +88,20 @@ export function NativeAuthGate({
   // Start as false for the default mode — server already verified auth via cookies.
   const [blocked, setBlocked] = useState(requireAuth)
   const [authChecked, setAuthChecked] = useState(!requireAuth)
+  /** Set when recovery has been tried enough times and is not working. */
+  const [stuck, setStuck] = useState(false)
 
   // ── Mode 2: Capacitor full-page reload — restore session from Preferences ──
   useEffect(() => {
     if (!requireAuth) return
+
+    /**
+     * Already been round twice. Stop, keep the session, and let them choose.
+     */
+    if (recoveryCount() >= MAX_RECOVERIES) {
+      setStuck(true)
+      return
+    }
 
     let cancelled = false
 
@@ -69,6 +125,8 @@ export function NativeAuthGate({
             `?access_token=${encodeURIComponent(session.access_token)}` +
             `&refresh_token=${encodeURIComponent(session.refresh_token)}` +
             `&next=${encodeURIComponent(currentPath)}`
+          /** Counted BEFORE navigating, or a reload loop never counts itself. */
+          noteRecovery()
           window.location.assign(syncUrl)
           // Do not unblock — we are navigating away.
           // The destination page's NativeAuthGate (mode 1) will call
@@ -85,7 +143,15 @@ export function NativeAuthGate({
     // Give Supabase client up to 10 s to restore from Preferences
     // (slow devices + cold start + large session can take longer than 4s)
     const timeout = window.setTimeout(() => {
-      if (!cancelled) router.replace("/login")
+      if (cancelled) return
+      /**
+       * A SLOW READ IS NOT A SIGN-OUT — lib/auth/session-read.ts says exactly
+       * this, and this timeout was the pattern it was written against. If the
+       * device is plainly holding a session, say so and offer a retry rather
+       * than throwing it away because a promise was slow.
+       */
+      if (hasStoredSessionToken()) setStuck(true)
+      else router.replace("/login")
     }, 10_000)
 
     checkNativeSession().then(() => window.clearTimeout(timeout))
@@ -113,6 +179,8 @@ export function NativeAuthGate({
   // at this point the session is confirmed and content is ready to show.
   useEffect(() => {
     if (blocked || !authChecked) return
+    /** Rendering normally is the only proof recovery worked. */
+    clearRecoveries()
     requestAnimationFrame(() => {
       nativeAppReadyForce()
     })
@@ -136,6 +204,36 @@ export function NativeAuthGate({
       window.clearTimeout(safety)
     }
   }, [blocked, requireAuth])
+
+  /**
+   * NOT SIGNED OUT, AND NOT PRETENDING OTHERWISE.
+   *
+   * The session is still on the device and still valid. What failed is
+   * reaching Supabase, so this says that and nothing else. No "session
+   * expired", no login form, nothing that suggests they have to start again.
+   */
+  if (stuck) {
+    return (
+      <div className="flex min-h-svh w-full items-center justify-center bg-[#f8f9fa] p-6">
+        <div className="w-full max-w-sm text-center">
+          <h1 className="text-[20px] font-bold text-[#1a1a2e]">Cannot reach the server</h1>
+          <p className="mt-2 text-[14px] text-[#6b7280]">
+            You are still signed in. The connection dropped while loading this page.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              clearRecoveries()
+              window.location.reload()
+            }}
+            className="mt-5 h-11 w-full rounded-full bg-[#1a1a2e] text-[15px] font-semibold text-white"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (blocked || !authChecked) {
     return <>{loadingFallback ?? <AuthResolvingScreen />}</>

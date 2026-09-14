@@ -2,6 +2,7 @@ import type React from "react"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
+import { readCurrentUser } from "@/lib/auth/current-user"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { NativeAuthGate } from "@/components/native-auth-gate"
@@ -28,12 +29,13 @@ export default async function LibraryLayout({
   const supabase = await createClient()
   const isNative = await isCapacitorWebView()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /** A blip is not a sign-out. See lib/auth/current-user.ts. */
+  const current = await readCurrentUser(supabase)
+  const user = current.user
 
   if (!user) {
-    if (isNative) {
+    /** Could not tell, so the client decides with the session it is holding. */
+    if (isNative || current.state === "indeterminate") {
       // In Capacitor, session lives in Preferences (not cookies).
       // A full-page reload won't have a server-side session yet —
       // the client will restore it asynchronously from Preferences.

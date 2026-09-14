@@ -35,6 +35,7 @@ const SUITES = [
   "tests/client-errors.test.ts",
   "tests/react-binding.test.ts",
   "tests/oauth-errors.test.ts",
+  "tests/session-durability.test.ts",
   "tests/policy-pages.test.ts",
   "tests/section-responsive.test.ts",
   "tests/anthropic-provider.test.ts",

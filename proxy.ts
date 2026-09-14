@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr"
+import { readCurrentUser, shouldSendToLogin } from "@/lib/auth/current-user"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 import { previewTokenFrom } from "@/lib/website-builder/preview-token"
@@ -1003,23 +1004,47 @@ export async function proxy(request: NextRequest) {
     },
   })
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /**
+   * THE LINE THAT WAS SIGNING PEOPLE OUT AT RANDOM.
+   *
+   * This used to be `const { data: { user } } = await supabase.auth.getUser()`
+   * with the error thrown away, and then `if (!user) redirect("/login")`. That
+   * makes a blip between Vercel and Supabase indistinguishable from a
+   * signed-out visitor, and this code runs on EVERY matched request, so the
+   * dice were rolled all day long. It matches the report exactly: rare,
+   * random, correlated with nothing, impossible to reproduce on purpose.
+   *
+   * readCurrentUser keeps the three outcomes apart and retries a blip once.
+   * Only a definite "nobody is signed in" redirects now.
+   */
+  const current = await readCurrentUser(supabase)
 
-  // Protect creator dashboard routes
-  if (request.nextUrl.pathname.startsWith("/app") && !user) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/login"
-    return NextResponse.redirect(url)
+  if (current.state === "indeterminate") {
+    console.warn(`[proxy] auth undetermined on ${request.nextUrl.pathname}: ${current.reason}`)
   }
 
-  // Protect customer dashboard routes
-  if (request.nextUrl.pathname.startsWith("/dashboard") && !user) {
+  const guarded =
+    request.nextUrl.pathname.startsWith("/app") || request.nextUrl.pathname.startsWith("/dashboard")
+
+  if (guarded && shouldSendToLogin(current)) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
-    return NextResponse.redirect(url)
+    /**
+     * THE REDIRECT HAS TO CARRY THE COOKIES.
+     *
+     * `NextResponse.redirect` builds a BRAND NEW response, and every
+     * Set-Cookie the Supabase client just wrote landed on `supabaseResponse`.
+     * Returning the new one bare threw away a rotated refresh token: Supabase
+     * had already retired the old one, the browser never received its
+     * replacement, and the next request had nothing that worked. A sign-out
+     * that survives a restart, caused by the redirect itself.
+     */
+    const redirect = NextResponse.redirect(url)
+    for (const cookie of supabaseResponse.cookies.getAll()) redirect.cookies.set(cookie)
+    retireDomainScopedCookies(redirect, request)
+    return redirect
   }
+
 
   // ── Stripe controller CSP (Capacitor WKWebView only) ────────────────────────
   // When Stripe.js initialises it creates a hidden controller iframe at
