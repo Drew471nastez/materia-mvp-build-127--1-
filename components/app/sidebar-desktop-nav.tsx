@@ -74,17 +74,25 @@ import { MonitorIcon as WebsiteBuilderBold } from "@solar-icons/react/bold/monit
 import { SettingsIcon as SettingsLinear } from "@solar-icons/react/linear/settings"
 import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
 /**
- * A PERSON, NOT A SHOPFRONT.
+ * A PROFILE CARD.
  *
- * The Creator Page is storelib.com/u/<handle> — a picture, a bio, links. A
- * shop icon named the one thing it is not, and it sat two rows above Website
- * and OnePage, so the rail read as three shops. The Store Builder this icon
- * was originally drawn for is gone; the name `storeBuilder` stays only
- * because the key is referenced in several places, and renaming it is a
- * separate change from drawing the right picture.
+ * The Creator Page is storelib.com/u/<handle> — a picture, a bio, links,
+ * products. A shop icon named the one thing it is not, and it sat two rows
+ * above Website and OnePage, so the rail read as three shops.
+ *
+ * A plain silhouette was the first answer and it was the wrong one: it is
+ * what the account menu's avatar is, and it is a lighter version of the
+ * People row two below it, so the rail had two people in it and one of them
+ * was a page. A card with a person on it says PAGE ABOUT A PERSON, which is
+ * what this is, and nothing else in the rail is that shape — Payouts is a
+ * plain card with no face on it.
+ *
+ * The Store Builder this icon was originally drawn for is gone; the name
+ * `storeBuilder` stays only because the key is referenced in several places,
+ * and renaming it is a separate change from drawing the right picture.
  */
-import { UserRoundedIcon as CreatorPageLinear } from "@solar-icons/react/linear/user-rounded"
-import { UserRoundedIcon as CreatorPageBold } from "@solar-icons/react/bold/user-rounded"
+import { UserIdIcon as CreatorPageLinear } from "@solar-icons/react/linear/user-id"
+import { UserIdIcon as CreatorPageBold } from "@solar-icons/react/bold/user-id"
 import { UsersGroupRoundedIcon as PeopleLinear } from "@solar-icons/react/linear/users-group-rounded"
 import { UsersGroupRoundedIcon as PeopleBold } from "@solar-icons/react/bold/users-group-rounded"
 

@@ -536,19 +536,24 @@ function main() {
   /* ------------------------------------------------------------------ */
   {
     /**
-     * THE CREATOR PAGE IS A PERSON, NOT A SHOPFRONT — in the rail and in
-     * search, which are two lists that had drifted apart before.
+     * THE CREATOR PAGE IS A PROFILE CARD — in the rail and in search, which
+     * are two lists that had drifted apart before.
+     *
+     * Not a shopfront, which named the one thing it is not. And not a plain
+     * silhouette either: that is what the account menu's avatar is, and a
+     * lighter version of the People row below it, so the rail ended up with
+     * two people in it and one of them was a page.
      */
     const rail = read("components/app/sidebar-desktop-nav.tsx")
     const sidebar = read("components/app/sidebar.tsx")
     check(
-      "the rail's Creator Page icon is a person",
+      "the rail's Creator Page icon is a profile card",
       /storeBuilder: \{ line: CreatorPageLinear, fill: CreatorPageBold \}/.test(rail) &&
-        /linear\/user-rounded/.test(rail),
+        /linear\/user-id/.test(rail),
     )
     check(
       "and so is the one in search",
-      /\{ label: "Creator Page", href: "\/creator-page", icon: UserRound, category: "Pages" \}/.test(sidebar),
+      /\{ label: "Creator Page", href: "\/creator-page", icon: ContactRound, category: "Pages" \}/.test(sidebar),
     )
   }
 
