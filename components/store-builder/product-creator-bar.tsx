@@ -6,11 +6,12 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { Mail, ArrowLeft, ArrowRight, Check } from "lucide-react"
+import { Mail, ArrowLeft, Check } from "lucide-react"
 import { getStoreInternalPath } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 import { SmartLink } from "@/components/smart-link"
+import { shortBio } from "@/lib/store-builder/short-bio"
 
 // Button style presets (same as subscribe bar)
 export const creatorBarButtonPresets: Record<string, { default: string; subscribed: string }> = {
@@ -46,6 +47,8 @@ interface ProductCreatorBarProps {
   isMobile?: boolean
   isSelected?: boolean
   onSelect?: () => void
+  /** The creator's own line about themselves, cut to six words on a phone. */
+  bio?: string
 }
 
 /** Desktop max width for editor preview */
@@ -236,6 +239,7 @@ export function ProductCreatorBar({
   isMobile,
   isSelected,
   onSelect,
+  bio,
 }: ProductCreatorBarProps) {
   // IMPORTANT: All hooks must be called BEFORE any early returns to avoid React error #310
   const [subscribed, setSubscribed] = useState(false)
@@ -294,6 +298,9 @@ export function ProductCreatorBar({
       .map((n) => n[0])
       .join("")
       .toUpperCase() || "?"
+
+  /* Six words of it, on one line. See lib/store-builder/short-bio. */
+  const phoneBio = shortBio(bio)
 
   const isCurrentEmailSubscribed = subscribed && normalizeEmail(email) === subscribedEmail
   const buttonText = getButtonText(settings.buttonStyle, isCurrentEmailSubscribed)
@@ -363,12 +370,28 @@ export function ProductCreatorBar({
   */
   // Mobile layout for store builder preview (375px canvas on desktop)
   // Fits within 375px without overflow
-  const editorMobileLayout = (
-    <div className="w-full py-4 px-3">
-      <div className="flex items-center gap-2 w-full">
+  /*
+    WHAT THE VISITOR ACTUALLY SEES ON A PHONE.
+
+    This was two layouts, one for the 375px preview on a desktop and one for
+    a real phone editing the page, and both of them were an avatar next to an
+    address field. The live bar no longer carries that field at this width,
+    so both were showing the creator a bar that does not exist. One row now,
+    the same one LiveProductCreatorBar renders: the way back, who is selling,
+    and six words about them.
+  */
+  const phonePreviewRow = (
+    <div className="w-full px-4 py-2">
+      <div className="flex items-center gap-2.5 w-full">
+        <span
+          aria-hidden="true"
+          className="-ml-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+        >
+          <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
+        </span>
         <a
           href={creatorHref}
-          className="flex items-center gap-1.5 shrink-0"
+          className="flex min-w-0 flex-1 items-center gap-2.5"
           aria-label={`Go to ${creatorName}'s shop`}
           onClick={(e) => {
             if (isEditorPreview) {
@@ -376,121 +399,22 @@ export function ProductCreatorBar({
             }
           }}
         >
-          {/* Avatar wrapper with explicit sizing to prevent clipping during scroll */}
-          <div className="relative h-7 w-7 shrink-0">
-            <Avatar className="h-7 w-7 shrink-0 absolute inset-0">
+          {/* Explicit box around the avatar: it clipped during scroll without one. */}
+          <div className="relative h-9 w-9 shrink-0">
+            <Avatar className="h-9 w-9 shrink-0 absolute inset-0">
               {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} className="object-cover" /> : null}
-              <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+              <AvatarFallback className="text-[11px]">{initials}</AvatarFallback>
             </Avatar>
           </div>
-          <span className="text-[13px] font-medium truncate max-w-[70px]" style={{ color: settings.textColor || "#ffffff" }}>
-            {creatorName}
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-semibold leading-tight">{creatorName}</span>
+            {phoneBio ? (
+              <span className="truncate text-[11px] leading-tight opacity-70">{phoneBio}</span>
+            ) : null}
           </span>
         </a>
-
-        <form onSubmit={handleSubmit} className="flex gap-1.5 items-center flex-1 min-w-0">
-          <Input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onFocus={() => setInputFocus(true)}
-            onBlur={() => setInputFocus(false)}
-            required
-            disabled={loading}
-            className={cn(adaptiveInputClass, "h-8 text-[13px] flex-1 min-w-0", inputOpacityClass)}
-            style={{ textOverflow: "ellipsis" }}
-          />
-          <Button
-            type="submit"
-            disabled={loading || !email || isCurrentEmailSubscribed}
-            onClick={() => {
-              if (!loading && email && !isCurrentEmailSubscribed) triggerAnim()
-            }}
-            className={cn(
-              "shrink-0 h-8 px-2.5 text-[13px] flex items-center gap-1.5",
-              buttonOpacityClass,
-              pulse && "animate-[btnPop_520ms_ease-out]",
-            )}
-            style={{
-              backgroundColor: settings.buttonColor || "#4b5563",
-              color: settings.buttonTextColor || "#ffffff",
-              borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
-            }}
-          >
-            {isCurrentEmailSubscribed ? <Check size={14} /> : <Mail size={14} />}
-            <span>{loading ? "..." : buttonText}</span>
-          </Button>
-        </form>
       </div>
     </div>
-  )
-
-  // COMPACT Mobile layout - for actual phone viewing store builder
-  // Matches the desktop mobile preview style but fits on real phone screens
-  // No seller name (no space), just avatar + input + full button
-  const compactMobileLayout = (
-    <form onSubmit={handleSubmit} className="w-full px-3 py-3.5">
-      <div className="flex items-center gap-2 w-full justify-center">
-        <a
-          href={creatorHref}
-          className="shrink-0 flex items-center justify-center"
-          aria-label={`Go to ${creatorName}'s shop`}
-          onClick={(e) => {
-            if (isEditorPreview) {
-              e.preventDefault()
-            }
-          }}
-        >
-          {/* Avatar wrapper with explicit sizing to prevent clipping during scroll */}
-          <div className="relative h-7 w-7 shrink-0">
-            <Avatar className="h-7 w-7 shrink-0 absolute inset-0">
-              {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} className="object-cover" /> : null}
-              <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-            </Avatar>
-          </div>
-        </a>
-
-        {/* Input fits remaining space */}
-        <Input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          onFocus={() => setInputFocus(true)}
-          onBlur={() => setInputFocus(false)}
-          required
-          disabled={loading}
-          className={cn(
-            adaptiveInputClass,
-            "h-9 text-sm flex-1 min-w-0 px-3",
-            inputOpacityClass
-          )}
-          style={{ textOverflow: "ellipsis" }}
-        />
-
-        <Button
-          type="submit"
-          disabled={loading || !email || isCurrentEmailSubscribed}
-          onClick={() => {
-            if (!loading && email && !isCurrentEmailSubscribed) triggerAnim()
-          }}
-          className={cn(
-            "h-9 px-3 shrink-0 text-sm flex items-center justify-center gap-1.5",
-            buttonOpacityClass,
-            pulse && "animate-[btnPop_520ms_ease-out]",
-          )}
-          style={{
-            backgroundColor: settings.buttonColor || "#4b5563",
-            color: settings.buttonTextColor || "#ffffff",
-            borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
-          }}
-        >
-          {isCurrentEmailSubscribed ? <Check size={16} /> : <Mail size={16} />}
-          <span>{loading ? "..." : buttonText}</span>
-        </Button>
-      </div>
-    </form>
   )
 
   // Desktop layout for store builder preview
@@ -567,29 +491,18 @@ export function ProductCreatorBar({
         borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
       }}
     >
+      {/*
+        The mobile preview toggle and a real phone used to get two different
+        layouts here; they get the same row now, so the toggle shows what a
+        phone shows. `isMobile` is the toggle on a desktop, and the
+        breakpoint underneath covers a creator editing on a phone.
+      */}
       {isMobile ? (
-        // When isMobile prop is true (store builder mobile preview toggle on desktop):
-        // Show ORIGINAL layout, but if actual viewport is tiny (real phone), show compact
-        <>
-          {/* On actual small screens (real phone), show compact layout */}
-          <div className="block sm:hidden">
-            {compactMobileLayout}
-          </div>
-          {/* On actual large screens (desktop with mobile preview), show original mobile layout */}
-          <div className="hidden sm:block">
-            {editorMobileLayout}
-          </div>
-        </>
+        phonePreviewRow
       ) : (
-        // When isMobile prop is false (desktop preview):
-        // But if actual viewport is small (real phone editing desktop view), show compact
         <>
-          <div className="block sm:hidden">
-            {compactMobileLayout}
-          </div>
-          <div className="hidden sm:block">
-            {desktopLayout}
-          </div>
+          <div className="block sm:hidden">{phonePreviewRow}</div>
+          <div className="hidden sm:block">{desktopLayout}</div>
         </>
       )}
 
@@ -647,6 +560,8 @@ interface LiveProductCreatorBarProps {
    * One bar, two places: see the note in the markup below.
    */
   buttonLabel?: string
+  /** The creator's own line about themselves. Phone only, and cut to six words. */
+  bio?: string
 }
 
 export function LiveProductCreatorBar({
@@ -656,6 +571,7 @@ export function LiveProductCreatorBar({
   creatorUsername,
   avatarUrl,
   buttonLabel,
+  bio,
 }: LiveProductCreatorBarProps) {
   // IMPORTANT: All hooks must be called BEFORE any early returns to avoid React error #310
   const [subscribed, setSubscribed] = useState(false)
@@ -764,6 +680,9 @@ export function LiveProductCreatorBar({
       .join("")
       .toUpperCase() || "?"
 
+  /* Computed once, for the phone row only: see lib/store-builder/short-bio. */
+  const phoneBio = shortBio(bio)
+
   const isCurrentEmailSubscribed = subscribed && normalizeEmail(email) === subscribedEmail
   /**
    * THE LABEL THE CREATOR TYPED, when they typed one. `buttonLabel` comes
@@ -854,51 +773,53 @@ export function LiveProductCreatorBar({
         the creator page changes this one, because a visitor moving between
         the two is looking at one shop.
       */}
-      <div className="sm:hidden w-full px-4 py-2.5">
-        <div className="flex items-center gap-2 w-full">
+      {/*
+        ON A PHONE: the way back, who is selling, and one line about them.
+        Nothing else.
+
+        The address field and the follow button are DESKTOP ONLY now. This
+        strip is the first thing somebody meets on a page they opened to
+        look at one product, and on a phone it was spending a second row on
+        a form before the product had said a word. The two facts a visitor
+        needs are whose shop this is and how to leave it, and on a narrow
+        screen those are the two that fit.
+
+        The form is still on the row below at `sm:` and up, where there is
+        width for it to sit at the far end without being the first thing
+        read. Nothing is lost, it just stops being in the way.
+      */}
+      <div className="sm:hidden w-full px-4 py-2">
+        <div className="flex items-center gap-2.5 w-full">
           <BackControl onBack={goBack} label="Back" />
           <SmartLink
             href={creatorHref}
-            className="flex items-center gap-2 min-w-0"
+            className="flex min-w-0 flex-1 items-center gap-2.5"
             aria-label={`Go to ${creatorName}'s page`}
           >
-            <Avatar className="h-7 w-7 shrink-0">
+            <Avatar className="h-9 w-9 shrink-0">
               {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
-              <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+              <AvatarFallback className="text-[11px]">{initials}</AvatarFallback>
             </Avatar>
-            <p className="truncate text-sm font-medium">{creatorName}</p>
+            {/*
+              min-w-0 on the column is what lets `truncate` work inside a
+              flex row: without it the column takes its content's width and
+              the line runs past the edge of the bar instead of ending in
+              an ellipsis.
+            */}
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-sm font-semibold leading-tight">{creatorName}</span>
+              {phoneBio ? (
+                /*
+                  70% of the bar's own text colour, so it reads as the
+                  quieter of the two lines whatever colour the creator
+                  picked for the bar. A fixed grey would disappear on a
+                  dark bar and shout on a light one.
+                */
+                <span className="truncate text-[11px] leading-tight opacity-70">{phoneBio}</span>
+              ) : null}
+            </span>
           </SmartLink>
         </div>
-        {settings.showSubscribe !== false && (
-          <form onSubmit={handleSubmit} className="mt-2 flex w-full items-center gap-2">
-            <Input
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onFocus={() => setInputFocus(true)}
-              onBlur={() => setInputFocus(false)}
-              required
-              disabled={loading}
-              className={cn(adaptiveInputClass, "h-8 min-w-0 flex-1 text-xs", inputOpacityClass)}
-              style={{ borderRadius: `${settings.buttonBorderRadius ?? 8}px` }}
-            />
-            <Button
-              type="submit"
-              size="sm"
-              disabled={loading || !email || isCurrentEmailSubscribed}
-              onClick={() => { if (!loading && email && !isCurrentEmailSubscribed) triggerAnim() }}
-              className={cn("h-8 shrink-0 px-3 text-xs", buttonOpacityClass, pulse && "animate-[btnPop_520ms_ease-out]")}
-              style={{
-                backgroundColor: settings.buttonColor || "#4b5563",
-                color: settings.buttonTextColor || "#ffffff",
-                borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
-              }}
-            >
-              {loading ? "..." : buttonText}
-            </Button>
-          </form>
-        )}
       </div>
 
       {/* Desktop - with reduced width (1170px instead of 1200px) */}
