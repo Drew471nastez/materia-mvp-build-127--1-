@@ -918,6 +918,58 @@ function main() {
     )
   }
 
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * =====================================================================
+     *  THE PRODUCT PAGE'S TOP BAR, AND ITS BUYING CARD
+     * =====================================================================
+     * THE BAR was a newsletter form — an email field and a Follow button
+     * across the top of every product page. The first thing a visitor met on
+     * a page they came to look at a thing was a request for their address.
+     * It is who is selling and the way back now; following is still offered
+     * on the creator's own page, one tap away through the name.
+     *
+     * THE CARD carried `sticky top-6` and has never stuck, because the grid
+     * used `items-start` — which shrinks a grid item to its content, so the
+     * column was exactly the card's height and a sticky element with nowhere
+     * to travel behaves like one with no sticky at all. The geometry is
+     * measured in scripts/check-buy-card.mjs; the rule is held here, because
+     * the class is invisible in a screenshot and looks right in the source.
+     */
+    const bar = code("components/store-builder/product-creator-bar.tsx")
+    const live = bar.slice(bar.indexOf("export function LiveProductCreatorBar"))
+    check("the live bar asks for no email address", !/<Input/.test(live) && !/type="email"/.test(live))
+    check("and offers no follow button", !/<Button/.test(live))
+    check(
+      "it carries a way back",
+      /<BackControl onBack=\{goBack\}/.test(live) && /window\.history\.back\(\)/.test(bar),
+    )
+    check(
+      "which falls back to the creator's page when there is no history of ours",
+      /new URL\(referrer\)\.origin === window\.location\.origin/.test(bar) &&
+        /window\.location\.href = creatorHref/.test(bar),
+    )
+    check(
+      "the avatar and the name both lead to the creator's page",
+      (live.match(/<SmartLink\s+href=\{creatorHref\}/g) ?? []).length === 2,
+    )
+    /* getStoreUrl is what makes that /u/<handle>, and it is already tested
+       elsewhere; this only checks the bar goes through it. */
+    check("through the one helper that builds that address", /return getStoreUrl\(raw\)/.test(bar))
+
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    check(
+      "the buying card's column can stretch, so the card has room to stick",
+      /"grid gap-8", !isMobile && "lg:grid-cols-5 lg:gap-12"/.test(renderer) &&
+        !/lg:items-start/.test(renderer),
+    )
+    check(
+      "and the card is headed by the product, not by a number",
+      /<h2[\s\S]{0,240}\{productTitle\}/.test(renderer),
+    )
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
