@@ -854,33 +854,52 @@ export function LiveProductCreatorBar({
         the creator page changes this one, because a visitor moving between
         the two is looking at one shop.
       */}
-      <div className="sm:hidden w-full px-4 py-2.5">
-        <div className="flex items-center gap-2 w-full">
-          <BackControl onBack={goBack} label="Back" />
-          <SmartLink
-            href={creatorHref}
-            className="flex items-center gap-2 min-w-0"
-            aria-label={`Go to ${creatorName}'s page`}
-          >
-            <Avatar className="h-7 w-7 shrink-0">
-              {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
-              <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-            </Avatar>
-            <p className="truncate text-sm font-medium">{creatorName}</p>
-          </SmartLink>
-        </div>
+      {/*
+        ONE ROW ON A PHONE, NOT TWO.
+
+        The two facts had the first line and the form had its own underneath,
+        which made the bar two rows deep on the page where the product photo
+        is the thing somebody came for. It fits on one: the way back and the
+        avatar are fixed widths, the button is as wide as its word, and the
+        name and the field share what is left.
+
+        THE NAME YIELDS FIRST. It is the only part with no floor — a long
+        display name would otherwise push the field down to nothing — so it
+        truncates, and the field keeps a width it can still be typed into.
+      */}
+      <form onSubmit={handleSubmit} className="flex w-full items-center gap-2 px-3 py-2 sm:hidden">
+        <BackControl onBack={goBack} label="Back" />
+        <SmartLink
+          href={creatorHref}
+          className="flex min-w-0 shrink items-center gap-1.5"
+          aria-label={`Go to ${creatorName}'s page`}
+        >
+          <Avatar className="h-7 w-7 shrink-0">
+            {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
+            <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+          </Avatar>
+          <p className="truncate text-[13px] font-medium">{creatorName}</p>
+        </SmartLink>
         {settings.showSubscribe !== false && (
-          <form onSubmit={handleSubmit} className="mt-2 flex w-full items-center gap-2">
+          <>
             <Input
               type="email"
-              placeholder="Enter your email"
+              placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onFocus={() => setInputFocus(true)}
               onBlur={() => setInputFocus(false)}
               required
               disabled={loading}
-              className={cn(adaptiveInputClass, "h-8 min-w-0 flex-1 text-xs", inputOpacityClass)}
+              /*
+                A FLOOR, NOT `min-w-0`. Both the name and the field were free
+                to shrink, so flexbox split the shortage between them and a
+                long display name left 70px of email field — a row that fits
+                but cannot be typed in. The field stops at a width that works
+                and the name, which has no floor and truncates, gives up the
+                rest.
+              */
+              className={cn(adaptiveInputClass, "h-8 min-w-[104px] flex-1 basis-24 text-xs", inputOpacityClass)}
               style={{ borderRadius: `${settings.buttonBorderRadius ?? 8}px` }}
             />
             <Button
@@ -888,7 +907,7 @@ export function LiveProductCreatorBar({
               size="sm"
               disabled={loading || !email || isCurrentEmailSubscribed}
               onClick={() => { if (!loading && email && !isCurrentEmailSubscribed) triggerAnim() }}
-              className={cn("h-8 shrink-0 px-3 text-xs", buttonOpacityClass, pulse && "animate-[btnPop_520ms_ease-out]")}
+              className={cn("h-8 shrink-0 px-2.5 text-xs", buttonOpacityClass, pulse && "animate-[btnPop_520ms_ease-out]")}
               style={{
                 backgroundColor: settings.buttonColor || "#4b5563",
                 color: settings.buttonTextColor || "#ffffff",
@@ -897,9 +916,9 @@ export function LiveProductCreatorBar({
             >
               {loading ? "..." : buttonText}
             </Button>
-          </form>
+          </>
         )}
-      </div>
+      </form>
 
       {/* Desktop - with reduced width (1170px instead of 1200px) */}
       <div className={cn("hidden sm:block py-[calc(0.625rem+5px)] px-4 sm:px-5")}>

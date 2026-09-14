@@ -36,6 +36,7 @@ import {
   DRAG_THRESHOLD_PX,
   dragIntent,
   offsetsFor,
+  sheetHeightWithKeyboard,
   releaseVelocity,
   snapDuration,
   snapTarget,
@@ -425,11 +426,58 @@ export function MobileEditorSheet({
     }
   }, [])
 
+  /**
+   * =====================================================================
+   *  THE FIELD BEING TYPED INTO IS BROUGHT ON SCREEN
+   * =====================================================================
+   * The browser does this by itself, by scrolling the thing that contains
+   * the field — and inside the workspace's frame there is nothing it can
+   * usefully scroll, because the frame's own viewport never shrinks for a
+   * keyboard it cannot see. KeyboardGuard's version has the same blind spot
+   * for the same reason.
+   *
+   * The sheet can see it: `keyboardInset` is measured from whichever window
+   * actually has the keyboard. So when it arrives, the sheet scrolls its own
+   * scroller to put the focused field in the middle of what is left.
+   *
+   * Two frames of delay, because the sheet grows on the same change and the
+   * scroller's height is not the new one until the browser has laid it out.
+   */
+  React.useEffect(() => {
+    if (!open || keyboardInset <= 0) return
+    let raf1 = 0
+    let raf2 = 0
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const active = document.activeElement as HTMLElement | null
+        if (!active) return
+        const typing = active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable
+        if (!typing) return
+        const scroller = active.closest<HTMLElement>("[data-sheet-scroll]")
+        if (!scroller || !sheetRef.current?.contains(active)) return
+        const field = active.getBoundingClientRect()
+        const box = scroller.getBoundingClientRect()
+        const centreWithin = field.top - box.top + field.height / 2
+        scroller.scrollTo({
+          top: Math.max(0, scroller.scrollTop + centreWithin - scroller.clientHeight / 2),
+          behavior: "smooth",
+        })
+      })
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [keyboardInset, open])
+
   // A sheet with no peek has nothing to grow: `peekHeight={0}` still means
   // gone, not "gone except for the home indicator".
   const peek = peekHeight > 0 ? peekHeight + peekInset : 0
   const natural = offsetsFor({ viewport, detents: stops, peekHeight: peek }).height
-  const height = fit && contentHeight > 0 ? Math.min(contentHeight, Math.round(viewport * tallest)) : natural
+  const detentHeight = fit && contentHeight > 0 ? Math.min(contentHeight, Math.round(viewport * tallest)) : natural
+  /* Grown by the keyboard, so the panel above it stays the size the detent
+     asked for. sheet-gestures.ts explains why the offsets are left alone. */
+  const height = sheetHeightWithKeyboard(detentHeight, keyboardInset, viewport)
 
   /**
    * translateY for each stop, tallest first — and SORTED, which is the whole
@@ -447,9 +495,14 @@ export function MobileEditorSheet({
     () =>
       fit && contentHeight > 0
         ? // One stop — the content's own height — and the closed position.
-          [0, Math.max(height - peek, 0)]
+          //
+          // `detentHeight`, not `height`: the closed position is how far the
+          // sheet travels to be gone, and a keyboard is never up while it is
+          // closed. Using the grown height here would leave the keyboard's
+          // height of sheet showing after a dismissal.
+          [0, Math.max(detentHeight - peek, 0)]
         : offsetsFor({ viewport, detents: stops, peekHeight: peek }).offsets,
-    [stops, viewport, peek, fit, contentHeight, height],
+    [stops, viewport, peek, fit, contentHeight, detentHeight],
   )
 
   /**

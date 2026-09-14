@@ -25,7 +25,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { EditorSheet } from "@/components/storefront/editor-sheet"
 import { ImageUpload } from "@/components/app/image-upload"
-import { Pencil, Loader2, Wand2 } from "lucide-react"
+import { Pencil, Wand2 } from "lucide-react"
 import { SocialLinksEditor } from "@/components/social/social-links-editor"
 import { SchemePicker } from "@/components/storefront/scheme-picker"
 import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
@@ -243,7 +243,10 @@ export function EditProfileButton({
         error={error}
         onSave={() => void save()}
         saveDisabled={name.trim().length === 0}
-        saveLabel={saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+        /* The spinner is the sheet's, beside the word. `busy` already says
+           a save is in flight; a label that changes as well took the word
+           away at the moment it was pressed. */
+        saveLabel="Save"
       >
             {/*
               Cover first, then the avatar sitting half over it — the same
