@@ -8673,8 +8673,14 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
         )
       }}
     >
+      {/*
+        THE PLACEHOLDER IS WHAT GROWS, so the footer lands at the bottom of the
+        card rather than halfway down it with the editor's white underneath.
+        Only ever on an empty page: with sections there is no placeholder, and
+        the page keeps natural flow. See pageFill in ThemePage.
+      */}
       {missingPath ? (
-        <div className="py-24 flex items-center justify-center text-center">
+        <div className="flex-1 py-24 flex items-center justify-center text-center">
           <div className="max-w-[420px] px-6">
             <p className="mb-1 text-xl font-bold uppercase tracking-tight text-neutral-300">Page not found</p>
             <p className="mb-4 text-sm text-neutral-500">
@@ -8691,7 +8697,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
           </div>
         </div>
       ) : bodyCount === 0 && sections.length > 0 ? (
-        <div className="py-24 flex items-center justify-center text-center">
+        <div className="flex-1 py-24 flex items-center justify-center text-center">
           <div>
             <p className="text-xl font-bold tracking-tight text-neutral-300 uppercase mb-1">Empty Page</p>
             <p className="text-sm text-neutral-400 mb-4">Create your beautiful page by adding sections</p>

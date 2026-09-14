@@ -525,6 +525,43 @@ async function main() {
         /if \(s\.type === "header"\) return withLiveLinks\(s, pageKeys\)/.test(ensure))
     }
 
+    /**
+     * =====================================================================
+     *  A SHORT PAGE DOES NOT END IN A WHITE BAND
+     * =====================================================================
+     * The builder's canvas card is a fixed-height white box and the page is
+     * drawn inside it, so a page shorter than the card left the card showing
+     * through: measured at 338px of white under a 362px page in a 700px card
+     * by scripts/check-short-page.mjs, which drives the real ThemePage in a
+     * browser. On an empty page that was most of the canvas.
+     *
+     * The geometry is measured there. What is held here is the rule that
+     * produced it, because a class quietly dropped from either half puts the
+     * band straight back.
+     */
+    {
+      const themePage = readFileSync(join(root, "components/website-builder/theme/ThemePage.tsx"), "utf8")
+      check(
+        "the page fills its container, as a flex item in the builder and the viewport when published",
+        /function pageFill\(inEditor: boolean\): CSSProperties/.test(themePage) &&
+          /flex: "1 1 auto"/.test(themePage) &&
+          /minHeight: "100dvh"/.test(themePage),
+      )
+      check(
+        "and the page root actually uses it",
+        /\.\.\.pageFill\(storefront\?\.inEditor === true\)/.test(themePage),
+      )
+      /* dvh, not vh: a phone's toolbars move, and vh leaves a band the colour
+         of the browser under the footer while they do. */
+      check("the published height is viewport-relative in the unit that follows a phone's toolbars",
+        !/minHeight: "100vh"/.test(themePage))
+      check(
+        "the empty placeholder is the thing that grows, so the footer is still last",
+        /flex flex-1 min-h-\[50vh\]/.test(themePage) &&
+          (editor.match(/className="flex-1 py-24 flex items-center justify-center text-center"/g) ?? []).length === 2,
+      )
+    }
+
     const SITE_ROUTES = new Set(["/", "/products", "/about", "/contact", ...POLICY_PAGES.map((p) => `/${p.key}`)])
     const dead: string[] = []
     for (const file of readdirSync(join(root, "themes/default/sections"))) {
