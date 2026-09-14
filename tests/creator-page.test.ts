@@ -1088,9 +1088,15 @@ function main() {
       /new URL\(referrer\)\.origin === window\.location\.origin/.test(bar) &&
         /window\.location\.href = creatorHref/.test(bar),
     )
+    /*
+      This counted TWO links to the creator's page, one on each bar. The
+      phone bar carries the product now — the creator's name is the fact a
+      visitor arriving from that creator already has — so there is one, on
+      the desktop bar, which is unchanged.
+    */
     check(
-      "the avatar and the name both lead to the creator's page",
-      (live.match(/<SmartLink\s+href=\{creatorHref\}/g) ?? []).length === 2,
+      "the desktop bar still leads to the creator's page",
+      (live.match(/<SmartLink\s+href=\{creatorHref\}/g) ?? []).length === 1,
     )
     /**
      * THE CREATOR'S PAGE, NOT THEIR WEBSITE.
@@ -1594,14 +1600,75 @@ function main() {
     const bar = code("components/store-builder/product-creator-bar.tsx")
     const product = code("app/(marketing)/p/[slug]/page.tsx")
 
-    check("the phone row has no address field", !/<div className="sm:hidden[\s\S]{0,900}type="email"/.test(bar))
+    check("the phone bar is a single row", /data-product-bar="phone" className="flex w-full items-center gap-2\.5 px-3 py-2 sm:hidden"/.test(bar))
+    check("and the form is not a second line under it", !/className="mt-2 flex w-full items-center gap-2"/.test(bar))
+    /**
+     * AND IT IS THE PRODUCT'S. The creator's name is the one fact a visitor
+     * arriving from that creator already has, and the email field asked for
+     * an address before they had decided anything. What a sticky bar can
+     * carry that nothing else does is WHICH PRODUCT THIS IS, once the title
+     * has scrolled away.
+     */
     /*
-       Anchored to the live phone block, not to the file: the builder's
-       preview row carries {phoneBio} too, so a bare search for it passes
-       even when the live bar has lost the line entirely.
+      Scoped to the LIVE phone bar. The builder's preview of this bar is in
+      the same file and still draws the old shape, so asking the whole file
+      answers a different question.
     */
-    const phoneBlock = bar.slice(bar.indexOf('<div className="sm:hidden w-full'), bar.indexOf("{/* Desktop"))
-    check("it carries the bio instead", phoneBlock.includes("{phoneBio}"), phoneBlock.slice(0, 120))
+    const phoneBar = bar.slice(bar.indexOf('data-product-bar="phone"'), bar.indexOf("ProductBarMenu title="))
+    check("the live phone bar exists to be checked", phoneBar.length > 200)
+    check("no email field on it", !/<Input/.test(phoneBar) && !/placeholder="Email"/.test(phoneBar))
+    check("the product's title is on it", /\{productTitle \|\| creatorName\}/.test(bar))
+    check("with its thumbnail as a rounded square", /h-8 w-8 shrink-0 rounded-lg object-cover/.test(bar))
+    check("and the title is what yields", /truncate text-\[13px\] font-medium/.test(bar))
+    /*
+      Counted on `productImageUrl`, not on the title: `productTitle` is also
+      what ShareButton takes, and two of those sit on the same page.
+    */
+    check(
+      "both call sites feed it the product",
+      read("app/(marketing)/p/[slug]/page.tsx").split("productImageUrl={product.thumbnail_url").length - 1 === 2,
+    )
+
+    /**
+     * SHARE AND REPORT, behind the three dots. ResponsiveActionMenu is the
+     * shape the rest of the product uses for a row of actions: a dropdown on
+     * a desktop and a bottom sheet on a phone.
+     */
+    check("the three dots open the shared action menu", /<ResponsiveActionMenu/.test(bar))
+    check("share goes through the phone's own sheet where there is one", /nav\?\.share/.test(bar))
+    /**
+     * A lucide icon passed bare is a forwardRef OBJECT and ActionMenuItem
+     * takes a ReactNode, so passing the component crashed the whole bar with
+     * React error #31 — which `pnpm build` reported as a clean compile.
+     */
+    check("its icons are elements, not components", /icon: <Flag className="h-4 w-4" \/>/.test(bar))
+
+    /**
+     * A PHONE HAS NO HOVER, so a control whose only state is `hover:` never
+     * acknowledges the touch: you press it and the page changes a moment
+     * later with nothing in between.
+     */
+    check("the way back feels pressed", /active:scale-\[0\.88\]/.test(bar) && /hapticTap\("light"\)/.test(bar))
+
+    /*
+      ---------------------------------------------------------------------
+       THE BIO, WHICH ARRIVED FROM THE OTHER DIRECTION
+      ---------------------------------------------------------------------
+      A parallel change put the creator's line under their name on the PHONE
+      bar. The phone bar is the product's now, so the line moved to the
+      desktop bar, which is the width that has room for it. The work is kept;
+      only where it is drawn has changed, so these are anchored to the
+      desktop block rather than deleted.
+    */
+    /*
+      Anchored on MARKUP, not on a comment. `bar` is comment-stripped source
+      — that is what `code()` is for, and why the contact guards kept passing
+      on comments quoting the code they forbade — so slicing at "{/* Desktop"
+      sliced at nothing and took the whole file.
+    */
+    const desktopBlock = bar.slice(bar.indexOf('hidden sm:block py-[calc(0.625rem+5px)]'))
+    check("the desktop bar carries the creator's line", desktopBlock.includes("{phoneBio}"))
+    check("and the phone bar does not", !phoneBar.includes("{phoneBio}"))
     check("cut to six words rather than by CSS alone", /shortBio\(bio\)/.test(bar) && /BIO_WORD_LIMIT = 6/.test(read("lib/store-builder/short-bio.ts")))
     /**
      * `truncate` is still the backstop for six very long words, and min-w-0
@@ -1622,6 +1689,58 @@ function main() {
     check("no creator menu on the product page", !/CreatorQuickNav/.test(product))
     check("and the component is gone rather than orphaned", !existsSync(join(root, "components/creator-quick-nav.tsx")))
     check("with no rule left hiding something that does not exist", !/html\.capacitor \.creator-quick-nav/.test(read("app/globals.css")))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * FOUR THINGS THAT WERE TAKING UP ROOM OR PRINTING A NUMBER.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const product = code("app/(marketing)/p/[slug]/page.tsx")
+    const subscribe = code("components/store-builder/subscribe-bar.tsx")
+    const sheet = code("components/website-builder/mobile-editor-sheet.tsx")
+
+    /**
+     * "8 people have purchased this" sat under What's included, which is
+     * where a buyer looks to decide. Nobody is persuaded by eight.
+     */
+    check("no purchase count on a product page", !/purchased this/.test(renderer) && !/purchased this/.test(product))
+    check("and no switch left controlling it", !/showSalesAnnouncement/.test(code("components/store-builder/sections-sidebar.tsx")))
+
+    /** The struck price and its badge belong beside the price, not under it. */
+    check(
+      "the compare-at price shares the price's row",
+      /className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1"/.test(renderer) &&
+        !/className="mt-1 flex items-center gap-2"/.test(renderer),
+    )
+
+    /**
+     * The buy bar is `fixed`, so it floats over the bottom of the SCREEN.
+     * Reserving for it on the mid-page wrapper left a 96px hole between the
+     * FAQ and More from the seller, and the actual end of the page was still
+     * underneath it.
+     */
+    check("the buy bar's reserve is not in the middle of the page", !/pb-24 lg:pb-12/.test(product))
+    check("it is at the end, where the bar is", (product.match(/h-20 lg:h-0/g) ?? []).length === 2)
+
+    /**
+     * The sticky subscribe bar is `fixed` plus a spacer standing in for its
+     * height. The spacer was a hard-coded 76px guess at a bar whose height
+     * depends on the style, the avatar row and the length of the headline —
+     * and the difference showed as a strip of page above the cover photo.
+     */
+    check("the bar's spacer is measured, not guessed", /setBarHeight\(el\.offsetHeight/.test(subscribe))
+    check("from the laid-out box, not the transformed one", /offsetHeight/.test(subscribe) && !/spacer[\s\S]{0,40}getBoundingClientRect/.test(subscribe))
+    check("with the old constant as the value before the first measurement", /h-\[76px\] sm:h-\[52px\]/.test(subscribe))
+
+    /**
+     * The sheet grows by the keyboard and shrinks back. Only `transform` was
+     * in the transition, so the shrink happened in one frame while the
+     * keyboard was still sliding away.
+     */
+    check("the keyboard resize is a move, not a snap", /height \$\{KEYBOARD_MS\}ms/.test(sheet) && /padding-bottom \$\{KEYBOARD_MS\}ms/.test(sheet))
+    check("and the drag itself still has no transition at all", /const motion = dragging/.test(sheet) && /\? "none"/.test(sheet))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

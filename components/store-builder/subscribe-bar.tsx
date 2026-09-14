@@ -452,6 +452,29 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
     </>
   )
 
+  /**
+   * The bar's real height, for the spacer that stands in for it.
+   *
+   * `undefined` until it has been measured, which is what makes the Tailwind
+   * fallback below the value on the server and on the first frame.
+   */
+  const barRef = useRef<HTMLDivElement>(null)
+  const [barHeight, setBarHeight] = useState<number | undefined>(undefined)
+  useEffect(() => {
+    const el = barRef.current
+    if (!el) return
+    /* `offsetHeight`, not the rect: the bar slides on `transform` when it
+       hides on scroll, and a transformed rect is the drawn box rather than
+       the laid-out one — so a hidden bar would have measured as itself
+       translated and a rounding of it. offsetHeight ignores the transform. */
+    const measure = () => setBarHeight(el.offsetHeight || undefined)
+    measure()
+    if (typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [isSticky, settings.style, settings.showAvatar, settings.text, settings.customCtaText])
+
   // STICKY MODE: Use fixed positioning for live pages
   // In Capacitor apps, offset below the platform header and use lower z-index
   // so the subscribe bar sits visually under the header, not on top of it.
@@ -464,6 +487,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
       <>
         {/* Fixed bar at top of viewport (below header in native apps) */}
         <div
+          ref={barRef}
           className={cn(
             "fixed left-0 right-0 w-full py-2.5 px-3 sm:py-3 sm:px-4 transition-transform duration-300 ease-out",
             stickyZ,
@@ -479,8 +503,28 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
         >
           {barContent}
         </div>
-        {/* Spacer to prevent content from hiding behind fixed bar */}
-        <div className="h-[76px] sm:h-[52px]" />
+        {/*
+          =================================================================
+           THE SPACER IS THE BAR'S HEIGHT, MEASURED
+          =================================================================
+          The bar is `fixed`, so the page needs something in the flow the
+          same height as it. That something was `h-[76px] sm:h-[52px]` — a
+          guess, written once, at a bar whose height depends on which style
+          the creator picked, whether the avatar row is on, and how long
+          their headline is. Where the guess was too big, and on a phone it
+          was, the difference was a strip of page background between the bar
+          and the cover photo under it with nothing in it.
+
+          One number, measured once and shared, is the rule this codebase
+          already follows for the browser's own bar and for the sheet's peek.
+          The old constants stay as the value before the first measurement,
+          so the first paint is what it always was rather than zero.
+        */}
+        <div
+          aria-hidden
+          className={barHeight === undefined ? "h-[76px] sm:h-[52px]" : undefined}
+          style={barHeight === undefined ? undefined : { height: barHeight }}
+        />
       </>
     )
   }

@@ -6,11 +6,13 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { Mail, ArrowLeft, Check } from "lucide-react"
+import { Mail, ArrowLeft, Check, Flag, MoreHorizontal, Share2 } from "lucide-react"
 import { getStoreInternalPath } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 import { SmartLink } from "@/components/smart-link"
+import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { hapticTap } from "@/lib/native-bridge"
 import { shortBio } from "@/lib/store-builder/short-bio"
 
 // Button style presets (same as subscribe bar)
@@ -534,14 +536,120 @@ function BackControl({ onBack, label }: { onBack: () => void; label: string }) {
   return (
     <button
       type="button"
-      onClick={onBack}
+      onClick={() => {
+        /*
+          IT HAS TO FEEL PRESSED.
+
+          A phone has no hover, so a control whose only state is `hover:` has
+          no pressed state at all: you touch it, nothing acknowledges the
+          touch, and the page changes a moment later. The three together are
+          what a native control does — the tap goes in, the surface lights
+          under the finger, and the phone answers — and none of them waits
+          for the navigation, which is the slow part.
+        */
+        hapticTap("light")
+        onBack()
+      }}
       aria-label={label}
       title={label}
-      className="-ml-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/10 active:scale-95 dark:hover:bg-white/10"
-      style={{ color: "inherit" }}
+      className={cn(
+        "-ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+        "transition-[transform,background-color] duration-100 ease-out",
+        "hover:bg-black/10 dark:hover:bg-white/10",
+        "active:scale-[0.88] active:bg-black/15 dark:active:bg-white/20",
+      )}
+      style={{ color: "inherit", WebkitTapHighlightColor: "transparent" }}
     >
-      <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
+      <ArrowLeft className="h-[19px] w-[19px]" strokeWidth={2} />
     </button>
+  )
+}
+
+/**
+ * ===========================================================================
+ *  THE THREE DOTS: SHARE, AND REPORT
+ * ===========================================================================
+ * A sheet on a phone and a dropdown on a desktop, which is what the rest of
+ * the product already uses for a row of actions.
+ *
+ * SHARE uses the phone's own share sheet where there is one, because that is
+ * where every app somebody actually wants to send this to already lives.
+ * Where there is not, it copies the address, which is the honest fallback
+ * rather than a grid of network buttons nobody presses.
+ *
+ * REPORT opens a mail to support with the address already in it. There is no
+ * reports table and no moderation queue behind this yet, so a form that said
+ * "thanks, we'll look into it" would be a lie about what happens next.
+ */
+function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const url =
+    typeof window === "undefined"
+      ? ""
+      : slug
+        ? `${window.location.origin}/p/${slug}`
+        : window.location.href
+
+  const share = async () => {
+    hapticTap("light")
+    const nav = typeof navigator !== "undefined" ? navigator : undefined
+    if (nav?.share) {
+      try {
+        await nav.share({ title: title || document.title, url })
+      } catch {
+        /* Dismissing the system sheet rejects. That is not a failure, and it
+           must not fall through to copying something nobody asked for. */
+      }
+      return
+    }
+    try {
+      await nav?.clipboard?.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* A clipboard that refuses leaves the address in the address bar,
+         where it already was. Nothing to say about it. */
+    }
+  }
+
+  const report = () => {
+    hapticTap("light")
+    const subject = encodeURIComponent(`Reporting a product: ${title || slug}`)
+    const body = encodeURIComponent(`I want to report this product:\n${url}\n\nWhat is wrong with it:\n`)
+    window.location.href = `mailto:support@storelib.com?subject=${subject}&body=${body}`
+  }
+
+  return (
+    <ResponsiveActionMenu
+      title={title || "This product"}
+      items={[
+        /* ELEMENTS, not components: ActionMenuItem.icon is a ReactNode, and a
+           lucide icon passed bare is a forwardRef object that React refuses
+           to render as a child — which crashes the whole bar. */
+        {
+          label: copied ? "Link copied" : "Share",
+          icon: copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />,
+          onClick: share,
+        },
+        { label: "Report", icon: <Flag className="h-4 w-4" />, onClick: report },
+      ]}
+      trigger={
+        <button
+          type="button"
+          aria-label="More"
+          className={cn(
+            "-mr-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+            "transition-[transform,background-color] duration-100 ease-out",
+            "hover:bg-black/10 dark:hover:bg-white/10",
+            "active:scale-[0.88] active:bg-black/15 dark:active:bg-white/20",
+          )}
+          style={{ color: "inherit", WebkitTapHighlightColor: "transparent" }}
+        >
+          <MoreHorizontal className="h-[19px] w-[19px]" strokeWidth={2} />
+        </button>
+      }
+    />
   )
 }
 
@@ -560,8 +668,18 @@ interface LiveProductCreatorBarProps {
    * One bar, two places: see the note in the markup below.
    */
   buttonLabel?: string
-  /** The creator's own line about themselves. Phone only, and cut to six words. */
+  /** The creator's own line about themselves. Desktop only now. */
   bio?: string
+  /**
+   * WHAT THE PHONE'S BAR IS ABOUT.
+   *
+   * A visitor who has scrolled past the title has nothing telling them which
+   * product they are on, and the creator's name is the fact they already had
+   * — it is how they got here. The desktop bar still leads with the creator.
+   */
+  productTitle?: string
+  productImageUrl?: string
+  productSlug?: string
 }
 
 export function LiveProductCreatorBar({
@@ -572,6 +690,9 @@ export function LiveProductCreatorBar({
   avatarUrl,
   buttonLabel,
   bio,
+  productTitle,
+  productImageUrl,
+  productSlug,
 }: LiveProductCreatorBarProps) {
   // IMPORTANT: All hooks must be called BEFORE any early returns to avoid React error #310
   const [subscribed, setSubscribed] = useState(false)
@@ -774,52 +895,56 @@ export function LiveProductCreatorBar({
         the two is looking at one shop.
       */}
       {/*
-        ON A PHONE: the way back, who is selling, and one line about them.
-        Nothing else.
+        =====================================================================
+         ON A PHONE THE BAR IS THE PRODUCT'S
+        =====================================================================
+        It has carried the creator twice: first with an email field and a
+        Follow button, then with the name and a line of bio. Both are about
+        the person, and the person is the one fact a visitor arriving from
+        that creator's page already has. Meanwhile the thing a sticky bar is
+        uniquely placed to say — WHICH PRODUCT AM I LOOKING AT — was on
+        neither, and it is the only one that stops being on screen when the
+        title scrolls away.
 
-        The address field and the follow button are DESKTOP ONLY now. This
-        strip is the first thing somebody meets on a page they opened to
-        look at one product, and on a phone it was spending a second row on
-        a form before the product had said a word. The two facts a visitor
-        needs are whose shop this is and how to leave it, and on a narrow
-        screen those are the two that fit.
-
-        The form is still on the row below at `sm:` and up, where there is
-        width for it to sit at the far end without being the first thing
-        read. Nothing is lost, it just stops being in the way.
+        So: the way back, the product, and what you can do with it. The
+        creator is one tap away, on the page this product belongs to, which
+        is where the way back goes. The desktop bar is unchanged and still
+        leads with them — there is room for both at that width.
       */}
-      <div className="sm:hidden w-full px-4 py-2">
-        <div className="flex items-center gap-2.5 w-full">
-          <BackControl onBack={goBack} label="Back" />
-          <SmartLink
-            href={creatorHref}
-            className="flex min-w-0 flex-1 items-center gap-2.5"
-            aria-label={`Go to ${creatorName}'s page`}
-          >
-            <Avatar className="h-9 w-9 shrink-0">
-              {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
-              <AvatarFallback className="text-[11px]">{initials}</AvatarFallback>
-            </Avatar>
-            {/*
-              min-w-0 on the column is what lets `truncate` work inside a
-              flex row: without it the column takes its content's width and
-              the line runs past the edge of the bar instead of ending in
-              an ellipsis.
-            */}
-            <span className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-semibold leading-tight">{creatorName}</span>
-              {phoneBio ? (
-                /*
-                  70% of the bar's own text colour, so it reads as the
-                  quieter of the two lines whatever colour the creator
-                  picked for the bar. A fixed grey would disappear on a
-                  dark bar and shout on a light one.
-                */
-                <span className="truncate text-[11px] leading-tight opacity-70">{phoneBio}</span>
-              ) : null}
-            </span>
-          </SmartLink>
-        </div>
+      <div data-product-bar="phone" className="flex w-full items-center gap-2.5 px-3 py-2 sm:hidden">
+        <BackControl onBack={goBack} label="Back" />
+
+        {/*
+          The thumbnail and the title are one target, and it returns to the
+          top of the page — where the picture and the buy button are. A bar
+          that names a thing and does nothing when pressed is a label.
+        */}
+        <button
+          type="button"
+          onClick={() => {
+            hapticTap("light")
+            window.scrollTo({ top: 0, behavior: "smooth" })
+          }}
+          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg py-0.5 text-left transition-transform duration-100 active:scale-[0.98]"
+          aria-label={productTitle ? `Back to the top of ${productTitle}` : "Back to the top"}
+        >
+          {productImageUrl ? (
+            /* A rounded square, not a circle: a circle is a person and this
+               is a thing. The same corner the product cards use, so the two
+               read as the same object. */
+            <img
+              src={productImageUrl}
+              alt=""
+              className="h-8 w-8 shrink-0 rounded-lg object-cover"
+              style={{ boxShadow: "0 0 0 1px rgba(15, 23, 42, 0.08)" }}
+            />
+          ) : null}
+          <span className="truncate text-[13px] font-medium">{productTitle || creatorName}</span>
+        </button>
+
+        {/* Share and Report. A dropdown on a desktop, a bottom sheet on a
+            phone, which is what three dots mean on a phone. */}
+        <ProductBarMenu title={productTitle || ""} slug={productSlug || ""} />
       </div>
 
       {/* Desktop - with reduced width (1170px instead of 1200px) */}
@@ -836,9 +961,25 @@ export function LiveProductCreatorBar({
                 {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
                 <AvatarFallback className="text-xs">{initials}</AvatarFallback>
               </Avatar>
-              <p className="truncate text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
-                {creatorName}
-              </p>
+              {/*
+                THE BIO MOVED HERE FROM THE PHONE BAR. It was added under the
+                creator's name on a phone, and the phone bar is the product's
+                now — but a line about who is selling is worth having, and
+                this is the width that has room for it without taking any
+                from anything else.
+
+                70% of the bar's own text colour, so it reads as the quieter
+                of the two lines whatever colour the creator picked. A fixed
+                grey would disappear on a dark bar and shout on a light one.
+              */}
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
+                  {creatorName}
+                </span>
+                {phoneBio ? (
+                  <span className="truncate text-[11px] leading-tight opacity-70">{phoneBio}</span>
+                ) : null}
+              </span>
             </SmartLink>
 
             {settings.showSubscribe !== false && (

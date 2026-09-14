@@ -467,7 +467,8 @@ export interface ProductHeaderSettings {
   // Buttons border radius (Add to Cart, Buy, Wishlist)
   buttonsBorderRadius?: number
   // New toggles
-  showSalesAnnouncement?: boolean // Show "X purchased this item" text
+  /* showSalesAnnouncement was here. Old stored configs still carry it and
+     nothing reads it: the line it printed is gone. */
   showRatingNextToSeller?: boolean // Show stars next to seller name
   colors: ColorConfig
   spacing: SpacingConfig

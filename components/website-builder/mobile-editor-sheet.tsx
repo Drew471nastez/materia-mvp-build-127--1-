@@ -117,6 +117,12 @@ function browserChromeGap(): number {
 }
 
 const SNAP_DURATION_MS = 360
+/**
+ * iOS animates its keyboard in about a quarter of a second, and Android is
+ * close enough. The sheet resizes over the same time so the two move
+ * together rather than the sheet arriving first and waiting.
+ */
+const KEYBOARD_MS = 250
 const SNAP_EASING = "cubic-bezier(0.32, 0.72, 0, 1)"
 
 /**
@@ -1065,7 +1071,29 @@ export function MobileEditorSheet({
     : open
       ? 1
       : 0
-  const motion = dragging ? "none" : `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}`
+  /**
+   * =========================================================================
+   *  THE KEYBOARD CLOSING IS A MOVE, SO IT MOVES
+   * =========================================================================
+   * The sheet grows by the keyboard's height and shrinks back when it goes.
+   * Only `transform` was in the transition, so the shrink happened in one
+   * frame: the whole container snapped down the instant the keyboard began
+   * its own 250ms slide, and for a quarter of a second there was a sheet
+   * sitting above a keyboard that was still there.
+   *
+   * `height` is a layout property and animating it is not free — it is a
+   * layout per frame on this one element, where `transform` is a composited
+   * move on none. It is worth it here and only here: a sheet is a single box
+   * with a scroller in it, the change is 250ms at the end of a gesture
+   * nobody is making, and the alternative is the snap. The drag itself is
+   * still pure transform, which is the part that has to hold 60 and does.
+   *
+   * KEYBOARD_MS matches the platform's own keyboard animation rather than
+   * the sheet's snap, because what this is keeping time with is the keyboard.
+   */
+  const motion = dragging
+    ? "none"
+    : `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}, height ${KEYBOARD_MS}ms ${SNAP_EASING}, padding-bottom ${KEYBOARD_MS}ms ${SNAP_EASING}`
   const fade = dragging ? "none" : `opacity ${SNAP_DURATION_MS}ms ${SNAP_EASING}`
 
   return createPortal(

@@ -2427,7 +2427,17 @@ check(
    */
   /const dragging = drag\.current\.active/.test(sheetSrc) &&
     /const renderY = dragging \? drag\.current\.currentY : open \? openY : closedY/.test(sheetSrc) &&
-    /const motion = dragging \? "none" : `transform \$\{SNAP_DURATION_MS\}ms \$\{SNAP_EASING\}`/.test(sheetSrc) &&
+    /*
+      The invariant is the `dragging ? "none"` half: while a finger is on the
+      sheet there is no transition at all, so the imperative per-frame write
+      is the only thing moving it. What the other half transitions has grown
+      — `height` and `padding-bottom` joined `transform` so the keyboard
+      arriving and leaving is a move rather than a snap — and pinning the
+      exact string made a guard that fails on an unrelated addition while
+      protecting nothing extra.
+    */
+    /const motion = dragging\s*\n?\s*\? "none"/.test(sheetSrc) &&
+    /transform \$\{SNAP_DURATION_MS\}ms \$\{SNAP_EASING\}/.test(sheetSrc) &&
     /transform: `translateY\(\$\{renderY\}px\)`/.test(sheetSrc) &&
     /transition: motion,/.test(sheetSrc) &&
     /opacity: renderOpacity,/.test(sheetSrc) &&
