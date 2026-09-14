@@ -407,7 +407,6 @@ export interface ShopHeaderSettings {
   bio?: string // Bio text that can be edited from header settings
   showHeadline: boolean
   showBio: boolean
-  showNicheTags: boolean
   showStats: boolean
   showTotalSalesBadge: boolean
   /**
@@ -422,7 +421,13 @@ export interface ShopHeaderSettings {
    */
   showReviews?: boolean
   showFollowers?: boolean
-  showCategory?: boolean // Toggle to show/hide profile category badge
+  /*
+    showCategory and showNicheTags were here. They switched a category pill
+    above the bio, and that pill is gone: a creator's niche is how Explore
+    files them, not something a visitor needs read to them before the bio.
+    Old stored configs still carry the keys and that is harmless — nothing
+    reads them. Do not re-add the pill.
+  */
   showSocialMedia?: boolean
   showSocialIconsOnMobile?: boolean // Added toggle for mobile social icons
   socialMediaIconColor?: string

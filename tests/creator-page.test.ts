@@ -1044,9 +1044,36 @@ function main() {
       "the avatar and the name both lead to the creator's page",
       (live.match(/<SmartLink\s+href=\{creatorHref\}/g) ?? []).length === 2,
     )
-    /* getStoreUrl is what makes that /u/<handle>, and it is already tested
-       elsewhere; this only checks the bar goes through it. */
-    check("through the one helper that builds that address", /return getStoreUrl\(raw\)/.test(bar))
+    /**
+     * THE CREATOR'S PAGE, NOT THEIR WEBSITE.
+     *
+     * This went through `getStoreUrl`, which returns the SUBDOMAIN —
+     * <handle>.storelib.com — and that is the site a creator builds in the
+     * website builder, not the page this bar is about. The two have been
+     * separate since websites moved to the subdomain; the bar kept calling
+     * the helper it always had. So pressing the name of the person selling
+     * you something landed on a different product entirely, one that may be
+     * unpublished or empty.
+     *
+     * Measured in scripts/check-creator-bar.mjs, which reads the href the
+     * bar actually renders: /u/andrewrullz.
+     */
+    check(
+      "and it is the creator's page, not the subdomain website",
+      /return getStoreInternalPath\(sanitiseHandle\(raw\)\)/.test(bar) && !/getStoreUrl\(/.test(bar),
+    )
+    /**
+     * The bar shipped throwing: `goBack` read `creatorHref` in a dependency
+     * array before the const was declared. TypeScript says exactly that and
+     * `ignoreBuildErrors` swallowed it — reintroducing the bug still gives a
+     * green `pnpm build`, and only the probe catches it. The order is held
+     * here so the probe is not the only thing standing between that bug and
+     * a broken product page.
+     */
+    check(
+      "and the way back is declared after the address it uses",
+      live.indexOf("const creatorHref = useMemo") < live.indexOf("const goBack = useCallback"),
+    )
 
     const renderer = code("components/store-builder/unified-section-renderer.tsx")
     check(
@@ -1279,6 +1306,41 @@ function main() {
     check(
       "which is the product page's own column",
       /className="mx-auto w-full max-w-\[1200px\] px-3 sm:px-4 lg:px-6/.test(code("app/(marketing)/p/[slug]/page.tsx")),
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * NO CATEGORY PILL ABOVE THE BIO. A grey badge naming the creator's niche
+     * sat between the handle and the bio. The niche still exists, because it
+     * is what /explore browses by, but it is a filing detail and it does not
+     * belong on the line a visitor reads to find out who somebody is.
+     *
+     * These read comment-stripped source. The guard that checked the contact
+     * line was passed by a comment quoting the code it was meant to forbid,
+     * four separate times, which is why `code()` exists at the top of this
+     * file and why it is used here.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const sidebar = code("components/store-builder/sections-sidebar.tsx")
+    const types = code("lib/store-builder/types.ts")
+    const defaults = code("lib/store-builder/defaults.ts")
+
+    check("the profile no longer renders niche pills", !/settings\.showCategory|settings\.showNicheTags/.test(renderer))
+    check("and no switch is left controlling nothing", !/label="Show Category"/.test(sidebar))
+    check("the dead settings keys are gone from the type", !/showNicheTags|showCategory\?:/.test(types))
+    check("and from the defaults", !/showNicheTags/.test(defaults))
+    /**
+     * The niche is kept. Removing the field would take creators out of
+     * Explore, which is a far worse outcome than the pill ever was.
+     */
+    check("the niche is still editable", /storeNicheTags/.test(sidebar))
+    check("and Explore still reads it", read("app/(marketing)/explore/page.tsx").includes("niche_tags"))
+    /** Saying it is shown on the profile would now be untrue. */
+    check(
+      "the picker no longer claims the niche is shown on the page",
+      !/niche shown on your profile/.test(sidebar),
     )
   }
 
