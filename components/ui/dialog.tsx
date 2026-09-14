@@ -58,6 +58,7 @@ function DialogContent({
   overlayClassName,
   disableDefaultAnimations = false,
   disableOverlayDefaultAnimations,
+  ref,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -65,6 +66,7 @@ function DialogContent({
   disableDefaultAnimations?: boolean
   disableOverlayDefaultAnimations?: boolean
 }) {
+  /** The dialog's own content element: what scrolls, and what the guard watches. */
   const portalRef = React.useRef<HTMLDivElement>(null)
 
   // Prevent pull-to-refresh ONLY inside the dialog portal (never blocks normal page interactions)
@@ -131,34 +133,63 @@ function DialogContent({
   }, [])
 
   return (
+    /*
+      =========================================================================
+       NO WRAPPER IN HERE. IT WAS EATING EVERY DIALOG'S EXIT ANIMATION.
+      =========================================================================
+      Radix's Portal wraps EACH OF ITS CHILDREN in its own <Presence>, and a
+      Presence keeps a node mounted past `open: false` only for as long as that
+      node has an animation to finish. This used to pass ONE child — a
+      `display: contents` div holding the overlay and the content — so the
+      thing Radix was watching was a div with no animation at all. It was
+      unmounted on the frame the state changed, and it took the overlay and
+      the panel with it before either could play its `data-[state=closed]`
+      animation.
+
+      Every dialog in the product therefore closed by deletion: the enter was
+      a curve and the exit was one frame, which is exactly the "it opens nice
+      and then just disappears" that has been reported about the editors, the
+      share card and the modals generally. Measured in
+      scripts/check-editor-motion.mjs — the panel was gone from the DOM 40ms
+      after Escape, with no animation ever having started.
+
+      Overlay and content are direct children now, so each gets its own
+      Presence and its own exit. The touch guard below moves onto the content
+      element, which is the thing that actually scrolls.
+    */
     <DialogPortal data-slot="dialog-portal">
-      <div ref={portalRef} style={{ display: 'contents' }}>
-        <DialogOverlay
-          className={overlayClassName}
-          disableDefaultAnimations={disableOverlayDefaultAnimations ?? disableDefaultAnimations}
-        />
-        <DialogPrimitive.Content
-          data-slot="dialog-content"
-          className={cn(
-            disableDefaultAnimations
-              ? 'bg-background fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg sm:max-w-lg overscroll-contain'
-              : 'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg overscroll-contain',
-            className,
-          )}
-          {...props}
-        >
-          {children}
-          {showCloseButton && (
-            <DialogPrimitive.Close
-              data-slot="dialog-close"
-              className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-            >
-              <XIcon />
-              <span className="sr-only">Close</span>
-            </DialogPrimitive.Close>
-          )}
-        </DialogPrimitive.Content>
-      </div>
+      <DialogOverlay
+        className={overlayClassName}
+        disableDefaultAnimations={disableOverlayDefaultAnimations ?? disableDefaultAnimations}
+      />
+      <DialogPrimitive.Content
+        /* The guard's ref is the component's own, so a caller passing one of
+           its own gets it too rather than quietly replacing the guard. */
+        ref={(node: HTMLDivElement | null) => {
+          portalRef.current = node
+          if (typeof ref === 'function') ref(node)
+          else if (ref) ref.current = node
+        }}
+        data-slot="dialog-content"
+        className={cn(
+          disableDefaultAnimations
+            ? 'bg-background fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg sm:max-w-lg overscroll-contain'
+            : 'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg overscroll-contain',
+          className,
+        )}
+        {...props}
+      >
+        {children}
+        {showCloseButton && (
+          <DialogPrimitive.Close
+            data-slot="dialog-close"
+            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+          >
+            <XIcon />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        )}
+      </DialogPrimitive.Content>
     </DialogPortal>
   )
 }

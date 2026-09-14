@@ -285,6 +285,50 @@ check(
   )
 }
 
+// ---------------------------------------------------------------------------
+section("Every dialog in the app gets to finish closing")
+// ---------------------------------------------------------------------------
+
+/*
+  Radix's Portal wraps EACH of its children in its own <Presence>, and a
+  Presence holds a node past `open: false` only while that node has an
+  animation left to play. DialogContent used to hand it a single
+  `display: contents` div containing the overlay and the panel, so the node
+  Radix watched had no animation of its own: it was dropped on the frame the
+  state flipped and took both real elements with it, unplayed. Every one of
+  the app's dialogs opened on a curve and closed by deletion.
+
+  The wrapper is easy to reintroduce, because it reads like a harmless div
+  and the bug it causes is somewhere else entirely, so it is pinned here.
+  scripts/check-editor-motion.mjs measures the behaviour in a real browser.
+*/
+{
+  const dialog = read("components/ui/dialog.tsx")
+  const body = dialog.slice(dialog.indexOf("<DialogPortal"), dialog.indexOf("</DialogPortal>"))
+
+  check(
+    "the overlay is a direct child of the portal, not wrapped",
+    /<DialogPortal[^>]*>\s*<DialogOverlay/.test(body),
+    body.slice(0, 160),
+  )
+  check(
+    "and so is the panel, so each one owns its own exit",
+    /<\/DialogOverlay>|\/>\s*<DialogPrimitive\.Content/.test(body) &&
+      !/display:\s*['"`]?contents/.test(body),
+  )
+  check(
+    "the panel still animates out, not just in",
+    /data-\[state=closed\]:animate-out/.test(dialog) &&
+      /data-\[state=closed\]:fade-out-0/.test(dialog),
+  )
+  check(
+    "and the darken behind it fades rather than blinking off",
+    /data-\[state=closed\]:fade-out-0/.test(
+      dialog.slice(dialog.indexOf("function DialogOverlay"), dialog.indexOf("function DialogContent")),
+    ),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
