@@ -10,88 +10,16 @@ import { cn } from "@/lib/utils"
 import { isNativeApp } from "@/lib/platform-utils"
 
 // Button style presets
-export type ButtonStylePreset = "style1" | "style2" | "style3" | "style4"
+export type { ButtonStylePreset, SubscribeBarSettings } from "@/lib/store-builder/subscribe-text"
+export { buttonStylePresets, getButtonText, getDisplayText } from "@/lib/store-builder/subscribe-text"
 
-export const buttonStylePresets: Record<ButtonStylePreset, { default: string; subscribed: string }> = {
-  style1: { default: "Subscribe", subscribed: "Subscribed" },
-  style2: { default: "Join Now", subscribed: "Joined" },
-  style3: { default: "Get It", subscribed: "🔥" },
-  style4: { default: "Follow", subscribed: "Followed" },
-}
-
-export interface SubscribeBarSettings {
-  visible: boolean
-  text: string
-  placeholder?: string
-  buttonText?: string
-  dismissible?: boolean
-  position?: "top" | "bottom"
-  backgroundColor?: string
-  textColor?: string
-  buttonColor?: string
-  buttonTextColor?: string
-  buttonBorderRadius?: number
-  inputBorderColor?: string
-  inputTextColor?: string
-  inputPlaceholderColor?: string
-  inputBackgroundColor?: string
-  showAvatar?: boolean
-  avatarUrl?: string
-  /**
-   * The creator's auth user id. Present only on the live storefront, where
-   * subscribing also follows; the builder canvas leaves it out so a preview
-   * cannot write to the follow graph.
-   */
-  creatorUserId?: string
-  creatorName?: string
-  style?: "style1" | "style2" | "style3"
-  customCtaText?: string
-  enableStickyBar?: boolean
-  enableStickyOnScrollUp?: boolean
-  buttonStyle?: ButtonStylePreset
-  // Allow colors object for compatibility with store builder config
-  colors?: {
-    backgroundColor?: string
-    textColor?: string
-    accentColor?: string
-  }
-}
+import type { ButtonStylePreset, SubscribeBarSettings } from "@/lib/store-builder/subscribe-text"
+import { buttonStylePresets, getButtonText, getDisplayText } from "@/lib/store-builder/subscribe-text"
 
 interface SubscribeBarProps {
   settings: SubscribeBarSettings
   creatorId: string
   onSubmit?: (email: string) => Promise<void>
-}
-
-/** Get text based on style */
-function getStyleText(style: string | undefined, creatorName?: string): string {
-  switch (style) {
-    case "style2":
-      return "Join our family!"
-    case "style3":
-      return "Join our community!"
-    case "style1":
-    default:
-      return `Join ${creatorName || "our"}'s newsletter!`
-  }
-}
-
-/** Get display text considering customCtaText */
-export function getDisplayText(settings: SubscribeBarSettings, creatorName?: string): string {
-  if (settings.customCtaText && settings.customCtaText.trim()) {
-    return settings.customCtaText.trim()
-  }
-  if (settings.style === "style1") {
-    return getStyleText("style1", creatorName)
-  }
-  return settings.text || getStyleText(settings.style, creatorName)
-}
-
-/** Get button text based on buttonStyle preset */
-export function getButtonText(settings: SubscribeBarSettings, isSubscribed: boolean): string {
-  const stylePreset = settings.buttonStyle || "style1"
-  const preset = buttonStylePresets[stylePreset]
-  return isSubscribed ? preset.subscribed : preset.default
 }
 
 /** Compute if a hex background is "dark" */

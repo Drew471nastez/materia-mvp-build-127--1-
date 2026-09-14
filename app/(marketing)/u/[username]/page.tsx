@@ -9,7 +9,13 @@ import { getPublishedConfig } from "@/lib/store-builder/get-published-config"
 import { SectionRenderer, ShopHeaderRenderer, type ProductData } from "@/components/store-builder/section-renderer"
 import type { AboutSettings, ShopHeaderSettings, GlobalStoreSettings, Section } from "@/lib/store-builder/types"
 import { defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/defaults"
-import { SubscribeBar, getButtonText, getDisplayText } from "@/components/store-builder/subscribe-bar"
+import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
+/**
+ * FROM THE LIB, NOT FROM THE BAR. subscribe-bar.tsx is "use client", and an
+ * export of a client module is a client REFERENCE when a Server Component
+ * imports it — calling one here throws and takes the page down.
+ */
+import { getButtonText, getDisplayText } from "@/lib/store-builder/subscribe-text"
 import { EditCtaButton } from "@/components/storefront/edit-cta-button"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"

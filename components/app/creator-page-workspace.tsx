@@ -23,7 +23,7 @@
  */
 
 import { useCallback, useRef, useState } from "react"
-import { ExternalLink, Loader2, RotateCw, SlidersHorizontal } from "lucide-react"
+import { ExternalLink, Loader2, RotateCw } from "lucide-react"
 
 export function CreatorPageWorkspace({
   handle,
@@ -79,21 +79,6 @@ export function CreatorPageWorkspace({
         >
           <RotateCw className="h-4 w-4" />
         </button>
-
-        {/*
-          The section-by-section builder still exists and still does things
-          this view cannot: adding a section, colour themes, the layout of the
-          product page. It is a second door to the same page rather than a
-          different product, so it is named for what it changes.
-        */}
-        <a
-          href="/creator-page"
-          className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#374151] no-underline transition-colors hover:bg-[#f9fafb]"
-        >
-          <SlidersHorizontal className="h-4 w-4 text-[#6b7280]" />
-          <span className="hidden sm:inline">Sections and theme</span>
-          <span className="sm:hidden">Layout</span>
-        </a>
 
         <a
           href={liveUrl}

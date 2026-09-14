@@ -74,7 +74,13 @@ function main() {
     check("it frames the public creator page", /\/u\/\$\{encodeURIComponent\(handle\)\}\?embedded=1/.test(workspace))
     check("the handle is encoded, so a handle cannot inject a parameter", workspace.includes("encodeURIComponent(handle)"))
     check("there is a way to open the real thing", /target="_blank"/.test(workspace) && workspace.includes("View live"))
-    check("and a way back to the section editor", workspace.includes('href="/creator-page"'))
+    /**
+     * NO DOOR INTO THE SECTION BUILDER. A "Sections and theme" button was here
+     * and it was the old mistake wearing a new label: this screen exists so a
+     * creator edits their page ON the page, and a button that leaves for a
+     * different editor invites them straight back out of it.
+     */
+    check("and no button that leaves for a different editor", !workspace.includes("Sections and theme"))
     /** A frame that never says it is loading reads as a broken page. */
     check("the frame reports when it is loading", workspace.includes("onLoad={() => setLoading(false)}"))
   }
@@ -306,6 +312,72 @@ function main() {
     check(
       "and a reserved first segment is not read as a creator",
       nestedCode.includes("RESERVED_FIRST_SEGMENT") && nestedCode.includes("notFound()"),
+    )
+  }
+
+  // ── 10. A server component may not call a client module's exports ──────
+  {
+    /**
+     * THE CRASH THIS EXISTS FOR.
+     *
+     * The creator page needed getDisplayText/getButtonText to seed the CTA
+     * dialog with what the bar actually shows. They lived in
+     * subscribe-bar.tsx, which is "use client" — and an export of a client
+     * module is NOT a function when a Server Component imports it. The
+     * bundler replaces it with a client reference, and calling one on the
+     * server throws.
+     *
+     * Nothing objected. It type-checked, because the types are real. It
+     * built, because the error only exists at request time. The whole creator
+     * page went down, and because the workspace frames that page, what a
+     * creator saw was "Something went wrong on this page" filling the editor.
+     *
+     * So the rule is checked rather than remembered.
+     */
+    const page = read("app/(marketing)/u/[username]/page.tsx")
+    const bar = read("components/store-builder/subscribe-bar.tsx")
+    const lib = read("lib/store-builder/subscribe-text.ts")
+
+    check("the resolvers live outside the client module", lib.includes("export function getDisplayText"))
+    check("and that module is not a client module", !lib.startsWith('"use client"'))
+    check("the bar is still a client module", bar.startsWith('"use client"'))
+    check("and re-exports them, so nothing else had to change", bar.includes("export { buttonStylePresets, getButtonText, getDisplayText }"))
+
+    check(
+      "the server component imports them from the lib",
+      page.includes('from "@/lib/store-builder/subscribe-text"'),
+    )
+    check(
+      "and calls nothing it imported from the client module",
+      !/import \{[^}]*get(DisplayText|ButtonText)[^}]*\} from "@\/components\//.test(page),
+    )
+
+    /**
+     * The general form: this page is a Server Component, so any VALUE it
+     * imports from a "use client" file and then CALLS is the same bug again.
+     * Components are fine — those are rendered, not called.
+     */
+    const clientImports = [...page.matchAll(/import \{([^}]+)\} from "(@\/components\/[^"]+)"/g)]
+    const offenders: string[] = []
+    for (const [, names, from] of clientImports) {
+      let target: string
+      try {
+        target = read(from.replace("@/", "") + ".tsx")
+      } catch {
+        continue
+      }
+      if (!target.startsWith('"use client"')) continue
+      for (const raw of names.split(",")) {
+        const name = raw.trim().split(" as ").pop()!.trim()
+        /** A lowercase name that is called with parentheses is a function. */
+        if (!name || /^[A-Z]/.test(name)) continue
+        if (new RegExp(`\\b${name}\\s*\\(`).test(page)) offenders.push(`${name} from ${from}`)
+      }
+    }
+    check(
+      "no function imported from a client module is called on the server",
+      offenders.length === 0,
+      offenders.join(", "),
     )
   }
 
