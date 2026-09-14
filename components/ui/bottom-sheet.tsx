@@ -45,6 +45,8 @@ const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const DISMISS_PX = 96
 /** Past this, a release closes however short the drag was. */
 const DISMISS_VELOCITY = 0.5
+/** How far a pull upward can move the sheet before it stops giving. */
+const PULL_CAP = 28
 
 export function BottomSheet({
   isOpen,
@@ -75,6 +77,7 @@ export function BottomSheet({
   const offsetRef = useRef(0)
   const rafRef = useRef<number | null>(null)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const closingRef = useRef(false)
 
   useEffect(() => setMounted(true), [])
 
@@ -116,25 +119,36 @@ export function BottomSheet({
     }, ms)
   }, [])
 
-  /** Out of the way, then gone — the caller's state changes at the end. */
+  /**
+   * Out of the way, then gone.
+   *
+   * ONE DISMISSAL, and `closingRef` is what makes it one. A drag that
+   * dismisses ends by calling `onClose`, which flips `isOpen`, which reached
+   * the effect below and started a SECOND slide from a sheet that had
+   * already left — re-arming the transition and holding the unmount open for
+   * another three hundred milliseconds after the sheet was gone.
+   */
   const dismiss = useCallback((velocity = 0) => {
+    if (closingRef.current) return
+    closingRef.current = true
     const sheet = sheetRef.current
     const travel = Math.max(1, (sheet?.offsetHeight ?? 400) - offsetRef.current)
     /* A hard flick has less left to do and should take less time doing it. */
     const ms = Math.max(140, Math.min(CLOSE_MS, velocity > 0 ? travel / (velocity * 2.2) : CLOSE_MS))
-    settle(sheet?.offsetHeight ?? 600, ms, onClose)
+    settle(sheet?.offsetHeight ?? 600, ms, () => {
+      setPresent(false)
+      onClose()
+    })
   }, [onClose, settle])
 
   /* ── Open and close ─────────────────────────────────────────────────── */
   useEffect(() => {
     if (isOpen) {
+      closingRef.current = false
       setPresent(true)
       return
     }
-    if (!present) return
-    dismiss()
-    const t = setTimeout(() => setPresent(false), CLOSE_MS + 40)
-    return () => clearTimeout(t)
+    if (present) dismiss()
   }, [isOpen, present, dismiss])
 
   /* The entrance, once the node exists to move. */
@@ -192,8 +206,21 @@ export function BottomSheet({
       const y = e.touches[0].clientY
       let next = y - startYRef.current
       if (next < 0) {
-        /* Above the top: resistance, so it gives a little rather than nothing. */
-        next = next / 3
+        /**
+         * =================================================================
+         *  PULLING UP MOVES THE SHEET, AND THE SHEET HAS A BOTTOM
+         * =================================================================
+         * This was `next / 3` with nothing stopping it, so a long upward
+         * drag translated the sheet a long way up — and the sheet is
+         * anchored to the bottom of the screen, so everything it uncovered
+         * down there was the scrim. That is the black band.
+         *
+         * Two things keep it shut. The give is capped, so a pull has
+         * somewhere to go and then firmly stops; and the sheet paints on
+         * past its own bottom edge (see the skirt below), so even the capped
+         * amount uncovers nothing.
+         */
+        next = -PULL_CAP * (1 - Math.exp(next / (PULL_CAP * 2)))
       } else if (!atTop() && next > 0) {
         draggingRef.current = false
         settle(0, 180)
@@ -278,6 +305,17 @@ export function BottomSheet({
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>
           {children}
         </div>
+        {/*
+          THE SKIRT. The sheet's own colour, carried on below where the sheet
+          ends. Nothing here is ever meant to be seen: it is what is there
+          instead of the scrim when the sheet is lifted by a pull, by a
+          keyboard, or by a phone deciding its safe area is bigger than it
+          said. Out of the layout, so it changes nothing above it.
+        */}
+        <div
+          aria-hidden
+          style={{ position: "absolute", left: 0, right: 0, top: "100%", height: 160, background: "inherit" }}
+        />
       </div>
     </div>,
     document.body,

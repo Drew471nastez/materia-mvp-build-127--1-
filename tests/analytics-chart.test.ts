@@ -425,6 +425,16 @@ section("One bottom sheet, and the finger moves it")
     /sheet\.style\.transform = `translate3d/.test(sheet) && !/setDragY/.test(sheet),
   )
   check(
+    "a pull upward is capped, and the sheet paints on past its own bottom",
+    /const PULL_CAP = \d+/.test(sheet) && /top: "100%", height: 160/.test(sheet) && !/next = next \/ 3/.test(sheet),
+    "Uncapped, a long upward drag walks the sheet off the bottom of the screen and the scrim shows under it as a black band.",
+  )
+  check(
+    "one dismissal, not two",
+    /if \(closingRef\.current\) return/.test(sheet) && /closingRef\.current = true/.test(sheet),
+    "A drag that dismisses calls onClose, which flips isOpen, which started a second slide from a sheet that had already left.",
+  )
+  check(
     "a flick closes it, and a flick that has gone stale does not",
     /DISMISS_VELOCITY/.test(sheet) && /performance\.now\(\) - lastAtRef\.current > 80 \? 0 : velocityRef\.current/.test(sheet),
   )
