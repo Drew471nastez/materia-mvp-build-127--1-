@@ -468,7 +468,13 @@ section("Leaving a page always ends, one way or the other")
     // Prefetching made the navigation instant, and an instant navigation
     // paints the next page before this one has drawn the screen at all.
     // Three lines in turn need the time they were written for.
-    /const LEAVING_SEEN_MS = 3_000/.test(editor) &&
+    // The number itself moved to lib/website-builder/navigate-ceiling, beside
+    // the ceiling it starts, because the creator page editor leaves too and a
+    // second copy of it is a second answer to the same question.
+    /export const LEAVING_SEEN_MS = 3_000/.test(
+      readFileSync(join(process.cwd(), "lib/website-builder/navigate-ceiling.ts"), "utf8"),
+    ) &&
+      /LEAVING_SEEN_MS, navigateWithCeiling/.test(editor) &&
       /const start = window\.setTimeout\(\(\) => \{\s*\n\s*cancelCeiling\.current = navigateWithCeiling\([\s\S]*?\}, LEAVING_SEEN_MS\)/.test(editor) &&
       /cancelCeiling\.current = \(\) => window\.clearTimeout\(start\)/.test(editor),
   )
