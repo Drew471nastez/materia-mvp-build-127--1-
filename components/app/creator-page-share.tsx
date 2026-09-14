@@ -23,7 +23,7 @@
  * way to the place that adds it.
  *
  * ---------------------------------------------------------------------------
- *  INLINE AND LIGHT, LIKE EVERY OTHER PANEL IN THIS WORKSPACE
+ *  INLINE AND LIGHT, AND IT LEAVES THE WAY IT ARRIVED
  * ---------------------------------------------------------------------------
  * It arrived as a centred black dialog over a dimmed page. A centred dialog
  * says "stop and decide"; an address to copy is not that. And a near-black
@@ -34,8 +34,9 @@
  */
 
 import { useCallback, useEffect, useState } from "react"
-import { Check, Copy, ExternalLink, Globe, ShieldCheck, X } from "lucide-react"
+import { Check, Copy, ExternalLink, Globe, ShieldCheck } from "lucide-react"
 
+import { InlinePanel } from "@/components/app/inline-panel"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 
 interface Domain {
@@ -105,19 +106,16 @@ export function CreatorPageShare({
 
   const body = (
     <div className="flex flex-col">
-      <div className="flex items-center justify-between border-b border-[#f3f4f6] px-4 py-3">
-        <div className="flex items-center gap-2.5">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          <p className="text-[14px] font-semibold text-[#1a1a2e]">Your page is live</p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f3f4f6]"
-        >
-          <X className="h-4 w-4" strokeWidth={1.75} />
-        </button>
+      {/*
+        NO CLOSE BUTTON. Asked for, and right: this card decides nothing and
+        traps nothing. Clicking off it, pressing Escape and dragging the sheet
+        down all close it, which is three ways out on a card that is really a
+        popover — and an X in the corner made it look like a dialog waiting
+        for an answer it does not have a question for.
+      */}
+      <div className="flex items-center gap-2.5 border-b border-[#f3f4f6] px-4 py-3">
+        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+        <p className="text-[14px] font-semibold text-[#1a1a2e]">Your page is live</p>
       </div>
 
       <div className="space-y-4 px-4 py-4">
@@ -202,18 +200,13 @@ export function CreatorPageShare({
     )
   }
 
-  if (!open) return null
-
+  /*
+    InlinePanel keeps it mounted for the length of the exit animation, so it
+    leaves the way it arrived instead of being deleted on a single frame.
+  */
   return (
-    <>
-      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 z-20 bg-black/10" />
-      <div
-        role="dialog"
-        aria-label="Your creator page"
-        className="wb-settings-in absolute right-3 top-[56px] z-30 w-[380px] overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_24px_60px_-24px_rgba(0,0,0,0.35)]"
-      >
-        {body}
-      </div>
-    </>
+    <InlinePanel open={open} onClose={onClose} label="Your creator page" className="right-3 top-[56px] w-[380px]">
+      {body}
+    </InlinePanel>
   )
 }

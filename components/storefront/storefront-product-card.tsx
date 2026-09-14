@@ -15,6 +15,8 @@
  * back-to-discover chrome, which a creator's own storefront is not.
  */
 
+import type React from "react"
+
 import { ProductCard } from "@/components/explore/product-card"
 import { ProductOwnerMenu } from "./product-owner-menu"
 
@@ -43,8 +45,8 @@ export interface StorefrontProductCardProps {
    * hidden.
    */
   isOwner?: boolean
-  /** The four colours the page's theme gives a card. See ProductCard. */
-  surface?: { backgroundColor?: string; borderColor?: string; textColor?: string; priceColor?: string }
+  /** The colours the page's theme gives a card. See ProductCard. */
+  surface?: NonNullable<React.ComponentProps<typeof ProductCard>["surface"]>
 }
 
 export function StorefrontProductCard({

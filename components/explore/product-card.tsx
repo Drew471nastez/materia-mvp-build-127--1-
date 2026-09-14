@@ -103,6 +103,21 @@ interface ProductCardProps {
     borderColor?: string
     textColor?: string
     priceColor?: string
+    /**
+     * Everything secondary on the card: the seller's name, the rating, the
+     * struck-through original price. All three were `text-muted-foreground`,
+     * a token that means grey-on-white, so on a dark card they were a shade
+     * away from invisible.
+     */
+    mutedColor?: string
+    /**
+     * The category pill. `variant="secondary"` is a light grey chip with dark
+     * type in it, which on a dark card is a white blob — it is the "Digital"
+     * badge in the report. The discount flag is deliberately NOT themed: red
+     * means a discount, and a scheme does not get to change what it means.
+     */
+    badgeBackgroundColor?: string
+    badgeTextColor?: string
   }
 }
 
@@ -218,17 +233,33 @@ export const ProductCard = memo(function ProductCard({
                 onClick={(e) => e.stopPropagation()}
               >
                 <CreatorAvatar url={creatorAvatarUrl} name={creatorName} size={20} />
-                <span className="text-[13px] text-muted-foreground truncate max-w-[120px] group-hover/seller:underline">
+                <span
+                  className="text-[13px] text-muted-foreground truncate max-w-[120px] group-hover/seller:underline"
+                  style={surface?.mutedColor ? { color: surface.mutedColor } : undefined}
+                >
                   {creatorName}
                 </span>
               </SmartLink>
             )}
             {hasReviews && (
               <>
-                {showCreator && <span className="h-3.5 w-px bg-border/60 shrink-0" />}
+                {showCreator && (
+                  <span
+                    className="h-3.5 w-px bg-border/60 shrink-0"
+                    style={surface?.borderColor ? { background: surface.borderColor } : undefined}
+                  />
+                )}
                 <div className="flex items-center gap-1">
-                  <Star className="h-3.5 w-3.5 fill-current text-foreground" />
-                  <span className="text-[13px] text-muted-foreground">{reviewsAverage.toFixed(1)}</span>
+                  <Star
+                    className="h-3.5 w-3.5 fill-current text-foreground"
+                    style={surface?.textColor ? { color: surface.textColor } : undefined}
+                  />
+                  <span
+                    className="text-[13px] text-muted-foreground"
+                    style={surface?.mutedColor ? { color: surface.mutedColor } : undefined}
+                  >
+                    {reviewsAverage.toFixed(1)}
+                  </span>
                 </div>
               </>
             )}
@@ -238,14 +269,25 @@ export const ProductCard = memo(function ProductCard({
         <SmartLink href={productUrl} useClientNav={clientNav} className="flex-1 flex flex-col">
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-[17px] font-medium leading-tight break-words min-w-0" style={surface?.textColor ? { color: surface.textColor } : undefined}>{product.title}</h3>
-            <Badge variant="secondary" className="shrink-0 text-xs capitalize">
+            <Badge
+              variant="secondary"
+              className="shrink-0 text-xs capitalize"
+              style={
+                surface?.badgeBackgroundColor || surface?.badgeTextColor
+                  ? { backgroundColor: surface.badgeBackgroundColor, color: surface.badgeTextColor }
+                  : undefined
+              }
+            >
               {product.categoryName || product.categories?.[0]?.name || product.category || product.type}
             </Badge>
           </div>
           <div className="mt-auto pt-4">
             <span className="font-semibold" style={surface?.priceColor ? { color: surface.priceColor } : undefined}>{product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}</span>
             {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
-              <span className="ml-2 text-sm text-muted-foreground line-through">
+              <span
+                className="ml-2 text-sm text-muted-foreground line-through"
+                style={surface?.mutedColor ? { color: surface.mutedColor } : undefined}
+              >
                 {formatPrice(product.compare_at_cents)}
               </span>
             )}

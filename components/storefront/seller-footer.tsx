@@ -4,8 +4,27 @@ import { cn } from "@/lib/utils"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 
+export interface SellerFooterSurface {
+  backgroundColor?: string
+  textColor?: string
+  mutedColor?: string
+  borderColor?: string
+}
+
 interface SellerFooterProps {
   isMobile?: boolean
+  /**
+   * THE FOOTER IS PART OF THE PAGE, NOT PART OF STORELIB.
+   *
+   * It was `bg-white` with grey links, whatever the creator's page was doing,
+   * so a page on a dark scheme ended in a white band with "Powered by
+   * Storelib" in it — the one surface on the page that had not heard about
+   * the scheme, sitting at the bottom where it is the last thing anybody
+   * sees. The colours come from the scheme now; the classes remain as the
+   * fallback for the builder canvas and the product pages, which render this
+   * without a surface.
+   */
+  surface?: SellerFooterSurface
 }
 
 /**
@@ -19,7 +38,15 @@ interface SellerFooterProps {
  * IMPORTANT: When editing from a real mobile device, the footer will show
  * the mobile layout regardless of the preview toggle state (uses CSS breakpoints).
  */
-export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
+export function SellerFooter({ isMobile, surface }: SellerFooterProps = {}) {
+  /**
+   * An inline colour only when there is one, so an unthemed footer keeps
+   * exactly the classes it had rather than being handed a second opinion.
+   */
+  const tone = (colour?: string) => (colour ? { color: colour } : undefined)
+  const text = tone(surface?.textColor)
+  const muted = tone(surface?.mutedColor)
+
   const storelibHref = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
 
   const handleStorelibClick = (e: { preventDefault: () => void }) => {
@@ -39,7 +66,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
     <>
       {/* Powered by centered at top */}
       <div className="flex items-center justify-center gap-1.5 w-full">
-        <span className="text-[11px] text-gray-400 whitespace-nowrap">Powered by</span>
+        <span className="text-[11px] text-gray-400 whitespace-nowrap" style={muted}>Powered by</span>
         <a
           href={storelibHref}
           onClick={handleStorelibClick}
@@ -51,7 +78,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
             alt="Storelib"
             className="h-[15px] w-auto rounded-[4px]"
           />
-          <span className="text-[12px] font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
+          <span className="text-[12px] font-semibold text-gray-700 tracking-tight leading-none" style={text}>Storelib</span>
         </a>
       </div>
       {/* Privacy and Terms centered below with separator */}
@@ -59,13 +86,15 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
         <a
           href="/privacy"
           className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+          style={muted}
         >
           Privacy Policy
         </a>
-        <span className="text-[11px] text-gray-300">|</span>
+        <span className="text-[11px] text-gray-300" style={muted ? { color: surface?.borderColor || surface?.mutedColor } : undefined}>|</span>
         <a
           href="/terms"
           className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+          style={muted}
         >
           Terms & Conditions
         </a>
@@ -78,7 +107,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
     <>
       {/* Powered by on left */}
       <div className="flex items-center gap-1.5">
-        <span className="text-sm text-gray-500 whitespace-nowrap">Powered by</span>
+        <span className="text-sm text-gray-500 whitespace-nowrap" style={muted}>Powered by</span>
         <a
           href={storelibHref}
           onClick={handleStorelibClick}
@@ -90,7 +119,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
             alt="Storelib"
             className="h-[18px] w-auto rounded-[4px]"
           />
-          <span className="text-sm font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
+          <span className="text-sm font-semibold text-gray-700 tracking-tight leading-none" style={text}>Storelib</span>
         </a>
       </div>
       {/* Links on right */}
@@ -98,12 +127,14 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
         <a
           href="/privacy"
           className="text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+          style={muted}
         >
           Privacy Policy
         </a>
         <a
           href="/terms"
           className="text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+          style={muted}
         >
           Terms & Conditions
         </a>
@@ -119,7 +150,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
         "flex items-center justify-center gap-1.5 w-full",
         "sm:w-auto sm:justify-start"
       )}>
-        <span className="text-[11px] sm:text-sm text-gray-400 sm:text-gray-500 whitespace-nowrap">Powered by</span>
+        <span className="text-[11px] sm:text-sm text-gray-400 sm:text-gray-500 whitespace-nowrap" style={muted}>Powered by</span>
         <a
           href={storelibHref}
           onClick={handleStorelibClick}
@@ -131,7 +162,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
             alt="Storelib"
             className="h-[15px] sm:h-[18px] w-auto rounded-[4px]"
           />
-          <span className="text-[12px] sm:text-sm font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
+          <span className="text-[12px] sm:text-sm font-semibold text-gray-700 tracking-tight leading-none" style={text}>Storelib</span>
         </a>
       </div>
       {/* Links - bottom on mobile (centered with separator), right on desktop */}
@@ -142,13 +173,15 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
         <a
           href="/privacy"
           className="text-[11px] sm:text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+          style={muted}
         >
           Privacy Policy
         </a>
-        <span className="text-[11px] text-gray-300 sm:hidden">|</span>
+        <span className="text-[11px] text-gray-300 sm:hidden" style={muted ? { color: surface?.borderColor || surface?.mutedColor } : undefined}>|</span>
         <a
           href="/terms"
           className="text-[11px] sm:text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+          style={muted}
         >
           Terms & Conditions
         </a>
@@ -157,7 +190,15 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
   )
 
   return (
-    <footer className="w-full bg-white border-t border-gray-100" data-seller-footer>
+    <footer
+      className="w-full bg-white border-t border-gray-100"
+      data-seller-footer
+      style={
+        surface?.backgroundColor || surface?.borderColor
+          ? { backgroundColor: surface.backgroundColor, borderTopColor: surface.borderColor }
+          : undefined
+      }
+    >
       {useMobileLayout ? (
         // Mobile preview toggle in editor (375px canvas on desktop)
         // But if actual viewport is small (real phone editing), show mobile layout via CSS

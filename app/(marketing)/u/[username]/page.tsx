@@ -1,3 +1,4 @@
+import type React from "react"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -10,6 +11,7 @@ import { SectionRenderer, ShopHeaderRenderer, type ProductData } from "@/compone
 import type { AboutSettings, ShopHeaderSettings, GlobalStoreSettings, Section } from "@/lib/store-builder/types"
 import { defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/defaults"
 import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
+import { LiveSubscribeBar } from "@/components/store-builder/live-subscribe-bar"
 /**
  * FROM THE LIB, NOT FROM THE BAR. subscribe-bar.tsx is "use client", and an
  * export of a client module is a client REFERENCE when a Server Component
@@ -29,10 +31,15 @@ import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 import { deservesIndexing } from "@/lib/security/spam-signals"
 import {
   STOREFRONT_PAGE_BACKGROUND,
-  storefrontPageBackground,
-  isInheritedWhite,
   storefrontSectionBackground,
 } from "@/lib/store-builder/page-surface"
+/**
+ * THE CHROME IS NOT THE SECTIONS. `applySectionThemeColors` below writes the
+ * scheme into `config.sections`; the profile header, the tab strip, the bar
+ * across the top and the footer are rendered OUTSIDE that list, so none of
+ * them ever heard about a scheme change. This resolves their colours.
+ */
+import { resolveStorefrontChrome, type StorefrontBarColors } from "@/lib/store-builder/storefront-chrome"
 
 export const dynamic = "force-dynamic"
 
@@ -219,10 +226,10 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const { username } = await params
   const { src, embedded: embeddedParam } = await searchParams
   /**
-   * Inside /app/creator-page this page IS the editor, so the controls that
+   * Inside /creator-page this page IS the editor, so the controls that
    * would take somebody to the editor have nowhere to go, and links into /app
    * would load the whole app inside the frame. See
-   * components/app/creator-page-workspace.tsx.
+   * components/creator-page-workspace.tsx.
    */
   const embedded = embeddedParam === "1"
 
@@ -492,7 +499,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     })) || []
 
   // Helper function to build subscribe bar settings from published config or defaults
-  const buildSubscribeBarSettings = (headerSettings?: ShopHeaderSettings) => {
+  /**
+   * `bar` is the scheme's answer for the four colours, already reconciled
+   * with whatever the creator typed. It is a parameter rather than something
+   * read in here because the scheme is only known inside the published-config
+   * branch, and the fallback branch below has no scheme at all.
+   */
+  const buildSubscribeBarSettings = (headerSettings?: ShopHeaderSettings, bar?: StorefrontBarColors) => {
     const savedSettings = headerSettings?.subscribeBar
 
     /**
@@ -541,7 +554,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         text: savedSettings.text || "",
 
         placeholder: savedSettings.placeholder || "Enter your email",
-        buttonText: savedSettings.buttonText || "Subscribe",
+        buttonText: savedSettings.buttonText || "",
+        /**
+         * The flag that separates "the creator typed this" from "the builder
+         * wrote the default out". getButtonText needs it, and without it the
+         * "Or your own label" field saves and changes nothing.
+         */
+        buttonTextPreset: savedSettings.buttonTextPreset,
         dismissible: false,
         position: savedSettings.position || ("top" as const),
         showAvatar: savedSettings.showAvatar ?? true,
@@ -552,10 +571,18 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       ? headerSettings.avatarUrl
       : profile.avatar_url || undefined,
         creatorName: profile.display_name || username,
-        backgroundColor: savedSettings.colors?.backgroundColor || "#ffffff",
-        textColor: savedSettings.colors?.textColor || "#000000",
-        buttonColor: savedSettings.buttonColor || "#2563eb",
-        buttonTextColor: savedSettings.buttonTextColor || "#ffffff",
+        /**
+         * THE FOUR COLOURS COME FROM THE SCHEME when the creator has not
+         * chosen. These were hardcoded white / black / blue / white, below
+         * the scheme entirely, which is why the bar stayed a white strip
+         * across the top of a black page. Every preset carries a
+         * `subscribeBar` block built against its own palette; `bar` is that,
+         * with the creator's own values already layered over it.
+         */
+        backgroundColor: bar?.backgroundColor || savedSettings.colors?.backgroundColor || "#ffffff",
+        textColor: bar?.textColor || savedSettings.colors?.textColor || "#000000",
+        buttonColor: bar?.buttonColor || savedSettings.buttonColor || "#2563eb",
+        buttonTextColor: bar?.buttonTextColor || savedSettings.buttonTextColor || "#ffffff",
         style: savedSettings.style || "style1",
         ...stickyDefaults(savedSettings),
         buttonStyle: savedSettings.buttonStyle || "style1",
@@ -568,16 +595,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       customCtaText: "",
       text: "",
       placeholder: "Enter your email",
-      buttonText: "Subscribe",
+      buttonText: "",
       dismissible: false,
       position: "top" as const,
       showAvatar: true,
       avatarUrl: profile.avatar_url || undefined,
       creatorName: profile.display_name || username,
-      backgroundColor: "#ffffff",
-      textColor: "#000000",
-      buttonColor: "#2563eb",
-      buttonTextColor: "#ffffff",
+      backgroundColor: bar?.backgroundColor || "#ffffff",
+      textColor: bar?.textColor || "#000000",
+      buttonColor: bar?.buttonColor || "#2563eb",
+      buttonTextColor: bar?.buttonTextColor || "#ffffff",
       style: "style1" as const,
       // A storefront with no saved config has certainly made no choice, so it
       // gets the platform default like everyone else.
@@ -590,32 +617,42 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   if (publishedConfig && publishedConfig.sections && publishedConfig.sections.length > 0) {
     const headerSettings = (publishedConfig.headerSettings as ShopHeaderSettings) || defaultShopHeaderSettings
     const globalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
-    const subscribeBarSettings = buildSubscribeBarSettings(headerSettings)
-    // Get theme colors from published config
     /**
-     * THE PAGE COLOUR COMES FROM THE THEME WHEN NOBODY CHOSE ONE.
+     * ONE RESOLUTION FOR THE WHOLE OF THE CHROME.
      *
-     * This read only the STORED page colour, so switching to a dark scheme
-     * repainted every section and left the body on the light grey field —
-     * a black cover, a black Featured band, and a pale page in between them.
-     * The theme knows what the page should be (`sections.pageBackgroundColor`)
-     * and its foreground; they are the fallback now.
-     *
-     * The grey-field rule still applies to light schemes: a theme whose page
-     * is white is a theme that "did not choose", exactly like a stored white,
-     * and the field is what keeps white cards visible on it. Only a theme
-     * that actually paints its page a colour gets to.
+     * The page colour, the type on it, the muted type, the hairlines, the
+     * badges, the footer band and the bar's four colours, decided together
+     * from the scheme and whatever the creator stored. Everything below reads
+     * from this rather than reaching for the design system's tokens, which is
+     * how the name came out black-on-black and the footer came out white
+     * under a black page: those components were painted by a stylesheet that
+     * has never heard of a colour scheme.
      */
-    const themePresetKey = globalSettings?.themePreset || "default"
-    const themeForPage = themePresets[themePresetKey as keyof typeof themePresets]
-    const themePage = themeForPage?.sections?.pageBackgroundColor
-    const pageBackgroundColor =
-      publishedConfig.globalColors?.backgroundColor ||
-      (themePage && !isInheritedWhite(themePage) ? themePage : undefined)
-    const themeForeground = themeForPage?.colors?.foreground
-    const pageTextColor =
-      headerSettings?.colors?.textColor ||
-      (themeForeground && themeForeground.toLowerCase() !== "#000000" ? themeForeground : undefined)
+    /**
+     * BOTH PLACES. The builder writes the bar's background and text under
+     * `colors` — that is where the type declares them — and an earlier
+     * version of the quick editor's API wrote them at the top level instead,
+     * where nothing read them. `colors` is canonical; the top level is the
+     * fallback for rows that version left behind.
+     */
+    const storedBar = (headerSettings?.subscribeBar || {}) as NonNullable<ShopHeaderSettings["subscribeBar"]>
+    const chrome = resolveStorefrontChrome(globalSettings?.themePreset, {
+      pageBackground: publishedConfig.globalColors?.backgroundColor,
+      text: headerSettings?.textsColor || headerSettings?.colors?.textColor,
+      /**
+       * BOTH PLACES. The builder writes the bar's background and text under
+       * `colors`; the quick editor writes them at the top level. A reader
+       * that asks for only one of the two is a control that saves and does
+       * nothing, which is what both of them were at different times.
+       */
+      bar: {
+        backgroundColor: storedBar.colors?.backgroundColor || (storedBar as unknown as Record<string, string>).backgroundColor,
+        textColor: storedBar.colors?.textColor || (storedBar as unknown as Record<string, string>).textColor,
+        buttonColor: storedBar.buttonColor,
+        buttonTextColor: storedBar.buttonTextColor,
+      },
+    })
+    const subscribeBarSettings = buildSubscribeBarSettings(headerSettings, chrome.bar)
     // Calculate total sales for About section
     const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
     // Calculate products count for About section
@@ -796,9 +833,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         */}
         <div
           className="min-h-screen overflow-x-hidden"
+          /**
+           * The scheme's colours AND the design system's variables rebound to
+           * them, so `text-muted-foreground`, `bg-card` and `border-border`
+           * inside this subtree mean what the creator's scheme says rather
+           * than what the Storelib app says. See storefront-chrome.ts.
+           */
           style={{
-            background: storefrontPageBackground(pageBackgroundColor),
-            color: pageTextColor || "var(--foreground)",
+            background: chrome.pageBackground,
+            color: chrome.text,
+            ...(chrome.tokens as React.CSSProperties),
           }}
         >
           <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
@@ -816,7 +860,22 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            * empty boxes is not editing what you are looking at.
            */
           <div className="relative">
-            <SubscribeBar settings={{ ...subscribeBarSettings, creatorUserId: profile.id }} creatorId={creator.id} />
+            {/*
+              INSIDE THE EDITOR THE BAR LISTENS; ON A PUBLIC PAGE IT DOES NOT.
+
+              The editor holds this page in a frame, so a change to the bar
+              used to mean a save and a fresh request before the creator could
+              see it. LiveSubscribeBar takes the draft values over postMessage
+              and repaints on the keystroke, which is what the store builder
+              does and what was asked for. It is only mounted for a framed
+              owner: a visitor's page renders the plain bar with no listener
+              on it at all.
+            */}
+            {embedded && viewerIsOwner ? (
+              <LiveSubscribeBar settings={{ ...subscribeBarSettings, creatorUserId: profile.id }} creatorId={creator.id} />
+            ) : (
+              <SubscribeBar settings={{ ...subscribeBarSettings, creatorUserId: profile.id }} creatorId={creator.id} />
+            )}
             {viewerIsOwner && (
               <div className="pointer-events-none absolute inset-y-0 left-2 z-20 flex items-center sm:left-3">
                 <div className="pointer-events-auto">
@@ -841,6 +900,14 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           reviewCount={creatorReviewCount}
           reviewAverage={creatorRating}
           followerCount={followerCount ?? 0}
+          /**
+           * The scheme's type colours. Without these the block reads its own
+           * stored `colors.textColor`, which for nearly every account on the
+           * platform is a "#000000" the builder wrote out on some unrelated
+           * save — so a creator on a dark scheme got their own name in black
+           * on black, which is the screenshot that started this.
+           */
+          surface={{ textColor: chrome.text, mutedColor: chrome.muted }}
         />
 
         {(() => {
@@ -996,7 +1063,10 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            */
           return (
             <>
-              <StorefrontTabs tabs={tabs} />
+              <StorefrontTabs
+                tabs={tabs}
+                surface={{ textColor: chrome.text, mutedColor: chrome.muted, borderColor: chrome.border }}
+              />
               {creatorReviewCount > 0 && (
                 <ReviewsPanel reviews={reviewsForPanel} average={creatorRating} total={creatorReviewCount} />
               )}
@@ -1005,7 +1075,14 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           )
         })()}
 
-        <SellerFooter />
+        <SellerFooter
+          surface={{
+            backgroundColor: chrome.footerBackground,
+            textColor: chrome.footerText,
+            mutedColor: chrome.footerMuted,
+            borderColor: chrome.border,
+          }}
+        />
       </div>
       </>
     )

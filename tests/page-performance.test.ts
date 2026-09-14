@@ -1216,8 +1216,16 @@ check(
       }
     }
 
-    if (!/storefrontPageBackground\(pageBackgroundColor\)/.test(page))
-      missing.push("the page background no longer goes through the surface rule")
+    /**
+     * The page reads its background off the resolved chrome now, and
+     * resolveStorefrontChrome is what calls the surface rule. The rule itself
+     * is exercised above; this checks the page still goes through it.
+     */
+    const chrome = read("lib/store-builder/storefront-chrome.ts")
+    if (!/background: chrome\.pageBackground/.test(page))
+      missing.push("the page background no longer comes from the resolved chrome")
+    if (!/storefrontPageBackground\(/.test(chrome))
+      missing.push("the chrome no longer goes through the surface rule — theme white will paint slabs again")
     if (!/storefrontSectionBackground\(section\.settings\.colors\?\.backgroundColor\)/.test(page))
       missing.push("section backgrounds no longer go through the rule — Featured will paint a white slab again")
     if (/min-h-screen bg-background/.test(page))
@@ -1322,7 +1330,7 @@ check(
     if (!/OwnerMenu/.test(slot))
       missing.push("the owner menu is outside the owner-only slot — every visitor would see it")
 
-    for (const href of ["/app/products", "/app/creator-page", "/app/analytics", "/app/settings"]) {
+    for (const href of ["/app/products", "/creator-page", "/app/analytics", "/app/settings"]) {
       if (!menu.includes(`"${href}"`)) {
         missing.push(`the menu no longer links to ${href}`)
         continue
@@ -1948,7 +1956,7 @@ check(
     if (/label: "About"/.test(page)) missing.push("About is a tab again")
     // Below the panels, and last of everything below them — the reviews block
     // now sits between the two.
-    if (!/<StorefrontTabs tabs=\{tabs\} \/>[\s\S]{0,400}?\{about\}\s*<\/>/.test(page))
+    if (!/<StorefrontTabs[\s\S]{0,300}?\/>[\s\S]{0,400}?\{about\}\s*<\/>/.test(page))
       missing.push("About no longer renders last, after the tab panels, on every tab")
     /**
      * The desktop half is behind `!isMobile` so the store builder's phone

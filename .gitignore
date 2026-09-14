@@ -41,5 +41,8 @@ public/sites/monaco/
 tsconfig.*.generated.json
 .chart-probe/
 
+# Written by scripts/check-creator-chrome.mjs while it bundles the probe.
+.chrome-probe/
+
 # Stub modules the render probes write and delete at run time
 .wb-probe/

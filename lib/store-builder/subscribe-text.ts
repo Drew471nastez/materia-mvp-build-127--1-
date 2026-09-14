@@ -62,6 +62,11 @@ export interface SubscribeBarSettings {
   enableStickyBar?: boolean
   enableStickyOnScrollUp?: boolean
   buttonStyle?: ButtonStylePreset
+  /**
+   * Whether `buttonText` is the creator's own words or a leftover default.
+   * See getButtonText: this is the only thing that separates the two.
+   */
+  buttonTextPreset?: string
   // Allow colors object for compatibility with store builder config
   colors?: {
     backgroundColor?: string
@@ -94,9 +99,30 @@ export function getDisplayText(settings: SubscribeBarSettings, creatorName?: str
   return settings.text || getStyleText(settings.style, creatorName)
 }
 
-/** Get button text based on buttonStyle preset */
+/**
+ * The button's label: the creator's own words when they typed some, otherwise
+ * the preset they picked.
+ *
+ * THE CUSTOM LABEL WAS BEING WRITTEN AND NEVER READ. This only ever returned
+ * a preset, so "Or your own label" in the editor saved a string to the config
+ * and the bar went on saying "Subscribe" — a field that persists and does
+ * nothing, which is worse than not offering it.
+ *
+ * `buttonTextPreset === "custom"` is the discriminator rather than "is
+ * `buttonText` non-empty", and that distinction matters: the builder writes
+ * `buttonText: "Subscribe"` out on saves nobody asked it to, so treating any
+ * non-empty string as a choice would pin thousands of existing pages to
+ * "Subscribe" and quietly break the preset selector for all of them. The API
+ * sets the flag alongside the text and clears it when the field is emptied.
+ *
+ * Subscribed is always the preset's word. "Subscribed" is a state, not a
+ * label, and a creator who typed "Get the drop" did not mean it to be the
+ * confirmation.
+ */
 export function getButtonText(settings: SubscribeBarSettings, isSubscribed: boolean): string {
   const stylePreset = settings.buttonStyle || "style1"
   const preset = buttonStylePresets[stylePreset]
-  return isSubscribed ? preset.subscribed : preset.default
+  if (isSubscribed) return preset.subscribed
+  const custom = settings.buttonTextPreset === "custom" ? settings.buttonText?.trim() : ""
+  return custom || preset.default
 }

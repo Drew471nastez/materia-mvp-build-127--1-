@@ -2,7 +2,7 @@
 
 /**
  * ===========================================================================
- *  THE CREATOR PAGE, EDITED WHERE IT LIVES, INSIDE THE APP
+ *  THE CREATOR PAGE, EDITED WHERE IT LIVES
  * ===========================================================================
  * The frame holds the real /u/<handle>, signed in, so every control a creator
  * already has on their page is the control they use here. Nothing is
@@ -13,35 +13,45 @@
  * the page stays unframeable by anybody, us included.
  *
  * ---------------------------------------------------------------------------
- *  TWO FRAMES, SO A CHANGE IS NEVER A WHITE FLASH
+ *  ITS OWN SCREEN
+ * ---------------------------------------------------------------------------
+ * This moved into /app for a round, to keep the sidebar, and back out again
+ * on the owner's instruction. Their reason holds: a creator page is a
+ * full-width design, and editing one through the two thirds of a window an
+ * /app sidebar leaves means judging a narrower page than the one being
+ * published. The way back to the app is the arrow at the left of the bar.
+ *
+ * ---------------------------------------------------------------------------
+ *  TWO FRAMES, AND THE NEW ONE FADES UP OVER THE OLD
  * ---------------------------------------------------------------------------
  * A colour scheme is applied server side, so seeing it means fetching the
  * page again. Reloading the one frame in place unmounts the document first,
- * and for the width of a network round trip the canvas is white — which read
- * as "it broke and came back" on every single change.
+ * and for the width of a round trip the canvas is white — which read as "it
+ * broke and came back" on every single change.
  *
- * So there are two frames and only one is ever visible. A change loads into
- * the hidden one; when it says it has loaded, the two swap. The old page
- * stays on screen until the new page is ready to replace it, and the
- * replacement is a cut, not a blank.
+ * So there are two frames. A change loads into the hidden one; when it says
+ * it has loaded, it comes to the front and fades up over the old one, which
+ * stays fully opaque underneath until it is covered. There is never a frame
+ * of empty canvas, and the change reads as a change rather than as a cut.
  *
  * ---------------------------------------------------------------------------
- *  THE TOOLS ARE THE BUILDER'S TOOLS
+ *  THE BAR EDITS IN REAL TIME
  * ---------------------------------------------------------------------------
- * The bar editor is a panel that rises in at the side on a desktop and the
- * builder's own MobileEditorSheet on a phone. Its colour control is the
- * builder's colour control — the same swatch beside the same hex field —
- * because two editors in one product that draw the same control two ways
- * feel like two products.
+ * Everything in the Top bar panel is posted into the frame as it is typed, so
+ * the canvas repaints on the keystroke. Save writes it; the reload that
+ * follows is invisible because of the two frames above. Cancel posts the
+ * original values back, so leaving the panel undoes what leaving it should.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { createPortal } from "react-dom"
-import { Check, ChevronDown, ExternalLink, Loader2, Palette, RotateCw, SlidersHorizontal, X } from "lucide-react"
+import { ArrowLeft, Check, ChevronDown, ExternalLink, Loader2, Palette, RotateCw, SlidersHorizontal, X } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 import { BuilderLoader } from "@/components/website-builder/builder-loader"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { CreatorPageShare } from "@/components/app/creator-page-share"
+import { InlinePanel } from "@/components/app/inline-panel"
+import { CREATOR_EDITOR_CHANNEL } from "@/components/store-builder/live-subscribe-bar"
 import { themePresets } from "@/lib/store-builder/defaults"
 import type { ThemePreset } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
@@ -95,6 +105,7 @@ export function CreatorPageWorkspace({
   themePreset: string
   cta: CtaValues
 }) {
+  const router = useRouter()
   const [shareOpen, setShareOpen] = useState(false)
   const [portalReady, setPortalReady] = useState(false)
   const [isPhone, setIsPhone] = useState(false)
@@ -116,6 +127,7 @@ export function CreatorPageWorkspace({
   const [srcs, setSrcs] = useState<[string, string]>([srcFor(0), ""])
   const [firstLoad, setFirstLoad] = useState(true)
   const version = useRef(0)
+  const frames = useRef<Array<HTMLIFrameElement | null>>([null, null])
 
   /** Load the page again, into the frame nobody is looking at. */
   const reframe = useCallback(() => {
@@ -134,9 +146,44 @@ export function CreatorPageWorkspace({
     if (index !== front && srcs[index]) setFront(index)
   }
 
+  /**
+   * THE DRAFT, POSTED INTO BOTH FRAMES.
+   *
+   * Both, not just the visible one: the hidden frame may be part way through
+   * loading a fresh copy, and a draft that only reached the front would be
+   * lost the moment the two swapped. Held in a ref as well, so the frame can
+   * ask for it again after it reloads (it says "ready" when it mounts).
+   */
+  const draft = useRef<CtaValues | null>(null)
+  const post = useCallback((values: CtaValues | null) => {
+    draft.current = values
+    for (const frame of frames.current) {
+      try {
+        frame?.contentWindow?.postMessage(
+          { channel: CREATOR_EDITOR_CHANNEL, kind: "bar", values: values ?? {} },
+          window.location.origin,
+        )
+      } catch {
+        /* A frame that has not loaded yet has no window; it will say "ready". */
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+      const data = event.data as { channel?: string; kind?: string } | null
+      if (!data || data.channel !== CREATOR_EDITOR_CHANNEL || data.kind !== "ready") return
+      if (draft.current) post(draft.current)
+    }
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [post])
+
   // ── The colour scheme ────────────────────────────────────────────────────
   const [scheme, setScheme] = useState(themePreset)
   const [schemeOpen, setSchemeOpen] = useState(false)
+  const [applying, setApplying] = useState(false)
   const schemeRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -154,23 +201,41 @@ export function CreatorPageWorkspace({
       if (preset === scheme) return
       const previous = scheme
       setScheme(preset)
+      setApplying(true)
       try {
         const res = await fetch("/api/creator-profile", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ themePreset: preset }),
         })
-        if (!res.ok) return setScheme(previous)
+        if (!res.ok) {
+          setScheme(previous)
+          setApplying(false)
+          return
+        }
         reframe()
       } catch {
         setScheme(previous)
+        setApplying(false)
       }
     },
     [scheme, reframe],
   )
 
+  /** The spinner in the palette button goes when the new render is on screen. */
+  useEffect(() => {
+    if (applying) setApplying(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [front])
+
   // ── The bar across the top of the page ───────────────────────────────────
   const [ctaOpen, setCtaOpen] = useState(false)
+
+  const closeCta = useCallback(() => {
+    setCtaOpen(false)
+    /* Leaving without saving puts the page back where it was. */
+    post(null)
+  }, [post])
 
   /**
    * A SWATCH IS A TINY PAGE, not three stripes. The page colour, a card on it
@@ -218,9 +283,19 @@ export function CreatorPageWorkspace({
   )
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col bg-[#f1f1f3]">
-      {/* ONE LIGHT ROW. The handle first, because it is the subject. */}
+    <div className="relative flex h-svh min-h-0 flex-col overflow-hidden bg-[#f1f1f3]">
+      {/* ONE LIGHT ROW. The way back first, then the handle, then the tools. */}
       <div className="flex shrink-0 items-center gap-1.5 border-b border-[#e5e7eb] bg-white px-3 py-2 sm:gap-2 sm:px-4">
+        <button
+          type="button"
+          onClick={() => router.push("/app")}
+          aria-label="Back to Storelib"
+          title="Back to Storelib"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
+        >
+          <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={1.75} />
+        </button>
+
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-semibold leading-tight text-[#1a1a2e]">{displayName}</p>
           <p className="truncate text-[11px] leading-tight text-[#9ca3af]">
@@ -248,7 +323,11 @@ export function CreatorPageWorkspace({
             title="Colour scheme"
             className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[13px] font-medium text-[#374151] transition-colors hover:bg-[#f9fafb] sm:px-3"
           >
-            <Palette className="h-4 w-4 text-[#6b7280]" />
+            {applying ? (
+              <Loader2 className="h-4 w-4 animate-spin text-[#6b7280]" />
+            ) : (
+              <Palette className="h-4 w-4 text-[#6b7280]" />
+            )}
             <span className="hidden lg:inline">{themePresets[scheme as ThemePreset]?.name ?? "Theme"}</span>
           </button>
           {schemeOpen && !isPhone && (
@@ -303,13 +382,25 @@ export function CreatorPageWorkspace({
             srcs[i] ? (
               <iframe
                 key={i}
+                ref={(el) => { frames.current[i] = el }}
                 src={srcs[i]}
                 title={i === front ? `${displayName}'s creator page` : "Loading the next version"}
                 aria-hidden={i !== front}
                 onLoad={() => onFrameLoad(i)}
                 className={cn(
                   "absolute inset-0 block h-full w-full border-0 bg-white",
-                  i === front ? "z-[1] opacity-100" : "z-0 opacity-0 pointer-events-none",
+                  /*
+                    The front frame carries the fade. Moving the class between
+                    the two elements is what restarts the animation, so every
+                    swap plays it and a re-render in between does not.
+
+                    The other frame stays OPAQUE rather than being hidden:
+                    fading in over a transparent frame would show the white
+                    canvas underneath for a third of a second, which on a dark
+                    scheme is the flash this whole arrangement exists to
+                    remove.
+                  */
+                  i === front ? "creator-frame-in z-[2]" : "z-[1] pointer-events-none",
                 )}
               />
             ) : null,
@@ -332,19 +423,19 @@ export function CreatorPageWorkspace({
       {/* The bar editor: a panel at the side on a desktop, the sheet on a phone. */}
       {isPhone ? (
         portalReady && (
-          <MobileEditorSheet open={ctaOpen} onOpenChange={setCtaOpen} detents={[0.92]} openFull>
-            <CtaEditor initial={cta} onClose={() => setCtaOpen(false)} onSaved={reframe} />
+          <MobileEditorSheet open={ctaOpen} onOpenChange={(o) => { if (!o) closeCta() }} detents={[0.92]} openFull>
+            <CtaEditor initial={cta} onClose={closeCta} onPreview={post} onSaved={reframe} />
           </MobileEditorSheet>
         )
       ) : (
-        ctaOpen && (
-          <>
-            <button type="button" aria-label="Close" onClick={() => setCtaOpen(false)} className="absolute inset-0 z-20 bg-black/10" />
-            <div className="wb-settings-in absolute bottom-3 right-3 top-[56px] z-30 w-[360px] overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_24px_60px_-24px_rgba(0,0,0,0.35)]">
-              <CtaEditor initial={cta} onClose={() => setCtaOpen(false)} onSaved={reframe} />
-            </div>
-          </>
-        )
+        <InlinePanel
+          open={ctaOpen}
+          onClose={closeCta}
+          label="Top bar"
+          className="bottom-3 right-3 top-[56px] w-[360px]"
+        >
+          <CtaEditor initial={cta} onClose={closeCta} onPreview={post} onSaved={reframe} />
+        </InlinePanel>
       )}
     </div>
   )
@@ -410,12 +501,38 @@ function Select({ label, value, options, onChange }: { label: string; value: str
  * one; which button label, or a custom one; and the four colours. It writes
  * through the same /api/creator-profile everything else on the page uses,
  * which validates every colour as a hex before it reaches a public page.
+ *
+ * EVERY CHANGE IS POSTED TO THE CANVAS as it is made, so the page behind the
+ * panel is already showing what Save is about to store. That is the whole of
+ * "it should appear in real time, I should not have to reload and wait".
  */
-function CtaEditor({ initial, onClose, onSaved }: { initial: CtaValues; onClose: () => void; onSaved: () => void }) {
+function CtaEditor({
+  initial,
+  onClose,
+  onPreview,
+  onSaved,
+}: {
+  initial: CtaValues
+  onClose: () => void
+  onPreview: (values: CtaValues | null) => void
+  onSaved: () => void
+}) {
   const [v, setV] = useState<CtaValues>(initial)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const set = <K extends keyof CtaValues>(key: K, value: CtaValues[K]) => setV((s) => ({ ...s, [key]: value }))
+
+  const set = <K extends keyof CtaValues>(key: K, value: CtaValues[K]) =>
+    setV((s) => {
+      const next = { ...s, [key]: value }
+      onPreview(next)
+      return next
+    })
+
+  /** Opening shows the stored state, which is what the canvas already has. */
+  useEffect(() => {
+    setV(initial)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const save = async () => {
     setSaving(true)
@@ -426,7 +543,17 @@ function CtaEditor({ initial, onClose, onSaved }: { initial: CtaValues; onClose:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subscribeBar: v }),
       })
-      if (!res.ok) return setError("That could not be saved. Try again.")
+      if (!res.ok) {
+        setError("That could not be saved. Try again.")
+        return
+      }
+      /*
+        The panel closes on what is already on screen. The reload behind it
+        replaces the preview with the server's own render of the same values,
+        so the draft is dropped only once the real thing has arrived — see the
+        two frames in the workspace.
+      */
+      setSaving(false)
       onClose()
       onSaved()
     } catch {

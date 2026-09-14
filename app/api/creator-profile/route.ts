@@ -175,6 +175,18 @@ export async function PATCH(request: NextRequest) {
         out[key] = v.trim().toLowerCase()
       }
     }
+    /**
+     * THE BAR KEEPS ITS TWO COLOURS IN TWO PLACES, and this wrote only one.
+     *
+     * The builder stores the bar's background and text under `colors`,
+     * because every section's settings extend a base that has a `colors`
+     * block; the button's two live at the top level because they are not part
+     * of that base. This wrote all four at the top level, and the live page
+     * reads the first two out of `colors` — so Background and Text in the
+     * editor saved, round-tripped back into the editor, and never reached the
+     * page. Both are written now, so whichever a reader asks for is right.
+     */
+
     /** The bar's own presets: which generated sentence, which button label. */
     if (typeof value.style === "string" && ["style1", "style2", "style3"].includes(value.style)) out.style = value.style
     if (typeof value.buttonStyle === "string" && ["style1", "style2", "style3", "style4"].includes(value.buttonStyle)) {
@@ -343,7 +355,27 @@ export async function PATCH(request: NextRequest) {
     }
     if (display) Object.assign(next, display)
     if (subscribeBar) {
-      next.subscribeBar = { ...(header.subscribeBar || {}), ...subscribeBar } as ShopHeaderSettings["subscribeBar"]
+      const existing = (header.subscribeBar || {}) as Record<string, unknown>
+      /**
+       * THE BAR KEEPS ITS TWO COLOURS IN TWO PLACES, and this wrote only one.
+       *
+       * The builder stores the bar's background and text under `colors`,
+       * because every section's settings extend a base that has a `colors`
+       * block; the button's two live at the top level, which is not part of
+       * that base. Writing all four at the top level meant Background and
+       * Text saved, round-tripped back into the editor, and never reached the
+       * page, which reads those two out of `colors`. Both places are written
+       * now, merged over whatever is already there so nothing else in the
+       * block is dropped.
+       */
+      const colors = { ...((existing.colors as Record<string, unknown>) || {}) }
+      if (subscribeBar.backgroundColor) colors.backgroundColor = subscribeBar.backgroundColor
+      if (subscribeBar.textColor) colors.textColor = subscribeBar.textColor
+      next.subscribeBar = {
+        ...existing,
+        ...subscribeBar,
+        ...(Object.keys(colors).length > 0 ? { colors } : {}),
+      } as unknown as ShopHeaderSettings["subscribeBar"]
     }
     /** "" is a real value here: it means take the link off the page. */
     if (contactEmail !== undefined) next.contactEmail = contactEmail || undefined

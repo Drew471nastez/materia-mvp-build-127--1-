@@ -42,6 +42,8 @@ import { CatalogHeader } from "@/components/storefront/catalog-controls"
 const LEGACY_FEATURED_HEADLINE = "Featured Products"
 import { StorefrontProductCard } from "@/components/storefront/storefront-product-card"
 import { avatarSizeMap } from "@/lib/store-builder/defaults"
+import { cardAccents, isInheritedBlack } from "@/lib/store-builder/storefront-chrome"
+import { isInheritedWhite } from "@/lib/store-builder/page-surface"
 import { isOptimizableImage, optimizedImageUrl, PORTRAIT_QUALITY } from "@/lib/images/optimized-url"
 import { videoEmbedUrl } from "@/lib/social/video"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -2490,6 +2492,12 @@ function UnifiedFeaturedProductsSection({
                     borderColor: cardBorderColor,
                     textColor: cardTextColor,
                     priceColor: cardPriceColor,
+                    /**
+                     * The pill and the seller row. Not in the theme's card
+                     * block, which states two colours; derived from those two
+                     * so they land between them on any scheme.
+                     */
+                    ...cardAccents(cardBgColor, cardTextColor),
                   }}
                 />
               )
@@ -2568,6 +2576,19 @@ export interface UnifiedShopHeaderProps {
   reviewCount?: number
   reviewAverage?: number
   followerCount?: number
+  /**
+   * THE COLOUR SCHEME'S TYPE COLOURS, resolved by the page.
+   *
+   * This block painted itself from `settings.colors.textColor`, falling back
+   * to `text-foreground`. Both are wrong on a themed page: the builder writes
+   * that setting out as "#000000" on every save whether or not anybody chose
+   * it, and `text-foreground` is the Storelib app's near-black. So a creator
+   * on a dark scheme got their own name in black on black — which is the
+   * screenshot this exists to fix.
+   *
+   * A colour the creator ACTUALLY typed still wins; see `isInheritedBlack`.
+   */
+  surface?: { textColor?: string; mutedColor?: string }
 }
 
 export function UnifiedShopHeader({
@@ -2588,7 +2609,21 @@ export function UnifiedShopHeader({
   reviewCount = 0,
   reviewAverage = 0,
   followerCount = 0,
+  surface,
 }: UnifiedShopHeaderProps) {
+  /**
+   * One decision, used by the name, the handle, the bio and the meta row.
+   *
+   * `storedText` is only a choice when it is not the default black the
+   * builder writes out unasked. When it is a choice it wins outright, muted
+   * included; when it is not, the scheme's colours apply; when there is no
+   * scheme either (the builder canvas, a product page), both are undefined
+   * and the design-system classes below stay in charge exactly as before.
+   */
+  const storedText = settings.textsColor || settings.colors?.textColor
+  const chosenText = isInheritedBlack(storedText) ? undefined : storedText
+  const headingColor = chosenText || surface?.textColor
+  const subduedColor = chosenText ? `${chosenText}99` : surface?.mutedColor
   const avatarSizeChoice = isMobile
     ? settings.mobileAvatarSizeChoice || "medium"
     : settings.avatarSizeChoice || "medium"
@@ -2618,7 +2653,17 @@ export function UnifiedShopHeader({
         !isPreviewMode && onSelect && "cursor-pointer",
         !isPreviewMode && isSelected && "ring-2 ring-sky-500 ring-inset",
       )}
-      style={{ backgroundColor: settings.colors?.backgroundColor || "transparent" }}
+      /**
+       * A STORED WHITE IS NOT A CHOICE — page-surface.ts settles why. Without
+       * this the header band stays white on Cream's #FAF4E8 page and on any
+       * dark scheme, because the builder writes "#ffffff" out on every save.
+       */
+      style={{
+        backgroundColor:
+          surface && isInheritedWhite(settings.colors?.backgroundColor)
+            ? "transparent"
+            : settings.colors?.backgroundColor || "transparent",
+      }}
     >
       {showPlaceholder ? (
         <div
@@ -2935,9 +2980,9 @@ export function UnifiedShopHeader({
             className={cn(
               "mt-3 font-semibold break-words max-w-full px-4 flex items-center justify-center gap-1.5",
               isMobile ? "text-lg" : "text-xl sm:text-2xl mt-4",
-              !(settings.textsColor || settings.colors?.textColor) && "text-foreground",
+              !headingColor && "text-foreground",
             )}
-            style={{ color: settings.textsColor || settings.colors?.textColor || undefined }}
+            style={{ color: headingColor }}
           >
             {profile?.display_name || "Creator"}
             {globalSettings?.verifiedBadgeEnabled && (
@@ -2983,15 +3028,9 @@ export function UnifiedShopHeader({
               className={cn(
                 "mt-0.5 break-words max-w-full px-4",
                 isMobile ? "text-xs" : "text-sm",
-                !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
+                !subduedColor && "text-muted-foreground",
               )}
-              style={{
-                color: settings.textsColor
-                  ? `${settings.textsColor}99`
-                  : settings.colors?.textColor
-                    ? `${settings.colors.textColor}99`
-                    : undefined,
-              }}
+              style={{ color: subduedColor }}
             >
               @{profile.username}
             </p>
@@ -3019,9 +3058,9 @@ export function UnifiedShopHeader({
                   // used to be two separately-margined blocks, and the column
                   // read as a series of unrelated islands.
                   isMobile ? "mt-3 text-xs" : "mt-4 text-sm",
-                  !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
+                  !subduedColor && "text-muted-foreground",
                 )}
-                style={{ color: settings.textsColor ? `${settings.textsColor}99` : (settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined) }}
+                style={{ color: subduedColor }}
               >
                 {settings.bio || creator?.bio}
               </p>
@@ -3155,15 +3194,9 @@ export function UnifiedShopHeader({
                 className={cn(
                   "flex flex-wrap items-center justify-center gap-x-3 gap-y-2",
                   isMobile ? "mt-3 text-xs" : "mt-4 text-sm",
-                  !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
+                  !subduedColor && "text-muted-foreground",
                 )}
-                style={{
-                  color: settings.textsColor
-                    ? `${settings.textsColor}99`
-                    : settings.colors?.textColor
-                      ? `${settings.colors.textColor}99`
-                      : undefined,
-                }}
+                style={{ color: subduedColor }}
               >
                 {parts.map((part, i) => (
                   <Fragment key={i}>

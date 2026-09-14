@@ -71,11 +71,29 @@ export function EmptyTabPanel({
   )
 }
 
+export interface StorefrontTabsSurface {
+  textColor?: string
+  mutedColor?: string
+  borderColor?: string
+}
+
 export function StorefrontTabs({
   tabs,
   isMobile = false,
+  surface,
 }: {
   tabs: StorefrontTab[]
+  /**
+   * THE SCHEME'S COLOURS, because `text-foreground` is not one.
+   *
+   * The strip was painted entirely from design-system tokens — foreground for
+   * the active tab and the sliding bar, muted-foreground for the others,
+   * border for the rule. Those tokens describe the Storelib app, not the
+   * creator's page, so on a dark scheme the three labels stayed dark grey on
+   * near-black and the rule under them vanished. The classes stay as the
+   * fallback for the builder canvas, which renders this without a surface.
+   */
+  surface?: StorefrontTabsSurface
   /**
    * The store builder's phone preview, where the frame is narrow but the
    * viewport is not — so CSS cannot see it and has to be told. Every other
@@ -174,6 +192,7 @@ export function StorefrontTabs({
               "relative flex w-full gap-0 border-b border-border",
               !isMobile && "sm:w-auto sm:min-w-max sm:justify-start sm:gap-7",
             )}
+            style={surface?.borderColor ? { borderBottomColor: surface.borderColor } : undefined}
             role="tablist"
           >
             {tabs.map((tab) => {
@@ -213,6 +232,14 @@ export function StorefrontTabs({
                      */
                     selected && !bar ? "border-foreground" : "border-transparent",
                   )}
+                  style={
+                    surface?.textColor || surface?.mutedColor
+                      ? {
+                          color: selected ? surface.textColor : surface.mutedColor || surface.textColor,
+                          borderBottomColor: selected && !bar ? surface.textColor : "transparent",
+                        }
+                      : undefined
+                  }
                 >
                   {tab.label}
                 </button>
@@ -223,7 +250,7 @@ export function StorefrontTabs({
               <span
                 aria-hidden
                 className="absolute -bottom-px h-0.5 rounded-full bg-foreground transition-[left,width] duration-[220ms] ease-out motion-reduce:transition-none"
-                style={{ left: bar.left, width: bar.width }}
+                style={{ left: bar.left, width: bar.width, background: surface?.textColor }}
               />
             )}
           </div>
