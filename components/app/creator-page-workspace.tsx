@@ -41,6 +41,7 @@ import { Check, ChevronDown, ExternalLink, Loader2, Palette, RotateCw, SlidersHo
 
 import { BuilderLoader } from "@/components/website-builder/builder-loader"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
+import { CreatorPageShare } from "@/components/app/creator-page-share"
 import { themePresets } from "@/lib/store-builder/defaults"
 import type { ThemePreset } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
@@ -94,6 +95,7 @@ export function CreatorPageWorkspace({
   themePreset: string
   cta: CtaValues
 }) {
+  const [shareOpen, setShareOpen] = useState(false)
   const [portalReady, setPortalReady] = useState(false)
   const [isPhone, setIsPhone] = useState(false)
 
@@ -106,7 +108,6 @@ export function CreatorPageWorkspace({
     return () => mq.removeEventListener("change", sync)
   }, [])
 
-  const liveUrl = `/u/${encodeURIComponent(handle)}`
   const srcFor = (v: number) => `/u/${encodeURIComponent(handle)}?embedded=1&v=${v}`
 
   // ── The two frames ──────────────────────────────────────────────────────
@@ -267,15 +268,23 @@ export function CreatorPageWorkspace({
           <RotateCw className="h-4 w-4" />
         </button>
 
-        <a
-          href={liveUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-semibold text-white no-underline transition-colors hover:bg-[#2a2a3e]"
+        {/*
+          THE ADDRESS, NOT A ONE-WAY DOOR.
+
+          This was a bare link out, so the only thing the bar could do with
+          the page's own address was leave for it. Opening the card first puts
+          the address somewhere it can be copied, says in words that a creator
+          page needs no publishing, and is the way to a custom domain.
+          Opening the page is still one tap inside it.
+        */}
+        <button
+          type="button"
+          onClick={() => setShareOpen(true)}
+          className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-semibold text-white transition-colors hover:bg-[#2a2a3e]"
         >
           <ExternalLink className="h-4 w-4" />
-          <span className="hidden sm:inline">View live</span>
-        </a>
+          <span className="hidden sm:inline">Share</span>
+        </button>
       </div>
 
       {/*
@@ -317,6 +326,8 @@ export function CreatorPageWorkspace({
           </div>
         </MobileEditorSheet>
       )}
+
+      <CreatorPageShare open={shareOpen} onClose={() => setShareOpen(false)} handle={handle} isPhone={isPhone} />
 
       {/* The bar editor: a panel at the side on a desktop, the sheet on a phone. */}
       {isPhone ? (

@@ -73,8 +73,18 @@ import { MonitorIcon as WebsiteBuilderLinear } from "@solar-icons/react/linear/m
 import { MonitorIcon as WebsiteBuilderBold } from "@solar-icons/react/bold/monitor"
 import { SettingsIcon as SettingsLinear } from "@solar-icons/react/linear/settings"
 import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
-import { ShopIcon as StoreLinear } from "@solar-icons/react/linear/shop"
-import { ShopIcon as StoreBold } from "@solar-icons/react/bold/shop"
+/**
+ * A PERSON, NOT A SHOPFRONT.
+ *
+ * The Creator Page is storelib.com/u/<handle> — a picture, a bio, links. A
+ * shop icon named the one thing it is not, and it sat two rows above Website
+ * and OnePage, so the rail read as three shops. The Store Builder this icon
+ * was originally drawn for is gone; the name `storeBuilder` stays only
+ * because the key is referenced in several places, and renaming it is a
+ * separate change from drawing the right picture.
+ */
+import { UserRoundedIcon as CreatorPageLinear } from "@solar-icons/react/linear/user-rounded"
+import { UserRoundedIcon as CreatorPageBold } from "@solar-icons/react/bold/user-rounded"
 import { UsersGroupRoundedIcon as PeopleLinear } from "@solar-icons/react/linear/users-group-rounded"
 import { UsersGroupRoundedIcon as PeopleBold } from "@solar-icons/react/bold/users-group-rounded"
 
@@ -249,7 +259,7 @@ export const NAV_ICONS = {
   analytics: { line: AnalyticsLinear, fill: AnalyticsBold },
   orders: { line: OrdersLinear, fill: OrdersBold },
   onepage: { line: OnePageLinear, fill: OnePageBold },
-  storeBuilder: { line: StoreLinear, fill: StoreBold },
+  storeBuilder: { line: CreatorPageLinear, fill: CreatorPageBold },
   websiteBuilder: { line: WebsiteBuilderLinear, fill: WebsiteBuilderBold },
   emails: { line: EmailsLinear, fill: EmailsBold },
   payouts: { line: PayoutsLinear, fill: PayoutsBold },
