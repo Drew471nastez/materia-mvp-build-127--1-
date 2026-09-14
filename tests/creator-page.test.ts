@@ -1490,6 +1490,16 @@ function main() {
     check("the editor tells the workspace it is open", sheet.includes("notifyEditorSheet(open)"))
     check("and closes that when it goes", sheet.includes("notifyEditorSheet(false)"))
     check("the workspace dims its bar to match", workspace.includes('data.kind === "sheet"'))
+    /**
+     * AND IT REACHES THE BAR'S LAST PIXEL. `absolute inset-0` resolves
+     * against the PADDING box, so a `border-b` is outside it: the dim
+     * covered the whole bar except the 1px line at the bottom of it, which
+     * read as a lit hairline straight across a dimmed screen. An inset
+     * shadow is painted inside the padding box and goes under the dim with
+     * everything else. scripts/check-editor-dim.mjs measures the two rects.
+     */
+    check("the bar's hairline is an inset shadow, not a border", /shadow-\[inset_0_-1px_0_#e5e7eb\]/.test(workspace))
+    check("so no border is left for the dim to miss", !/border-b border-\[#e5e7eb\] bg-white px-3 pb-2/.test(workspace))
 
     /*
       LEAVING LOOKS LIKE LEAVING THE OTHER EDITOR: the same glass, the same
