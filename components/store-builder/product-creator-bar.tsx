@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,6 @@ import { getStoreInternalPath } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 import { SmartLink } from "@/components/smart-link"
-import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
 import { shortBio } from "@/lib/store-builder/short-bio"
 
@@ -532,35 +531,69 @@ export function ProductCreatorBar({
  * is the page this product belongs to and the one somebody was on their way
  * to anyway.
  */
+/**
+ * ===========================================================================
+ *  A PRESS YOU CAN SEE, ON A DEVICE WITH NO HOVER
+ * ===========================================================================
+ * `active:` alone is not enough, and the reason is timing rather than
+ * styling. A quick tap holds `:active` for well under a tenth of a second —
+ * often a single frame — so the state is technically correct and nobody ever
+ * sees it. What is left is a control that goes somewhere without ever
+ * appearing to have been touched, which is what "it feels cheap" is.
+ *
+ * So the press is held. `pressed` goes true on pointerdown and stays for
+ * PRESS_HOLD_MS whatever the finger does, which means every tap — however
+ * fast — produces the same visible press. Three things move together: the
+ * button sinks, a filled disc comes up under it, and the phone answers.
+ *
+ * `pointerdown`, not `click`: the acknowledgement belongs at the moment of
+ * contact. Waiting for the click puts it after the decision, which is the
+ * same lateness in a different place.
+ */
+const PRESS_HOLD_MS = 190
+
+function usePressFeedback(): [boolean, { onPointerDown: () => void }] {
+  const [pressed, setPressed] = useState(false)
+  const timer = useRef<number | null>(null)
+  useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current) }, [])
+  const onPointerDown = useCallback(() => {
+    hapticTap("light")
+    setPressed(true)
+    if (timer.current) window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setPressed(false), PRESS_HOLD_MS)
+  }, [])
+  return [pressed, { onPointerDown }]
+}
+
 function BackControl({ onBack, label }: { onBack: () => void; label: string }) {
+  const [pressed, press] = usePressFeedback()
   return (
     <button
       type="button"
-      onClick={() => {
-        /*
-          IT HAS TO FEEL PRESSED.
-
-          A phone has no hover, so a control whose only state is `hover:` has
-          no pressed state at all: you touch it, nothing acknowledges the
-          touch, and the page changes a moment later. The three together are
-          what a native control does — the tap goes in, the surface lights
-          under the finger, and the phone answers — and none of them waits
-          for the navigation, which is the slow part.
-        */
-        hapticTap("light")
-        onBack()
-      }}
+      {...press}
+      onClick={onBack}
       aria-label={label}
       title={label}
       className={cn(
-        "-ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-        "transition-[transform,background-color] duration-100 ease-out",
-        "hover:bg-black/10 dark:hover:bg-white/10",
-        "active:scale-[0.88] active:bg-black/15 dark:active:bg-white/20",
+        "relative -ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+        "transition-transform duration-150 ease-out",
+        pressed ? "scale-[0.86]" : "scale-100",
       )}
       style={{ color: "inherit", WebkitTapHighlightColor: "transparent" }}
     >
-      <ArrowLeft className="h-[19px] w-[19px]" strokeWidth={2} />
+      {/*
+        The disc is its own element rather than a background on the button,
+        so it can grow from the centre while the button sinks. A background
+        colour can only appear; this arrives.
+      */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute inset-0 rounded-full bg-current transition-[opacity,transform] duration-150 ease-out",
+          pressed ? "scale-100 opacity-[0.14]" : "scale-50 opacity-0",
+        )}
+      />
+      <ArrowLeft className="relative h-[19px] w-[19px]" strokeWidth={2} />
     </button>
   )
 }
@@ -569,20 +602,46 @@ function BackControl({ onBack, label }: { onBack: () => void; label: string }) {
  * ===========================================================================
  *  THE THREE DOTS: SHARE, AND REPORT
  * ===========================================================================
- * A sheet on a phone and a dropdown on a desktop, which is what the rest of
- * the product already uses for a row of actions.
+ * AN INLINE MENU, THE SAME ON BOTH SURFACES. It was a dropdown on a desktop
+ * and a bottom sheet on a phone, which is the right default for a row of
+ * actions somebody is choosing between — and wrong for two. A sheet sliding
+ * up over the page to offer Share and Report is a lot of movement for a
+ * decision that takes no thought, and it puts the answer at the opposite end
+ * of the screen from the finger that asked the question.
+ *
+ * It opens where it was pressed instead, anchored under the dots, at the
+ * size of what is in it, on a phone and on a desktop alike.
  *
  * SHARE uses the phone's own share sheet where there is one, because that is
- * where every app somebody actually wants to send this to already lives.
- * Where there is not, it copies the address, which is the honest fallback
- * rather than a grid of network buttons nobody presses.
+ * where every app somebody wants to send this to already lives. Where there
+ * is not, it copies the address.
  *
- * REPORT opens a mail to support with the address already in it. There is no
- * reports table and no moderation queue behind this yet, so a form that said
- * "thanks, we'll look into it" would be a lie about what happens next.
+ * REPORT opens a mail to support with the address in it. There is no reports
+ * table behind this yet, so a form saying "we'll look into it" would be a lie
+ * about what happens next.
  */
 function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
+  const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [pressed, press] = usePressFeedback()
+  const boxRef = useRef<HTMLDivElement>(null)
+
+  /* Escape, and a press anywhere else. Both on the document, because the menu
+     is inline: there is no full-screen layer to catch the outside press, and
+     adding one would be the scrim this is meant to avoid. */
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      if (!boxRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
+    document.addEventListener("pointerdown", onDown as EventListener)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("pointerdown", onDown as EventListener)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open])
 
   const url =
     typeof window === "undefined"
@@ -592,7 +651,7 @@ function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
         : window.location.href
 
   const share = async () => {
-    hapticTap("light")
+    setOpen(false)
     const nav = typeof navigator !== "undefined" ? navigator : undefined
     if (nav?.share) {
       try {
@@ -608,48 +667,72 @@ function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      /* A clipboard that refuses leaves the address in the address bar,
-         where it already was. Nothing to say about it. */
+      /* A clipboard that refuses leaves the address in the address bar. */
     }
   }
 
   const report = () => {
-    hapticTap("light")
+    setOpen(false)
     const subject = encodeURIComponent(`Reporting a product: ${title || slug}`)
     const body = encodeURIComponent(`I want to report this product:\n${url}\n\nWhat is wrong with it:\n`)
     window.location.href = `mailto:support@storelib.com?subject=${subject}&body=${body}`
   }
 
+  const item =
+    "flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-[#1a1a2e] transition-colors hover:bg-[#f3f4f6] active:bg-[#e9eaee]"
+
   return (
-    <ResponsiveActionMenu
-      title={title || "This product"}
-      items={[
-        /* ELEMENTS, not components: ActionMenuItem.icon is a ReactNode, and a
-           lucide icon passed bare is a forwardRef object that React refuses
-           to render as a child — which crashes the whole bar. */
-        {
-          label: copied ? "Link copied" : "Share",
-          icon: copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />,
-          onClick: share,
-        },
-        { label: "Report", icon: <Flag className="h-4 w-4" />, onClick: report },
-      ]}
-      trigger={
-        <button
-          type="button"
-          aria-label="More"
+    <div ref={boxRef} className="relative shrink-0">
+      <button
+        type="button"
+        {...press}
+        onClick={() => setOpen((v) => !v)}
+        aria-label="More"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className={cn(
+          "relative -mr-1 inline-flex h-9 w-9 items-center justify-center rounded-full",
+          "transition-transform duration-150 ease-out",
+          pressed ? "scale-[0.86]" : "scale-100",
+        )}
+        style={{ color: "inherit", WebkitTapHighlightColor: "transparent" }}
+      >
+        <span
+          aria-hidden
           className={cn(
-            "-mr-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-            "transition-[transform,background-color] duration-100 ease-out",
-            "hover:bg-black/10 dark:hover:bg-white/10",
-            "active:scale-[0.88] active:bg-black/15 dark:active:bg-white/20",
+            "absolute inset-0 rounded-full bg-current transition-[opacity,transform] duration-150 ease-out",
+            pressed || open ? "scale-100 opacity-[0.14]" : "scale-50 opacity-0",
           )}
-          style={{ color: "inherit", WebkitTapHighlightColor: "transparent" }}
+        />
+        <MoreHorizontal className="relative h-[19px] w-[19px]" strokeWidth={2} />
+      </button>
+
+      {open && (
+        /*
+          Its own colours, not the bar's. The bar takes whatever the creator
+          painted it and this is a menu of the product's own actions, not part
+          of their palette — a dark bar would otherwise hand it white-on-white
+          rows. It grows from the corner it was opened by.
+        */
+        <div
+          role="menu"
+          className={cn(
+            "product-bar-menu absolute right-0 top-[calc(100%+6px)] z-50 w-44 overflow-hidden",
+            "rounded-2xl border border-[#e5e7eb]/70 bg-white py-1",
+            "shadow-[0_1px_2px_rgba(15,23,42,0.06),0_12px_32px_-12px_rgba(15,23,42,0.28)]",
+          )}
         >
-          <MoreHorizontal className="h-[19px] w-[19px]" strokeWidth={2} />
-        </button>
-      }
-    />
+          <button type="button" role="menuitem" className={item} onClick={share}>
+            {copied ? <Check className="h-4 w-4 shrink-0" /> : <Share2 className="h-4 w-4 shrink-0" />}
+            {copied ? "Link copied" : "Share"}
+          </button>
+          <button type="button" role="menuitem" className={item} onClick={report}>
+            <Flag className="h-4 w-4 shrink-0" />
+            Report
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -678,7 +761,6 @@ interface LiveProductCreatorBarProps {
    * — it is how they got here. The desktop bar still leads with the creator.
    */
   productTitle?: string
-  productImageUrl?: string
   productSlug?: string
 }
 
@@ -691,7 +773,6 @@ export function LiveProductCreatorBar({
   buttonLabel,
   bio,
   productTitle,
-  productImageUrl,
   productSlug,
 }: LiveProductCreatorBarProps) {
   // IMPORTANT: All hooks must be called BEFORE any early returns to avoid React error #310
@@ -911,40 +992,45 @@ export function LiveProductCreatorBar({
         is where the way back goes. The desktop bar is unchanged and still
         leads with them — there is room for both at that width.
       */}
+      {/*
+        =====================================================================
+         THE WAY BACK, WHO IS SELLING, AND A MENU
+        =====================================================================
+        This carried the product's thumbnail and title for a round. The
+        argument for it was that a sticky bar should say which product you
+        are on once the title has scrolled away — and the answer is that the
+        page under it is already the product, in a picture the size of the
+        screen, and a visitor who scrolled past the title scrolled past it on
+        purpose. What is NOT on the page anywhere else is whose shop this is
+        and how to get to it.
+
+        Three things, then, and they are the three a bar can hold at this
+        width: out, who, and more.
+      */}
       <div data-product-bar="phone" className="flex w-full items-center gap-2.5 px-3 py-2 sm:hidden">
         <BackControl onBack={goBack} label="Back" />
 
-        {/*
-          The thumbnail and the title are one target, and it returns to the
-          top of the page — where the picture and the buy button are. A bar
-          that names a thing and does nothing when pressed is a label.
-        */}
-        <button
-          type="button"
-          onClick={() => {
-            hapticTap("light")
-            window.scrollTo({ top: 0, behavior: "smooth" })
-          }}
-          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg py-0.5 text-left transition-transform duration-100 active:scale-[0.98]"
-          aria-label={productTitle ? `Back to the top of ${productTitle}` : "Back to the top"}
+        <SmartLink
+          href={creatorHref}
+          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg py-0.5"
+          aria-label={`Go to ${creatorName}'s page`}
         >
-          {productImageUrl ? (
-            /* A rounded square, not a circle: a circle is a person and this
-               is a thing. The same corner the product cards use, so the two
-               read as the same object. */
-            <img
-              src={productImageUrl}
-              alt=""
-              className="h-8 w-8 shrink-0 rounded-lg object-cover"
-              style={{ boxShadow: "0 0 0 1px rgba(15, 23, 42, 0.08)" }}
-            />
-          ) : null}
-          <span className="truncate text-[13px] font-medium">{productTitle || creatorName}</span>
-        </button>
+          <Avatar className="h-8 w-8 shrink-0">
+            {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
+            <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+          </Avatar>
+          {/* min-w-0 on the column is what lets `truncate` work inside a flex
+              row: without it the column takes its content's width and the
+              name runs past the edge instead of ending in an ellipsis. */}
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-semibold leading-tight">{creatorName}</span>
+            {phoneBio ? (
+              <span className="truncate text-[11px] leading-tight opacity-70">{phoneBio}</span>
+            ) : null}
+          </span>
+        </SmartLink>
 
-        {/* Share and Report. A dropdown on a desktop, a bottom sheet on a
-            phone, which is what three dots mean on a phone. */}
-        <ProductBarMenu title={productTitle || ""} slug={productSlug || ""} />
+        <ProductBarMenu title={productTitle || creatorName} slug={productSlug || ""} />
       </div>
 
       {/* Desktop - with reduced width (1170px instead of 1200px) */}

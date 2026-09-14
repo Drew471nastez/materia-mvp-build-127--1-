@@ -1097,14 +1097,13 @@ function main() {
         /window\.location\.href = creatorHref/.test(bar),
     )
     /*
-      This counted TWO links to the creator's page, one on each bar. The
-      phone bar carries the product now — the creator's name is the fact a
-      visitor arriving from that creator already has — so there is one, on
-      the desktop bar, which is unchanged.
+      Two links, one on each bar. It was briefly one, while the phone bar
+      carried the product instead of the creator; both bars lead to the
+      creator's page again.
     */
     check(
-      "the desktop bar still leads to the creator's page",
-      (live.match(/<SmartLink\s+href=\{creatorHref\}/g) ?? []).length === 1,
+      "both bars lead to the creator's page",
+      (live.match(/<SmartLink\s+href=\{creatorHref\}/g) ?? []).length === 2,
     )
     /**
      * THE CREATOR'S PAGE, NOT THEIR WEBSITE.
@@ -1635,38 +1634,36 @@ function main() {
     const phoneBar = bar.slice(bar.indexOf('data-product-bar="phone"'), bar.indexOf("ProductBarMenu title="))
     check("the live phone bar exists to be checked", phoneBar.length > 200)
     check("no email field on it", !/<Input/.test(phoneBar) && !/placeholder="Email"/.test(phoneBar))
-    check("the product's title is on it", /\{productTitle \|\| creatorName\}/.test(bar))
-    check("with its thumbnail as a rounded square", /h-8 w-8 shrink-0 rounded-lg object-cover/.test(bar))
-    check("and the title is what yields", /truncate text-\[13px\] font-medium/.test(bar))
-    /*
-      Counted on `productImageUrl`, not on the title: `productTitle` is also
-      what ShareButton takes, and two of those sit on the same page.
-    */
-    check(
-      "both call sites feed it the product",
-      read("app/(marketing)/p/[slug]/page.tsx").split("productImageUrl={product.thumbnail_url").length - 1 === 2,
-    )
+    /**
+     * THE BAR IS THE CREATOR'S. It carried the product's thumbnail and title
+     * for a round; the argument against is that the page under the bar is
+     * already the product, in a picture the size of the screen, and a
+     * visitor who scrolled past the title scrolled past it on purpose. What
+     * is nowhere else is whose shop this is.
+     */
+    check("the creator is on it", /<Avatar className="h-8 w-8 shrink-0">/.test(phoneBar) && /\{creatorName\}/.test(phoneBar))
+    check("and not the product's thumbnail", !/object-cover/.test(phoneBar))
+    check("the name is what yields", /truncate text-sm font-semibold leading-tight/.test(phoneBar))
 
     /**
-     * SHARE AND REPORT, behind the three dots. ResponsiveActionMenu is the
-     * shape the rest of the product uses for a row of actions: a dropdown on
-     * a desktop and a bottom sheet on a phone.
+     * SHARE AND REPORT, IN AN INLINE MENU. It was a bottom sheet on a phone,
+     * which is a lot of movement for a decision that takes none and puts the
+     * answer at the opposite end of the screen from the finger that asked.
      */
-    check("the three dots open the shared action menu", /<ResponsiveActionMenu/.test(bar))
+    check("the menu is inline, not a sheet", /role="menu"/.test(bar) && !/MobileEditorSheet|ResponsiveActionMenu/.test(bar))
+    check("anchored under the dots", /absolute right-0 top-\[calc\(100%\+6px\)\]/.test(bar))
+    check("and it grows from that corner", /\.product-bar-menu \{/.test(read("app/globals.css")))
     check("share goes through the phone's own sheet where there is one", /nav\?\.share/.test(bar))
-    /**
-     * A lucide icon passed bare is a forwardRef OBJECT and ActionMenuItem
-     * takes a ReactNode, so passing the component crashed the whole bar with
-     * React error #31 — which `pnpm build` reported as a clean compile.
-     */
-    check("its icons are elements, not components", /icon: <Flag className="h-4 w-4" \/>/.test(bar))
+    check("a press outside closes it", /document\.addEventListener\("pointerdown", onDown/.test(bar))
 
     /**
-     * A PHONE HAS NO HOVER, so a control whose only state is `hover:` never
-     * acknowledges the touch: you press it and the page changes a moment
-     * later with nothing in between.
+     * A PRESS YOU CAN SEE. `active:` alone is a timing problem rather than a
+     * styling one: a quick tap holds it for well under a tenth of a second,
+     * so the state is correct and nobody ever sees it. The press is HELD.
      */
-    check("the way back feels pressed", /active:scale-\[0\.88\]/.test(bar) && /hapticTap\("light"\)/.test(bar))
+    check("the press is held, not left to :active", /PRESS_HOLD_MS/.test(bar) && /function usePressFeedback/.test(bar))
+    check("and it starts at contact, not at the click", /onPointerDown/.test(bar))
+    check("with a mark that comes up under the finger", /opacity-\[0\.14\]/.test(bar))
 
     /*
       ---------------------------------------------------------------------
@@ -1686,7 +1683,7 @@ function main() {
     */
     const desktopBlock = bar.slice(bar.indexOf('hidden sm:block py-[calc(0.625rem+5px)]'))
     check("the desktop bar carries the creator's line", desktopBlock.includes("{phoneBio}"))
-    check("and the phone bar does not", !phoneBar.includes("{phoneBio}"))
+    check("and so does the phone bar", phoneBar.includes("{phoneBio}"))
     check("cut to six words rather than by CSS alone", /shortBio\(bio\)/.test(bar) && /BIO_WORD_LIMIT = 6/.test(read("lib/store-builder/short-bio.ts")))
     /**
      * `truncate` is still the backstop for six very long words, and min-w-0
