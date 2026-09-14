@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -576,23 +577,17 @@ function BackControl({ onBack, label }: { onBack: () => void; label: string }) {
       title={label}
       className={cn(
         "relative -ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-        "transition-transform duration-150 ease-out",
-        pressed ? "scale-[0.86]" : "scale-100",
+        "select-none outline-none",
+        pressed ? "bar-control-pressed" : "bar-control",
       )}
       style={{ color: "inherit", WebkitTapHighlightColor: "transparent" }}
     >
       {/*
-        The disc is its own element rather than a background on the button,
-        so it can grow from the centre while the button sinks. A background
-        colour can only appear; this arrives.
+        The disc is its own element rather than a background on the button, so
+        it can arrive from the centre while the button sinks. A background
+        colour can only appear; this comes up under the finger.
       */}
-      <span
-        aria-hidden
-        className={cn(
-          "absolute inset-0 rounded-full bg-current transition-[opacity,transform] duration-150 ease-out",
-          pressed ? "scale-100 opacity-[0.14]" : "scale-50 opacity-0",
-        )}
-      />
+      <span aria-hidden className={cn("bar-control-disc", pressed && "is-on")} />
       <ArrowLeft className="relative h-[19px] w-[19px]" strokeWidth={2} />
     </button>
   )
@@ -624,24 +619,60 @@ function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [pressed, press] = usePressFeedback()
-  const boxRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [at, setAt] = useState<{ top: number; right: number } | null>(null)
 
-  /* Escape, and a press anywhere else. Both on the document, because the menu
-     is inline: there is no full-screen layer to catch the outside press, and
-     adding one would be the scrim this is meant to avoid. */
+  /**
+   * =========================================================================
+   *  THE MENU IS PORTALLED, AND THAT IS NOT A DETAIL
+   * =========================================================================
+   * It was `position: absolute` inside the bar, and the bar's root carries
+   * `overflow-hidden`. The menu hangs BELOW the bar, so every pixel of it was
+   * clipped away: it opened, it was in the DOM, it had a width and a height
+   * and a position, and there was nothing on the screen. "The three dots do
+   * not work" was the menu working perfectly inside a box that hid it.
+   *
+   * Worth saying plainly because the probe for this measured the menu's
+   * rectangle and passed — a clipped element still has one. Geometry is not
+   * visibility, and the check below now asks the browser what is actually at
+   * that point on the screen.
+   *
+   * In the body it cannot be clipped by anything the bar does, now or later.
+   * `position: fixed` from the trigger's own rectangle is what keeps it under
+   * the dots once it is out there.
+   */
+  const place = useCallback(() => {
+    const t = triggerRef.current
+    if (!t) return
+    const r = t.getBoundingClientRect()
+    setAt({ top: Math.round(r.bottom + 6), right: Math.round(window.innerWidth - r.right) })
+  }, [])
+
   useEffect(() => {
     if (!open) return
-    const onDown = (e: MouseEvent | TouchEvent) => {
-      if (!boxRef.current?.contains(e.target as Node)) setOpen(false)
+    place()
+    const onDown = (e: Event) => {
+      const target = e.target as Node
+      if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return
+      setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
-    document.addEventListener("pointerdown", onDown as EventListener)
+    /* Closed on scroll rather than followed. The bar is sticky and the page
+       under it moves; a menu that chases its trigger down a scrolling page is
+       a menu nobody asked to keep open. */
+    const onScroll = () => setOpen(false)
+    document.addEventListener("pointerdown", onDown, true)
     document.addEventListener("keydown", onKey)
+    window.addEventListener("scroll", onScroll, { passive: true })
+    window.addEventListener("resize", place)
     return () => {
-      document.removeEventListener("pointerdown", onDown as EventListener)
+      document.removeEventListener("pointerdown", onDown, true)
       document.removeEventListener("keydown", onKey)
+      window.removeEventListener("scroll", onScroll)
+      window.removeEventListener("resize", place)
     }
-  }, [open])
+  }, [open, place])
 
   const url =
     typeof window === "undefined"
@@ -657,8 +688,8 @@ function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
       try {
         await nav.share({ title: title || document.title, url })
       } catch {
-        /* Dismissing the system sheet rejects. That is not a failure, and it
-           must not fall through to copying something nobody asked for. */
+        /* Dismissing the system sheet rejects. Not a failure, and it must not
+           fall through to copying something nobody asked for. */
       }
       return
     }
@@ -679,11 +710,12 @@ function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
   }
 
   const item =
-    "flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-[#1a1a2e] transition-colors hover:bg-[#f3f4f6] active:bg-[#e9eaee]"
+    "flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-[#1a1a2e] transition-colors active:bg-[#e9eaee] sm:hover:bg-[#f3f4f6]"
 
   return (
-    <div ref={boxRef} className="relative shrink-0">
+    <>
       <button
+        ref={triggerRef}
         type="button"
         {...press}
         onClick={() => setOpen((v) => !v)}
@@ -691,51 +723,44 @@ function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
         aria-expanded={open}
         aria-haspopup="menu"
         className={cn(
-          "relative -mr-1 inline-flex h-9 w-9 items-center justify-center rounded-full",
-          "transition-transform duration-150 ease-out",
-          pressed ? "scale-[0.86]" : "scale-100",
+          "relative -mr-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+          "select-none outline-none",
+          pressed ? "bar-control-pressed" : "bar-control",
         )}
         style={{ color: "inherit", WebkitTapHighlightColor: "transparent" }}
       >
-        <span
-          aria-hidden
-          className={cn(
-            "absolute inset-0 rounded-full bg-current transition-[opacity,transform] duration-150 ease-out",
-            pressed || open ? "scale-100 opacity-[0.14]" : "scale-50 opacity-0",
-          )}
-        />
+        <span aria-hidden className={cn("bar-control-disc", (pressed || open) && "is-on")} />
         <MoreHorizontal className="relative h-[19px] w-[19px]" strokeWidth={2} />
       </button>
 
-      {open && (
-        /*
-          Its own colours, not the bar's. The bar takes whatever the creator
-          painted it and this is a menu of the product's own actions, not part
-          of their palette — a dark bar would otherwise hand it white-on-white
-          rows. It grows from the corner it was opened by.
-        */
-        <div
-          role="menu"
-          className={cn(
-            "product-bar-menu absolute right-0 top-[calc(100%+6px)] z-50 w-44 overflow-hidden",
-            "rounded-2xl border border-[#e5e7eb]/70 bg-white py-1",
-            "shadow-[0_1px_2px_rgba(15,23,42,0.06),0_12px_32px_-12px_rgba(15,23,42,0.28)]",
-          )}
-        >
-          <button type="button" role="menuitem" className={item} onClick={share}>
-            {copied ? <Check className="h-4 w-4 shrink-0" /> : <Share2 className="h-4 w-4 shrink-0" />}
-            {copied ? "Link copied" : "Share"}
-          </button>
-          <button type="button" role="menuitem" className={item} onClick={report}>
-            <Flag className="h-4 w-4 shrink-0" />
-            Report
-          </button>
-        </div>
-      )}
-    </div>
+      {open && at && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={menuRef}
+              role="menu"
+              data-product-bar-menu
+              className={cn(
+                "product-bar-menu fixed z-[2147483000] w-44 overflow-hidden",
+                "rounded-2xl border border-[#e5e7eb]/70 bg-white py-1",
+                "shadow-[0_1px_2px_rgba(15,23,42,0.06),0_12px_32px_-12px_rgba(15,23,42,0.28)]",
+              )}
+              style={{ top: at.top, right: at.right }}
+            >
+              <button type="button" role="menuitem" className={item} onClick={share}>
+                {copied ? <Check className="h-4 w-4 shrink-0" /> : <Share2 className="h-4 w-4 shrink-0" />}
+                {copied ? "Link copied" : "Share"}
+              </button>
+              <button type="button" role="menuitem" className={item} onClick={report}>
+                <Flag className="h-4 w-4 shrink-0" />
+                Report
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   )
 }
-
 /**
  * LiveProductCreatorBar - Used on actual live product pages
  * Responsive using CSS breakpoints (sm:, md:, etc.)

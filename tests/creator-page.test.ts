@@ -1651,7 +1651,16 @@ function main() {
      * answer at the opposite end of the screen from the finger that asked.
      */
     check("the menu is inline, not a sheet", /role="menu"/.test(bar) && !/MobileEditorSheet|ResponsiveActionMenu/.test(bar))
-    check("anchored under the dots", /absolute right-0 top-\[calc\(100%\+6px\)\]/.test(bar))
+    /**
+     * AND PORTALLED, WHICH IS NOT A DETAIL. It was `absolute` inside the bar,
+     * and the bar's root carries `overflow-hidden` — so the menu hung below
+     * the bar and every pixel of it was clipped away. It opened, it was in
+     * the DOM, it had a width and a position, and there was nothing on the
+     * screen. scripts/check-bar-menu.mjs hit-tests it now rather than
+     * measuring its rectangle, because a clipped element still has one.
+     */
+    check("the menu is portalled out of the clipping bar", /createPortal\(/.test(bar) && /fixed z-\[2147483000\]/.test(bar))
+    check("and positioned from the trigger it hangs off", /triggerRef\.current/.test(bar) && /getBoundingClientRect\(\)/.test(bar))
     check("and it grows from that corner", /\.product-bar-menu \{/.test(read("app/globals.css")))
     check("share goes through the phone's own sheet where there is one", /nav\?\.share/.test(bar))
     check("a press outside closes it", /document\.addEventListener\("pointerdown", onDown/.test(bar))
@@ -1663,7 +1672,17 @@ function main() {
      */
     check("the press is held, not left to :active", /PRESS_HOLD_MS/.test(bar) && /function usePressFeedback/.test(bar))
     check("and it starts at contact, not at the click", /onPointerDown/.test(bar))
-    check("with a mark that comes up under the finger", /opacity-\[0\.14\]/.test(bar))
+    check("with a mark that comes up under the finger", /bar-control-disc/.test(bar))
+    /**
+     * A KEYFRAME, NOT A TRANSITION. The first version faded a disc in and out
+     * and it read as a HOVER: something drifting in under the finger rather
+     * than a thing being pressed. A press has an attack, and it overshoots
+     * slightly before it settles.
+     */
+    check("the press has an attack", /@keyframes bar-control-press/.test(read("app/globals.css")))
+    check("and overshoots before it settles", /transform: scale\(1\.08\)/.test(read("app/globals.css")))
+    /** A phone reports :hover as true after a tap and keeps it until the next. */
+    check("no hover state on a device without a pointer", /@media \(hover: hover\) \{\s*\n\s*\.bar-control:hover/.test(read("app/globals.css")))
 
     /*
       ---------------------------------------------------------------------
