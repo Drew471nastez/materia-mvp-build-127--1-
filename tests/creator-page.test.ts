@@ -1584,12 +1584,18 @@ function main() {
   /* ------------------------------------------------------------------ */
   {
     /**
-     * THE PRODUCT PAGE'S BAR IS ONE ROW ON A PHONE, AND THE MENU IS GONE.
+     * THE PRODUCT PAGE'S BAR ON A PHONE, AND THE MENU IS GONE.
      *
-     * The bar was two rows deep — the way back and the creator on one, the
-     * email form underneath — on the page where the product photo is the
-     * thing somebody came for. scripts/check-product-bar-row.mjs is the
-     * measurement; this guards the pieces it needs.
+     * This bar has been three things. It carried an email form on a second
+     * row; the form was squeezed onto one row to stop the bar being two
+     * deep; and the owner then asked for it gone at this width entirely, so
+     * a visitor meets the shop rather than a request for their address. The
+     * pins for the one-row form went with it rather than being loosened:
+     * there is no form here to measure.
+     *
+     * What is left is a picture, a name, one line of bio and the way back.
+     * scripts/check-product-bar.mjs lays it out at 390px and at 1280px and
+     * measures all of it; this guards the pieces that measurement needs.
      */
     const bar = code("components/store-builder/product-creator-bar.tsx")
     const product = code("app/(marketing)/p/[slug]/page.tsx")
@@ -1643,6 +1649,37 @@ function main() {
      * later with nothing in between.
      */
     check("the way back feels pressed", /active:scale-\[0\.88\]/.test(bar) && /hapticTap\("light"\)/.test(bar))
+
+    /*
+      ---------------------------------------------------------------------
+       THE BIO, WHICH ARRIVED FROM THE OTHER DIRECTION
+      ---------------------------------------------------------------------
+      A parallel change put the creator's line under their name on the PHONE
+      bar. The phone bar is the product's now, so the line moved to the
+      desktop bar, which is the width that has room for it. The work is kept;
+      only where it is drawn has changed, so these are anchored to the
+      desktop block rather than deleted.
+    */
+    /*
+      Anchored on MARKUP, not on a comment. `bar` is comment-stripped source
+      — that is what `code()` is for, and why the contact guards kept passing
+      on comments quoting the code they forbade — so slicing at "{/* Desktop"
+      sliced at nothing and took the whole file.
+    */
+    const desktopBlock = bar.slice(bar.indexOf('hidden sm:block py-[calc(0.625rem+5px)]'))
+    check("the desktop bar carries the creator's line", desktopBlock.includes("{phoneBio}"))
+    check("and the phone bar does not", !phoneBar.includes("{phoneBio}"))
+    check("cut to six words rather than by CSS alone", /shortBio\(bio\)/.test(bar) && /BIO_WORD_LIMIT = 6/.test(read("lib/store-builder/short-bio.ts")))
+    /**
+     * `truncate` is still the backstop for six very long words, and min-w-0
+     * is what lets it work at all inside a flex row.
+     */
+    check("with truncate as the backstop", /truncate text-\[11px\] leading-tight opacity-70/.test(bar))
+    check("and a column that can actually shrink", /className="flex min-w-0 flex-col"/.test(bar))
+    /** The same bio the creator page resolves, not a second source. */
+    check("the page passes the creator's own bio", /shopHeaderSettings\?\.bio \|\| creator\?\.bio/.test(product))
+    /** The builder's preview showed the form after the live bar stopped having one. */
+    check("and the builder's preview shows the same row", /phonePreviewRow/.test(bar) && !/compactMobileLayout/.test(bar))
 
     /**
      * The floating creator menu was a second copy of the app's own

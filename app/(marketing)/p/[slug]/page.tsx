@@ -306,6 +306,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     ? headerAvatarUrl
     : creatorProfile?.avatar_url || null
 
+  /*
+    The same bio the creator page shows, resolved the same way: a creator who
+    rewrote it in the shop header meant that one. The product page's bar puts
+    six words of it under their name on a phone.
+  */
+  const creatorBio: string = shopHeaderSettings?.bio || creator?.bio || ""
+
   // ---------------------------------------------------------------------------
   // Product page config (specific > creator default)
   // Global settings (creator bar, sticky, buy button, spacing) always come from default template
@@ -1511,7 +1518,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             creatorUsername={creatorUsername}
             avatarUrl={creatorAvatarUrl}
             buttonLabel={creatorBarLabel}
-            /* The phone's bar is the product's. See the note in the bar. */
+            /* The phone's bar is the product's; the desktop bar keeps the
+               creator and now carries their line too. See the bar. */
+            bio={creatorBio}
             productTitle={product.title}
             productImageUrl={product.thumbnail_url || galleryUrls?.[0] || undefined}
             productSlug={product.slug}
@@ -1737,7 +1746,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           creatorId={product.creator_id}
           creatorUsername={creatorUsername}
           avatarUrl={creatorAvatarUrl}
-          /* The phone's bar is the product's. See the note in the bar. */
+          /* The phone's bar is the product's; the desktop bar keeps the
+             creator and now carries their line too. See the bar. */
+          bio={creatorBio}
           productTitle={product.title}
           productImageUrl={product.thumbnail_url || galleryUrls?.[0] || undefined}
           productSlug={product.slug}

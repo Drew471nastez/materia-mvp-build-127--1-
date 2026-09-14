@@ -6,13 +6,14 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { Mail, ArrowLeft, ArrowRight, Check, Flag, MoreHorizontal, Share2 } from "lucide-react"
+import { Mail, ArrowLeft, Check, Flag, MoreHorizontal, Share2 } from "lucide-react"
 import { getStoreInternalPath } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 import { SmartLink } from "@/components/smart-link"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
+import { shortBio } from "@/lib/store-builder/short-bio"
 
 // Button style presets (same as subscribe bar)
 export const creatorBarButtonPresets: Record<string, { default: string; subscribed: string }> = {
@@ -48,6 +49,8 @@ interface ProductCreatorBarProps {
   isMobile?: boolean
   isSelected?: boolean
   onSelect?: () => void
+  /** The creator's own line about themselves, cut to six words on a phone. */
+  bio?: string
 }
 
 /** Desktop max width for editor preview */
@@ -238,6 +241,7 @@ export function ProductCreatorBar({
   isMobile,
   isSelected,
   onSelect,
+  bio,
 }: ProductCreatorBarProps) {
   // IMPORTANT: All hooks must be called BEFORE any early returns to avoid React error #310
   const [subscribed, setSubscribed] = useState(false)
@@ -296,6 +300,9 @@ export function ProductCreatorBar({
       .map((n) => n[0])
       .join("")
       .toUpperCase() || "?"
+
+  /* Six words of it, on one line. See lib/store-builder/short-bio. */
+  const phoneBio = shortBio(bio)
 
   const isCurrentEmailSubscribed = subscribed && normalizeEmail(email) === subscribedEmail
   const buttonText = getButtonText(settings.buttonStyle, isCurrentEmailSubscribed)
@@ -365,12 +372,28 @@ export function ProductCreatorBar({
   */
   // Mobile layout for store builder preview (375px canvas on desktop)
   // Fits within 375px without overflow
-  const editorMobileLayout = (
-    <div className="w-full py-4 px-3">
-      <div className="flex items-center gap-2 w-full">
+  /*
+    WHAT THE VISITOR ACTUALLY SEES ON A PHONE.
+
+    This was two layouts, one for the 375px preview on a desktop and one for
+    a real phone editing the page, and both of them were an avatar next to an
+    address field. The live bar no longer carries that field at this width,
+    so both were showing the creator a bar that does not exist. One row now,
+    the same one LiveProductCreatorBar renders: the way back, who is selling,
+    and six words about them.
+  */
+  const phonePreviewRow = (
+    <div className="w-full px-4 py-2">
+      <div className="flex items-center gap-2.5 w-full">
+        <span
+          aria-hidden="true"
+          className="-ml-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+        >
+          <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
+        </span>
         <a
           href={creatorHref}
-          className="flex items-center gap-1.5 shrink-0"
+          className="flex min-w-0 flex-1 items-center gap-2.5"
           aria-label={`Go to ${creatorName}'s shop`}
           onClick={(e) => {
             if (isEditorPreview) {
@@ -378,121 +401,22 @@ export function ProductCreatorBar({
             }
           }}
         >
-          {/* Avatar wrapper with explicit sizing to prevent clipping during scroll */}
-          <div className="relative h-7 w-7 shrink-0">
-            <Avatar className="h-7 w-7 shrink-0 absolute inset-0">
+          {/* Explicit box around the avatar: it clipped during scroll without one. */}
+          <div className="relative h-9 w-9 shrink-0">
+            <Avatar className="h-9 w-9 shrink-0 absolute inset-0">
               {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} className="object-cover" /> : null}
-              <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+              <AvatarFallback className="text-[11px]">{initials}</AvatarFallback>
             </Avatar>
           </div>
-          <span className="text-[13px] font-medium truncate max-w-[70px]" style={{ color: settings.textColor || "#ffffff" }}>
-            {creatorName}
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-semibold leading-tight">{creatorName}</span>
+            {phoneBio ? (
+              <span className="truncate text-[11px] leading-tight opacity-70">{phoneBio}</span>
+            ) : null}
           </span>
         </a>
-
-        <form onSubmit={handleSubmit} className="flex gap-1.5 items-center flex-1 min-w-0">
-          <Input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onFocus={() => setInputFocus(true)}
-            onBlur={() => setInputFocus(false)}
-            required
-            disabled={loading}
-            className={cn(adaptiveInputClass, "h-8 text-[13px] flex-1 min-w-0", inputOpacityClass)}
-            style={{ textOverflow: "ellipsis" }}
-          />
-          <Button
-            type="submit"
-            disabled={loading || !email || isCurrentEmailSubscribed}
-            onClick={() => {
-              if (!loading && email && !isCurrentEmailSubscribed) triggerAnim()
-            }}
-            className={cn(
-              "shrink-0 h-8 px-2.5 text-[13px] flex items-center gap-1.5",
-              buttonOpacityClass,
-              pulse && "animate-[btnPop_520ms_ease-out]",
-            )}
-            style={{
-              backgroundColor: settings.buttonColor || "#4b5563",
-              color: settings.buttonTextColor || "#ffffff",
-              borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
-            }}
-          >
-            {isCurrentEmailSubscribed ? <Check size={14} /> : <Mail size={14} />}
-            <span>{loading ? "..." : buttonText}</span>
-          </Button>
-        </form>
       </div>
     </div>
-  )
-
-  // COMPACT Mobile layout - for actual phone viewing store builder
-  // Matches the desktop mobile preview style but fits on real phone screens
-  // No seller name (no space), just avatar + input + full button
-  const compactMobileLayout = (
-    <form onSubmit={handleSubmit} className="w-full px-3 py-3.5">
-      <div className="flex items-center gap-2 w-full justify-center">
-        <a
-          href={creatorHref}
-          className="shrink-0 flex items-center justify-center"
-          aria-label={`Go to ${creatorName}'s shop`}
-          onClick={(e) => {
-            if (isEditorPreview) {
-              e.preventDefault()
-            }
-          }}
-        >
-          {/* Avatar wrapper with explicit sizing to prevent clipping during scroll */}
-          <div className="relative h-7 w-7 shrink-0">
-            <Avatar className="h-7 w-7 shrink-0 absolute inset-0">
-              {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} className="object-cover" /> : null}
-              <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-            </Avatar>
-          </div>
-        </a>
-
-        {/* Input fits remaining space */}
-        <Input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          onFocus={() => setInputFocus(true)}
-          onBlur={() => setInputFocus(false)}
-          required
-          disabled={loading}
-          className={cn(
-            adaptiveInputClass,
-            "h-9 text-sm flex-1 min-w-0 px-3",
-            inputOpacityClass
-          )}
-          style={{ textOverflow: "ellipsis" }}
-        />
-
-        <Button
-          type="submit"
-          disabled={loading || !email || isCurrentEmailSubscribed}
-          onClick={() => {
-            if (!loading && email && !isCurrentEmailSubscribed) triggerAnim()
-          }}
-          className={cn(
-            "h-9 px-3 shrink-0 text-sm flex items-center justify-center gap-1.5",
-            buttonOpacityClass,
-            pulse && "animate-[btnPop_520ms_ease-out]",
-          )}
-          style={{
-            backgroundColor: settings.buttonColor || "#4b5563",
-            color: settings.buttonTextColor || "#ffffff",
-            borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
-          }}
-        >
-          {isCurrentEmailSubscribed ? <Check size={16} /> : <Mail size={16} />}
-          <span>{loading ? "..." : buttonText}</span>
-        </Button>
-      </div>
-    </form>
   )
 
   // Desktop layout for store builder preview
@@ -569,29 +493,18 @@ export function ProductCreatorBar({
         borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
       }}
     >
+      {/*
+        The mobile preview toggle and a real phone used to get two different
+        layouts here; they get the same row now, so the toggle shows what a
+        phone shows. `isMobile` is the toggle on a desktop, and the
+        breakpoint underneath covers a creator editing on a phone.
+      */}
       {isMobile ? (
-        // When isMobile prop is true (store builder mobile preview toggle on desktop):
-        // Show ORIGINAL layout, but if actual viewport is tiny (real phone), show compact
-        <>
-          {/* On actual small screens (real phone), show compact layout */}
-          <div className="block sm:hidden">
-            {compactMobileLayout}
-          </div>
-          {/* On actual large screens (desktop with mobile preview), show original mobile layout */}
-          <div className="hidden sm:block">
-            {editorMobileLayout}
-          </div>
-        </>
+        phonePreviewRow
       ) : (
-        // When isMobile prop is false (desktop preview):
-        // But if actual viewport is small (real phone editing desktop view), show compact
         <>
-          <div className="block sm:hidden">
-            {compactMobileLayout}
-          </div>
-          <div className="hidden sm:block">
-            {desktopLayout}
-          </div>
+          <div className="block sm:hidden">{phonePreviewRow}</div>
+          <div className="hidden sm:block">{desktopLayout}</div>
         </>
       )}
 
@@ -628,12 +541,11 @@ function BackControl({ onBack, label }: { onBack: () => void; label: string }) {
           IT HAS TO FEEL PRESSED.
 
           A phone has no hover, so a control whose only state is `hover:` has
-          no pressed state at all — you touch it, nothing acknowledges the
+          no pressed state at all: you touch it, nothing acknowledges the
           touch, and the page changes a moment later. The three together are
-          what a native control does: the tap goes in (scale), the surface
-          lights under the finger (the ring), and the phone answers (the
-          haptic). None of them waits for the navigation, which is the whole
-          point — the navigation is the slow part.
+          what a native control does — the tap goes in, the surface lights
+          under the finger, and the phone answers — and none of them waits
+          for the navigation, which is the slow part.
         */
         hapticTap("light")
         onBack()
@@ -657,27 +569,27 @@ function BackControl({ onBack, label }: { onBack: () => void; label: string }) {
  * ===========================================================================
  *  THE THREE DOTS: SHARE, AND REPORT
  * ===========================================================================
- * A sheet on a phone and a dropdown on a desktop, which is ResponsiveActionMenu
- * and is what the rest of the product already uses for a row of actions.
+ * A sheet on a phone and a dropdown on a desktop, which is what the rest of
+ * the product already uses for a row of actions.
  *
  * SHARE uses the phone's own share sheet where there is one, because that is
- * the one place every app a visitor actually wants to send this to already
- * lives. Where there is not, it copies the address, which is the honest
- * fallback rather than a grid of network buttons nobody presses.
+ * where every app somebody actually wants to send this to already lives.
+ * Where there is not, it copies the address, which is the honest fallback
+ * rather than a grid of network buttons nobody presses.
  *
  * REPORT opens a mail to support with the address already in it. There is no
  * reports table and no moderation queue behind this yet, so a form that said
- * "thanks, we'll look into it" would be a lie about what happens next. A mail
- * arrives somewhere a person reads.
+ * "thanks, we'll look into it" would be a lie about what happens next.
  */
 function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
   const [copied, setCopied] = useState(false)
 
-  const url = typeof window !== "undefined" && slug
-    ? `${window.location.origin}/p/${slug}`
-    : typeof window !== "undefined"
-      ? window.location.href
-      : ""
+  const url =
+    typeof window === "undefined"
+      ? ""
+      : slug
+        ? `${window.location.origin}/p/${slug}`
+        : window.location.href
 
   const share = async () => {
     hapticTap("light")
@@ -685,20 +597,19 @@ function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
     if (nav?.share) {
       try {
         await nav.share({ title: title || document.title, url })
-        return
       } catch {
-        /* Dismissing the system sheet rejects. That is not a failure and it
+        /* Dismissing the system sheet rejects. That is not a failure, and it
            must not fall through to copying something nobody asked for. */
-        return
       }
+      return
     }
     try {
       await nav?.clipboard?.writeText(url)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      /* A clipboard that refuses leaves the address in the bar, where it
-         already was. Nothing to say about it. */
+      /* A clipboard that refuses leaves the address in the address bar,
+         where it already was. Nothing to say about it. */
     }
   }
 
@@ -713,9 +624,9 @@ function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
     <ResponsiveActionMenu
       title={title || "This product"}
       items={[
-        /* An ELEMENT, not a component: ActionMenuItem.icon is a ReactNode and
-           a lucide icon passed bare is a forwardRef object, which React
-           refuses to render as a child. */
+        /* ELEMENTS, not components: ActionMenuItem.icon is a ReactNode, and a
+           lucide icon passed bare is a forwardRef object that React refuses
+           to render as a child — which crashes the whole bar. */
         {
           label: copied ? "Link copied" : "Share",
           icon: copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />,
@@ -757,13 +668,14 @@ interface LiveProductCreatorBarProps {
    * One bar, two places: see the note in the markup below.
    */
   buttonLabel?: string
+  /** The creator's own line about themselves. Desktop only now. */
+  bio?: string
   /**
    * WHAT THE PHONE'S BAR IS ABOUT.
    *
-   * On a phone the bar is the product's, not the creator's: a visitor who
-   * scrolled past the title has nothing else telling them which product they
-   * are on, and the creator's name is the one fact they already had — it is
-   * how they got here. The desktop bar is unchanged.
+   * A visitor who has scrolled past the title has nothing telling them which
+   * product they are on, and the creator's name is the fact they already had
+   * — it is how they got here. The desktop bar still leads with the creator.
    */
   productTitle?: string
   productImageUrl?: string
@@ -777,6 +689,7 @@ export function LiveProductCreatorBar({
   creatorUsername,
   avatarUrl,
   buttonLabel,
+  bio,
   productTitle,
   productImageUrl,
   productSlug,
@@ -888,6 +801,9 @@ export function LiveProductCreatorBar({
       .join("")
       .toUpperCase() || "?"
 
+  /* Computed once, for the phone row only: see lib/store-builder/short-bio. */
+  const phoneBio = shortBio(bio)
+
   const isCurrentEmailSubscribed = subscribed && normalizeEmail(email) === subscribedEmail
   /**
    * THE LABEL THE CREATOR TYPED, when they typed one. `buttonLabel` comes
@@ -982,28 +898,26 @@ export function LiveProductCreatorBar({
         =====================================================================
          ON A PHONE THE BAR IS THE PRODUCT'S
         =====================================================================
-        It carried the creator's name, an email field and a Follow button.
-        The name is the one fact a visitor already has — it is how they got
-        here — and the field asks for an address before they have decided
-        anything, on a page they opened to look at a thing. Meanwhile the one
-        piece of information a sticky bar could be carrying, WHICH PRODUCT AM
-        I LOOKING AT, was nowhere on it once the title had scrolled away.
+        It has carried the creator twice: first with an email field and a
+        Follow button, then with the name and a line of bio. Both are about
+        the person, and the person is the one fact a visitor arriving from
+        that creator's page already has. Meanwhile the thing a sticky bar is
+        uniquely placed to say — WHICH PRODUCT AM I LOOKING AT — was on
+        neither, and it is the only one that stops being on screen when the
+        title scrolls away.
 
-        So: the way back, the product, and the things you can do with it.
-        The field has not moved somewhere worse — it is on the creator page,
-        which is where somebody who wants the creator goes.
-
-        THE DESKTOP BAR IS UNCHANGED. There is room for both there, and none
-        of the above is about a 1200px window.
+        So: the way back, the product, and what you can do with it. The
+        creator is one tap away, on the page this product belongs to, which
+        is where the way back goes. The desktop bar is unchanged and still
+        leads with them — there is room for both at that width.
       */}
       <div data-product-bar="phone" className="flex w-full items-center gap-2.5 px-3 py-2 sm:hidden">
         <BackControl onBack={goBack} label="Back" />
 
         {/*
-          The thumbnail and the name are one target and it is the way back to
-          the top of the page, which is where the picture and the buy button
-          are. A bar that names a thing and does nothing when you press it is
-          a label.
+          The thumbnail and the title are one target, and it returns to the
+          top of the page — where the picture and the buy button are. A bar
+          that names a thing and does nothing when pressed is a label.
         */}
         <button
           type="button"
@@ -1015,11 +929,9 @@ export function LiveProductCreatorBar({
           aria-label={productTitle ? `Back to the top of ${productTitle}` : "Back to the top"}
         >
           {productImageUrl ? (
-            /*
-              A rounded square, not a circle: a circle is a person and this is
-              a thing. 8px on a 32px tile is the same corner the product cards
-              use, so the two read as the same object.
-            */
+            /* A rounded square, not a circle: a circle is a person and this
+               is a thing. The same corner the product cards use, so the two
+               read as the same object. */
             <img
               src={productImageUrl}
               alt=""
@@ -1030,11 +942,8 @@ export function LiveProductCreatorBar({
           <span className="truncate text-[13px] font-medium">{productTitle || creatorName}</span>
         </button>
 
-        {/*
-          Share and Report. ResponsiveActionMenu is the established shape for
-          a row of actions here: a dropdown on a desktop, a bottom sheet on a
-          phone, which is what a phone expects from three dots.
-        */}
+        {/* Share and Report. A dropdown on a desktop, a bottom sheet on a
+            phone, which is what three dots mean on a phone. */}
         <ProductBarMenu title={productTitle || ""} slug={productSlug || ""} />
       </div>
 
@@ -1052,9 +961,25 @@ export function LiveProductCreatorBar({
                 {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
                 <AvatarFallback className="text-xs">{initials}</AvatarFallback>
               </Avatar>
-              <p className="truncate text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
-                {creatorName}
-              </p>
+              {/*
+                THE BIO MOVED HERE FROM THE PHONE BAR. It was added under the
+                creator's name on a phone, and the phone bar is the product's
+                now — but a line about who is selling is worth having, and
+                this is the width that has room for it without taking any
+                from anything else.
+
+                70% of the bar's own text colour, so it reads as the quieter
+                of the two lines whatever colour the creator picked. A fixed
+                grey would disappear on a dark bar and shout on a light one.
+              */}
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
+                  {creatorName}
+                </span>
+                {phoneBio ? (
+                  <span className="truncate text-[11px] leading-tight opacity-70">{phoneBio}</span>
+                ) : null}
+              </span>
             </SmartLink>
 
             {settings.showSubscribe !== false && (
