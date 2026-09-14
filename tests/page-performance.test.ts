@@ -1315,18 +1315,19 @@ check(
     const page = code("app/(marketing)/u/[username]/page.tsx")
     const missing: string[] = []
 
-    if (!/<OwnerMenu \/>/.test(page)) missing.push("the owner menu is not on the page")
+    /** It takes `embedded` now, so match the tag rather than one spelling of it. */
+    if (!/<OwnerMenu[\s/>]/.test(page)) missing.push("the owner menu is not on the page")
     // It must live inside buildOwnerActions, which is the only owner-gated slot.
     const slot = page.match(/const buildOwnerActions[\s\S]*?\n  \}/)?.[0] ?? ""
     if (!/OwnerMenu/.test(slot))
       missing.push("the owner menu is outside the owner-only slot — every visitor would see it")
 
-    for (const href of ["/app/products", "/creator-page", "/app/analytics", "/app/settings"]) {
+    for (const href of ["/app/products", "/app/creator-page", "/app/analytics", "/app/settings"]) {
       if (!menu.includes(`"${href}"`)) {
         missing.push(`the menu no longer links to ${href}`)
         continue
       }
-      const route = href === "/creator-page" ? "app/creator-page/page.tsx" : `app${href}/page.tsx`
+      const route = `app${href}/page.tsx`
       if (!existsSync(join(root, route))) missing.push(`${href} has no route behind it — the menu item 404s`)
     }
 

@@ -56,7 +56,7 @@ export const dynamic = "force-dynamic"
 
 interface StorefrontPageProps {
   params: Promise<{ username: string }>
-  searchParams: Promise<{ src?: string }>
+  searchParams: Promise<{ src?: string; embedded?: string }>
 }
 
 export async function generateMetadata({ params }: StorefrontPageProps) {
@@ -209,7 +209,14 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
 
 export default async function StorefrontPage({ params, searchParams }: StorefrontPageProps) {
   const { username } = await params
-  const { src } = await searchParams
+  const { src, embedded: embeddedParam } = await searchParams
+  /**
+   * Inside /app/creator-page this page IS the editor, so the controls that
+   * would take somebody to the editor have nowhere to go, and links into /app
+   * would load the whole app inside the frame. See
+   * components/app/creator-page-workspace.tsx.
+   */
+  const embedded = embeddedParam === "1"
 
   if (isReservedWord(username)) {
     notFound()
@@ -406,6 +413,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     return (
       <div className="flex items-center gap-2">
       <EditProfileButton
+        embedded={embedded}
         displayName={profile.display_name || ""}
         bio={headerSettings?.bio || creator.bio || ""}
         username={profile.username}
@@ -432,7 +440,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         }}
       />
       {/* Everything that needs a whole screen rather than a dialog. */}
-      <OwnerMenu />
+      <OwnerMenu embedded={embedded} />
       </div>
     )
   }

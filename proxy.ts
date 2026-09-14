@@ -1099,7 +1099,19 @@ export async function proxy(request: NextRequest) {
    */
   {
     const url = request.nextUrl
-    if (url.pathname.startsWith("/website-builder/code/") && url.searchParams.get("embedded") === "1") {
+    /**
+     * THE CREATOR PAGE IS FRAMED BY ITS OWN WORKSPACE.
+     *
+     * /app/creator-page holds the real /u/<handle> rather than redrawing it,
+     * so the controls a creator uses are the ones a visitor's browser runs and
+     * nothing can drift. Same rule as the code editor below: `frame-ancestors
+     * 'self'`, and ONLY with ?embedded=1. Opened at its own address the page
+     * stays unframeable by anybody, us included.
+     */
+    const framed =
+      (url.pathname.startsWith("/website-builder/code/") || url.pathname.startsWith("/u/")) &&
+      url.searchParams.get("embedded") === "1"
+    if (framed) {
       const existing = supabaseResponse.headers.get("Content-Security-Policy")
       supabaseResponse.headers.set(
         "Content-Security-Policy",

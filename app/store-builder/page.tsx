@@ -17,5 +17,5 @@ import { redirect } from "next/navigation"
  * that breaks those is not a rename, it is a removal.
  */
 export default function StoreBuilderRedirect() {
-  redirect("/creator-page")
+  redirect("/app/creator-page")
 }

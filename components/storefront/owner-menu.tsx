@@ -31,12 +31,12 @@ import { MoreHorizontal } from "lucide-react"
  */
 const LINKS = [
   { href: "/app/products", label: "Manage products", detail: "Add, edit and price" },
-  { href: "/creator-page", label: "Customize page", detail: "Lay out this page" },
+  { href: "/app/creator-page", label: "Customize page", detail: "Lay out this page" },
   { href: "/app/analytics", label: "Analytics", detail: "Views and sales" },
   { href: "/app/settings", label: "Settings", detail: "Account and payouts" },
 ] as const
 
-export function OwnerMenu() {
+export function OwnerMenu({ embedded = false }: { embedded?: boolean }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -53,7 +53,10 @@ export function OwnerMenu() {
         <DropdownMenuSeparator />
         {LINKS.map(({ href, label, detail }) => (
           <DropdownMenuItem key={href} asChild className="cursor-pointer py-2">
-            <SmartLink href={href}>
+            {/* Inside the workspace frame these are app screens, and loading
+                the app inside a frame on a public page is not a destination.
+                _top puts them where they belong. */}
+            <SmartLink href={href} {...(embedded ? { target: "_top" as const } : {})}>
               <span className="flex flex-col">
                 <span className="text-sm">{label}</span>
                 <span className="text-xs text-muted-foreground">{detail}</span>

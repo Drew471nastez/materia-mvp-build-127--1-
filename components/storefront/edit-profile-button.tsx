@@ -35,6 +35,8 @@ import type { SocialPlatformKey } from "@/lib/social/platforms"
 type PlatformKey = SocialPlatformKey
 
 export interface EditProfileButtonProps {
+  /** True when this page is rendered inside /app/creator-page. */
+  embedded?: boolean
   displayName: string
   bio: string
   username?: string | null
@@ -55,6 +57,7 @@ export interface EditProfileButtonProps {
 }
 
 export function EditProfileButton({
+  embedded = false,
   displayName,
   bio,
   username,
@@ -163,13 +166,16 @@ export function EditProfileButton({
         in place is the whole reason it exists.
       */}
       <div className="flex items-center gap-2">
+        {/* Not inside the workspace: there, this page already is the editor. */}
+        {!embedded && (
         <a
-          href="/creator-page"
+          href="/app/creator-page"
           className="inline-flex h-9 items-center gap-2 rounded-lg bg-white/95 px-4 text-sm font-medium text-gray-900 no-underline shadow-md backdrop-blur transition-colors hover:bg-white"
         >
           <Wand2 className="h-3.5 w-3.5" />
           Customize page
         </a>
+        )}
         <button
           type="button"
           onClick={() => setOpen(true)}
