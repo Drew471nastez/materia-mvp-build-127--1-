@@ -2236,6 +2236,34 @@ html.capacitor:has(.wb-editor)::before {
   display: none;
 }
 
+/* ── And the creator page editor, for exactly the same reason ────────────
+   Its bar is white and it owns the whole screen, so the black shield above
+   it was a band under the clock with the editor starting below — the "not
+   full screen, black background where the clock is" that was reported. The
+   bar already pads itself to `env(safe-area-inset-top)` and paints that
+   strip its own colour, so standing the shield down loses nothing.
+
+   The html canvas goes white with it: it is what shows during a rubber-band
+   bounce, and black behind a white screen is the same band arriving from the
+   other direction.
+
+   TWO RULES, NOT A SELECTOR LIST, and the same pair as above: one selector a
+   browser cannot parse throws away the whole rule, so an iOS without `:has()`
+   would lose the class-based fallback too. `.cp-fullscreen` is added by an
+   effect and `:has()` holds from the first paint; either alone is enough. */
+html.capacitor.cp-fullscreen::before {
+  display: none;
+}
+html.capacitor:has(.cp-editor)::before {
+  display: none;
+}
+html.capacitor.cp-fullscreen {
+  background-color: #ffffff;
+}
+html.capacitor:has(.cp-editor) {
+  background-color: #ffffff;
+}
+
 html.capacitor {
   touch-action: manipulation; /* removes 300 ms delay on double-tap-to-zoom */
   -webkit-tap-highlight-color: transparent;

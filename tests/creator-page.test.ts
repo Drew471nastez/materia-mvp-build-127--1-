@@ -171,6 +171,19 @@ function main() {
      */
     const sheet = read("components/storefront/editor-sheet.tsx")
     check("the editors open on Dialog on a desktop", sheet.includes("<Dialog"))
+    /**
+     * A DRAWER, NOT A CENTRED DIALOG. These edit the page BEHIND them, and
+     * the whole reason the workspace frames the real page is so a creator
+     * sees a change land. Dimming the one thing they are looking at, and
+     * covering its middle, works against that.
+     */
+    check("pinned to the right edge, not centred", sheet.includes("left-auto right-0 top-0 translate-x-0"))
+    check("with no dimming overlay", sheet.includes('overlayClassName="bg-transparent"'))
+    check("and depth instead", sheet.includes("shadow-[-24px_0_60px_-24px_rgba(15,23,42,0.35)]"))
+    /** Radix keeps the node mounted for the exit, so closing is animated. */
+    check("it slides both ways", sheet.includes("data-[state=closed]:slide-out-to-right") && sheet.includes("data-[state=open]:slide-in-from-right"))
+    /** The base content class zooms from the centre and would fight the slide. */
+    check("and the dialog's own zoom is off, not merged over", sheet.includes("disableDefaultAnimations"))
     check("and on the builder's sheet on a phone", sheet.includes("<MobileEditorSheet") && sheet.includes("useIsPhone()"))
     for (const [name, file] of [["the bar", "edit-cta-button"], ["the profile", "edit-profile-button"], ["About", "edit-about-button"]] as const) {
       const src = read(`components/storefront/${file}.tsx`)
@@ -1425,7 +1438,12 @@ function main() {
     check("and nothing sniffs a user agent to do it", !/navigator\.userAgent|isNativeApp\(\)/.test(workspace))
 
     /** A form that opens to the whole screen is a page, not a sheet. */
-    check("editors open to half the screen, with the top as a second stop", sheet.includes("detents={[0.55, 0.92]}") && !sheet.includes("openFull"))
+    /**
+     * ONE STOP. Two made the height something to manage: a drag meant to
+     * scroll the form resized the sheet instead, and it could be left at
+     * either. One stop is a fixed sheet with a scroller in it.
+     */
+    check("editors open to 60% and stay there", sheet.includes("detents={[0.6]}") && !sheet.includes("openFull"))
     check("and the body is the sheet's own scroller", sheet.includes("data-sheet-scroll"))
 
     /**
@@ -1451,6 +1469,61 @@ function main() {
     check("selecting a scheme changes no button's size", !/w-0|w-3\.5 scale-100/.test(picker) && picker.includes('active ? "opacity-100" : "opacity-0"'))
     check("nor its position", !/translate-y/.test(picker))
     check("only colour, shadow, and the discs in their fixed box", picker.includes("transition-[background-color,border-color,box-shadow]") && picker.includes("style={{ width: 52 }}"))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    const mobileSheet = code("components/website-builder/mobile-editor-sheet.tsx")
+    const css = read("app/globals.css")
+    const workspace = code("components/app/creator-page-workspace.tsx")
+    const cta = code("components/storefront/edit-cta-button.tsx")
+
+    /**
+     * THE PAGE BEHIND A SHEET DOES NOT SCROLL. The scrim caught a tap and
+     * nothing else: a drag on it, or one inside the sheet that ran out of
+     * scroller, went through to the document.
+     */
+    check("an open sheet locks the document", mobileSheet.includes('root.style.overflow = "hidden"') && mobileSheet.includes('body.style.overflow = "hidden"'))
+    check("and puts the scroll position back", mobileSheet.includes("window.scrollTo(0, y)"))
+    /** A peeking sheet is chrome, not something opened over a page. */
+    check("but only a sheet with no peek", /if \(!open \|\| peekHeight > 0/.test(mobileSheet))
+
+    /**
+     * THE BLACK SHIELD. `html.capacitor::before` is a fixed pure-black layer
+     * over the safe area at z-9999 — right for every page whose header is
+     * black, and a band under the clock on one whose bar is white.
+     */
+    check("the shield stands down on the editor", css.includes("html.capacitor.cp-fullscreen::before") && css.includes("html.capacitor:has(.cp-editor)::before"))
+    check("two rules, so an iOS without :has() keeps the fallback", !/cp-fullscreen::before,\s*html\.capacitor:has/.test(css))
+    check("and the canvas behind it goes white with it", css.includes("html.capacitor.cp-fullscreen {\n  background-color: #ffffff;"))
+    check("the workspace carries both halves", workspace.includes('className="cp-editor relative') && workspace.includes('root.classList.add("cp-fullscreen")'))
+
+    /**
+     * SAVING THE WORDS MUST NOT FREEZE THE COLOURS. The fields are seeded
+     * with what the bar IS, which for an untouched colour is what the scheme
+     * decided; writing all four back turned the scheme's answer into a stored
+     * choice and the scheme could never paint the bar again.
+     */
+    check("the bar editor sends only what was touched", cta.includes("touched.has(key)") && cta.includes("subscribeBar: patch"))
+    check("and sends nothing at all when nothing was", cta.includes("if (Object.keys(patch).length === 0)"))
+    check("a reopened editor forgets what was touched", cta.includes("setTouched(new Set())"))
+
+    /**
+     * EVERY TOP BAR GETS OUT OF THE WAY. This existed in one place, written
+     * inline, so the product page's creator bar was pinned forever.
+     */
+    const hook = read("lib/store-builder/use-reveal-on-scroll-up.ts")
+    check("there is one reveal-on-scroll-up", hook.includes("export function useRevealOnScrollUp"))
+    check("the subscribe bar uses it", code("components/store-builder/subscribe-bar.tsx").includes("useRevealOnScrollUp("))
+    check("and so does the product page's bar", code("components/store-builder/discover-sticky-wrapper.tsx").includes("useRevealOnScrollUp()"))
+    check("neither keeps a copy of the logic", !/const DELTA = 6/.test(code("components/store-builder/subscribe-bar.tsx")))
+    /** One read per frame, a threshold, and state set only when it changes. */
+    check("it reads once per frame", hook.includes("requestAnimationFrame(evaluate)"))
+    check("ignores jitter", hook.includes("const DELTA = 6"))
+    check("and is always visible near the top", hook.includes("const TOP_ZONE = 50"))
+
+    /** 290px of dashed box for a control whose content is one line of text. */
+    check("the add-another picker is compact", code("components/storefront/edit-about-button.tsx").includes('aspectRatio="compact"'))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

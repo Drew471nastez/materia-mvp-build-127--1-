@@ -91,18 +91,37 @@ export function EditCtaButton({
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [v, setV] = React.useState<CtaValues>(values)
+  /**
+   * ===========================================================================
+   *  SAVING THE WORDS MUST NOT FREEZE THE COLOURS
+   * ===========================================================================
+   * These fields are seeded with what the bar IS — which, for a creator who
+   * has never picked a colour, is what the scheme decided. Writing all four
+   * back on every save turned the scheme's answer into an explicit stored
+   * choice, and from that moment the scheme could never paint the bar again:
+   * change the page to Astrid and the button stayed the blue the editor had
+   * quietly saved. That is "they sometimes override".
+   *
+   * So a field is sent only if it was TOUCHED in this session. Everything
+   * else is left absent, the stored config keeps whatever it had, and the
+   * scheme goes on deciding for the ones nobody has chosen.
+   */
+  const [touched, setTouched] = React.useState<Set<keyof CtaValues>>(() => new Set())
 
-  const set = <K extends keyof CtaValues>(key: K, value: CtaValues[K]) =>
+  const set = <K extends keyof CtaValues>(key: K, value: CtaValues[K]) => {
+    setTouched((t) => (t.has(key) ? t : new Set(t).add(key)))
     setV((s) => {
       const next = { ...s, [key]: value }
       onPreview?.(next)
       return next
     })
+  }
 
   /** Reopening after a cancel shows what is saved, not what was abandoned. */
   React.useEffect(() => {
     if (open) return
     setV(values)
+    setTouched(new Set())
     setError(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -119,10 +138,23 @@ export function EditCtaButton({
     setSaving(true)
     setError(null)
     try {
+      /*
+        Only what was touched. The API treats every key it receives as a
+        decision — that is right, and it is why an untouched key must not be
+        sent. See the note on `touched` above.
+      */
+      const patch: Partial<CtaValues> = {}
+      for (const key of Object.keys(v) as (keyof CtaValues)[]) {
+        if (touched.has(key)) patch[key] = v[key] as never
+      }
+      if (Object.keys(patch).length === 0) {
+        setOpen(false)
+        return
+      }
       const res = await fetch("/api/creator-profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscribeBar: v }),
+        body: JSON.stringify({ subscribeBar: patch }),
       })
       if (!res.ok) {
         setError("That could not be saved. Try again.")

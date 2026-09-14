@@ -11,14 +11,27 @@
  * footer with Cancel and Save, so Save is never below the fold.
  *
  * ---------------------------------------------------------------------------
- *  A SHEET ON A PHONE, A DIALOG ON A DESKTOP
+ *  A SHEET ON A PHONE, A DRAWER ON A DESKTOP
  * ---------------------------------------------------------------------------
  * A centred dialog on a phone is a box in the middle of a small screen with
- * the keyboard covering half of it. The website builder solved this once,
+ * the keyboard covering half of it. The website builder solved that once,
  * with a bottom sheet that has detents, drag physics, a keyboard inset and a
- * measured viewport, and MobileEditorSheet IS that component. On a phone
- * every editor here is one of those; on a desktop it is the Radix Dialog the
- * profile editor always was. The content in the middle does not know which.
+ * measured viewport, and MobileEditorSheet IS that component.
+ *
+ * ON A DESKTOP IT IS A DRAWER AT THE RIGHT EDGE, not a centred dialog over a
+ * dimmed page. A centred dialog with the lights off says "stop and answer
+ * this"; these edit the page BEHIND them, and the whole reason the workspace
+ * frames the real page is so a creator can see a change land. Dimming the
+ * one thing they are looking at, and covering its middle, is working against
+ * that. So the page stays lit, the drawer sits over the right of it with a
+ * shadow to say which is in front, and the canvas is still readable while a
+ * colour is picked.
+ *
+ * IT IS STILL A RADIX DIALOG. Focus trapping, Escape, returning focus to the
+ * trigger and — the part that matters here — keeping the content mounted for
+ * the length of the exit animation are all things it already does correctly
+ * and all things that look like a flash when hand-rolled. Only the geometry
+ * and the overlay are ours.
  *
  * `peekHeight={0}` and `layer="raised"`: the sheet's default is the builder's
  * BASE sheet, which peeks 72px above the bottom edge when closed because the
@@ -146,12 +159,14 @@ export function EditorSheet({
         peekHeight={0}
         layer="raised"
         /*
-          HALF FIRST. A form that opens to the whole screen is a page, and a
-          page has no reason to be a sheet. It opens to half, which keeps the
-          thing being edited visible above it, and a drag on the handle takes
-          it to the top for the long ones. The body scrolls inside either.
+          ONE STOP, AT 60%. Two stops made the height a thing a creator had to
+          manage: the sheet could be left at any of them, a drag meant to
+          scroll the form resized it instead, and nothing in it needs the
+          whole screen. One stop is a fixed sheet with a scroller in it — the
+          drag is only ever "close" — and 60% keeps the thing being edited
+          visible above it.
         */
-        detents={[0.55, 0.92]}
+        detents={[0.6]}
       >
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="shrink-0 border-b border-border px-5 pb-3 pt-1">
@@ -172,8 +187,42 @@ export function EditorSheet({
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent className={cn("flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0", wide ? "sm:max-w-lg" : "sm:max-w-md")}>
-        <DialogHeader className="border-b border-border px-6 py-4">
+      <DialogContent
+        showCloseButton={false}
+        /*
+          NO DIM. `bg-transparent` on the overlay leaves the page lit; the
+          overlay element itself stays, because it is what catches a click
+          outside and closes the drawer.
+        */
+        overlayClassName="bg-transparent"
+        /*
+          The base content class zooms from 95% about the centre, which is a
+          dialog's animation and fights a drawer's slide. `disableDefaultAnimations`
+          drops the whole animation set — including the pair of `duration`s
+          and the zoom that twMerge has no rule for and would let through —
+          and the slide below is then the only thing moving. The OVERLAY
+          keeps its fade: an invisible layer has nothing to fade, so it costs
+          nothing and keeps Radix's own state machine honest.
+        */
+        disableDefaultAnimations
+        disableOverlayDefaultAnimations={false}
+        className={cn(
+          // Undo the centring: Radix positions content at 50%/50% with a
+          // translate, and a drawer is pinned to an edge instead.
+          "left-auto right-0 top-0 translate-x-0 translate-y-0 max-w-none",
+          "flex h-dvh flex-col gap-0 overflow-hidden rounded-none border-y-0 border-r-0 p-0",
+          "shadow-[-24px_0_60px_-24px_rgba(15,23,42,0.35)]",
+          "w-full sm:w-[420px]",
+          wide && "sm:w-[520px]",
+          // The slide. Radix keeps the node mounted for the exit, so the
+          // closed state is a real animation rather than a deletion.
+          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
+          "data-[state=open]:duration-300 data-[state=closed]:duration-200",
+          "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
+        )}
+      >
+        <DialogHeader className="shrink-0 border-b border-border px-6 py-4">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 

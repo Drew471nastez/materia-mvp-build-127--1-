@@ -666,6 +666,46 @@ export function MobileEditorSheet({
   React.useEffect(() => () => window.clearTimeout(hideTimer.current), [])
 
   /**
+   * ===========================================================================
+   *  THE PAGE BEHIND A SHEET DOES NOT SCROLL
+   * ===========================================================================
+   * The scrim catches a TAP, and that is all it ever caught: a drag that
+   * started on it, or a drag inside the sheet that reached the end of its own
+   * scroller, went through to the document and scrolled the page underneath.
+   * So a sheet could be open over a storefront that was quietly moving behind
+   * it, and letting go left the sheet pointing at something else.
+   *
+   * `overflow: hidden` on both elements, because which one scrolls differs by
+   * platform, and the scroll position is put back on the way out — locking a
+   * document by hiding its overflow throws its scroll away on iOS otherwise,
+   * and closing the sheet would jump the page to the top.
+   *
+   * Only a sheet with NO PEEK locks. A peeking sheet is a permanent part of
+   * the builder's chrome, not something opened over a page, and the page
+   * behind that one is meant to scroll.
+   */
+  React.useEffect(() => {
+    if (!open || peekHeight > 0 || typeof document === "undefined") return
+    const root = document.documentElement
+    const body = document.body
+    const y = window.scrollY
+    const prev = {
+      rootOverflow: root.style.overflow,
+      bodyOverflow: body.style.overflow,
+      bodyTouch: body.style.touchAction,
+    }
+    root.style.overflow = "hidden"
+    body.style.overflow = "hidden"
+    body.style.touchAction = "none"
+    return () => {
+      root.style.overflow = prev.rootOverflow
+      body.style.overflow = prev.bodyOverflow
+      body.style.touchAction = prev.bodyTouch
+      if (window.scrollY !== y) window.scrollTo(0, y)
+    }
+  }, [open, peekHeight])
+
+  /**
    * The starting visibility, set ONCE. It used to be an inline style on the
    * element — `visibility: hidden` whenever `open` was false — which meant
    * React wrote "hidden" in the same commit that asked the sheet to slide

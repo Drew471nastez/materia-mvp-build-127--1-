@@ -86,6 +86,9 @@ export function CreatorPageWorkspace({
   useEffect(() => {
     const root = document.documentElement
     const body = document.body
+    /* The class half of the shield opt-out; `:has(.cp-editor)` is the other,
+       and either alone is enough. See app/globals.css. */
+    root.classList.add("cp-fullscreen")
     const prev = [root.style.overflow, root.style.height, body.style.overflow, body.style.height]
     root.style.overflow = "hidden"
     root.style.height = "100%"
@@ -110,6 +113,7 @@ export function CreatorPageWorkspace({
       vv?.removeEventListener("scroll", onViewport)
       window.removeEventListener("scroll", putBack)
       window.clearTimeout(settle)
+      root.classList.remove("cp-fullscreen")
       ;[root.style.overflow, root.style.height, body.style.overflow, body.style.height] = prev
     }
   }, [])
@@ -173,7 +177,14 @@ export function CreatorPageWorkspace({
   }, [reframe])
 
   return (
-    <div className="relative flex h-svh min-h-0 flex-col overflow-hidden bg-[#f1f1f3]">
+    /*
+      `cp-editor` is read by app/globals.css, which stands down the fixed black
+      shield the native shell paints over the safe area. Every ordinary page in
+      the app wants that shield because its header is black; this one's bar is
+      white and pads itself into the same strip, so the shield was a black band
+      under the clock with the editor starting below it.
+    */
+    <div className="cp-editor relative flex h-svh min-h-0 flex-col overflow-hidden bg-[#f1f1f3]">
       {/*
         ONE LIGHT ROW, AND ALMOST NOTHING IN IT.
 

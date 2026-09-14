@@ -218,9 +218,16 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
 
               {items.length < MAX_MEDIA && (
                 <>
+                  {/*
+                    COMPACT. This is the "add another" affordance, not a
+                    preview of anything: at 16:9 it was 290px of dashed box in
+                    a 520px drawer, and most of a phone sheet, for a control
+                    whose whole content is one line of text. The pictures
+                    already added are shown above it, at their own size.
+                  */}
                   <ImageUpload
                     bucket="store-builder-images"
-                    aspectRatio="video"
+                    aspectRatio="compact"
                     onChange={(url) => {
                       if (url) setItems((list) => [...list, { id: newId(), type: "image", url }])
                     }}
