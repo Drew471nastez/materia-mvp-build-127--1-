@@ -101,24 +101,40 @@ export function getLinksUrl(username: string): string {
  * @param productSlug - The product slug
  * @returns Full URL like "https://username.storelib.com/p/product-slug"
  */
+/**
+ * ===========================================================================
+ *  A PRODUCT IS storelib.com/<handle>/<slug>
+ * ===========================================================================
+ * It used to be `<handle>.storelib.com/p/<slug>`: a subdomain, a `/p/` that
+ * reads as nothing, and an address too long to say out loud.
+ *
+ * WHY NOT storelib.com/<slug>. That slot is already the creator's page, and
+ * one slot cannot mean both "handle" and "product slug" — a creator called
+ * `ebook` and a product slugged `ebook` are both legitimate, and whichever
+ * lost would simply stop resolving. Nesting under the handle removes the
+ * collision instead of managing it.
+ *
+ * THE OLD ADDRESS STILL ANSWERS. app/(marketing)/p/[slug] is still the
+ * implementation and still the route; it also holds the slug-history
+ * redirects, so a product renamed two years ago still resolves from the link
+ * somebody saved. Only what we HAND OUT changed.
+ */
 export function getProductUrl(username: string, productSlug: string): string {
   if (!productSlug) return getStoreUrl(username)
 
   const mainDomain = getMainDomain()
   const protocol = mainDomain.includes("localhost") ? "http" : "https"
 
-  // Handle localhost for development
+  const handle = username.toLowerCase()
+
   if (mainDomain.includes("localhost")) {
-    // In development, use path-based routing
-    return `${getSiteUrl()}/p/${productSlug}`
+    return handle ? `${getSiteUrl()}/${handle}/${productSlug}` : `${getSiteUrl()}/p/${productSlug}`
   }
 
-  if (!username) {
-    // If no username, use main domain with path
-    return `${protocol}://${mainDomain}/p/${productSlug}`
-  }
+  /** No handle to nest under: the old address is still the right answer. */
+  if (!handle) return `${protocol}://${mainDomain}/p/${productSlug}`
 
-  return `${protocol}://${username.toLowerCase()}.${mainDomain}/p/${productSlug}`
+  return `${protocol}://${mainDomain}/${handle}/${productSlug}`
 }
 
 /**
@@ -174,15 +190,15 @@ export function getProductShareUrl(username: string, productSlug: string): strin
 
   const mainDomain = getMainDomain()
 
+  const handle = username.toLowerCase()
+
   if (mainDomain.includes("localhost")) {
-    return `${getSiteUrl()}/p/${productSlug}`
+    return handle ? `${getSiteUrl()}/${handle}/${productSlug}` : `${getSiteUrl()}/p/${productSlug}`
   }
 
-  if (!username) {
-    return `https://${mainDomain}/p/${productSlug}`
-  }
+  if (!handle) return `https://${mainDomain}/p/${productSlug}`
 
-  return `https://${username.toLowerCase()}.${mainDomain}/p/${productSlug}`
+  return `https://${mainDomain}/${handle}/${productSlug}`
 }
 
 /**
@@ -210,8 +226,9 @@ export function getLinksInternalPath(slug: string): string {
  * @param productSlug - The product slug
  * @returns Relative path like "/p/product-slug"
  */
-export function getProductInternalPath(productSlug: string): string {
-  return `/p/${productSlug}`
+export function getProductInternalPath(productSlug: string, username?: string): string {
+  const handle = username?.toLowerCase()
+  return handle ? `/${handle}/${productSlug}` : `/p/${productSlug}`
 }
 
 /**

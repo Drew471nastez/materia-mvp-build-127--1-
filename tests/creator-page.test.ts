@@ -269,6 +269,46 @@ function main() {
     check("it never runs in a browser", helper.startsWith('import "server-only"'))
   }
 
+  // ── 9. Product URLs ────────────────────────────────────────────────────
+  {
+    const helpers = read("lib/url-helpers.ts")
+    const nested = "app/(marketing)/[sellername]/[productSlug]/page.tsx"
+
+    check("a product has an address under its creator", existsSync(join(root, nested)))
+    check("the old address is still a real route", existsSync(join(root, "app/(marketing)/p/[slug]/page.tsx")))
+
+    /**
+     * THE COLLISION THAT DECIDED THE SHAPE. storelib.com/<slug> is already the
+     * creator page — app/(marketing)/[sellername]/page.tsx exists to make it
+     * so. One slot cannot mean both a handle and a product slug: a creator
+     * called `ebook` and a product slugged `ebook` are both legitimate, and
+     * whichever lost would stop resolving with no error and no redirect.
+     */
+    check(
+      "the root slot still belongs to the creator page",
+      existsSync(join(root, "app/(marketing)/[sellername]/page.tsx")),
+    )
+
+    check(
+      "what we hand out is storelib.com/<handle>/<slug>",
+      /\$\{mainDomain\}\/\$\{handle\}\/\$\{productSlug\}/.test(helpers),
+    )
+    check("and no longer a subdomain with a /p/", !/\$\{handle\}\.\$\{mainDomain\}\/p\//.test(helpers))
+    /**
+     * A product with no handle to nest under has nowhere to go but the old
+     * address, and that has to keep working rather than producing
+     * storelib.com//slug.
+     */
+    check("a product with no handle falls back to the old address", /if \(!handle\) return/.test(helpers))
+
+    const nestedCode = read(nested)
+    check("the nested route reuses the product page rather than copying it", nestedCode.includes("from \"../../p/[slug]/page\""))
+    check(
+      "and a reserved first segment is not read as a creator",
+      nestedCode.includes("RESERVED_FIRST_SEGMENT") && nestedCode.includes("notFound()"),
+    )
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
