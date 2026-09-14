@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { ProductGallery } from "@/components/product/product-gallery"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
+import { ContactReveal } from "@/components/storefront/contact-reveal"
 import { SocialMediaIcons } from "./social-media-icons"
 import { CatalogHeader } from "@/components/storefront/catalog-controls"
 
@@ -767,14 +768,9 @@ function UnifiedAboutSection({
               true.
             */}
             {contactEmail && (
-              <a
-                href={`mailto:${contactEmail}`}
-                className="mt-6 inline-flex items-center gap-2 text-sm underline-offset-4 hover:underline"
-                style={{ color: textColor || undefined }}
-              >
-                <Mail aria-hidden className="h-4 w-4 opacity-70" />
-                Contact
-              </a>
+              <div className="mt-6 text-sm" style={{ color: textColor || undefined }}>
+                <ContactReveal email={contactEmail} />
+              </div>
             )}
           </div>
 
@@ -3152,22 +3148,20 @@ export function UnifiedShopHeader({
              * buyer had no way to reach the person selling to them. Here it
              * is on the line that is always under the bio.
              *
-             * The address itself, not the word "Contact": it can be read,
-             * copied and written down, which is what somebody comparing
-             * sellers or filing a complaint actually needs. `mailto` is still
-             * on it for the people who just want to click.
+             * BEHIND A BUTTON, not printed. The address in full on a public
+             * page is one line for a buyer and a free afternoon for anybody
+             * harvesting addresses, and it makes a page about someone's work
+             * lead with their inbox. The same control the About block uses,
+             * so one page does not offer two different affordances for the
+             * same thing. See components/storefront/contact-reveal.
              */
             if (contactEmail) {
               parts.push(
-                <a
+                <ContactReveal
                   key="contact"
-                  href={`mailto:${contactEmail}`}
-                  className="flex items-center gap-1.5 underline-offset-4 hover:underline"
-                  style={{ color: "inherit" }}
-                >
-                  <Mail className={cn(isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
-                  <span className="max-w-[220px] truncate">{contactEmail}</span>
-                </a>,
+                  email={contactEmail}
+                  iconClassName={isMobile ? "h-3.5 w-3.5" : "h-4 w-4"}
+                />,
               )
             }
 

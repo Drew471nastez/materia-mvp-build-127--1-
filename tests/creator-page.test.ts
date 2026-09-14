@@ -313,7 +313,16 @@ function main() {
     const renderer = read("components/store-builder/unified-section-renderer.tsx")
 
     check("About can hold a contact address", about.includes('id="ea-contact"'))
-    check("and the block renders it as a mailto", renderer.includes("href={`mailto:${contactEmail}`}"))
+    /**
+     * The block still surfaces it as a mail link — the link is just produced
+     * by ContactReveal, after the button is pressed, rather than printed into
+     * the block. Both halves are checked so neither can quietly go away.
+     */
+    check(
+      "and the block offers it, revealed by a button",
+      renderer.includes("<ContactReveal email={contactEmail} />") &&
+        read("components/storefront/contact-reveal.tsx").includes("href={`mailto:${email}`}"),
+    )
     check("only when one is set", /\{contactEmail && \(/.test(renderer))
     check("it is validated as an address before being stored", /\^\[\^\\s@\]\+@/.test(api))
     check("and clearing it removes the link", api.includes("next.contactEmail = contactEmail || undefined"))
@@ -683,8 +692,24 @@ function main() {
     const renderer = code("components/store-builder/unified-section-renderer.tsx")
     const page = code("app/(marketing)/u/[username]/page.tsx")
     check(
-      "the header line carries a contact address",
-      /if \(contactEmail\) \{/.test(renderer) && /href=\{`mailto:\$\{contactEmail\}`\}/.test(renderer),
+      "the header line carries a way to reach the seller",
+      /if \(contactEmail\) \{/.test(renderer) && /<ContactReveal/.test(renderer),
+    )
+    /**
+     * ONE CONTROL, TWO PLACES. The About block and the header's meta line
+     * show the same thing, so a page cannot end up offering two different
+     * affordances for it — a printed address in one and a button in the
+     * other, which is what it briefly did.
+     */
+    check(
+      "and About uses the same control rather than its own",
+      (renderer.match(/<ContactReveal/g) ?? []).length === 2 &&
+        !/href=\{`mailto:\$\{contactEmail\}`\}/.test(renderer),
+    )
+    const reveal = code("components/storefront/contact-reveal.tsx")
+    check(
+      "the address is not rendered until the button is pressed",
+      /if \(!shown\) \{/.test(reveal) && /setShown\(true\)/.test(reveal),
     )
     /**
      * ONE EXPRESSION, NOT THREE. The address was worked out inline at each
