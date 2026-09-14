@@ -3416,7 +3416,23 @@ export function UnifiedProductPage({
       }}
     >
       <SectionContainer className={cn(isMobile ? "py-4" : "py-6 sm:py-12", "pb-24 lg:pb-12")} isMobile={isMobile}>
-        <div className={cn("grid gap-8", !isMobile && "lg:grid-cols-5 lg:gap-12 lg:items-start")}>
+        {/*
+          =====================================================================
+           `items-start` IS WHAT WAS STOPPING THE CARD FROM STICKING
+          =====================================================================
+          The buying card has carried `sticky top-6` all along and has never
+          stuck. A sticky element travels inside ITS OWN containing block, and
+          `items-start` shrinks a grid item to its content — so the column
+          holding the card was exactly the card's height, and a sticky element
+          with nowhere to travel behaves exactly like one with no sticky at
+          all. The class was right there in the source, looking correct.
+
+          Stretched, the column is as tall as the row and the card rides down
+          it. Measured in scripts/check-buy-card.mjs: with `items-start` the
+          card ends 1176px above the viewport after a 1200px scroll; without
+          it, the card holds at 24px.
+        */}
+        <div className={cn("grid gap-8", !isMobile && "lg:grid-cols-5 lg:gap-12")}>
           <div className={cn(!isMobile && "lg:col-span-3", "min-w-0 w-full")}>
             {settings.showGallery && (
               <>
@@ -4118,6 +4134,29 @@ export function UnifiedProductPage({
                     : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                 }}
               >
+                {/*
+                  =================================================================
+                   THE TITLE, ABOVE THE PRICE
+                  =================================================================
+                  The card began with a number. On a desktop it follows you
+                  down the page while the gallery and the description scroll
+                  past, so by the time somebody reaches the button the only
+                  thing naming what they are buying is far above them — a
+                  price, a button and no product.
+
+                  It is the card's heading now, so what is being bought and
+                  what it costs are read together, wherever the page has been
+                  scrolled to. Two lines at most: a long title is for the page
+                  below, not for a buying card.
+                */}
+                <h2
+                  className={cn("mb-2 text-lg font-semibold leading-snug line-clamp-2", !priceContainerText && "text-foreground")}
+                  style={{ color: priceContainerText }}
+                  title={productTitle}
+                >
+                  {productTitle}
+                </h2>
+
                 {/* Price display - only show static price if no variants */}
                 {variants.length === 0 && (
                   <div className="mb-4">
