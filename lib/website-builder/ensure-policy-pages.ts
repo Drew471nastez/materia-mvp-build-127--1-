@@ -25,6 +25,7 @@
  * backfill that argued with them every reload would be a bug, not a feature.
  */
 
+import { withLiveLinks } from "./live-links"
 import { POLICY_PAGES, policyPageSections, withPolicyLinks } from "./policy-pages"
 import type { SectionInstance } from "./types"
 
@@ -109,8 +110,18 @@ export async function ensurePolicyPages(
 
   const have = new Set(pages.map((p) => p.page_key))
   const missing = POLICY_PAGES.filter((p) => !have.has(p.key))
-  if (missing.length === 0) return { created: [], footersLinked: 0, error: null }
 
+  /**
+   * THE REPAIR BELOW RUNS WHETHER OR NOT THERE IS A PAGE TO CREATE.
+   *
+   * This used to `return` here when nothing was missing, which reads as an
+   * obvious saving and was the reason the link repair could never reach a
+   * single existing site: a site that already has its three policy pages —
+   * which is every site that has been opened once — skipped the whole
+   * function, including the loop that fixes footers. The loop writes only
+   * when a page actually changes, so running it always costs one comparison
+   * per page and no database write on a site that is already right.
+   */
   const { header, footer } = chrome(pages)
   /**
    * The new pages get the linked footer straight away. The loop below only
@@ -124,10 +135,12 @@ export async function ensurePolicyPages(
     sections: policyPageSections(page, { brand: brand || "this shop", header, footer: linkedFooter }),
   }))
 
-  const { error: writeError } = await db
-    .from("store_theme_pages")
-    .upsert(rows, { onConflict: "install_id,page_key", ignoreDuplicates: true })
-  if (writeError) return { created: [], footersLinked: 0, error: writeError.message }
+  if (rows.length) {
+    const { error: writeError } = await db
+      .from("store_theme_pages")
+      .upsert(rows, { onConflict: "install_id,page_key", ignoreDuplicates: true })
+    if (writeError) return { created: [], footersLinked: 0, error: writeError.message }
+  }
 
   /**
    * And the links, in this run only. Every page carries its own copy of the
@@ -138,12 +151,27 @@ export async function ensurePolicyPages(
    * the column is added to both, so saving does not silently discard it and
    * publishing does not silently add it.
    */
+  /** What this site can be linked to, so a creator's own /blog stays a link. */
+  const pageKeys = new Set(pages.map((p) => p.page_key).concat(missing.map((m) => m.key)))
+
   let footersLinked = 0
   for (const page of pages) {
     const published = asSections(page.sections)
     const draft = page.draft_sections === null || page.draft_sections === undefined ? null : asSections(page.draft_sections)
 
-    const linked = (list: SectionInstance[]) => list.map((s) => (s.type === "footer" ? withPolicyLinks(s) : s))
+    /**
+     * The policy links go in, and every link in the chrome is pointed at an
+     * address the site actually answers. Both repairs are idempotent and
+     * both run here for the same reason: every page carries its own copy of
+     * the header and the footer, so a fix applied to one page is a fix
+     * applied to one page. See lib/website-builder/live-links.
+     */
+    const linked = (list: SectionInstance[]) =>
+      list.map((s) => {
+        if (s.type === "footer") return withLiveLinks(withPolicyLinks(s), pageKeys)
+        if (s.type === "header") return withLiveLinks(s, pageKeys)
+        return s
+      })
     const nextPublished = linked(published)
     const nextDraft = draft ? linked(draft) : null
 

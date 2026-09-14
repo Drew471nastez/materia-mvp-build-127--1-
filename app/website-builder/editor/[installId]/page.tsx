@@ -65,7 +65,7 @@ import { ColorsPanel, SectionDesignPanel, TypographyPanel } from "@/components/w
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey } from "@/lib/website-builder/site-pages"
-import { withUniversalChrome } from "@/lib/website-builder/universal-chrome"
+import { chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { toPageSlug } from "@/lib/sites/slug"
@@ -4235,7 +4235,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       fetchPageSections(currentPage),
       currentPage !== "home" ? fetchHomeHeaderFooter() : Promise.resolve<{ header?: SectionInstance; footer?: SectionInstance }>({}),
     ])
-    const loaded = currentPage !== "home" ? mergeWithHomeHeaderFooter(loadedRaw, homeHF) : loadedRaw
+    /**
+     * HOME GETS THE RULE TOO, and that is not a no-op.
+     *
+     * This read `currentPage !== "home" ? merge : loadedRaw`, so every page
+     * on the site had its header put first and its footer put last except
+     * the one page the chrome is copied FROM. A header dragged into the
+     * middle of home therefore rendered in the middle on home and at the top
+     * everywhere else — which is the header that "is not universal". Home's
+     * own chrome is the source, so it is what home is dressed in.
+     */
+    const loaded = mergeWithHomeHeaderFooter(loadedRaw, currentPage !== "home" ? homeHF : chromeOf(loadedRaw))
 
     // Sync logo between header section and theme settings on initial load
     const header = loaded.find(s => s.type === "header")
@@ -4472,7 +4482,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           ? (leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter())
           : Promise.resolve<{ header?: SectionInstance; footer?: SectionInstance }>({}),
       ])
-      const merged = page !== "home" ? mergeWithHomeHeaderFooter(loaded, homeHF) : loaded
+      /* Home included, for the reason on the initial load above. */
+      const merged = mergeWithHomeHeaderFooter(loaded, page !== "home" ? homeHF : chromeOf(loaded))
 
       /**
        * ═══════════════════════════════════════════════════════════════════
