@@ -632,7 +632,6 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               creatorName={profile?.display_name || "Creator"}
               creatorUsername={profile?.username}
               avatarUrl={avatarUrl}
-              bio={(draftConfig.headerSettings as any)?.bio || creator?.bio || ""}
               isEditorPreview={isEditorMode}
               isMobile={isMobile}
               isSelected={isEditorMode && selectedSectionId === "creator-bar"}

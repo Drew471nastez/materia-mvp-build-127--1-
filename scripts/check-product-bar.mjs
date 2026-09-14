@@ -155,32 +155,18 @@ expect(phone.dots === 1, "and three dots for share and report", phone.dots)
    the bar is already the product, in a picture the size of the screen. */
 expect(!phone.product, "and not the product's thumbnail and title", phone.product && phone.product.text)
 
-console.log("\nthe creator's name and line")
+console.log("\nthe creator's name, and nothing under it")
 const name = phone.texts[0]
-const bio = phone.texts[1]
-expect(!!name && name.text === "AndrewRullz", "the name is the first line", name && name.text)
-expect(!!bio, "the bio is the second", phone.texts.map((t) => t.text).join(" | "))
-if (bio) {
-  const words = bio.text.replace(/…$/, "").trim().split(/\s+/)
-  expect(words.length === 6, "cut to six words", `${words.length}: ${bio.text}`)
-  expect(/…$/.test(bio.text), "and says it was cut", bio.text)
-  /*
-     One line, measured rather than assumed: the box is no taller than a
-     single line of its own line-height. A wrapped bio doubles this.
-  */
-  const lh = parseFloat(bio.lineHeight)
-  expect(bio.rect.h <= Math.ceil(lh) + 1, "on one line", `${bio.rect.h}px tall, line-height ${bio.lineHeight}`)
-  expect(bio.rect.w > 0 && bio.rect.x + bio.rect.w <= phone.bar.w, "inside the bar, not past its edge",
-    `ends at ${bio.rect.x + bio.rect.w} of ${phone.bar.w}`)
-  expect(name.rect.y < bio.rect.y, "the bio sits under the name", `${name.rect.y} vs ${bio.rect.y}`)
-}
+/* The bio was a second line here, cut to six words with an ellipsis. It was
+   the start of a sentence the bar had no room to finish. */
+expect(!!name && name.text === "AndrewRullz", "the name is on it", name && name.text)
+expect(phone.texts.length === 1, "and it is the only line", phone.texts.map((t) => t.text).join(" | "))
 
 console.log("\nand long text does not break either row")
 {
   const L = phone.longName
   const D = desk.longName
   const lname = L.texts[0]
-  const lbio = L.texts[1]
   expect(L.emails === 0 && L.buttons === 0, "still no form on the phone", `${L.emails}/${L.buttons}`)
   expect(L.back === 1 && L.dots === 1, "and the controls either side survive it", `${L.back}/${L.dots}`)
   /*
@@ -193,13 +179,9 @@ console.log("\nand long text does not break either row")
     only ever passed because the long-name case used to be measured on the
     phone as well. It is D's bar now, which is the bar these boxes are in.
   */
-  expect(!!lbio && lbio.rect.h <= Math.ceil(parseFloat(lbio.lineHeight)) + 1,
-    "and the bio under it is still one line", lbio && `${lbio.rect.h}px`)
   expect(!!lname && lname.overflowing, "the name is what gives way, with an ellipsis", lname && lname.text)
   expect(!!lname && lname.rect.x + lname.rect.w <= L.bar.w,
     "nothing runs past the edge of the bar", lname && `${lname.rect.x + lname.rect.w} of ${L.bar.w}`)
-  expect(!!lbio && lbio.rect.x + lbio.rect.w <= L.bar.w,
-    "nor does the line under it", lbio && `${lbio.rect.x + lbio.rect.w} of ${L.bar.w}`)
 }
 
 console.log("\nand the desktop row is untouched")

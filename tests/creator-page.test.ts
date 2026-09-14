@@ -1686,34 +1686,21 @@ function main() {
 
     /*
       ---------------------------------------------------------------------
-       THE BIO, WHICH ARRIVED FROM THE OTHER DIRECTION
+       NO BIO ON THIS BAR, ON EITHER SURFACE
       ---------------------------------------------------------------------
-      A parallel change put the creator's line under their name on the PHONE
-      bar. The phone bar is the product's now, so the line moved to the
-      desktop bar, which is the width that has room for it. The work is kept;
-      only where it is drawn has changed, so these are anchored to the
-      desktop block rather than deleted.
+      A parallel change put the creator's line under their name, cut to six
+      words with an ellipsis. Six words of a sentence is not a shorter
+      sentence, it is the start of one — a peek at something the bar has no
+      room to finish. Their page carries the bio in full and the name above
+      is the way to it, so the helper that did the cutting is gone too
+      rather than left sitting there unused.
     */
-    /*
-      Anchored on MARKUP, not on a comment. `bar` is comment-stripped source
-      — that is what `code()` is for, and why the contact guards kept passing
-      on comments quoting the code they forbade — so slicing at "{/* Desktop"
-      sliced at nothing and took the whole file.
-    */
-    const desktopBlock = bar.slice(bar.indexOf('hidden sm:block py-[calc(0.625rem+5px)]'))
-    check("the desktop bar carries the creator's line", desktopBlock.includes("{phoneBio}"))
-    check("and so does the phone bar", phoneBar.includes("{phoneBio}"))
-    check("cut to six words rather than by CSS alone", /shortBio\(bio\)/.test(bar) && /BIO_WORD_LIMIT = 6/.test(read("lib/store-builder/short-bio.ts")))
-    /**
-     * `truncate` is still the backstop for six very long words, and min-w-0
-     * is what lets it work at all inside a flex row.
-     */
-    check("with truncate as the backstop", /truncate text-\[11px\] leading-tight opacity-70/.test(bar))
-    check("and a column that can actually shrink", /className="flex min-w-0 flex-col"/.test(bar))
-    /** The same bio the creator page resolves, not a second source. */
-    check("the page passes the creator's own bio", /shopHeaderSettings\?\.bio \|\| creator\?\.bio/.test(product))
+    check("no bio under the name", !/phoneBio/.test(bar))
+    check("and nothing still cuts one to length", !/shortBio/.test(bar) && !existsSync(join(root, "lib/store-builder/short-bio.ts")))
+    check("the page stops resolving one for it", !/bio=\{creatorBio\}/.test(product))
+    check("and so does the builder's preview", !/bio=\{\(draftConfig/.test(read("components/store-builder/preview-canvas.tsx")))
     /** The builder's preview showed the form after the live bar stopped having one. */
-    check("and the builder's preview shows the same row", /phonePreviewRow/.test(bar) && !/compactMobileLayout/.test(bar))
+    check("the builder's preview shows the same row", /phonePreviewRow/.test(bar) && !/compactMobileLayout/.test(bar))
 
     /**
      * The floating creator menu was a second copy of the app's own

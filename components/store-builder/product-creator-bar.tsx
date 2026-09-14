@@ -13,7 +13,6 @@ import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 import { SmartLink } from "@/components/smart-link"
 import { hapticTap } from "@/lib/native-bridge"
-import { shortBio } from "@/lib/store-builder/short-bio"
 
 // Button style presets (same as subscribe bar)
 export const creatorBarButtonPresets: Record<string, { default: string; subscribed: string }> = {
@@ -50,7 +49,6 @@ interface ProductCreatorBarProps {
   isSelected?: boolean
   onSelect?: () => void
   /** The creator's own line about themselves, cut to six words on a phone. */
-  bio?: string
 }
 
 /** Desktop max width for editor preview */
@@ -241,7 +239,6 @@ export function ProductCreatorBar({
   isMobile,
   isSelected,
   onSelect,
-  bio,
 }: ProductCreatorBarProps) {
   // IMPORTANT: All hooks must be called BEFORE any early returns to avoid React error #310
   const [subscribed, setSubscribed] = useState(false)
@@ -301,8 +298,6 @@ export function ProductCreatorBar({
       .join("")
       .toUpperCase() || "?"
 
-  /* Six words of it, on one line. See lib/store-builder/short-bio. */
-  const phoneBio = shortBio(bio)
 
   const isCurrentEmailSubscribed = subscribed && normalizeEmail(email) === subscribedEmail
   const buttonText = getButtonText(settings.buttonStyle, isCurrentEmailSubscribed)
@@ -408,12 +403,7 @@ export function ProductCreatorBar({
               <AvatarFallback className="text-[11px]">{initials}</AvatarFallback>
             </Avatar>
           </div>
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-semibold leading-tight">{creatorName}</span>
-            {phoneBio ? (
-              <span className="truncate text-[11px] leading-tight opacity-70">{phoneBio}</span>
-            ) : null}
-          </span>
+          <span className="truncate text-sm font-semibold leading-tight">{creatorName}</span>
         </a>
       </div>
     </div>
@@ -776,8 +766,6 @@ interface LiveProductCreatorBarProps {
    * One bar, two places: see the note in the markup below.
    */
   buttonLabel?: string
-  /** The creator's own line about themselves. Desktop only now. */
-  bio?: string
   /**
    * WHAT THE PHONE'S BAR IS ABOUT.
    *
@@ -796,7 +784,6 @@ export function LiveProductCreatorBar({
   creatorUsername,
   avatarUrl,
   buttonLabel,
-  bio,
   productTitle,
   productSlug,
 }: LiveProductCreatorBarProps) {
@@ -907,8 +894,6 @@ export function LiveProductCreatorBar({
       .join("")
       .toUpperCase() || "?"
 
-  /* Computed once, for the phone row only: see lib/store-builder/short-bio. */
-  const phoneBio = shortBio(bio)
 
   const isCurrentEmailSubscribed = subscribed && normalizeEmail(email) === subscribedEmail
   /**
@@ -1002,19 +987,18 @@ export function LiveProductCreatorBar({
       */}
       {/*
         =====================================================================
-         ON A PHONE THE BAR IS THE PRODUCT'S
+         THE WAY BACK, WHO IS SELLING, AND A MENU
         =====================================================================
-        It has carried the creator twice: first with an email field and a
-        Follow button, then with the name and a line of bio. Both are about
-        the person, and the person is the one fact a visitor arriving from
-        that creator's page already has. Meanwhile the thing a sticky bar is
-        uniquely placed to say — WHICH PRODUCT AM I LOOKING AT — was on
-        neither, and it is the only one that stops being on screen when the
-        title scrolls away.
+        Three things, and the list has been longer twice. An email field and
+        a Follow button asked for an address before a visitor had decided
+        anything. A line of the creator's bio, cut to six words, was the
+        start of a sentence the bar had no room to finish. Both were taken
+        off for the same reason: this strip is read in the second between
+        arriving and looking at the product, and everything on it has to earn
+        that second.
 
-        So: the way back, the product, and what you can do with it. The
-        creator is one tap away, on the page this product belongs to, which
-        is where the way back goes. The desktop bar is unchanged and still
+        The creator's page is one tap away and has the bio in full. The
+        desktop bar is unchanged and still
         leads with them — there is room for both at that width.
       */}
       {/*
@@ -1044,15 +1028,10 @@ export function LiveProductCreatorBar({
             {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
             <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
           </Avatar>
-          {/* min-w-0 on the column is what lets `truncate` work inside a flex
-              row: without it the column takes its content's width and the
-              name runs past the edge instead of ending in an ellipsis. */}
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-semibold leading-tight">{creatorName}</span>
-            {phoneBio ? (
-              <span className="truncate text-[11px] leading-tight opacity-70">{phoneBio}</span>
-            ) : null}
-          </span>
+          {/* min-w-0 is what lets `truncate` work inside a flex row: without
+              it the name takes its content's width and runs past the edge of
+              the bar instead of ending in an ellipsis. */}
+          <span className="truncate text-sm font-semibold leading-tight">{creatorName}</span>
         </SmartLink>
 
         <ProductBarMenu title={productTitle || creatorName} slug={productSlug || ""} />
@@ -1083,13 +1062,8 @@ export function LiveProductCreatorBar({
                 of the two lines whatever colour the creator picked. A fixed
                 grey would disappear on a dark bar and shout on a light one.
               */}
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
-                  {creatorName}
-                </span>
-                {phoneBio ? (
-                  <span className="truncate text-[11px] leading-tight opacity-70">{phoneBio}</span>
-                ) : null}
+              <span className="truncate text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
+                {creatorName}
               </span>
             </SmartLink>
 
