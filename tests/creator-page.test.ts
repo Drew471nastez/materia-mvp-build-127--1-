@@ -1578,25 +1578,41 @@ function main() {
   /* ------------------------------------------------------------------ */
   {
     /**
-     * THE PRODUCT PAGE'S BAR IS ONE ROW ON A PHONE, AND THE MENU IS GONE.
+     * THE PRODUCT PAGE'S BAR ON A PHONE, AND THE MENU IS GONE.
      *
-     * The bar was two rows deep — the way back and the creator on one, the
-     * email form underneath — on the page where the product photo is the
-     * thing somebody came for. scripts/check-product-bar-row.mjs is the
-     * measurement; this guards the pieces it needs.
+     * This bar has been three things. It carried an email form on a second
+     * row; the form was squeezed onto one row to stop the bar being two
+     * deep; and the owner then asked for it gone at this width entirely, so
+     * a visitor meets the shop rather than a request for their address. The
+     * pins for the one-row form went with it rather than being loosened:
+     * there is no form here to measure.
+     *
+     * What is left is a picture, a name, one line of bio and the way back.
+     * scripts/check-product-bar.mjs lays it out at 390px and at 1280px and
+     * measures all of it; this guards the pieces that measurement needs.
      */
     const bar = code("components/store-builder/product-creator-bar.tsx")
     const product = code("app/(marketing)/p/[slug]/page.tsx")
 
-    check("the phone bar is a single row", /<form onSubmit=\{handleSubmit\} className="flex w-full items-center gap-2 px-3 py-2 sm:hidden">/.test(bar))
-    check("and the form is not a second line under it", !/className="mt-2 flex w-full items-center gap-2"/.test(bar))
+    check("the phone row has no address field", !/<div className="sm:hidden[\s\S]{0,900}type="email"/.test(bar))
+    /*
+       Anchored to the live phone block, not to the file: the builder's
+       preview row carries {phoneBio} too, so a bare search for it passes
+       even when the live bar has lost the line entirely.
+    */
+    const phoneBlock = bar.slice(bar.indexOf('<div className="sm:hidden w-full'), bar.indexOf("{/* Desktop"))
+    check("it carries the bio instead", phoneBlock.includes("{phoneBio}"), phoneBlock.slice(0, 120))
+    check("cut to six words rather than by CSS alone", /shortBio\(bio\)/.test(bar) && /BIO_WORD_LIMIT = 6/.test(read("lib/store-builder/short-bio.ts")))
     /**
-     * The field needs a floor or flexbox splits the shortage with the name
-     * and a long display name leaves 70px of email field: a row that fits
-     * and cannot be typed in.
+     * `truncate` is still the backstop for six very long words, and min-w-0
+     * is what lets it work at all inside a flex row.
      */
-    check("the email field has a floor", /min-w-\[104px\]/.test(bar))
-    check("and the name is what yields", /className="flex min-w-0 shrink items-center gap-1\.5"/.test(bar) && /truncate text-\[13px\] font-medium/.test(bar))
+    check("with truncate as the backstop", /truncate text-\[11px\] leading-tight opacity-70/.test(bar))
+    check("and a column that can actually shrink", /className="flex min-w-0 flex-col"/.test(bar))
+    /** The same bio the creator page resolves, not a second source. */
+    check("the page passes the creator's own bio", /shopHeaderSettings\?\.bio \|\| creator\?\.bio/.test(product))
+    /** The builder's preview showed the form after the live bar stopped having one. */
+    check("and the builder's preview shows the same row", /phonePreviewRow/.test(bar) && !/compactMobileLayout/.test(bar))
 
     /**
      * The floating creator menu was a second copy of the app's own

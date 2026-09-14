@@ -58,30 +58,36 @@ function shown(sel) { return [...document.querySelectorAll(sel)].filter(visible)
 async function run() {
   await new Promise(function (r) { setTimeout(r, 400) })
   const result = { width: window.innerWidth }
-  const bar = document.querySelector("#app > div")
-  result.bar = bar ? rect(bar) : null
 
-  result.emails = shown('input[type="email"]').length
-  result.buttons = shown('button[type="submit"]').length
-  result.back = shown('button[aria-label="Back"]').length
-  result.avatars = shown('#app span[data-slot="avatar"], #app [data-slot="avatar"]').length
+  function readBar(hostId) {
+    const host = document.getElementById(hostId)
+    const bar = host.querySelector(":scope > div")
+    const link = [...host.querySelectorAll("a")].filter(visible)[0]
+    return {
+      bar: bar ? rect(bar) : null,
+      emails: [...host.querySelectorAll('input[type="email"]')].filter(visible).length,
+      buttons: [...host.querySelectorAll('button[type="submit"]')].filter(visible).length,
+      back: [...host.querySelectorAll('button[aria-label="Back"]')].filter(visible).length,
+      avatars: [...host.querySelectorAll('[data-slot="avatar"]')].filter(visible).length,
+      texts: link
+        ? [...link.querySelectorAll("span")]
+            .filter(function (s) { return s.children.length === 0 && s.textContent.trim() })
+            .map(function (s) {
+              const cs = getComputedStyle(s)
+              return {
+                text: s.textContent.trim(),
+                rect: rect(s),
+                lineHeight: cs.lineHeight,
+                /* scrollWidth > clientWidth means the ellipsis is doing work. */
+                overflowing: s.scrollWidth > s.clientWidth,
+              }
+            })
+        : [],
+    }
+  }
 
-  // The two lines of text: whatever is showing inside the bar's own link.
-  const link = shown("#app a")[0]
-  result.texts = link
-    ? [...link.querySelectorAll("span")]
-        .filter(function (s) { return s.children.length === 0 && s.textContent.trim() })
-        .map(function (s) {
-          const cs = getComputedStyle(s)
-          return {
-            text: s.textContent.trim(),
-            rect: rect(s),
-            lineHeight: cs.lineHeight,
-            /* scrollWidth > clientWidth means the ellipsis is doing work. */
-            overflowing: s.scrollWidth > s.clientWidth,
-          }
-        })
-    : []
+  Object.assign(result, readBar("app"))
+  result.longName = readBar("app-long")
 
   const pre = document.createElement("pre"); pre.id = "out"; pre.textContent = JSON.stringify(result); document.body.append(pre)
 }
@@ -101,7 +107,7 @@ execFileSync("npx", [
 const file = join(out, "index.html")
 writeFileSync(file,
   `<!doctype html><html class="light"><head><meta charset="utf-8"><style>${css}</style>` +
-  `<style>body{margin:0}</style></head><body><div id="app"></div>` +
+  `<style>body{margin:0}</style></head><body><div id="app"></div><div id="app-long"></div>` +
   `<script>${readFileSync(join(out, "probe.js"), "utf8")}</script>${PROBE}</body></html>`)
 
 function measure(w, h) {
@@ -148,6 +154,19 @@ if (bio) {
   expect(bio.rect.w > 0 && bio.rect.x + bio.rect.w <= phone.bar.w, "inside the bar, not past its edge",
     `ends at ${bio.rect.x + bio.rect.w} of ${phone.bar.w}`)
   expect(name.rect.y < bio.rect.y, "the bio sits under the name", `${name.rect.y} vs ${bio.rect.y}`)
+}
+
+console.log("\nand a very long name does not break the row")
+{
+  const L = phone.longName
+  const lname = L.texts[0]
+  const lbio = L.texts[1]
+  expect(L.emails === 0 && L.buttons === 0, "still no form", `${L.emails}/${L.buttons}`)
+  expect(!!lname && lname.overflowing, "the name is what gives way, with an ellipsis", lname && lname.text)
+  expect(!!lbio && lbio.rect.h <= Math.ceil(parseFloat(lbio.lineHeight)) + 1,
+    "and the bio under it is still one line", lbio && `${lbio.rect.h}px`)
+  expect(!!lname && lname.rect.x + lname.rect.w <= L.bar.w,
+    "nothing runs past the edge of the bar", lname && `${lname.rect.x + lname.rect.w} of ${L.bar.w}`)
 }
 
 console.log("\nand the desktop row is untouched")
