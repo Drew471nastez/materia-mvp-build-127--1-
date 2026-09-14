@@ -30,6 +30,7 @@
 
 import * as React from "react"
 import { createPortal } from "react-dom"
+import { sheetBottomReserve } from "@/lib/website-builder/sheet-reserve"
 import { cn } from "@/lib/utils"
 import {
   DRAG_THRESHOLD_PX,
@@ -1081,12 +1082,14 @@ export function MobileEditorSheet({
            */
           contain: "paint",
           /**
-           * The home indicator, whatever the browser's bar is covering, and
-           * the keyboard. The first two are constant for a session; the
-           * third appears when somebody taps a field inside the sheet, and
-           * without it the field they are typing into is underneath it.
+           * Whatever is actually under the sheet, and only once.
+           *
+           * With a keyboard up, that is the keyboard. It is drawn over the
+           * home indicator and over the browser's bar, so reserving those as
+           * well lifted Cancel and Save off the keyboard by a band of empty
+           * sheet. See lib/website-builder/sheet-reserve.ts.
            */
-          paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${chromeGap + keyboardInset}px)`,
+          paddingBottom: sheetBottomReserve(chromeGap, keyboardInset),
           /**
            * `pan-y`, not `none`. `none` would hand every touch to us and kill
            * native scrolling inside the sheet — smooth, momentum-carrying,

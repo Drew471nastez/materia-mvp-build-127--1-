@@ -171,7 +171,17 @@ check(
 )
 check(
   "and it is padded into the content, so the field being typed into is reachable",
-  /chromeGap \+ keyboardInset/.test(sheet),
+  /paddingBottom: sheetBottomReserve\(chromeGap, keyboardInset\)/.test(sheet),
+)
+check(
+  /**
+   * It used to be `chromeGap + keyboardInset`, plus the home indicator on top
+   * of both. All three cover the same strip while somebody is typing, so the
+   * buttons were lifted clear of the keyboard by the other two and a band of
+   * empty sheet showed underneath them.
+   */
+  "and only what is actually under the sheet is reserved, not the sum of everything that could be",
+  !/chromeGap \+ keyboardInset/.test(sheet),
 )
 check(
   "the same measurement is used in the code editor, so the two agree",
