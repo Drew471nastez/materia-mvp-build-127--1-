@@ -332,10 +332,16 @@ function main() {
      * The typed address wins; the account's stands in only when there is
      * none — at render, never written. The API must never store the login
      * address as the contact address, so clearing it always falls back.
+     *
+     * The ORDER is the rule, not where it is written. It used to be this
+     * expression inline at the About call site; it is one constant now,
+     * because the header line shows the same address and two copies of a
+     * fallback are two things to keep in step.
      */
     check(
       "the typed address wins and the account's only stands in",
-      page.includes("sellerContactEmail={headerSettings.contactEmail || profile.email || undefined}"),
+      page.includes("const publicContactEmail = headerSettings.contactEmail || profile.email || undefined") &&
+        page.includes("sellerContactEmail={publicContactEmail}"),
     )
     check("and the login address is never written as the contact address", !/contactEmail\s*=\s*(user|profile)\.email/.test(api))
   }
@@ -657,6 +663,52 @@ function main() {
     check(
       "a custom domain links to the one flow that adds one",
       /href="\/app\/settings\?tab=domains"/.test(share) && /\/api\/domains/.test(share),
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * A BUYER CAN REACH THE SELLER, ON EVERY CREATOR PAGE.
+     *
+     * The address was rendered only inside the About block, and About is a
+     * section a creator may never have added — so on most pages there was no
+     * way to write to the person selling. It is on the header's meta line
+     * now, the one that is always under the bio.
+     *
+     * That the link is really there, points at the right address and is not
+     * a dead `mailto:` when a creator has none, is measured in a browser by
+     * scripts/check-contact-line.mjs.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const page = code("app/(marketing)/u/[username]/page.tsx")
+    check(
+      "the header line carries a contact address",
+      /if \(contactEmail\) \{/.test(renderer) && /href=\{`mailto:\$\{contactEmail\}`\}/.test(renderer),
+    )
+    /**
+     * ONE EXPRESSION, NOT THREE. The address was worked out inline at each
+     * place that showed it, which is how the header's line and the About
+     * block would have come to disagree the first time either was edited.
+     */
+    check(
+      "and it is resolved once for the whole page",
+      /const publicContactEmail = headerSettings\.contactEmail \|\| profile\.email \|\| undefined/.test(page) &&
+        (page.match(/headerSettings\.contactEmail \|\| profile\.email/g) ?? []).length === 1,
+    )
+    check(
+      "the page with no stored config has one too",
+      /contactEmail=\{defaultShopHeaderSettings\.contactEmail \|\| profile\.email \|\| undefined\}/.test(page),
+    )
+    /**
+     * The builder canvas has no session, so it cannot apply the account
+     * fallback. It shows what has been typed, or nothing — never an address
+     * it made up.
+     */
+    const canvas = code("components/store-builder/preview-canvas.tsx")
+    check(
+      "the builder shows the typed address and invents none",
+      /contactEmail=\{\(draftConfig\.headerSettings as ShopHeaderSettings\)\?\.contactEmail \|\| undefined\}/.test(canvas),
     )
   }
 

@@ -758,10 +758,13 @@ function UnifiedAboutSection({
               plain mailto, under the stats, in the column that already says
               who this is.
 
-              It is only ever an address the creator typed into the About
-              dialog themselves. The email they sign in with is never printed
-              here: nobody agreed to publish that, and it is the address that
-              resets their password.
+              The creator's own typed address when they have one, and the
+              account's own email when they have not. That fallback is the
+              owner's explicit call, made where it is resolved — see the
+              creator page's ShopHeaderRenderer — because a creator page with
+              no way to be reached was the thing they did not want. This
+              comment used to claim the opposite, which had stopped being
+              true.
             */}
             {contactEmail && (
               <a
@@ -2568,6 +2571,19 @@ export interface UnifiedShopHeaderProps {
   reviewCount?: number
   reviewAverage?: number
   followerCount?: number
+  /**
+   * WHERE A BUYER WRITES TO THIS SELLER.
+   *
+   * It was only ever rendered inside the About block, and About is a section
+   * a creator may never have added — so on most pages there was no way to
+   * reach the person selling. It belongs on the line under the bio, beside
+   * the social links, which is where somebody already looks for how to get
+   * in touch.
+   *
+   * Resolved by the page, not here, and resolved ONCE so this line and the
+   * About block cannot end up showing different addresses.
+   */
+  contactEmail?: string
 }
 
 export function UnifiedShopHeader({
@@ -2585,6 +2601,7 @@ export function UnifiedShopHeader({
   onBioEdit,
   globalSettings,
   ownerActions,
+  contactEmail,
   reviewCount = 0,
   reviewAverage = 0,
   followerCount = 0,
@@ -3125,6 +3142,33 @@ export function UnifiedShopHeader({
                   </span>,
                 )
               }
+            }
+
+            /**
+             * A WAY TO WRITE TO THE SELLER, ON EVERY PAGE.
+             *
+             * This lived only inside the About block, and About is a section
+             * a creator may never have added — so on most creator pages a
+             * buyer had no way to reach the person selling to them. Here it
+             * is on the line that is always under the bio.
+             *
+             * The address itself, not the word "Contact": it can be read,
+             * copied and written down, which is what somebody comparing
+             * sellers or filing a complaint actually needs. `mailto` is still
+             * on it for the people who just want to click.
+             */
+            if (contactEmail) {
+              parts.push(
+                <a
+                  key="contact"
+                  href={`mailto:${contactEmail}`}
+                  className="flex items-center gap-1.5 underline-offset-4 hover:underline"
+                  style={{ color: "inherit" }}
+                >
+                  <Mail className={cn(isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
+                  <span className="max-w-[220px] truncate">{contactEmail}</span>
+                </a>,
+              )
             }
 
             if (settings.socialLinks && (!isMobile || (settings.showSocialIconsOnMobile ?? true))) {
