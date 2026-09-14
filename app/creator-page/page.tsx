@@ -68,6 +68,16 @@ export default async function CreatorPageWorkspaceRoute() {
   const themePreset = readPreset(storeConfig?.published_config) || readPreset(storeConfig?.draft_config) || "default"
 
   /**
+   * What the bar across the top of the page currently says and is painted
+   * with. Read from the published config first, because that is what a
+   * visitor sees and therefore what the editor should open showing.
+   */
+  const readBar = (cfg: unknown) =>
+    (cfg as { headerSettings?: { subscribeBar?: Record<string, unknown> } } | null)?.headerSettings?.subscribeBar
+  const bar = (readBar(storeConfig?.published_config) || readBar(storeConfig?.draft_config) || {}) as Record<string, unknown>
+  const str = (v: unknown) => (typeof v === "string" ? v : "")
+
+  /**
    * The handle the public page is addressed by. `profiles.username` is what a
    * visitor types; the creator slug is the fallback for an account that
    * predates usernames, which is the same order the sidebar uses.
@@ -80,6 +90,14 @@ export default async function CreatorPageWorkspaceRoute() {
       displayName={profile?.display_name || handle}
       published={!!creator.store_published}
       themePreset={themePreset}
+      cta={{
+        text: str(bar.customCtaText) || str(bar.text),
+        buttonText: str(bar.buttonText),
+        backgroundColor: str(bar.backgroundColor),
+        textColor: str(bar.textColor),
+        buttonColor: str(bar.buttonColor),
+        buttonTextColor: str(bar.buttonTextColor),
+      }}
     />
   )
 }

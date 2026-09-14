@@ -79,9 +79,10 @@ function main() {
     check("leaving uses the builder's glass", workspace.includes('className="wb-leaving"'))
     check("and the builder's loader", workspace.includes("BuilderLoader"))
     check("arriving has a loading screen at all", existsSync(join(root, "app/creator-page/loading.tsx")))
+    /** A loading screen that is not the colour of what follows it is a flash. */
     check(
-      "on the same ground the editor uses, not white then dark",
-      read("app/creator-page/loading.tsx").includes("#131316") && workspace.includes("bg-[#131316]"),
+      "on the same ground the editor uses",
+      read("app/creator-page/loading.tsx").includes("#f1f1f3") && workspace.includes("bg-[#f1f1f3]"),
     )
 
     /**
@@ -89,16 +90,47 @@ function main() {
      * edges of its own, so nothing says where the thing being edited stops
      * and the tool starts.
      */
-    check("the page sits on a canvas with its own edges", /rounded-xl border border-white/.test(workspace))
-    check("inset on every side, so the gap is deliberate", /flex-1 overflow-hidden p-2/.test(workspace))
-    check("and the bar is dark", workspace.includes("bg-[#18181c]"))
+    check("the page sits on a canvas with its own edges", /md:rounded-xl md:border md:border-\[#e5e7eb\]/.test(workspace))
+    /**
+     * Inset and bordered on a desktop, and NOT on a phone: a gutter and a
+     * hairline around a 390px page is a border eating the content it frames.
+     */
+    check("inset on a desktop only", /flex-1 overflow-hidden p-0 md:p-2\.5/.test(workspace))
+    check("and bordered on a desktop only", /md:rounded-xl md:border/.test(workspace))
+    /** A dark bar over a white page is a hard edge with nothing in between. */
+    check("the chrome is light", workspace.includes("bg-white") && !workspace.includes("#18181c"))
 
     // The colour scheme, from the bar.
     const api = read("app/api/creator-profile/route.ts")
     check("the scheme can be changed without leaving", workspace.includes("applyScheme"))
     check("each row is painted in its own scheme", workspace.includes("theme.colors.background"))
     check("it writes through the route that already does auth", /applyScheme[\s\S]{0,600}\/api\/creator-profile/.test(workspace))
-    check("and the frame reloads so it is the real thing", /applyScheme[\s\S]{0,900}setNonce/.test(workspace))
+    check("and the frame reloads so it is the real thing", /applyScheme[\s\S]{0,900}reframe\(\)/.test(workspace))
+    /**
+     * A browser keeps the old document painted until the new one is ready, so
+     * swapping the src is nearly a cut. Putting the loader up over a page that
+     * is already on screen is what made every small change feel like a reload.
+     */
+    check("without a loading screen over a page already on screen", /const reframe = useCallback\(\(\) => setNonce/.test(workspace))
+    check("the loader is only for the first load", workspace.includes("firstLoad &&"))
+
+    /** Five answers, not eight, three of which were the same answer twice. */
+    const schemes = workspace.match(/const SCHEMES: ThemePreset\[\] = \[([^\]]+)\]/)?.[1] ?? ""
+    check("five schemes are offered", schemes.split(",").filter((x) => x.trim()).length === 5, schemes)
+    check("and they are five different shapes", /default[\s\S]*blacks[\s\S]*cream[\s\S]*pink[\s\S]*astrid/.test(schemes))
+    check("each swatch shows the scheme rather than its name", workspace.includes("theme.colors.primary"))
+
+    /** A control that shrinks under the cursor reads as a toy. */
+    check("nothing in the toolbar scales on press", !workspace.includes("active:scale"))
+
+    // ── A phone gets a sheet, and the bar is editable from here ──────────
+    check("a phone gets a bottom sheet, not a popover on a 36px button", /isPhone && schemeOpen && portalReady/.test(workspace))
+    check("the top bar can be edited from the workspace", workspace.includes("CtaDialog"))
+    check("including its four colours", workspace.includes("buttonTextColor"))
+    check(
+      "and every colour is validated as a hex before it reaches a public page",
+      api.includes("^#(?:[0-9a-f]{3}|[0-9a-f]{6})$"),
+    )
     /** An unknown name would leave a page resolving a theme that does not exist. */
     check("an unknown preset cannot be stored", api.includes("raw in themePresets"))
     check("and it lands in globalSettings, where the page reads it", api.includes("globalSettings"))
@@ -125,7 +157,7 @@ function main() {
      */
     check("and no button that leaves for a different editor", !workspace.includes("Sections and theme"))
     /** A frame that never says it is loading reads as a broken page. */
-    check("the frame reports when it is loading", workspace.includes("onLoad={() => setLoading(false)}"))
+    check("the frame reports when it has arrived", workspace.includes("onLoad={() => setFirstLoad(false)}"))
   }
 
   // ── 3. Framing is narrow ───────────────────────────────────────────────

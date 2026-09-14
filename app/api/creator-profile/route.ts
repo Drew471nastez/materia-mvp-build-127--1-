@@ -164,6 +164,17 @@ export async function PATCH(request: NextRequest) {
       /** The bar falls back to a generated sentence when both are empty. */
       out.customCtaText = text
     }
+    /**
+     * The bar's own colours. Each is optional and each is validated as a hex,
+     * because these reach a `style` attribute on a public page and "anything
+     * the creator typed" is not a colour.
+     */
+    for (const key of ["backgroundColor", "textColor", "buttonColor", "buttonTextColor"] as const) {
+      const v = value[key]
+      if (typeof v === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(v.trim())) {
+        out[key] = v.trim().toLowerCase()
+      }
+    }
     if (typeof value.buttonText === "string") {
       const label = value.buttonText.trim().slice(0, MAX_CTA_BUTTON)
       if (label) {
