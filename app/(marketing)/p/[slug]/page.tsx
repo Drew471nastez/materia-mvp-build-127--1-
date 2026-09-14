@@ -311,7 +311,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     rewrote it in the shop header meant that one. The product page's bar puts
     six words of it under their name on a phone.
   */
-  const creatorBio: string = shopHeaderSettings?.bio || creator?.bio || ""
+  /* The creator's bio was resolved here for the product page's top bar. The
+     bar does not show it any more: six words with an ellipsis is the start
+     of a sentence, and their page has the whole of it. */
 
   // ---------------------------------------------------------------------------
   // Product page config (specific > creator default)
@@ -1520,7 +1522,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             buttonLabel={creatorBarLabel}
             /* The phone's bar is the product's; the desktop bar keeps the
                creator and now carries their line too. See the bar. */
-            bio={creatorBio}
             productTitle={product.title}
             productSlug={product.slug}
           />
@@ -1747,7 +1748,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           avatarUrl={creatorAvatarUrl}
           /* The phone's bar is the product's; the desktop bar keeps the
              creator and now carries their line too. See the bar. */
-          bio={creatorBio}
           productTitle={product.title}
           productSlug={product.slug}
         />

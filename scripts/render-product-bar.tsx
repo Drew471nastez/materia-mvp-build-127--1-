@@ -1,7 +1,6 @@
 /**
- * The real LiveProductCreatorBar, twice: once with ordinary text and once
- * with a name and a title long enough to be the problem, both carrying a bio
- * far longer than the line it has to fit in. Bundled by
+ * The real LiveProductCreatorBar, twice: once with an ordinary creator name
+ * and once with one long enough to be the problem. Bundled by
  * scripts/check-product-bar.mjs.
  *
  * createRoot rather than renderToStaticMarkup: the bar is a client component
@@ -18,10 +17,6 @@ import { createRoot } from "react-dom/client"
 import { LiveProductCreatorBar } from "@/components/store-builder/product-creator-bar"
 import { defaultProductCreatorBarSettings } from "@/lib/store-builder/defaults"
 
-/* Fourteen words. The row is allowed six of them. */
-const LONG_BIO =
-  "Handmade ceramic tableware fired in small batches in a studio just outside Lisbon, Portugal"
-
 function Bar({ name, title }: { name: string; title: string }) {
   return (
     <LiveProductCreatorBar
@@ -29,7 +24,6 @@ function Bar({ name, title }: { name: string; title: string }) {
       creatorName={name}
       creatorId="creator-1"
       creatorUsername="andrewrullz"
-      bio={LONG_BIO}
       productTitle={title}
       productSlug="a-thing"
     />
