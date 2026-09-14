@@ -107,7 +107,43 @@ const DRIVE = `
       result.drag = steps
       /* 60px is under the 96px threshold and the finger was ambling, so back it goes. */
       fire(handle, "touchend", 180, startY + 60)
-      setTimeout(afterSmall, 400)
+      setTimeout(pullUp, 400)
+    }
+
+    /*
+     * PULLING UP. The sheet is anchored to the bottom of the screen, so any
+     * upward movement uncovers whatever is behind it down there — which is
+     * the scrim, and reads as a black band under the sheet. Dragged well
+     * past the cap, and then asked what is actually painted at the very
+     * bottom of the screen.
+     */
+    function pullUp() {
+      var el3 = sheet()
+      if (!el3) { afterSmall(); return }
+      var h3 = el3.querySelector("[data-sheet-handle]") || el3
+      var b3 = h3.getBoundingClientRect()
+      var sy3 = Math.round(b3.top + 6)
+      fire(h3, "touchstart", 180, sy3)
+      var up = [-40, -90, -140]
+      var j = 0
+      function step() {
+        if (j >= up.length) {
+          var box3 = sheet().getBoundingClientRect()
+          var atFloor = document.elementFromPoint(Math.round(window.innerWidth / 2), window.innerHeight - 2)
+          result.pullUp = {
+            lift: Math.round(window.innerHeight - box3.bottom),
+            sheetTop: Math.round(box3.top),
+            atTheFloor: atFloor ? (sheet().contains(atFloor) || atFloor === sheet() ? "the sheet" : (atFloor.className || atFloor.tagName)) : "nothing",
+            floorColour: atFloor ? getComputedStyle(atFloor).backgroundColor : null,
+          }
+          fire(h3, "touchend", 180, sy3 - 140)
+          setTimeout(afterSmall, 400)
+          return
+        }
+        fire(h3, "touchmove", 180, sy3 + up[j++])
+        setTimeout(step, 40)
+      }
+      setTimeout(step, 16)
     }
 
     function afterSmall() {
@@ -136,11 +172,32 @@ const DRIVE = `
             result.flickTrace.afterEnd = elx ? { transform: elx.style.transform, transition: elx.style.transition } : "gone"
             setTimeout(function () {
               result.afterFlick = { stillOpen: !!sheet(), closed: window.__closed }
-              report(result)
+              tapAway()
             }, 700)
           }, 16)
         }, 16)
       }, 16)
+    }
+
+    /*
+     * TAPPING OFF THE SHEET. Re-opened, then the scrim is clicked — twice in
+     * quick succession, because a second tap on a sheet already leaving used
+     * to start a second dismissal from a sheet that had already gone.
+     */
+    function tapAway() {
+      window.__closed = false
+      window.__open()
+      setTimeout(function () {
+        var el4 = sheet()
+        if (!el4) { result.tapAway = { error: "did not reopen" }; report(result); return }
+        var scrim = document.querySelector('[role="dialog"] > div:first-child')
+        scrim.click()
+        scrim.click()
+        setTimeout(function () {
+          result.tapAway = { closed: window.__closed, stillOpen: !!sheet() }
+          report(result)
+        }, 800)
+      }, 700)
     }
 
     dragStep()
@@ -177,7 +234,9 @@ console.log(`\nDragging the handle down:`)
 r.drag.forEach((s) => console.log(`  finger +${s.finger}px  sheet +${s.sheet}px  ${s.cancelled ? "page held" : "PAGE NOT HELD"}  page at ${s.scrollY}`))
 console.log(`\n  DOM changes during the whole drag: ${r.mutationsDuringDrag}`)
 console.log(`  after a 60px drag and release: ${r.afterSmallDrag.stillOpen ? `still open, back at y=${r.afterSmallDrag.y}` : "closed"}`)
+console.log(`  pulled 140px upward: the sheet lifted ${r.pullUp.lift}px off the floor, and the floor is ${r.pullUp.atTheFloor} (${r.pullUp.floorColour})`)
 console.log(`  after a flick: ${r.afterFlick.closed ? "closed" : "STILL OPEN"}`)
+console.log(`  reopened, then tapped off it twice: ${r.tapAway.closed && !r.tapAway.stillOpen ? "closed and gone" : JSON.stringify(r.tapAway)}`)
 console.log("")
 
 const problems = []
@@ -189,6 +248,11 @@ if (loose.length) problems.push(`${loose.length} of ${r.drag.length} moves were 
 if (r.drag.some((s) => s.scrollY > 0)) problems.push(`The page behind the sheet actually scrolled.`)
 if (r.mutationsDuringDrag > 12) problems.push(`${r.mutationsDuringDrag} DOM changes during one drag. The sheet is being re-rendered per frame rather than moved.`)
 if (!r.afterSmallDrag.stillOpen || r.afterSmallDrag.y !== 0) problems.push(`A 60px drag should spring back to 0; the sheet ended ${r.afterSmallDrag.stillOpen ? `at y=${r.afterSmallDrag.y}` : "closed"}.`)
+if (r.pullUp.atTheFloor !== "the sheet") problems.push(`Pulling up uncovered ${r.pullUp.atTheFloor} at the bottom of the screen. Whatever is behind the sheet is not meant to be seen under it.`)
+/* The lift is deliberate — a pull should give a little. What matters is
+   that it stops giving, and that the skirt covers whatever it opens up. */
+if (r.pullUp.lift > 32) problems.push(`Pulling 140px up lifted the sheet ${r.pullUp.lift}px. The give is capped at 28px; past that a long drag walks the sheet off the bottom of the screen.`)
+if (!r.tapAway.closed || r.tapAway.stillOpen) problems.push(`Tapping off the sheet left it ${r.tapAway.stillOpen ? "on screen" : "half closed"} (${JSON.stringify(r.tapAway)}).`)
 if (!r.afterFlick.closed) problems.push(`A flick did not close the sheet. Distance alone means a fast short flick springs back, which reads as the sheet fighting you.`)
 
 if (problems.length) {
