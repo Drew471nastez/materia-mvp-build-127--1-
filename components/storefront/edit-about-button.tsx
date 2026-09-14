@@ -128,141 +128,130 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
         <Pencil className="h-3.5 w-3.5" />
       </button>
 
-      {/*
-        THE SHELL IS THE SHARED ONE.
-
-        This dialog was written before EditorSheet and kept its own copy of
-        the same three rows — header, scrolling body, footer — which is how
-        the story editor ended up being the one that still centred itself on
-        a phone after the others were anchored. There is one shape now, so a
-        fix to it reaches every editor on the page.
-      */}
       <EditorSheet
         open={open}
         onClose={() => setOpen(false)}
         title="Your story"
+        wide
         busy={saving}
         error={error}
-        onSave={save}
-        saveLabel={
-          saving ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Save
-            </>
-          ) : (
-            "Save"
-          )
-        }
-        wide
+        onSave={() => void save()}
+        saveLabel={saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
       >
-        <div className="space-y-2">
-          <Label htmlFor="ea-headline">Story headline</Label>
-          <Input
-            id="ea-headline"
-            value={title}
-            maxLength={120}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="What you want people to know first."
-          />
-        </div>
-
-        {/*
-          WRITING, RATHER THAN TYPING INTO A BOX.
-
-          This was a six-row textarea, so the one block on a creator page
-          that is actually PROSE — the paragraph about who they are — was
-          the one place in the product with no headings, no emphasis and
-          no lists. RichTextField is the control the website builder's
-          rich text settings use; importing it rather than building a
-          second one is the only way the two stay the same editor.
-
-          Every value that leaves it has been through `sanitizeRichText`,
-          and the API sanitises again on save because that is where the
-          authority is.
-        */}
-        <div className="space-y-2">
-          <Label htmlFor="ea-story">Your story</Label>
-          <RichTextField
-            value={text}
-            onChange={setText}
-            placeholder="Tell shoppers a little about your business."
-            minHeight={150}
-            maxHeight={320}
-          />
-        </div>
-
-        {/*
-          A PUBLIC ADDRESS, TYPED ON PURPOSE.
-
-          The obvious implementation of "let people contact me" is to print
-          the address somebody signs in with, and that is the wrong one:
-          nobody agreed to publish it, and it is the address that resets
-          their password. This is a separate field, empty until they fill
-          it, and emptying it takes the link off the page again.
-        */}
-        <div className="space-y-2">
-          <Label htmlFor="ea-contact">Contact email</Label>
-          <Input
-            id="ea-contact"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            value={email}
-            maxLength={254}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="hello@yourdomain.com"
-          />
-          <p className="text-xs text-muted-foreground">
-            Shown as a Contact link on your page. Leave empty to hide it.
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-baseline justify-between">
-            <Label>Photos and video</Label>
-            <span className="text-xs text-muted-foreground">
-              {items.length}/{MAX_MEDIA}
-            </span>
-          </div>
-
-          {/*
-            The shared editor: thumbnails, captions, drag-to-reorder, and
-            an editable link on a video. This was a column of raw Supabase
-            storage URLs — which tell a creator nothing they can act on,
-            take the whole width doing it, and look like an error message.
-          */}
-          <MediaItemsEditor items={items} onChange={setItems} />
-
-          {items.length < MAX_MEDIA && (
-            <>
-              <ImageUpload
-                bucket="store-builder-images"
-                aspectRatio="video"
-                onChange={(url) => {
-                  if (url) setItems((list) => [...list, { id: newId(), type: "image", url }])
-                }}
+            <div className="space-y-2">
+              <Label htmlFor="ea-headline">Story headline</Label>
+              <Input
+                id="ea-headline"
+                value={title}
+                maxLength={120}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="What you want people to know first."
               />
-              <div className="flex gap-2">
-                <Input
-                  value={video}
-                  maxLength={300}
-                  onChange={(e) => setVideo(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      addVideo()
-                    }
-                  }}
-                  placeholder="Paste a YouTube or Vimeo link"
-                />
-                <Button type="button" variant="outline" onClick={addVideo} disabled={!video.trim()}>
-                  <Plus className="h-4 w-4" />
-                </Button>
+            </div>
+
+            {/*
+              WRITING, RATHER THAN TYPING INTO A BOX.
+
+              This was a six-row textarea, so the one block on a creator page
+              that is actually PROSE — the paragraph about who they are — was
+              the one place in the product with no headings, no emphasis and
+              no lists. RichTextField is the control the website builder's
+              rich text settings use; importing it rather than building a
+              second one is the only way the two stay the same editor.
+
+              Every value that leaves it has been through `sanitizeRichText`,
+              and the API sanitises again on save because that is where the
+              authority is.
+            */}
+            <div className="space-y-2">
+              <Label htmlFor="ea-story">Your story</Label>
+              <RichTextField
+                value={text}
+                onChange={setText}
+                placeholder="Tell shoppers a little about your business."
+                minHeight={150}
+                maxHeight={320}
+              />
+            </div>
+
+            {/*
+              A PUBLIC ADDRESS, TYPED ON PURPOSE.
+
+              The obvious implementation of "let people contact me" is to print
+              the address somebody signs in with, and that is the wrong one:
+              nobody agreed to publish it, and it is the address that resets
+              their password. This is a separate field, empty until they fill
+              it, and emptying it takes the link off the page again.
+            */}
+            <div className="space-y-2">
+              <Label htmlFor="ea-contact">Contact email</Label>
+              <Input
+                id="ea-contact"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={email}
+                maxLength={254}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="hello@yourdomain.com"
+              />
+              <p className="text-xs text-muted-foreground">
+                Shown as a Contact link on your page. Leave empty to hide it.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-baseline justify-between">
+                <Label>Photos and video</Label>
+                <span className="text-xs text-muted-foreground">
+                  {items.length}/{MAX_MEDIA}
+                </span>
               </div>
-            </>
-          )}
-        </div>
+
+              {/*
+                The shared editor: thumbnails, captions, drag-to-reorder, and
+                an editable link on a video. This was a column of raw Supabase
+                storage URLs — which tell a creator nothing they can act on,
+                take the whole width doing it, and look like an error message.
+              */}
+              <MediaItemsEditor items={items} onChange={setItems} />
+
+              {items.length < MAX_MEDIA && (
+                <>
+                  {/*
+                    COMPACT. This is the "add another" affordance, not a
+                    preview of anything: at 16:9 it was 290px of dashed box in
+                    a 520px drawer, and most of a phone sheet, for a control
+                    whose whole content is one line of text. The pictures
+                    already added are shown above it, at their own size.
+                  */}
+                  <ImageUpload
+                    bucket="store-builder-images"
+                    aspectRatio="compact"
+                    onChange={(url) => {
+                      if (url) setItems((list) => [...list, { id: newId(), type: "image", url }])
+                    }}
+                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={video}
+                      maxLength={300}
+                      onChange={(e) => setVideo(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          addVideo()
+                        }
+                      }}
+                      placeholder="Paste a YouTube or Vimeo link"
+                    />
+                    <Button type="button" variant="outline" onClick={addVideo} disabled={!video.trim()}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
       </EditorSheet>
     </>
   )

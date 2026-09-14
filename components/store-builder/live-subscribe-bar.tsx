@@ -149,20 +149,22 @@ export function LiveSubscribeBar({
 
   if (!editor) return <SubscribeBar settings={merged} creatorId={creatorId} />
 
+  /*
+    THE PENCIL GOES IN THE BAR, not over a wrapper around it.
+
+    It was positioned against a `relative` div holding this component, and a
+    sticky bar is `position: fixed` plus a 76px spacer — so the wrapper had no
+    height of its own and the pencil landed on the spacer, in the empty strip
+    below the bar. `ownerAction` puts it in the row, beside the sentence.
+  */
   return (
-    <div className="relative">
-      <SubscribeBar settings={merged} creatorId={creatorId} />
-      {/*
-        On the bar, at the leading edge, over it rather than in the flow: the
-        bar is a row of its own with an email box in it, and a pencil inside
-        that row would be a fourth thing competing for the same line.
-      */}
-      <div className="pointer-events-none absolute inset-y-0 left-2 z-20 flex items-center sm:left-3">
-        <div className="pointer-events-auto">
-          <EditCtaButton values={editor.values} onPreview={(next) => setDraft(next ? toDraft(next) : null)} />
-        </div>
-      </div>
-    </div>
+    <SubscribeBar
+      settings={merged}
+      creatorId={creatorId}
+      ownerAction={
+        <EditCtaButton values={editor.values} onPreview={(next) => setDraft(next ? toDraft(next) : null)} />
+      }
+    />
   )
 }
 

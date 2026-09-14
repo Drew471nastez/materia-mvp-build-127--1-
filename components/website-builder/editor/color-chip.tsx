@@ -56,6 +56,184 @@ function hsvToHex(h: number, s: number, v: number): string {
   return rgbToHex(r, g, b)
 }
 
+/**
+ * ===========================================================================
+ *  THE PICKER ITSELF, WITH NOWHERE TO BE
+ * ===========================================================================
+ * The saturation box, the hue slider, the hex field and the page's own
+ * colours: the whole of what a person uses. It knows nothing about where it
+ * is drawn. ColorChip below puts it in a portal that floats over the design
+ * panels; ColorField on the creator page puts it IN THE FLOW of a dialog,
+ * because a portal inside a modal dialog is not reachable — Radix sets
+ * `pointer-events: none` on everything outside the dialog and closes it on a
+ * click there, so a floating popup is both unclickable and a way to dismiss
+ * the form you were filling in. Which is what "the colour picker does not
+ * work" was.
+ *
+ * One picker, two homes, and the picker is the part that must not drift.
+ */
+export function ColorPickerPanel({
+  value,
+  onChange,
+  existing,
+  onDone,
+  className,
+}: {
+  value: string
+  onChange: (v: string) => void
+  existing: string[]
+  /** Called after a choice that ends the interaction: a swatch, or clearing. */
+  onDone?: () => void
+  className?: string
+}) {
+  const svRef = useRef<HTMLDivElement>(null)
+  const hueRef = useRef<HTMLDivElement>(null)
+
+  const isTransparent = !value || value === "transparent"
+  const initial = isTransparent ? { r: 92, g: 91, b: 99 } : hexToRgb(value)
+  const [hsv, setHsv] = useState(() => rgbToHsv(initial.r, initial.g, initial.b))
+  const [hexInput, setHexInput] = useState(isTransparent ? "" : value.toUpperCase())
+
+  useEffect(() => {
+    if (isTransparent) return
+    const rgb = hexToRgb(value)
+    setHsv(rgbToHsv(rgb.r, rgb.g, rgb.b))
+    setHexInput(value.toUpperCase())
+  }, [value, isTransparent])
+
+  const commit = useCallback((next: { h: number; s: number; v: number }) => {
+    setHsv(next)
+    const hex = hsvToHex(next.h, next.s, next.v)
+    setHexInput(hex.toUpperCase())
+    onChange(hex)
+  }, [onChange])
+
+  const handleSvPoint = useCallback((clientX: number, clientY: number) => {
+    const el = svRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const x = Math.max(0, Math.min(1, (clientX - r.left) / r.width))
+    const y = Math.max(0, Math.min(1, (clientY - r.top) / r.height))
+    commit({ h: hsv.h, s: x, v: 1 - y })
+  }, [commit, hsv.h])
+
+  const handleHuePoint = useCallback((clientX: number) => {
+    const el = hueRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const x = Math.max(0, Math.min(1, (clientX - r.left) / r.width))
+    commit({ h: x * 360, s: hsv.s, v: hsv.v })
+  }, [commit, hsv.s, hsv.v])
+
+  const onHexInputChange = (v: string) => {
+    setHexInput(v)
+    const clean = v.startsWith("#") ? v : "#" + v
+    if (/^#[0-9a-f]{6}$/i.test(clean)) {
+      const rgb = hexToRgb(clean)
+      commit(rgbToHsv(rgb.r, rgb.g, rgb.b))
+    }
+  }
+
+  const pureHue = hsvToHex(hsv.h, 1, 1)
+  const swatchColor = isTransparent ? "transparent" : hsvToHex(hsv.h, hsv.s, hsv.v)
+
+  return (
+    <div className={className} onMouseDown={(e) => e.stopPropagation()}>
+      {/* Saturation/value box */}
+      <div
+        ref={svRef}
+        className="relative h-[120px] w-full rounded-md overflow-hidden cursor-crosshair touch-none select-none"
+        style={{
+          background: `
+            linear-gradient(to top, #000, rgba(0,0,0,0)),
+            linear-gradient(to right, #fff, rgba(255,255,255,0)),
+            ${pureHue}
+          `,
+        }}
+        onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); handleSvPoint(e.clientX, e.clientY) }}
+        onPointerMove={(e) => { if (e.buttons === 1) handleSvPoint(e.clientX, e.clientY) }}
+      >
+        <div
+          className="absolute h-3.5 w-3.5 rounded-full border-2 border-white pointer-events-none"
+          style={{
+            left: `${hsv.s * 100}%`,
+            top: `${(1 - hsv.v) * 100}%`,
+            transform: "translate(-50%, -50%)",
+            boxShadow: "0 0 0 1px rgba(0,0,0,0.4)",
+          }}
+        />
+      </div>
+
+      {/* Hue slider */}
+      <div
+        ref={hueRef}
+        className="relative mt-2.5 h-2.5 w-full rounded-full cursor-pointer touch-none select-none"
+        style={{
+          background: "linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)",
+        }}
+        onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); handleHuePoint(e.clientX) }}
+        onPointerMove={(e) => { if (e.buttons === 1) handleHuePoint(e.clientX) }}
+      >
+        <div
+          className="absolute top-1/2 h-4 w-4 rounded-full border-2 border-white pointer-events-none"
+          style={{
+            left: `${(hsv.h / 360) * 100}%`,
+            transform: "translate(-50%, -50%)",
+            background: pureHue,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+          }}
+        />
+      </div>
+
+      {/* Hex input with swatch preview */}
+      <div className="mt-2.5 flex items-center gap-2 h-9 px-2 border border-border rounded-lg bg-muted/20">
+        <span
+          className="h-5 w-5 rounded border border-border shrink-0"
+          style={{
+            background: isTransparent
+              ? "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 8px 8px"
+              : swatchColor,
+          }}
+        />
+        <input
+          type="text"
+          value={hexInput}
+          onChange={e => onHexInputChange(e.target.value)}
+          className="flex-1 h-full text-[12px] bg-transparent border-0 tabular-nums uppercase focus:outline-none"
+          placeholder="#FFFFFF"
+        />
+      </div>
+
+      {existing.length > 0 && (
+        <div className="mt-2.5">
+          <p className="text-[10px] font-medium text-muted-foreground mb-1">Existing colors</p>
+          <div className="grid grid-cols-8 gap-1">
+            {existing.map((c, i) => (
+              <button
+                key={`${c}-${i}`}
+                type="button"
+                onClick={() => { onChange(c); onDone?.() }}
+                className="h-5 w-5 rounded border border-border hover:scale-110 transition-transform"
+                style={{ background: c }}
+                aria-label={`Use ${c}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => { onChange("transparent"); onDone?.() }}
+        className="mt-2.5 w-full h-8 flex items-center justify-center gap-1.5 text-[12px] font-medium border border-border rounded-lg hover:bg-muted transition-colors"
+      >
+        <span className="inline-block h-3.5 w-3.5 rounded-full" style={{ background: "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 6px 6px" }} />
+        Don&apos;t apply any color
+      </button>
+    </div>
+  )
+}
+
 // ── Pretty color picker dropdown (chevron + popup) ───────────
 // Uses a portal + fixed positioning so the popup floats above every
 // sidebar scroller and isn't clipped by the parent `overflow-y-auto`.
@@ -72,27 +250,10 @@ export function ColorChip({
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popupRef = useRef<HTMLDivElement>(null)
-  const svRef = useRef<HTMLDivElement>(null)
-  const hueRef = useRef<HTMLDivElement>(null)
   const POPUP_W = 230
   const POPUP_H = 320
 
-  // Current HSV state derived from the hex value (keeps the marker
-  // positions stable while editing even when the hex rounding changes
-  // the visible color slightly).
   const isTransparent = !value || value === "transparent"
-  const initial = isTransparent ? { r: 92, g: 91, b: 99 } : hexToRgb(value)
-  const [hsv, setHsv] = useState(() => rgbToHsv(initial.r, initial.g, initial.b))
-  const [hexInput, setHexInput] = useState(isTransparent ? "" : value.toUpperCase())
-
-  // Re-sync from prop value whenever it changes externally
-  useEffect(() => {
-    if (isTransparent) return
-    const rgb = hexToRgb(value)
-    const next = rgbToHsv(rgb.r, rgb.g, rgb.b)
-    setHsv(next)
-    setHexInput(value.toUpperCase())
-  }, [value, isTransparent])
 
   // Position the popup BELOW the trigger (slightly offset to the left so
   // the trigger chevron sits at the top-right edge of the popup, matching
@@ -105,12 +266,9 @@ export function ColorChip({
       const r = el.getBoundingClientRect()
       const vw = window.innerWidth
       const vh = window.innerHeight
-      // Align popup's right edge ~12 px past the trigger's right so the
-      // chevron sits at the top-right corner of the popup.
       let left = r.right - POPUP_W + 12
       if (left < 8) left = 8
       if (left + POPUP_W > vw - 8) left = vw - POPUP_W - 8
-      // Open just below the trigger; flip up if it would overflow.
       let top = r.bottom + 6
       if (top + POPUP_H > vh - 8) {
         top = r.top - POPUP_H - 6
@@ -146,69 +304,6 @@ export function ColorChip({
     }
   }, [open])
 
-  // Commit a new HSV state to both local state and the parent via hex
-  const commit = useCallback((next: { h: number; s: number; v: number }) => {
-    setHsv(next)
-    const hex = hsvToHex(next.h, next.s, next.v)
-    setHexInput(hex.toUpperCase())
-    onChange(hex)
-  }, [onChange])
-
-  // Saturation/value box drag handling
-  const handleSvPoint = useCallback((clientX: number, clientY: number) => {
-    const el = svRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const x = Math.max(0, Math.min(1, (clientX - r.left) / r.width))
-    const y = Math.max(0, Math.min(1, (clientY - r.top) / r.height))
-    commit({ h: hsv.h, s: x, v: 1 - y })
-  }, [commit, hsv.h])
-
-  const onSvPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.currentTarget.setPointerCapture(e.pointerId)
-    handleSvPoint(e.clientX, e.clientY)
-  }
-  const onSvPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.buttons !== 1) return
-    handleSvPoint(e.clientX, e.clientY)
-  }
-
-  // Hue slider drag handling
-  const handleHuePoint = useCallback((clientX: number) => {
-    const el = hueRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const x = Math.max(0, Math.min(1, (clientX - r.left) / r.width))
-    commit({ h: x * 360, s: hsv.s, v: hsv.v })
-  }, [commit, hsv.s, hsv.v])
-
-  const onHuePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.currentTarget.setPointerCapture(e.pointerId)
-    handleHuePoint(e.clientX)
-  }
-  const onHuePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.buttons !== 1) return
-    handleHuePoint(e.clientX)
-  }
-
-  // Hex text input — only commit when it's a valid hex
-  const onHexInputChange = (v: string) => {
-    setHexInput(v)
-    const clean = v.startsWith("#") ? v : "#" + v
-    if (/^#[0-9a-f]{6}$/i.test(clean)) {
-      const rgb = hexToRgb(clean)
-      commit(rgbToHsv(rgb.r, rgb.g, rgb.b))
-    }
-  }
-
-  const pureHue = hsvToHex(hsv.h, 1, 1)
-  const markerLeft = `${hsv.s * 100}%`
-  const markerTop  = `${(1 - hsv.v) * 100}%`
-  const hueLeft    = `${(hsv.h / 360) * 100}%`
-  const swatchColor = isTransparent ? "transparent" : hsvToHex(hsv.h, hsv.s, hsv.v)
-
   const popup = open && pos && typeof document !== "undefined" ? createPortal(
     <div
       ref={popupRef}
@@ -216,97 +311,7 @@ export function ColorChip({
       style={{ top: pos.top, left: pos.left }}
       onMouseDown={e => e.stopPropagation()}
     >
-      {/* Saturation/value box */}
-      <div
-        ref={svRef}
-        className="relative h-[120px] w-full rounded-md overflow-hidden cursor-crosshair touch-none select-none"
-        style={{
-          background: `
-            linear-gradient(to top, #000, rgba(0,0,0,0)),
-            linear-gradient(to right, #fff, rgba(255,255,255,0)),
-            ${pureHue}
-          `,
-        }}
-        onPointerDown={onSvPointerDown}
-        onPointerMove={onSvPointerMove}
-      >
-        <div
-          className="absolute h-3.5 w-3.5 rounded-full border-2 border-white pointer-events-none"
-          style={{
-            left: markerLeft,
-            top: markerTop,
-            transform: "translate(-50%, -50%)",
-            boxShadow: "0 0 0 1px rgba(0,0,0,0.4)",
-          }}
-        />
-      </div>
-
-      {/* Hue slider */}
-      <div
-        ref={hueRef}
-        className="relative mt-2.5 h-2.5 w-full rounded-full cursor-pointer touch-none select-none"
-        style={{
-          background: "linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)",
-        }}
-        onPointerDown={onHuePointerDown}
-        onPointerMove={onHuePointerMove}
-      >
-        <div
-          className="absolute top-1/2 h-4 w-4 rounded-full border-2 border-white pointer-events-none"
-          style={{
-            left: hueLeft,
-            transform: "translate(-50%, -50%)",
-            background: pureHue,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
-          }}
-        />
-      </div>
-
-      {/* Hex input with swatch preview */}
-      <div className="mt-2.5 flex items-center gap-2 h-9 px-2 border border-border rounded-lg bg-muted/20">
-        <span
-          className="h-5 w-5 rounded border border-border shrink-0"
-          style={{
-            background: isTransparent
-              ? "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 8px 8px"
-              : swatchColor,
-          }}
-        />
-        <input
-          type="text"
-          value={hexInput}
-          onChange={e => onHexInputChange(e.target.value)}
-          className="flex-1 h-full text-[12px] bg-transparent border-0 tabular-nums uppercase focus:outline-none"
-          placeholder="#FFFFFF"
-        />
-      </div>
-
-      {existing.length > 0 && (
-        <div className="mt-2.5">
-          <p className="text-[10px] font-medium text-muted-foreground mb-1">Existing colors</p>
-          <div className="grid grid-cols-8 gap-1">
-            {existing.map((c, i) => (
-              <button
-                key={`${c}-${i}`}
-                type="button"
-                onClick={() => { onChange(c); setOpen(false) }}
-                className="h-5 w-5 rounded border border-border hover:scale-110 transition-transform"
-                style={{ background: c }}
-                aria-label={`Use ${c}`}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={() => { onChange("transparent"); setOpen(false) }}
-        className="mt-2.5 w-full h-8 flex items-center justify-center gap-1.5 text-[12px] font-medium border border-border rounded-lg hover:bg-muted transition-colors"
-      >
-        <span className="inline-block h-3.5 w-3.5 rounded-full" style={{ background: "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 6px 6px" }} />
-        Don&apos;t apply any color
-      </button>
+      <ColorPickerPanel value={value} onChange={onChange} existing={existing} onDone={() => setOpen(false)} />
     </div>,
     document.body,
   ) : null
@@ -334,4 +339,3 @@ export function ColorChip({
     </>
   )
 }
-

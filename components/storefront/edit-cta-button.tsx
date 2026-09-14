@@ -31,7 +31,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, Pencil } from "lucide-react"
 
-import { EditorField, EditorSheet, SchemeSwatchRow } from "@/components/storefront/editor-sheet"
+import { EditorField, EditorSelect, EditorSheet } from "@/components/storefront/editor-sheet"
 import { ColorField } from "@/components/storefront/color-field"
 import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
 
@@ -91,18 +91,37 @@ export function EditCtaButton({
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [v, setV] = React.useState<CtaValues>(values)
+  /**
+   * ===========================================================================
+   *  SAVING THE WORDS MUST NOT FREEZE THE COLOURS
+   * ===========================================================================
+   * These fields are seeded with what the bar IS — which, for a creator who
+   * has never picked a colour, is what the scheme decided. Writing all four
+   * back on every save turned the scheme's answer into an explicit stored
+   * choice, and from that moment the scheme could never paint the bar again:
+   * change the page to Astrid and the button stayed the blue the editor had
+   * quietly saved. That is "they sometimes override".
+   *
+   * So a field is sent only if it was TOUCHED in this session. Everything
+   * else is left absent, the stored config keeps whatever it had, and the
+   * scheme goes on deciding for the ones nobody has chosen.
+   */
+  const [touched, setTouched] = React.useState<Set<keyof CtaValues>>(() => new Set())
 
-  const set = <K extends keyof CtaValues>(key: K, value: CtaValues[K]) =>
+  const set = <K extends keyof CtaValues>(key: K, value: CtaValues[K]) => {
+    setTouched((t) => (t.has(key) ? t : new Set(t).add(key)))
     setV((s) => {
       const next = { ...s, [key]: value }
       onPreview?.(next)
       return next
     })
+  }
 
   /** Reopening after a cancel shows what is saved, not what was abandoned. */
   React.useEffect(() => {
     if (open) return
     setV(values)
+    setTouched(new Set())
     setError(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -112,14 +131,30 @@ export function EditCtaButton({
     onPreview?.(null)
   }
 
+  /** The bar's own four, offered under each picker so one can borrow another's. */
+  const palette = [v.backgroundColor, v.textColor, v.buttonColor, v.buttonTextColor].filter((c) => /^#[0-9a-f]{6}$/i.test(c))
+
   const save = async () => {
     setSaving(true)
     setError(null)
     try {
+      /*
+        Only what was touched. The API treats every key it receives as a
+        decision — that is right, and it is why an untouched key must not be
+        sent. See the note on `touched` above.
+      */
+      const patch: Partial<CtaValues> = {}
+      for (const key of Object.keys(v) as (keyof CtaValues)[]) {
+        if (touched.has(key)) patch[key] = v[key] as never
+      }
+      if (Object.keys(patch).length === 0) {
+        setOpen(false)
+        return
+      }
       const res = await fetch("/api/creator-profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscribeBar: v }),
+        body: JSON.stringify({ subscribeBar: patch }),
       })
       if (!res.ok) {
         setError("That could not be saved. Try again.")
@@ -148,9 +183,18 @@ export function EditCtaButton({
         onClick={() => setOpen(true)}
         aria-label="Edit this bar"
         title="Edit this bar"
-        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-black/5 text-current opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        /*
+          SMALLER ON A PHONE, and no filled background there. The bar's own
+          row on a 390px screen is an avatar, a sentence and this; a 28px
+          chip with a panel behind it competes with the sentence for the line
+          it is attached to. On a desktop there is room for the chip.
+
+          `bg-current/[0.08]` rather than black or white: the bar can be any
+          colour a creator picked, and a fixed tint disappears on half of them.
+        */
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-current opacity-60 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 sm:h-7 sm:w-7 sm:bg-current/[0.08] sm:opacity-70"
       >
-        <Pencil className="h-3.5 w-3.5" />
+        <Pencil className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
       </button>
 
       <EditorSheet
@@ -162,12 +206,14 @@ export function EditCtaButton({
         onSave={() => void save()}
         saveLabel={saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
       >
+        {/*
+          A SELECT, NOT SIX PILLS. Six sentences laid out as buttons were six
+          things competing for the eye on a form that has one question here:
+          which one. A closed control says the current answer and opens on
+          request, which is the builder's own shape for a choice like this.
+        */}
         <EditorField label="Message">
-          <SchemeSwatchRow
-            options={MESSAGE_PRESETS}
-            value={v.style}
-            onChange={(x) => set("style", x)}
-          />
+          <EditorSelect ariaLabel="Message" options={MESSAGE_PRESETS} value={v.style} onChange={(x) => set("style", x)} />
         </EditorField>
 
         <EditorField label="Or your own message" hint={`${v.text.length}/${MAX_TEXT}`}>
@@ -181,11 +227,7 @@ export function EditCtaButton({
         </EditorField>
 
         <EditorField label="Button">
-          <SchemeSwatchRow
-            options={BUTTON_PRESETS}
-            value={v.buttonStyle}
-            onChange={(x) => set("buttonStyle", x)}
-          />
+          <EditorSelect ariaLabel="Button" options={BUTTON_PRESETS} value={v.buttonStyle} onChange={(x) => set("buttonStyle", x)} />
         </EditorField>
 
         <EditorField label="Or your own label" hint={`${v.buttonText.length}/${MAX_BUTTON}`}>
@@ -198,12 +240,19 @@ export function EditCtaButton({
           />
         </EditorField>
 
-        <div className="grid grid-cols-2 gap-3">
-          <ColorField label="Background" value={v.backgroundColor} fallback="#ffffff" onChange={(x) => set("backgroundColor", x)} />
-          <ColorField label="Text" value={v.textColor} fallback="#111827" onChange={(x) => set("textColor", x)} />
-          <ColorField label="Button" value={v.buttonColor} fallback="#2563eb" onChange={(x) => set("buttonColor", x)} />
-          <ColorField label="Button text" value={v.buttonTextColor} fallback="#ffffff" onChange={(x) => set("buttonTextColor", x)} />
-        </div>
+        {/*
+          ONE COLUMN. The two-column grid truncated "Background" to "Back..."
+          at the width of a phone sheet, and a picker that opens in the flow
+          under its row needs the row's full width to open into.
+        */}
+        <EditorField label="Colours">
+          <div className="space-y-2">
+            <ColorField label="Background" value={v.backgroundColor} fallback="#ffffff" onChange={(x) => set("backgroundColor", x)} palette={palette} />
+            <ColorField label="Text" value={v.textColor} fallback="#111827" onChange={(x) => set("textColor", x)} palette={palette} />
+            <ColorField label="Button" value={v.buttonColor} fallback="#2563eb" onChange={(x) => set("buttonColor", x)} palette={palette} />
+            <ColorField label="Button text" value={v.buttonTextColor} fallback="#ffffff" onChange={(x) => set("buttonTextColor", x)} palette={palette} />
+          </div>
+        </EditorField>
       </EditorSheet>
     </>
   )

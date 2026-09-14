@@ -31,7 +31,7 @@ import { join } from "node:path"
 
 import { themePresets } from "../lib/store-builder/defaults"
 import { cardAccents, resolveStorefrontChrome } from "../lib/store-builder/storefront-chrome"
-import { embeddedHref } from "../lib/store-builder/editor-channel"
+import { canvasRefusesHref, embeddedHref } from "../lib/store-builder/editor-channel"
 import { contrastRatio, parseColor } from "../lib/storelib-theme/contrast"
 
 const root = process.cwd()
@@ -65,28 +65,27 @@ const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/
 function main() {
   console.log("\nThe creator page is edited where it lives")
 
-  // ── 1. Under /app, and the toolbar is nearly empty ─────────────────────
+  // ── 1. Its own screen, and the toolbar is nearly empty ─────────────────
   {
-    check("the workspace exists", existsSync(join(root, "app/app/creator-page/page.tsx")))
+    check("the workspace exists", existsSync(join(root, "app/creator-page/page.tsx")))
     /**
-     * UNDER /app, WITH THE SIDEBAR. This has moved three times on the owner's
-     * instruction and it is their product. Being a route under /app is the
-     * whole of how it keeps the sidebar: the layout renders the rail and the
-     * header, so a workspace that drew its own would be a second one to keep
-     * in step.
+     * ITS OWN SCREEN. This has moved four times on the owner's instruction
+     * and it is their product. Being a route OUTSIDE /app is the whole of how
+     * it gets the screen: the layout beside it gates on the session and
+     * renders the children bare.
      */
-    const layout = read("app/app/layout.tsx")
-    check("the /app layout is what supplies the sidebar", layout.includes("<AppSidebar"))
+    const layout = read("app/creator-page/layout.tsx")
+    check("its layout renders no app chrome", !/<AppSidebar|DesktopSidebarContent/.test(layout))
     const workspace = strip(read("components/app/creator-page-workspace.tsx"))
     check("and the workspace does not rebuild one", !/AppSidebar|DesktopSidebarContent/.test(workspace))
-    check("it fills the layout's content area rather than the viewport", workspace.includes("h-full min-h-0") && !workspace.includes("h-svh"))
-    check("and carries no back control, because the sidebar is the way out", !workspace.includes("ArrowLeft"))
+    check("it fills the viewport rather than a content area", workspace.includes("h-svh") && !workspace.includes("h-full min-h-0"))
+    check("and carries a back control, because there is no sidebar to leave by", workspace.includes("ArrowLeft"))
     const sidebar2 = read("components/app/sidebar.tsx")
     check(
       "the setup widget is not shown over the creator page",
       sidebar2.includes('!pathname.startsWith("/creator-page")') && sidebar2.includes('!pathname.startsWith("/app/creator-page")'),
     )
-    check("the address it had outside /app still answers", read("app/creator-page/page.tsx").includes('redirect("/app/creator-page")'))
+    check("the address it had under /app still answers", read("app/app/creator-page/page.tsx").includes('redirect("/creator-page")'))
 
     /**
      * THE CANVAS. Inset and bordered on a desktop so the page has edges of
@@ -164,15 +163,65 @@ function main() {
         !code("components/storefront/color-field.tsx").includes('type="color"'),
     )
 
-    /** Radix owns the open and the close, which is the whole of "no glitch". */
+    /**
+     * ONE SHELL. Radix owns the open and the close on a desktop, which is the
+     * whole of "no glitch"; on a phone every editor is the builder's bottom
+     * sheet, with its detents, its drag physics and its keyboard inset. All
+     * three editors go through it, so there is one idea of an editor.
+     */
     const sheet = read("components/storefront/editor-sheet.tsx")
-    check("the editors open on Dialog, like the profile one does", sheet.includes("<Dialog") && bar.includes("<EditorSheet"))
+    check("the editors open on Dialog on a desktop", sheet.includes("<Dialog"))
+    /**
+     * A DRAWER, NOT A CENTRED DIALOG. These edit the page BEHIND them, and
+     * the whole reason the workspace frames the real page is so a creator
+     * sees a change land. Dimming the one thing they are looking at, and
+     * covering its middle, works against that.
+     */
+    check("pinned to the right edge, not centred", sheet.includes("left-auto right-0 top-0 translate-x-0"))
+    check("with no dimming overlay", sheet.includes('overlayClassName="bg-transparent"'))
+    check("and depth instead", sheet.includes("shadow-[-24px_0_60px_-24px_rgba(15,23,42,0.35)]"))
+    /** Radix keeps the node mounted for the exit, so closing is animated. */
+    check("it slides both ways", sheet.includes("data-[state=closed]:slide-out-to-right") && sheet.includes("data-[state=open]:slide-in-from-right"))
+    /** The base content class zooms from the centre and would fight the slide. */
+    check("and the dialog's own zoom is off, not merged over", sheet.includes("disableDefaultAnimations"))
+    check("and on the builder's sheet on a phone", sheet.includes("<MobileEditorSheet") && sheet.includes("useIsPhone()"))
+    for (const [name, file] of [["the bar", "edit-cta-button"], ["the profile", "edit-profile-button"], ["About", "edit-about-button"]] as const) {
+      const src = read(`components/storefront/${file}.tsx`)
+      check(`${name} editor uses that shell`, src.includes("<EditorSheet") && !src.includes("<Dialog "))
+    }
+    /**
+     * NO PEEK. The sheet's default is the builder's BASE sheet, which stays
+     * 72px above the bottom edge when closed because the builder's tab row
+     * lives there. Left at the default, a closed editor is a permanent strip
+     * across the bottom of the page — which is what "your page is live is
+     * always at the bottom" was.
+     */
+    /* Comment-stripped: the shell's own note quotes the prop it is checked for. */
+    const sheetCode = code("components/storefront/editor-sheet.tsx")
+    check("closed sheets are off screen, not peeking", sheetCode.includes("peekHeight={0}") && code("components/app/creator-page-share.tsx").includes("peekHeight={0}"))
+    check("and raised above the page", sheetCode.includes('layer="raised"'))
+
+    /** Six sentences as pills were six things competing for the eye. */
+    check("the presets are a select, not a row of pills", bar.includes("<EditorSelect") && !bar.includes("SchemeSwatchRow"))
+    /**
+     * THE PICKER OPENS IN THE FLOW. A portal inside a modal dialog cannot be
+     * clicked (Radix puts pointer-events: none on everything outside) and
+     * dismisses the dialog on the first press, which was "the colour picker
+     * is not working".
+     */
+    check("the colour picker is the builder's panel", field.includes("<ColorPickerPanel") && read("components/website-builder/editor/color-chip.tsx").includes("export function ColorPickerPanel"))
+    check("opened in the flow rather than a portal", !field.includes("createPortal") && field.includes('aria-expanded={open}'))
+    check("and the builder's chip composes the same panel", read("components/website-builder/editor/color-chip.tsx").includes("<ColorPickerPanel value={value} onChange={onChange} existing={existing}"))
+    check("one colour per row, so the label is not truncated", bar.includes('<EditorField label="Colours">') && !/grid grid-cols-2 gap-3[\s\S]{0,200}<ColorField/.test(bar))
 
     /** The scheme, in the dialog that owns how the page presents itself. */
     check("the colour scheme is in Edit profile", profile.includes("<SchemePicker"))
     check("and it saves with the rest of it", profile.includes("themePreset: scheme"))
     check("five schemes are offered", (picker.match(/"(default|blacks|cream|pink|astrid)"/g) ?? []).length === 5)
-    check("drawn as overlapping discs, not stripes or a tiny page", picker.includes("rounded-full") && picker.includes("left: i * 11"))
+    check("drawn as overlapping discs, not stripes or a tiny page", picker.includes("rounded-full") && picker.includes("left: i * step"))
+    /** A picker whose only change is which border is dark reads as a radio button. */
+    /* The lift was the bump; what settles now is the discs and the shadow. */
+    check("and selecting one settles rather than snapping", picker.includes("transition-[left]") && picker.includes("box-shadow] duration-200"))
 
     /** Every one of them tells the workspace, so nothing needs a reload button. */
     for (const [name, src] of [["the bar", bar], ["the profile", profile], ["About", about]] as const) {
@@ -269,10 +318,10 @@ function main() {
   // ── 5. One destination, and the old addresses still answer ─────────────
   {
     const entries: Array<[string, string]> = [
-      ["components/app/sidebar.tsx", '"/app/creator-page"'],
-      ["components/app/dashboard-client.tsx", '"/app/creator-page"'],
-      ["components/storefront/owner-menu.tsx", '"/app/creator-page"'],
-      ["components/app/settings-form-new.tsx", '"/app/creator-page"'],
+      ["components/app/sidebar.tsx", '"/creator-page"'],
+      ["components/app/dashboard-client.tsx", '"/creator-page"'],
+      ["components/storefront/owner-menu.tsx", '"/creator-page"'],
+      ["components/app/settings-form-new.tsx", '"/creator-page"'],
     ]
     for (const [file, href] of entries) {
       check(`${file} points at the workspace`, read(file).includes(href))
@@ -284,10 +333,10 @@ function main() {
      * section editor and is linked from the workspace itself.
      */
     check("the old /store-builder address still answers", existsSync(join(root, "app/store-builder/page.tsx")))
-    check("and it lands on the workspace", read("app/store-builder/page.tsx").includes('redirect("/app/creator-page")'))
+    check("and it lands on the workspace", read("app/store-builder/page.tsx").includes('redirect("/creator-page")'))
     check("the section editor is still a real route", existsSync(join(root, "app/creator-page/sections/page.tsx")))
-    check("and the address the workspace used to have still answers", existsSync(join(root, "app/creator-page/page.tsx")))
-    check("and it lands on the workspace too", read("app/creator-page/page.tsx").includes('redirect("/app/creator-page")'))
+    check("and the address the workspace used to have still answers", existsSync(join(root, "app/app/creator-page/page.tsx")))
+    check("and it lands on the workspace too", read("app/app/creator-page/page.tsx").includes('redirect("/creator-page")'))
 
     const sidebar = read("components/app/sidebar.tsx")
     check("the sidebar no longer says Store Builder", !/label: "Store Builder"/.test(sidebar))
@@ -772,7 +821,7 @@ function main() {
     )
     check(
       "and so is the one in search",
-      /\{ label: "Creator Page", href: "\/app\/creator-page", icon: ContactRound, category: "Pages" \}/.test(sidebar),
+      /\{ label: "Creator Page", href: "\/creator-page", icon: ContactRound, category: "Pages" \}/.test(sidebar),
     )
   }
 
@@ -998,11 +1047,16 @@ function main() {
      * =====================================================================
      *  THE PRODUCT PAGE'S TOP BAR, AND ITS BUYING CARD
      * =====================================================================
-     * THE BAR was a newsletter form — an email field and a Follow button
-     * across the top of every product page. The first thing a visitor met on
-     * a page they came to look at a thing was a request for their address.
-     * It is who is selling and the way back now; following is still offered
-     * on the creator's own page, one tap away through the name.
+     * THE BAR carries a newsletter form again. It was taken out on the
+     * argument that the first thing a visitor meets on a page they came to
+     * look at a thing should not be a request for their address; the owner
+     * asked for it back and it is their shop. The argument is answered by
+     * ORDER rather than by absence — who is selling and the way back come
+     * first, reading left to right, and the field is at the far end.
+     *
+     * ONE BAR, TWO PAGES. Its colours and its button label are the creator
+     * page's own bar's, resolved by resolveStorefrontChrome from the shop
+     * config, so editing one changes both and the scheme paints both.
      *
      * THE CARD carried `sticky top-6` and has never stuck, because the grid
      * used `items-start` — which shrinks a grid item to its content, so the
@@ -1013,8 +1067,18 @@ function main() {
      */
     const bar = code("components/store-builder/product-creator-bar.tsx")
     const live = bar.slice(bar.indexOf("export function LiveProductCreatorBar"))
-    check("the live bar asks for no email address", !/<Input/.test(live) && !/type="email"/.test(live))
-    check("and offers no follow button", !/<Button/.test(live))
+    check("the live bar asks for an email address", /<Input/.test(live) && /type="email"/.test(live))
+    check("and offers a follow button", /<Button/.test(live))
+    /** The two facts a product page's top edge is for come first in the row. */
+    check(
+      "with the way back and the seller ahead of it",
+      live.indexOf("<BackControl") < live.indexOf("<Input") && live.indexOf("<SmartLink") < live.indexOf("<Input"),
+    )
+    /** One bar, two pages: the product page resolves it from the shop's. */
+    const productPage = code("app/(marketing)/p/[slug]/page.tsx")
+    check("the product page resolves the bar from the creator's", productPage.includes("resolveStorefrontChrome("))
+    check("colours and all", productPage.includes("buttonColor: shopChrome.bar.buttonColor"))
+    check("and the label the creator typed", productPage.includes("creatorBarLabel") && /buttonLabel\?\.trim\(\)/.test(bar))
     check(
       "it carries a way back",
       /<BackControl onBack=\{goBack\}/.test(live) && /window\.history\.back\(\)/.test(bar),
@@ -1065,9 +1129,20 @@ function main() {
       /"grid gap-8", !isMobile && "lg:grid-cols-5 lg:gap-12"/.test(renderer) &&
         !/lg:items-start/.test(renderer),
     )
+    /**
+     * AND IT IS THE PAGE'S HEADING THERE. The card's title was an h2 under a
+     * duplicate h1 three hundred pixels to the left, so a wide screen printed
+     * the product's name twice. The left one is hidden from `lg` up — which
+     * is exactly where this card renders — so the name is read once, beside
+     * its price.
+     */
     check(
       "and the card is headed by the product, not by a number",
-      /<h2[\s\S]{0,240}\{productTitle\}/.test(renderer),
+      /<h1[\s\S]{0,420}\{productTitle\}/.test(renderer),
+    )
+    check(
+      "with the left heading standing down where this one appears",
+      /"mt-6", !isMobile && "sm:mt-8 lg:hidden"/.test(renderer),
     )
   }
 
@@ -1196,6 +1271,95 @@ function main() {
   /* ------------------------------------------------------------------ */
   {
     /**
+     * ===================================================================
+     *  THE PENCIL IS IN THE BAR, NOT OVER IT
+     * ===================================================================
+     * It was positioned against a `relative` div wrapping the bar, and that
+     * cannot work for the bar this product ships: sticky renders
+     * `position: fixed` plus a 76px spacer, so the wrapper contributes no
+     * height of its own and an absolutely positioned child lands on the
+     * SPACER — floating in the empty strip underneath, which is exactly what
+     * it looked like. A slot in the row instead.
+     */
+    const live = code("components/store-builder/live-subscribe-bar.tsx")
+    const bar = code("components/store-builder/subscribe-bar.tsx")
+    check("the bar takes the owner's control as a slot", bar.includes("ownerAction?: React.ReactNode"))
+    check("and renders it in the row, beside the sentence", (bar.match(/\{ownerAction\}/g) ?? []).length === 2)
+    check("nothing positions it over a wrapper any more", !/absolute inset-y-0 left-2/.test(live))
+    check("because the bar can be fixed", bar.includes('"fixed left-0 right-0 w-full'))
+    /** A 28px chip beside a sentence on a 390px screen competes with it. */
+    const pencil = read("components/storefront/edit-cta-button.tsx")
+    check("and it is smaller and plainer on a phone", pencil.includes("h-6 w-6") && pencil.includes("sm:h-7 sm:w-7"))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * ===================================================================
+     *  THE CANVAS BROWSES, IT DOES NOT BUY
+     * ===================================================================
+     * The workspace frames the real product page, so the buy button on it is
+     * the real buy button: pressing it started a real checkout for the
+     * creator's own product, in a frame that cannot show the checkout page.
+     * What a creator saw was the canvas going white with "refused to
+     * connect".
+     *
+     * Refused twice, because a button is not a link.
+     */
+    const HERE = "https://storelib.com/u/andrewrullz?embedded=1"
+    for (const href of ["/checkout?productId=1", "/purchase/success", "/library/my-downloads", "/app/settings", "/downloads"]) {
+      check(`${href} is not followed inside the canvas`, canvasRefusesHref(href, HERE), href)
+    }
+    for (const href of ["/p/a-tee", "/u/someone", "/andrewrullz/a-tee", "https://example.com/checkout"]) {
+      check(`${href} still is`, !canvasRefusesHref(href, HERE), href)
+    }
+
+    const buy = code("components/checkout/buy-button.tsx")
+    const sticky = code("components/store-builder/sticky-add-to-cart.tsx")
+    const hook = read("components/storefront/use-editor-frame.ts")
+    check("the buy button stands down in a frame", buy.includes("if (inEditorFrame) return") && buy.includes("disabled={disabled || loading || inEditorFrame}"))
+    check("and so does the sticky one", sticky.includes("if (inEditorFrame) return"))
+    check("both ask the same question", buy.includes("useEditorFrame()") && sticky.includes("useEditorFrame()"))
+    /**
+     * STATE, NOT A BARE READ. The server renders this false and the first
+     * client render has to agree, or every product page throws a hydration
+     * mismatch.
+     */
+    check("and it is state, so the first client render matches the server", hook.includes("useState(false)") && hook.includes("useEffect("))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * ===================================================================
+     *  ONE PRODUCT CARD IN THIS PRODUCT
+     * ===================================================================
+     * "More from the seller" drew its own: a thumbnail, a truncated title and
+     * a price, with its own hover and its own colour plumbing. So the cards
+     * on a product page were a different size, a different type scale and a
+     * different shape from the ones on the creator page two clicks away, and
+     * the rating, the category pill and the struck-through original price
+     * simply did not exist on them.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const section = renderer.slice(renderer.indexOf("function UnifiedMoreFromSellerSection"))
+    check("More from the seller renders the shared card", section.includes("<StorefrontProductCard"))
+    check("and draws none of its own", !/aspect-video bg-muted relative overflow-hidden/.test(section))
+    check("with the colours the theme gives it", section.includes("cardAccents(cardBgColor, cardTextColor)"))
+    /** It sat in a 1150px column while the page's own content is 1200. */
+    check(
+      "in the same column as every other section on the page",
+      section.includes('"mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6"'),
+    )
+    check(
+      "which is the product page's own column",
+      /className="mx-auto w-full max-w-\[1200px\] px-3 sm:px-4 lg:px-6/.test(code("app/(marketing)/p/[slug]/page.tsx")),
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
      * NO CATEGORY PILL ABOVE THE BIO. A grey badge naming the creator's niche
      * sat between the handle and the bio. The niche still exists, because it
      * is what /explore browses by, but it is a filing detail and it does not
@@ -1231,49 +1395,135 @@ function main() {
   /* ------------------------------------------------------------------ */
   {
     /**
-     * THE KEYBOARD DOES NOT MOVE CANCEL AND SAVE.
-     *
-     * The creator page runs inside the workspace's iframe, and the app shell
-     * shrinks that frame to the strip above the keyboard. A panel centred in
-     * the viewport re-centres in the strip: the sheet jumped to the middle of
-     * the screen and took its buttons with it. Anchored to the bottom there is
-     * nothing to re-centre.
-     *
-     * scripts/check-editor-keyboard.mjs is the measurement; these guard the
-     * pieces it depends on, which a refactor can remove without failing a
-     * build.
+     * THE EDITOR IS ITS OWN SCREEN ON A PHONE TOO. The platform header was
+     * drawn above the workspace's own bar, a second black band eating a
+     * quarter of a phone's height on a page that is supposed to fill it.
      */
+    const header = code("components/marketing/conditional-header.tsx")
+    check("the platform header stands down on the editor", header.includes('p === "/creator-page" || p.startsWith("/creator-page/")'))
+    check("before any host rule can put it back", /if \(isOwnScreen\(pathname\)\) \{\s*setShowPlatformHeader\(false\)\s*return/.test(header))
+    check("and on the first paint too", header.includes("!isOwnScreen(pathname) &&"))
+
+    /** A click in the canvas that fetches a whole page has to look like one. */
+    const nav = code("components/storefront/embedded-navigation.tsx")
+    check("leaving the page in the canvas dims it and starts a bar", nav.includes("setLeaving(true)") && nav.includes("creator-nav-bar"))
+    check("which a bfcache return clears", nav.includes('"pageshow"'))
+    check("the bar is honest about not knowing how far along it is", read("app/globals.css").includes("@keyframes creator-nav-bar"))
+
+    /** The product page's strip reads as a bar, not the top of the page. */
+    const pbar = read("components/store-builder/product-creator-bar.tsx")
+    check("the product page's bar casts a little shadow", /boxShadow: "0 1px 2px rgba\(15, 23, 42, 0\.05\), 0 8px 24px -16px/.test(pbar))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * ===================================================================
+     *  ON A PHONE: THE BAR IS SEEN, THE SHEET OPENS HALFWAY, THE KEYBOARD
+     *  DOES NOT THROW THE PAGE
+     * ===================================================================
+     */
+    const workspace = code("components/app/creator-page-workspace.tsx")
     const sheet = code("components/storefront/editor-sheet.tsx")
-    const guard = code("components/platform/keyboard-guard.tsx")
+    const mobileSheet = code("components/website-builder/mobile-editor-sheet.tsx")
+    const picker = code("components/storefront/scheme-picker.tsx")
+
+    /**
+     * In the iOS shell the webview runs edge to edge, so a bar at top:0 is
+     * painted BEHIND the status bar — 44 points of it, nearly all of it —
+     * which is "the top bar is not showing". Read the inset, never branch on
+     * a user agent.
+     */
+    check("the toolbar sits under the status bar, not behind it", workspace.includes('paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)"'))
+    check("and nothing sniffs a user agent to do it", !/navigator\.userAgent|isNativeApp\(\)/.test(workspace))
+
+    /** A form that opens to the whole screen is a page, not a sheet. */
+    /**
+     * ONE STOP. Two made the height something to manage: a drag meant to
+     * scroll the form resized the sheet instead, and it could be left at
+     * either. One stop is a fixed sheet with a scroller in it.
+     */
+    check("editors open to 60% and stay there", sheet.includes("detents={[0.6]}") && !sheet.includes("openFull"))
+    check("and the body is the sheet's own scroller", sheet.includes("data-sheet-scroll"))
+
+    /**
+     * THE KEYBOARD, FROM INSIDE A FRAME. An iframe's own visualViewport on
+     * iOS does not shrink for the keyboard, so the sheet measured it as zero
+     * and iOS scrolled the outer page instead — the sheet's top off the
+     * screen, a strip of workspace under it. Same origin, so the parent's
+     * viewport is readable, and that is where the keyboard is measured.
+     */
+    check("the sheet measures the keyboard from the window that has one", mobileSheet.includes("function keyboardWindow()") && mobileSheet.includes("const kb = keyboardWindow()"))
+    check("guarded for a cross-origin parent", /window\.top[\s\S]{0,120}location\.origin === window\.location\.origin/.test(mobileSheet))
+    check("and listens to that window's viewport too", mobileSheet.includes('kbvv.addEventListener("resize", update)'))
+    check("the sheet's own height still comes from its own window", mobileSheet.includes("setViewport(Math.round(window.innerHeight"))
+    /** And the outer document is told, twice, that it does not scroll. */
+    check("the workspace locks its document", workspace.includes('root.style.overflow = "hidden"') && workspace.includes('body.style.overflow = "hidden"'))
+    check("and puts a keyboard scroll back where it was", workspace.includes("window.scrollTo(0, 0)") && workspace.includes('vv?.addEventListener("resize", onViewport)'))
+
+    /**
+     * NO BUMP ON SELECT. The row is flex-wrap, so a button that changes
+     * width on selection pushes its neighbours, possibly onto the next line.
+     * Nothing about a button's box may depend on whether it is selected.
+     */
+    check("selecting a scheme changes no button's size", !/w-0|w-3\.5 scale-100/.test(picker) && picker.includes('active ? "opacity-100" : "opacity-0"'))
+    check("nor its position", !/translate-y/.test(picker))
+    check("only colour, shadow, and the discs in their fixed box", picker.includes("transition-[background-color,border-color,box-shadow]") && picker.includes("style={{ width: 52 }}"))
+  }
+
+  /* ------------------------------------------------------------------ */
+  {
+    const mobileSheet = code("components/website-builder/mobile-editor-sheet.tsx")
     const css = read("app/globals.css")
-    const about = code("components/storefront/edit-about-button.tsx")
-
-    check("on a phone the editor is anchored to the bottom", /max-sm:top-auto/.test(sheet) && /max-sm:translate-y-0/.test(sheet))
-    check("and lifted by exactly the keyboard's reach", /max-sm:bottom-\[var\(--keyboard-inset-height,0px\)\]/.test(sheet))
-    check("its height is capped to what is left above the keyboard", /max-sm:max-h-\[calc\(100dvh-var\(--keyboard-inset-height,0px\)-2rem\)\]/.test(sheet))
-    /** If the body could not shrink, the footer would be pushed off instead. */
-    check("the scrolling body is the part that gives up the height", /min-h-0 flex-1[^"]*overflow-y-auto/.test(sheet))
-    check("the header cannot shrink", /DialogHeader className="shrink-0/.test(sheet))
-    check("nor the footer", /DialogFooter[\s\S]{0,120}shrink-0/.test(sheet))
+    const workspace = code("components/app/creator-page-workspace.tsx")
+    const cta = code("components/storefront/edit-cta-button.tsx")
 
     /**
-     * The lift is per-document on purpose. Inside the shrunken frame it is 0
-     * because the frame already ends at the keyboard; on the page opened
-     * directly it is the keyboard's full height.
+     * THE PAGE BEHIND A SHEET DOES NOT SCROLL. The scrim caught a tap and
+     * nothing else: a drag on it, or one inside the sheet that ran out of
+     * scroller, went through to the document.
      */
-    check("the guard publishes the keyboard's reach", /setProperty\("--keyboard-inset-height"/.test(guard))
-    check("using the same formula as the app shell", /innerHeight - vv\.offsetTop - vv\.height/.test(guard))
-    check("and puts it back to zero when the keyboard closes", /setProperty\("--keyboard-inset-height", "0px"\)/.test(guard))
-
-    /** A sheet ending at the keyboard has no home indicator under it. */
-    check("the home-indicator reserve is dropped while the keyboard is up", /html\.keyboard-open \[data-editor-footer\]/.test(css))
+    check("an open sheet locks the document", mobileSheet.includes('root.style.overflow = "hidden"') && mobileSheet.includes('body.style.overflow = "hidden"'))
+    check("and puts the scroll position back", mobileSheet.includes("window.scrollTo(0, y)"))
+    /** A peeking sheet is chrome, not something opened over a page. */
+    check("but only a sheet with no peek", /if \(!open \|\| peekHeight > 0/.test(mobileSheet))
 
     /**
-     * ONE SHAPE. The story editor kept its own copy of the same three rows,
-     * which is how it stayed centred after the others were anchored.
+     * THE BLACK SHIELD. `html.capacitor::before` is a fixed pure-black layer
+     * over the safe area at z-9999 — right for every page whose header is
+     * black, and a band under the clock on one whose bar is white.
      */
-    check("the story editor uses the shared sheet", about.includes("<EditorSheet"))
-    check("and no longer builds its own dialog", !/<DialogContent/.test(about))
+    check("the shield stands down on the editor", css.includes("html.capacitor.cp-fullscreen::before") && css.includes("html.capacitor:has(.cp-editor)::before"))
+    check("two rules, so an iOS without :has() keeps the fallback", !/cp-fullscreen::before,\s*html\.capacitor:has/.test(css))
+    check("and the canvas behind it goes white with it", css.includes("html.capacitor.cp-fullscreen {\n  background-color: #ffffff;"))
+    check("the workspace carries both halves", workspace.includes('className="cp-editor relative') && workspace.includes('root.classList.add("cp-fullscreen")'))
+
+    /**
+     * SAVING THE WORDS MUST NOT FREEZE THE COLOURS. The fields are seeded
+     * with what the bar IS, which for an untouched colour is what the scheme
+     * decided; writing all four back turned the scheme's answer into a stored
+     * choice and the scheme could never paint the bar again.
+     */
+    check("the bar editor sends only what was touched", cta.includes("touched.has(key)") && cta.includes("subscribeBar: patch"))
+    check("and sends nothing at all when nothing was", cta.includes("if (Object.keys(patch).length === 0)"))
+    check("a reopened editor forgets what was touched", cta.includes("setTouched(new Set())"))
+
+    /**
+     * EVERY TOP BAR GETS OUT OF THE WAY. This existed in one place, written
+     * inline, so the product page's creator bar was pinned forever.
+     */
+    const hook = read("lib/store-builder/use-reveal-on-scroll-up.ts")
+    check("there is one reveal-on-scroll-up", hook.includes("export function useRevealOnScrollUp"))
+    check("the subscribe bar uses it", code("components/store-builder/subscribe-bar.tsx").includes("useRevealOnScrollUp("))
+    check("and so does the product page's bar", code("components/store-builder/discover-sticky-wrapper.tsx").includes("useRevealOnScrollUp()"))
+    check("neither keeps a copy of the logic", !/const DELTA = 6/.test(code("components/store-builder/subscribe-bar.tsx")))
+    /** One read per frame, a threshold, and state set only when it changes. */
+    check("it reads once per frame", hook.includes("requestAnimationFrame(evaluate)"))
+    check("ignores jitter", hook.includes("const DELTA = 6"))
+    check("and is always visible near the top", hook.includes("const TOP_ZONE = 50"))
+
+    /** 290px of dashed box for a control whose content is one line of text. */
+    check("the add-another picker is compact", code("components/storefront/edit-about-button.tsx").includes('aspectRatio="compact"'))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

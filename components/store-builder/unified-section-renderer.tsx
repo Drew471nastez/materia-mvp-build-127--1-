@@ -3496,7 +3496,28 @@ export function UnifiedProductPage({
               </>
             )}
 
-            <div className={cn("mt-6", !isMobile && "sm:mt-8")}>
+            {/*
+              ===================================================================
+               THE NAME IS READ ONCE, WHERE THE PRICE IS
+              ===================================================================
+              On a wide screen the buying card carries the title above the
+              price — so what is being bought and what it costs are read
+              together, wherever the page has been scrolled to — and this
+              block was printing the same words again under the gallery,
+              three hundred pixels to the left. Two headings, one product.
+
+              So this one is the heading BELOW `lg`, which is where the
+              buying card does not render at all (it is `hidden lg:block`,
+              and a phone gets the sticky bar instead). The badge goes with
+              it, because a category chip floating alone under a gallery is
+              not a row.
+
+              `!isMobile` guards it because `isMobile` is the store builder's
+              PHONE PREVIEW, where the frame is narrow and the viewport is
+              not: `lg:hidden` there would hide the title inside a 390px
+              preview that has no buying card either.
+            */}
+            <div className={cn("mt-6", !isMobile && "sm:mt-8 lg:hidden")}>
               <div className={cn("flex items-start justify-between gap-3", !isMobile && "sm:flex-row sm:gap-4")}>
                 <h1
                   className={cn(
@@ -4187,13 +4208,21 @@ export function UnifiedProductPage({
                   scrolled to. Two lines at most: a long title is for the page
                   below, not for a buying card.
                 */}
-                <h2
-                  className={cn("mb-2 text-lg font-semibold leading-snug line-clamp-2", !priceContainerText && "text-foreground")}
+                {/*
+                  THE PAGE'S HEADING, on the screens where this card exists.
+                  It was an h2 under a duplicate h1 in the left column; the
+                  left one is `lg:hidden` now, so this is the one a reader
+                  sees and it is the one marked up as the heading. Two lines
+                  at most: a long title is for the page below, not for a
+                  buying card.
+                */}
+                <h1
+                  className={cn("mb-2 text-2xl font-semibold leading-snug line-clamp-2", !priceContainerText && "text-foreground")}
                   style={{ color: priceContainerText }}
                   title={productTitle}
                 >
                   {productTitle}
-                </h2>
+                </h1>
 
                 {/* Price display - only show static price if no variants */}
                 {variants.length === 0 && (
@@ -4601,15 +4630,20 @@ function UnifiedMoreFromSellerSection({
   }
 
   return (
+    /**
+     * THE SAME COLUMN AS EVERY OTHER SECTION ON THE PAGE.
+     *
+     * This was `max-w-[1150px]` with its own padding scale while the product
+     * page's own content is `max-w-[1200px] px-3 sm:px-4 lg:px-6`, so the
+     * heading and the grid started 25px inside everything above them — which
+     * reads as the section having slipped rather than as a margin.
+     */
     <div
       className={cn(
-        "mx-auto w-full max-w-[1150px]",
-        // ✅ LIVE PRODUCT PAGE – mobile device - 18px padding
-        !isPreviewMode && "px-[18px] sm:px-4 lg:px-6",
-        // ✅ STORE BUILDER mobile preview - 18px padding for better spacing
+        "mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6",
+        // The store builder's phone preview is narrow while its viewport is
+        // not, so CSS cannot see it and it is told.
         isPreviewMode && isMobile && "px-[18px]",
-        // ✅ desktop safety
-        !isMobile && "px-4 sm:px-4 lg:px-6",
       )}
       style={{
         paddingTop: spacing?.paddingTop,
@@ -4626,124 +4660,72 @@ function UnifiedMoreFromSellerSection({
       >
         {settings.headline} {creatorName}
       </h2>
+      {/*
+        ===================================================================
+         THE CARD IS THE CARD, NOT A SECOND DRAWING OF IT
+        ===================================================================
+        This section drew its own: a thumbnail, a truncated title and a price,
+        with its own hover, its own shadow and its own colour plumbing. So the
+        cards on a product page were a different size, a different type scale
+        and a different shape from the ones on the creator page two clicks
+        away, and every fix to one missed the other. The rating, the category
+        pill and the struck-through original price simply did not exist here.
+
+        It renders THE SAME COMPONENT the creator page renders. There is one
+        product card in this product now, and the four colours the theme gives
+        it arrive the same way they do there.
+
+        `showDescription`, `showPrice` and `showCompareAtPrice` are no longer
+        honoured. They were switches on a card nobody else had, and keeping
+        them would mean keeping the second card to switch.
+      */}
       <div className={cn("grid gap-4", getGridClasses())}>
         {displayProducts.map((product) => {
-          // Get product card colors from theme settings
           const cardBgColor = settings.productCardColors?.backgroundColor || undefined
           const cardTextColor = settings.productCardColors?.textColor || settings.colors?.textColor || undefined
           const cardPriceColor = settings.productCardColors?.priceColor || (cardTextColor ? `${cardTextColor}99` : undefined)
           const cardBorderColor = settings.productCardColors?.borderColor || (cardTextColor ? `${cardTextColor}20` : undefined)
+          const surface = {
+            backgroundColor: cardBgColor,
+            borderColor: cardBorderColor,
+            textColor: cardTextColor,
+            priceColor: cardPriceColor,
+            ...cardAccents(cardBgColor, cardTextColor),
+          }
 
-          const content = (
-            <>
-              <div className="aspect-video bg-muted relative overflow-hidden">
-                {product.thumbnail_url ? (
-                  <Image
-                    src={product.thumbnail_url || "/placeholder.svg"}
-                    alt={product.title}
-                    fill
-                    className="object-cover transition-all duration-500 [@media(hover:hover)]:group-hover:scale-105 opacity-0"
-                        ref={el => { if ((el as any)?.complete) (el as any).style.opacity = "1" }}
-                        onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <Package className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-              <div className={cn("p-3", !isMobile && "sm:p-4")}>
-                <h3
-                  className={cn(
-                    "font-medium truncate",
-                    isMobile ? "text-sm" : "text-base",
-                    !cardTextColor && "text-foreground",
-                  )}
-                  style={{ color: cardTextColor || undefined }}
-                >
-                  {product.title}
-                </h3>
-                {settings.showDescription && product.description && (
-                  <p
-                    className={cn(
-                      "mt-1 text-xs line-clamp-2",
-                      !cardPriceColor && "text-muted-foreground",
-                    )}
-                    style={{ color: cardPriceColor || undefined }}
-                  >
-                    {product.description}
-                  </p>
-                )}
-                {settings.showPrice && (
-                  <div className={cn("mt-2 flex items-center gap-2", isMobile ? "text-sm" : "text-base")}>
-                    <span
-                      className={cn(
-                        "font-semibold",
-                        !cardTextColor && "text-foreground",
-                      )}
-                      style={{ color: cardTextColor || undefined }}
-                    >
-                      {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
-                    </span>
-                    {settings.showCompareAtPrice &&
-                      product.compare_at_cents &&
-                      product.compare_at_cents > product.price_cents && (
-                        <span
-                          className={cn(
-                            "line-through text-sm",
-                            !cardPriceColor && "text-muted-foreground",
-                          )}
-                          style={{ color: cardPriceColor ? `${cardPriceColor}99` : undefined }}
-                        >
-                          {formatPrice(product.compare_at_cents)}
-                        </span>
-                      )}
-                  </div>
-                )}
-              </div>
-            </>
+          const card = (
+            <StorefrontProductCard
+              product={{
+                id: product.id,
+                slug: product.slug,
+                title: product.title,
+                thumbnail_url: product.thumbnail_url,
+                price_cents: product.price_cents,
+                compare_at_cents: product.compare_at_cents,
+                type: product.type,
+                categories: product.categories,
+                reviews_count: product.reviews_count,
+                reviews_average: product.reviews_average,
+              }}
+              creatorName={creatorName}
+              surface={surface}
+            />
           )
 
+          /*
+            In the BUILDER CANVAS a click selects the section rather than
+            navigating. Rather than rendering a different card for the editor,
+            which is how the two drift apart, the links are switched off with
+            pointer-events and the click is caught on the way down.
+          */
           if (isPreviewMode) {
             return (
-              <div
-                key={product.id}
-                className={cn(
-                  "group overflow-hidden rounded-lg border transition-all [@media(hover:hover)]:hover:shadow-lg cursor-pointer",
-                  !cardBgColor && "bg-card border-border",
-                )}
-                style={{
-                  backgroundColor: cardBgColor || undefined,
-                  borderColor: cardBorderColor || undefined,
-                  boxShadow: cardBgColor && cardBgColor.includes("rgba")
-                    ? "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)"
-                    : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
-                }}
-              >
-                {content}
+              <div key={product.id} className="[&_a]:pointer-events-none">
+                {card}
               </div>
             )
           }
-
-          return (
-            <SmartLink
-              key={product.id}
-              href={product.slug ? `/p/${product.slug}?recommended=1` : "#"}
-              className={cn(
-                "group overflow-hidden rounded-lg border transition-all [@media(hover:hover)]:hover:shadow-lg",
-                !cardBgColor && "bg-card border-border",
-              )}
-              style={{
-                backgroundColor: cardBgColor || undefined,
-                borderColor: cardBorderColor || undefined,
-                boxShadow: cardBgColor && cardBgColor.includes("rgba")
-                  ? "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)"
-                  : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
-              }}
-            >
-              {content}
-            </SmartLink>
-          )
+          return <div key={product.id}>{card}</div>
         })}
       </div>
     </div>

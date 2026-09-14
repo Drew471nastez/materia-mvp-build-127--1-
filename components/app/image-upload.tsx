@@ -65,7 +65,8 @@ export function ImageUpload({
     square: "aspect-square",
     video: "aspect-video",
     cover: "aspect-[3/1]",
-    compact: "min-h-[120px]",
+    /* An "add another" box, not a preview: one line of text and an icon. */
+    compact: "min-h-[104px]",
   }
 
   const handleUpload = useCallback(

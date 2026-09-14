@@ -8,6 +8,7 @@ import { Star, Download } from "lucide-react"
 import { stickyAddToCartButtonPresets } from "@/lib/store-builder/defaults"
 import { downloadEntitledFile } from "@/components/download-button"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
+import { useEditorFrame } from "@/components/storefront/use-editor-frame"
 import { usePurchaseStatus } from "@/components/checkout/use-purchase-status"
 import { DownloadFilesSheet } from "@/components/checkout/download-files-sheet"
 
@@ -94,7 +95,11 @@ export function EditorStickyAddToCart({
     e.stopPropagation()
   }
 
+  /* Browsing in the editor's canvas is the point; buying from it is not. */
+  const inEditorFrame = useEditorFrame()
+
   const handleButtonClick = async (e: React.MouseEvent) => {
+    if (inEditorFrame) { e.preventDefault(); e.stopPropagation(); return }
     e.stopPropagation()
     if (isEditorPreview) return
     if (isPurchased) {
@@ -246,6 +251,8 @@ export function LiveStickyAddToCart({
   isPurchased: serverIsPurchased = false,
   downloadFiles: serverDownloadFiles = [],
 }: StickyAddToCartProps & { onAddToCart?: () => void }) {
+  /* Browsing in the editor's canvas is the point; buying from it is not. */
+  const inEditorFrame = useEditorFrame()
   // Client-side purchase detection (checks localStorage + server state)
   const { hasPurchased: clientHasPurchased, isChecking } = usePurchaseStatus(
     product.id,
@@ -368,6 +375,8 @@ export function LiveStickyAddToCart({
   const hasReviews = reviewsCount > 0
 
   const handleClick = async () => {
+    /* Same rule as the buy button: the canvas browses, it does not buy. */
+    if (inEditorFrame) return
     if (isPurchased) {
       if (downloadFiles.length > 1) {
         setShowFilesModal(true)

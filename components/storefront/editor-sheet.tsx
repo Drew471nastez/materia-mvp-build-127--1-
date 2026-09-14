@@ -5,27 +5,47 @@
  *  ONE SHAPE FOR EVERY EDITOR ON A CREATOR PAGE
  * ===========================================================================
  * The page has four things a creator can open: the profile, the bar at the
- * top, the story, and the colour scheme. Three of them were written
- * separately and the fourth was a panel bolted to the workspace's toolbar, so
- * the page had four different ideas of what an editor looks like and two
- * different ideas of how one opens.
+ * top, the story, and the colour scheme inside the profile. They were four
+ * separately written dialogs, so the page had four ideas of what an editor
+ * looks like. This is the one: a fixed header, a scrolling body, a sticky
+ * footer with Cancel and Save, so Save is never below the fold.
  *
- * This is the shape, taken from the profile dialog because that is the one
- * the owner pointed at: a column with a fixed header, a scrolling body and a
- * sticky footer, so the Save button is never below the fold on a short
- * window.
+ * ---------------------------------------------------------------------------
+ *  A SHEET ON A PHONE, A DRAWER ON A DESKTOP
+ * ---------------------------------------------------------------------------
+ * A centred dialog on a phone is a box in the middle of a small screen with
+ * the keyboard covering half of it. The website builder solved that once,
+ * with a bottom sheet that has detents, drag physics, a keyboard inset and a
+ * measured viewport, and MobileEditorSheet IS that component.
  *
- * IT OPENS AND CLOSES ON RADIX. That is the whole of "it must not glitch":
- * Dialog keeps the content mounted for the length of the exit animation and
- * restores focus on the way out, and both of those are the sort of thing that
- * is invisible when correct and looks like a flash when hand-rolled. The
- * previous version was a hand-rolled panel and it flashed.
+ * ON A DESKTOP IT IS A DRAWER AT THE RIGHT EDGE, not a centred dialog over a
+ * dimmed page. A centred dialog with the lights off says "stop and answer
+ * this"; these edit the page BEHIND them, and the whole reason the workspace
+ * frames the real page is so a creator can see a change land. Dimming the
+ * one thing they are looking at, and covering its middle, is working against
+ * that. So the page stays lit, the drawer sits over the right of it with a
+ * shadow to say which is in front, and the canvas is still readable while a
+ * colour is picked.
+ *
+ * IT IS STILL A RADIX DIALOG. Focus trapping, Escape, returning focus to the
+ * trigger and — the part that matters here — keeping the content mounted for
+ * the length of the exit animation are all things it already does correctly
+ * and all things that look like a flash when hand-rolled. Only the geometry
+ * and the overlay are ours.
+ *
+ * `peekHeight={0}` and `layer="raised"`: the sheet's default is the builder's
+ * BASE sheet, which peeks 72px above the bottom edge when closed because the
+ * builder's tab row lives in it. An editor is not that. Left at the default,
+ * a closed editor sat as a permanent strip across the bottom of the page —
+ * which is what "your page is live is always at the bottom" was.
  */
 
 import * as React from "react"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
+import { useIsPhone } from "@/components/storefront/use-is-phone"
 import { cn } from "@/lib/utils"
 
 export function EditorField({
@@ -49,40 +69,48 @@ export function EditorField({
 }
 
 /**
- * A row of choices that are words rather than colours: which sentence the bar
- * generates, which label the button carries. Wraps, because six presets do
- * not fit on one line of a phone.
+ * A choice among a few words — which sentence the bar generates, which label
+ * the button carries. A SELECT, the website builder's own: a row of pills
+ * was six things competing for the eye where one closed control says the
+ * current answer and opens on request.
  */
-export function SchemeSwatchRow({
-  options,
+export function EditorSelect({
   value,
+  options,
   onChange,
+  ariaLabel,
 }: {
-  options: readonly { value: string; label: string }[]
   value: string
+  options: readonly { value: string; label: string }[]
   onChange: (value: string) => void
+  ariaLabel?: string
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((option) => {
-        const active = option.value === value
-        return (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onChange(option.value)}
-            aria-pressed={active}
-            className={cn(
-              "rounded-lg border px-2.5 py-1.5 text-[13px] transition-colors",
-              active
-                ? "border-foreground bg-foreground text-background"
-                : "border-border text-foreground hover:bg-muted",
-            )}
-          >
-            {option.label}
-          </button>
-        )
-      })}
+    <div className="relative">
+      <select
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-10 w-full cursor-pointer appearance-none rounded-lg border border-border bg-background px-3 pr-9 text-sm text-foreground transition-colors focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <svg
+        aria-hidden
+        viewBox="0 0 24 24"
+        className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="m6 9 6 6 6-6" />
+      </svg>
     </div>
   )
 }
@@ -94,6 +122,7 @@ export function EditorSheet({
   busy,
   error,
   onSave,
+  saveDisabled = false,
   saveLabel = "Save",
   children,
   wide = false,
@@ -104,45 +133,93 @@ export function EditorSheet({
   busy?: boolean
   error?: string | null
   onSave: () => void
+  saveDisabled?: boolean
   saveLabel?: React.ReactNode
   children: React.ReactNode
   wide?: boolean
 }) {
+  const phone = useIsPhone()
+
+  const footer = (
+    <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-border bg-background px-5 py-3 sm:px-6 sm:py-4">
+      <Button type="button" variant="outline" className="w-full" onClick={onClose} disabled={busy}>
+        Cancel
+      </Button>
+      <Button type="button" className="w-full" onClick={onSave} disabled={busy || saveDisabled}>
+        {saveLabel}
+      </Button>
+    </div>
+  )
+
+  if (phone) {
+    return (
+      <MobileEditorSheet
+        open={open}
+        onOpenChange={(next) => { if (!next) onClose() }}
+        peekHeight={0}
+        layer="raised"
+        /*
+          ONE STOP, AT 60%. Two stops made the height a thing a creator had to
+          manage: the sheet could be left at any of them, a drag meant to
+          scroll the form resized it instead, and nothing in it needs the
+          whole screen. One stop is a fixed sheet with a scroller in it — the
+          drag is only ever "close" — and 60% keeps the thing being edited
+          visible above it.
+        */
+        detents={[0.6]}
+      >
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="shrink-0 border-b border-border px-5 pb-3 pt-1">
+            <h2 className="text-[17px] font-semibold text-foreground">{title}</h2>
+          </div>
+          {/* data-sheet-scroll is what the sheet's drag arbitration reads:
+              a finger on a scroller that can still scroll scrolls it, one at
+              its top edge pulls the sheet. */}
+          <div data-sheet-scroll className="wb-slim-scroll min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
+            {children}
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+          {footer}
+        </div>
+      </MobileEditorSheet>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
       <DialogContent
+        showCloseButton={false}
+        /*
+          NO DIM. `bg-transparent` on the overlay leaves the page lit; the
+          overlay element itself stays, because it is what catches a click
+          outside and closes the drawer.
+        */
+        overlayClassName="bg-transparent"
+        /*
+          The base content class zooms from 95% about the centre, which is a
+          dialog's animation and fights a drawer's slide. `disableDefaultAnimations`
+          drops the whole animation set — including the pair of `duration`s
+          and the zoom that twMerge has no rule for and would let through —
+          and the slide below is then the only thing moving. The OVERLAY
+          keeps its fade: an invisible layer has nothing to fade, so it costs
+          nothing and keeps Radix's own state machine honest.
+        */
+        disableDefaultAnimations
+        disableOverlayDefaultAnimations={false}
         className={cn(
-          "flex flex-col gap-0 overflow-hidden p-0",
-          "max-h-[85vh]",
-          wide ? "sm:max-w-lg" : "sm:max-w-md",
-          /*
-            ==================================================================
-             ON A PHONE THIS IS A SHEET, AND THE KEYBOARD DOES NOT MOVE IT
-            ==================================================================
-            It was a centred box capped at 85vh, and centred is the part that
-            broke. The creator page runs inside the workspace's iframe, and
-            when the keyboard opens the app shell shrinks that frame to the
-            strip above it. A centred box re-centres in the strip: the panel
-            jumped to the middle of the screen, Cancel and Save came with it,
-            and the page showed above and below a floating card. Nothing was
-            wrong with the buttons — they were where the box put them.
-
-            Anchored to the bottom there is nothing to re-centre. The footer
-            stays against the bottom edge, the body is what gives up the
-            height, and the keyboard arriving changes how much you can scroll
-            rather than where the buttons are.
-
-            `--keyboard-inset-height` is how far the keyboard reaches into
-            THIS document (keyboard-guard.tsx). Inside the shrunken frame it
-            is 0, because the frame already ends at the keyboard. On the page
-            opened directly, where nothing shrank, it is the keyboard's full
-            height and lifts the sheet onto it. One expression, both places.
-          */
-          "max-sm:top-auto max-sm:translate-y-0",
-          "max-sm:bottom-[var(--keyboard-inset-height,0px)]",
-          "max-sm:max-h-[calc(100dvh-var(--keyboard-inset-height,0px)-2rem)]",
-          "max-sm:w-full max-sm:max-w-none",
-          "max-sm:rounded-b-none max-sm:rounded-t-2xl max-sm:border-x-0 max-sm:border-b-0",
+          // Undo the centring: Radix positions content at 50%/50% with a
+          // translate, and a drawer is pinned to an edge instead.
+          "left-auto right-0 top-0 translate-x-0 translate-y-0 max-w-none",
+          "flex h-dvh flex-col gap-0 overflow-hidden rounded-none border-y-0 border-r-0 p-0",
+          "shadow-[-24px_0_60px_-24px_rgba(15,23,42,0.35)]",
+          "w-full sm:w-[420px]",
+          wide && "sm:w-[520px]",
+          // The slide. Radix keeps the node mounted for the exit, so the
+          // closed state is a real animation rather than a deletion.
+          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
+          "data-[state=open]:duration-300 data-[state=closed]:duration-200",
+          "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
         )}
       >
         <DialogHeader className="shrink-0 border-b border-border px-6 py-4">
@@ -154,24 +231,8 @@ export function EditorSheet({
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
-        {/*
-          The home indicator sits under a sheet that reaches the bottom of the
-          screen, so the buttons keep clear of it — and only while there is a
-          bottom of the screen under them. With the keyboard up the sheet ends
-          at the keyboard instead, and the reserve would be a strip of nothing.
-          globals.css zeroes it on html.keyboard-open.
-        */}
-        <DialogFooter
-          data-editor-footer
-          className="grid shrink-0 grid-cols-2 gap-2 border-t border-border bg-background px-6 py-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-none sm:justify-stretch"
-        >
-          <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={onSave} disabled={busy}>
-            {saveLabel}
-          </Button>
-        </DialogFooter>
+        {/* Not DialogFooter: its `sm:justify-end` beats a grid quietly. */}
+        {footer}
       </DialogContent>
     </Dialog>
   )

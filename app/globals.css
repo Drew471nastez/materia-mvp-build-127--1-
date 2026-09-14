@@ -889,6 +889,18 @@ html.capacitor body {
   .storelib-prose img { border-radius: 10px; max-width: 100%; height: auto; }
 
   /**
+   * The bar across the top of the editor's canvas while the next page is
+   * fetched. Indeterminate: a full navigation reports no progress, so the
+   * honest shape is a bar that keeps moving rather than one that pretends to
+   * know. See components/storefront/embedded-navigation.tsx.
+   */
+  .creator-nav-bar { animation: creator-nav-bar 1.1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  @keyframes creator-nav-bar {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(260%); }
+  }
+
+  /**
    * AND THE WAY OUT. `wb-settings-in` had no partner, so every inline panel
    * in the product opened on a curve and then vanished on a single frame the
    * moment its state went false — which is the whole of "it opens nice and
@@ -929,7 +941,8 @@ html.capacitor body {
     .wb-settings-out,
     .wb-scrim-in,
     .wb-scrim-out,
-    .creator-frame-in { animation: none; }
+    .creator-frame-in,
+    .creator-nav-bar { animation: none; }
   }
 
   /**
@@ -1957,20 +1970,6 @@ html.keyboard-open [data-page="library"] main {
  *
  * Safe on desktop — `keyboard-open` is never added there (kbHeight is always 0).
  * ──────────────────────────────────────────────────────────────────────────── */
-/* ── A sheet that ends at the keyboard needs no home-indicator reserve ───────
- *
- * The creator page's editors sit on the bottom of the screen on a phone, so
- * their footer reserves env(safe-area-inset-bottom) to keep Cancel and Save
- * clear of the home indicator. With the keyboard up the sheet ends at the
- * keyboard instead — there is no home indicator under it, and the reserve is
- * a strip of empty background between the buttons and the sheet's edge.
- * ──────────────────────────────────────────────────────────────────────────── */
-@media (max-width: 639px) {
-  html.keyboard-open [data-editor-footer] {
-    padding-bottom: 1rem !important;
-  }
-}
-
 html.keyboard-open main,
 html.keyboard-open .app-content-scroll {
   height: var(--vvh, 100svh) !important;
@@ -2235,6 +2234,34 @@ html.capacitor.wb-fullscreen::before {
 }
 html.capacitor:has(.wb-editor)::before {
   display: none;
+}
+
+/* ── And the creator page editor, for exactly the same reason ────────────
+   Its bar is white and it owns the whole screen, so the black shield above
+   it was a band under the clock with the editor starting below — the "not
+   full screen, black background where the clock is" that was reported. The
+   bar already pads itself to `env(safe-area-inset-top)` and paints that
+   strip its own colour, so standing the shield down loses nothing.
+
+   The html canvas goes white with it: it is what shows during a rubber-band
+   bounce, and black behind a white screen is the same band arriving from the
+   other direction.
+
+   TWO RULES, NOT A SELECTOR LIST, and the same pair as above: one selector a
+   browser cannot parse throws away the whole rule, so an iOS without `:has()`
+   would lose the class-based fallback too. `.cp-fullscreen` is added by an
+   effect and `:has()` holds from the first paint; either alone is enough. */
+html.capacitor.cp-fullscreen::before {
+  display: none;
+}
+html.capacitor:has(.cp-editor)::before {
+  display: none;
+}
+html.capacitor.cp-fullscreen {
+  background-color: #ffffff;
+}
+html.capacitor:has(.cp-editor) {
+  background-color: #ffffff;
 }
 
 html.capacitor {

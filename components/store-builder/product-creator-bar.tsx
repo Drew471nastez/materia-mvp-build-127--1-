@@ -22,6 +22,12 @@ export const creatorBarButtonPresets: Record<string, { default: string; subscrib
 
 export interface ProductCreatorBarSettings {
   visible: boolean
+  /**
+   * Whether the follow form is on the bar. Absent means yes: every stored
+   * config predates the switch, and the bar has had one for as long as it
+   * has existed.
+   */
+  showSubscribe?: boolean
   backgroundColor: string
   textColor: string
   buttonColor: string
@@ -636,6 +642,11 @@ interface LiveProductCreatorBarProps {
   creatorId?: string
   creatorUsername?: string
   avatarUrl?: string
+  /**
+   * The word on the button, when the creator typed one on their own page.
+   * One bar, two places: see the note in the markup below.
+   */
+  buttonLabel?: string
 }
 
 export function LiveProductCreatorBar({
@@ -644,6 +655,7 @@ export function LiveProductCreatorBar({
   creatorId,
   creatorUsername,
   avatarUrl,
+  buttonLabel,
 }: LiveProductCreatorBarProps) {
   // IMPORTANT: All hooks must be called BEFORE any early returns to avoid React error #310
   const [subscribed, setSubscribed] = useState(false)
@@ -753,7 +765,12 @@ export function LiveProductCreatorBar({
       .toUpperCase() || "?"
 
   const isCurrentEmailSubscribed = subscribed && normalizeEmail(email) === subscribedEmail
-  const buttonText = getButtonText(settings.buttonStyle, isCurrentEmailSubscribed)
+  /**
+   * THE LABEL THE CREATOR TYPED, when they typed one. `buttonLabel` comes
+   * from the same stored subscribeBar the creator page's own bar reads, so
+   * the two say the same word; the preset is the fallback, as it always was.
+   */
+  const buttonText = buttonLabel?.trim() || getButtonText(settings.buttonStyle, isCurrentEmailSubscribed)
 
   const buttonOpacityClass = getButtonOpacityClass({
     isSubscribed: isCurrentEmailSubscribed,
@@ -801,27 +818,41 @@ export function LiveProductCreatorBar({
 
   return (
     <div
-      className={cn("w-full overflow-hidden", hideOnMobileDiscover && "hidden")}
+      className={cn("relative z-10 w-full overflow-hidden", hideOnMobileDiscover && "hidden")}
       style={{
         backgroundColor: settings.backgroundColor || "#1a1a1a",
         color: settings.textColor || "#ffffff",
+        /*
+          A LITTLE DEPTH, so the bar reads as a bar and not as the top strip
+          of the page. A hairline alone is a rule; the soft shadow underneath
+          is what says this sits over what follows. Small on purpose: this is
+          a strip across the top of every product page, and a shadow you
+          notice is a shadow that is too big.
+        */
         borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
+        boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px -16px rgba(15, 23, 42, 0.28)",
       }}
     >
       {/*
         =====================================================================
-         WHOSE PRODUCT THIS IS, AND THE WAY BACK
+         WHOSE PRODUCT THIS IS, THE WAY BACK, AND THE FOLLOW
         =====================================================================
-        This bar used to be a newsletter form: an email field and a Follow
-        button, across the top of every product page. The first thing a
-        visitor met on a page they came to look at a thing was a request for
-        their address — before they knew whose shop it was or what the thing
-        cost.
+        This carried a newsletter form and it was taken out, on the argument
+        that the first thing a visitor meets on a page they came to look at a
+        thing should not be a request for their address. The owner has asked
+        for it back and it is their shop; the argument is answered by ORDER
+        rather than by absence — who is selling and the way back come first,
+        reading left to right, and the field is at the far end of the row
+        where a visitor reaches it after the two facts they came for.
 
-        What belongs here is the two facts a product page's top edge is for:
-        who is selling, and how to get back to where you were. Following is
-        still offered on the creator's own page, which is one tap away
-        through the name.
+        ON A PHONE the row cannot hold five things. The two facts keep the
+        first line and the form gets its own underneath, which is the same
+        shape the creator page's bar uses at that width.
+
+        IT IS THE CREATOR PAGE'S BAR. Same colours, same button label, from
+        the same stored settings — the page resolves them. Editing the bar on
+        the creator page changes this one, because a visitor moving between
+        the two is looking at one shop.
       */}
       <div className="sm:hidden w-full px-4 py-2.5">
         <div className="flex items-center gap-2 w-full">
@@ -838,6 +869,36 @@ export function LiveProductCreatorBar({
             <p className="truncate text-sm font-medium">{creatorName}</p>
           </SmartLink>
         </div>
+        {settings.showSubscribe !== false && (
+          <form onSubmit={handleSubmit} className="mt-2 flex w-full items-center gap-2">
+            <Input
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onFocus={() => setInputFocus(true)}
+              onBlur={() => setInputFocus(false)}
+              required
+              disabled={loading}
+              className={cn(adaptiveInputClass, "h-8 min-w-0 flex-1 text-xs", inputOpacityClass)}
+              style={{ borderRadius: `${settings.buttonBorderRadius ?? 8}px` }}
+            />
+            <Button
+              type="submit"
+              size="sm"
+              disabled={loading || !email || isCurrentEmailSubscribed}
+              onClick={() => { if (!loading && email && !isCurrentEmailSubscribed) triggerAnim() }}
+              className={cn("h-8 shrink-0 px-3 text-xs", buttonOpacityClass, pulse && "animate-[btnPop_520ms_ease-out]")}
+              style={{
+                backgroundColor: settings.buttonColor || "#4b5563",
+                color: settings.buttonTextColor || "#ffffff",
+                borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
+              }}
+            >
+              {loading ? "..." : buttonText}
+            </Button>
+          </form>
+        )}
       </div>
 
       {/* Desktop - with reduced width (1170px instead of 1200px) */}
@@ -858,6 +919,37 @@ export function LiveProductCreatorBar({
                 {creatorName}
               </p>
             </SmartLink>
+
+            {settings.showSubscribe !== false && (
+              <form onSubmit={handleSubmit} className="ml-auto flex shrink-0 items-center gap-2">
+                <Input
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => setInputFocus(true)}
+                  onBlur={() => setInputFocus(false)}
+                  required
+                  disabled={loading}
+                  className={cn(adaptiveInputClass, "h-9 w-48 text-sm", inputOpacityClass)}
+                  style={{ borderRadius: `${settings.buttonBorderRadius ?? 8}px` }}
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={loading || !email || isCurrentEmailSubscribed}
+                  onClick={() => { if (!loading && email && !isCurrentEmailSubscribed) triggerAnim() }}
+                  className={cn("h-9 shrink-0 px-4", buttonOpacityClass, pulse && "animate-[btnPop_520ms_ease-out]")}
+                  style={{
+                    backgroundColor: settings.buttonColor || "#4b5563",
+                    color: settings.buttonTextColor || "#ffffff",
+                    borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
+                  }}
+                >
+                  {loading ? "..." : buttonText}
+                </Button>
+              </form>
+            )}
           </div>
         </div>
       </div>

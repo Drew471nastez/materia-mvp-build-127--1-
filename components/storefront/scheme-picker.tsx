@@ -32,20 +32,25 @@ import { cn } from "@/lib/utils"
 
 export const OFFERED_SCHEMES: ThemePreset[] = ["default", "blacks", "cream", "pink", "astrid"]
 
-function Discs({ preset }: { preset: ThemePreset }) {
+function Discs({ preset, spread }: { preset: ThemePreset; spread: boolean }) {
   const t = themePresets[preset]
   /* Back to front: the page, the card on it, the colour that acts. */
   const discs = [t.sections.pageBackgroundColor, t.productCard.backgroundColor, t.colors.primary]
+  /*
+    11px apart on a 28px disc: a third covered, which is enough to read as a
+    stack and not so much that the one behind is a sliver. The selected one
+    opens to 13, which is the movement that says "this one" without the row
+    reflowing — the container keeps its width either way.
+  */
+  const step = spread ? 13 : 11
   return (
-    <span aria-hidden className="relative flex h-7 items-center" style={{ width: 46 }}>
+    <span aria-hidden className="relative flex h-7 items-center" style={{ width: 52 }}>
       {discs.map((colour, i) => (
         <span
           key={i}
-          className="absolute top-0 h-7 w-7 rounded-full border border-black/10"
+          className="absolute top-0 h-7 w-7 rounded-full border border-black/10 transition-[left] duration-200 ease-out motion-reduce:transition-none"
           style={{
-            /* 11px apart on a 28px disc: a third covered, which is enough to
-               read as a stack and not so much that the one behind is a sliver. */
-            left: i * 11,
+            left: i * step,
             background: colour,
             zIndex: i + 1,
             boxShadow: "0 1px 2px rgba(15,23,42,0.10)",
@@ -74,14 +79,46 @@ export function SchemePicker({
             onClick={() => onChange(preset)}
             aria-pressed={active}
             title={themePresets[preset].name}
+            /*
+              IT SETTLES RATHER THAN SNAPPING.
+
+              A picker where the only thing that changes is which border is
+              dark reads as a radio button from 1996: you press, and the page
+              is simply different. The selected one lifts a little and its
+              discs spread apart, over the same 200ms the rest of the product
+              uses, so there is something for the eye to follow between the
+              thing you pressed and the thing that became selected.
+
+              `motion-reduce` turns the movement off and leaves the border,
+              which is the part that carries the meaning.
+            */
+            /*
+              NOTHING HERE CHANGES SIZE OR POSITION ON SELECT. The first cut
+              lifted the selected one by a pixel and grew the tick from zero
+              width, and both were a BUMP: the row is flex-wrap, so a button
+              that gets 14px wider pushes its neighbours and can push one
+              onto the next line. What moves now is colour, the shadow, and
+              the discs inside their own fixed-width box. Every button is
+              always exactly the size it will be when selected.
+            */
             className={cn(
-              "flex items-center gap-2.5 rounded-xl border px-2.5 py-2 transition-colors",
-              active ? "border-foreground bg-muted" : "border-border hover:bg-muted/60",
+              "group flex items-center gap-2.5 rounded-xl border px-2.5 py-2",
+              "transition-[background-color,border-color,box-shadow] duration-200 ease-out motion-reduce:transition-none",
+              active
+                ? "border-foreground bg-muted shadow-[0_2px_10px_-4px_rgba(15,23,42,0.28)]"
+                : "border-border hover:bg-muted/60",
             )}
           >
-            <Discs preset={preset} />
+            <Discs preset={preset} spread={active} />
             <span className="text-[13px] text-foreground">{themePresets[preset].name}</span>
-            {active && <Check className="h-3.5 w-3.5 text-foreground" />}
+            {/* The tick's space is always reserved; only its opacity moves. */}
+            <Check
+              aria-hidden
+              className={cn(
+                "h-3.5 w-3.5 shrink-0 text-foreground transition-opacity duration-200 ease-out motion-reduce:transition-none",
+                active ? "opacity-100" : "opacity-0",
+              )}
+            />
           </button>
         )
       })}

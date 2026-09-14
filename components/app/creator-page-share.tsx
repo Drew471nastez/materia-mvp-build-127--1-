@@ -202,7 +202,21 @@ export function CreatorPageShare({
         fills the sheet edge to edge rather than sitting as a dark rectangle
         on a white one.
       */
-      <MobileEditorSheet open={open} onOpenChange={(o) => { if (!o) onClose() }} fit className="bg-[#1f1f1f]">
+      <MobileEditorSheet
+        open={open}
+        onOpenChange={(o) => { if (!o) onClose() }}
+        fit
+        className="bg-[#1f1f1f]"
+        /*
+          NOT THE BUILDER'S BASE SHEET. The default peeks 72px above the
+          bottom edge when closed, because the builder's tab row lives in it.
+          This card is not that: left at the default it sat as a permanent
+          dark strip across the bottom of the page — "your page is live is
+          always at the bottom". No peek, and raised above anything else.
+        */
+        peekHeight={0}
+        layer="raised"
+      >
         {body}
       </MobileEditorSheet>
     )

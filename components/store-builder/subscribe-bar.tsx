@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { isNativeApp } from "@/lib/platform-utils"
+import { useRevealOnScrollUp } from "@/lib/store-builder/use-reveal-on-scroll-up"
 
 // Button style presets
 export type { ButtonStylePreset, SubscribeBarSettings } from "@/lib/store-builder/subscribe-text"
@@ -20,6 +21,19 @@ interface SubscribeBarProps {
   settings: SubscribeBarSettings
   creatorId: string
   onSubmit?: (email: string) => Promise<void>
+  /**
+   * THE OWNER'S PENCIL, INSIDE THE BAR'S OWN ROW.
+   *
+   * It used to be positioned over a wrapper around this component, and that
+   * cannot work: a sticky bar renders `position: fixed` plus a 76px spacer,
+   * so the wrapper contributes no height of its own and an absolutely
+   * positioned child landed on the SPACER — floating in the empty strip under
+   * the bar, which is exactly what it looked like.
+   *
+   * A slot instead. It sits beside the sentence, inside the row, wherever the
+   * row happens to be.
+   */
+  ownerAction?: React.ReactNode
 }
 
 /** Compute if a hex background is "dark" */
@@ -138,14 +152,13 @@ function getPlaceholderStyle(placeholderColor?: string): string {
  * Live subscribe bar component used on public pages
  * Uses FIXED positioning when sticky is enabled
  */
-export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProps) {
+export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: SubscribeBarProps) {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string>("")
   const [isHydrated, setIsHydrated] = useState(false)
-  const [isVisible, setIsVisible] = useState(true)
-  const lastScrollY = useRef(0)
+  const isVisible = useRevealOnScrollUp(!!settings.enableStickyBar && !!settings.enableStickyOnScrollUp)
 
   // Extract solid color first, then check if dark
   const computedSolidBgColor = useMemo(() => extractSolidColor(settings.backgroundColor), [settings.backgroundColor])
@@ -155,55 +168,12 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   const inputStyle = useMemo(() => getInputStyle(settings), [settings.inputBorderColor, settings.inputTextColor, settings.inputBackgroundColor])
   const placeholderStyleCSS = useMemo(() => getPlaceholderStyle(settings.inputPlaceholderColor), [settings.inputPlaceholderColor])
 
-  // Sticky on scroll up behavior
-  useEffect(() => {
-    if (!settings.enableStickyBar || !settings.enableStickyOnScrollUp) {
-      setIsVisible(true)
-      return
-    }
-
-    /**
-     * Smoothed on purpose. The previous version called setIsVisible() on EVERY
-     * scroll event — a React re-render per scroll frame even when the answer had
-     * not changed — and flipped on a single pixel of movement, so the bar
-     * flickered in and out during the small jitter of a touch scroll or a
-     * trackpad's momentum.
-     *
-     * Three things fix that: the work is read once per animation frame rather
-     * than per event, a direction only counts once it exceeds a few pixels, and
-     * state is only set when the answer actually changes.
-     */
-    const DELTA = 6      // ignore jitter smaller than this
-    const TOP_ZONE = 50  // always visible near the top of the page
-    let ticking = false
-
-    const evaluate = () => {
-      ticking = false
-      const y = Math.max(window.scrollY, 0)
-      const moved = y - lastScrollY.current
-
-      if (y < TOP_ZONE) {
-        setIsVisible((v) => (v ? v : true))
-        lastScrollY.current = y
-        return
-      }
-      if (Math.abs(moved) < DELTA) return   // too small to mean anything
-
-      const next = moved < 0                // moving up → show
-      setIsVisible((v) => (v === next ? v : next))
-      lastScrollY.current = y
-    }
-
-    const handleScroll = () => {
-      if (ticking) return
-      ticking = true
-      window.requestAnimationFrame(evaluate)
-    }
-
-    lastScrollY.current = Math.max(window.scrollY, 0)
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [settings.enableStickyBar, settings.enableStickyOnScrollUp])
+  /**
+   * THE SAME HOOK THE PRODUCT PAGE'S BAR USES. This was thirty lines here and
+   * nowhere else, so one of Storelib's two top bars got out of the way on the
+   * scroll down and the other was pinned forever. See use-reveal-on-scroll-up
+   * for the three details that make it usable rather than twitchy.
+   */
 
   /**
    * FIX: prevent “type 1 character then input blurs” on some pages where
@@ -392,9 +362,13 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
 
       {/* MOBILE */}
       <div className="sm:hidden flex flex-col items-center gap-2">
-        <div className="flex items-center gap-2 justify-center">
+        <div className="flex items-center gap-1.5 justify-center">
           {mobileAvatar}
           <p className="text-xs font-medium">{displayText}</p>
+          {/* On a phone the row is already the whole width; the pencil is the
+              smallest thing that can still be tapped and sits right after the
+              sentence rather than floating anywhere. */}
+          {ownerAction}
         </div>
 
         {successMessage && <p className={cn("text-xs", isDarkBackground ? "text-white/80" : "text-green-600")}>{successMessage}</p>}
@@ -437,6 +411,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
         <div className="flex items-center gap-2 shrink-0">
           {desktopAvatar}
           <p className="text-sm font-medium">{displayText}</p>
+          {ownerAction}
           {successMessage && (
             <p className={cn("text-xs ml-2", isDarkBackground ? "text-white/80" : "text-green-600")}>{successMessage}</p>
           )}
