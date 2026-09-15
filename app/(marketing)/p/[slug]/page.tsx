@@ -1305,31 +1305,55 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           </div>
         )}
 
+        <div className="mt-8 sm:mt-10" data-faq-section>
+          <h2
+            className="mb-4 text-lg font-semibold"
+            style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+          >
+            Frequently Asked Questions
+          </h2>
+
+          {/* Mobile: add a tiny inner gutter so FAQ isn't edge-to-edge */}
+          <div className="px-2 sm:px-0">
+            <Accordion type="single" collapsible className="w-full">
+              {displayFaqs.map((faq: { question: string; answer: string }, idx: number) => (
+                <AccordionItem
+                  key={`faq-${idx}`}
+                  value={`item-${idx}`}
+                  style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}
+                >
+                  <AccordionTrigger
+                    className="min-h-[44px] text-left"
+                    style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+                  >
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent style={{ color: themeColors.faqTextColor ? `${themeColors.faqTextColor}cc` : "var(--muted-foreground)" }}>
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        </div>
       </div>
 
       {/*
         =====================================================================
-         THE BUY CARD FOLLOWS THE PAGE DOWN, AND THEN STOPS
+         IT STAYS WHERE IT IS
         =====================================================================
-        `lg:self-stretch` is what makes the card below sticky, and the card
-        already said `sticky` for a long time without being it. The grid sets
-        `lg:items-start`, so this column shrank to the card's own height —
-        320px around a 320px card — and a sticky box in a box its own size has
-        nowhere to travel. Measured: it scrolled away with the page at
-        600px down. Stretched, the column is as tall as the row and the card
-        rides it, then parks flush with the column's end, which is the "until
-        a point" half that a `fixed` panel would get wrong.
+        This card followed the page down for three rounds and has been taken
+        off that for good. Sticking needed the column stretched, the
+        questions moved into a grid row of their own to bound the travel, and
+        the creator bar publishing its own measured height so the card could
+        pin clear of it. All of that existed to serve the sticking, and all
+        of it has gone with it.
 
-        THE OFFSET CLEARS THE BAR ABOVE IT. `--product-topbar-h` is the
-        creator bar's own measured height, published by the bar because it
-        depends on whether the creator kept the follow form. Without it the
-        card pins at 24px and the bar, which is sticky too and comes back on
-        a scroll up, lands on top of it. The fallback is 0px for every page
-        that has no bar.
+        The card sits at the top of its column and the page scrolls past it.
       */}
-      <div className="hidden lg:block lg:col-span-2 lg:self-stretch">
+      <div className="hidden lg:block lg:col-span-2">
         <div
-          className="sticky top-[calc(var(--product-topbar-h,0px)+1.5rem)] rounded-xl border p-6 shadow-sm relative z-20"
+          className="rounded-xl border p-6 shadow-sm relative z-20"
           style={{
             backgroundColor: themeColors.cardBackground || "var(--card)",
             borderColor: themeColors.cardBorderColor || "var(--border)",
@@ -1337,10 +1361,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         >
           {/*
             WHAT YOU ARE BUYING, ABOVE WHAT IT COSTS. The card opened on a
-            price with nothing attached to it, and once it is sticky it
-            outlives the title it sits beside — halfway down the page the
-            only thing on screen naming the product was the card, and it
-            did not name it.
+            price with nothing attached to it.
 
             AND IT IS THE <h1> AT THIS WIDTH. It was a <p> while the big
             title under the gallery was still there, because two headings of
@@ -1348,13 +1369,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             the page out loud. That one is `lg:hidden` now, so this is the
             only title on a desktop and it carries the tag.
 
-            20px at 600 against the price's 36. It was 14px at 500 when it
-            was a label introducing a title that existed elsewhere; as the
-            title itself that is too quiet, and at the price's size it would
-            be two headings stacked. Between the two is where it belongs.
+            24px at 600. It has been 14 and then 20, and at both of those it
+            was smaller than a title on a page that has no other one — with
+            the price at 36 the pair read as a big number with a caption over
+            it. The title goes up and the price comes back down to 30, so the
+            name of the thing leads and the price answers it.
           */}
           <h1
-            className="mb-2 text-xl font-semibold leading-snug break-words"
+            className="mb-2 text-2xl font-semibold leading-snug break-words"
             style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
           >
             {product.title}
@@ -1363,11 +1385,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {/* Price display - only show static if no variants */}
           {variants.length === 0 && (
             <div className="mb-4">
-              {/* 36px, up from 30. It is the thing this card is for, and it
-                  was reading level with the rest of the card rather than as
-                  the answer to the question somebody came with. */}
+              {/* Back to 30px. At 36 it was the only thing on the card
+                  anybody saw, and the product's own name above it read as a
+                  label on a price rather than the other way round. */}
               <div
-                className="text-4xl font-bold tracking-tight"
+                className="text-3xl font-bold tracking-tight"
                 style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
               >
                 {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
@@ -1483,57 +1505,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             </ul>
           </div>
 
-        </div>
-      </div>
-      {/*
-        =====================================================================
-         THE QUESTIONS ARE THEIR OWN ROW, AND THAT IS WHERE THE CARD LETS GO
-        =====================================================================
-        This was the last thing inside the left column, which made the grid
-        one row as tall as everything on the page — so the buy card, which is
-        sticky against that row, rode the whole FAQ before parking. It did
-        stop, but only at the very bottom of it, which reads as never
-        stopping.
-
-        As its own row it keeps the width and the place it had, three of five
-        columns under the description, and the row above it now ends where
-        the description does. The card travels the product's own information
-        and lets go at the questions, which is where it has stopped being
-        about this purchase.
-
-        The row gap replaces the top margin this block used to carry.
-      */}
-      <div className="lg:col-span-3 min-w-0 w-full">
-        <div data-faq-section>
-        <h2
-          className="mb-4 text-lg font-semibold"
-          style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
-        >
-          Frequently Asked Questions
-        </h2>
-
-        {/* Mobile: add a tiny inner gutter so FAQ isn't edge-to-edge */}
-        <div className="px-2 sm:px-0">
-          <Accordion type="single" collapsible className="w-full">
-            {displayFaqs.map((faq: { question: string; answer: string }, idx: number) => (
-              <AccordionItem
-                key={`faq-${idx}`}
-                value={`item-${idx}`}
-                style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}
-              >
-                <AccordionTrigger
-                  className="min-h-[44px] text-left"
-                  style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
-                >
-                  {faq.question}
-                </AccordionTrigger>
-                <AccordionContent style={{ color: themeColors.faqTextColor ? `${themeColors.faqTextColor}cc` : "var(--muted-foreground)" }}>
-                  {faq.answer}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </div>
         </div>
       </div>
     </div>
