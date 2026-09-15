@@ -87,6 +87,8 @@ const MEASURE = `
   /** Every colour this rendering actually paints, as hex, deduplicated. */
   function colourSet(box, root) {
     var seen = {}
+
+export const useLinkStatus = () => ({ pending: false })
     /**
      * THE ELEMENTS A SCHEME COLOUR CAN LAND ON, not every node.
      *

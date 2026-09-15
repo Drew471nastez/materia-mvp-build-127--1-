@@ -51,7 +51,30 @@ export function ArrangeProductsButton({
   }, [open, products])
 
   const listRef = React.useRef<HTMLUListElement>(null)
-  const dragging = React.useRef<string | null>(null)
+
+  /**
+   * THE ROW FOLLOWS THE FINGER, AND THE OTHERS GET OUT OF THE WAY.
+   *
+   * The first version reordered the array on every pointer move. It worked,
+   * and it felt like nothing: the list re-rendered under a finger that was
+   * not attached to anything, so a drag read as a series of jumps.
+   *
+   * So the array is left ALONE until the finger lifts. What moves during the
+   * drag is paint: the row being dragged gets a translateY of however far the
+   * pointer has travelled, and every row it has passed gets shifted one slot
+   * the other way, with a transition, so they slide aside instead of
+   * teleporting. The commit happens once, on release.
+   */
+  const [drag, setDrag] = React.useState<{
+    id: string
+    from: number
+    /** Live pointer offset from where the press started. */
+    dy: number
+    /** The slot the row would land in if released now. */
+    to: number
+    rowHeight: number
+  } | null>(null)
+  const startY = React.useRef(0)
 
   const move = (from: number, to: number) => {
     if (to < 0 || to >= order.length || from === to) return
@@ -63,47 +86,59 @@ export function ArrangeProductsButton({
     })
   }
 
-  /*
-    Which row is under the pointer, decided from the rows' own boxes rather
-    than from a running total of the drag distance. Rows are a fixed height
-    here, but reading the real rects means this keeps working if they ever
-    stop being.
-  */
-  const indexAtPoint = (clientY: number) => {
+  const rowBoxes = () => {
     const list = listRef.current
-    if (!list) return -1
-    const rows = [...list.querySelectorAll<HTMLLIElement>("li[data-id]")]
-    for (let i = 0; i < rows.length; i++) {
-      const box = rows[i].getBoundingClientRect()
-      if (clientY < box.top + box.height / 2) return i
-    }
-    return rows.length - 1
+    if (!list) return []
+    return [...list.querySelectorAll<HTMLLIElement>("li[data-id]")].map((el) => el.getBoundingClientRect())
   }
 
-  const onPointerDown = (event: React.PointerEvent, id: string) => {
+  const onPointerDown = (event: React.PointerEvent, id: string, index: number) => {
     /* Left button or a touch, not a right-click opening a context menu. */
     if (event.button !== 0) return
-    dragging.current = id
+    const boxes = rowBoxes()
+    const box = boxes[index]
+    if (!box) return
+    startY.current = event.clientY
     event.currentTarget.setPointerCapture(event.pointerId)
     event.preventDefault()
+    setDrag({ id, from: index, dy: 0, to: index, rowHeight: box.height + 6 /* the gap */ })
   }
 
   const onPointerMove = (event: React.PointerEvent) => {
-    const id = dragging.current
-    if (!id) return
-    const from = order.findIndex((p) => p.id === id)
-    const to = indexAtPoint(event.clientY)
-    if (from >= 0 && to >= 0 && to !== from) move(from, to)
+    setDrag((current) => {
+      if (!current) return current
+      const dy = event.clientY - startY.current
+      /*
+        Which slot this lands in, from the distance travelled rather than from
+        what is under the pointer: the rows are moving out of the way as it
+        goes, so "what is under the pointer" is a moving target and produces a
+        list that flickers between two orders.
+      */
+      const slots = Math.round(dy / current.rowHeight)
+      const to = Math.max(0, Math.min(order.length - 1, current.from + slots))
+      return { ...current, dy, to }
+    })
   }
 
   const endDrag = (event: React.PointerEvent) => {
-    if (!dragging.current) return
-    dragging.current = null
     try {
       event.currentTarget.releasePointerCapture(event.pointerId)
     } catch {
       /* The pointer can be gone already; nothing to release. */
     }
+    setDrag((current) => {
+      if (current) move(current.from, current.to)
+      return null
+    })
+  }
+
+  /** Where a row sits right now: the dragged one follows, the rest step aside. */
+  const rowOffset = (index: number) => {
+    if (!drag) return 0
+    if (index === drag.from) return drag.dy
+    if (drag.to > drag.from && index > drag.from && index <= drag.to) return -drag.rowHeight
+    if (drag.to < drag.from && index < drag.from && index >= drag.to) return drag.rowHeight
+    return 0
   }
 
   const save = async () => {
@@ -136,8 +171,15 @@ export function ArrangeProductsButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
+        /*
+          It read as a disabled label sitting next to the sort control: a thin
+          hairline, muted weight, no fill. This is the owner's one way into
+          the order of their own shop, so it is filled, on the foreground
+          colour, and looks like the button it is.
+        */
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:bg-accent",
+          "inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-[13px] font-semibold text-background",
+          "shadow-[0_1px_2px_rgba(15,23,42,0.12)] transition-transform duration-100 hover:opacity-90 active:scale-[0.97]",
           className,
         )}
       >
@@ -168,12 +210,25 @@ export function ArrangeProductsButton({
             <li
               key={product.id}
               data-id={product.id}
-              className="flex items-center gap-2 rounded-lg border border-border bg-background p-2"
+              className={cn(
+                "flex items-center gap-2 rounded-lg border bg-background p-2",
+                drag?.id === product.id
+                  ? /* Lifted: above its neighbours, shadowed, and not
+                       transitioning, because it is tracking a finger. */
+                    "relative z-10 border-foreground/25 shadow-[0_8px_24px_-8px_rgba(15,23,42,0.35)]"
+                  : "border-border transition-transform duration-200 ease-sheet",
+              )}
+              style={{
+                transform: `translateY(${rowOffset(index)}px)`,
+                /* A touch of scale on the lifted row, so it reads as picked
+                   up rather than as merely moved. */
+                ...(drag?.id === product.id ? { transform: `translateY(${drag.dy}px) scale(1.02)` } : null),
+              }}
             >
               <button
                 type="button"
                 aria-label={`Drag ${product.title || "product"}`}
-                onPointerDown={(e) => onPointerDown(e, product.id)}
+                onPointerDown={(e) => onPointerDown(e, product.id, index)}
                 /* touch-none: without it the browser scrolls the sheet instead
                    of letting the row follow the finger. */
                 className="cursor-grab touch-none rounded p-1 text-muted-foreground active:cursor-grabbing"

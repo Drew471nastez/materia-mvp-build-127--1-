@@ -310,6 +310,26 @@ export async function PATCH(request: NextRequest) {
     return [...seen]
   })()
 
+  /**
+   * WHERE THE COVER SITS IN ITS BAND. Two numbers, each a percentage, and
+   * they go straight into `object-position` on a public page — so they are
+   * clamped to 0..100 here rather than trusted. `null` is a real value
+   * meaning "back to the middle".
+   */
+  const coverFocalPoint = (() => {
+    if (!("coverFocalPoint" in body)) return undefined
+    const raw = body.coverFocalPoint
+    if (raw === null) return null
+    if (!raw || typeof raw !== "object") return undefined
+    const value = raw as Record<string, unknown>
+    const clamp = (n: unknown) =>
+      typeof n === "number" && Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : null
+    const x = clamp(value.x)
+    const y = clamp(value.y)
+    if (x === null || y === null) return undefined
+    return { x, y }
+  })()
+
   if (displayName !== undefined && displayName.length === 0) {
     return NextResponse.json({ error: "A display name is required" }, { status: 400 })
   }
@@ -411,6 +431,7 @@ export async function PATCH(request: NextRequest) {
       first again" — so this tests for undefined rather than for truthiness.
     */
     if (productsOrder !== undefined) next.productsOrder = productsOrder
+    if (coverFocalPoint !== undefined) next.coverFocalPoint = coverFocalPoint ?? undefined
     if (subscribeBar) {
       const existing = (header.subscribeBar || {}) as Record<string, unknown>
       /**

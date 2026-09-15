@@ -57,6 +57,8 @@ writeFileSync(join(stubs, "link.jsx"), `import React from "react"
 export default function Link({ href, children, ...rest }) {
   return React.createElement("a", { href, ...rest }, children)
 }
+
+export const useLinkStatus = () => ({ pending: false })
 `)
 writeFileSync(join(stubs, "navigation.js"), `export const usePathname = () => globalThis.__PATHNAME__ ?? "/app"
 export const useRouter = () => ({ push() {}, prefetch() {} })

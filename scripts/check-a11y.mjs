@@ -59,6 +59,8 @@ const MEASURE = `
     if (!m) return null
     var p = m[1].split(/[\\s,\\/]+/).filter(Boolean).map(Number)
     return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }
+
+export const useLinkStatus = () => ({ pending: false })
   }
   function lum(c) {
     function ch(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }

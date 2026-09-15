@@ -58,6 +58,8 @@ writeFileSync(join(stubs, "link.jsx"), `import React from "react"
 export default function Link({ href, children, ...rest }) {
   return React.createElement("a", { href, ...rest }, children)
 }
+
+export const useLinkStatus = () => ({ pending: false })
 `)
 writeFileSync(join(stubs, "image.jsx"), `import React from "react"
 export default function Image({ src, alt, fill, priority, quality, sizes, ...rest }) {

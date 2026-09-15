@@ -38,6 +38,8 @@ export default function Link({ href, children, ...rest }) { return React.createE
 `,
   "image.jsx": `import React from "react"
 export default function Image({ src, alt, ...rest }) { const { fill, priority, unoptimized, sizes, quality, placeholder, blurDataURL, loader, ...ok } = rest; return React.createElement("img", { src: typeof src === "string" ? src : src && src.src, alt, ...ok }) }
+
+export const useLinkStatus = () => ({ pending: false })
 `,
   "cache.js": `export const unstable_cache = (fn) => fn
 export const revalidateTag = () => {}

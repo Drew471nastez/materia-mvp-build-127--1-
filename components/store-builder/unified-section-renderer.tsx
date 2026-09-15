@@ -3591,7 +3591,13 @@ export function UnifiedProductPage({
               not: `lg:hidden` there would hide the title inside a 390px
               preview that has no buying card either.
             */}
-            <div className={cn("mt-6", !isMobile && "sm:mt-8 lg:hidden")}>
+            {/*
+              ON A PHONE THE TITLE MOVED INTO THE BUYING CARD, above the
+              price, so the name of the thing and what it costs are one block
+              instead of a heading floating above a box. This wrapper is what
+              used to carry it, and at phone width it now carries nothing.
+            */}
+            <div className={cn("mt-6", isMobile && "hidden", !isMobile && "sm:mt-8 lg:hidden")}>
               <div className={cn("flex items-start justify-between gap-3", !isMobile && "sm:flex-row sm:gap-4")}>
                 <h1
                   className={cn(
@@ -3692,17 +3698,36 @@ export function UnifiedProductPage({
                         : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                     }}
                   >
+                    {/* The name of the thing, then what it costs. */}
+                    {isMobile && (
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <h1
+                          className={cn("flex-1 min-w-0 break-words text-xl font-semibold", !priceContainerText && "text-foreground")}
+                          style={{ color: priceContainerText }}
+                        >
+                          {productTitle}
+                        </h1>
+                      </div>
+                    )}
+
                     {/* Price display - only show static price if no variants */}
                     {variants.length === 0 && (
-                      <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      /*
+                        ONE ROW, NOT TWO. `flex-wrap` put the old price and the
+                        discount badge on a line of their own under the price,
+                        which reads as a second fact rather than as the same
+                        one. `min-w-0` on the price is what lets the row shrink
+                        instead of wrapping when the numbers are long.
+                      */
+                      <div className="mb-4 flex items-baseline gap-x-2.5">
                         <div
-                          className={cn("text-xl font-bold", !priceContainerText && "text-foreground")}
+                          className={cn("min-w-0 shrink-0 text-xl font-bold", !priceContainerText && "text-foreground")}
                           style={{ color: priceContainerText }}
                         >
                           {productPrice === 0 ? "Free" : formatPrice(productPrice)}
                         </div>
                         {compareAtPrice && compareAtPrice > productPrice && (
-                          <div className="flex items-center gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
                             <span
                               className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
                               style={{ color: priceContainerMuted }}

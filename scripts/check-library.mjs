@@ -45,6 +45,8 @@ const MEASURE = `
     })
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
   }
+
+export const useLinkStatus = () => ({ pending: false })
   /**
    * The alpha has to be read as the fourth channel, not sniffed off the end
    * of the string: "rgb(0, 0, 0)" ends in ", 0)" too, so a black button read

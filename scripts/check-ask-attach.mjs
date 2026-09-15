@@ -40,6 +40,8 @@ export function createClient() {
   return { auth: { getUser: async () => ({ data: { user: { id: "probe-user" } }, error: null }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) },
     storage: { from: () => ({ upload: async () => ({ data: null, error: null }), getPublicUrl: () => ({ data: { publicUrl: "" } }) }) },
     from: () => chain(), channel: () => ({ on() { return this }, subscribe() { return this }, unsubscribe() {} }), removeChannel() {} }
+
+export const useLinkStatus = () => ({ pending: false })
 }
 `)
 

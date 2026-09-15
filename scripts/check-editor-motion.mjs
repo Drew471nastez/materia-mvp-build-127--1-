@@ -62,6 +62,8 @@ export default function Link({ href, children, ...rest }) { return React.createE
  */
 const SAFE_AREA_SHIM = `
   html.capacitor::before { height: 44px; }
+
+export const useLinkStatus = () => ({ pending: false })
 `
 
 const PROBE = `<script>

@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { EditorSheet } from "@/components/storefront/editor-sheet"
+import { CoverFocalPicker, type FocalPoint } from "@/components/storefront/cover-focal-picker"
 import { ImageUpload } from "@/components/app/image-upload"
 import { Pencil, Wand2 } from "lucide-react"
 import { SocialLinksEditor } from "@/components/social/social-links-editor"
@@ -41,6 +42,8 @@ export interface EditProfileButtonProps {
   embedded?: boolean
   displayName: string
   bio: string
+  /** Where the cover sits in its band, if the creator has moved it. */
+  coverFocalPoint?: FocalPoint | null
   username?: string | null
   avatarUrl?: string | null
   coverUrl?: string | null
@@ -71,6 +74,7 @@ export function EditProfileButton({
   embedded = false,
   displayName,
   bio,
+  coverFocalPoint,
   username,
   avatarUrl,
   coverUrl,
@@ -102,6 +106,7 @@ export function EditProfileButton({
   const [about, setAbout] = React.useState(bio)
   const [avatar, setAvatar] = React.useState<string | null>(avatarUrl ?? null)
   const [cover, setCover] = React.useState<string | null>(coverUrl ?? null)
+  const [focal, setFocal] = React.useState<FocalPoint | null>(coverFocalPoint ?? null)
   const [links, setLinks] = React.useState<Record<string, string>>(() => ({ ...socialLinks }))
   const [shown, setShown] = React.useState<Record<string, boolean>>(() => ({
     showReviews: display?.showReviews ?? true,
@@ -118,6 +123,7 @@ export function EditProfileButton({
     setAbout(bio)
     setAvatar(avatarUrl ?? null)
     setCover(coverUrl ?? null)
+    setFocal(coverFocalPoint ?? null)
     setLinks({ ...socialLinks })
     setShown({
       showReviews: display?.showReviews ?? true,
@@ -141,6 +147,7 @@ export function EditProfileButton({
           bio: about,
           avatarUrl: avatar,
           coverUrl: cover,
+          coverFocalPoint: focal,
           socialLinks: links,
           display: shown,
           themePreset: scheme,
@@ -267,6 +274,11 @@ export function EditProfileButton({
                 allowRemove
                 replaceLabel="Change banner"
               />
+              {/*
+                Only with a cover to move. An empty 3:1 box saying "drag to
+                position" is a control for a thing that does not exist.
+              */}
+              {cover && <CoverFocalPicker src={cover} value={focal} onChange={setFocal} />}
             </div>
 
             <div className="space-y-2">

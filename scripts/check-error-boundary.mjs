@@ -43,6 +43,8 @@ const page = `<!doctype html><html><head><meta charset="utf-8"></head><body>
 (function () {
   var threw = null
   try { window.mountProbe() } catch (e) { threw = String(e && e.message || e) }
+
+export const useLinkStatus = () => ({ pending: false })
   setTimeout(function () {
     var ed = document.getElementById("editor")
     var vi = document.getElementById("visitor")

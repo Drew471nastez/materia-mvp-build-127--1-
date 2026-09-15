@@ -1158,9 +1158,15 @@ function main() {
       "and the card is headed by the product, not by a number",
       /<h1[\s\S]{0,420}\{productTitle\}/.test(renderer),
     )
+    /*
+      It stands down on a PHONE too now: the title moved inside the buying
+      card there, so the heading above the card would have been the product's
+      name printed twice, which is the same fault this check was written for
+      at desktop width.
+    */
     check(
       "with the left heading standing down where this one appears",
-      /"mt-6", !isMobile && "sm:mt-8 lg:hidden"/.test(renderer),
+      /"mt-6", isMobile && "hidden", !isMobile && "sm:mt-8 lg:hidden"/.test(renderer),
     )
   }
 

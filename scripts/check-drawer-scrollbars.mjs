@@ -45,6 +45,8 @@ export default function Link({ href, children, ...rest }) { return React.createE
 const PROBE = `<script>
 function rect(el) { const r = el.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } }
 
+export const useLinkStatus = () => ({ pending: false })
+
 /* An element paints a vertical scrollbar when it reserves width for one. */
 function gutter(el) { return el.offsetWidth - el.clientWidth }
 

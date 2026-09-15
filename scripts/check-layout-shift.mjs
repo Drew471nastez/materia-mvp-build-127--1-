@@ -49,6 +49,8 @@ const MEASURE = `
 (function () {
   function heights() {
     var out = {}
+
+export const useLinkStatus = () => ({ pending: false })
     document.querySelectorAll("[data-type]").forEach(function (n) {
       out[n.getAttribute("data-type")] = Math.round(n.getBoundingClientRect().height)
     })

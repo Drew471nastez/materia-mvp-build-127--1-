@@ -53,6 +53,8 @@ const NEXT_STUB_SOURCE = {
 export default function Link({ href, children, ...rest }) {
   return createElement("a", { href, ...rest }, children)
 }
+
+export const useLinkStatus = () => ({ pending: false })
 `,
   "next/navigation": `export const usePathname = () => globalThis.__PUSH_TEST_PATHNAME__ ?? "/"
 export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, back() {} })

@@ -5,6 +5,7 @@ import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
+import { NavPending } from "@/components/nav-pending"
 import { Star } from "lucide-react"
 
 function CreatorAvatar({ url, name, size = 20 }: { url?: string | null; name: string; size?: number }) {
@@ -195,7 +196,18 @@ export const ProductCard = memo(function ProductCard({
       onTouchMove={onTouchMove}
       onClickCapture={onClickCapture}
     >
-      <SmartLink href={productUrl} useClientNav={clientNav} className="relative aspect-video bg-muted overflow-hidden">
+      {/*
+        `active:` gives the press an answer in the same frame, before any
+        navigation has started; NavPending covers the wait after it. A card
+        that neither dips nor shows a line is a card that looks broken for as
+        long as the server takes.
+      */}
+      <SmartLink
+        href={productUrl}
+        useClientNav={clientNav}
+        className="relative aspect-video bg-muted overflow-hidden transition-[filter] duration-100 active:brightness-95"
+      >
+        <NavPending />
         {product.thumbnail_url ? (
           <Image
             src={product.thumbnail_url}
@@ -266,7 +278,7 @@ export const ProductCard = memo(function ProductCard({
           </div>
         )}
 
-        <SmartLink href={productUrl} useClientNav={clientNav} className="flex-1 flex flex-col">
+        <SmartLink href={productUrl} useClientNav={clientNav} className="relative flex-1 flex flex-col transition-opacity duration-100 active:opacity-70">
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-[17px] font-medium leading-tight break-words min-w-0" style={surface?.textColor ? { color: surface.textColor } : undefined}>{product.title}</h3>
             <Badge

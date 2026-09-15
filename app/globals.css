@@ -354,6 +354,29 @@ html.capacitor body {
   }
 
   /*
+    The pressed-and-waiting line. It runs across the top of whatever was
+    pressed, so the answer to "did that register" is immediate and local to
+    the thing you touched. Transform only, so it costs a compositor layer and
+    no layout.
+  */
+  @keyframes nav-pending-sweep {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+  }
+
+  .nav-pending-bar {
+    animation: nav-pending-sweep 900ms cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav-pending-bar {
+      animation: none;
+      width: 100%;
+      opacity: 0.5;
+    }
+  }
+
+  /*
     AND NO SCROLLBAR PROPERTIES ON <html>.
 
     A slim bar was styled here at first, and the note further down this file
@@ -2114,7 +2137,13 @@ html.keyboard-open [data-page="library"] main {
   transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .bar-control-pressed {
-  transform: scale(0.84);
+  /*
+    0.84 was a SIXTH of the control's width gone on every press. At 36px that
+    is six pixels of the button jumping inward and back, which reads as a
+    cheap bounce rather than as a press — the thing being reported. 0.95 is
+    still felt on a finger and is not a jump.
+  */
+  transform: scale(0.95);
   transition-duration: 90ms;
 }
 @media (hover: hover) {
@@ -2138,6 +2167,16 @@ html.keyboard-open [data-page="library"] main {
   animation: bar-control-press 190ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes bar-control-press {
+  /*
+    THE DISC KEEPS ITS ATTACK. An earlier round chose this deliberately: a
+    disc that merely fades in reads as a HOVER, something drifting under the
+    finger rather than a thing being pressed, and the slight overshoot is
+    what makes it a press. That was not the "cheap bump" reported — this is a
+    small disc behind an icon.
+
+    The bump was the BUTTON, which squashed to 0.84: a sixth of its width
+    jumping in and back on every press. That is the one that changed.
+  */
   0% { opacity: 0; transform: scale(0.55) }
   55% { opacity: 0.2; transform: scale(1.08) }
   100% { opacity: 0.16; transform: scale(1) }

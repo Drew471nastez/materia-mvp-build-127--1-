@@ -47,6 +47,8 @@ async function run() {
     /* Rendered something real, rather than having quietly rendered nothing. */
     rendered: app.querySelectorAll("input,button").length,
   }
+
+export const useLinkStatus = () => ({ pending: false })
   var pre = document.createElement("pre"); pre.id = "out"; pre.textContent = JSON.stringify(result); document.body.append(pre)
 }
 if (document.readyState === "complete") run(); else addEventListener("load", run)

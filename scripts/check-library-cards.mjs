@@ -66,6 +66,8 @@ const MEASURE = `
       boxWidth: Math.round(box.getBoundingClientRect().width),
     })
   }
+
+export const useLinkStatus = () => ({ pending: false })
   const pre = document.createElement("pre"); pre.id = "result"; pre.textContent = JSON.stringify(out); document.body.append(pre)
 })()
 </script>`

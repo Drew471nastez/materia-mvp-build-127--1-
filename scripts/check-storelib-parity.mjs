@@ -60,6 +60,8 @@ const MEASURE = `
     for (let n = walker.nextNode(); n; n = walker.nextNode()) parts.push(n.nodeValue)
     return parts.join(" ").replace(/\\s+/g, " ").trim()
   }
+
+export const useLinkStatus = () => ({ pending: false })
   const out = []
   for (const fx of document.querySelectorAll(".fixture")) {
     const rec = { name: fx.dataset.name, width: fx.dataset.width }

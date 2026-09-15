@@ -461,6 +461,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         username={profile.username}
         avatarUrl={headerSettings?.avatarUrl ?? profile.avatar_url}
         coverUrl={headerSettings?.coverImageUrl ?? creator.cover_url}
+        coverFocalPoint={headerSettings?.coverFocalPoint ?? null}
         socialLinks={{
           instagram: links?.instagram?.url || "",
           tiktok: links?.tiktok?.url || "",

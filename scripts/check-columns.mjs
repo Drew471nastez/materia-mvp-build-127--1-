@@ -51,6 +51,8 @@ const MEASURE = `
 <script>
 (function () {
   var report = {}
+
+export const useLinkStatus = () => ({ pending: false })
   document.querySelectorAll(".probe").forEach(function (probe) {
     var type = probe.getAttribute("data-type")
     var worst = null
