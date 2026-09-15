@@ -204,7 +204,11 @@ function main() {
   check("and they no longer carry their own top margin", !/className="mt-8 sm:mt-10" data-faq-section/.test(productPage))
 
   /* The card names what it is selling, above the price. */
-  check("the buy card leads with the product's title", /<p\s+className="mb-2 text-base font-semibold leading-snug"[\s\S]{0,160}\{product\.title\}/.test(productPage))
+  check("the buy card leads with the product's title", /<p\s+className="mb-1\.5 text-sm font-medium leading-snug"[\s\S]{0,160}\{product\.title\}/.test(productPage))
+  /* Quieter than the page's own <h1>, which is 30px at 600. At the same
+     weight the card opened with two bold lines stacked on each other and the
+     title competed with the price instead of introducing it. */
+  check("and says it quietly", !/className="mb-2 text-base font-semibold leading-snug"/.test(productPage))
   const cardAt = productPage.indexOf('className="sticky top-[calc(var(--product-topbar-h,0px)+1.5rem)]')
   const cardTitleAt = productPage.indexOf("{product.title}", cardAt)
   const cardPriceAt = productPage.indexOf("{product.price_cents === 0 ? \"Free\" : formatPrice(product.price_cents)}", cardAt)

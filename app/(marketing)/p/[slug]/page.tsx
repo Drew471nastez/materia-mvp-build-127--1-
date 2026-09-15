@@ -1387,9 +1387,17 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             A <p> rather than a heading: the title is already the page's
             <h1> a column to the left, and a second heading with the same
             words is a duplicate to anything reading the page out.
+
+            AND IT IS QUIETER THAN THAT <h1>, which is 30px at 600. This
+            started at 16px at the same 600 — a smaller size, but the same
+            bold black line, so the card opened with two bold lines stacked
+            on each other and the title read as a second page title rather
+            than as a label on the thing being bought. 14px at 500 puts it
+            under the price instead of beside it, which is the order somebody
+            reads a buy card in: what it is, then what it costs.
           */}
           <p
-            className="mb-2 text-base font-semibold leading-snug"
+            className="mb-1.5 text-sm font-medium leading-snug"
             style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
           >
             {product.title}
