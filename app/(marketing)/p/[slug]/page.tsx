@@ -962,8 +962,18 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
         <div className="mt-6 sm:mt-8">
           <div className="flex items-start justify-between gap-3 sm:gap-4">
+            {/*
+              THE TITLE IS SAID ONCE. On a phone and a tablet it is said here,
+              because there is no card at that width. From `lg` up the buy
+              card carries it and this one goes, so the page does not open
+              with the same words twice a column apart.
+
+              `lg:hidden` rather than deleting it: exactly one of the two is
+              in the accessibility tree at any width, so the page keeps its
+              single <h1> and screen readers do not meet a duplicate.
+            */}
             <h1
-              className="text-2xl sm:text-3xl font-semibold break-words flex-1 min-w-0"
+              className="text-2xl sm:text-3xl font-semibold break-words flex-1 min-w-0 lg:hidden"
               style={{ color: themeColors.textColor || "var(--foreground)" }}
             >
               {product.title}
@@ -1332,30 +1342,32 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             only thing on screen naming the product was the card, and it
             did not name it.
 
-            A <p> rather than a heading: the title is already the page's
-            <h1> a column to the left, and a second heading with the same
-            words is a duplicate to anything reading the page out.
+            AND IT IS THE <h1> AT THIS WIDTH. It was a <p> while the big
+            title under the gallery was still there, because two headings of
+            the same words a column apart is a duplicate to anything reading
+            the page out loud. That one is `lg:hidden` now, so this is the
+            only title on a desktop and it carries the tag.
 
-            AND IT IS QUIETER THAN THAT <h1>, which is 30px at 600. This
-            started at 16px at the same 600 — a smaller size, but the same
-            bold black line, so the card opened with two bold lines stacked
-            on each other and the title read as a second page title rather
-            than as a label on the thing being bought. 14px at 500 puts it
-            under the price instead of beside it, which is the order somebody
-            reads a buy card in: what it is, then what it costs.
+            20px at 600 against the price's 36. It was 14px at 500 when it
+            was a label introducing a title that existed elsewhere; as the
+            title itself that is too quiet, and at the price's size it would
+            be two headings stacked. Between the two is where it belongs.
           */}
-          <p
-            className="mb-1.5 text-sm font-medium leading-snug"
+          <h1
+            className="mb-2 text-xl font-semibold leading-snug break-words"
             style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
           >
             {product.title}
-          </p>
+          </h1>
 
           {/* Price display - only show static if no variants */}
           {variants.length === 0 && (
             <div className="mb-4">
+              {/* 36px, up from 30. It is the thing this card is for, and it
+                  was reading level with the rest of the card rather than as
+                  the answer to the question somebody came with. */}
               <div
-                className="text-3xl font-bold"
+                className="text-4xl font-bold tracking-tight"
                 style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
               >
                 {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
