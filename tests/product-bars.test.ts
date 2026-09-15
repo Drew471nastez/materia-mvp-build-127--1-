@@ -157,6 +157,32 @@ function main() {
   check("with the average and the count", /\{average > 0 \? average\.toFixed\(1\) : "5\.0"\}/.test(buyBar) && /\(\{count\}\)/.test(buyBar))
 
   /* ---------------------------------------------------------------------
+     2b. THE BUY CARD FOLLOWS THE PAGE DOWN, AND THEN STOPS
+     --------------------------------------------------------------------- */
+  console.log("\n  the buy card follows the page down")
+
+  /*
+    It said `sticky` for a long time without being sticky. The grid sets
+    `lg:items-start`, so the card's column shrank to the card's own height
+    and a sticky box in a box its own size has nowhere to travel — measured
+    at 320px around a 320px card, scrolling away with the page at 600px down.
+    scripts/check-buy-card-sticky.mjs is the measurement; these are the two
+    lines it depends on.
+  */
+  check("the grid still aligns its columns to the top", /lg:items-start/.test(productPage))
+  check("so the buy card's column is told to stretch", /hidden lg:block lg:col-span-2 lg:self-stretch/.test(productPage))
+  check("and the card is sticky", /className="sticky top-\[calc\(var\(--product-topbar-h,0px\)\+1\.5rem\)\]/.test(productPage))
+  check("pinned clear of the bar rather than at a bare 24px", !/className="sticky top-6 rounded-xl/.test(productPage))
+
+  /* The offset is the bar's own measured height, published once. */
+  check("the bar measures itself", /const measure = \(\) => setProductTopBarHeight\(node\.getBoundingClientRect\(\)\.height\)/.test(topBar))
+  check("and keeps measuring as the window changes it", /new ResizeObserver\(measure\)/.test(topBar))
+  check("a page with no bar clears the number rather than leaving a stale one", /observer\.disconnect\(\)\s*\n\s*setProductTopBarHeight\(null\)/.test(topBar))
+  const store = read("lib/store-builder/product-top-bar.ts")
+  check("null removes the property instead of writing NaN", /root\.style\.removeProperty\(HEIGHT_VAR\)/.test(store))
+  check("and a nonsense height is treated as none", /!Number\.isFinite\(px\) \|\| px <= 0/.test(store))
+
+  /* ---------------------------------------------------------------------
      3. A CHEVRON, NOT A GREY FILL
      --------------------------------------------------------------------- */
   console.log("\n  a chevron, not a grey fill")
