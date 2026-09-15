@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Check, ArrowRight, CheckCircle, Download, Files, Infinity, Star, Heart } from "lucide-react"
+import { Check, ArrowRight, CheckCircle, ChevronRight, Download, Files, Infinity, Star, Heart } from "lucide-react"
 import { BuyButton } from "@/components/checkout/buy-button"
 import { PurchaseStatusWrapper } from "@/components/checkout/purchase-status-wrapper"
 import { ViewInLibraryButton } from "@/components/checkout/view-in-library-button"
@@ -989,7 +989,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               <div className="flex items-center gap-3 p-2 -ml-2">
                 <SmartLink
                   href={creatorStoreUrl}
-                  className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]" target="_blank" rel="noopener noreferrer"
+                  className="creator-link inline-flex items-center gap-3 rounded-lg min-h-[44px]" target="_blank" rel="noopener noreferrer"
                 >
                   <Avatar className="h-10 w-10 shrink-0">
                     <AvatarImage src={creatorAvatarUrl || undefined} />
@@ -1001,6 +1001,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   >
                     {creatorProfile?.display_name || "Creator"}
                   </p>
+                  {/* Not gap-3 away from the name: the chevron belongs to the
+                      name, and at the row's gap it read as a third item. */}
+                  <ChevronRight
+                    aria-hidden
+                    className="creator-link-arrow -ml-1 h-4 w-4 shrink-0"
+                    style={{ color: themeColors.textColor || "var(--foreground)" }}
+                  />
                 </SmartLink>
                 {showRatingNextToSeller && reviewsCount > 0 && (
                   <>
@@ -1176,7 +1183,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <SmartLink href={creatorStoreUrl} className="flex items-center gap-3" target="_blank" rel="noopener noreferrer">
+                  <SmartLink href={creatorStoreUrl} className="creator-link flex min-w-0 items-center gap-3" target="_blank" rel="noopener noreferrer">
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={creatorAvatarUrl || undefined} />
                       <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
@@ -1187,6 +1194,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     >
                       {creatorProfile?.display_name || "Creator"}
                     </p>
+                    <ChevronRight
+                      aria-hidden
+                      className="creator-link-arrow -ml-1 h-3.5 w-3.5 shrink-0"
+                      style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                    />
                   </SmartLink>
                   {showRatingNextToSeller && reviewsCount > 0 && (
                     <>
@@ -1535,6 +1547,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               id: product.id,
               slug: product.slug,
               title: product.title,
+              /* The picture the page leads with, not the raw thumbnail
+                 column: gallery_urls wins when there is one, and YouTube
+                 poster URLs are already filtered out of it. */
+              thumbnail_url: galleryImages[0] || product.thumbnail_url || null,
               price_cents: product.price_cents,
               compare_at_cents: product.compare_at_cents,
               reviews_count: reviewsCount,
@@ -1760,6 +1776,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             id: product.id,
             slug: product.slug,
             title: product.title,
+            thumbnail_url: galleryImages[0] || product.thumbnail_url || null,
             price_cents: product.price_cents,
             compare_at_cents: product.compare_at_cents,
             reviews_count: reviewsCount,

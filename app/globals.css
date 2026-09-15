@@ -1632,6 +1632,27 @@ html.capacitor body {
   animation-play-state: paused;
 }
 
+/* -- One depth, shared by the two bars across the top of a page -------------
+ *
+ * The creator page's bar had a hairline and nothing under it, so it read as
+ * the top strip of the page rather than as something sitting over it. The
+ * product page's bar had a shadow you could actually see, which on a strip
+ * that appears above every product is a shadow that is too big.
+ *
+ * One number now, and a small one: 2px of contact shadow, and a wide faint
+ * one under that which is what the eye reads as height. Both bars point at
+ * this variable, so the next adjustment is one line rather than two files.
+ * -------------------------------------------------------------------------- */
+:root {
+  --bar-depth: 0 1px 2px rgba(15, 23, 42, 0.035), 0 6px 18px -14px rgba(15, 23, 42, 0.18);
+  /*
+    A DARK BAR NEEDS A DARKER SHADOW OR IT GLOWS. The value above is slate at
+    a few percent, which is LIGHTER than a dark bar: at the seam it reads as a
+    halo rather than as a shadow. Black, and further up, for those.
+  */
+  --bar-depth-dark: 0 1px 2px rgba(0, 0, 0, 0.28), 0 6px 18px -14px rgba(0, 0, 0, 0.45);
+}
+
 /* Subscribe Bar Bottom Border */
 /*
   A HAIRLINE AND ALMOST NOTHING ELSE.
@@ -1639,19 +1660,21 @@ html.capacitor body {
   A rule on its own says "the page continues here". What was asked for is
   that the bar sits OVER the page, and the smallest honest way to say that is
   one pixel of shadow directly under the line plus a very wide, very faint
-  one to catch the edge. Deliberately under the product page bar's shadow:
-  this strip is above the creator's cover photo, and a shadow you notice on
-  top of a photograph is a shadow that is too big.
+  one to catch the edge.
+
+  It used to be deliberately under the product page bar's: this strip is
+  above the creator's cover photo, and a shadow you notice on top of a
+  photograph is too big. The product bar's came DOWN to meet it instead, so
+  there is one value now and both bars read at the same height.
 */
 .subscribe-bar-border {
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px -14px rgba(15, 23, 42, 0.18);
+  box-shadow: var(--bar-depth);
 }
 
 .subscribe-bar-border-dark {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  /* On a dark bar the same trick has to be darker still, or it glows. */
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 6px 18px -14px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--bar-depth-dark);
 }
 
 /* OnePage Button Animations */
@@ -2030,6 +2053,46 @@ html.keyboard-open [data-page="library"] main {
  *
  * Safe on desktop — `keyboard-open` is never added there (kbHeight is always 0).
  * ──────────────────────────────────────────────────────────────────────────── */
+/* -- Whose product this is, and the way to them ------------------------------
+ *
+ * The creator's name on a product page used to take a light grey fill under
+ * the pointer. It is the only grey rectangle on the page, it appears under a
+ * name that is already a link, and it says "this is hoverable" rather than
+ * "this goes somewhere".
+ *
+ * A chevron says where. It is there at rest at 45%, so the row reads as a way
+ * out before anybody has moved a pointer at it, and under the pointer it
+ * moves 3px in the direction it points and comes up to full strength. On a
+ * phone there is no hover at all, which is the other half of why the fill was
+ * wrong: it never appeared for most of the people reading the page, and the
+ * chevron is there for all of them.
+ * -------------------------------------------------------------------------- */
+.creator-link-arrow {
+  opacity: 0.45;
+  transform: translateX(-1px);
+  transition: opacity 180ms ease-out, transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) {
+  .creator-link:hover .creator-link-arrow {
+    opacity: 0.95;
+    transform: translateX(2px);
+  }
+}
+.creator-link:active .creator-link-arrow {
+  opacity: 1;
+  transform: translateX(3px);
+}
+.creator-link {
+  transition: opacity 180ms ease-out;
+}
+.creator-link:active {
+  opacity: 0.72;
+}
+@media (prefers-reduced-motion: reduce) {
+  .creator-link,
+  .creator-link-arrow { transition: none }
+}
+
 /* ── A press on the product bar's controls ───────────────────────────────────
  *
  * The first version transitioned a disc's opacity in and out, and it read as
