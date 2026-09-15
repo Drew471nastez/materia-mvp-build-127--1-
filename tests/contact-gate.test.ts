@@ -96,7 +96,16 @@ async function main() {
 
     check("the page asks the question", /hasBoughtFromCreator\(supabase, viewer\?\.id, creator\.id\)/.test(page))
     check("and only puts the address in the page when the answer is yes", /viewerBought \? resolvedContactEmail : undefined/.test(page))
-    check("the owner sees their own", /viewerIsOwner\s*\n?\s*\? true/.test(page))
+    /**
+     * NO EXCEPTION FOR THE OWNER. There was one, so a creator could tell
+     * from the page what was set — and what it actually did was show the
+     * owner a Contact link no visitor could see, which got reported as the
+     * gate being broken. That is the failure mode of every owner-only
+     * preview of a hidden thing. They see what a visitor sees; the address
+     * is checked in the editor, beside the field they typed it into.
+     */
+    check("the owner is not an exception", !/viewerIsOwner\s*\n?\s*\? true/.test(page))
+    check("everyone goes through the same question", /const viewerBought = await hasBoughtFromCreator/.test(page))
     /**
      * THE ACCOUNT ADDRESS STILL STANDS IN when a creator has typed none.
      * That is the owner's explicit call — a page with nowhere to be reached

@@ -223,7 +223,19 @@ export function StorefrontTabs({
                      * deliberate, and only for keyboard focus.
                      */
                     "rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                    selected ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+                    /*
+                      HALF A WEIGHT STEP ON EACH, the same move the lines
+                      under the creator's name got. A tab row set at 400 next
+                      to a name set large reads as a caption of the page
+                      rather than as the way around it, and the selected one
+                      at 500 has to stay clearly ahead of the others — so
+                      both go up rather than only the rest.
+
+                      Inter comes through next/font as the variable face, so
+                      450 and 530 are real weights here and not rounds to 400
+                      and 500. scripts/check-profile-type.mjs measures that.
+                    */
+                    selected ? "font-[530] text-foreground" : "font-[450] text-muted-foreground hover:text-foreground",
                     /**
                      * The static underline is the SERVER's answer and the
                      * fallback. Once the sliding bar has measured itself it
