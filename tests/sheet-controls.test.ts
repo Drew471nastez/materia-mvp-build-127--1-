@@ -340,6 +340,28 @@ check(
   !/mt-1 flex items-center gap-2">\s*<span\s+className="text-(lg|base) line-through/.test(productPage),
 )
 
+console.log("\nA stuck finger does not erase a button it is resting on\n")
+
+/**
+ * The rule in globals.css that stops a sheet row lighting up under a thumb
+ * used to clear `background-color` on EVERY button in the sheet, and `:hover`
+ * sticks to the last thing tapped on a touch screen. Save is `bg-primary`
+ * with near-white text, so tapping it left white text on a white footer and
+ * the button vanished. scripts/check-save-button.mjs measures the result; this
+ * pins the shape of the rule, which is what a later edit would quietly undo.
+ */
+const globals = code("app/globals.css")
+check(
+  "the sheet's hover reset skips anything with a background of its own",
+  (globals.match(/:not\(\[class\^="bg-"\]\):not\(\[class\*=" bg-"\]\):hover/g) || []).length === 4,
+  "all four selectors (button and a, bottom sheet and top sheet) need the opt-out",
+)
+check(
+  "and it still clears a background that is only a hover state",
+  /\[data-mobile-bottom-sheet\] button:not\(\.wb-chip\)/.test(globals),
+  "the rule exists because hover:bg-gray-100 rows flash under a thumb",
+)
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log("\nFailures:")

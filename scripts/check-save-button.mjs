@@ -14,6 +14,23 @@
  * default variant) and from components/storefront/editor-sheet (the footer),
  * so this measures the shipped button rather than a description of it.
  *
+ * ---------------------------------------------------------------------------
+ *  AND IT LAYS THEM OUT WHERE THEY ACTUALLY LIVE, WITH A FINGER ON THEM
+ * ---------------------------------------------------------------------------
+ * The first version of this probe put the footer in a bare document and
+ * reported a solid blue button, which was true and useless: the footer ships
+ * inside [data-mobile-bottom-sheet], and globals.css has a rule in
+ * `@media (hover: none)` that cleared `background-color` on every button in
+ * there. `:hover` sticks to the last thing tapped on a touch screen, so
+ * tapping Save turned that rule on and left near-white text on a white
+ * footer. That is the bug, and a probe that renders the button anywhere else
+ * cannot see it.
+ *
+ * So the footer is wrapped in the sheet's own attribute, the touch block is
+ * unwrapped out of its media query (headless Chromium is a desktop and would
+ * otherwise skip it), and `:hover` is rewritten to an attribute so a finger
+ * resting on Save can be reproduced without a real pointer.
+ *
  *   pnpm build && node scripts/check-save-button.mjs
  */
 import { execFileSync } from "node:child_process"
@@ -35,6 +52,34 @@ const css = readdirSync(cssDir)
   .filter((f) => f.endsWith(".css"))
   .map((f) => readFileSync(join(cssDir, f), "utf8"))
   .join("\n")
+
+/**
+ * ===========================================================================
+ *  THE TOUCH RULES, TAKEN OUT OF THE MEDIA QUERY THEY HIDE IN
+ * ===========================================================================
+ * `@media (hover: none)` is false in headless Chromium, which is a desktop
+ * with a mouse. On the phone it is true, and it is where the rule that ate
+ * the Save button lives. Its body is lifted out so it applies here too, and
+ * `:hover` inside it becomes `[data-hovered]` so the probe can put a finger
+ * on one button without a pointer device.
+ */
+function unwrapTouchBlock(sheet) {
+  const at = sheet.search(/@media\s*\(\s*hover\s*:\s*none\s*\)\s*\{/)
+  if (at < 0) return null
+  const open = sheet.indexOf("{", at)
+  let depth = 0
+  for (let i = open; i < sheet.length; i++) {
+    if (sheet[i] === "{") depth++
+    else if (sheet[i] === "}") {
+      depth--
+      if (depth === 0) return sheet.slice(open + 1, i)
+    }
+  }
+  return null
+}
+const touchBody = unwrapTouchBlock(css)
+if (!touchBody) fail("No `@media (hover: none)` block in the built CSS, so the touch rules were not measured.")
+const touchCss = touchBody.replace(/:hover/g, "[data-hovered]")
 
 const read = (p) => readFileSync(join(root, p), "utf8")
 const pick = (src, re, what) => {
@@ -87,6 +132,10 @@ const CANCEL = `${base} ${variantOutline} ${sizeDefault} w-full`
 const STATES = [
   { name: "idle", disabled: false },
   { name: "saving", disabled: disabledWhileBusy, busy: true },
+  /* The state the screenshot was taken in: the request is in flight and the
+     finger that started it is still the last thing the page was touched on,
+     so :hover is stuck on Save. */
+  { name: "saving, finger on it", disabled: disabledWhileBusy, busy: true, hovered: true },
   { name: "nothing to save", disabled: true },
 ]
 
@@ -94,6 +143,7 @@ const out = mkdtempSync(join(tmpdir(), "storelib-save-"))
 writeFileSync(
   join(out, "index.html"),
   `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style>
+<style>${touchCss}</style>
 <style>html,body{margin:0;background:#fff;font-family:system-ui}</style></head>
 <body><div id="r"></div><script>
 var STATES = ${JSON.stringify(STATES)}
@@ -107,6 +157,10 @@ STATES.forEach(function (st) {
 
     And no backticks in this comment: it is inside a template literal.
   */
+  /* The sheet, because the rule that broke this is scoped to it. */
+  var sheet = document.createElement("div")
+  sheet.setAttribute("data-mobile-bottom-sheet", "")
+  document.body.appendChild(sheet)
   var wrap = document.createElement("div")
   wrap.className = ${JSON.stringify(footerRow)}
   var cancel = document.createElement("button")
@@ -116,9 +170,10 @@ STATES.forEach(function (st) {
   save.className = ${JSON.stringify(SAVE)}
   save.textContent = "Save"
   if (st.disabled) save.disabled = true
+  if (st.hovered) save.setAttribute("data-hovered", "")
   wrap.appendChild(cancel)
   wrap.appendChild(save)
-  document.body.appendChild(wrap)
+  sheet.appendChild(wrap)
   var cs = getComputedStyle(save)
   rows.push({
     state: st.name,
@@ -157,9 +212,14 @@ for (const r of rows) {
   )
   if (r.width === 0) problems.push(`${r.state}: the button has no width.`)
   /* The one that matters. A save in flight must still look like a button. */
-  if (r.state === "saving") {
-    if (isBlank(r.background)) problems.push(`saving: the background is ${r.background} — that is the white button.`)
-    if (Number(r.opacity) < 0.95) problems.push(`saving: opacity ${r.opacity}, so the whole control is faded out.`)
+  if (r.state.startsWith("saving")) {
+    if (isBlank(r.background)) problems.push(`${r.state}: the background is ${r.background} — that is the white button.`)
+    if (Number(r.opacity) < 0.95) problems.push(`${r.state}: opacity ${r.opacity}, so the whole control is faded out.`)
+    /* The label is near-white on this button, so a background that has gone
+       makes the whole control invisible rather than merely wrong. */
+    if (isBlank(r.background) && isBlank(r.color)) {
+      problems.push(`${r.state}: white text on a white background — there is no button on screen at all.`)
+    }
   }
 }
 
@@ -170,6 +230,13 @@ for (const r of rows) {
  * saving state then nothing here is measuring the difference.
  */
 const saving = rows.find((r) => r.state === "saving")
+/**
+ * THE SECOND CONTROL. A finger resting on Save must not change it. If the
+ * hovered row comes back identical to the plain one in a run where the touch
+ * rules were NOT applied, this probe is not measuring them.
+ */
+const hovered = rows.find((r) => r.state === "saving, finger on it")
+if (!hovered) problems.push("the sticky-hover state was not rendered.")
 const off = rows.find((r) => r.state === "nothing to save")
 if (saving && off && saving.opacity === off.opacity && saving.background === off.background) {
   problems.push(

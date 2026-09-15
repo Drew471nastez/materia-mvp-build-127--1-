@@ -152,7 +152,18 @@ function main() {
 
     // A tapped pill keeps :hover on a phone until something else is tapped,
     // so the row-flash suppressor landed on the one chip you had chosen.
-    check("the sheet's hover wipe skips the chips", /\[data-mobile-bottom-sheet\] button:not\(\.wb-chip\):hover/.test(css) && /\[data-mobile-top-sheet\] button:not\(\.wb-chip\):hover/.test(css))
+    //
+    // The chips were the first thing it ate and not the last: it took the
+    // profile editor's Save button too, which is bg-primary with near-white
+    // text, so clearing the background left nothing visible on the white
+    // footer. The opt-out is automatic now, so the selector carries more
+    // :not()s than the chip one. This pin still asks the question it always
+    // asked, and lets them through.
+    check(
+      "the sheet's hover wipe skips the chips, and anything else with its own background",
+      /\[data-mobile-bottom-sheet\] button:not\(\.wb-chip\)[^,{]*:hover/.test(css) &&
+        /\[data-mobile-top-sheet\] button:not\(\.wb-chip\)[^,{]*:hover/.test(css),
+    )
     check("and it still flattens everything else in a sheet", /background-color: transparent !important/.test(css))
 
     // The preview's scale is what makes a section drawn at 390 or 800 fit a
