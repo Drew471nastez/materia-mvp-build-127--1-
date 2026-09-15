@@ -136,6 +136,101 @@ export function usePurchaseStatus(
     }
   }, [productId, serverHasPurchased, serverPurchasedVariantIds])
 
+  /*
+    ── 3. AND THEN THE SERVER SAYS WHAT THAT RECEIPT IS ACTUALLY WORTH ──────
+    Everything above is this browser's own copy, and a copy drifts. Refund an
+    order, delete a product, buy variant A and hand-edit the stored list to
+    include B, and the button says Download while the download says 403 — the
+    page promising something it cannot deliver.
+
+    So the stored token is a HINT and /api/purchases/verify is the answer.
+    This is how a marketplace does it: the browser holds a bearer receipt,
+    the server decides what it unlocks.
+
+    IT RUNS AFTER THE OPTIMISTIC READ, NOT INSTEAD OF IT. A returning buyer
+    sees Download immediately from localStorage rather than watching a
+    request resolve; this corrects it a moment later if the copy was wrong.
+    Being slower than the truth is fine. Being wrong and staying wrong is not.
+  */
+  useEffect(() => {
+    if (!productId) return
+    let cancelled = false
+
+    const tokens: string[] = []
+    try {
+      const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
+      if (stored) {
+        const purchases: Record<string, PurchaseInfo> = JSON.parse(stored)
+        const token = purchases[productId]?.receiptToken
+        if (token) tokens.push(token)
+      }
+    } catch { /* private mode: nothing stored, nothing to verify */ }
+
+    /*
+      ONLY WHEN THERE IS SOMETHING UNVERIFIED TO CHECK.
+
+      A stored token is a claim this browser made that nothing has confirmed,
+      so it gets checked. Everything else is already settled: the server
+      computed `serverHasPurchased` from the session on this very request, and
+      a visitor with neither a token nor a session has not bought anything.
+
+      An earlier version asked on every product page view unless the browser
+      had no cookies at all, which is nearly never — that is a request per
+      visitor per page to re-derive an answer the page already had.
+    */
+    if (tokens.length === 0) {
+      setIsChecking(false)
+      return
+    }
+
+    ;(async () => {
+      try {
+        const res = await fetch("/api/purchases/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productId, receiptTokens: tokens }),
+        })
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        if (cancelled) return
+
+        setHasPurchased(!!data.hasPurchased)
+        setPurchasedVariantIds(Array.isArray(data.variantIds) ? data.variantIds : [])
+        if (Array.isArray(data.assets) && data.assets.length > 0) {
+          setAssetId(data.assets[0].id)
+        }
+
+        /*
+          SELF-HEALING. A token the server does not recognise is dropped, so
+          the next visit does not ask about it again and the button stops
+          offering something that is not there.
+        */
+        if (Array.isArray(data.staleTokens) && data.staleTokens.length > 0) {
+          try {
+            const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
+            if (stored) {
+              const purchases: Record<string, PurchaseInfo> = JSON.parse(stored)
+              if (data.staleTokens.includes(purchases[productId]?.receiptToken)) {
+                delete purchases[productId]
+                localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
+              }
+            }
+          } catch { /* nothing to clean up */ }
+        }
+      } catch {
+        /*
+          OFFLINE, OR THE ENDPOINT IS DOWN. Leave the optimistic state alone:
+          a buyer who is offline keeps seeing Download, and the download route
+          is what actually authorises the file either way.
+        */
+      } finally {
+        if (!cancelled) setIsChecking(false)
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [productId, serverHasPurchased])
+
   // Helper to check if a specific variant was purchased
   const hasVariantAccess = useCallback((variantId: string | null): boolean => {
     if (!hasPurchased) return false
