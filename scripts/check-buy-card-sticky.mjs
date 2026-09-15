@@ -95,6 +95,14 @@ const driver = [
   '  out.topWithBar = getComputedStyle(card).top;',
   '  out.pinnedUnderBar = Math.round(card.getBoundingClientRect().top);',
   '  document.documentElement.style.removeProperty("--product-topbar-h");',
+  '  /* The fade the page arrives on must not turn its wrapper into the',
+  '     containing block for the two fixed bars on it. */',
+  '  window.scrollTo(0, 800);',
+  '  var bar = document.getElementById("fixedbar");',
+  '  out.fixedTopAt800 = Math.round(bar.getBoundingClientRect().top);',
+  '  window.scrollTo(0, 1600);',
+  '  out.fixedTopAt1600 = Math.round(bar.getBoundingClientRect().top);',
+  '  out.enterAnimation = getComputedStyle(document.getElementById("enter")).animationName;',
   '  window.scrollTo(0, 0);',
   '  var pre = document.createElement("pre"); pre.id = "result";',
   '  pre.textContent = JSON.stringify({ out: out, errors: window.__err });',
@@ -114,6 +122,8 @@ const html = "<!doctype html><html><head><meta charset=\"utf-8\"><style>" + css 
   "\nhtml{overflow-x:hidden}\n</style></head><body style=\"margin:0\">" +
   "<script>window.__err=[];addEventListener(\"error\",function(e){window.__err.push(String(e.message))})</script>" +
   "<main class=\"flex-1 [overflow-x:clip]\">" +
+  "<div id=\"enter\" class=\"app-page-enter min-h-screen w-full\">" +
+  "<div id=\"fixedbar\" style=\"position:fixed;bottom:0;left:0;right:0;height:60px;background:#222\"></div>" +
   "<div class=\"mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12\">" +
   "<div class=\"" + gridClass + "\">" +
   "<div id=\"left\" class=\"lg:col-span-3 min-w-0 w-full\" style=\"height:2400px;background:#eef\"></div>" +
@@ -121,7 +131,7 @@ const html = "<!doctype html><html><head><meta charset=\"utf-8\"><style>" + css 
   "<div id=\"card\" class=\"" + cardClass + "\" style=\"height:320px;background:#fff\">buy</div>" +
   "</div>" +
   "<div id=\"faq\" class=\"lg:col-span-3 min-w-0 w-full\" style=\"height:900px;background:#efe\"></div>" +
-  "</div></div></main>" +
+  "</div></div></div></main>" +
   "<div style=\"height:1200px\"></div>" +
   "<script>" + driver + "</script></body></html>"
 
@@ -202,5 +212,23 @@ if (Math.abs(o.pinnedUnderBar - 84) > 2) {
   problems.push("with the bar reporting 60px the card pins at " + o.pinnedUnderBar + "px, not 84px.")
 }
 
+/*
+  THE PAGE ARRIVES ON A FADE, AND THE FADE MUST NOT UNFIX THE BARS.
+
+  A product page has two `position: fixed` bars. An ancestor with a transform,
+  a filter, a perspective or a will-change for any of them becomes their
+  containing block, and for the length of the animation both would scroll with
+  the page instead of staying on the window. `opacity` alone does not do that
+  — which is the whole reason the enter animation is opacity-only — but
+  "does not do that" is a claim about a browser, so it is measured in one.
+*/
+if (o.enterAnimation !== "app-page-enter") {
+  problems.push("the page's enter animation computes as " + o.enterAnimation + "; the fade is not reaching the wrapper.")
+}
+if (o.fixedTopAt800 !== o.fixedTopAt1600) {
+  problems.push("a fixed bar inside the enter animation moved from " + o.fixedTopAt800 + "px to " + o.fixedTopAt1600 + "px between two scroll positions — the wrapper has become its containing block, so the buy bar would ride the page.")
+}
+
 if (problems.length) fail(problems.map((x) => "  - " + x).join("\n"))
+console.log("  a fixed bar inside the fade stays at " + o.fixedTopAt800 + "px through both scroll positions")
 console.log("\n  pinned at " + offset + "px from 600px down (" + o.topWithBar + " with a 60px bar), parked flush at " + o.colBottomDoc + "px, which is where the questions start (" + o.faqTopDoc + "px).\n")

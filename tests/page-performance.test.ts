@@ -79,11 +79,19 @@ check(
     // creator, shop config, default product template and the product-specific
     // config all key off product.id / product.creator_id and read nothing from
     // each other. They were four round trips before any HTML.
+    //
+    // The table names moved to lib/commerce/product-page-data.ts when the
+    // three files that render this page stopped each querying them for
+    // themselves. The batch is still the page's; the rule follows the work.
     const src = code("app/(marketing)/p/[slug]/page.tsx")
+    const loaders = code("lib/commerce/product-page-data.ts")
     return (
       /Promise\.all\(\[/.test(src) &&
-      /store_builder_configs/.test(src) &&
-      /product_page_configs/.test(src)
+      /loadStoreConfig\(product\.creator_id, "shop"\)/.test(src) &&
+      /loadStoreConfig\(product\.creator_id, "product"\)/.test(src) &&
+      /loadProductPageConfig\(product\.creator_id, product\.id\)/.test(src) &&
+      /store_builder_configs/.test(loaders) &&
+      /product_page_configs/.test(loaders)
     )
   })(),
   "        app/(marketing)/p/[slug]/page.tsx",
@@ -3042,7 +3050,14 @@ section("The product page does not ask one question at a time")
  */
 {
   const src = code("app/(marketing)/p/[slug]/page.tsx")
-  const batch = src.indexOf("] = await Promise.all([")
+  /*
+    INSIDE THE PAGE COMPONENT, not the first Promise.all in the file.
+    generateMetadata gained one of its own — the creator and the shop config,
+    which do not depend on each other — and it sits above every declaration
+    below, so an unanchored search reported all six as started too late.
+  */
+  const component = src.indexOf("export default async function ProductPage")
+  const batch = src.indexOf("] = await Promise.all([", component)
 
   check("the product page still batches its four configs", batch > 0)
 
@@ -3054,8 +3069,8 @@ section("The product page does not ask one question at a time")
     "assetsPromise",
     "coursePromise",
   ]) {
-    const started = src.indexOf(`const ${name}`)
-    const awaited = src.indexOf(`await ${name}`)
+    const started = src.indexOf(`const ${name}`, component)
+    const awaited = src.indexOf(`await ${name}`, component)
     check(
       `${name} is started before the batch and awaited after it`,
       started > 0 && awaited > started && started < batch,

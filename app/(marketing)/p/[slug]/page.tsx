@@ -1,6 +1,13 @@
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
+import {
+  loadCreator,
+  loadCreatorProfile,
+  loadProductBySlug,
+  loadProductPageConfig,
+  loadStoreConfig,
+} from "@/lib/commerce/product-page-data"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -78,39 +85,10 @@ interface ProductPageProps {
 
 export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params
-  const supabase = await createClient()
 
-  // First, try to find product by current slug
-  let { data: product } = await supabase
-    .from("products")
-    .select("title, description, creator_id, slug, thumbnail_url, gallery_urls")
-    .eq("slug", slug)
-    .eq("status", "published")
-    .maybeSingle()
-
-  // If not found, check slug history
-  if (!product) {
-    const { data: slugHistory } = await supabase
-      .from("product_slug_history")
-      .select(`
-        product_id,
-        products!inner (
-          title,
-          description,
-          creator_id,
-          slug,
-          status,
-          thumbnail_url,
-          gallery_urls
-        )
-      `)
-      .eq("old_slug", slug)
-      .maybeSingle()
-
-    if (slugHistory?.products && (slugHistory.products as any).status === "published") {
-      product = slugHistory.products as any
-    }
-  }
+  /* The same row the layout and the page read, fetched once per request.
+     See lib/commerce/product-page-data.ts. */
+  const { product } = await loadProductBySlug(slug)
 
   if (!product) {
     return { title: "Product Not Found" }
@@ -120,28 +98,28 @@ export async function generateMetadata({ params }: ProductPageProps) {
   let sellerName: string | undefined
   let faviconUrl: string | undefined
   if (product.creator_id) {
-    // Fetch seller name: creators → profiles.display_name / full_name
-    const { data: creator } = await supabase
-      .from("creators")
-      .select("user_id, display_name")
-      .eq("id", product.creator_id)
-      .maybeSingle()
+    /*
+      THE NAME AND THE FAVICON, from rows the page needs anyway.
+
+      The creator and the shop's config are fetched here and again in the
+      page; the profile was a third query behind the creator. All three go
+      through the request-scoped loaders now, and the two that do not depend
+      on each other start together rather than in a line.
+    */
+    const [creator, shopConfig] = await Promise.all([
+      loadCreator(product.creator_id),
+      loadStoreConfig(product.creator_id, "shop"),
+    ])
 
     if (creator) {
       sellerName = creator.display_name || undefined
       if (!sellerName && creator.user_id) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("display_name, full_name")
-          .eq("id", creator.user_id)
-          .maybeSingle()
+        const profile = await loadCreatorProfile(creator.user_id)
         sellerName = profile?.display_name || profile?.full_name || undefined
       }
     }
 
-    const { getPublishedConfig } = await import("@/lib/store-builder/get-published-config")
-    const publishedConfig = await getPublishedConfig(product.creator_id, "shop")
-    const headerSettings = publishedConfig?.headerSettings as ShopHeaderSettings | undefined
+    const headerSettings = shopConfig?.published_config?.headerSettings as ShopHeaderSettings | undefined
     faviconUrl = headerSettings?.faviconUrl || undefined
   }
 
@@ -195,48 +173,19 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const inEditorCanvas = embedded === "1"
   const supabase = await createClient()
 
-  // First, try to find product by current slug
-  let { data: product, error: productError } = await supabase
-    .from("products")
-    .select(`
-      *,
-      product_categories (
-        category_id,
-        category:categories (
-          id,
-          name,
-          slug,
-          type
-        )
-      )
-    `)
-    .eq("slug", slug)
-    .eq("status", "published")
-    .maybeSingle()
+  /*
+    ONE LOOKUP FOR THE WHOLE REQUEST. The layout and generateMetadata ask the
+    same question and used to each pay for it — three products queries to
+    render one product page. lib/commerce/product-page-data.ts.
+  */
+  const { product, viaHistory } = await loadProductBySlug(slug)
 
-  // If not found by current slug, check slug history for redirects
-  if (!product) {
-    const { data: slugHistory } = await supabase
-      .from("product_slug_history")
-      .select(`
-        product_id,
-        products!inner (
-          id,
-          slug,
-          status
-        )
-      `)
-      .eq("old_slug", slug)
-      .maybeSingle()
-
-    if (slugHistory?.products && (slugHistory.products as any).status === "published") {
-      // Found in history - 301 redirect to current slug
-      const currentSlug = (slugHistory.products as any).slug
-      redirect(`/p/${currentSlug}`)
-    }
+  // The slug in the URL is an old one: send them to the current address.
+  if (product && viaHistory) {
+    redirect(`/p/${product.slug}`)
   }
 
-  if (productError || !product) {
+  if (!product) {
     notFound()
   }
 
@@ -356,38 +305,37 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       ? start(supabase.from("courses").select("id").eq("product_id", product.id).maybeSingle())
       : null
 
+  /*
+    THE PROFILE JOINS THE BATCH INSTEAD OF WAITING BEHIND IT.
+
+    It needs `creator.user_id`, so it cannot start until the creator row is
+    back — but it was awaited after the WHOLE batch, which means it waited on
+    three config queries it has nothing to do with. Chained onto the creator's
+    own promise it starts the moment that one lands and overlaps with the
+    rest, which takes a round trip off the critical path rather than moving
+    one around.
+
+    Every query here goes through the request-scoped loaders, so the ones
+    generateMetadata already asked for are free.
+  */
+  const creatorWithProfile = loadCreator(product.creator_id).then(async (row) => ({
+    creator: row,
+    profile: row?.user_id ? await loadCreatorProfile(row.user_id) : null,
+  }))
+
   const [
-    { data: creator },
-    { data: shopConfig },
-    { data: defaultTemplate },
-    { data: specificConfig },
+    { creator, profile: creatorProfileRow },
+    shopConfig,
+    defaultTemplate,
+    specificConfig,
   ] = await Promise.all([
-    supabase.from("creators").select("*").eq("id", product.creator_id).maybeSingle(),
-    supabase
-      .from("store_builder_configs")
-      .select("published_config")
-      .eq("creator_id", product.creator_id)
-      .eq("page_type", "shop")
-      .maybeSingle(),
-    supabase
-      .from("store_builder_configs")
-      .select("published_config")
-      .eq("creator_id", product.creator_id)
-      .eq("page_type", "product")
-      .maybeSingle(),
-    supabase
-      .from("product_page_configs")
-      .select("published_config")
-      .eq("creator_id", product.creator_id)
-      .eq("product_id", product.id)
-      .maybeSingle(),
+    creatorWithProfile,
+    loadStoreConfig(product.creator_id, "shop"),
+    loadStoreConfig(product.creator_id, "product"),
+    loadProductPageConfig(product.creator_id, product.id),
   ])
 
-  let creatorProfile: any = null
-  if (creator?.user_id) {
-    const { data: profile } = await supabase.from("profiles").select("*").eq("id", creator.user_id).maybeSingle()
-    creatorProfile = profile
-  }
+  const creatorProfile: any = creatorProfileRow
 
   // ---------------------------------------------------------------------------
   // Fetch shop page config for avatar fallback
@@ -1635,7 +1583,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
     return (
       <div
-        className="min-h-screen w-full"
+        className="app-page-enter min-h-screen w-full"
         style={{
           background: pageBackgroundColor || "var(--background)",
           color: pageTextColor || "var(--foreground)",
@@ -1847,7 +1795,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   return (
     <div
-      className="min-h-screen w-full"
+      className="app-page-enter min-h-screen w-full"
       style={{
         background: defaultPageBackgroundColor || "var(--background)",
         color: defaultPageTextColor || "var(--foreground)",
