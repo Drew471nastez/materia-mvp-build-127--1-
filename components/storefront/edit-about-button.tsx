@@ -17,6 +17,7 @@
  */
 
 import * as React from "react"
+import { useSavedValues } from "@/lib/store-builder/use-saved-values"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -56,16 +57,21 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
   const [video, setVideo] = React.useState("")
   const [email, setEmail] = React.useState(contactEmail)
 
-  // Reopening after a cancel shows what is saved, not what was abandoned.
-  React.useEffect(() => {
-    if (open) return
-    setTitle(headline)
-    setText(story)
-    setItems(media)
-    setEmail(contactEmail)
+  /**
+   * Reopening shows what is saved. This watched `media`, which is a new array
+   * on every render of the page above it, so it re-ran constantly while
+   * closed — and it did not watch `contactEmail` at all, so that one field
+   * could hold a stale value. One rule for all of them now; see
+   * lib/store-builder/use-saved-values.
+   */
+  useSavedValues(open, { headline, story, media, contactEmail }, (saved) => {
+    setTitle(saved.headline)
+    setText(saved.story)
+    setItems(saved.media)
+    setEmail(saved.contactEmail)
     setVideo("")
     setError(null)
-  }, [open, headline, story, media])
+  })
 
   const addVideo = () => {
     // The same parser the API uses, so the field cannot accept something the

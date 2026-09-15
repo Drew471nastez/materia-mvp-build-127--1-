@@ -41,6 +41,7 @@ const SUITES = [
   "tests/hook-order.test.ts",
   "tests/link-navigation.test.ts",
   "tests/rsc-boundary.test.ts",
+  "tests/editor-resync.test.ts",
   "tests/theme-presets.test.ts",
   "tests/sheet-reserve.test.ts",
   "tests/featured-order.test.ts",

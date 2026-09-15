@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { EditorSheet } from "@/components/storefront/editor-sheet"
 import { CoverFocalPicker, type FocalPoint } from "@/components/storefront/cover-focal-picker"
+import { useSavedValues } from "@/lib/store-builder/use-saved-values"
 import { ImageUpload } from "@/components/app/image-upload"
 import { Pencil, Wand2 } from "lucide-react"
 import { SocialLinksEditor } from "@/components/social/social-links-editor"
@@ -116,24 +117,41 @@ export function EditProfileButton({
   }))
   const [scheme, setScheme] = React.useState(themePreset)
 
-  // Reopening after a cancel should show what is saved, not what was abandoned.
-  React.useEffect(() => {
-    if (open) return
-    setName(displayName)
-    setAbout(bio)
-    setAvatar(avatarUrl ?? null)
-    setCover(coverUrl ?? null)
-    setFocal(coverFocalPoint ?? null)
-    setLinks({ ...socialLinks })
-    setShown({
-      showReviews: display?.showReviews ?? true,
-      showFollowers: display?.showFollowers ?? true,
-      showTotalSalesBadge: display?.showTotalSalesBadge ?? true,
-      showSocialMedia: display?.showSocialMedia ?? true,
-    })
-    setScheme(themePreset)
-    setError(null)
-  }, [open, displayName, bio, avatarUrl, coverUrl, socialLinks, display, themePreset])
+  /**
+   * Reopening shows what is SAVED, not what was abandoned — and not what was
+   * saved a moment ago either. See lib/store-builder/use-saved-values: the
+   * old version watched `open` alone, so it put back the pre-save props and
+   * never heard about the refreshed ones.
+   */
+  useSavedValues(
+    open,
+    {
+      displayName,
+      bio,
+      avatarUrl: avatarUrl ?? null,
+      coverUrl: coverUrl ?? null,
+      coverFocalPoint: coverFocalPoint ?? null,
+      socialLinks,
+      display,
+      themePreset,
+    },
+    (saved) => {
+      setName(saved.displayName)
+      setAbout(saved.bio)
+      setAvatar(saved.avatarUrl)
+      setCover(saved.coverUrl)
+      setFocal(saved.coverFocalPoint)
+      setLinks({ ...saved.socialLinks })
+      setShown({
+        showReviews: saved.display?.showReviews ?? true,
+        showFollowers: saved.display?.showFollowers ?? true,
+        showTotalSalesBadge: saved.display?.showTotalSalesBadge ?? true,
+        showSocialMedia: saved.display?.showSocialMedia ?? true,
+      })
+      setScheme(saved.themePreset)
+      setError(null)
+    },
+  )
 
   const save = async () => {
     setSaving(true)

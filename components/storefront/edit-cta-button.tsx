@@ -28,6 +28,7 @@
  */
 
 import * as React from "react"
+import { useSavedValues } from "@/lib/store-builder/use-saved-values"
 import { useRouter } from "next/navigation"
 import { Pencil } from "lucide-react"
 
@@ -117,14 +118,18 @@ export function EditCtaButton({
     })
   }
 
-  /** Reopening after a cancel shows what is saved, not what was abandoned. */
-  React.useEffect(() => {
-    if (open) return
-    setV(values)
+  /**
+   * Reopening shows what is SAVED, not what was abandoned — and not what was
+   * saved a moment ago either. Watching `open` alone put the pre-save values
+   * back on close and never heard about the refreshed ones, so the four
+   * colours read as having reset themselves. See
+   * lib/store-builder/use-saved-values.
+   */
+  useSavedValues(open, values, (saved) => {
+    setV(saved)
     setTouched(new Set())
     setError(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  })
 
   const close = () => {
     setOpen(false)

@@ -54,7 +54,9 @@ export function AvatarLightbox({
         type="button"
         onClick={() => setOpen(true)}
         aria-label={name ? `View ${name}'s profile picture` : "View profile picture"}
-        className="contents cursor-zoom-in"
+        /* A pointer, not a magnifier. This opens a picture, it does not zoom
+           into the page, and the lupa read as a browser control. */
+        className="contents cursor-pointer"
       >
         {children}
       </button>
@@ -63,7 +65,7 @@ export function AvatarLightbox({
         <DialogContent
           showCloseButton={false}
           overlayClassName="bg-black/80"
-          className="w-auto max-w-[92vw] gap-0 border-0 bg-transparent p-0 shadow-none sm:max-w-[min(88vh,680px)]"
+          className="w-auto max-w-none gap-0 border-0 bg-transparent p-0 shadow-none sm:max-w-none"
         >
           <DialogTitle className="sr-only">
             {name ? `${name}'s profile picture` : "Profile picture"}
@@ -92,10 +94,22 @@ export function AvatarLightbox({
             header takes the same position for the same reason.
           */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
+          {/*
+            STILL A CIRCLE. It opened as whatever shape the file happened to
+            be — usually a portrait rectangle — so pressing a round avatar
+            produced a tall photograph of somebody's shoulders, and the crop
+            a visitor had been looking at was gone.
+
+            A square box with `object-cover` and a full radius is the same
+            crop the header draws, just bigger: the picture is centred on the
+            same point and nothing new appears at the edges. `min()` keeps it
+            inside both the width and the height of a phone.
+          */}
           <img
             src={src}
             alt={name ? `${name}'s profile picture` : "Profile picture"}
-            className="max-h-[88vh] w-auto max-w-full rounded-2xl object-contain"
+            className="aspect-square h-auto rounded-full object-cover"
+            style={{ width: "min(88vw, 88vh, 560px)" }}
           />
         </DialogContent>
       </Dialog>
