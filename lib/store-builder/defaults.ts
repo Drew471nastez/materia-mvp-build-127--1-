@@ -662,16 +662,16 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     description: "Light UI with pink primary accents",
     colors: {
       primary: "#ec4899",
-      secondary: "#fdf2f8",
+      secondary: "#FBE8F1",
       accent: "#ec4899",
-      background: "#ffffff",
+      background: "#FDF2F8",
       foreground: "#000000",
-      muted: "#fdf2f8",
-      border: "#fce7f3",
+      muted: "#FBE8F1",
+      border: "#F6D8E8",
     },
     borderRadius: 8,
     buttonBorderRadius: 8,
-    profileImageBorderColor: "#fce7f3",
+    profileImageBorderColor: "#F6D8E8",
     /**
      * THE BUTTONS ARE #db2777, NOT THE ACCENT #ec4899. White text on the
      * accent pink measures 3.53 to 1, under WCAG AA (4.5); on pink-600 it is
@@ -682,57 +682,63 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     subscribeBar: {
       buttonColor: "#db2777",
       buttonTextColor: "#ffffff",
-      backgroundColor: "#ffffff",
+      backgroundColor: "#FDF2F8",
       textColor: "#000000",
       buttonBorderRadius: 8,
-      inputBorderColor: "#fce7f3",
+      inputBorderColor: "#F6D8E8",
       inputTextColor: "#000000",
       inputPlaceholderColor: "#9ca3af",
       inputBackgroundColor: "transparent",
     },
     creatorBar: {
-      backgroundColor: "#ffffff",
+      backgroundColor: "#FDF2F8",
       textColor: "#000000",
       buttonColor: "#db2777",
       buttonTextColor: "#ffffff",
       buttonBorderRadius: 8,
     },
     stickyAddToCart: {
-      backgroundColor: "#ffffff",
-      buttonColor: "#ec4899",
+      backgroundColor: "#FDF2F8",
+      buttonColor: "#db2777",
       buttonTextColor: "#ffffff",
       borderRadius: 8,
       textColor: "#000000",
     },
     productHeader: {
-      buyButtonColor: "#ec4899",
+      buyButtonColor: "#db2777",
       buyButtonTextColor: "#ffffff",
       buttonsBorderRadius: 8,
     },
     sections: {
-      headerBackgroundColor: "#ffffff",
+      headerBackgroundColor: "#FDF2F8",
       headerTextColor: "#000000",
       /**
-       * INHERITED, NOT A SIX-POINT TINT.
+       * ONE TINT EVERYWHERE, WHICH IS WHY THERE IS NO BAND.
        *
-       * #fdf2f8 against the page's field is a difference of six values out of
-       * 255 — too small to read as a choice and big enough to draw a LINE
-       * across the page where the Featured band starts. Astrid had the same
-       * fault at the dark end and it is the one the owner reported. Pink's
-       * identity is in its buttons and its card borders, not in a band nobody
-       * can quite see.
+       * An earlier round put the tint on the Featured section ALONE, and six
+       * values of difference against a white page drew a LINE across it where
+       * the band began. The answer to that line was taken to be white
+       * everywhere, and the result was a scheme that changed a button and
+       * nothing else: pink's page, header, footer and bars all measured
+       * #ffffff, the same as Default's, which is the "pink does not apply"
+       * that was reported.
+       *
+       * The answer to a band is not white, it is the SAME colour on both
+       * sides of the seam. Header, featured, footer, page and every bar
+       * carry #FDF2F8, so there is no edge for a line to live on, and the
+       * white product cards sit on top of it the way cream's do.
        */
-      featuredProductsBackgroundColor: "#ffffff",
+      featuredProductsBackgroundColor: "#FDF2F8",
       featuredProductsTextColor: "#000000",
-      footerBackgroundColor: "#fdf2f8",
-      footerTextColor: "#6b7280",
-      pageBackgroundColor: "#ffffff",
+      footerBackgroundColor: "#FDF2F8",
+      footerTextColor: "#4b5563",
+      pageBackgroundColor: "#FDF2F8",
     },
     productCard: {
       backgroundColor: "#ffffff",
       textColor: "#000000",
-      priceColor: "#6b7280",
-      borderColor: "#fce7f3",
+      priceColor: "#4b5563",
+      borderColor: "#F6D8E8",
     },
     categoryFilter: {
       textColor: "#6b7280",
@@ -778,9 +784,9 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       iconColor: "#ec4899",
     },
     imageText: {
-      backgroundColor: "#ffffff",
+      backgroundColor: "#FDF2F8",
       textColor: "#000000",
-      buttonColor: "#ec4899",
+      buttonColor: "#db2777",
       buttonTextColor: "#ffffff",
     },
     about: {
@@ -845,7 +851,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       featuredProductsBackgroundColor: "#FAF4E8",
       featuredProductsTextColor: "#000000",
       footerBackgroundColor: "#FAF4E8",
-      footerTextColor: "#6b7280",
+      /* #6b7280 measures 4.41 against cream's #FAF4E8, just under AA. */
+      footerTextColor: "#4b5563",
       pageBackgroundColor: "#FAF4E8",
     },
     productCard: {

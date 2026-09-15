@@ -55,3 +55,6 @@ tsconfig.*.generated.json
 
 # Written by scripts/check-bar-hydrate.mjs while it bundles the probe.
 .hydrate-probe/
+
+# Written by scripts/check-drawer-scrollbars.mjs while it bundles the probe.
+.scroll-probe/

@@ -252,6 +252,16 @@ export function EditorSheet({
           "left-auto right-0 top-0 translate-x-0 translate-y-0 max-w-none",
           "flex h-dvh flex-col gap-0 overflow-hidden rounded-none border-y-0 border-r-0 p-0",
           "shadow-[-24px_0_60px_-24px_rgba(15,23,42,0.35)]",
+          /*
+            A 60px blurred shadow travelling across the screen is repainted
+            every frame unless the panel is on a layer of its own. Declaring
+            what is about to change lets the compositor rasterise the panel
+            and its shadow once and then move it, which is the difference
+            between a slide that is drawn and a slide that is transformed.
+            It costs a layer only while the drawer exists, because Radix
+            unmounts the whole thing on close.
+          */
+          "[will-change:transform,opacity]",
           "w-full sm:w-[420px]",
           wide && "sm:w-[520px]",
           // The slide. Radix keeps the node mounted for the exit, so the
@@ -266,7 +276,12 @@ export function EditorSheet({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+        {/*
+          wb-slim-scroll, the same bar the phone sheet and the builder's
+          panels use. Without it this one drew the system's 15px bar with a
+          painted track, which is the heaviest thing in the drawer.
+        */}
+        <div data-sheet-scroll className="wb-slim-scroll min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
           {children}
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>

@@ -38,6 +38,7 @@ const SUITES = [
   "tests/session-durability.test.ts",
   "tests/creator-page.test.ts",
   "tests/hook-order.test.ts",
+  "tests/theme-presets.test.ts",
   "tests/sheet-reserve.test.ts",
   "tests/featured-order.test.ts",
   "tests/policy-pages.test.ts",

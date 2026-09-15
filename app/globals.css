@@ -316,10 +316,66 @@ html.capacitor body {
    * scrolling. The <html> element is not affected by this bug. */
   html {
     overflow-x: hidden; /* Safe on html; clips horizontal overflow at window level */
-    overflow-y: scroll; /* Desktop: always show vertical scrollbar to prevent layout shift */
+    /*
+      `auto`, NOT `scroll`.
+
+      This was `overflow-y: scroll` to stop the page jumping sideways when
+      you moved between a page that scrolls and one that does not. The cost
+      was a scrollbar track reserved on EVERY page whether or not there was
+      anything to scroll: a 15px empty white column down the right edge,
+      always. Next to a panel with a scrollbar of its own it reads as two
+      scrollbars, one of them broken, which is what it was reported as.
+
+      `auto` reserves nothing when there is nothing to scroll. The jump it
+      used to prevent is now small rather than absent, because the bar below
+      is 8px instead of the system's 15, and it only happens between two
+      pages of different heights. An always-visible empty column is a worse
+      trade than an occasional 8px settle.
+    */
+    overflow-y: auto;
     scroll-behavior: auto;
     /* Enable touch scrolling on mobile devices */
     touch-action: pan-y pinch-zoom;
+  }
+
+  /*
+    ONE SCROLLBAR STYLE, EVERYWHERE.
+
+    The system bar is 15px of opaque grey furniture with a painted track, and
+    on a light page the track is the part you notice: a hard white gutter
+    beside the content. This is the same treatment `.wb-slim-scroll` gives
+    the editor panels, applied to the document and to anything that scrolls,
+    so a page and the panels over it do not each draw a different bar.
+
+    The track is transparent, so a reserved gutter shows the page through it
+    rather than a white stripe. The thumb is a soft slate pill, visible
+    enough to grab and quiet enough to ignore.
+  */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  html::-webkit-scrollbar-track,
+  body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  html::-webkit-scrollbar-thumb,
+  body::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 116, 139, 0.35);
+    border-radius: 999px;
+  }
+
+  html::-webkit-scrollbar-thumb:hover,
+  body::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(71, 85, 105, 0.55);
   }
 
   /* Mobile: hide the persistent scrollbar — touch devices don't need it visible */
