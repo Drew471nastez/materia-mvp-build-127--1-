@@ -11,6 +11,8 @@ import { getCanonicalSiteUrl } from "@/lib/url-helpers"
 import { useEditorFrame } from "@/components/storefront/use-editor-frame"
 import { usePurchaseStatus } from "@/components/checkout/use-purchase-status"
 import { DownloadFilesSheet } from "@/components/checkout/download-files-sheet"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
+import { useProductTopBarShown } from "@/lib/store-builder/product-top-bar"
 
 export interface StickyAddToCartSettings {
   visible: boolean
@@ -27,6 +29,8 @@ interface ProductData {
   id: string
   slug?: string
   title: string
+  /** The picture the page leads with. The desktop bar shows it; see below. */
+  thumbnail_url?: string | null
   price_cents: number
   compare_at_cents?: number
   reviews_count?: number
@@ -55,6 +59,67 @@ function formatPrice(cents: number): string {
 
 function getButtonText(style: StickyAddToCartSettings["buttonStyle"]): string {
   return stickyAddToCartButtonPresets[style] || "Add to cart"
+}
+
+/*
+  THE PICTURE THE PAGE LEADS WITH, at the size the bar can hold. 44 CSS px
+  asked for at 88 through Next's optimizer — the same endpoint <Image> points
+  its srcset at, and nothing to do with Supabase's metered transformer
+  (tests/no-image-transforms.test.ts). A plain <img> rather than <Image>
+  because a src on a host next.config does not list THROWS during render, and
+  thumbnail_url is user data going back years: one bad row would take a whole
+  product page down for the sake of a 44px square.
+
+  No picture means no square. An empty grey box is worse than the title
+  starting at the left edge.
+
+  A FUNCTION AT MODULE SCOPE, called as a function. Both bars render this and
+  a component declared in a render body is a new type every render, so React
+  remounts its subtree instead of updating it — the same rule the price badge
+  below follows, for the same reason.
+*/
+function barThumbnail(src: string | null | undefined, isDarkBg: boolean) {
+  if (!src) return null
+  return (
+    <span
+      className={cn(
+        "relative block h-11 w-11 shrink-0 overflow-hidden rounded-[10px]",
+        isDarkBg ? "bg-white/10" : "bg-black/5",
+      )}
+    >
+      <img
+        src={optimizedImageUrl(src, 44, 75)}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        decoding="async"
+        className="h-full w-full object-cover"
+      />
+    </span>
+  )
+}
+
+/*
+  ONE STAR AND THE NUMBER, under the title. It was five stars beside the
+  button: a second row of graphics in a strip 60px tall, where a filled star
+  with the average next to it says the same thing in a quarter of the room.
+  The number is the part anybody reads.
+*/
+function barRating(count: number, average: number, textColor: string | undefined, isDarkBg: boolean) {
+  if (count <= 0) return null
+  return (
+    <span
+      className={cn(
+        "mt-0.5 flex items-center gap-1 text-[12px] leading-none",
+        !textColor && (isDarkBg ? "text-gray-300" : "text-gray-500"),
+      )}
+      style={{ color: textColor ? `${textColor}b3` : undefined }}
+    >
+      <Star className="h-3 w-3 shrink-0 fill-current" />
+      {average > 0 ? average.toFixed(1) : "5.0"}
+      <span className="opacity-70">({count})</span>
+    </span>
+  )
 }
 
 export function EditorStickyAddToCart({
@@ -98,7 +163,6 @@ export function EditorStickyAddToCart({
   }
   const reviewsCount = product.reviews_count || 0
   const reviewsAverage = product.reviews_average || 0
-  const hasReviews = reviewsCount > 0
 
   const handleInteractiveClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -155,31 +219,8 @@ export function EditorStickyAddToCart({
   // Use textColor from settings if available, otherwise derive from background
   const contentTextColor = settings.textColor || (isDarkBg ? "#ffffff" : undefined)
 
-  const starsDisplay = (() => {
-    if (!hasReviews) return null
-    return (
-      <div className="flex items-center gap-1 shrink-0">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            className={cn(
-              "h-4 w-4",
-              star <= Math.round(reviewsAverage)
-                ? isDarkBg ? "fill-current text-white" : "fill-current text-black"
-                : isDarkBg ? "text-gray-500" : "text-gray-300",
-            )}
-            style={star <= Math.round(reviewsAverage) && contentTextColor ? { color: contentTextColor } : undefined}
-          />
-        ))}
-        <span
-          className="text-sm ml-1"
-          style={{ color: contentTextColor ? `${contentTextColor}b3` : undefined }}
-        >
-          {reviewsCount}
-        </span>
-      </div>
-    )
-  })()
+  const thumbnail = barThumbnail(product.thumbnail_url, !!isDarkBg)
+  const ratingLine = barRating(reviewsCount, reviewsAverage, contentTextColor, !!isDarkBg)
 
   return (
     <>
@@ -205,19 +246,36 @@ export function EditorStickyAddToCart({
           isMobile ? "max-w-[calc(100%-10px)] gap-4" : "max-w-[1150px] gap-5"
         )}
       >
-        <div className={cn("flex items-center min-w-0 flex-1", isMobile ? "gap-3" : "gap-4")}>
-          {priceBadge}
-          <p
-            className={cn("font-medium truncate", isMobile ? "text-sm" : "text-[15px]")}
-            style={{ color: contentTextColor }}
-          >
-            {product.title}
-          </p>
+        {/* The live bar's desktop row, so the creator is looking at what a
+            visitor looks at. See the note on it in LiveStickyAddToCart. */}
+        <div className={cn("flex items-center min-w-0 flex-1", isMobile ? "gap-3" : "gap-3.5")}>
+          {isMobile ? priceBadge : thumbnail}
+          {isMobile ? (
+            <p className="text-sm font-medium truncate" style={{ color: contentTextColor }}>
+              {product.title}
+            </p>
+          ) : (
+            <div className="min-w-0">
+              <p
+                className="text-[15px] font-semibold truncate leading-tight"
+                style={{ color: contentTextColor }}
+              >
+                {product.title}
+              </p>
+              {ratingLine}
+            </div>
+          )}
         </div>
 
-        <div className={cn("flex items-center shrink-0", isMobile ? "gap-4" : "gap-5")}>
-          {/* Stars only show on DESKTOP in editor */}
-          {!isMobile && starsDisplay}
+        <div className="flex items-center shrink-0 gap-4">
+          {!isMobile && (
+            <span
+              className={cn("text-[17px] font-semibold tabular-nums", !contentTextColor && "text-gray-900")}
+              style={{ color: contentTextColor }}
+            >
+              {formatPrice(product.price_cents)}
+            </span>
+          )}
           <Button
             size="sm"
             type="button"
@@ -273,6 +331,16 @@ export function LiveStickyAddToCart({
   // Use client-side detection which merges server + localStorage
   const isPurchased = clientHasPurchased
   const downloadFiles = serverDownloadFiles
+
+  /*
+    ONE BAR AT A TIME. The creator bar across the top reveals on a scroll up
+    and this one appears on the way down, so a scroll up in the middle of a
+    long page put a bar at each end of the screen around the thing somebody
+    was reading. While the top one is up, this one stays down; the next
+    downward scroll hides that one and brings this one back, so neither is
+    ever more than one gesture away. lib/store-builder/product-top-bar.ts.
+  */
+  const topBarShown = useProductTopBarShown()
 
   // Start hidden - only show after scrolling past product content area
   const [isVisible, setIsVisible] = useState(false)
@@ -381,7 +449,6 @@ export function LiveStickyAddToCart({
   }
   const reviewsCount = product.reviews_count || 0
   const reviewsAverage = product.reviews_average || 0
-  const hasReviews = reviewsCount > 0
 
   const handleClick = async () => {
     /* Same rule as the buy button: the canvas browses, it does not buy. */
@@ -441,31 +508,8 @@ export function LiveStickyAddToCart({
   // Use textColor from settings if available, otherwise derive from background
   const contentTextColor = settings.textColor || (isDarkBg ? "#ffffff" : undefined)
 
-  const starsDisplay = (() => {
-    if (!hasReviews) return null
-    return (
-      <div className="flex items-center gap-1 shrink-0">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            className={cn(
-              "h-4 w-4",
-              star <= Math.round(reviewsAverage)
-                ? isDarkBg ? "fill-current text-white" : "fill-current text-black"
-                : isDarkBg ? "text-gray-500" : "text-gray-300",
-            )}
-            style={star <= Math.round(reviewsAverage) && contentTextColor ? { color: contentTextColor } : undefined}
-          />
-        ))}
-        <span
-          className="text-sm ml-1"
-          style={{ color: contentTextColor ? `${contentTextColor}b3` : undefined }}
-        >
-          {reviewsCount}
-        </span>
-      </div>
-    )
-  })()
+  const thumbnail = barThumbnail(product.thumbnail_url, !!isDarkBg)
+  const ratingLine = barRating(reviewsCount, reviewsAverage, contentTextColor, !!isDarkBg)
 
   return (
     <>
@@ -473,7 +517,7 @@ export function LiveStickyAddToCart({
       ref={barRef}
       className={cn(
         "fixed bottom-0 left-0 right-0 z-50 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)] transition-all duration-300",
-        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none",
+        isVisible && !topBarShown ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none",
         !settings.borderColor && "border-gray-200",
       )}
       style={{
@@ -522,20 +566,47 @@ export function LiveStickyAddToCart({
         </div>
       </div>
 
-      {/* Desktop version WITH STARS */}
-      <div className="hidden sm:block py-3.5 px-[15px]">
-        <div className="mx-auto w-full max-w-[1150px] flex items-center justify-between gap-5">
-          <div className="flex items-center gap-4 min-w-0 flex-1">
-            {priceBadge(true)}
-            <p
-              className="text-[15px] font-semibold truncate"
+      {/*
+        =====================================================================
+         DESKTOP: THE THING, THEN THE PRICE AND THE BUTTON
+        =====================================================================
+        It was a coloured price chip, the title, five stars and a button, and
+        the chip at the far left meant the first thing in the bar was a
+        number with no picture attached to it. A bar that follows somebody
+        down a page should look like the thing they are deciding about:
+        the product's own picture, its name, and at the other end the price
+        next to the button that acts on it. Left is what, right is what it
+        costs and what to do.
+
+        The five stars became one. They were a second row of graphics in a
+        strip 60px tall, and at that size a filled star with the average
+        beside it says the same thing in a quarter of the room. The number
+        is the part anybody reads.
+
+        The phone bar keeps the chip. There is no room for a picture at that
+        width without taking it from the title.
+      */}
+      <div className="hidden sm:block py-3 px-[15px]">
+        <div className="mx-auto w-full max-w-[1150px] flex items-center justify-between gap-6">
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+            {thumbnail}
+            <div className="min-w-0">
+              <p
+                className="text-[15px] font-semibold truncate leading-tight"
+                style={{ color: contentTextColor }}
+              >
+                {product.title}
+              </p>
+              {ratingLine}
+            </div>
+          </div>
+          <div className="flex items-center gap-4 shrink-0">
+            <span
+              className={cn("text-[17px] font-semibold tabular-nums", !contentTextColor && "text-gray-900")}
               style={{ color: contentTextColor }}
             >
-              {product.title}
-            </p>
-          </div>
-          <div className="flex items-center gap-5 shrink-0">
-            {starsDisplay}
+              {formatPrice(product.price_cents)}
+            </span>
             <Button
               type="button"
               size="sm"

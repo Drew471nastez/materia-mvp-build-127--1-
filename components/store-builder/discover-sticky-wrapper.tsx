@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { setProductTopBarRevealed } from "@/lib/store-builder/product-top-bar"
 import { isNativeApp } from "@/lib/platform-utils"
 import { useRevealOnScrollUp } from "@/lib/store-builder/use-reveal-on-scroll-up"
 import { cn } from "@/lib/utils"
@@ -42,6 +43,13 @@ export function DiscoverStickyWrapper({ children }: { children: React.ReactNode 
    * down and came back on the way up. Same hook now, so the two agree.
    */
   const visible = useRevealOnScrollUp()
+
+  /* The buy bar reads this and stays down while the top bar is up. See
+     lib/store-builder/product-top-bar.ts for why the buy bar is not allowed
+     to work it out by looking at this element. */
+  useEffect(() => {
+    setProductTopBarRevealed(visible)
+  }, [visible])
 
   return (
     <div

@@ -902,6 +902,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               id: selectedProduct.id,
               slug: selectedProduct.slug,
               title: selectedProduct.title,
+              thumbnail_url: selectedProduct.thumbnail_url,
               price_cents: selectedProduct.price_cents,
               compare_at_cents: selectedProduct.compare_at_cents,
               reviews_count: productReviews.count,

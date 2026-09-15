@@ -13,6 +13,7 @@ import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 import { SmartLink } from "@/components/smart-link"
 import { hapticTap } from "@/lib/native-bridge"
+import { setProductTopBarRendered } from "@/lib/store-builder/product-top-bar"
 
 // Button style presets (same as subscribe bar)
 export const creatorBarButtonPresets: Record<string, { default: string; subscribed: string }> = {
@@ -896,6 +897,19 @@ export function LiveProductCreatorBar({
     }
   }, [email, subscribedEmail])
 
+  /*
+    THE BUY BAR NEEDS TO KNOW THIS BAR EXISTS. A creator can switch it off,
+    and on a page without it the buy bar has nothing to be exclusive with and
+    must go on behaving exactly as it did before. Declared with the other
+    hooks and above the early return, because a hook below a `return null` is
+    a hook that runs on some renders and not others (React #310).
+  */
+  const barIsOnThePage = settings.visible && isHydrated && !hideOnMobileDiscover
+  useEffect(() => {
+    setProductTopBarRendered(barIsOnThePage)
+    return () => setProductTopBarRendered(false)
+  }, [barIsOnThePage])
+
   // Early return AFTER all hooks
   if (!settings.visible) return null
 
@@ -969,12 +983,16 @@ export function LiveProductCreatorBar({
         /*
           A LITTLE DEPTH, so the bar reads as a bar and not as the top strip
           of the page. A hairline alone is a rule; the soft shadow underneath
-          is what says this sits over what follows. Small on purpose: this is
-          a strip across the top of every product page, and a shadow you
-          notice is a shadow that is too big.
+          is what says this sits over what follows.
+
+          --bar-depth is defined once in globals.css and the creator page's
+          bar uses the same one, so the two strips a visitor moves between
+          sit at the same height. It went DOWN to get here: the shadow this
+          bar carried was visible as a shadow, which on something that
+          appears above every product is too much.
         */
         borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
-        boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px -16px rgba(15, 23, 42, 0.28)",
+        boxShadow: "var(--bar-depth)",
       }}
     >
       {/*
