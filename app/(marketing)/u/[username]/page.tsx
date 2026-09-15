@@ -1,5 +1,7 @@
+import { MessagesSquare } from "lucide-react"
 import type React from "react"
 import { hasBoughtFromCreator } from "@/lib/commerce/has-bought-from-creator"
+import { applyManualOrder } from "@/lib/store-builder/featured-order"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -1080,7 +1082,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               label: "Products",
               panel: (
                 <AllProductsGrid
-                  products={productsData}
+                  /*
+                    The catalogue in the creator's own order. Unarranged
+                    products keep their place at the front, newest first,
+                    which is what this tab did before there was an order.
+                  */
+                  products={applyManualOrder(productsData, headerSettings.productsOrder)}
+                  hasManualOrder={(headerSettings.productsOrder?.length ?? 0) > 0}
                   creatorName={profile.display_name}
                   creatorUsername={profile.username}
                   creatorAvatarUrl={profile.avatar_url}
@@ -1118,6 +1126,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             label: "Communities",
             panel: (
               <EmptyTabPanel
+                icon={MessagesSquare}
                 title="No communities yet"
                 detail="This creator hasn't opened any yet."
               />

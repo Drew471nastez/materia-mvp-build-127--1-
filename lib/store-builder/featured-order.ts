@@ -36,3 +36,47 @@ export function pickFeatured<T extends { id: string }>(
   }
   return picked
 }
+
+/**
+ * ===========================================================================
+ *  THE PRODUCTS TAB, IN THE ORDER THE CREATOR DRAGGED THEM INTO
+ * ===========================================================================
+ * Close cousin of `pickFeatured` and deliberately NOT the same function, on
+ * one point that matters: Featured is a SELECTION, so anything not named is
+ * left out. The Products tab is the whole catalogue, so anything not named
+ * has to still be there.
+ *
+ * That difference is the entire bug this avoids. Reusing pickFeatured here
+ * would mean a creator arranges their products once, adds a product the next
+ * week, and that product is invisible on their own shop with nothing to
+ * explain why. New products land at the FRONT, keeping the newest-first
+ * behaviour the tab has always had for anything unarranged.
+ */
+export function applyManualOrder<T extends { id: string }>(
+  products: T[] | null | undefined,
+  order: string[] | null | undefined,
+): T[] {
+  const all = products ?? []
+  if (!order || order.length === 0) return all
+
+  const position = new Map<string, number>()
+  order.forEach((id, index) => {
+    if (!position.has(id)) position.set(id, index)
+  })
+
+  /*
+    A stable sort on "where the creator put it, or in front of everything if
+    they have never seen it". Sorting rather than rebuilding the array keeps
+    the relative order of the unarranged ones exactly as the query returned
+    them, which is newest first.
+  */
+  const unplaced = -1
+  return [...all].sort((a, b) => {
+    const pa = position.has(a.id) ? position.get(a.id)! : unplaced
+    const pb = position.has(b.id) ? position.get(b.id)! : unplaced
+    if (pa === pb) return 0
+    if (pa === unplaced) return -1
+    if (pb === unplaced) return 1
+    return pa - pb
+  })
+}

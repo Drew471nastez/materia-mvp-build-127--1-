@@ -354,38 +354,6 @@ html.capacitor body {
   }
 
   /*
-    A PHOTO ARRIVES, IT DOES NOT APPEAR.
-
-    The cover and the profile picture both used to snap in: the browser
-    paints the block, decodes the image, and swaps it in on one frame with
-    nothing in between. On a slow connection that is a grey rectangle for a
-    second and then a photograph, which is the "it glitches until it loads"
-    that was reported.
-
-    The image starts transparent and fades once it has actually decoded, on
-    the same curve everything else in the app moves on. `data-loaded` is set
-    from the image's own load event, not from React mounting, because those
-    are different moments and only the first one means there is a picture to
-    show. An image already in the cache is complete before the event can
-    fire, so the ref sets the attribute too.
-  */
-  .media-fade {
-    opacity: 0;
-    transition: opacity 320ms var(--ease-sheet);
-  }
-
-  .media-fade[data-loaded="true"] {
-    opacity: 1;
-  }
-
-  /* No animation is better than a slow one for anybody who asked for less. */
-  @media (prefers-reduced-motion: reduce) {
-    .media-fade {
-      transition: none;
-    }
-  }
-
-  /*
     AND NO SCROLLBAR PROPERTIES ON <html>.
 
     A slim bar was styled here at first, and the note further down this file
@@ -1677,9 +1645,28 @@ html.capacitor body {
  * -------------------------------------------------------------------------- */
 :root {
   --bar-depth: 0 1px 2px rgba(15, 23, 42, 0.035), 0 6px 18px -14px rgba(15, 23, 42, 0.18);
+  /*
+    A DARK BAR NEEDS A DARKER SHADOW OR IT GLOWS. The value above is slate at
+    a few percent, which is LIGHTER than a dark bar: at the seam it reads as a
+    halo rather than as a shadow. Black, and further up, for those.
+  */
+  --bar-depth-dark: 0 1px 2px rgba(0, 0, 0, 0.28), 0 6px 18px -14px rgba(0, 0, 0, 0.45);
 }
 
 /* Subscribe Bar Bottom Border */
+/*
+  A HAIRLINE AND ALMOST NOTHING ELSE.
+
+  A rule on its own says "the page continues here". What was asked for is
+  that the bar sits OVER the page, and the smallest honest way to say that is
+  one pixel of shadow directly under the line plus a very wide, very faint
+  one to catch the edge.
+
+  It used to be deliberately under the product page bar's: this strip is
+  above the creator's cover photo, and a shadow you notice on top of a
+  photograph is too big. The product bar's came DOWN to meet it instead, so
+  there is one value now and both bars read at the same height.
+*/
 .subscribe-bar-border {
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: var(--bar-depth);
@@ -1687,7 +1674,7 @@ html.capacitor body {
 
 .subscribe-bar-border-dark {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: var(--bar-depth);
+  box-shadow: var(--bar-depth-dark);
 }
 
 /* OnePage Button Animations */

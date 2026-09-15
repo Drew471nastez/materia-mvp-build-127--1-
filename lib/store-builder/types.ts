@@ -405,6 +405,15 @@ export interface ShopHeaderSettings {
   mobileAvatarSizeChoice?: AvatarSizeChoice // 'small' | 'medium' | 'large'
   profileImageBorderColor?: string // Border color for the profile image circle
   bio?: string // Bio text that can be edited from header settings
+  /**
+   * The order the creator dragged their catalogue into, as product ids.
+   *
+   * Only the Products tab reads it; Featured keeps its own `productIds`,
+   * which is a selection rather than an arrangement. Anything not listed
+   * here still appears — see applyManualOrder — so a product added after an
+   * arrangement was saved does not quietly vanish from its own shop.
+   */
+  productsOrder?: string[]
   showHeadline: boolean
   showBio: boolean
   showStats: boolean

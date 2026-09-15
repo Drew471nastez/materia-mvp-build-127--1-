@@ -34,7 +34,7 @@ function One({ size }: { size: number }) {
 
 createRoot(document.getElementById("app")!).render(
   <div style={{ display: "flex", gap: 40, padding: 40, background: "#f5f5f5" }}>
-    <One size={110} />
-    <One size={137} />
+    <One size={118} />
+    <One size={150} />
   </div>,
 )

@@ -1773,7 +1773,15 @@ export function createSectionFromLibrary(libraryItem: SectionLibraryItem, order:
 }
 
 export const avatarSizeMap: Record<AvatarSizeChoice, number> = {
-  small: 110,
-  medium: 137, // kept for backwards compatibility
-  large: 137, // same as medium
+  /*
+    A STEP UP, NOT A JUMP. 137 was the medium and it read a little small
+    against the name under it; 150 is about a tenth bigger, which is the
+    difference between "that is the creator" and "there is a photo here",
+    without turning the header into a portrait. The overlap with the cover is
+    derived from this number rather than hardcoded, so the circle still
+    straddles the cover's edge by the same proportion at any size.
+  */
+  small: 118,
+  medium: 150, // kept for backwards compatibility
+  large: 150, // same as medium
 }

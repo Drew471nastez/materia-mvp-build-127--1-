@@ -992,7 +992,10 @@ export function LiveProductCreatorBar({
           appears above every product is too much.
         */
         borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
-        boxShadow: "var(--bar-depth)",
+        /* The dark value for a dark bar: a slate shadow is lighter than the
+           bar above it and reads as a halo at the seam. This bar defaults to
+           #1a1a1a, so that is the usual case rather than the exception. */
+        boxShadow: isDarkBackground ? "var(--bar-depth-dark)" : "var(--bar-depth)",
       }}
     >
       {/*

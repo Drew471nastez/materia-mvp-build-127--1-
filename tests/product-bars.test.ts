@@ -180,7 +180,11 @@ function main() {
   const depthValue = depth ? depth[1] : ""
   check("the creator page's bar has it", /\.subscribe-bar-border \{[\s\S]*?box-shadow: var\(--bar-depth\)/.test(css))
   check("its dark variant too", /\.subscribe-bar-border-dark \{[\s\S]*?box-shadow: var\(--bar-depth\)/.test(css))
-  check("and the product page's bar points at the same one", /boxShadow: "var\(--bar-depth\)"/.test(topBar))
+  check("and the product page's bar points at the same one", /boxShadow: isDarkBackground \? "var\(--bar-depth-dark\)" : "var\(--bar-depth\)"/.test(topBar))
+  /* A slate shadow under a dark bar is lighter than the bar and reads as a
+     halo; the dark bars get black instead. Both are still one definition. */
+  check("with a darker one for a dark bar", /--bar-depth-dark:\s*0 1px 2px rgba\(0, 0, 0/.test(css))
+  check("and the creator page's dark bar uses it too", /\.subscribe-bar-border-dark \{[\s\S]*?box-shadow: var\(--bar-depth-dark\)/.test(css))
   check("nothing is left holding its own copy", !/boxShadow: "0 1px 2px rgba\(15, 23, 42/.test(topBar))
 
   /*

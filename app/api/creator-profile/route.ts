@@ -42,6 +42,8 @@ export const runtime = "nodejs"
 const PLATFORMS = SOCIAL_PLATFORM_KEYS
 type Platform = SocialPlatformKey
 
+/* A catalogue far larger than anyone has, so the cap never surprises a real shop. */
+const MAX_PRODUCTS_ORDER = 500
 const MAX_NAME = 60
 const MAX_BIO = 500
 const MAX_URL = 300
@@ -279,6 +281,35 @@ export async function PATCH(request: NextRequest) {
     return Object.keys(out).length > 0 ? out : undefined
   })()
 
+  /**
+   * THE ORDER THE CREATOR DRAGGED THEIR CATALOGUE INTO.
+   *
+   * A list of product ids and nothing else. It is NOT trusted as a list of
+   * products the caller may see: it only ever reorders what the page has
+   * already decided to show, and an id for something deleted, unpublished or
+   * belonging to somebody else simply finds no product and is dropped when
+   * the page applies it. So the check here is about SHAPE and SIZE, which is
+   * what stops a caller storing a megabyte of text in a settings blob.
+   *
+   * A missing key leaves the stored order alone; an empty array is a real
+   * value meaning "no arrangement, newest first again".
+   */
+  const productsOrder = (() => {
+    if (!("productsOrder" in body)) return undefined
+    const raw = body.productsOrder
+    if (!Array.isArray(raw)) return undefined
+    const seen = new Set<string>()
+    for (const entry of raw) {
+      if (typeof entry !== "string") continue
+      const id = entry.trim()
+      /* Product ids are uuids. Anything else is not one, whatever it is. */
+      if (!/^[0-9a-fA-F-]{36}$/.test(id)) continue
+      seen.add(id)
+      if (seen.size >= MAX_PRODUCTS_ORDER) break
+    }
+    return [...seen]
+  })()
+
   if (displayName !== undefined && displayName.length === 0) {
     return NextResponse.json({ error: "A display name is required" }, { status: 400 })
   }
@@ -375,6 +406,11 @@ export async function PATCH(request: NextRequest) {
       next.socialLinks = buildSocialLinks(body.socialLinks, header.socialLinks)
     }
     if (display) Object.assign(next, display)
+    /*
+      An empty array is a real value here — "forget the arrangement, newest
+      first again" — so this tests for undefined rather than for truthiness.
+    */
+    if (productsOrder !== undefined) next.productsOrder = productsOrder
     if (subscribeBar) {
       const existing = (header.subscribeBar || {}) as Record<string, unknown>
       /**

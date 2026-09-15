@@ -1433,7 +1433,7 @@ function main() {
     /* It has its own depth no longer: --bar-depth in globals.css is one
        value shared with the creator page's bar, and it went down to get
        there. tests/product-bars.test.ts checks the number itself. */
-    check("the product page's bar casts a little shadow", /boxShadow: "var\(--bar-depth\)"/.test(pbar))
+    check("the product page's bar casts a little shadow", /boxShadow: isDarkBackground \? "var\(--bar-depth-dark\)" : "var\(--bar-depth\)"/.test(pbar))
     check("and it is the same one the creator page's bar casts", /--bar-depth:/.test(read("app/globals.css")))
   }
 

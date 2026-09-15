@@ -21,6 +21,7 @@ import type {
   GlobalStoreSettings,
 } from "@/lib/store-builder/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { BadgeCheck, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Download, Facebook, Files, Heart, Infinity, Link2, Mail, Package, Share2, ShoppingBag, Star, Users, X } from "lucide-react"
@@ -152,24 +153,6 @@ const getProductHref = (product: ProductData): string => {
 }
 
 // Icon mapping for what's included items
-/**
- * MARKS A PHOTO AS ACTUALLY DECODED, so `.media-fade` can bring it in.
- *
- * Two handlers, because there are two ways an image can already be there.
- * `onLoad` covers the normal case, a picture that arrives over the network.
- * The ref covers the one that breaks it: an image served from cache can be
- * `complete` before React attaches the handler, so the load event never
- * fires and the picture would sit at opacity 0 forever. Checking `complete`
- * on attach is what stops a fade from becoming a disappearance.
- */
-function markMediaLoaded(event: React.SyntheticEvent<HTMLImageElement>) {
-  event.currentTarget.dataset.loaded = "true"
-}
-
-function markMediaLoadedRef(element: HTMLImageElement | null) {
-  if (element && element.complete) element.dataset.loaded = "true"
-}
-
 function getIncludedItemIcon(item: string, iconColor?: string): React.ReactNode {
   const lowerItem = item.toLowerCase()
   const colorStyle = iconColor ? { color: iconColor } : undefined
@@ -2805,6 +2788,17 @@ export function UnifiedShopHeader({
              * of a slightly-too-large photo. So an unrecognised URL loads the
              * old way: unoptimised, and there.
              */
+            /*
+              NO FADE ON THE COVER, and this is the second time that has been
+              decided. A fade needs the image to start transparent, and an
+              image that starts transparent is INVISIBLE until the script that
+              reveals it has run. Measured last time at most of a second of
+              blank band on a real connection, which is what "it shows up
+              abruptly" actually described: the waiting, not the arriving.
+              The avatar below can fade because Radix only mounts it once the
+              photo has loaded, so nothing is hidden waiting for JavaScript.
+              Held by tests/page-performance.test.ts.
+            */
             return isOptimizableImage(coverImageUrl) ? (
               <Image
                 src={coverImageUrl}
@@ -2813,20 +2807,16 @@ export function UnifiedShopHeader({
                 sizes="100vw"
                 quality={PORTRAIT_QUALITY}
                 priority
-                className="object-cover media-fade"
+                className="object-cover"
                 style={coverStyle}
-                onLoad={markMediaLoaded}
-                ref={markMediaLoadedRef}
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={coverImageUrl}
                 alt={`${profile?.display_name || "Creator"} cover`}
-                className="absolute inset-0 h-full w-full object-cover media-fade"
+                className="absolute inset-0 h-full w-full object-cover"
                 style={coverStyle}
-                onLoad={markMediaLoaded}
-                ref={markMediaLoadedRef}
               />
             )
           })()}
@@ -2965,74 +2955,93 @@ export function UnifiedShopHeader({
               cropper), so a circle does throw away the corners. That is the
               known cost, and it is the same cost every social network pays.
             */}
-            <Avatar
-              className="shrink-0 bg-gray-200"
-              style={{
-                width: `${avatarSize}px`,
-                height: `${avatarSize}px`,
-                borderRadius: "9999px",
-                borderWidth: "2.5px",
-                borderStyle: "solid",
-                /**
-                 * The ring follows the scheme. A stored "#e5e7eb" is the
-                 * platform default rather than a decision, so on a dark page
-                 * it was a light grey hoop around the one round thing on it.
-                 * The page resolves which applies; see storefront-chrome.
-                 */
-                borderColor: surface?.avatarBorderColor || settings.profileImageBorderColor || "#e5e7eb",
-                /**
-                 * DEPTH, AND ONLY A LITTLE.
-                 *
-                 * `shadow-lg` is a single wide blur, which at this size reads
-                 * as a grey halo rather than as a raised object. Two layers
-                 * instead: a tight one directly underneath, which is what
-                 * makes something look like it is resting ON the page, and a
-                 * wider, softer one below that for the lift. Both are barely
-                 * there on purpose — the picture is the thing being looked
-                 * at, not the shadow.
-                 */
-                boxShadow: "0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 28px -8px rgba(15, 23, 42, 0.20)",
-              }}
+            {/*
+              Pressing the picture opens it full size. Off in the editor,
+              where a press selects the section to style it instead.
+            */}
+            <AvatarLightbox
+              src={avatarImageUrl || undefined}
+              name={profile?.display_name || undefined}
+              /*
+                NOT `isPreviewMode`. That reads like the discriminator and is
+                not one: the LIVE page passes isPreviewMode={false} (see
+                ShopHeaderRenderer), so keying off it would have switched the
+                lightbox off on the only page it is for. What actually means
+                "this header is being edited" is the presence of the edit
+                callbacks, which is the same signal the cover placeholder uses
+                a few lines up.
+              */
+              disabled={!!onAvatarEdit || !!onSelect}
             >
-              {/*
-                SERVED AT THE SIZE IT IS SHOWN AT.
-
-                This was the raw upload too — the same four-megabyte camera
-                JPEG, decoded in full to fill a 137px circle. Radix mounts the
-                <img> only once that has finished decoding, so the wait was
-                spent looking at grey, and the photo then arrived all at once.
-                That is exactly the "first shows gray then abruptly shows the
-                image" in the report: not a bad animation, a big file.
-
-                At `avatarSize` ×2 the optimizer returns roughly twenty
-                kilobytes of AVIF, which lands inside a frame or two — and the
-                fallback's 600ms delay means the initials never get shown at
-                all. Same component, same swap-when-decoded logic that keeps
-                the builder from flashing; a hundredth of the bytes.
-
-                It goes through a URL helper rather than <Image> because the
-                point of AvatarPrimitive.Image is that IT decides when the img
-                appears, and wrapping it would take that decision away.
-              */}
-              {avatarImageUrl ? (
-                /*
-                  Radix keeps the fallback until the photo has loaded and
-                  then swaps them on one frame, which is the snap. Mounting
-                  here already MEANS loaded, so a plain fade-in is the whole
-                  cross-fade: the initials are still underneath it.
-                */
-                <AvatarImage
-                  src={optimizedImageUrl(avatarImageUrl, avatarSize)}
-                  alt={profile?.display_name || ""}
-                  className="animate-in fade-in duration-300 ease-sheet"
-                />
-              ) : null}
-              <AvatarFallback
-                className={cn("bg-gray-300 text-gray-700 font-semibold", isMobile ? "text-lg" : "text-xl sm:text-2xl")}
+              <Avatar
+                className="shrink-0 bg-gray-200"
+                style={{
+                  width: `${avatarSize}px`,
+                  height: `${avatarSize}px`,
+                  borderRadius: "9999px",
+                  borderWidth: "2.5px",
+                  borderStyle: "solid",
+                  /**
+                   * The ring follows the scheme. A stored "#e5e7eb" is the
+                   * platform default rather than a decision, so on a dark page
+                   * it was a light grey hoop around the one round thing on it.
+                   * The page resolves which applies; see storefront-chrome.
+                   */
+                  borderColor: surface?.avatarBorderColor || settings.profileImageBorderColor || "#e5e7eb",
+                  /**
+                   * DEPTH, AND ONLY A LITTLE.
+                   *
+                   * `shadow-lg` is a single wide blur, which at this size reads
+                   * as a grey halo rather than as a raised object. Two layers
+                   * instead: a tight one directly underneath, which is what
+                   * makes something look like it is resting ON the page, and a
+                   * wider, softer one below that for the lift. Both are barely
+                   * there on purpose — the picture is the thing being looked
+                   * at, not the shadow.
+                   */
+                  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 28px -8px rgba(15, 23, 42, 0.20)",
+                }}
               >
-                {initials || "?"}
-              </AvatarFallback>
-            </Avatar>
+                {/*
+                  SERVED AT THE SIZE IT IS SHOWN AT.
+
+                  This was the raw upload too — the same four-megabyte camera
+                  JPEG, decoded in full to fill a 137px circle. Radix mounts the
+                  <img> only once that has finished decoding, so the wait was
+                  spent looking at grey, and the photo then arrived all at once.
+                  That is exactly the "first shows gray then abruptly shows the
+                  image" in the report: not a bad animation, a big file.
+
+                  At `avatarSize` ×2 the optimizer returns roughly twenty
+                  kilobytes of AVIF, which lands inside a frame or two — and the
+                  fallback's 600ms delay means the initials never get shown at
+                  all. Same component, same swap-when-decoded logic that keeps
+                  the builder from flashing; a hundredth of the bytes.
+
+                  It goes through a URL helper rather than <Image> because the
+                  point of AvatarPrimitive.Image is that IT decides when the img
+                  appears, and wrapping it would take that decision away.
+                */}
+                {avatarImageUrl ? (
+                  /*
+                    Radix keeps the fallback until the photo has loaded and
+                    then swaps them on one frame, which is the snap. Mounting
+                    here already MEANS loaded, so a plain fade-in is the whole
+                    cross-fade: the initials are still underneath it.
+                  */
+                  <AvatarImage
+                    src={optimizedImageUrl(avatarImageUrl, avatarSize)}
+                    alt={profile?.display_name || ""}
+                    className="animate-in fade-in duration-300 ease-sheet"
+                  />
+                ) : null}
+                <AvatarFallback
+                  className={cn("bg-gray-300 text-gray-700 font-semibold", isMobile ? "text-lg" : "text-xl sm:text-2xl")}
+                >
+                  {initials || "?"}
+                </AvatarFallback>
+              </Avatar>
+            </AvatarLightbox>
 
             {!isPreviewMode && onAvatarEdit && (
               <div
