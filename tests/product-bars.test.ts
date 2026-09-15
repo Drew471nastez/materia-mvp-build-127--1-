@@ -213,7 +213,7 @@ function main() {
   /* The card names what it is selling, above the price. */
   check(
     "the buy card leads with the product's title",
-    /<h1\s+className="mb-2 text-2xl font-semibold leading-snug break-words"[\s\S]{0,160}\{product\.title\}/.test(productPage),
+    /<h1\s+className="mb-2 text-3xl font-semibold leading-snug break-words"[\s\S]{0,160}\{product\.title\}/.test(productPage),
   )
 
   /*
@@ -239,13 +239,16 @@ function main() {
   check("two headings in the source, one per breakpoint", titleHeadings === 2, `found ${titleHeadings}`)
 
   /*
-    THE NAME LEADS AND THE PRICE ANSWERS IT. The card's line has been 14px,
-    then 20px against a 36px price, which read as a big number with a caption
-    over it. 24 and 30 now.
+    THE NAME LEADS AND THE PRICE ANSWERS IT, and it took three rounds of
+    moving them past each other to get there. 14/30, then 20/36, then 24/30 —
+    every one of those put the title UNDER the price, where a title reads as
+    a caption on a number. 30/24 now: the product's name is the biggest line
+    on the card, which is the size it was as the heading under the gallery
+    before it moved here. scripts/check-product-titles.mjs measures both.
   */
-  check("the title is 24px", /className="mb-2 text-2xl font-semibold leading-snug break-words"/.test(productPage))
-  check("the price is back to 30px", /className="text-3xl font-bold tracking-tight"/.test(productPage))
-  check("and not the 36 it went to", !/text-4xl font-bold tracking-tight/.test(productPage))
+  check("the title is 30px, the size the heading it replaced was", /className="mb-2 text-3xl font-semibold leading-snug break-words"/.test(productPage))
+  check("the price is 24px, under it", /className="text-2xl font-bold tracking-tight"/.test(productPage))
+  check("and neither of the sizes the price has already been", !/text-(3xl|4xl) font-bold tracking-tight/.test(productPage))
   const cardAt = productPage.indexOf('className="rounded-xl border p-6 shadow-sm relative z-20"')
   const cardTitleAt = productPage.indexOf("{product.title}", cardAt)
   const cardPriceAt = productPage.indexOf("{product.price_cents === 0 ? \"Free\" : formatPrice(product.price_cents)}", cardAt)

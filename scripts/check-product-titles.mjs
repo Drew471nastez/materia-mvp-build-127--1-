@@ -45,7 +45,7 @@ const css = cssFiles.map((f) => readFileSync(f, "utf8")).join("\n").replace(/url
 
 const page = readFileSync(join(root, "app/(marketing)/p/[slug]/page.tsx"), "utf8")
 const galleryTitle = (page.match(/className="(text-2xl sm:text-3xl font-semibold[^"]*)"/) || [])[1]
-const cardTitle = (page.match(/className="(mb-2 text-2xl font-semibold[^"]*)"/) || [])[1]
+const cardTitle = (page.match(/className="(mb-2 text-3xl font-semibold[^"]*)"/) || [])[1]
 /*
   THE PRICE IS FOUND BY WHAT IT PRINTS, not by the size class it happens to
   carry. Anchored on `text-4xl` this probe stopped being able to find the
@@ -63,7 +63,7 @@ const cardPrice = priceClasses.length
   : undefined
 const cardColumn = (page.match(/className="(hidden lg:block lg:col-span-2[^"]*)"/) || [])[1]
 if (!galleryTitle) fail("No heading under the gallery found in the page.")
-if (!cardTitle) fail("No `mb-2 text-2xl font-semibold` title found in the buy card.")
+if (!cardTitle) fail("No `mb-2 text-3xl font-semibold` title found in the buy card.")
 if (!cardPrice) fail("No price line found in the buy card; the probe could not work out which element to measure.")
 if (!cardColumn) fail("No buy card column found.")
 
@@ -150,17 +150,17 @@ if (desktop.cardTag !== "H1") problems.push("at 1440px the title is a " + deskto
 /* ---- the card's hierarchy ---------------------------------------------- */
 const cardPx = parseFloat(desktop.cardSize)
 const pricePx = parseFloat(desktop.priceSize)
-if (!(pricePx > cardPx)) problems.push("the price (" + desktop.priceSize + ") is not bigger than the title (" + desktop.cardSize + ").")
 /*
-  THE NAME LEADS AND THE PRICE ANSWERS IT. The price went to 36 for a round
-  and at that size it was the only thing on the card anybody saw, with the
-  title reading as a caption over a big number. 24 and 30 now: the price is
-  still the larger, but not by so much that the title stops being one.
+  THE NAME LEADS AND THE PRICE ANSWERS IT, and after three rounds of moving
+  them past each other that is now literal: the title is the biggest line on
+  the card and the price sits under it. Under a price, a title reads as a
+  caption on a number, which is what 14/30, 20/36 and 24/30 all did.
 */
-if (pricePx > 32) problems.push("the price is " + desktop.priceSize + "; at that size it is the only thing on the card.")
-if (cardPx < 22) problems.push("the card's title is " + desktop.cardSize + ", which is a label rather than the page's title.")
-if (pricePx - cardPx > 10) problems.push("the price is " + (pricePx - cardPx) + "px clear of the title, which reads as a number with a caption over it.")
-if (cardPx >= pricePx) problems.push("the title is level with the price, so the card has two headings and no hierarchy.")
+if (!(cardPx > pricePx)) problems.push("the title (" + desktop.cardSize + ") is not bigger than the price (" + desktop.priceSize + "); under a price a title reads as a caption on a number.")
+if (cardPx < 28) problems.push("the card's title is " + desktop.cardSize + ", smaller than the 30px heading it replaced.")
+if (pricePx > 26) problems.push("the price is " + desktop.priceSize + "; it was asked to come down.")
+if (pricePx < 20) problems.push("the price is " + desktop.priceSize + ", which is quieter than the page's body text.")
+if (cardPx === pricePx) problems.push("the title is level with the price, so the card has two headings and no hierarchy.")
 
 if (problems.length) fail(problems.map((x) => "  - " + x).join("\n"))
 console.log("\n  760px: the gallery's " + phone.gallerySize + " heading, and no card.")

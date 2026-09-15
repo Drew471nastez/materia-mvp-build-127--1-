@@ -1369,14 +1369,17 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             the page out loud. That one is `lg:hidden` now, so this is the
             only title on a desktop and it carries the tag.
 
-            24px at 600. It has been 14 and then 20, and at both of those it
-            was smaller than a title on a page that has no other one — with
-            the price at 36 the pair read as a big number with a caption over
-            it. The title goes up and the price comes back down to 30, so the
-            name of the thing leads and the price answers it.
+            30px at 600, which is the size the title under the gallery used
+            to be — this IS that title now, so it is the same size it always
+            was, just in the card.
+
+            It has been 14, 20 and 24, each time under a price that was 30 or
+            36. Under a price, a title reads as a caption on a number. The
+            two have swapped: the name of the thing is the biggest line on
+            the card and the price is the answer under it.
           */}
           <h1
-            className="mb-2 text-2xl font-semibold leading-snug break-words"
+            className="mb-2 text-3xl font-semibold leading-snug break-words"
             style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
           >
             {product.title}
@@ -1385,11 +1388,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {/* Price display - only show static if no variants */}
           {variants.length === 0 && (
             <div className="mb-4">
-              {/* Back to 30px. At 36 it was the only thing on the card
-                  anybody saw, and the product's own name above it read as a
-                  label on a price rather than the other way round. */}
+              {/* 24px. It has been 30 and then 36, and at both it was the
+                  biggest thing on the card — which made the product's own
+                  name a label on a price rather than the other way round.
+                  Still bold, still the only number here, and no longer the
+                  first thing the eye lands on. */}
               <div
-                className="text-3xl font-bold tracking-tight"
+                className="text-2xl font-bold tracking-tight"
                 style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
               >
                 {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
