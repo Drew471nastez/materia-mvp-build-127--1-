@@ -390,7 +390,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      */
     supabase
       .from("reviews")
-      .select("id, rating, comment, created_at, product:products(title, slug), buyer:profiles!buyer_id(display_name)")
+      .select("id, rating, comment, created_at, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")
       .eq("creator_id", creator.id)
       .order("created_at", { ascending: false })
       .limit(30),
@@ -440,6 +440,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     productTitle: review.product?.title ?? null,
     productSlug: review.product?.slug ?? null,
     buyerName: review.buyer?.display_name ?? null,
+    buyerAvatarUrl: review.buyer?.avatar_url ?? null,
   }))
 
   /**

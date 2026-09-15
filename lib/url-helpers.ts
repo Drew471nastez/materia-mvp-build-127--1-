@@ -522,3 +522,39 @@ export function getWebsitePageUrl(username: string, pageSlug: string): string {
 
   return `https://${username.toLowerCase()}.${mainDomain}/${pageSlug}`
 }
+
+/**
+ * ===========================================================================
+ *  AN ABSOLUTE URL POINTING AT THIS SITE IS STILL AN INTERNAL LINK
+ * ===========================================================================
+ * `internal` used to be `href.startsWith("/")`, and product cards do not link
+ * that way: `getProductUrl` returns the full address,
+ * https://storelib.com/<handle>/<slug>, because the same string is also what
+ * gets copied, shared and put in metadata. So every product card on every
+ * storefront failed the test, fell through to a bare <a>, and navigated by
+ * FULL DOCUMENT LOAD — no prefetch, and `loading.tsx` never reached, because
+ * a loading boundary only exists inside a client navigation.
+ *
+ * That is the reported "I click a product and nothing happens for three
+ * seconds and then the page appears": nothing happens because nothing is
+ * meant to happen yet, the browser is waiting on a force-dynamic page, and
+ * the first thing it can paint is the finished document.
+ *
+ * ONLY THIS ORIGIN. A creator's subdomain and a custom domain are genuinely
+ * different origins serving different pages; routing them on the client would
+ * put this app's shell around somebody else's site. The main domain, with or
+ * without www, is the only host this app actually serves.
+ */
+export function toSameOriginPath(href: string | undefined): string | null {
+  if (!href) return null
+  if (href.startsWith("/")) return href
+  try {
+    const url = new URL(href)
+    const mainDomain = getMainDomain().toLowerCase()
+    const host = url.hostname.toLowerCase()
+    if (host !== mainDomain && host !== `www.${mainDomain}`) return null
+    return `${url.pathname}${url.search}${url.hash}`
+  } catch {
+    return null
+  }
+}

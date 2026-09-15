@@ -39,6 +39,7 @@ const SUITES = [
   "tests/creator-page.test.ts",
   "tests/contact-gate.test.ts",
   "tests/hook-order.test.ts",
+  "tests/link-navigation.test.ts",
   "tests/theme-presets.test.ts",
   "tests/sheet-reserve.test.ts",
   "tests/featured-order.test.ts",

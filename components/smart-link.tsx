@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
+import { toSameOriginPath } from "@/lib/url-helpers"
 
 /**
  * Convert a full subdomain URL to an internal path for in-app navigation.
@@ -172,20 +173,20 @@ export function SmartLink({
    * Anything not internal — another origin, a mailto, an anchor — is not
    * Next's to route and stays exactly as it was.
    */
-  const internal = !!resolvedHref && resolvedHref.startsWith("/")
+  const internalPath = toSameOriginPath(resolvedHref)
   const needsHardNav =
     useClientNav === false ||
-    (internal &&
-      (resolvedHref!.startsWith("/app") ||
-        resolvedHref!.startsWith("/creator-page") ||
-        resolvedHref!.startsWith("/store-builder") ||
-        resolvedHref!.startsWith("/website-builder") ||
-        resolvedHref!.startsWith("/library")))
+    (!!internalPath &&
+      (internalPath.startsWith("/app") ||
+        internalPath.startsWith("/creator-page") ||
+        internalPath.startsWith("/store-builder") ||
+        internalPath.startsWith("/website-builder") ||
+        internalPath.startsWith("/library")))
 
-  if (internal && !needsHardNav) {
+  if (internalPath && !needsHardNav) {
     return (
       <Link
-        href={resolvedHref!}
+        href={internalPath}
         {...props}
         style={{ ...TOUCH_STYLES, ...(props.style as React.CSSProperties) }}
       >

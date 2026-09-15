@@ -26,6 +26,8 @@ export interface StorefrontReview {
   productTitle?: string | null
   productSlug?: string | null
   buyerName?: string | null
+  /** The reviewer's own picture. A name with a face reads as a person. */
+  buyerAvatarUrl?: string | null
 }
 
 function Stars({ rating }: { rating: number }) {
@@ -78,10 +80,42 @@ export function ReviewsPanel({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {reviews.map((review) => (
           <div key={review.id} className="rounded-lg border border-border bg-card p-4">
-            <div className="flex items-center justify-between gap-3">
-              <Stars rating={review.rating} />
+            {/*
+              THE PERSON FIRST, then what they said. The card used to lead with
+              five stars and a date, which is the same for most reviews and so
+              carries almost nothing; who wrote it is the part a reader is
+              actually weighing. Picture, name and stars on one line, the way
+              every review anyone has read is laid out.
+            */}
+            <div className="flex items-center gap-2.5">
+              {review.buyerAvatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={review.buyerAvatarUrl}
+                  alt=""
+                  className="h-8 w-8 shrink-0 rounded-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <span
+                  aria-hidden
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground"
+                >
+                  {(review.buyerName || "?").trim().charAt(0).toUpperCase()}
+                </span>
+              )}
+
+              <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex items-center gap-2">
+                  {review.buyerName && (
+                    <span className="truncate text-sm font-semibold text-foreground">{review.buyerName}</span>
+                  )}
+                  <Stars rating={review.rating} />
+                </div>
+              </div>
+
               {review.created_at && (
-                <time className="text-xs text-muted-foreground" dateTime={review.created_at}>
+                <time className="shrink-0 text-xs text-muted-foreground" dateTime={review.created_at}>
                   {new Date(review.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" })}
                 </time>
               )}
@@ -90,8 +124,6 @@ export function ReviewsPanel({
             {review.comment && <p className="mt-2 text-sm leading-relaxed">{review.comment}</p>}
 
             <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-              {review.buyerName && <span>{review.buyerName}</span>}
-              {review.buyerName && review.productTitle && <span className="opacity-40">·</span>}
               {review.productTitle &&
                 (review.productSlug ? (
                   <SmartLink href={`/p/${review.productSlug}`} className="hover:text-foreground hover:underline">

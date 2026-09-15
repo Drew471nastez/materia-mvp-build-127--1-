@@ -1805,7 +1805,18 @@ function main() {
      * so what a visitor got after pressing a card was a white page for as
      * long as the server took.
      */
-    check("an internal link on the web is a link Next knows about", /<Link\s+href=\{resolvedHref!\}/.test(link))
+    /*
+      This used to pin `<Link href={resolvedHref!}>`, which was the shape when
+      "internal" meant `href.startsWith("/")`. That test was the reason the fix
+      above never reached the thing it was written for: product cards link with
+      the FULL address, because getProductUrl returns the string that is also
+      copied and shared, so they failed it and kept reloading the document.
+      The decision is about ORIGIN now, and which hosts it accepts is exercised
+      by running the real function in tests/link-navigation.test.ts.
+    */
+    check("an internal link on the web is a link Next knows about", /<Link\s+href=\{internalPath\}/.test(link))
+    check("and it is the origin that decides, not a leading slash",
+      /const internalPath = toSameOriginPath\(resolvedHref\)/.test(link))
     check("and the routes that must reload still do", /useClientNav === false \|\|/.test(link) && /startsWith\("\/library"\)/.test(link))
     check("the product page has a skeleton to show while it streams", existsSync(join(root, "app/(marketing)/p/[slug]/loading.tsx")))
     check("and so does the creator page", existsSync(join(root, "app/(marketing)/u/[username]/loading.tsx")))
