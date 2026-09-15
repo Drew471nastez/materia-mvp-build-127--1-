@@ -141,6 +141,39 @@ for (const page of dynamicPages) {
   )
 }
 
+console.log("\nNothing pulls a node out from under React\n")
+
+/**
+ * `document.querySelectorAll("link[rel*='icon']").forEach(l => l.remove())`
+ * was in two components. It reads as housekeeping and is not: the root
+ * layout's icon link is rendered BY REACT, so this detaches a node React is
+ * still holding a fiber for. The next deletion of that subtree throws
+ *
+ *   TypeError: Cannot read properties of null (reading 'removeChild')
+ *
+ * in the commit phase, and the render in flight never lands. On the live site
+ * that was the creator page: the address changed, the product page stayed,
+ * every time.
+ *
+ * A component may remove what it created. The marker attribute is what says
+ * which nodes those are.
+ */
+const BROAD_ICON_REMOVAL = /querySelectorAll\(\s*["'`]link\[rel\*?=['"]?icon/
+const iconStompers = FILES.filter((f) => BROAD_ICON_REMOVAL.test(stripComments(readFileSync(f, "utf8"))))
+check(
+  "no component clears every icon link in the document",
+  iconStompers.length === 0,
+  iconStompers.join("\n        ") + "\n        remove only the links this component added, by its own data attribute",
+)
+
+const faviconWriters = FILES.filter((f) => /rel = "apple-touch-icon"/.test(readFileSync(f, "utf8")))
+check(
+  "every component that adds an icon link marks its own",
+  faviconWriters.length > 0 &&
+    faviconWriters.every((f) => /data-storelib-favicon/.test(readFileSync(f, "utf8"))),
+  faviconWriters.join("\n        "),
+)
+
 console.log("\nThe creator page's skeleton is tinted to the page behind it\n")
 
 check(

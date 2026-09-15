@@ -1096,36 +1096,34 @@ function OnePageDynamicFavicon({ avatarUrl, videoUrl, sellerId }: OnePageDynamic
   useEffect(() => {
     if (!faviconUrl) return
 
-    // Find existing favicon links
-    const existingLinks = document.querySelectorAll("link[rel*='icon']")
-
-    // Remove existing favicons
-    existingLinks.forEach((link) => link.remove())
+    /* The same rule as components/store-builder/dynamic-favicon: this clears
+       only the links it added. Clearing `link[rel*='icon']` takes the root
+       layout's React-rendered one with it, and a React-owned node removed
+       behind React's back crashes the next deletion of that subtree with
+       "removeChild of null". A browser reads the last icon link in the
+       document, so appending is all this needs to do. */
+    const OURS = "data-storelib-favicon"
+    const dropOurs = () => {
+      document.querySelectorAll(`link[${OURS}]`).forEach((link) => link.remove())
+    }
+    dropOurs()
 
     // Create new favicon link
     const link = document.createElement("link")
     link.rel = "icon"
     link.href = faviconUrl
     link.type = faviconUrl.startsWith("data:") ? "image/png" : "image/x-icon"
+    link.setAttribute(OURS, "")
     document.head.appendChild(link)
 
     // Also add apple-touch-icon for iOS
     const appleLink = document.createElement("link")
     appleLink.rel = "apple-touch-icon"
     appleLink.href = faviconUrl
+    appleLink.setAttribute(OURS, "")
     document.head.appendChild(appleLink)
 
-    // Cleanup on unmount - restore default favicon
-    return () => {
-      const addedLinks = document.querySelectorAll("link[rel*='icon']")
-      addedLinks.forEach((link) => link.remove())
-
-      // Restore default favicon
-      const defaultLink = document.createElement("link")
-      defaultLink.rel = "icon"
-      defaultLink.href = "/favicon.ico"
-      document.head.appendChild(defaultLink)
-    }
+    return dropOurs
   }, [faviconUrl])
 
   return null

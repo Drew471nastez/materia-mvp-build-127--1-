@@ -95,17 +95,49 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
       })
     }
 
+    /**
+     * =====================================================================
+     *  ONLY EVER REMOVE THE LINKS THIS COMPONENT PUT THERE
+     * =====================================================================
+     * This used to clear `link[rel*='icon']` — every icon link in the
+     * document — before adding its own. One of those belongs to the root
+     * layout and is rendered BY REACT, and pulling a React-owned node out of
+     * the DOM behind React's back is not a cosmetic mistake. React goes on
+     * holding a fiber that points at it, and the next time that subtree is
+     * deleted it calls removeChild on a parent that is now null:
+     *
+     *   TypeError: Cannot read properties of null (reading 'removeChild')
+     *
+     * That throw lands in the commit phase, so the render that was in flight
+     * never lands. Measured on the live site: pressing the creator's name in
+     * a product page's top bar changed the address and left the product page
+     * on screen, three runs out of three, for ever. The creator page was not
+     * slow and was not failing to fetch. It was rendered and then thrown away
+     * by this.
+     *
+     * The cleanup did it a second time, which is how the page you arrived at
+     * lost its icon too.
+     *
+     * Nothing needs removing anyway: a browser uses the LAST icon link in the
+     * document, so appending is enough to win. The layout's own link stays
+     * where React put it, and takes over again by itself when ours go.
+     */
+    const OURS = "data-storelib-favicon"
+
+    const dropOurs = () => {
+      document.querySelectorAll(`link[${OURS}]`).forEach((link) => link.remove())
+    }
+
     // Function to set favicon
     const setFavicon = (href: string, type: string = "image/png") => {
-      // Remove existing favicons
-      const existingLinks = document.querySelectorAll("link[rel*='icon']")
-      existingLinks.forEach((link) => link.remove())
+      dropOurs()
 
       // Create new favicon link
       const link = document.createElement("link")
       link.rel = "icon"
       link.href = href
       link.type = type
+      link.setAttribute(OURS, "")
       /* Named, so a tab picks this one rather than guessing at its size. */
       if (type === "image/png") link.setAttribute("sizes", `${ICON_SIZE}x${ICON_SIZE}`)
       document.head.appendChild(link)
@@ -114,6 +146,7 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
       const appleLink = document.createElement("link")
       appleLink.rel = "apple-touch-icon"
       appleLink.href = href
+      appleLink.setAttribute(OURS, "")
       document.head.appendChild(appleLink)
     }
 
@@ -142,18 +175,12 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
         })
     }
 
-    // Cleanup on unmount - restore default platform favicon
-    return () => {
-      const addedLinks = document.querySelectorAll("link[rel*='icon']")
-      addedLinks.forEach((link) => link.remove())
-
-      // Restore default favicon
-      const defaultLink = document.createElement("link")
-      defaultLink.rel = "icon"
-      defaultLink.href = PLATFORM_FAVICON_URL
-      defaultLink.type = "image/svg+xml"
-      document.head.appendChild(defaultLink)
-    }
+    /**
+     * Take back what we added and nothing else. There is no default to put
+     * back by hand: the layout's icon link was never removed, so it is still
+     * in the document and becomes the last one again as soon as ours are out.
+     */
+    return dropOurs
   }, [avatarUrl, faviconUrl])
 
   return null
