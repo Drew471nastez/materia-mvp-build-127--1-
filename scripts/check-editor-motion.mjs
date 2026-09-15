@@ -137,6 +137,41 @@ async function run() {
   const overlay = document.querySelector('[data-slot="dialog-overlay"]')
   if (panel) {
     result.enterAnimated = panel.getAnimations().length > 0
+    /*
+      WHAT THE OPEN ANIMATION IS MADE OF. Smoothness is not a feeling you can
+      assert in a diff: it is which properties move, on what curve, and
+      whether the element is on a layer. Read here before anything is settled,
+      because finishing the animations throws all of it away.
+    */
+    {
+      const cs0 = getComputedStyle(panel)
+      const props = new Set()
+      result.openingDetail = panel.getAnimations().map(function (a) {
+        const fr = a.effect && a.effect.getKeyframes ? a.effect.getKeyframes() : []
+        const ks = new Set()
+        fr.forEach(function (f) { Object.keys(f).forEach(function (k) { ks.add(k) }) })
+        return (a.constructor && a.constructor.name) + ":" + (a.animationName || a.transitionProperty || "?") +
+          " [" + [...ks].join(",") + "]"
+      })
+      panel.getAnimations().forEach(function (a) {
+        const frames = a.effect && a.effect.getKeyframes ? a.effect.getKeyframes() : []
+        frames.forEach(function (f) {
+          Object.keys(f).forEach(function (k) {
+            if (k !== "offset" && k !== "computedOffset" && k !== "easing" && k !== "composite") props.add(k)
+          })
+        })
+      })
+      result.opening = {
+        properties: [...props].sort(),
+        easing: cs0.animationTimingFunction,
+        duration: cs0.animationDuration,
+        willChange: cs0.willChange,
+        transitionProperty: cs0.transitionProperty,
+        panelClass: (panel.className || "").toString().slice(-160),
+        overlayEasing: overlay ? getComputedStyle(overlay).animationTimingFunction : null,
+        overlayDuration: overlay ? getComputedStyle(overlay).animationDuration : null,
+      }
+    }
     settle(panel)                       // where it comes to rest, not where it starts
     if (overlay) settle(overlay)
     const cs = getComputedStyle(panel)
@@ -281,6 +316,32 @@ try {
     expect(r.enterAnimated === true, "opening was an animation too", r.enterAnimated)
     expect(r.overlayClosing && r.overlayClosing.state === "closed" && r.overlayClosing.animations > 0,
       "and the darken behind it fades out rather than vanishing", JSON.stringify(r.overlayClosing))
+  }
+
+  if (r.opening) {
+    console.log("\nand opening it is cheap for the compositor")
+    /*
+      transform and opacity are the two a compositor can animate without the
+      main thread. Anything else here — width, height, top, left, filter,
+      box-shadow — means a layout or a repaint on every frame, which is where
+      dropped frames actually come from.
+    */
+    const cheap = ["opacity", "transform"]
+    expect(r.opening.properties.length > 0 && r.opening.properties.every((p) => cheap.includes(p)),
+      "only transform and opacity move", (r.opening.properties.join(", ") || "nothing") + "  ::  tp=" + r.opening.transitionProperty + " :: cls=" + r.opening.panelClass)
+    expect(r.opening.willChange.includes("transform"),
+      "the panel is on its own layer, so its shadow is moved and not redrawn", r.opening.willChange)
+    /*
+      The browser's default `ease` is symmetric and creeps for the first
+      frames, which reads as a hesitation before the panel moves. Any
+      deliberate curve is the point; `ease` and `linear` are the two that
+      mean nobody chose one.
+    */
+    expect(!/^(ease|linear)$/.test(r.opening.easing), "on a curve somebody chose", r.opening.easing)
+    expect(!/^(ease|linear)$/.test(r.opening.overlayEasing || ""), "and so is the layer behind it",
+      r.opening.overlayEasing)
+    expect(parseFloat(r.opening.duration) > 0.12 && parseFloat(r.opening.duration) <= 0.4,
+      "long enough to read, short enough not to wait for", r.opening.duration)
   }
 
   console.log(broken === 0 ? "\nIt moves the way it says it does, and nothing moves with it.\n" : `\n${broken} measured wrong.\n`)

@@ -30,6 +30,22 @@ function DialogClose({
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
+/*
+  THE CURVE EVERY MODAL OPENS ON.
+
+  `.animate-in` resolves its timing as var(--tw-ease, ease), and nothing in
+  here was setting --tw-ease, so every dialog in the product ran its zoom and
+  its fade on the browser's plain `ease`. That curve is symmetric: it creeps
+  for the first few frames, which reads as the modal hesitating before it
+  moves even when no frame is late. `ease-sheet` is the curve the phone sheet
+  snaps on, defined once in globals.css, so the whole app arrives the same
+  way.
+
+  The panel also declares what is about to change. A centred dialog animates
+  transform and opacity, both of which the compositor can do on its own, but
+  only once the element is on a layer; without that the shadow underneath is
+  repainted every frame of the zoom.
+*/
 function DialogOverlay({
   className,
   disableDefaultAnimations = false,
@@ -43,7 +59,7 @@ function DialogOverlay({
       className={cn(
         disableDefaultAnimations
           ? 'fixed inset-0 z-[2147483638] bg-black/50'
-          : 'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-[2147483638] bg-black/50',
+          : 'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-[2147483638] bg-black/50 duration-200 ease-sheet transition-none',
         className,
       )}
       {...props}
@@ -174,7 +190,7 @@ function DialogContent({
         className={cn(
           disableDefaultAnimations
             ? 'bg-background fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg sm:max-w-lg overscroll-contain'
-            : 'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg overscroll-contain',
+            : 'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 ease-sheet transition-none [will-change:transform,opacity] sm:max-w-lg overscroll-contain',
           className,
         )}
         {...props}

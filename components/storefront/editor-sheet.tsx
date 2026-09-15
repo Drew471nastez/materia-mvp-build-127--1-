@@ -269,6 +269,26 @@ export function EditorSheet({
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
           "data-[state=open]:duration-300 data-[state=closed]:duration-200",
+          /*
+            The curve, which is the whole difference between this reading as
+            a panel and reading as a box that appears. `.animate-in` uses
+            var(--tw-ease, ease) and nothing was setting it, so both the
+            slide and the fade ran on the browser's symmetric `ease`: slow
+            off the mark, which looks like a dropped frame at the start even
+            when every frame is on time. `ease-sheet` is the curve the phone
+            sheet already snaps on, defined once in globals.css.
+          */
+          "ease-sheet",
+          /*
+            AND NO TRANSITIONS ON TOP OF THE ANIMATION. `transition-property`
+            starts life as `all`, and `duration-300` sets transition-duration
+            as well as the animation's, so the panel was quietly transitioning
+            EVERY property for 300ms alongside its slide. The probe caught it
+            animating `scrollbar-color`. `transition-none` clears the property
+            list; --tw-duration, which is what animate-in actually reads,
+            is untouched.
+          */
+          "transition-none",
           "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
         )}
       >
