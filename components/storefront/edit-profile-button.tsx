@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { EditorSheet } from "@/components/storefront/editor-sheet"
 import type { FocalPoint } from "@/lib/images/use-focal-drag"
+import { useCoverAspect } from "@/components/storefront/use-cover-aspect"
 import { useSavedValues } from "@/lib/store-builder/use-saved-values"
 import { ImageUpload } from "@/components/app/image-upload"
 import { Pencil, Wand2 } from "lucide-react"
@@ -116,6 +117,13 @@ export function EditProfileButton({
     showSocialMedia: display?.showSocialMedia ?? true,
   }))
   const [scheme, setScheme] = React.useState(themePreset)
+
+  /**
+   * The shape of the band on the page behind this drawer, so the frame that
+   * positions the cover crops it the same way the page will. Measured while
+   * the drawer is open; see use-cover-aspect.
+   */
+  const coverAspect = useCoverAspect(open)
 
   /**
    * Reopening shows what is SAVED, not what was abandoned — and not what was
@@ -301,7 +309,7 @@ export function EditProfileButton({
                 replaceOnly
                 allowRemove
                 replaceLabel="Change banner"
-                reposition={cover ? { value: focal, onChange: setFocal } : undefined}
+                reposition={cover ? { value: focal, onChange: setFocal, aspect: coverAspect } : undefined}
               />
             </div>
 

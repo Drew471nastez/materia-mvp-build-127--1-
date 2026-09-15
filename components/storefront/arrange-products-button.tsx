@@ -196,7 +196,7 @@ export function ArrangeProductsButton({
         error={error}
       >
         <p className="text-sm text-muted-foreground">
-          Drag a product by its handle, or use the arrows. This is the order the Products tab shows.
+          Drag a product by its handle, or use the arrows. This is the order both Home and Products show.
         </p>
 
         <ul
@@ -280,5 +280,35 @@ export function ArrangeProductsButton({
         </ul>
       </EditorSheet>
     </>
+  )
+}
+
+/**
+ * ===========================================================================
+ *  THE OWNER'S ROW, ABOVE THE GRID
+ * ===========================================================================
+ * Arrange used to sit in the catalogue header beside the category selector
+ * and the sort control, which put a control that CHANGES the shop in the row
+ * of controls that only change what one visitor is looking at. It also only
+ * existed on the Products tab, so the arrangement governed one of the two
+ * places it was visible.
+ *
+ * Its own row, directly above the grid, on both tabs. Nobody but the owner
+ * ever renders this — the page decides that from the session, and a visitor's
+ * HTML does not contain it.
+ */
+export function ArrangeProductsRow({
+  products,
+  isOwner,
+}: {
+  products: ArrangeableProduct[]
+  /** From the session, on the server. Never a client-side guess. */
+  isOwner?: boolean
+}) {
+  if (!isOwner || products.length < 2) return null
+  return (
+    <div className="mb-4 flex justify-end">
+      <ArrangeProductsButton products={products} />
+    </div>
   )
 }

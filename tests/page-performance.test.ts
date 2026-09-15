@@ -3004,6 +3004,70 @@ check(
   })(),
 )
 
+// ---------------------------------------------------------------------------
+section("The product page does not ask one question at a time")
+// ---------------------------------------------------------------------------
+
+/**
+ * Six queries — the variants, the digital files, the course, the other
+ * products by this seller, the reviews, and who is looking — ran one after
+ * another after the config batch, and not one of them needed anything the
+ * others produced: every one is keyed on `product.id` or `product.creator_id`,
+ * both known before the batch starts.
+ *
+ * The rule is positional rather than textual, because "is it started before
+ * the batch and awaited after it" is exactly the property that makes the
+ * page fast, and a phrase match would go on passing if somebody moved the
+ * `await` back up beside the query.
+ */
+{
+  const src = code("app/(marketing)/p/[slug]/page.tsx")
+  const batch = src.indexOf("] = await Promise.all([")
+
+  check("the product page still batches its four configs", batch > 0)
+
+  for (const name of [
+    "userPromise",
+    "variantsPromise",
+    "moreProductsPromise",
+    "reviewsPromise",
+    "assetsPromise",
+    "coursePromise",
+  ]) {
+    const started = src.indexOf(`const ${name}`)
+    const awaited = src.indexOf(`await ${name}`)
+    check(
+      `${name} is started before the batch and awaited after it`,
+      started > 0 && awaited > started && started < batch,
+      `        started at ${started}, batch at ${batch}, awaited at ${awaited}`,
+    )
+  }
+
+  /**
+   * A Supabase query builder is a thenable that issues nothing until something
+   * calls `then` on it, so `const p = supabase.from(...)` would be a rename
+   * with no effect at all — the request would still be made by the `await`
+   * further down, in series, and this whole section would pass while the page
+   * stayed exactly as slow.
+   */
+  check(
+    "the queries are actually started, not just named",
+    /const start = <T,>\(query: PromiseLike<T>\) => Promise\.resolve\(query\)/.test(src) &&
+      /variantsPromise = start\(/.test(src),
+    "        a bare assignment to a query builder starts no request",
+  )
+
+  /**
+   * The block that reads the user catches everything and leaves the page
+   * logged-out. Started early, a rejection has to be handled where it is
+   * created too, or it is an unhandled rejection before the `await` is reached.
+   */
+  check(
+    "starting the user lookup early cannot become an unhandled rejection",
+    /supabase\.auth\.getUser\(\)\.catch\(/.test(src),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

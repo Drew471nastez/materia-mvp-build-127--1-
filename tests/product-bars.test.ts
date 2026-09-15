@@ -149,8 +149,26 @@ function main() {
   const thumbAt = desktopRow.indexOf("{thumbnail}")
   const titleAt = desktopRow.indexOf("{product.title}")
   check("the picture and the title come first", thumbAt > 0 && titleAt > thumbAt && titleAt < priceAt)
+  /**
+   * THE CHIP IS GONE FROM BOTH ROWS NOW, and this pin says so rather than
+   * being deleted.
+   *
+   * The desktop row lost it first: picture, name, then price beside the
+   * button. The phone row KEPT it, and this check said so — which was the
+   * decision at the time and is not the decision now. A 390px strip led with
+   * a filled chip in the button's own colour and no picture at all: two
+   * coloured pills at either end, opening with a number that had nothing
+   * attached to it, while the desktop bar two breakpoints up opened with the
+   * product.
+   *
+   * So the phone row gets the picture too, and the price moves under the
+   * title. What this pin protects is unchanged — the chip does not come back
+   * on either row, and the price does not go missing with it.
+   */
   check("the chip is not on the desktop row any more", !desktopRow.slice(0, priceAt).includes("priceBadge"))
-  check("the phone row keeps it", /\{priceBadge\(false\)\}/.test(buyBar))
+  check("nor on the phone row", !/priceBadge/.test(buyBar))
+  check("the phone row leads with the picture", /\{thumbnail\}\n\s*<div className="min-w-0">/.test(buyBar))
+  check("and still says the price, under the title", /barPrice\(formatPrice\(product\.price_cents\)/.test(buyBar))
 
   /* Five stars became one; the count is still there. */
   check("one star, not five", !/\[1, 2, 3, 4, 5\]\.map/.test(buyBar))

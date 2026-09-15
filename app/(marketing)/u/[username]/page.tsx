@@ -1034,6 +1034,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                   creatorUsername={profile.username}
                   creatorAvatarUrl={profile.avatar_url}
                   viewerIsOwner={viewerIsOwner}
+                  /* One arrangement, both tabs. See applyManualOrder. */
+                  productsOrder={headerSettings?.productsOrder}
                 />
               ))}
 

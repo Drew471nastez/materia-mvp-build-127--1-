@@ -12,7 +12,7 @@ import * as React from "react"
 import { Package } from "lucide-react"
 import { StorefrontProductCard, type StorefrontCardProduct } from "./storefront-product-card"
 import { CatalogHeader, CategorySelect, SortControl, type SortKey } from "./catalog-controls"
-import { ArrangeProductsButton } from "./arrange-products-button"
+import { ArrangeProductsRow } from "./arrange-products-button"
 
 export type AllProductsGridProduct = StorefrontCardProduct
 
@@ -116,7 +116,6 @@ export function AllProductsGrid({
         {showCategoryFilter && (
           <CategorySelect categories={categories} value={active} onChange={setActive} total={products.length} />
         )}
-        {isOwner && <ArrangeProductsButton products={products} />}
         {products.length > 1 && (
           <>
             <SortControl value={sort} onChange={setSort} compact className="sm:hidden" defaultLabel={hasManualOrder ? "Your order" : undefined} />
@@ -124,6 +123,14 @@ export function AllProductsGrid({
           </>
         )}
       </CatalogHeader>
+
+      {/*
+        The owner's own row, out of the header. Arrange changes the shop for
+        everybody; the category selector and the sort above only change what
+        the person looking is looking at, and the two do not belong in the
+        same row. See ArrangeProductsRow.
+      */}
+      <ArrangeProductsRow products={products} isOwner={isOwner} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
         {shown.map((product) => (

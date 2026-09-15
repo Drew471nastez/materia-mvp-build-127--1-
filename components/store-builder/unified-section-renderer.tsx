@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button"
 import { BadgeCheck, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Download, Facebook, Files, Heart, Infinity, Link2, Mail, Package, Share2, ShoppingBag, Star, Users, X } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { pickFeatured } from "@/lib/store-builder/featured-order"
+import { applyManualOrder, pickFeatured } from "@/lib/store-builder/featured-order"
 import { cn } from "@/lib/utils"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { ProductGallery } from "@/components/product/product-gallery"
@@ -35,6 +35,7 @@ import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { ContactReveal } from "@/components/storefront/contact-reveal"
 import { SocialMediaIcons } from "./social-media-icons"
 import { CatalogHeader } from "@/components/storefront/catalog-controls"
+import { ArrangeProductsRow } from "@/components/storefront/arrange-products-button"
 
 /**
  * The headline this section shipped with. Anything still set to it was never
@@ -125,6 +126,12 @@ export interface UnifiedSectionProps {
   creatorAvatarUrl?: string | null
   // Decided on the server from the session; gates the per-card owner menu.
   viewerIsOwner?: boolean
+  /**
+   * The creator's own arrangement of their catalogue, from
+   * headerSettings.productsOrder. Home and the Products tab render the same
+   * products, so they render them in the same order.
+   */
+  productsOrder?: string[]
   productId?: string
   reviews?: any[]
   reviewsCount?: number
@@ -1305,6 +1312,7 @@ export function UnifiedSectionRenderer({
   creatorUsername,
   creatorAvatarUrl,
   viewerIsOwner,
+  productsOrder,
   productId,
   reviews = [],
   reviewsCount = 0,
@@ -1408,6 +1416,7 @@ export function UnifiedSectionRenderer({
           creatorUsername={creatorUsername}
           creatorAvatarUrl={creatorAvatarUrl}
           viewerIsOwner={viewerIsOwner}
+          productsOrder={productsOrder}
         />
       )}
       {section.type === "more-from-seller" && (
@@ -2287,6 +2296,7 @@ function UnifiedFeaturedProductsSection({
   creatorUsername,
   creatorAvatarUrl,
   viewerIsOwner,
+  productsOrder,
 }: {
   settings: FeaturedProductsSettings
   products?: ProductData[]
@@ -2298,6 +2308,8 @@ function UnifiedFeaturedProductsSection({
   creatorUsername?: string | null
   creatorAvatarUrl?: string | null
   viewerIsOwner?: boolean
+  /** The creator's own arrangement, shared with the Products tab. */
+  productsOrder?: string[]
 }) {
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
   /**
@@ -2355,9 +2367,23 @@ function UnifiedFeaturedProductsSection({
    * be run rather than read: tests/featured-order.test.ts covers the
    * arrangement surviving, an id that no longer resolves, and the empty case.
    */
+  /**
+   * TWO DIFFERENT QUESTIONS, ASKED IN ORDER.
+   *
+   * `productIds` is a SELECTION made in the builder: which products are on
+   * Home at all. `productsOrder` is the arrangement the creator dragged on
+   * the page itself, and it governs the Products tab. Applying the second to
+   * the result of the first means one arrangement serves both tabs, which is
+   * what "arrange my products" means to the person doing it — an Arrange
+   * control on Home that reordered a list only the other tab showed would be
+   * a control that appears not to work.
+   *
+   * Empty `productsOrder` is a no-op, so a creator who has never touched
+   * Arrange still sees their builder selection exactly as it was.
+   */
   const sectionProducts = useMemo(
-    () => pickFeatured(products, settings.productIds),
-    [products, settings.productIds],
+    () => applyManualOrder(pickFeatured(products, settings.productIds), productsOrder),
+    [products, settings.productIds, productsOrder],
   )
 
   /**
@@ -2466,6 +2492,15 @@ function UnifiedFeaturedProductsSection({
               color: settings.colors?.textColor || undefined,
             }}
           />
+
+          {/*
+            THE OWNER'S OWN ROW, the same one the Products tab shows, so the
+            arrangement can be changed from whichever tab the creator happens
+            to be looking at. `isPreviewMode` is deliberately not consulted:
+            this is gated on the session, which the server decided, and it is
+            the one control on this rail that is not for visitors.
+          */}
+          <ArrangeProductsRow products={sectionProducts} isOwner={viewerIsOwner} />
 
           {/*
             THE SAME BREAKPOINTS AS THE PRODUCTS TAB, because they are the same
@@ -2720,6 +2755,7 @@ export function UnifiedShopHeader({
     >
       {showPlaceholder ? (
         <div
+          data-cover-band
           className={cn(
             "relative w-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors",
             isMobile ? "h-32" : "h-48 sm:h-64",
@@ -2741,6 +2777,20 @@ export function UnifiedShopHeader({
         </div>
       ) : coverImageUrl ? (
         <div
+          /**
+           * THE BAND IS THE MEASUREMENT. Its height is fixed and its width is
+           * the page's, so its shape changes with the window: about 3:1 on a
+           * phone and better than 4:1 on a laptop. The editor's positioning
+           * frame was a flat 3:1, so what a creator dragged into place on a
+           * desktop was a crop of a different shape from the one the page
+           * drew, and the picture landed somewhere else.
+           *
+           * An `object-position` crop depends only on the RATIO of the frame
+           * to the image, not on its size, so a small preview of the same
+           * shape shows exactly the crop this band will. Marked here and read
+           * by components/storefront/use-cover-aspect.
+           */
+          data-cover-band
           className={cn("relative w-full overflow-hidden bg-gray-200 group", isMobile ? "h-32" : "h-48 sm:h-64")}
           onClick={!isPreviewMode ? onSelect : undefined}
         >

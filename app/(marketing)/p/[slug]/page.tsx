@@ -261,6 +261,101 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
    * `creatorProfile` is NOT in this batch, and cannot be: it is looked up by
    * `creator.user_id`, which does not exist until the creator row comes back.
    */
+  /**
+   * ===========================================================================
+   *  EVERYTHING THAT ONLY NEEDS THE PRODUCT STARTS NOW
+   * ===========================================================================
+   * The four configs below were batched already, and then the page went back
+   * to asking one question at a time: the variants, the digital files, the
+   * course, the other products by this seller, the reviews, and who is
+   * logged in. SIX MORE ROUND TRIPS, one after another, none of them needing
+   * anything the others produce — every one of them is keyed on `product.id`
+   * or `product.creator_id`, both of which are known by the line above.
+   *
+   * On a server component that is dead time paid before the first byte of
+   * HTML leaves the server, and it is most of "it takes too long to load".
+   * Started here, they overlap; each is still awaited exactly where it was
+   * used, so the logic below is unchanged and reads the same.
+   *
+   * `Promise.resolve`, not a bare assignment. A Supabase query builder is a
+   * thenable that does not issue its request until something calls `then` on
+   * it, so `const p = supabase.from(...)` starts nothing at all and this
+   * would have been a rename with no effect. That is also why the batch below
+   * works: `Promise.all` calls `then` on each one.
+   */
+  const start = <T,>(query: PromiseLike<T>) => Promise.resolve(query)
+
+  /**
+   * Who is looking. The block that reads this catches everything and leaves
+   * the page logged-out, so the catch here keeps that exact behaviour rather
+   * than turning an auth blip into an unhandled rejection.
+   */
+  const userPromise = supabase.auth.getUser().catch(() => ({ data: { user: null } }))
+
+  const variantsPromise = start(
+    supabase
+      .from("product_variants")
+      .select(`
+      id,
+      name,
+      description,
+      price_cents,
+      max_purchases,
+      position,
+      pay_what_you_want,
+      pwyw_min_price_cents,
+      pwyw_suggested_price_cents,
+      product_variant_files (
+        digital_asset_id,
+        digital_assets (
+          id,
+          file_name
+        )
+      )
+    `)
+      .eq("product_id", product.id)
+      .order("position"),
+  )
+
+  const moreProductsPromise = start(
+    supabase
+      .from("products")
+      .select("*")
+      .eq("creator_id", product.creator_id)
+      .eq("status", "published")
+      .neq("id", product.id)
+      .limit(4),
+  )
+
+  const reviewsPromise = start(
+    supabase
+      .from("reviews")
+      .select(`
+      *,
+      buyer:profiles!buyer_id(id, display_name, avatar_url)
+    `)
+      .eq("product_id", product.id)
+      .order("created_at", { ascending: false })
+      .limit(10),
+  )
+
+  /** Only for the kind of product that has them, exactly as before. */
+  const assetsPromise =
+    product.type === "digital"
+      ? start(
+          supabase
+            .from("digital_assets")
+            .select("id, file_name")
+            .eq("product_id", product.id)
+            .order("created_at", { ascending: true }),
+        )
+      : null
+
+  const coursePromise =
+    product.type === "course"
+      ? start(supabase.from("courses").select("id").eq("product_id", product.id).maybeSingle())
+      : null
+
   const [
     { data: creator },
     { data: shopConfig },
@@ -424,7 +519,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   try {
     const {
       data: { user: authUser },
-    } = await supabase.auth.getUser()
+    } = await userPromise
 
     user = authUser
 
@@ -473,8 +568,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     lessons?: Array<{ id: string; title: string }>
   }> | null = null
 
-  if (product.type === "course") {
-    const { data: course } = await supabase.from("courses").select("id").eq("product_id", product.id).maybeSingle()
+  if (coursePromise) {
+    const { data: course } = await coursePromise
 
     if (course) {
       const { data: modules } = await supabase
@@ -501,12 +596,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   // Always query product-level files — no hasPurchased gate.
   // The download API enforces entitlement; exposing file IDs is safe.
-  if (product.type === "digital") {
-    const { data: assets } = await supabase
-      .from("digital_assets")
-      .select("id, file_name")
-      .eq("product_id", product.id)
-      .order("created_at", { ascending: true })
+  if (assetsPromise) {
+    const { data: assets } = await assetsPromise
 
     if (assets && assets.length > 0) {
       firstAssetId = assets[0].id
@@ -517,28 +608,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   // Product Variants (for variant selection)
   // ---------------------------------------------------------------------------
-  const { data: productVariants } = await supabase
-    .from("product_variants")
-    .select(`
-      id,
-      name,
-      description,
-      price_cents,
-      max_purchases,
-      position,
-      pay_what_you_want,
-      pwyw_min_price_cents,
-      pwyw_suggested_price_cents,
-      product_variant_files (
-        digital_asset_id,
-        digital_assets (
-          id,
-          file_name
-        )
-      )
-    `)
-    .eq("product_id", product.id)
-    .order("position")
+  const { data: productVariants } = await variantsPromise
 
   // Transform variants data - price_cents is the FINAL price for the variant
   const variants = productVariants?.map(v => ({
@@ -584,13 +654,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   // More products from seller (for "More from seller" section)
   // ---------------------------------------------------------------------------
-  const { data: moreProducts } = await supabase
-    .from("products")
-    .select("*")
-    .eq("creator_id", product.creator_id)
-    .eq("status", "published")
-    .neq("id", product.id)
-    .limit(4)
+  const { data: moreProducts } = await moreProductsPromise
 
   const moreProductsData: ProductData[] =
     moreProducts?.map((p) => ({
@@ -788,15 +852,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     ? productFaqs
     : (configFaqs.length > 0 ? [...configFaqs, ...defaultFaqs] : defaultFaqs)
 
-  const { data: reviews } = await supabase
-    .from("reviews")
-    .select(`
-      *,
-      buyer:profiles!buyer_id(id, display_name, avatar_url)
-    `)
-    .eq("product_id", product.id)
-    .order("created_at", { ascending: false })
-    .limit(10)
+  const { data: reviews } = await reviewsPromise
 
   const reviewsCount = product.reviews_count || 0
   const reviewsAverage = product.reviews_average || 0

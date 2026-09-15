@@ -60,6 +60,14 @@ interface ImageUploadProps {
   reposition?: {
     value: FocalPoint | null | undefined
     onChange: (next: FocalPoint) => void
+    /**
+     * The shape of the band this picture will really be drawn into, measured
+     * from the page rather than assumed. A crop depends only on the ratio of
+     * the frame to the image, so a frame of the same shape previews it
+     * exactly; a frame of a different shape previews a different picture,
+     * which is what a flat 3:1 here was doing.
+     */
+    aspect?: number
   }
 }
 
@@ -377,8 +385,15 @@ export function ImageUpload({
         {...focal.handlers}
         /* touch-none, or the phone scrolls the sheet instead of moving the
            picture and the control does nothing at all where it matters most. */
-        className={`group relative touch-none select-none overflow-hidden rounded-lg border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${aspectClasses[aspectRatio]}`}
-        style={{ cursor: focal.dragging ? "grabbing" : "grab" }}
+        className={`group relative touch-none select-none overflow-hidden rounded-lg border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
+          reposition.aspect ? "w-full" : aspectClasses[aspectRatio]
+        }`}
+        style={{
+          cursor: focal.dragging ? "grabbing" : "grab",
+          /* The measured shape wins over the class, so this frame and the
+             band on the page crop the picture identically. */
+          ...(reposition.aspect ? { aspectRatio: String(reposition.aspect) } : null),
+        }}
       >
         <Image
           src={value || "/placeholder.svg"}

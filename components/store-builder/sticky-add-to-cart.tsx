@@ -100,6 +100,33 @@ function barThumbnail(src: string | null | undefined, isDarkBg: boolean) {
 }
 
 /*
+  THE PRICE, UNDER THE TITLE, ON A PHONE.
+
+  The phone row led with a filled price chip in the button's own colour and no
+  picture: two coloured pills at either end of a 390px strip, and the first
+  thing in the bar was a number with nothing attached to it. The desktop row
+  had settled this already — the product's picture, its name, then the price
+  beside the button.
+
+  So the phone gets the picture too, and the price moves under the title where
+  the rating already sits on a desktop. It reads as one block about one
+  product, and it buys back the whole width of the chip for the title.
+*/
+function barPrice(text: string, textColor: string | undefined, isDarkBg: boolean) {
+  return (
+    <span
+      className={cn(
+        "mt-0.5 block text-[13px] font-semibold leading-none tabular-nums",
+        !textColor && (isDarkBg ? "text-gray-200" : "text-gray-900"),
+      )}
+      style={{ color: textColor || undefined }}
+    >
+      {text}
+    </span>
+  )
+}
+
+/*
   ONE STAR AND THE NUMBER, under the title. It was five stars beside the
   button: a second row of graphics in a strip 60px tall, where a filled star
   with the average next to it says the same thing in a quarter of the room.
@@ -194,22 +221,6 @@ export function EditorStickyAddToCart({
     An arrow component declared in a render body is a new type every render,
     so React remounts its whole subtree each time instead of updating it.
   */
-  const priceBadge = (
-    <span
-      className={cn(
-        "font-bold shrink-0",
-        isMobile ? "px-3 py-1 text-sm" : "px-3.5 py-1.5 text-[15px]"
-      )}
-      style={{
-        backgroundColor: settings.buttonColor || "#2563eb",
-        color: settings.buttonTextColor || "#ffffff",
-        borderRadius: `${settings.borderRadius || 8}px`,
-      }}
-    >
-      {formatPrice(product.price_cents)}
-    </span>
-  )
-
   const isDarkBg = settings.backgroundColor && (
     settings.backgroundColor.startsWith("#0") ||
     settings.backgroundColor.startsWith("#1") ||
@@ -249,11 +260,14 @@ export function EditorStickyAddToCart({
         {/* The live bar's desktop row, so the creator is looking at what a
             visitor looks at. See the note on it in LiveStickyAddToCart. */}
         <div className={cn("flex items-center min-w-0 flex-1", isMobile ? "gap-3" : "gap-3.5")}>
-          {isMobile ? priceBadge : thumbnail}
+          {thumbnail}
           {isMobile ? (
-            <p className="text-sm font-medium truncate" style={{ color: contentTextColor }}>
-              {product.title}
-            </p>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium leading-tight" style={{ color: contentTextColor }}>
+                {product.title}
+              </p>
+              {barPrice(formatPrice(product.price_cents), contentTextColor, !!isDarkBg)}
+            </div>
           ) : (
             <div className="min-w-0">
               <p
@@ -483,22 +497,6 @@ export function LiveStickyAddToCart({
     An arrow component declared in a render body is a new type every render,
     so React remounts its whole subtree each time instead of updating it.
   */
-  const priceBadge = (isDesktop = false) => (
-    <span
-      className={cn(
-        "font-bold shrink-0",
-        isDesktop ? "px-3.5 py-1.5 text-[15px]" : "px-3 py-1 text-sm"
-      )}
-      style={{
-        backgroundColor: settings.buttonColor || "#2563eb",
-        color: settings.buttonTextColor || "#ffffff",
-        borderRadius: `${settings.borderRadius || 8}px`,
-      }}
-    >
-      {formatPrice(product.price_cents)}
-    </span>
-  )
-
   const isDarkBg = settings.backgroundColor && (
     settings.backgroundColor.startsWith("#0") ||
     settings.backgroundColor.startsWith("#1") ||
@@ -541,13 +539,19 @@ export function LiveStickyAddToCart({
       >
         <div className="mx-auto w-full flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            {priceBadge(false)}
-            <p
-              className="text-sm font-medium truncate"
-              style={{ color: contentTextColor }}
-            >
-              {product.title}
-            </p>
+            {/*
+              THE PICTURE, THE NAME, THEN THE PRICE UNDER IT — the same row
+              the desktop bar settled on, at phone size. It was a coloured
+              price chip and a title, so the bar that follows somebody down a
+              product page opened with a number and no product. See barPrice.
+            */}
+            {thumbnail}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium leading-tight" style={{ color: contentTextColor }}>
+                {product.title}
+              </p>
+              {barPrice(formatPrice(product.price_cents), contentTextColor, !!isDarkBg)}
+            </div>
           </div>
           <Button
             type="button"
