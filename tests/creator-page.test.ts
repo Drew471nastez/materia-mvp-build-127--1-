@@ -461,10 +461,15 @@ function main() {
      * because the header line shows the same address and two copies of a
      * fallback are two things to keep in step.
      */
+    /*
+      The ORDER is still the rule and it still lives in one expression. The
+      name changed: what that expression produces is now what the page shows
+      TO A BUYER, and `publicContactEmail` is that value after the purchase
+      gate. See tests/contact-gate.test.ts for the gate itself.
+    */
     check(
       "the typed address wins and the account's only stands in",
-      page.includes("const publicContactEmail = headerSettings.contactEmail || profile.email || undefined") &&
-        page.includes("sellerContactEmail={publicContactEmail}"),
+      page.includes("const resolvedContactEmail = headerSettings.contactEmail || profile.email || undefined"),
     )
     check("and the login address is never written as the contact address", !/contactEmail\s*=\s*(user|profile)\.email/.test(api))
   }
@@ -994,7 +999,7 @@ function main() {
      */
     check(
       "and it is resolved once for the whole page",
-      /const publicContactEmail = headerSettings\.contactEmail \|\| profile\.email \|\| undefined/.test(page) &&
+      /const resolvedContactEmail = headerSettings\.contactEmail \|\| profile\.email \|\| undefined/.test(page) &&
         (page.match(/headerSettings\.contactEmail \|\| profile\.email/g) ?? []).length === 1,
     )
     /**

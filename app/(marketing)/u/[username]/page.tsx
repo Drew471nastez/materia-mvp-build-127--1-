@@ -1,4 +1,5 @@
 import type React from "react"
+import { hasBoughtFromCreator } from "@/lib/commerce/has-bought-from-creator"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -626,7 +627,35 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      * line and the About block would have come to show different addresses
      * the first time either expression was edited.
      */
-    const publicContactEmail = headerSettings.contactEmail || profile.email || undefined
+    /**
+     * =====================================================================
+     *  ONLY THE PEOPLE WHO BOUGHT SOMETHING GET THE ADDRESS
+     * =====================================================================
+     * It was on the page for everyone, which makes a creator's inbox a
+     * public address the moment they open a shop. The people with a reason
+     * to write to a seller are the people who bought from them, and that is
+     * a question the database can answer.
+     *
+     * GATED HERE, WHERE THE VALUE IS RESOLVED, RATHER THAN WHERE IT IS
+     * DRAWN. This runs on the server, so an address a visitor may not have
+     * is never put into the page — not hidden in it. Hiding it with a class
+     * leaves it in the HTML for anyone who looks, which is not a gate.
+     *
+     * THE FALLBACK STAYS, AND IT IS WORTH KNOWING WHAT IT IS. With no typed
+     * address this uses the account's, which is the owner's explicit call —
+     * a creator page with nowhere to be reached was the thing they did not
+     * want. It is the address that resets their password, so it reaches a
+     * narrower audience now than it did: buyers rather than the internet.
+     * Removing it is a separate decision from this one and not mine to make.
+     *
+     * The owner sees their own, so they can tell what is set from the page
+     * itself rather than by opening the editor.
+     */
+    const resolvedContactEmail = headerSettings.contactEmail || profile.email || undefined
+    const viewerBought = viewerIsOwner
+      ? true
+      : await hasBoughtFromCreator(supabase, viewer?.id, creator.id)
+    const publicContactEmail = viewerBought ? resolvedContactEmail : undefined
     const globalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
     /**
      * ONE RESOLUTION FOR THE WHOLE OF THE CHROME.
