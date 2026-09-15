@@ -185,7 +185,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           // farm that files one decoy listing to buy its way in still does not.
           if (!deservesIndexing({ publishedProducts: 1, handle: seller.username })) continue
           routes.push({
-            url: `${BASE}/u/${seller.username}`,
+            url: `${BASE}/${seller.username}`,
             lastModified: new Date(seller.updated_at),
             changeFrequency: "weekly",
             priority: 0.6,

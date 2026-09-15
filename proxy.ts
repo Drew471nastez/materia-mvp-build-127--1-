@@ -556,6 +556,36 @@ export async function proxy(request: NextRequest) {
   }
 
   /**
+   * ── One address for a creator's page ──────────────────────────────────────
+   *
+   * `storelib.com/<handle>` is the creator page and `<handle>.storelib.com`
+   * is the website they built. Neither carries a prefix, and `/u/<handle>` is
+   * the old spelling of the first one.
+   *
+   * It keeps working for ever — shared links, bookmarks and everything a
+   * search engine has already indexed — by redirecting here, permanently, so
+   * the two spellings consolidate onto one rather than competing as duplicate
+   * content. 308 rather than 301 so a POST is not silently turned into a GET.
+   *
+   * IT MUST BE SCOPED TO THE MAIN DOMAIN, and that is the whole subtlety. The
+   * subdomain branch below REWRITES `<handle>.storelib.com` to `/u/<handle>`
+   * internally when a creator has no published website. A redirect written
+   * without this guard would catch that rewrite and bounce every one of those
+   * visitors to the apex, so the subdomain would stop serving anything.
+   * `request.nextUrl.pathname` here is still what the BROWSER asked for,
+   * because this runs before any rewriting.
+   */
+  if (bareHost === MAIN_DOMAIN && (pathname === "/u" || pathname.startsWith("/u/"))) {
+    const handle = pathname.slice(3)
+    /* `/u` and `/u/` alone are not a creator; they belong to the platform. */
+    if (handle) {
+      const to = request.nextUrl.clone()
+      to.pathname = `/${handle}`
+      return NextResponse.redirect(to, { status: 308 })
+    }
+  }
+
+  /**
    * ── Published sites ───────────────────────────────────────────────────────
    *
    * FIRST, before anything else touches the request. Nothing below this point

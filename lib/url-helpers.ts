@@ -56,7 +56,7 @@ export function getStoreUrl(username: string): string {
   // which loses the native auth session (SharedPreferences are app-scoped,
   // but navigating to a subdomain reloads the page under a different origin).
   if (isNativeApp()) {
-    return `/u/${sanitizedUsername}`
+    return `/${sanitizedUsername}`
   }
 
   const mainDomain = getMainDomain()
@@ -202,14 +202,30 @@ export function getProductShareUrl(username: string, productSlug: string): strin
 }
 
 /**
- * Get relative path for internal navigation (used in Next.js Link components)
- * This is for navigating within the app (not for sharing external links)
+ * ===========================================================================
+ *  A CREATOR'S PAGE IS storelib.com/<handle>
+ * ===========================================================================
+ * Two addresses, two things, and neither of them carries a prefix:
+ *
+ *   <handle>.storelib.com   the WEBSITE they built in the website builder
+ *   storelib.com/<handle>   their creator PAGE
+ *
+ * The bare path has rendered the creator page since app/(marketing)/[sellername]
+ * was added — but nothing linked to it. Every internal link came through here
+ * and said `/u/<handle>`, so the pretty address existed and no one ever saw
+ * it. This is the one place that decides, so changing it moves every link on
+ * the platform at once.
+ *
+ * `/u/<handle>` still works and always will: it is a permanent redirect now
+ * (see the note in app/(marketing)/u/[username]/page), so shared links,
+ * bookmarks and anything already indexed keep resolving and consolidate onto
+ * the canonical address rather than splitting between two.
  *
  * @param username - The seller's username
- * @returns Relative path like "/u/username"
+ * @returns Relative path like "/username"
  */
 export function getStoreInternalPath(username: string): string {
-  return `/u/${username}`
+  return `/${username}`
 }
 
 /**

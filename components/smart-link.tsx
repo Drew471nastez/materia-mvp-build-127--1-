@@ -33,7 +33,7 @@ function toInternalHref(href: string): string {
     const path = url.pathname
 
     // sellername.storelib.com/ -> /u/sellername
-    if (path === "/" || path === "") return `/u/${username}`
+    if (path === "/" || path === "") return `/${username}`
 
     // sellername.storelib.com/links -> /l/username
     if (path === "/links" || path === "/links/") return `/l/${username}`

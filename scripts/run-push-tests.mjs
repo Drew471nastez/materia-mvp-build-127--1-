@@ -47,6 +47,7 @@ const SUITES = [
   "tests/catalog-order.test.ts",
   "tests/sheet-controls.test.ts",
   "tests/product-media.test.ts",
+  "tests/creator-url.test.ts",
   "tests/theme-presets.test.ts",
   "tests/sheet-reserve.test.ts",
   "tests/featured-order.test.ts",

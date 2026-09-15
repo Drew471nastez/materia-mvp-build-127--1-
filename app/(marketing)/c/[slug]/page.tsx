@@ -37,11 +37,11 @@ export default async function CreatorPage({ params }: CreatorPageProps) {
     .single()
 
   if (creator?.profile?.username) {
-    redirect(`/u/${creator.profile.username}`)
+    redirect(`/${creator.profile.username}`)
   }
 
   // Fallback to the slug as username
-  redirect(`/u/${slug}`)
+  redirect(`/${slug}`)
 
   // Fetch creator with profile
   // const { data: creator } = await supabase

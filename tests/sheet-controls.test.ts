@@ -151,15 +151,32 @@ check(
     "inside the Android app navigator.vibrate works and was never reached",
   )
 
-  /* The reason the fallback matters. If this ever stops being true, the
-     fallback is merely belt and braces rather than the only thing working. */
+  /**
+   * AND THE PLUGIN IS ACTUALLY IN THE APP PROJECTS.
+   *
+   * The fallback above makes Android work through the web API, but on iOS
+   * there is no web vibration API to fall back to — in Safari or in WKWebView
+   * — so the Taptic Engine is reachable only through this plugin. It has to be
+   * declared in each native project or the bridge answers "not implemented".
+   *
+   * Three lines, matching the existing entries exactly. Note the Android path
+   * style: the flat `node_modules/@capacitor/...` form, NOT the pnpm-hashed
+   * one `cap sync` generates — that encodes a lockfile-specific directory and
+   * breaks the build on any other install.
+   */
   const podfile = readFileSync(join(root, "ios/App/Podfile"), "utf8")
-  const androidPlugins = readFileSync(join(root, "android/capacitor.settings.gradle"), "utf8")
-  const iosHasHaptics = /CapacitorHaptics/.test(podfile)
-  const androidHasHaptics = /capacitor-haptics/.test(androidPlugins)
-  console.log(
-    `        (native haptics plugin — iOS: ${iosHasHaptics ? "installed" : "NOT installed"}, ` +
-      `Android: ${androidHasHaptics ? "installed" : "NOT installed"})`,
+  const androidSettings = readFileSync(join(root, "android/capacitor.settings.gradle"), "utf8")
+  const androidBuild = readFileSync(join(root, "android/app/capacitor.build.gradle"), "utf8")
+  check("iOS declares the haptics pod", /pod 'CapacitorHaptics'/.test(podfile))
+  check(
+    "Android includes the haptics project",
+    /include ':capacitor-haptics'/.test(androidSettings) &&
+      /implementation project\(':capacitor-haptics'\)/.test(androidBuild),
+  )
+  check(
+    "and no plugin path was rewritten to a pnpm-specific directory",
+    !/node_modules\/\.pnpm/.test(androidSettings),
+    "cap sync writes those, and they break on any other install",
   )
 }
 check(

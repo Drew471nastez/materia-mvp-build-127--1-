@@ -166,7 +166,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
       images: socialPreviewImage ? [socialPreviewImage] : undefined,
     },
     alternates: {
-      canonical: `https://storelib.com/u/${username}`,
+      canonical: `https://storelib.com/${username}`,
     },
     /**
      * ═══════════════════════════════════════════════════════════════════════
@@ -277,7 +277,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       .maybeSingle()
 
     if (historyRecord?.new_username) {
-      redirect(`/u/${historyRecord.new_username}`)
+      redirect(`/${historyRecord.new_username}`)
     }
 
     notFound()
@@ -885,7 +885,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       mainEntity: {
         "@type": "Person",
         name: profile.display_name || username,
-        url: `https://storelib.com/u/${username}`,
+        url: `https://storelib.com/${username}`,
         ...(profile.avatar_url ? { image: profile.avatar_url } : {}),
       },
     }
@@ -1232,7 +1232,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     mainEntity: {
       "@type": "Person",
       name: profile.display_name || username,
-      url: `https://storelib.com/u/${username}`,
+      url: `https://storelib.com/${username}`,
       ...(profile.avatar_url ? { image: profile.avatar_url } : {}),
     },
   }

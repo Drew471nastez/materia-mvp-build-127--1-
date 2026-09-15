@@ -10,6 +10,13 @@ def capacitor_pods
   pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
   pod 'CapacitorPushNotifications', :path => '../../node_modules/@capacitor/push-notifications'
   pod 'CapacitorCamera', :path => '../../node_modules/@capacitor/camera'
+  # Haptics: the Taptic Engine is the only way to produce feedback on iOS —
+  # navigator.vibrate does not exist in Safari or in WKWebView. lib/native-bridge
+  # calls this through hapticTap() and falls back to the web API when the plugin
+  # is absent, which on iOS means silence.
+  #
+  # Run `pod install` in ios/App after pulling this, then rebuild.
+  pod 'CapacitorHaptics', :path => '../../node_modules/@capacitor/haptics'
 end
 
 target 'App' do

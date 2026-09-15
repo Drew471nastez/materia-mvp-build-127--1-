@@ -871,7 +871,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // Also avoids the aggressive sanitisation in getStoreUrl() (which strips
   // underscores etc.) — the raw DB username is the safest key for the ilike lookup
   // in the creator profile route.
-  const creatorStoreUrl = creatorUsername ? `/u/${creatorUsername}` : "#"
+  const creatorStoreUrl = creatorUsername ? `/${creatorUsername}` : "#"
 
   // Check if a URL is a YouTube thumbnail (used for product listings only, not gallery display)
   const isYouTubeThumbnailUrl = (url: string | null) => {

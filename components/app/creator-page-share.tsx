@@ -63,8 +63,8 @@ export function CreatorPageShare({
   const [domain, setDomain] = useState<Domain | null>(null)
   const [domainsChecked, setDomainsChecked] = useState(false)
 
-  const path = `/u/${encodeURIComponent(handle)}`
-  const display = `storelib.com/u/${handle}`
+  const path = `/${encodeURIComponent(handle)}`
+  const display = `storelib.com/${handle}`
   const absolute = typeof window === "undefined" ? display : `${window.location.origin}${path}`
 
   /* Asked for only when the card is opened: nobody needs this on page load. */
