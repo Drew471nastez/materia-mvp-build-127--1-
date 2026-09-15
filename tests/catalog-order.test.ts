@@ -133,6 +133,18 @@ check(
   "Home shows it too",
   /<ArrangeProductsRow products=\{sectionProducts\} isOwner=\{viewerIsOwner\}/.test(renderer),
 )
+/**
+ * ONE LEFT EDGE. Right-aligned, the button's right edge sat on the grid
+ * CONTAINER's, which on a multi-column grid is not the edge of any card, and
+ * nothing at all shared its line — the heading was hard left with the whole
+ * row between them. scripts/check-arrange-row measures the three left edges
+ * at three widths; this only guards the class that decides it.
+ */
+check(
+  "the row is flush left, with the heading and the first card",
+  /<div className="mb-4 flex">/.test(arrange),
+  "justify-end puts it on an edge nothing else on the tab is on",
+)
 check(
   "and it is out of the row that holds the category and sort controls",
   !/<CatalogHeader[\s\S]*?ArrangeProducts[\s\S]*?<\/CatalogHeader>/.test(grid),

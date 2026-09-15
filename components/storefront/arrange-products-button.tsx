@@ -307,7 +307,17 @@ export function ArrangeProductsRow({
 }) {
   if (!isOwner || products.length < 2) return null
   return (
-    <div className="mb-4 flex justify-end">
+    /*
+      LEFT, NOT RIGHT.
+
+      Right-aligned, this was a filled dark button alone on a row with nothing
+      beside it: its right edge lined up with the grid's, three inches from the
+      heading, and it read as something that had come loose rather than as a
+      control. Flush left it shares an edge with the heading above it and with
+      the first card below it, which is the line everything else on the tab is
+      already on.
+    */
+    <div className="mb-4 flex">
       <ArrangeProductsButton products={products} />
     </div>
   )
