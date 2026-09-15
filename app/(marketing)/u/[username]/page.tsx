@@ -677,12 +677,28 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      * narrower audience now than it did: buyers rather than the internet.
      * Removing it is a separate decision from this one and not mine to make.
      *
-     * The owner sees their own, so they can tell what is set from the page
-     * itself rather than by opening the editor.
+     * NO EXCEPTION FOR THE OWNER, AND THAT IS THE POINT. It had one, so
+     * that a creator could tell from the page what was set. What actually
+     * happened is that the page showed the owner a Contact link no visitor
+     * could see, and the owner reported the gate as broken — which is the
+     * failure mode of every owner-only preview of a hidden thing. A creator
+     * looking at their own page sees what a visitor sees.
+     *
+     * Where they check the address is the editor, next to the field they
+     * typed it into, which is the only place it can be both visible and
+     * unambiguous.
      */
     const resolvedContactEmail = headerSettings.contactEmail || profile.email || undefined
-    /* Resolved with the batch above, not awaited here. */
-    const viewerBought = viewerIsOwner || viewerBoughtFromCreator
+    /*
+      NO EXCEPTION FOR THE OWNER, which is #204's call and stands: an
+      owner-only preview of a hidden thing showed them a Contact link no
+      visitor could see, and that got reported as the gate being broken.
+
+      Resolved with the batch above rather than awaited on this line, which
+      is the only part of that change kept here: the question is the same one
+      for everybody, it just stopped costing a round trip of its own.
+    */
+    const viewerBought = viewerBoughtFromCreator
     const publicContactEmail = viewerBought ? resolvedContactEmail : undefined
     const globalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
     /**

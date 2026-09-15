@@ -19,7 +19,7 @@ createRoot(document.getElementById("app")!).render(
   <div /* Inter by name: --font-inter is set by a class next/font puts on <html>,
      which a bare harness does not have. */
     style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-    {[400, 450, 500].map((w) => (
+    {[400, 450, 500, 530].map((w) => (
       <p key={w} data-weight={w} style={{ fontWeight: w, fontSize: 15, margin: 0, display: "inline-block" }}>
         {SAMPLE}
       </p>
@@ -31,5 +31,8 @@ createRoot(document.getElementById("app")!).render(
     <div data-line="meta" className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-5 font-[450] mt-3 text-[13px]">
       <span>2 followers</span>
     </div>
+    {/* The tab row, as storefront-tabs sets it. */}
+    <span data-tab="rest" className="font-[450] text-sm">Products</span>
+    <span data-tab="selected" className="font-[530] text-sm">Home</span>
   </div>,
 )

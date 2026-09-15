@@ -1847,6 +1847,17 @@ function main() {
      * round to 400 with nothing to show for it.
      */
     check("Inter is still loaded as the variable face", !/Inter\(\{[^}]*weight:/.test(code("app/layout.tsx")))
+
+    /**
+     * AND HALF A STEP ON THE TAB ROW, for the same reason: at 400 next to a
+     * name set large it reads as a caption of the page rather than as the
+     * way around it. Both weights move, so the selected tab stays clearly
+     * ahead of the others.
+     */
+    const tabs = code("components/storefront/storefront-tabs.tsx")
+    check("the selected tab is half a step above medium", /font-\[530\] text-foreground/.test(tabs))
+    check("and the rest half a step above regular", /font-\[450\] text-muted-foreground/.test(tabs))
+    check("neither is left at a whole step", !/selected \? "font-medium text-foreground" : "text-muted-foreground/.test(tabs))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
