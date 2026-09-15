@@ -1,3 +1,5 @@
+import { revalidateTag } from "next/cache"
+import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { defaultShopPageConfig, defaultProductPageConfig } from "@/lib/store-builder/defaults"
@@ -464,6 +466,16 @@ export async function PUT(request: Request) {
   }
 
   console.log("[v0] Creator found for publish", { creatorId: creator.id })
+
+  /*
+    THE SHOP'S PAGES ARE CACHED BETWEEN VISITORS NOW, so publishing has to
+    say so. Without this a creator publishes, reloads, and sees the old page
+    until the 60-second backstop expires — which is indistinguishable from a
+    publish that did nothing, and this codebase has had that bug reported
+    before. lib/commerce/product-page-cache.ts.
+  */
+  revalidateTag(creatorTag(creator.id), "max")
+  if (productId) revalidateTag(productTag(productId), "max")
 
   if (productId && pageType === "product") {
     console.log("[v0] Publishing product-specific config", { productId, creatorId: creator.id })
