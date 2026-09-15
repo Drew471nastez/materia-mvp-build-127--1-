@@ -177,36 +177,43 @@ function main() {
   /* ---------------------------------------------------------------------
      2b. THE BUY CARD FOLLOWS THE PAGE DOWN, AND THEN STOPS
      --------------------------------------------------------------------- */
-  console.log("\n  the buy card follows the page down")
+  console.log("\n  the buy card stays where it is")
 
   /*
-    It said `sticky` for a long time without being sticky. The grid sets
-    `lg:items-start`, so the card's column shrank to the card's own height
-    and a sticky box in a box its own size has nowhere to travel — measured
-    at 320px around a 320px card, scrolling away with the page at 600px down.
-    scripts/check-buy-card-sticky.mjs is the measurement; these are the two
+    IT WAS STICKY FOR THREE ROUNDS AND IS NOT ANY MORE.
+
+    Sticking needed three things that had nothing to do with the card itself:
+    the column stretched so there was somewhere to travel, the questions moved
+    into a grid row of their own so the travel had an end, and the creator bar
+    publishing its own measured height so the card could pin clear of it. All
+    three are guarded here, because a `sticky` nobody meant is not a crash —
+    the page renders, everything passes, and a card quietly starts following
+    the reader down the page again.
+
+    scripts/check-buy-card.mjs is the measurement in a browser; these are the
     lines it depends on.
   */
+  check("the card carries no position class", /className="rounded-xl border p-6 shadow-sm relative z-20"/.test(productPage))
+  check("nothing in the page is sticky at a bar's height", !/sticky top-\[calc\(var\(--product-topbar-h/.test(productPage))
+  check("and its column is not stretched", !/lg:self-stretch/.test(productPage))
   check("the grid still aligns its columns to the top", /lg:items-start/.test(productPage))
-  check("so the buy card's column is told to stretch", /hidden lg:block lg:col-span-2 lg:self-stretch/.test(productPage))
-  check("and the card is sticky", /className="sticky top-\[calc\(var\(--product-topbar-h,0px\)\+1\.5rem\)\]/.test(productPage))
-  check("pinned clear of the bar rather than at a bare 24px", !/className="sticky top-6 rounded-xl/.test(productPage))
 
-  /*
-    AND IT LETS GO AT THE QUESTIONS. The FAQ used to be the last thing in the
-    left column, which made the grid a single row as tall as the whole page:
-    the card stopped, but only at the very bottom of the FAQ, which reads as
-    never stopping. As its own row it keeps its width and its place and the
-    row above it ends where the description does.
-  */
-  check("the questions are their own grid row", /<div className="lg:col-span-3 min-w-0 w-full">\s*\n\s*<div data-faq-section>/.test(productPage))
-  check("so two things span three columns, not one", (productPage.match(/className="lg:col-span-3 min-w-0 w-full"/g) || []).length === 2)
-  check("and they no longer carry their own top margin", !/className="mt-8 sm:mt-10" data-faq-section/.test(productPage))
+  /* The questions went back where they were. */
+  check("the questions are inside the left column again", /<div className="mt-8 sm:mt-10" data-faq-section>/.test(productPage))
+  check("so one thing spans three columns, not two", (productPage.match(/className="lg:col-span-3 min-w-0 w-full"/g) || []).length === 1)
+
+  /* And the bar stopped measuring itself for a card that no longer reads it. */
+  check("the bar no longer publishes its height", !/setProductTopBarHeight/.test(topBar))
+  check("nor observes itself for it", !/new ResizeObserver\(measure\)/.test(topBar))
+  const store = read("lib/store-builder/product-top-bar.ts")
+  check("and the store no longer offers it", !/setProductTopBarHeight|HEIGHT_VAR/.test(store))
+  /* What the store IS still for: the two bars not showing at once. */
+  check("it still answers whether the top bar is showing", /export function useProductTopBarShown/.test(store))
 
   /* The card names what it is selling, above the price. */
   check(
     "the buy card leads with the product's title",
-    /<h1\s+className="mb-2 text-xl font-semibold leading-snug break-words"[\s\S]{0,160}\{product\.title\}/.test(productPage),
+    /<h1\s+className="mb-2 text-2xl font-semibold leading-snug break-words"[\s\S]{0,160}\{product\.title\}/.test(productPage),
   )
 
   /*
@@ -231,21 +238,18 @@ function main() {
   const titleHeadings = (withoutComments.match(/<h1[\s\S]{0,300}?\{product\.title\}/g) || []).length
   check("two headings in the source, one per breakpoint", titleHeadings === 2, `found ${titleHeadings}`)
 
-  /* The price is what the card is for, and it got bigger to say so. */
-  check("the price is 36px, not 30", /className="text-4xl font-bold tracking-tight"/.test(productPage))
-  check("and the old size is gone", !/className="text-3xl font-bold"\n\s*style=\{\{ color: themeColors\.cardTextColor/.test(productPage))
-  const cardAt = productPage.indexOf('className="sticky top-[calc(var(--product-topbar-h,0px)+1.5rem)]')
+  /*
+    THE NAME LEADS AND THE PRICE ANSWERS IT. The card's line has been 14px,
+    then 20px against a 36px price, which read as a big number with a caption
+    over it. 24 and 30 now.
+  */
+  check("the title is 24px", /className="mb-2 text-2xl font-semibold leading-snug break-words"/.test(productPage))
+  check("the price is back to 30px", /className="text-3xl font-bold tracking-tight"/.test(productPage))
+  check("and not the 36 it went to", !/text-4xl font-bold tracking-tight/.test(productPage))
+  const cardAt = productPage.indexOf('className="rounded-xl border p-6 shadow-sm relative z-20"')
   const cardTitleAt = productPage.indexOf("{product.title}", cardAt)
   const cardPriceAt = productPage.indexOf("{product.price_cents === 0 ? \"Free\" : formatPrice(product.price_cents)}", cardAt)
   check("above the price rather than under it", cardAt > 0 && cardTitleAt > cardAt && cardPriceAt > cardTitleAt)
-
-  /* The offset is the bar's own measured height, published once. */
-  check("the bar measures itself", /const measure = \(\) => setProductTopBarHeight\(node\.getBoundingClientRect\(\)\.height\)/.test(topBar))
-  check("and keeps measuring as the window changes it", /new ResizeObserver\(measure\)/.test(topBar))
-  check("a page with no bar clears the number rather than leaving a stale one", /observer\.disconnect\(\)\s*\n\s*setProductTopBarHeight\(null\)/.test(topBar))
-  const store = read("lib/store-builder/product-top-bar.ts")
-  check("null removes the property instead of writing NaN", /root\.style\.removeProperty\(HEIGHT_VAR\)/.test(store))
-  check("and a nonsense height is treated as none", /!Number\.isFinite\(px\) \|\| px <= 0/.test(store))
 
   /* ---------------------------------------------------------------------
      3. A CHEVRON, NOT A GREY FILL
