@@ -3077,8 +3077,24 @@ export function UnifiedShopHeader({
           {profile?.username && (
             <p
               className={cn(
-                "mt-0.5 break-words max-w-full px-4",
-                isMobile ? "text-xs" : "text-sm",
+                "mt-0.5 break-words max-w-full px-4 font-[450]",
+                /*
+                A PIXEL AND HALF A WEIGHT STEP.
+
+                These three lines — the handle, the bio, the meta row — were
+                12/14px at 400, which is the size the rest of the app uses
+                for text that sits BESIDE something. On a profile they are
+                not beside anything; they are the middle of the page, under
+                a name set large, and at that size they read as a caption of
+                the name rather than as the page.
+
+                One pixel and 450. Inter comes through next/font with no
+                weight list, which is the variable face, so 450 is a real
+                weight here and not a round to 400 — scripts/check-profile-type.mjs
+                measures that rather than trusting it. Any more of either and
+                it stops being the quiet line under the name.
+                */
+                isMobile ? "text-[13px]" : "text-[15px]",
                 !subduedColor && "text-muted-foreground",
               )}
               style={{ color: subduedColor }}
@@ -3110,11 +3126,13 @@ export function UnifiedShopHeader({
             <div className="relative group/bio inline-flex items-center justify-center">
               <p
                 className={cn(
-                  "max-w-xl break-words px-4",
+                  "max-w-xl break-words px-4 font-[450]",
                   // Tighter than it was (mt-4 / mt-6): the meta row underneath
                   // used to be two separately-margined blocks, and the column
                   // read as a series of unrelated islands.
-                  isMobile ? "mt-3 text-xs" : "mt-4 text-sm",
+                  // A pixel up from 12/14, and half a weight step: see the
+                  // note on the handle above.
+                  isMobile ? "mt-3 text-[13px]" : "mt-4 text-[15px]",
                   !subduedColor && "text-muted-foreground",
                 )}
                 style={{ color: subduedColor }}
@@ -3258,8 +3276,11 @@ export function UnifiedShopHeader({
                     One step more than its siblings, because the others wrap
                     mid-sentence and this one cannot break inside an icon.
                   */
-                  "flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-5",
-                  isMobile ? "mt-3 text-xs" : "mt-4 text-sm",
+                  "flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-5 font-[450]",
+                  // Same pixel and same half step as the two lines above it,
+                  // so the three read as one block rather than as a caption
+                  // with a footnote.
+                  isMobile ? "mt-3 text-[13px]" : "mt-4 text-[15px]",
                   !subduedColor && "text-muted-foreground",
                 )}
                 style={{ color: subduedColor }}
