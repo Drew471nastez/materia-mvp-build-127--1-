@@ -1814,6 +1814,36 @@ function main() {
     check("through a helper that can be run rather than read", existsSync(join(root, "lib/store-builder/featured-order.ts")))
   }
 
+  /* ------------------------------------------------------------------ */
+  {
+    /**
+     * A PIXEL AND HALF A WEIGHT STEP, ON THE THREE LINES UNDER THE NAME.
+     *
+     * The handle, the bio and the meta row were 12/14px at 400 — the size
+     * the rest of the app uses for text that sits BESIDE something. On a
+     * profile they are the middle of the page, under a name set large, and
+     * at that size they read as a caption of the name rather than as the
+     * page. One pixel up and 450.
+     *
+     * scripts/check-profile-type.mjs is what proves 450 is a real weight
+     * rather than a round to 400: Inter comes through next/font as the
+     * variable face, and the same string at 400, 450 and 500 has to get
+     * wider each time.
+     */
+    const renderer = code("components/store-builder/unified-section-renderer.tsx")
+    const at = (n: number) => (renderer.match(new RegExp(`text-\\[${n}px\\]`, "g")) ?? []).length
+
+    check("the three lines are a pixel bigger on a phone", at(13) >= 3)
+    check("and on a desktop", at(15) >= 3)
+    check("none of them is left at the old size", !/isMobile \? "text-xs" : "text-sm"/.test(renderer))
+    check("all three carry the half step", (renderer.match(/font-\[450\]/g) ?? []).length >= 3)
+    /**
+     * A weight list on next/font would give static faces, and 450 would
+     * round to 400 with nothing to show for it.
+     */
+    check("Inter is still loaded as the variable face", !/Inter\(\{[^}]*weight:/.test(code("app/layout.tsx")))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
