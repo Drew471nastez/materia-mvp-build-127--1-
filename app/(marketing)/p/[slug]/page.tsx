@@ -1055,8 +1055,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               }}
             >
               {/* Price display - only show static if no variants */}
+              {/* Same one row as the desktop card above. */}
               {variants.length === 0 && (
-                <div className="mb-4">
+                <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <div
                     className="text-2xl font-bold"
                     style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
@@ -1064,7 +1065,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
                   </div>
                   {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
-                    <div className="mt-1 flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                       <span
                         className="text-base line-through"
                         style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
@@ -1369,17 +1370,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             the page out loud. That one is `lg:hidden` now, so this is the
             only title on a desktop and it carries the tag.
 
-            30px at 600, which is the size the title under the gallery used
-            to be — this IS that title now, so it is the same size it always
-            was, just in the card.
-
-            It has been 14, 20 and 24, each time under a price that was 30 or
-            36. Under a price, a title reads as a caption on a number. The
-            two have swapped: the name of the thing is the biggest line on
-            the card and the price is the answer under it.
+            36px at 600. It has been 14, 20, 24 and 30, and for most of those
+            it sat under a bigger price — where a title reads as a caption on
+            a number rather than as the name of the thing being bought. It is
+            the biggest line on the card now, clear of the 24px price under
+            it, which is the order somebody reads this in: what it is, then
+            what it costs.
           */}
           <h1
-            className="mb-2 text-3xl font-semibold leading-snug break-words"
+            className="mb-2 text-4xl font-semibold leading-snug break-words"
             style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
           >
             {product.title}
@@ -1393,25 +1392,41 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   name a label on a price rather than the other way round.
                   Still bold, still the only number here, and no longer the
                   first thing the eye lands on. */}
-              <div
-                className="text-2xl font-bold tracking-tight"
-                style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
-              >
-                {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
-              </div>
-              {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
-                <div className="mt-1 flex items-center gap-2">
-                  <span
-                    className="text-lg line-through"
-                    style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-                  >
-                    {formatPrice(product.compare_at_cents)}
-                  </span>
-                  <Badge variant="destructive">
-                    {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
-                  </Badge>
+              {/*
+                ONE ROW: WHAT IT COSTS, WHAT IT COST, AND HOW MUCH OFF.
+
+                The old price and the badge were a second line under the
+                price, which made a discount read as a footnote to it. Side by
+                side they are one fact — this costs less than it did, by this
+                much — and the card is a line shorter for it.
+
+                `items-baseline` so the two prices sit on the same baseline
+                whatever their sizes; the badge is centred against the old
+                price inside its own box, because a badge on a text baseline
+                hangs. `flex-wrap` with a row gap so a long pair drops
+                cleanly at narrow widths instead of overflowing.
+              */}
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <div
+                  className="text-2xl font-bold tracking-tight"
+                  style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                >
+                  {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
                 </div>
-              )}
+                {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-base line-through"
+                      style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                    >
+                      {formatPrice(product.compare_at_cents)}
+                    </span>
+                    <Badge variant="destructive">
+                      {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
+                    </Badge>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

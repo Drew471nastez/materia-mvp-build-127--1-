@@ -213,7 +213,7 @@ function main() {
   /* The card names what it is selling, above the price. */
   check(
     "the buy card leads with the product's title",
-    /<h1\s+className="mb-2 text-3xl font-semibold leading-snug break-words"[\s\S]{0,160}\{product\.title\}/.test(productPage),
+    /<h1\s+className="mb-2 text-4xl font-semibold leading-snug break-words"[\s\S]{0,160}\{product\.title\}/.test(productPage),
   )
 
   /*
@@ -246,9 +246,19 @@ function main() {
     on the card, which is the size it was as the heading under the gallery
     before it moved here. scripts/check-product-titles.mjs measures both.
   */
-  check("the title is 30px, the size the heading it replaced was", /className="mb-2 text-3xl font-semibold leading-snug break-words"/.test(productPage))
+  check("the title is 36px", /className="mb-2 text-4xl font-semibold leading-snug break-words"/.test(productPage))
   check("the price is 24px, under it", /className="text-2xl font-bold tracking-tight"/.test(productPage))
   check("and neither of the sizes the price has already been", !/text-(3xl|4xl) font-bold tracking-tight/.test(productPage))
+
+  /*
+    THE DISCOUNT SHARES THE PRICE'S ROW. The old price and the % OFF badge
+    were a second line underneath, which made a discount read as a footnote
+    to the price rather than as part of it. Both cards say it the same way.
+    scripts/check-product-titles.mjs measures the overlap; a class can say
+    `flex` and still stack.
+  */
+  check("both price rows are one row", (productPage.match(/flex flex-wrap items-baseline gap-x-3 gap-y-1/g) || []).length === 2)
+  check("and nothing pushes the discount onto its own line", !/className="mt-1 flex items-center gap-2"/.test(productPage))
   const cardAt = productPage.indexOf('className="rounded-xl border p-6 shadow-sm relative z-20"')
   const cardTitleAt = productPage.indexOf("{product.title}", cardAt)
   const cardPriceAt = productPage.indexOf("{product.price_cents === 0 ? \"Free\" : formatPrice(product.price_cents)}", cardAt)
