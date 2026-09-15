@@ -113,7 +113,7 @@ check(
 )
 check(
   "the Products tab shows it",
-  /<ArrangeProductsRow products=\{products\} isOwner=\{isOwner\}/.test(grid),
+  /<ArrangeProductsControl products=\{products\} isOwner=\{isOwner\}/.test(grid),
 )
 /**
  * AND THE RAIL ACTUALLY COMPOSES THEM.
@@ -131,24 +131,36 @@ check(
 
 check(
   "Home shows it too",
-  /<ArrangeProductsRow products=\{sectionProducts\} isOwner=\{viewerIsOwner\}/.test(renderer),
+  /<ArrangeProductsControl products=\{sectionProducts\} isOwner=\{viewerIsOwner\}/.test(renderer),
 )
 /**
- * ONE LEFT EDGE. Right-aligned, the button's right edge sat on the grid
- * CONTAINER's, which on a multi-column grid is not the edge of any card, and
- * nothing at all shared its line — the heading was hard left with the whole
- * row between them. scripts/check-arrange-row measures the three left edges
- * at three widths; this only guards the class that decides it.
+ * IN THE HEADER ROW, WHICH IS WHY IT COSTS NOTHING.
+ *
+ * A row of its own put 48px between the heading and the first card, measured;
+ * the header row is `min-h-9` and already there, so a 30px button in it adds
+ * zero. scripts/check-arrange-row measures that, laying the old row out
+ * alongside on every pass so a verdict of "free" is worth reading.
+ *
+ * This only guards the placement, which the probe cannot see: it builds its
+ * page from class strings, so it would measure a header row with the button
+ * in it whatever the call sites actually do.
  */
 check(
-  "the row is flush left, with the heading and the first card",
-  /<div className="mb-4 flex">/.test(arrange),
-  "justify-end puts it on an edge nothing else on the tab is on",
+  "the control is inside the header row on the Products tab",
+  /<CatalogHeader[\s\S]*?<ArrangeProductsControl[\s\S]*?<\/CatalogHeader>/.test(grid),
+  "in a row of its own it costs 48px of vertical space for one button",
 )
 check(
-  "and it is out of the row that holds the category and sort controls",
-  !/<CatalogHeader[\s\S]*?ArrangeProducts[\s\S]*?<\/CatalogHeader>/.test(grid),
-  "Arrange changes the shop; the controls beside it only change one visitor's view",
+  "and inside the header row on Home",
+  /<CatalogHeader[\s\S]*?<ArrangeProductsControl[\s\S]*?<\/CatalogHeader>/.test(renderer),
+)
+check(
+  "it is last in the row, so it sits at the right end",
+  (() => {
+    const row = grid.slice(grid.indexOf("<CatalogHeader"), grid.indexOf("</CatalogHeader>"))
+    return row.indexOf("ArrangeProductsControl") > row.indexOf("SortControl")
+  })(),
+  "the filters are quiet outlines and this is filled; last puts it at the end of the row",
 )
 check(
   "ownership is decided on the server, from the session",

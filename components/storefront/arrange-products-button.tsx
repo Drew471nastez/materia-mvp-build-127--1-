@@ -177,13 +177,29 @@ export function ArrangeProductsButton({
           the order of their own shop, so it is filled, on the foreground
           colour, and looks like the button it is.
         */
+        aria-label="Arrange products"
+        title="Arrange products"
         className={cn(
+          /*
+            IT KEEPS ITS WORD, INCLUDING ON A PHONE.
+
+            This was briefly a 30px square below `sm`, because a probe said
+            the labelled button pushed the Products tab's row off the right of
+            a 390px screen. The probe was wrong: it was rendering both shapes
+            of the sort control at once, having pasted classes that the real
+            component merges with tailwind-merge. Measured properly, with a
+            full-length category name in the row, the word costs nothing —
+            the heading is the same 77px either way.
+
+            The real crowding was the category pill refusing to shrink; that
+            is fixed where it lives, in catalog-controls.
+          */
           "inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-[13px] font-semibold text-background",
           "shadow-[0_1px_2px_rgba(15,23,42,0.12)] transition-transform duration-100 hover:opacity-90 active:scale-[0.97]",
           className,
         )}
       >
-        <ListOrdered className="h-4 w-4" aria-hidden />
+        <ListOrdered className="h-4 w-4 shrink-0" aria-hidden />
         Arrange
       </button>
 
@@ -285,19 +301,29 @@ export function ArrangeProductsButton({
 
 /**
  * ===========================================================================
- *  THE OWNER'S ROW, ABOVE THE GRID
+ *  THE OWNER'S CONTROL, IN THE ROW THAT IS ALREADY THERE
  * ===========================================================================
- * Arrange used to sit in the catalogue header beside the category selector
- * and the sort control, which put a control that CHANGES the shop in the row
- * of controls that only change what one visitor is looking at. It also only
- * existed on the Products tab, so the arrangement governed one of the two
- * places it was visible.
+ * This has been in three places now, and each move fixed the last one's
+ * problem and introduced its own. It is worth writing down why it ends here.
  *
- * Its own row, directly above the grid, on both tabs. Nobody but the owner
- * ever renders this — the page decides that from the session, and a visitor's
- * HTML does not contain it.
+ * It began in the catalogue header beside the category and sort controls,
+ * where it read as a third filter. Moved to its own row above the grid, it
+ * stopped reading as a filter and started costing a whole row of vertical
+ * space between the heading and the first card — on Home, where the header
+ * row is otherwise EMPTY, that is a gap for nothing.
+ *
+ * So: back into the header row, at the right, where the row already exists
+ * and is already `min-h-9`. A 30px button in a 36px row adds no height at
+ * all, which is the whole point. What keeps it from reading as a filter is
+ * not distance any more, it is weight: the category and sort controls are
+ * quiet outlines, this is filled and on the foreground colour, so it reads as
+ * the one thing in the row that DOES something rather than as a third way to
+ * narrow a list.
+ *
+ * Nobody but the owner ever renders it. The page decides that from the
+ * session, and a visitor's HTML does not contain it.
  */
-export function ArrangeProductsRow({
+export function ArrangeProductsControl({
   products,
   isOwner,
 }: {
@@ -306,19 +332,5 @@ export function ArrangeProductsRow({
   isOwner?: boolean
 }) {
   if (!isOwner || products.length < 2) return null
-  return (
-    /*
-      LEFT, NOT RIGHT.
-
-      Right-aligned, this was a filled dark button alone on a row with nothing
-      beside it: its right edge lined up with the grid's, three inches from the
-      heading, and it read as something that had come loose rather than as a
-      control. Flush left it shares an edge with the heading above it and with
-      the first card below it, which is the line everything else on the tab is
-      already on.
-    */
-    <div className="mb-4 flex">
-      <ArrangeProductsButton products={products} />
-    </div>
-  )
+  return <ArrangeProductsButton products={products} />
 }

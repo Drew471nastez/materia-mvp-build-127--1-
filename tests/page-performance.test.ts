@@ -2649,8 +2649,28 @@ check(
     if (/View all products/.test(rail)) missing.push("the rail duplicates the Products tab as a link again")
     if (/useStorefrontTabs|StorefrontTabsContext/.test(rail + tabs))
       missing.push("the switch-tabs-from-a-panel plumbing is back with nothing using it")
-    if (!/<CatalogHeader\s+title=\{headline\}[\s\S]{0,400}?\/>/.test(rail))
-      missing.push("the rail's header has grown controls again — the Products tab owns those")
+    /**
+     * THE RAIL'S HEADER CARRIES ONE THING, and it is not a visitor's.
+     *
+     * This used to require the header to be SELF-CLOSING — nothing in it at
+     * all — which was right when the only things that had ever been in it
+     * were a sort control, a category selector and a "View all products"
+     * link, all of which belong to the Products tab. It is wrong now: the
+     * owner's Arrange control lives there, because a row of its own put 48px
+     * between the heading and the first card for one button, measured by
+     * scripts/check-arrange-row.
+     *
+     * So the rule is by NAME rather than by emptiness. A visitor still gets a
+     * heading and nothing else; the control a visitor never sees is allowed.
+     */
+    const railHeader = rail.slice(rail.indexOf("<CatalogHeader"), rail.indexOf("</CatalogHeader>"))
+    if (!railHeader) missing.push("the rail has no header at all")
+    if (/CategorySelect|SortControl/.test(railHeader))
+      missing.push("the rail's header has grown the Products tab's browsing controls again")
+    for (const allowed of railHeader.match(/<[A-Z][A-Za-z]*/g) || []) {
+      if (allowed !== "<CatalogHeader" && allowed !== "<ArrangeProductsControl")
+        missing.push(`the rail's header has grown ${allowed.slice(1)} — a visitor should see a heading and nothing else`)
+    }
 
     // The header row keeps its height with no controls in it, or the two tabs
     // stop lining up.

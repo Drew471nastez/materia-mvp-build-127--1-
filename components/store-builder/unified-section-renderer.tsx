@@ -35,7 +35,7 @@ import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { ContactReveal } from "@/components/storefront/contact-reveal"
 import { SocialMediaIcons } from "./social-media-icons"
 import { CatalogHeader } from "@/components/storefront/catalog-controls"
-import { ArrangeProductsRow } from "@/components/storefront/arrange-products-button"
+import { ArrangeProductsControl } from "@/components/storefront/arrange-products-button"
 
 /**
  * The headline this section shipped with. Anything still set to it was never
@@ -2491,16 +2491,20 @@ function UnifiedFeaturedProductsSection({
               textAlign: settings.typography?.textAlign,
               color: settings.colors?.textColor || undefined,
             }}
-          />
+          >
+            {/*
+              THE OWNER'S CONTROL, in the header row rather than under it, so
+              it costs no vertical space at all — this row exists and is
+              `min-h-9` whether or not anything is in it, and on Home its
+              right-hand side is otherwise empty.
 
-          {/*
-            THE OWNER'S OWN ROW, the same one the Products tab shows, so the
-            arrangement can be changed from whichever tab the creator happens
-            to be looking at. `isPreviewMode` is deliberately not consulted:
-            this is gated on the session, which the server decided, and it is
-            the one control on this rail that is not for visitors.
-          */}
-          <ArrangeProductsRow products={sectionProducts} isOwner={viewerIsOwner} />
+              The same control the Products tab shows, so the arrangement can
+              be changed from whichever tab the creator is looking at.
+              `isPreviewMode` is deliberately not consulted: this is gated on
+              the session, which the server decided.
+            */}
+            <ArrangeProductsControl products={sectionProducts} isOwner={viewerIsOwner} />
+          </CatalogHeader>
 
           {/*
             THE SAME BREAKPOINTS AS THE PRODUCTS TAB, because they are the same

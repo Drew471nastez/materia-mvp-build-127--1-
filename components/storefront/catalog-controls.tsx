@@ -138,8 +138,21 @@ export function CategorySelect({
   const trigger = (
     <span className="max-w-[45vw] truncate sm:max-w-none">{label}</span>
   )
+  /**
+   * `shrink`, NOT `shrink-0`, and `min-w-0` with it.
+   *
+   * The pill was the only wide thing in a row that refuses to shrink, so on a
+   * 390px phone the heading absorbed the whole shortfall: measured with a real
+   * category name and the owner's Arrange control in the row, "Products" came
+   * out 29px wide, which is one letter and an ellipsis. Its own label already
+   * truncates at 45vw — it was built to give way — but `shrink-0` on the
+   * outside meant it never had to.
+   *
+   * Letting it shrink puts the truncation where it belongs: on the label that
+   * says "Limited edition prints", not on the word naming the tab.
+   */
   const triggerClass = cn(
-    "inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-border px-4 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+    "inline-flex h-9 min-w-0 shrink items-center gap-2 rounded-full border border-border px-4 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
     className,
   )
 
@@ -223,7 +236,13 @@ export function CatalogHeader({
         Products tab's, so the two tabs still put their first card at the same
         distance from the tab strip.
       */}
-      {children ? <div className="ml-auto flex shrink-0 items-center gap-2">{children}</div> : null}
+      {/*
+        `min-w-0` so the cluster can pass a squeeze down to the one control in
+        it that knows how to truncate, rather than standing firm and letting
+        the heading take all of it. Everything else in here is `shrink-0` on
+        its own account, so only the category pill gives.
+      */}
+      {children ? <div className="ml-auto flex min-w-0 items-center gap-2">{children}</div> : null}
     </div>
   )
 }
