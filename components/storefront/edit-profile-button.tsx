@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { EditorSheet } from "@/components/storefront/editor-sheet"
-import { CoverFocalPicker, type FocalPoint } from "@/components/storefront/cover-focal-picker"
+import type { FocalPoint } from "@/lib/images/use-focal-drag"
 import { useSavedValues } from "@/lib/store-builder/use-saved-values"
 import { ImageUpload } from "@/components/app/image-upload"
 import { Pencil, Wand2 } from "lucide-react"
@@ -283,6 +283,16 @@ export function EditProfileButton({
                 <Label>Cover</Label>
                 <span className="text-xs text-muted-foreground">Recommended ratio 3:1</span>
               </div>
+              {/*
+                ONE BOX. The cover and the control that positions it were two
+                3:1 frames stacked on each other, both showing the same
+                photograph, with a slider and a percentage readout under the
+                second one. Four pieces of UI for "which part of this shows".
+
+                Now the frame that shows the cover is the frame you drag it
+                in, and `reposition` only reaches it when there is a cover to
+                move: with none, this is the ordinary upload box.
+              */}
               <ImageUpload
                 bucket="covers"
                 aspectRatio="cover"
@@ -291,12 +301,8 @@ export function EditProfileButton({
                 replaceOnly
                 allowRemove
                 replaceLabel="Change banner"
+                reposition={cover ? { value: focal, onChange: setFocal } : undefined}
               />
-              {/*
-                Only with a cover to move. An empty 3:1 box saying "drag to
-                position" is a control for a thing that does not exist.
-              */}
-              {cover && <CoverFocalPicker src={cover} value={focal} onChange={setFocal} />}
             </div>
 
             <div className="space-y-2">

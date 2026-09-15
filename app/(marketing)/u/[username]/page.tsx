@@ -739,6 +739,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         textColor: storedBar.colors?.textColor || (storedBar as unknown as Record<string, string>).textColor,
         buttonColor: storedBar.buttonColor,
         buttonTextColor: storedBar.buttonTextColor,
+        /**
+         * Which of the four this creator picked themselves. Without it the
+         * resolver falls back to guessing from the colour, and a bar whose
+         * button text was deliberately set to white reads as one nobody has
+         * touched.
+         */
+        chosen: storedBar.colorChoices,
       },
     })
     const subscribeBarSettings = buildSubscribeBarSettings(headerSettings, chrome.bar)

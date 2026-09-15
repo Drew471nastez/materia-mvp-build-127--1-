@@ -1508,6 +1508,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             (shopHeaderSettings?.subscribeBar as Record<string, string> | undefined)?.textColor,
           buttonColor: shopHeaderSettings?.subscribeBar?.buttonColor,
           buttonTextColor: shopHeaderSettings?.subscribeBar?.buttonTextColor,
+          /** The same record the creator page reads; see the note there. */
+          chosen: shopHeaderSettings?.subscribeBar?.colorChoices,
         },
       },
     )

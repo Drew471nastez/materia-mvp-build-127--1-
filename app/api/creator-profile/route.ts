@@ -189,12 +189,28 @@ export async function PATCH(request: NextRequest) {
      * because these reach a `style` attribute on a public page and "anything
      * the creator typed" is not a colour.
      */
+    const colorChoices: string[] = []
     for (const key of ["backgroundColor", "textColor", "buttonColor", "buttonTextColor"] as const) {
       const v = value[key]
       if (typeof v === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(v.trim())) {
         out[key] = v.trim().toLowerCase()
+        /**
+         * AND THE FACT THAT SOMEBODY CHOSE IT.
+         *
+         * The colour alone is not enough for the reader. `resolveStorefrontChrome`
+         * has to decide whether a stored white background is a decision or the
+         * builder writing its defaults out again, and it was deciding by looking
+         * at the colour: white is not a background, black is not a text colour,
+         * #2563eb is not a button. So picking any of those did nothing at all.
+         *
+         * The editor only sends a field it watched somebody change, which is
+         * what makes this exact rather than a guess. See the note on `touched`
+         * in components/storefront/edit-cta-button.
+         */
+        colorChoices.push(key)
       }
     }
+    if (colorChoices.length > 0) out.colorChoices = colorChoices
     /**
      * THE BAR KEEPS ITS TWO COLOURS IN TWO PLACES, and this wrote only one.
      *
@@ -449,9 +465,21 @@ export async function PATCH(request: NextRequest) {
       const colors = { ...((existing.colors as Record<string, unknown>) || {}) }
       if (subscribeBar.backgroundColor) colors.backgroundColor = subscribeBar.backgroundColor
       if (subscribeBar.textColor) colors.textColor = subscribeBar.textColor
+      /**
+       * A RECORD OF EVERY COLOUR EVER CHOSEN, not of this save's.
+       *
+       * The editor sends only what was touched in the session it is open for,
+       * so a creator who picks a background today and a button tomorrow sends
+       * one field each time. A straight spread would replace yesterday's
+       * record with today's and the background would go back to the scheme —
+       * the same bug, arriving a day late.
+       */
+      const existingChosen = Array.isArray(existing.colorChoices) ? (existing.colorChoices as string[]) : []
+      const chosen = Array.from(new Set([...existingChosen, ...((subscribeBar.colorChoices as string[]) || [])]))
       next.subscribeBar = {
         ...existing,
         ...subscribeBar,
+        ...(chosen.length > 0 ? { colorChoices: chosen } : {}),
         ...(Object.keys(colors).length > 0 ? { colors } : {}),
       } as unknown as ShopHeaderSettings["subscribeBar"]
     }

@@ -282,6 +282,22 @@ export interface SubscribeBarSettings extends BaseSectionSettings {
    * sets this too, so it stops mattering once that has run everywhere.
    */
   stickyBarChoiceMade?: boolean
+  /**
+   * WHICH OF THE BAR'S FOUR COLOURS A CREATOR ACTUALLY PICKED.
+   *
+   * Same problem as `stickyBarChoiceMade`, same answer. The builder writes the
+   * whole settings object out on every save, so nearly every config on the
+   * platform carries a white background, black text and a #2563eb button that
+   * nobody ever chose. `resolveStorefrontChrome` used to tell those apart by
+   * looking at the colour, which means a creator who picks white text on their
+   * button picks a value the resolver reads as "nobody chose" and the scheme
+   * paints over it. From the outside that is a save that does nothing.
+   *
+   * Names of the fields that were picked, one entry each, added as they are
+   * picked and never removed. Absent means nobody has chosen anything yet and
+   * the old value-sniffing rule still applies, so existing pages do not move.
+   */
+  colorChoices?: string[]
   buttonStyle?: "style1" | "style2" | "style3" | "style4" // Button text style preset
 }
 

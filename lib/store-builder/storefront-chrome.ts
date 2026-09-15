@@ -175,8 +175,11 @@ export interface StoredChrome {
   text?: string | null
   /** `headerSettings.profileImageBorderColor`. */
   avatarBorder?: string | null
-  /** `headerSettings.subscribeBar`, flattened. */
-  bar?: Partial<StorefrontBarColors> | null
+  /**
+   * `headerSettings.subscribeBar`, flattened, plus `chosen`: the names of the
+   * fields in it a creator actually picked. See the note on the bar below.
+   */
+  bar?: (Partial<StorefrontBarColors> & { chosen?: string[] | null }) | null
 }
 
 /**
@@ -259,19 +262,50 @@ export function resolveStorefrontChrome(
    * `subscribeBar` block designed against its own palette; it just had no way
    * to reach the live page.
    */
+  /**
+   * ---------------------------------------------------------------------------
+   *  A COLOUR SOMEBODY PICKED, versus a colour the builder wrote out again
+   * ---------------------------------------------------------------------------
+   * The three rules below decide that by LOOKING AT THE COLOUR: white is not a
+   * background, black is not a text colour, #2563eb is not a button. That is
+   * the only thing available for the configs written before the bar could be
+   * edited at all, and it is wrong the moment a creator picks one of those
+   * colours on purpose. White text on a coloured button is not an exotic
+   * choice; it is the ordinary one, and choosing it did nothing, every time.
+   *
+   * So a choice is now RECORDED when it is made, and a recorded field skips
+   * the guessing entirely. Same shape as `stickyBarChoiceMade`: absent means
+   * nobody has chosen and the old rule still answers, which is what keeps a
+   * dark scheme from getting a white strip back across the top of it.
+   *
+   * Per field, not per bar. Freezing all four the first time one is picked is
+   * how the scheme stopped being able to paint the bar last time.
+   */
+  const chosen = new Set(Array.isArray(stored.bar?.chosen) ? stored.bar.chosen : [])
+  const picked = (key: keyof StorefrontBarColors) =>
+    chosen.has(key) && typeof stored.bar?.[key] === "string" && stored.bar[key]!.trim().length > 0
+
   const bar: StorefrontBarColors = {
-    backgroundColor: !isInheritedWhite(stored.bar?.backgroundColor)
+    backgroundColor: picked("backgroundColor")
       ? (stored.bar!.backgroundColor as string)
-      : theme.subscribeBar.backgroundColor,
-    textColor: !isInheritedBlack(stored.bar?.textColor)
+      : !isInheritedWhite(stored.bar?.backgroundColor)
+        ? (stored.bar!.backgroundColor as string)
+        : theme.subscribeBar.backgroundColor,
+    textColor: picked("textColor")
       ? (stored.bar!.textColor as string)
-      : theme.subscribeBar.textColor,
-    buttonColor: stored.bar?.buttonColor && stored.bar.buttonColor !== "#2563eb"
-      ? stored.bar.buttonColor
-      : theme.subscribeBar.buttonColor,
-    buttonTextColor: !isInheritedWhite(stored.bar?.buttonTextColor)
+      : !isInheritedBlack(stored.bar?.textColor)
+        ? (stored.bar!.textColor as string)
+        : theme.subscribeBar.textColor,
+    buttonColor: picked("buttonColor")
+      ? (stored.bar!.buttonColor as string)
+      : stored.bar?.buttonColor && stored.bar.buttonColor !== "#2563eb"
+        ? stored.bar.buttonColor
+        : theme.subscribeBar.buttonColor,
+    buttonTextColor: picked("buttonTextColor")
       ? (stored.bar!.buttonTextColor as string)
-      : theme.subscribeBar.buttonTextColor,
+      : !isInheritedWhite(stored.bar?.buttonTextColor)
+        ? (stored.bar!.buttonTextColor as string)
+        : theme.subscribeBar.buttonTextColor,
   }
 
   /** The platform default ring, which is what almost every config carries. */

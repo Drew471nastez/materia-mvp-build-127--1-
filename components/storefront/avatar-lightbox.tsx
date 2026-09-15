@@ -105,11 +105,21 @@ export function AvatarLightbox({
             same point and nothing new appears at the edges. `min()` keeps it
             inside both the width and the height of a phone.
           */}
+          {/*
+            AND NOT THE WHOLE SCREEN. At 88vw the circle ran from edge to edge
+            with the close control sitting on top of it, which is a picture
+            that has taken the page over rather than one being shown. This is
+            about twice the header's circle and still clearly a picture on a
+            page: on a 390px phone, 296px; on a laptop, 420px.
+
+            Measured by scripts/check-avatar-lightbox, which reads this very
+            expression out of this file and lays it out at three sizes.
+          */}
           <img
             src={src}
             alt={name ? `${name}'s profile picture` : "Profile picture"}
             className="aspect-square h-auto rounded-full object-cover"
-            style={{ width: "min(88vw, 88vh, 560px)" }}
+            style={{ width: "min(76vw, 56vh, 420px)" }}
           />
         </DialogContent>
       </Dialog>

@@ -5,9 +5,10 @@ import { useState, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { X, ImageIcon, AlertCircle, Video } from "lucide-react"
+import { X, ImageIcon, AlertCircle, Video, Move, Pencil } from "lucide-react"
 import Image from "next/image"
 import { COMPRESS_PROFILES, compressImage } from "@/lib/images/compress"
+import { CENTRE, useFocalDrag, type FocalPoint } from "@/lib/images/use-focal-drag"
 
 interface ImageUploadProps {
   bucket: "product-images" | "avatars" | "covers" | "store-builder-images"
@@ -40,6 +41,26 @@ interface ImageUploadProps {
    * with none, so removing it is a real choice and needs a way to make it.
    */
   allowRemove?: boolean
+  /**
+   * TURNS THE FRAME INTO THE REPOSITIONER.
+   *
+   * A cover is drawn into a 3:1 strip, so most of the picture is cropped
+   * away and which part survives is worth choosing. That used to be a second
+   * 3:1 box under this one, showing the same photograph again — two pictures
+   * of the same picture, with nothing to say which was the real one.
+   *
+   * Given this, the frame itself is the control: drag the image inside it and
+   * the crop follows, in the box that is already showing the crop. Replace
+   * and remove move to corner controls, because a click that might be the
+   * start of a drag cannot also open a file dialog.
+   *
+   * Replace-only mode with a value, which is what a cover is. Absent, the
+   * frame behaves exactly as it did.
+   */
+  reposition?: {
+    value: FocalPoint | null | undefined
+    onChange: (next: FocalPoint) => void
+  }
 }
 
 export function ImageUpload({
@@ -53,6 +74,7 @@ export function ImageUpload({
   replaceOnly = false,
   replaceLabel = "Change image",
   allowRemove = false,
+  reposition,
 }: ImageUploadProps) {
   const isVideoMode = accept === "video/*"
   const [uploading, setUploading] = useState(false)
@@ -322,6 +344,120 @@ export function ImageUpload({
     },
     [handleUpload],
   )
+
+  /**
+   * Called unconditionally and before every early return below, because the
+   * branches here are exactly the sort of condition that flips between two
+   * renders. A hook under one of them is React error #310, which is a blank
+   * page rather than a misplaced control. See tests/hook-order.
+   */
+  const focal = useFocalDrag(reposition?.value, reposition?.onChange ?? (() => {}))
+
+  /**
+   * ===========================================================================
+   *  THE FRAME IS THE REPOSITIONER
+   * ===========================================================================
+   * One box, not two: this is the 3:1 crop the page will draw, and dragging
+   * inside it moves the picture behind that crop. Nothing under it — no
+   * second preview, no slider, no readout. What you see is the result.
+   *
+   * The whole surface cannot be the replace button here, because a press that
+   * might be the start of a drag cannot also open a file dialog, so replace
+   * and remove are discs in the corner. They stay visible rather than
+   * appearing on hover: there is no hover on a phone, and on a phone the
+   * frame itself no longer answers a tap.
+   */
+  if (value && replaceOnly && reposition) {
+    return (
+      <div
+        ref={focal.boxRef}
+        tabIndex={0}
+        role="group"
+        aria-label={`${replaceLabel}. Drag the image, or use the arrow keys, to choose which part shows.`}
+        {...focal.handlers}
+        /* touch-none, or the phone scrolls the sheet instead of moving the
+           picture and the control does nothing at all where it matters most. */
+        className={`group relative touch-none select-none overflow-hidden rounded-lg border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${aspectClasses[aspectRatio]}`}
+        style={{ cursor: focal.dragging ? "grabbing" : "grab" }}
+      >
+        <Image
+          src={value || "/placeholder.svg"}
+          alt=""
+          fill
+          draggable={false}
+          className="pointer-events-none object-cover"
+          style={{ objectPosition: focal.objectPosition }}
+        />
+
+        {/* The affordance, and it gets out of the way while you use it. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-150"
+          style={{ opacity: focal.dragging ? 0 : 1 }}
+        >
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+            <Move className="h-3.5 w-3.5" />
+            Drag to position
+          </span>
+        </span>
+
+        {/*
+          Only once it has been moved. A reset offered on a picture that is
+          already centred is a control with nothing to do, and it would be on
+          screen permanently for the creators who never touch the drag.
+        */}
+        {!focal.centred && !uploading && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => reposition.onChange(CENTRE)}
+            className="absolute bottom-2 left-2 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          >
+            Centre
+          </button>
+        )}
+
+        <div className="absolute right-2 top-2 flex items-center gap-1.5">
+          <button
+            type="button"
+            aria-label={replaceLabel}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => !uploading && inputRef.current?.click()}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          >
+            <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
+          </button>
+          {allowRemove && !uploading && (
+            <button
+              type="button"
+              aria-label="Remove image"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => void handleRemove()}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            >
+              <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+            </button>
+          )}
+        </div>
+
+        {/* Uploading: the old picture stays put under a dim wash and a bar,
+            rather than the frame emptying out and jumping back. */}
+        {uploading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/55 backdrop-blur-[1px]">
+            <div className="h-1 w-2/3 overflow-hidden rounded-full bg-white/25">
+              <div
+                className="h-full rounded-full bg-white transition-[width] duration-200 ease-out"
+                style={{ width: `${Math.max(progress, 8)}%` }}
+              />
+            </div>
+            <span className="text-xs font-medium text-white/90">Uploading…</span>
+          </div>
+        )}
+
+        <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={handleFileSelect} />
+      </div>
+    )
+  }
 
   if (value && replaceOnly) {
     return (
