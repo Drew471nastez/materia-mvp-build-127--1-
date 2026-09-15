@@ -204,17 +204,40 @@ function main() {
   check("and they no longer carry their own top margin", !/className="mt-8 sm:mt-10" data-faq-section/.test(productPage))
 
   /* The card names what it is selling, above the price. */
-  check("the buy card leads with the product's title", /<p\s+className="mb-1\.5 text-sm font-medium leading-snug"[\s\S]{0,160}\{product\.title\}/.test(productPage))
-  /* Quieter than the page's own <h1>, which is 30px at 600. At the same
-     weight the card opened with two bold lines stacked on each other and the
-     title competed with the price instead of introducing it. */
-  check("and says it quietly", !/className="mb-2 text-base font-semibold leading-snug"/.test(productPage))
+  check(
+    "the buy card leads with the product's title",
+    /<h1\s+className="mb-2 text-xl font-semibold leading-snug break-words"[\s\S]{0,160}\{product\.title\}/.test(productPage),
+  )
+
+  /*
+    THE TITLE IS SAID ONCE PER WIDTH. It was said twice on a desktop: a 30px
+    <h1> under the gallery and the card's line a column to the right, the same
+    words twice on one screen. The big one is `lg:hidden` now and the card's
+    is the <h1> from `lg` up, so exactly one of the two is in the
+    accessibility tree at any width and the page keeps a single heading.
+  */
+  check("the title under the gallery stops at lg", /className="text-2xl sm:text-3xl font-semibold break-words flex-1 min-w-0 lg:hidden"/.test(productPage))
+  check("and the card's is a heading, not a label", !/<p[^>]*>\s*\n?\s*\{product\.title\}/.test(productPage.replace(/\{\/\*[\s\S]*?\*\/\}/g, "")))
+  /*
+    Two in the source, one rendered at any width — counted on source with the
+    JSX comments taken out. The note above the gallery's heading says the word
+    "<h1>" in prose, and a count that does not strip comments matched THAT and
+    ran 300 characters to the tag below it, reporting one heading where there
+    are two. Stripped source is for COUNTING only; every index below is taken
+    from the real thing, because an offset into stripped source points at the
+    wrong place in the file.
+  */
+  const withoutComments = productPage.replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+  const titleHeadings = (withoutComments.match(/<h1[\s\S]{0,300}?\{product\.title\}/g) || []).length
+  check("two headings in the source, one per breakpoint", titleHeadings === 2, `found ${titleHeadings}`)
+
+  /* The price is what the card is for, and it got bigger to say so. */
+  check("the price is 36px, not 30", /className="text-4xl font-bold tracking-tight"/.test(productPage))
+  check("and the old size is gone", !/className="text-3xl font-bold"\n\s*style=\{\{ color: themeColors\.cardTextColor/.test(productPage))
   const cardAt = productPage.indexOf('className="sticky top-[calc(var(--product-topbar-h,0px)+1.5rem)]')
   const cardTitleAt = productPage.indexOf("{product.title}", cardAt)
   const cardPriceAt = productPage.indexOf("{product.price_cents === 0 ? \"Free\" : formatPrice(product.price_cents)}", cardAt)
   check("above the price rather than under it", cardAt > 0 && cardTitleAt > cardAt && cardPriceAt > cardTitleAt)
-  /* One <h1> for the title; the card's copy is not a second heading. */
-  check("and not as a second heading of the same words", !/<h2[^>]*>\s*\{product\.title\}/.test(productPage.slice(cardAt)))
 
   /* The offset is the bar's own measured height, published once. */
   check("the bar measures itself", /const measure = \(\) => setProductTopBarHeight\(node\.getBoundingClientRect\(\)\.height\)/.test(topBar))

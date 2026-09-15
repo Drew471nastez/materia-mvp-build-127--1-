@@ -1,0 +1,158 @@
+/**
+ * ===========================================================================
+ *  THE TITLE IS SAID ONCE, AND THE PRICE IS THE LOUDEST THING ON THE CARD
+ * ===========================================================================
+ * A desktop product page said the product's name twice: a 30px heading under
+ * the gallery and the buy card's line a column to the right, the same words
+ * on one screen. The big one stops at `lg` now and the card's is the heading
+ * from there up.
+ *
+ * Two claims, both about what a browser does at a given width:
+ *
+ *   ONE TITLE PER WIDTH. Below lg the gallery's heading is the one that
+ *   renders and the card is not there at all; at lg and above it is the other
+ *   way round. Exactly one, never two, never none — none is the failure
+ *   nobody would notice in review and everybody would notice on the page.
+ *
+ *   AND A HIERARCHY. The price is the biggest thing in the card, the title
+ *   sits under it, and neither is the size it was when they were competing.
+ *
+ * The class strings are read out of the page, so this cannot pass against
+ * classes nobody ships.
+ *
+ *   pnpm build && node scripts/check-product-titles.mjs
+ */
+import { execFileSync } from "node:child_process"
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+
+const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
+const root = process.cwd()
+const fail = (m) => { console.error("\n" + m + "\n"); process.exit(1) }
+if (!existsSync(CHROMIUM)) fail("No browser at " + CHROMIUM + ".")
+
+const cssDir = join(root, ".next/static/chunks")
+if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first.")
+const cssFiles = [
+  ...readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => join(cssDir, f)),
+  ...(existsSync(join(root, ".next/static/css"))
+    ? readdirSync(join(root, ".next/static/css")).filter((f) => f.endsWith(".css")).map((f) => join(root, ".next/static/css", f))
+    : []),
+]
+if (!cssFiles.length) fail("The build produced no stylesheet, so nothing here would be styled.")
+const css = cssFiles.map((f) => readFileSync(f, "utf8")).join("\n").replace(/url\(\.\.\/media\//g, "url(./")
+
+const page = readFileSync(join(root, "app/(marketing)/p/[slug]/page.tsx"), "utf8")
+const galleryTitle = (page.match(/className="(text-2xl sm:text-3xl font-semibold[^"]*)"/) || [])[1]
+const cardTitle = (page.match(/className="(mb-2 text-xl font-semibold[^"]*)"/) || [])[1]
+/*
+  THE PRICE IS FOUND BY WHAT IT PRINTS, not by the size class it happens to
+  carry. Anchored on `text-4xl` this probe stopped being able to find the
+  element the moment somebody changed the size — so a price shrunk back to
+  20px read as "no price in the card" rather than as the too-small price it
+  was. Whatever size is set, it gets measured.
+*/
+const priceAt = page.indexOf('{product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}', page.indexOf("lg:self-stretch"))
+const beforePrice = priceAt > 0 ? page.slice(Math.max(0, priceAt - 400), priceAt) : ""
+const priceClasses = beforePrice.match(/className="([^"]*)"/g) || []
+const cardPrice = priceClasses.length
+  ? priceClasses[priceClasses.length - 1].slice('className="'.length, -1)
+  : undefined
+const cardColumn = (page.match(/className="(hidden lg:block lg:col-span-2[^"]*)"/) || [])[1]
+if (!galleryTitle) fail("No heading under the gallery found in the page.")
+if (!cardTitle) fail("No `mb-2 text-xl font-semibold` title found in the buy card.")
+if (!cardPrice) fail("No price line found in the buy card; the probe could not work out which element to measure.")
+if (!cardColumn) fail("No buy card column found.")
+
+/* NO BACKTICKS BELOW THIS LINE — one ends the page's template literal early. */
+const driver = [
+  'function run() {',
+  '  function seen(el) {',
+  '    if (!el) return false;',
+  '    var cs = getComputedStyle(el);',
+  '    if (cs.display === "none" || cs.visibility === "hidden") return false;',
+  '    return el.getBoundingClientRect().height > 0 && el.offsetParent !== null;',
+  '  }',
+  '  function size(el) { return el ? getComputedStyle(el).fontSize : null }',
+  '  function weight(el) { return el ? getComputedStyle(el).fontWeight : null }',
+  '  var gallery = document.getElementById("gallerytitle");',
+  '  var card = document.getElementById("cardtitle");',
+  '  var price = document.getElementById("cardprice");',
+  '  var out = {',
+  '    width: window.innerWidth,',
+  '    galleryShown: seen(gallery), cardShown: seen(card),',
+  '    gallerySize: size(gallery), cardSize: size(card), priceSize: size(price),',
+  '    cardWeight: weight(card), priceWeight: weight(price),',
+  '    cardTag: card ? card.tagName : null, galleryTag: gallery ? gallery.tagName : null,',
+  '  };',
+  '  var pre = document.createElement("pre"); pre.id = "result";',
+  '  pre.textContent = JSON.stringify({ out: out, errors: window.__err });',
+  '  document.body.append(pre);',
+  '}',
+  'run()',
+].join("\n")
+if (driver.includes("`")) fail("The driver contains a backtick and would end the page's template literal early.")
+
+const html = "<!doctype html><html><head><meta charset=\"utf-8\"><style>" + css + "</style></head><body style=\"margin:0\">" +
+  "<script>window.__err=[];addEventListener(\"error\",function(e){window.__err.push(String(e.message))})</script>" +
+  "<div class=\"grid gap-8 lg:grid-cols-5 lg:gap-12 lg:items-start w-full\">" +
+  "<div class=\"lg:col-span-3 min-w-0 w-full\">" +
+  "<h1 id=\"gallerytitle\" class=\"" + galleryTitle + "\">Geanta Guess Reptila</h1>" +
+  "</div>" +
+  "<div class=\"" + cardColumn + "\">" +
+  "<div class=\"rounded-xl border p-6\">" +
+  "<h1 id=\"cardtitle\" class=\"" + cardTitle + "\">Geanta Guess Reptila</h1>" +
+  "<div id=\"cardprice\" class=\"" + cardPrice + "\">$350.00</div>" +
+  "</div></div></div>" +
+  "<script>" + driver + "</script></body></html>"
+
+const out = mkdtempSync(join(tmpdir(), "storelib-titles-"))
+writeFileSync(join(out, "index.html"), html)
+
+function measure(width) {
+  const dom = execFileSync(CHROMIUM, ["--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars",
+    "--window-size=" + width + ",900", "--force-device-scale-factor=1", "--virtual-time-budget=6000", "--dump-dom",
+    "file://" + join(out, "index.html")],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 32 * 1024 * 1024 })
+  const m = dom.match(/<pre id="result">([\s\S]*?)<\/pre>/)
+  if (!m) fail("Nothing reported at " + width + "px. The probe threw before it could answer.")
+  const p = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"))
+  if (p.errors && p.errors.length) fail("it threw at " + width + "px: " + p.errors.join(" | "))
+  return p.out
+}
+
+/*
+  THIS CHROMIUM REPORTS innerWidth 500 FOR A 390px WINDOW, which has made a
+  correctly-placed thing read as misplaced here before. So the widths below
+  are chosen well clear of the lg boundary (1024px) in both directions rather
+  than right beside it, and what is asserted is which element renders, not
+  what the browser thinks the window is.
+*/
+const phone = measure(760)
+const desktop = measure(1440)
+console.log(JSON.stringify({ phone, desktop }, null, 2))
+
+const problems = []
+
+/* ---- one title per width ---------------------------------------------- */
+if (!phone.galleryShown) problems.push("below lg nothing shows the title: the heading under the gallery is not rendering.")
+if (phone.cardShown) problems.push("below lg the buy card is rendering, so the title is on the screen twice.")
+if (desktop.cardShown !== true) problems.push("at 1440px the card's title is not rendering, so a desktop page has no title at all.")
+if (desktop.galleryShown) problems.push("at 1440px the heading under the gallery is still rendering — the title is said twice, which is what this change was for.")
+
+/* ---- and it is a heading either way ------------------------------------ */
+if (phone.galleryTag !== "H1") problems.push("below lg the title is a " + phone.galleryTag + ", not a heading.")
+if (desktop.cardTag !== "H1") problems.push("at 1440px the title is a " + desktop.cardTag + ", not a heading.")
+
+/* ---- the card's hierarchy ---------------------------------------------- */
+const cardPx = parseFloat(desktop.cardSize)
+const pricePx = parseFloat(desktop.priceSize)
+if (!(pricePx > cardPx)) problems.push("the price (" + desktop.priceSize + ") is not bigger than the title (" + desktop.cardSize + ").")
+if (pricePx < 34) problems.push("the price is " + desktop.priceSize + "; it was asked to be bigger than the 30px it was.")
+if (cardPx < 18) problems.push("the card's title is " + desktop.cardSize + ", which is a label rather than the page's title.")
+if (cardPx >= pricePx) problems.push("the title is level with the price, so the card has two headings and no hierarchy.")
+
+if (problems.length) fail(problems.map((x) => "  - " + x).join("\n"))
+console.log("\n  760px: the gallery's " + phone.gallerySize + " heading, and no card.")
+console.log("  1440px: the card's " + desktop.cardSize + " heading over a " + desktop.priceSize + " price, and no heading under the gallery.\n")
