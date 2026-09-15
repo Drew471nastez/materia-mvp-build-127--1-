@@ -19,10 +19,12 @@
  * works on a desktop and silently does nothing on a phone.
  */
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { ArrowDown, ArrowUp, GripVertical, ListOrdered } from "lucide-react"
 
 import { EditorSheet } from "@/components/storefront/editor-sheet"
 import { hapticTap } from "@/lib/native-bridge"
+import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
 import { cn } from "@/lib/utils"
 
 export interface ArrangeableProduct {
@@ -38,6 +40,7 @@ export function ArrangeProductsButton({
   products: ArrangeableProduct[]
   className?: string
 }) {
+  const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [order, setOrder] = React.useState<ArrangeableProduct[]>(products)
   const [saving, setSaving] = React.useState(false)
@@ -76,6 +79,24 @@ export function ArrangeProductsButton({
     rowHeight: number
   } | null>(null)
   const startY = React.useRef(0)
+  /**
+   * The drag, readable synchronously. `onPointerMove` needs the current value
+   * to compute the next one, and reading it out of the closure means reading
+   * whatever it was when this render's handler was created — which during a
+   * fast drag is one frame stale.
+   */
+  const dragRef = React.useRef<typeof drag>(null)
+  dragRef.current = drag
+  /**
+   * THE LAST SLOT A TICK WAS FIRED FOR.
+   *
+   * The tick used to be fired from inside the `setDrag` updater, next to the
+   * comparison that decides it. A state updater has to be PURE — React is
+   * free to call it more than once for one dispatch, and does in development
+   * — so a buzz in there is a buzz an unknown number of times. The updater
+   * computes; the effect happens out here, once, against a ref.
+   */
+  const lastTick = React.useRef<number | null>(null)
 
   const move = (from: number, to: number) => {
     if (to < 0 || to >= order.length || from === to) return
@@ -110,30 +131,33 @@ export function ArrangeProductsButton({
      * so the obvious guarded call is dead on the platform that matters most.
      */
     hapticTap("medium")
+    lastTick.current = index
     setDrag({ id, from: index, dy: 0, to: index, rowHeight: box.height + 6 /* the gap */ })
   }
 
   const onPointerMove = (event: React.PointerEvent) => {
-    setDrag((current) => {
-      if (!current) return current
-      const dy = event.clientY - startY.current
-      /*
-        Which slot this lands in, from the distance travelled rather than from
-        what is under the pointer: the rows are moving out of the way as it
-        goes, so "what is under the pointer" is a moving target and produces a
-        list that flickers between two orders.
-      */
-      const slots = Math.round(dy / current.rowHeight)
-      const to = Math.max(0, Math.min(order.length - 1, current.from + slots))
-      /**
-       * A TICK EACH TIME IT CROSSES A SLOT, and only then. Firing on every
-       * pointermove would be a continuous buzz at 120Hz; firing on the
-       * landing slot CHANGING is the same event the rows animate on, so the
-       * tap and the movement are the same moment.
-       */
-      if (to !== current.to) hapticTap("light")
-      return { ...current, dy, to }
-    })
+    const current = dragRef.current
+    if (!current) return
+    const dy = event.clientY - startY.current
+    /*
+      Which slot this lands in, from the distance travelled rather than from
+      what is under the pointer: the rows are moving out of the way as it
+      goes, so "what is under the pointer" is a moving target and produces a
+      list that flickers between two orders.
+    */
+    const slots = Math.round(dy / current.rowHeight)
+    const to = Math.max(0, Math.min(order.length - 1, current.from + slots))
+    /**
+     * A TICK EACH TIME IT CROSSES A SLOT, and only then. Firing on every
+     * pointermove would be a continuous buzz at 120Hz; firing on the landing
+     * slot CHANGING is the same event the rows animate on, so the tap and the
+     * movement are the same moment.
+     */
+    if (lastTick.current !== to) {
+      lastTick.current = to
+      hapticTap("light")
+    }
+    setDrag({ ...current, dy, to })
   }
 
   const endDrag = (event: React.PointerEvent) => {
@@ -142,15 +166,18 @@ export function ArrangeProductsButton({
     } catch {
       /* The pointer can be gone already; nothing to release. */
     }
-    setDrag((current) => {
-      if (current) {
-        /* Put down. Only when it actually moved — a press and release that
-           changed nothing has nothing to confirm. */
-        if (current.to !== current.from) hapticTap("medium")
-        move(current.from, current.to)
-      }
-      return null
-    })
+    lastTick.current = null
+    /* Read the drag out of the ref and act on it HERE, for the same reason
+       the move handler does: what follows is two side effects, and a state
+       updater has to be pure. */
+    const current = dragRef.current
+    setDrag(null)
+    if (current) {
+      /* Put down. Only when it actually moved — a press and release that
+         changed nothing has nothing to confirm. */
+      if (current.to !== current.from) hapticTap("medium")
+      move(current.from, current.to)
+    }
   }
 
   /** Where a row sits right now: the dragged one follows, the rest step aside. */
@@ -176,8 +203,31 @@ export function ArrangeProductsButton({
         throw new Error(data.error || "That did not save.")
       }
       setOpen(false)
-      /* The order lives in the page's server data, so the page has to re-read it. */
-      window.location.reload()
+      /**
+       * ===================================================================
+       *  RE-READ THE PAGE, DO NOT RELOAD THE BROWSER
+       * ===================================================================
+       * This was `window.location.reload()`. The order does live in the
+       * page's server data, so the page really does have to read it again —
+       * but a full reload throws away the document to do it: the sheet, the
+       * page behind it and everything painted on it go white, the request
+       * goes out, and the whole creator page is built again from scratch.
+       * On a phone that is a white screen for as long as the round trip
+       * takes, immediately after pressing Save, which is what "it becomes
+       * white and disappears" is, and what "a very direct, cheap reset" is.
+       *
+       * `router.refresh()` re-renders the server components in place and
+       * reconciles the result into the DOM that is already there. The
+       * reordered grid slides into its new order under a sheet that is
+       * animating out, with no white frame at any point.
+       *
+       * `notifyEditorSaved` is the other half, for the workspace: inside the
+       * builder's frame this page is an iframe and the frame reloads it, and
+       * both are asked for so whichever applies happens. Every other editor
+       * on this page already finished exactly this way.
+       */
+      notifyEditorSaved()
+      router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : "That did not save.")
     } finally {

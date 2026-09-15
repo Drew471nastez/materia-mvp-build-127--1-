@@ -195,9 +195,30 @@ export function EditorSheet({
       <Button
         type="button"
         aria-busy={busy || undefined}
-        className={cn("relative w-full", busy && "disabled:opacity-100")}
-        onClick={onSave}
-        disabled={busy || saveDisabled}
+        /**
+         * BUSY IS NOT `disabled`, and that is the third and last go at this.
+         *
+         * `disabled` drags in `disabled:opacity-50` from the button variants,
+         * and the previous fix cancelled it with `disabled:opacity-100`
+         * through tailwind-merge. That works, and it works by winning an
+         * argument about class precedence between a `cva` base, a variant and
+         * a merged override — three layers, any of which can change, for the
+         * single most important control in the sheet. It is the wrong thing
+         * to be depending on.
+         *
+         * So a save in flight is not disabled at all. The button keeps every
+         * pixel it had, and the thing `disabled` was really there for — not
+         * sending the request twice — is done by the guard below, which is
+         * where it can actually be read. `aria-disabled` and `aria-busy` tell
+         * assistive technology the truth without touching a single style.
+         */
+        className="relative w-full"
+        onClick={() => {
+          if (busy || saveDisabled) return
+          onSave()
+        }}
+        disabled={saveDisabled}
+        aria-disabled={busy || saveDisabled || undefined}
       >
         {busy && (
           <Loader2

@@ -1537,7 +1537,16 @@ function main() {
     */
     check("the word is still there under the spinner", /\{saveLabel\}/.test(sheet))
     check("the spinner moves nothing", /<Loader2\s+className="absolute left-4/.test(sheet))
-    check("and a save in flight keeps its colour", /busy && "disabled:opacity-100"/.test(sheet))
+    /* Not `disabled` at all now: that carried opacity-50 from the variants.
+       See the note in tests/sheet-controls. */
+    check(
+      "and a save in flight is not disabled",
+      (() => {
+        /* The Save button only; Cancel is disabled={busy} and should be. */
+        const save = sheet.slice(sheet.indexOf("aria-busy={busy"), sheet.indexOf("{saveLabel}"))
+        return /disabled=\{saveDisabled\}/.test(save) && !/\sdisabled=\{busy/.test(save)
+      })(),
+    )
     for (const f of ["edit-cta-button", "edit-profile-button", "edit-about-button"]) {
       check(`${f} passes a word, not a spinner`, /saveLabel="Save"/.test(code(`components/storefront/${f}.tsx`)))
     }

@@ -337,15 +337,32 @@ export async function nativeLogout(
  *
  * @param style - "light" | "medium" | "heavy" (default: "light")
  */
-export async function triggerHaptic(style: "light" | "medium" | "heavy" = "light"): Promise<void> {
-  if (typeof window === "undefined") return
+export async function triggerHaptic(style: "light" | "medium" | "heavy" = "light"): Promise<boolean> {
+  if (typeof window === "undefined") return false
   const cap = (window as any).Capacitor
-  if (!cap?.isNativePlatform?.()) return
+  if (!cap?.isNativePlatform?.()) return false
   try {
     const { Haptics, ImpactStyle } = await import("@capacitor/haptics")
     const styleMap = { light: ImpactStyle.Light, medium: ImpactStyle.Medium, heavy: ImpactStyle.Heavy }
     await Haptics.impact({ style: styleMap[style] })
-  } catch { /* plugin unavailable or permission denied — silent no-op */ }
+    return true
+  } catch {
+    /**
+     * IT RETURNS WHETHER IT WORKED, and that is not pedantry.
+     *
+     * `@capacitor/haptics` is an npm dependency whose NATIVE half has to be
+     * installed in each app project, and in this repository it is not: the
+     * iOS Podfile lists Capacitor, Cordova, PushNotifications and Camera, and
+     * android/capacitor.settings.gradle lists capacitor-android, app and
+     * browser. No haptics in either.
+     *
+     * So this import resolves, the call is made, the bridge answers "plugin
+     * not implemented", and the catch swallowed it — silently, for every
+     * haptic in the app, on both platforms. Saying so lets the caller fall
+     * back to the web API, which Android WebView does support.
+     */
+    return false
+  }
 }
 
 /**
@@ -372,13 +389,36 @@ export async function triggerHaptic(style: "light" | "medium" | "heavy" = "light
  * navigator.vibrate call appears anywhere outside this file.
  */
 export function hapticTap(strength: "light" | "medium" = "light"): void {
-  if (isNativeApp()) {
-    void triggerHaptic(strength)
+  const web = () => {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(strength === "light" ? 10 : 15)
+    }
+  }
+
+  if (!isNativeApp()) {
+    web()
     return
   }
-  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-    navigator.vibrate(strength === "light" ? 10 : 15)
-  }
+
+  /**
+   * NATIVE FIRST, THEN THE WEB API IF THE PLUGIN IS NOT THERE.
+   *
+   * This used to `return` unconditionally once it knew it was inside the app,
+   * on the reasonable assumption that the Capacitor plugin would handle it.
+   * The plugin is not built into either app project (see triggerHaptic), so
+   * that branch has been doing nothing at all since it was written — inside
+   * the Android app, where `navigator.vibrate` works perfectly well, as much
+   * as inside the iOS one, where nothing does.
+   *
+   * Falling through costs one rejected promise and makes Android work today.
+   * iOS needs `pod 'CapacitorHaptics'` in ios/App/Podfile and a new build;
+   * there is no web vibration API on iOS to fall back to, in Safari or in
+   * WKWebView, so until that pod is added an iPhone stays silent whatever
+   * this function does.
+   */
+  void triggerHaptic(strength).then((ok) => {
+    if (!ok) web()
+  })
 }
 
 // ── External link handling ──────────────────────────────────────────────────

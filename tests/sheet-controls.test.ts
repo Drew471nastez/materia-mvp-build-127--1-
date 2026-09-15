@@ -119,26 +119,128 @@ check(
   /import \{ hapticTap \}/.test(arrange),
   "navigator.vibrate does not exist in WKWebView and fails silently there",
 )
+
+/**
+ * ---------------------------------------------------------------------------
+ *  AND THE HELPER FALLS BACK WHEN THE NATIVE PLUGIN IS NOT THERE
+ * ---------------------------------------------------------------------------
+ * `@capacitor/haptics` is an npm dependency whose native half has to be built
+ * into each app project, and in this repository it is in NEITHER: the iOS
+ * Podfile lists Capacitor, Cordova, PushNotifications and Camera, and
+ * android/capacitor.settings.gradle lists capacitor-android, app and browser.
+ *
+ * So inside the app the import resolved, the bridge answered "not
+ * implemented", and a bare `catch {}` swallowed it — every haptic in the app,
+ * on both platforms, silently doing nothing. `triggerHaptic` reports whether
+ * it worked now, and `hapticTap` falls through to the web API, which Android
+ * WebView supports.
+ *
+ * Checked against the native projects themselves, so this stops being a
+ * failure the day somebody adds the pod, rather than becoming a stale note.
+ */
+{
+  const bridge = code("lib/native-bridge.ts")
+  check(
+    "triggerHaptic says whether it actually fired",
+    /Promise<boolean>/.test(bridge) && /return true/.test(bridge),
+    "a bare catch cannot be distinguished from a haptic that happened",
+  )
+  check(
+    "and hapticTap falls back to the web API when it did not",
+    /\.then\(\(ok\) => \{\s*if \(!ok\) web\(\)/.test(bridge),
+    "inside the Android app navigator.vibrate works and was never reached",
+  )
+
+  /* The reason the fallback matters. If this ever stops being true, the
+     fallback is merely belt and braces rather than the only thing working. */
+  const podfile = readFileSync(join(root, "ios/App/Podfile"), "utf8")
+  const androidPlugins = readFileSync(join(root, "android/capacitor.settings.gradle"), "utf8")
+  const iosHasHaptics = /CapacitorHaptics/.test(podfile)
+  const androidHasHaptics = /capacitor-haptics/.test(androidPlugins)
+  console.log(
+    `        (native haptics plugin — iOS: ${iosHasHaptics ? "installed" : "NOT installed"}, ` +
+      `Android: ${androidHasHaptics ? "installed" : "NOT installed"})`,
+  )
+}
 check(
   "picking a row up is a tap",
-  /hapticTap\("medium"\)\n\s*setDrag\(\{ id, from: index/.test(arrange),
+  /hapticTap\("medium"\)\n\s*lastTick\.current = index\n\s*setDrag\(\{ id, from: index/.test(arrange),
 )
 check(
   "crossing into another slot is a lighter one",
-  /if \(to !== current\.to\) hapticTap\("light"\)/.test(arrange),
+  /if \(lastTick\.current !== to\) \{\n\s*lastTick\.current = to\n\s*hapticTap\("light"\)/.test(arrange),
   "firing on every pointermove would be a continuous buzz at 120Hz",
+)
+/**
+ * AND IT IS FIRED OUTSIDE THE STATE UPDATER. React may call an updater more
+ * than once for a single dispatch — it does in development — so a buzz
+ * written next to the comparison inside it is a buzz an unknown number of
+ * times. The updater computes; the effect happens against a ref.
+ */
+check(
+  "the tick is not fired from inside a state updater",
+  !/setDrag\(\(current\) => \{[\s\S]*?hapticTap/.test(arrange),
+  "a state updater has to be pure",
 )
 check(
   "and a press that moved nothing has nothing to confirm",
   /if \(current\.to !== current\.from\) hapticTap/.test(arrange),
 )
 
+/**
+ * AND SAVING DOES NOT THROW THE PAGE AWAY.
+ *
+ * The reorder sheet finished with `window.location.reload()`. The order does
+ * live in the page's server data, so it really does have to be read again —
+ * but a reload discards the document to do it: the sheet, the page behind it
+ * and everything painted on it go white while the request is in flight, right
+ * after Save is pressed. `router.refresh()` re-renders the server components
+ * and reconciles them into the DOM that is already there.
+ *
+ * A control experiment put the reload back and every check in this file still
+ * passed, which is why this one exists.
+ */
+check(
+  "saving the order refreshes the page rather than reloading the browser",
+  !/window\.location\.reload/.test(arrange) && /router\.refresh\(\)/.test(arrange),
+  "a reload is a white screen for the length of the round trip",
+)
+check(
+  "and the workspace's frame is told too",
+  /notifyEditorSaved\(\)/.test(arrange),
+  "inside the builder this page is an iframe and the frame is what reloads it",
+)
+
 console.log("\nButtons that do not change shape when they are pressed\n")
 
+/**
+ * THIRD GO AT THIS ONE, so the pin says what it now protects.
+ *
+ * First the label was swapped for a spinner. Then the spinner went beside the
+ * label and `disabled:opacity-100` cancelled the variant's fade — which works
+ * by winning a class-precedence argument across a cva base, a variant and a
+ * merged override. A save in flight is simply not `disabled` any more: the
+ * button keeps every pixel, and the double-submit `disabled` was there for is
+ * done by a guard in the handler, where it can be read.
+ */
+{
+  /* Scoped to the Save button. Cancel is `disabled={busy}` and should be:
+     it is not the control that has to stay legible mid-request. */
+  const saveButton = editor.slice(editor.indexOf("aria-busy={busy"), editor.indexOf("{saveLabel}"))
+  check(
+    "a save in flight does not disable the button",
+    /disabled=\{saveDisabled\}/.test(saveButton) && !/\sdisabled=\{busy/.test(saveButton),
+    "disabled drags in opacity-50 from the variants and the button looks dead",
+  )
+}
 check(
-  "Save keeps its colour while it saves",
-  /busy && "disabled:opacity-100"/.test(editor),
-  "disabled:opacity-50 turns a save in flight into a button that looks broken",
+  "and a second press is stopped where it can be read",
+  /if \(busy \|\| saveDisabled\) return/.test(editor),
+  "without disabled, nothing else prevents sending the request twice",
+)
+check(
+  "with the state still announced",
+  /aria-busy=\{busy \|\| undefined\}/.test(editor) && /aria-disabled=\{busy \|\| saveDisabled \|\| undefined\}/.test(editor),
 )
 check(
   "and its spinner takes part in no layout",
