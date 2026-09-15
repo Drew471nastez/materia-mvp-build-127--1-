@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { AnimateOnScroll } from "./bento-grid"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
 
 const FLOATING_ICONS = [
   { label: "OnePage", pos: "md:top-[-4px] top-[-16px] left-[5%] md:left-[-2%]", delay: "0s", zClass: "z-[2]", imgSrc: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(38).webp" },
@@ -17,9 +18,27 @@ const MANAGE_IMAGES = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Macbook-Air-storelib.com%20(3).webp",
 ]
 
-function getOptimized(url: string, _width: number, _quality: number) {
-  // Use raw Supabase URLs — image transformations may not be enabled on this project
-  return url
+/**
+ * ===========================================================================
+ *  THIS FUNCTION USED TO RETURN ITS ARGUMENT
+ * ===========================================================================
+ * The comment it carried was half right: Supabase's transformer really is off
+ * on this project, and pointing at it fails the build. But the conclusion, to
+ * hand back the original upload, meant this section shipped three dashboard
+ * screenshots at full size into a 600px frame, and three more at full size
+ * into 74px circles. One of those circles was fetching 304 KB.
+ *
+ * `/_next/image` is a different endpoint with no relationship to Supabase's:
+ * Next resizes and re-encodes at the edge and caches for a year. It is what
+ * every other image on the site already goes through.
+ *
+ * The quality argument is dropped on purpose. Callers were passing 13 to 20,
+ * which is not a quality setting so much as a request for artefacts, and the
+ * optimizer only accepts the values listed in next.config's `images.qualities`
+ * anyway — anything else is a 400 and a broken picture.
+ */
+function getOptimized(url: string, displayWidth: number, _quality?: number) {
+  return optimizedImageUrl(url, displayWidth, 75)
 }
 
 function ManagedImageCarousel() {
@@ -215,7 +234,9 @@ export function ManageSection() {
                   {"imgSrc" in icon && icon.imgSrc ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
-                      src={icon.imgSrc}
+                      /* 74px on the widest screen, so the optimizer is asked
+                         for that and not for the 304 KB original. */
+                      src={optimizedImageUrl(icon.imgSrc, 74, 75)}
                       alt={icon.label}
                       className={`object-cover rounded-full ${icon.label === "Digital Products" ? "w-[80%] h-[80%]" : icon.label === "Marketplace" ? "w-[130%] h-[130%]" : "w-full h-full"}`}
                       width={74}

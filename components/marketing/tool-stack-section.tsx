@@ -2,6 +2,10 @@
 
 import { useState, useRef, useEffect } from "react"
 import { AnimateOnScroll } from "./bento-grid"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
+
+const COMPARE_IMAGE =
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp"
 
 /* ── SVG Icon Components ── */
 
@@ -148,8 +152,15 @@ export function ToolStackSection() {
             <div className="text-center max-w-[640px] mx-auto mb-9 sm:mb-[50px]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=190&quality=28"
-                srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=150&quality=25 204w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=190&quality=28 264w"
+                /*
+                  `?width=&quality=` on a /storage/v1/object/ URL does nothing
+                  at all — that endpoint serves the stored file and ignores
+                  every parameter. The two entries in the srcSet were the same
+                  original twice, so this asked for one picture and downloaded
+                  it twice over. It is 281px wide at most; the optimizer is
+                  asked for that.
+                */
+                src={optimizedImageUrl(COMPARE_IMAGE, 281, 75)}
                 alt="Compare tools"
                 width={277}
                 height={56}

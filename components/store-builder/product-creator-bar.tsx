@@ -714,8 +714,16 @@ function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
     window.location.href = `mailto:support@storelib.com?subject=${subject}&body=${body}`
   }
 
+  /**
+   * `sm:hover:` was the wrong question twice over. `sm:` is a WIDTH, and a
+   * phone held sideways is 852px wide, so the hover style was live on exactly
+   * the device that cannot hover. And `hover:` alone is answered "yes" by
+   * several touch browsers, where :hover then sticks to the last thing tapped.
+   * Between them, pressing Share left the row grey until something else was
+   * pressed. `pointer-fine:` asks whether a real pointer exists.
+   */
   const item =
-    "flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-[#1a1a2e] transition-colors active:bg-[#e9eaee] sm:hover:bg-[#f3f4f6]"
+    "flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-[#1a1a2e] transition-colors active:bg-[#e9eaee] pointer-fine:hover:bg-[#f3f4f6]"
 
   return (
     <>

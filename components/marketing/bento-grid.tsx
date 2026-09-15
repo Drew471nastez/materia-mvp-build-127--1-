@@ -3,6 +3,28 @@
 import { useRef, useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
+
+/**
+ * ===========================================================================
+ *  `?width=` ON A /storage/v1/object/ URL IS NOT A RESIZE
+ * ===========================================================================
+ * That endpoint serves the stored file and ignores every query parameter, so
+ * these three read as resized and were not: the widest of them measured 523 KB
+ * where the page draws it 800px across. The srcSets were the same original
+ * listed at two sizes, which is a picture downloaded twice.
+ *
+ * `/_next/image` is the resizer that is actually switched on here. Supabase's
+ * own transformer is metered, exhausted, and fails the build.
+ */
+const SELL_ANYTHING_PHONE =
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(48).webp"
+const SELL_ANYTHING_WIDE =
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp"
+const SELL_ANYWHERE =
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(7).png"
+
+
 /* ── Globe.gl (requires browser — no SSR) ── */
 const GlobeWidget = dynamic(() => import("./globe-widget"), {
   ssr: false,
@@ -317,7 +339,7 @@ export function BentoGrid() {
                 {/* Mobile image */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(48).webp?width=500&quality=55"
+                  src={optimizedImageUrl(SELL_ANYTHING_PHONE, 500, 75)}
                   alt="Digital products showcase"
                   className="w-[125%] rounded-xl object-cover sm:hidden"
                   loading="eager"
@@ -328,8 +350,7 @@ export function BentoGrid() {
                 {/* Desktop image */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp?width=800&quality=60"
-                  srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp?width=500&quality=55 500w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp?width=800&quality=60 800w"
+                  src={optimizedImageUrl(SELL_ANYTHING_WIDE, 800, 75)}
                   alt="Digital products showcase"
                   className="hidden sm:block w-[110%] rounded-xl object-cover"
                   loading="eager"
@@ -370,8 +391,7 @@ export function BentoGrid() {
               </p>
               <div className="mt-4 flex-1 flex items-center justify-center overflow-hidden">
                 <img
-                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(7).png?width=400&quality=40"
-                  srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(7).png?width=400&quality=40 400w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(7).png?width=600&quality=48 600w"
+                  src={optimizedImageUrl(SELL_ANYWHERE, 600, 75)}
                   alt="Sell anywhere illustration"
                   className="w-[204%] sm:w-[123%] rounded-xl"
                   loading="lazy"

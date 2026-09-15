@@ -68,7 +68,11 @@ export function SplitFeaturesSection() {
                     className="w-full h-auto object-contain rounded-2xl"
                     loading="eager"
                     decoding="async"
-                    unoptimized
+                    /* `unoptimized` was here, so <Image> served the original
+                       upload untouched: two screenshots, ~190 KB together, for
+                       a panel that is 52% of the page. Without it the same
+                       component resizes and re-encodes at the edge, which is
+                       the entire reason to be using <Image> at all. */
                   />
                 </div>
 

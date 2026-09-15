@@ -5,6 +5,22 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/**
+ * ===========================================================================
+ *  A HOVER THAT ONLY A MOUSE CAN DO
+ * ===========================================================================
+ * Tailwind gates `hover:` behind `(hover: hover)` alone, and several browsers
+ * answer that query with "yes" on a touch screen: Android WebViews, an iPad
+ * with a pointer attached, Safari asked for the desktop site. On those, a tap
+ * turns `:hover` on and LEAVES IT ON until something else is tapped, so the
+ * row you just pressed stays highlighted and reads as jammed.
+ *
+ * `pointer: fine` is the second half of the question — is there something
+ * that can hover on and off again. Use `pointer-fine:hover:…` wherever a
+ * hover style would otherwise stick to a finger.
+ */
+@custom-variant pointer-fine (@media (hover: hover) and (pointer: fine));
+
 :root {
   /* ── Theme defaults ────────────────────────────────────────────────────
      A section can be rendered outside a themed page — a dashboard preview
