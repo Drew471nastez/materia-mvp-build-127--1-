@@ -18,7 +18,7 @@
  */
 
 import * as React from "react"
-import { Users } from "lucide-react"
+import { Users, MessagesSquare } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface StorefrontTab {
@@ -34,15 +34,34 @@ export interface StorefrontTab {
  * built — so the tab has to say that plainly. A blank panel reads as broken; a
  * sentence reads as "not yet", which is what it is.
  */
+/**
+ * A NAME, NOT A COMPONENT.
+ *
+ * This took `icon?: React.ComponentType`, and the creator page is a SERVER
+ * component, so handing it a lucide icon meant passing a forwardRef object
+ * across the server/client boundary. React cannot serialise that, and it
+ * does not fail quietly: the whole RSC render throws
+ *
+ *   "Functions cannot be passed directly to Client Components"
+ *
+ * which took out every creator's live page, not only the one being edited.
+ * A string crosses the boundary; the mapping lives on this side of it.
+ */
+const EMPTY_ICONS = {
+  people: Users,
+  communities: MessagesSquare,
+} as const
+
 export function EmptyTabPanel({
   title,
   detail,
-  icon: Icon = Users,
+  icon = "people",
 }: {
   title: string
   detail: string
-  icon?: React.ComponentType<{ className?: string }>
+  icon?: keyof typeof EMPTY_ICONS
 }) {
+  const Icon = EMPTY_ICONS[icon] ?? Users
   return (
     <div className="mx-auto w-full max-w-[1100px] px-3 sm:px-4 lg:px-6">
       {/*

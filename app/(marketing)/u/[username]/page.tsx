@@ -1,7 +1,7 @@
-import { MessagesSquare } from "lucide-react"
 import type React from "react"
 import { hasBoughtFromCreator } from "@/lib/commerce/has-bought-from-creator"
 import { applyManualOrder } from "@/lib/store-builder/featured-order"
+import { SafeRegion } from "@/components/storefront/safe-region"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -1127,7 +1127,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             label: "Communities",
             panel: (
               <EmptyTabPanel
-                icon={MessagesSquare}
+                icon="communities"
                 title="No communities yet"
                 detail="This creator hasn't opened any yet."
               />
@@ -1157,22 +1157,32 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                 tabs={tabs}
                 surface={{ textColor: chrome.text, mutedColor: chrome.muted, borderColor: chrome.border }}
               />
+              {/*
+                The reviews and the About block are wrapped, the products are
+                not. See components/storefront/safe-region: a shop that loses
+                its reviews is still a shop; a shop that quietly loses its
+                products is a page that looks fine and sells nothing.
+              */}
               {creatorReviewCount > 0 && (
-                <ReviewsPanel reviews={reviewsForPanel} average={creatorRating} total={creatorReviewCount} />
+                <SafeRegion name="reviews">
+                  <ReviewsPanel reviews={reviewsForPanel} average={creatorRating} total={creatorReviewCount} />
+                </SafeRegion>
               )}
-              {about}
+              <SafeRegion name="about">{about}</SafeRegion>
             </>
           )
         })()}
 
-        <SellerFooter
-          surface={{
-            backgroundColor: chrome.footerBackground,
-            textColor: chrome.footerText,
-            mutedColor: chrome.footerMuted,
-            borderColor: chrome.border,
-          }}
-        />
+        <SafeRegion name="footer">
+          <SellerFooter
+            surface={{
+              backgroundColor: chrome.footerBackground,
+              textColor: chrome.footerText,
+              mutedColor: chrome.footerMuted,
+              borderColor: chrome.border,
+            }}
+          />
+        </SafeRegion>
       </div>
       </>
     )

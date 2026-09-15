@@ -1535,7 +1535,12 @@ check(
     }
     if (/label: "Reviews"|label: "About"/.test(page))
       missing.push("there is a fourth tab again — Reviews and About belong at the foot of the page")
-    if (!/\{creatorReviewCount > 0 && \(\s*<ReviewsPanel/.test(page))
+    /*
+      The gate is still "only when there are reviews"; what sits between the
+      gate and the panel is now a SafeRegion, so that a fault in the reviews
+      cannot take the shop's products down with it.
+    */
+    if (!/\{creatorReviewCount > 0 && \(\s*<SafeRegion name="reviews">\s*<ReviewsPanel/.test(page))
       missing.push("the reviews block shows even when there are none to show")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
@@ -2007,7 +2012,8 @@ check(
     if (/label: "About"/.test(page)) missing.push("About is a tab again")
     // Below the panels, and last of everything below them — the reviews block
     // now sits between the two.
-    if (!/<StorefrontTabs[\s\S]{0,300}?\/>[\s\S]{0,400}?\{about\}\s*<\/>/.test(page))
+    /* `{about}` is inside its own SafeRegion now; it is still the last thing. */
+    if (!/<StorefrontTabs[\s\S]{0,300}?\/>[\s\S]{0,600}?<SafeRegion name="about">\{about\}<\/SafeRegion>\s*<\/>/.test(page))
       missing.push("About no longer renders last, after the tab panels, on every tab")
     /**
      * The desktop half is behind `!isMobile` so the store builder's phone
@@ -2159,7 +2165,18 @@ check(
     if (/py-6 px-2 md:py-12/.test(aboutBody))
       missing.push("the About section's hardcoded vertical padding is back")
 
-    if (!/icon: Icon = Users/.test(tabs)) missing.push("the empty tab lost its icon")
+    /*
+      The icon used to be a COMPONENT prop with `Users` as its default, and
+      that is exactly what took every creator's live page down: the creator
+      page is a Server Component, and handing a client component a forwardRef
+      object across that boundary throws during the render. It is a name now,
+      resolved on the client side. Still an icon, still defaulting to people.
+      tests/rsc-boundary.test.ts guards the class.
+    */
+    if (!/icon = "people"/.test(tabs) || !/people: Users/.test(tabs))
+      missing.push("the empty tab lost its icon")
+    if (/icon\?: React\.ComponentType/.test(tabs))
+      missing.push("the empty tab takes a component again — that cannot cross the server boundary")
     if (!/<Icon className="mx-auto mb-3 h-6 w-6/.test(tabs)) missing.push("the empty tab's icon is not rendered")
     const detail = page.match(/detail="([^"]*)"/)?.[1] ?? ""
     if (!detail) missing.push("the empty tab has no line under its heading")
