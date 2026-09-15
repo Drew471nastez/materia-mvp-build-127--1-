@@ -65,13 +65,17 @@ async function run() {
   document.querySelectorAll("[data-weight]").forEach(function (el) {
     ladder.push({ weight: Number(el.getAttribute("data-weight")), width: Math.round(el.getBoundingClientRect().width * 100) / 100, computed: getComputedStyle(el).fontWeight })
   })
+  var tabs = []
+  document.querySelectorAll("[data-tab]").forEach(function (el) {
+    tabs.push({ tab: el.getAttribute("data-tab"), weight: getComputedStyle(el).fontWeight, width: Math.round(el.getBoundingClientRect().width * 100) / 100 })
+  })
   var lines = []
   document.querySelectorAll("[data-line]").forEach(function (el) {
     var cs = getComputedStyle(el)
     lines.push({ line: el.getAttribute("data-line"), size: cs.fontSize, weight: cs.fontWeight })
   })
   var pre = document.createElement("pre"); pre.id = "result"
-  pre.textContent = JSON.stringify({ ladder: ladder, lines: lines, errors: window.__err })
+  pre.textContent = JSON.stringify({ ladder: ladder, lines: lines, tabs: tabs, errors: window.__err })
   document.body.append(pre)
 }
 run()
@@ -92,13 +96,25 @@ console.log(JSON.stringify(p, null, 2))
 
 const problems = []
 const w = (n) => p.ladder.find((x) => x.weight === n)
-const [a, b, c] = [w(400), w(450), w(500)]
-if (!a || !b || !c) problems.push("the weight ladder did not render.")
+const [a, b, c, d] = [w(400), w(450), w(500), w(530)]
+if (!a || !b || !c || !d) problems.push("the weight ladder did not render.")
 else {
+  /* Every weight the product uses has to be a real one, not a round. */
+  if (!(c.width < d.width)) problems.push(`530 is no heavier than 500 (${d.width} vs ${c.width}) — the selected tab's half step does nothing.`)
   if (b.computed !== "450") problems.push(`450 computes as ${b.computed}, so the declaration is not reaching the text.`)
   /* THE QUESTION. A real axis makes 450 strictly between 400 and 500. */
   if (!(b.width > a.width)) problems.push(`450 is no wider than 400 (${b.width} vs ${a.width}) — the face has no weight axis here and the half step does nothing.`)
   if (!(b.width < c.width)) problems.push(`450 is not lighter than 500 (${b.width} vs ${c.width}) — it has snapped to the heavier end.`)
+}
+
+const rest = (p.tabs ?? []).find((t) => t.tab === "rest")
+const sel = (p.tabs ?? []).find((t) => t.tab === "selected")
+if (!rest || !sel) problems.push("the tab row did not render.")
+else {
+  if (rest.weight !== "450") problems.push(`an unselected tab is weight ${rest.weight}, not 450.`)
+  if (sel.weight !== "530") problems.push(`the selected tab is weight ${sel.weight}, not 530.`)
+  /* And the selected one still reads as the selected one. */
+  if (!(sel.width > rest.width * 0.2)) problems.push("the tabs did not render text.")
 }
 
 for (const l of p.lines) {
@@ -107,4 +123,4 @@ for (const l of p.lines) {
 }
 
 if (problems.length) fail(problems.map((x) => `  - ${x}`).join("\n"))
-console.log("\n450 is a real weight on this page, and all three lines carry it at 13px.\n")
+console.log("\n450 and 530 are real weights here. The three lines carry 450 at 13px, and the tabs carry both.\n")
