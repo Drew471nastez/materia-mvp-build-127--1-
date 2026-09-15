@@ -40,19 +40,29 @@ export const SORT_LABELS: Record<SortKey, string> = {
 export function SortControl({
   value,
   onChange,
+  defaultLabel,
   compact = false,
   className,
 }: {
   value: SortKey
   onChange: (next: SortKey) => void
+  /**
+   * What to call the default. "Most Recent" is accurate until a creator
+   * arranges the catalogue by hand, at which point the list is in their order
+   * and the label would be describing a sort that is not being applied.
+   */
+  defaultLabel?: string
   /** Phone: the label collapses to an icon. */
   compact?: boolean
   className?: string
 }) {
+  /* One place decides what each key is called, so the trigger and the menu
+     cannot disagree about it. */
+  const labelFor = (key: SortKey) => (key === "recent" && defaultLabel ? defaultLabel : SORT_LABELS[key])
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label={`Sort: ${SORT_LABELS[value]}`}
+        aria-label={`Sort: ${labelFor(value)}`}
         className={cn(
           "inline-flex shrink-0 items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
           /**
@@ -72,7 +82,7 @@ export function SortControl({
           <ArrowUpDown className="h-4 w-4" />
         ) : (
           <>
-            <span>Sort: {SORT_LABELS[value]}</span>
+            <span>Sort: {labelFor(value)}</span>
             <ChevronDown className="h-3.5 w-3.5 opacity-70" />
           </>
         )}
@@ -81,7 +91,7 @@ export function SortControl({
         {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
           <DropdownMenuItem key={key} className="cursor-pointer gap-2" onClick={() => onChange(key)}>
             <Check className={cn("h-4 w-4", key === value ? "opacity-100" : "opacity-0")} />
-            {SORT_LABELS[key]}
+            {labelFor(key)}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

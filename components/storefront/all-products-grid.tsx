@@ -12,6 +12,7 @@ import * as React from "react"
 import { Package } from "lucide-react"
 import { StorefrontProductCard, type StorefrontCardProduct } from "./storefront-product-card"
 import { CatalogHeader, CategorySelect, SortControl, type SortKey } from "./catalog-controls"
+import { ArrangeProductsButton } from "./arrange-products-button"
 
 export type AllProductsGridProduct = StorefrontCardProduct
 
@@ -22,6 +23,7 @@ export function AllProductsGrid({
   creatorAvatarUrl,
   isOwner = false,
   showCategoryFilter = true,
+  hasManualOrder = false,
 }: {
   products: AllProductsGridProduct[]
   creatorName?: string | null
@@ -35,6 +37,13 @@ export function AllProductsGrid({
    * saved and read by nothing — which it already was once.
    */
   showCategoryFilter?: boolean
+  /**
+   * True once the creator has dragged their catalogue into an order. It
+   * changes ONE thing: what the default sort is called. Leaving it as "Most
+   * Recent" while the list is in a hand-picked order is the control telling
+   * the visitor something that is not true.
+   */
+  hasManualOrder?: boolean
 }) {
   /**
    * Category filtering, which the tab had none of. Chips rather than the rail
@@ -107,10 +116,11 @@ export function AllProductsGrid({
         {showCategoryFilter && (
           <CategorySelect categories={categories} value={active} onChange={setActive} total={products.length} />
         )}
+        {isOwner && <ArrangeProductsButton products={products} />}
         {products.length > 1 && (
           <>
-            <SortControl value={sort} onChange={setSort} compact className="sm:hidden" />
-            <SortControl value={sort} onChange={setSort} className="hidden sm:inline-flex" />
+            <SortControl value={sort} onChange={setSort} compact className="sm:hidden" defaultLabel={hasManualOrder ? "Your order" : undefined} />
+            <SortControl value={sort} onChange={setSort} className="hidden sm:inline-flex" defaultLabel={hasManualOrder ? "Your order" : undefined} />
           </>
         )}
       </CatalogHeader>

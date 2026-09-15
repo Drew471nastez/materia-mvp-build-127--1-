@@ -1,5 +1,6 @@
 "use client"
 
+import { MessagesSquare } from "lucide-react"
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react"
 import { useStoreBuilder } from "./store-builder-context"
 import { createClient } from "@/lib/supabase/client"
@@ -843,7 +844,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                 id: "communities",
                 label: "Communities",
                 panel: (
-                  <EmptyTabPanel title="No communities yet" detail="This creator hasn't opened any yet." />
+                  <EmptyTabPanel title="No communities yet" detail="This creator hasn't opened any yet." icon={MessagesSquare} />
                 ),
               })
 
