@@ -28,6 +28,13 @@
  */
 import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
+import {
+  cachedCreator,
+  cachedCreatorProfile,
+  cachedProductBySlug,
+  cachedProductPageConfig,
+  cachedStoreConfig,
+} from "./product-page-cache"
 
 /** The page's own select, unchanged: the row plus the categories it shows. */
 const PRODUCT_SELECT = `
@@ -55,6 +62,15 @@ export interface ProductLookup {
 }
 
 export const loadProductBySlug = cache(async (slug: string): Promise<ProductLookup> => {
+  /*
+    THE SHARED COPY FIRST. A published product is the same row for every
+    visitor, so it is fetched once and kept for a minute rather than queried
+    per request. product-page-cache.ts explains the two caches and why the
+    fallback below is not optional.
+  */
+  const shared = await cachedProductBySlug(slug)
+  if (shared) return { product: shared, viaHistory: false }
+
   const supabase = await createClient()
 
   const { data: current } = await supabase
@@ -96,12 +112,16 @@ export const loadProductBySlug = cache(async (slug: string): Promise<ProductLook
 })
 
 export const loadCreator = cache(async (creatorId: string) => {
+  const shared = await cachedCreator(creatorId)
+  if (shared) return shared
   const supabase = await createClient()
   const { data } = await supabase.from("creators").select("*").eq("id", creatorId).maybeSingle()
   return data
 })
 
 export const loadCreatorProfile = cache(async (userId: string) => {
+  const shared = await cachedCreatorProfile(userId)
+  if (shared) return shared
   const supabase = await createClient()
   const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
   return data
@@ -113,6 +133,8 @@ export const loadCreatorProfile = cache(async (userId: string) => {
  * "shop". Two queries between them now instead of four.
  */
 export const loadStoreConfig = cache(async (creatorId: string, pageType: string) => {
+  const shared = await cachedStoreConfig(creatorId, pageType)
+  if (shared) return shared
   const supabase = await createClient()
   const { data } = await supabase
     .from("store_builder_configs")
@@ -125,6 +147,8 @@ export const loadStoreConfig = cache(async (creatorId: string, pageType: string)
 
 /** The per-product override, which only the page reads. Here for symmetry. */
 export const loadProductPageConfig = cache(async (creatorId: string, productId: string) => {
+  const shared = await cachedProductPageConfig(creatorId, productId)
+  if (shared) return shared
   const supabase = await createClient()
   const { data } = await supabase
     .from("product_page_configs")

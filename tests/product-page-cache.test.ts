@@ -1,0 +1,124 @@
+/**
+ * ===========================================================================
+ *  THE SHARED HALF IS CACHED, AND THE PERSONAL HALF NEVER IS
+ * ===========================================================================
+ * Measured on production before any of this:
+ *
+ *   product page   min 1.11s  median 4.13s  max 10.97s   (x-vercel-cache: MISS, always)
+ *   /pricing       min 0.22s  median 0.26s  max 0.58s    (served from the CDN)
+ *
+ * Every product page request ran a server render. Most of what that render
+ * fetches is the same for everybody, so it is fetched once and shared.
+ *
+ * WHAT THIS SUITE IS ACTUALLY FOR. A cache that holds the wrong thing is not
+ * a performance bug, it is a data leak: one visitor's entitlements stored
+ * under a key another visitor hits. So the rule is narrow and it is checked
+ * rather than trusted —
+ *
+ *   cacheable      products, creators, profiles, store_builder_configs,
+ *                  product_page_configs      (public rows, same for everyone)
+ *   never          entitlements, orders, auth.getUser()
+ *
+ * and the cached reads go through an anon client with no session, so the
+ * database itself refuses anything a signed-out stranger could not see.
+ */
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+
+let passed = 0
+let failed = 0
+const failures: string[] = []
+function check(label: string, ok: boolean, detail?: string) {
+  if (ok) {
+    passed++
+    console.log(`  ok    ${label}`)
+  } else {
+    failed++
+    failures.push(label + (detail ? ` — ${detail}` : ""))
+    console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ""}`)
+  }
+}
+
+const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const cacheLayer = read("lib/commerce/product-page-cache.ts")
+const publicClient = read("lib/supabase/public-read.ts")
+const loaders = read("lib/commerce/product-page-data.ts")
+const page = read("app/(marketing)/p/[slug]/page.tsx")
+const publishRoute = read("app/api/store-builder/route.ts")
+
+function main() {
+  console.log("\nThe shared half is cached, and the personal half never is")
+
+  /* ---------------------------------------------------------------------
+     THE CLIENT THE CACHE READS THROUGH
+     --------------------------------------------------------------------- */
+  console.log("\n  a client with no session")
+
+  /*
+    THE SERVICE ROLE WOULD MAKE THIS A LEAK. It bypasses row-level security,
+    so a cached value fetched with it could be a row the database would have
+    refused to show a stranger — stored once and then served to one.
+  */
+  check("it never reaches for the service role", !/SERVICE_ROLE|createAdminClient/.test(publicClient))
+  check("it uses the anon key", /NEXT_PUBLIC_SUPABASE_ANON_KEY/.test(publicClient))
+  check("and holds no session", /persistSession: false/.test(publicClient) && /autoRefreshToken: false/.test(publicClient))
+  check("it reads no cookies", !/cookies\(\)|next\/headers/.test(publicClient))
+
+  /* ---------------------------------------------------------------------
+     ONLY PUBLIC TABLES ARE CACHED
+     --------------------------------------------------------------------- */
+  console.log("\n  only rows that belong to nobody")
+
+  const CACHEABLE = ["products", "creators", "profiles", "store_builder_configs", "product_page_configs"]
+  const NEVER = ["entitlements", "orders", "purchases", "download_tokens"]
+
+  for (const table of CACHEABLE) {
+    check(`${table} is cached`, new RegExp(`\\.from\\("${table}"\\)`).test(cacheLayer))
+  }
+  for (const table of NEVER) {
+    check(`${table} is NOT cached`, !new RegExp(`\\.from\\("${table}"\\)`).test(cacheLayer), "this would be one visitor's rows served to another")
+  }
+  /* Who is looking is asked fresh, every request, forever. */
+  check("nothing in the cache layer asks who is signed in", !/auth\.getUser|getSession/.test(cacheLayer))
+  check("and the page still asks, per request", /supabase\.auth\.getUser\(\)/.test(page))
+  check("entitlements are still read on the request's own client", /\.from\("entitlements"\)/.test(page))
+
+  /* ---------------------------------------------------------------------
+     IT FALLS BACK RATHER THAN SERVING AN EMPTY PAGE
+     --------------------------------------------------------------------- */
+  console.log("\n  it falls back rather than breaking")
+
+  /*
+    The anon client is subject to RLS. If a policy turns out to need a
+    session, the cached read returns NOTHING — and an empty product page is
+    worse than a slow one. Every loader tries the shared copy and falls
+    through to the per-request client when it comes back empty.
+  */
+  const fallbacks = (loaders.match(/if \(shared\) return/g) || []).length
+  check("every cached loader has a fallback", fallbacks === 5, `found ${fallbacks}`)
+  check("and the fallback is the session client", /const supabase = await createClient\(\)/.test(loaders))
+
+  /* ---------------------------------------------------------------------
+     A PUBLISH CLEARS IT
+     --------------------------------------------------------------------- */
+  console.log("\n  a publish clears it")
+
+  /*
+    Without this a creator publishes, reloads, and sees the old page until
+    the backstop expires — indistinguishable from a publish that did nothing,
+    which is a bug this codebase has had reported before.
+  */
+  check("publishing revalidates the creator's tag", /revalidateTag\(creatorTag\(creator\.id\), "max"\)/.test(publishRoute))
+  check("and the product's, when there is one", /if \(productId\) revalidateTag\(productTag\(productId\), "max"\)/.test(publishRoute))
+  check("there is a backstop for the paths that forget", /export const PRODUCT_CACHE_TTL = 60/.test(cacheLayer))
+  check("and every cached read carries it", (cacheLayer.match(/revalidate: PRODUCT_CACHE_TTL/g) || []).length === 5)
+  check("with a tag on each", (cacheLayer.match(/tags: \[/g) || []).length === 5)
+
+  console.log(`\n${passed} passed, ${failed} failed`)
+  if (failed > 0) {
+    console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
+    process.exit(1)
+  }
+}
+
+main()
