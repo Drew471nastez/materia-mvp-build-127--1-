@@ -70,6 +70,31 @@ function serverSnapshot() {
   return false
 }
 
+/**
+ * HOW TALL THE BAR IS, PUBLISHED AS A CSS VARIABLE.
+ *
+ * The buy card on the right of a product page is sticky, and a sticky box
+ * pinned to the top of the screen ends up underneath the bar that is also
+ * pinned there. It needs the bar's height, and the bar's height depends on
+ * whether the creator kept the follow form and how their name wraps — so it
+ * is measured once, here, rather than guessed twice.
+ *
+ * A custom property rather than React state on purpose: the card is rendered
+ * by a server component several files away, and threading a number through
+ * that is a prop on everything in between for a value only CSS ever reads.
+ */
+const HEIGHT_VAR = "--product-topbar-h"
+
+export function setProductTopBarHeight(px: number | null) {
+  if (typeof document === "undefined") return
+  const root = document.documentElement
+  if (px === null || !Number.isFinite(px) || px <= 0) {
+    root.style.removeProperty(HEIGHT_VAR)
+    return
+  }
+  root.style.setProperty(HEIGHT_VAR, `${Math.round(px)}px`)
+}
+
 export function useProductTopBarShown(): boolean {
   return useSyncExternalStore(subscribe, isProductTopBarShown, serverSnapshot)
 }

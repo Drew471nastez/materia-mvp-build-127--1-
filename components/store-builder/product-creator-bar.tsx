@@ -13,7 +13,7 @@ import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 import { SmartLink } from "@/components/smart-link"
 import { hapticTap } from "@/lib/native-bridge"
-import { setProductTopBarRendered } from "@/lib/store-builder/product-top-bar"
+import { setProductTopBarHeight, setProductTopBarRendered } from "@/lib/store-builder/product-top-bar"
 
 // Button style presets (same as subscribe bar)
 export const creatorBarButtonPresets: Record<string, { default: string; subscribed: string }> = {
@@ -910,6 +910,30 @@ export function LiveProductCreatorBar({
     return () => setProductTopBarRendered(false)
   }, [barIsOnThePage])
 
+  /*
+    AND HOW TALL IT IS, for the buy card that is sticky under it. Measured
+    rather than written down twice: this bar's height depends on whether the
+    creator kept the follow form, and a constant in a stylesheet across the
+    repo from it would be right until the first time somebody switched that
+    off. A ResizeObserver, because the answer changes with the window.
+  */
+  const barRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const node = barRef.current
+    if (!node || !barIsOnThePage) {
+      setProductTopBarHeight(null)
+      return
+    }
+    const measure = () => setProductTopBarHeight(node.getBoundingClientRect().height)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    return () => {
+      observer.disconnect()
+      setProductTopBarHeight(null)
+    }
+  }, [barIsOnThePage])
+
   // Early return AFTER all hooks
   if (!settings.visible) return null
 
@@ -976,6 +1000,7 @@ export function LiveProductCreatorBar({
 
   return (
     <div
+      ref={barRef}
       className={cn("relative z-10 w-full overflow-hidden", hideOnMobileDiscover && "hidden")}
       style={{
         backgroundColor: settings.backgroundColor || "#1a1a1a",

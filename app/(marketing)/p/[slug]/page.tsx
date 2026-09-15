@@ -1324,9 +1324,29 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         </div>
       </div>
 
-      <div className="hidden lg:block lg:col-span-2">
+      {/*
+        =====================================================================
+         THE BUY CARD FOLLOWS THE PAGE DOWN, AND THEN STOPS
+        =====================================================================
+        `lg:self-stretch` is what makes the card below sticky, and the card
+        already said `sticky` for a long time without being it. The grid sets
+        `lg:items-start`, so this column shrank to the card's own height —
+        320px around a 320px card — and a sticky box in a box its own size has
+        nowhere to travel. Measured: it scrolled away with the page at
+        600px down. Stretched, the column is as tall as the row and the card
+        rides it, then parks flush with the column's end, which is the "until
+        a point" half that a `fixed` panel would get wrong.
+
+        THE OFFSET CLEARS THE BAR ABOVE IT. `--product-topbar-h` is the
+        creator bar's own measured height, published by the bar because it
+        depends on whether the creator kept the follow form. Without it the
+        card pins at 24px and the bar, which is sticky too and comes back on
+        a scroll up, lands on top of it. The fallback is 0px for every page
+        that has no bar.
+      */}
+      <div className="hidden lg:block lg:col-span-2 lg:self-stretch">
         <div
-          className="sticky top-6 rounded-xl border p-6 shadow-sm relative z-20"
+          className="sticky top-[calc(var(--product-topbar-h,0px)+1.5rem)] rounded-xl border p-6 shadow-sm relative z-20"
           style={{
             backgroundColor: themeColors.cardBackground || "var(--card)",
             borderColor: themeColors.cardBorderColor || "var(--border)",
