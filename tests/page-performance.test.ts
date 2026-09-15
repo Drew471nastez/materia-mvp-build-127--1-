@@ -944,8 +944,26 @@ check(
       missing.push("the page no longer checks who is looking")
     if (!/if \(!viewerIsOwner\) return null/.test(page))
       missing.push("buildOwnerActions hands the edit control to everyone")
-    if (!/supabase\.auth\.getUser\(\),/.test(page))
-      missing.push("the viewer lookup left the batch — that is a third round trip before first byte")
+    /**
+     * THE VIEWER LOOKUP COSTS NO ROUND TRIP OF ITS OWN.
+     *
+     * This used to pin `supabase.auth.getUser(),` — the trailing comma being
+     * the proof it sat inside the batch array. The lookup has since moved
+     * EARLIER, to the top of the request: it reads a cookie and depends on
+     * nothing, so it is started before the profile query and handed to the
+     * batch as a promise, which lets the purchase check join the batch too.
+     *
+     * Same invariant, pinned where it now lives, and pinned harder: started
+     * without an await, and consumed in the batch. An `await` on that line
+     * would put the round trip back in series, which is what the old pattern
+     * existed to catch.
+     */
+    if (!/const viewerPromise = supabase\.auth\.getUser\(\)/.test(page))
+      missing.push("the viewer lookup is not started up front")
+    if (/await supabase\.auth\.getUser\(\)/.test(page))
+      missing.push("the viewer lookup is awaited on its own — that is a round trip in series")
+    if (!/^\s*viewerPromise,\s*$/m.test(page))
+      missing.push("the viewer lookup left the batch — that is a round trip before first byte")
 
     // The route must re-check, and must not reach for the admin client.
     if (!/if \(!user\)[\s\S]{0,120}401/.test(api))

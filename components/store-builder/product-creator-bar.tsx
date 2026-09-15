@@ -168,12 +168,25 @@ function getButtonText(buttonStyle: string, isSubscribed: boolean): string {
   return isSubscribed ? preset.subscribed : preset.default
 }
 
+/**
+ * THE FOLLOW BUTTON IS THE CREATOR'S COLOUR, FULL STRENGTH.
+ *
+ * It used to sit at 70% until an address had been typed, and drift between
+ * 95% and 100% after. The creator page's own bar has never done this: it
+ * paints the button and leaves it alone. So the same shop showed a solid
+ * button on one page and a washed-out one on the next, and the washed-out
+ * one is the first thing a visitor meets on a product page.
+ *
+ * A faded control reads as disabled, and this one is not: pressing it with
+ * an empty field runs the form's own `required` check, which focuses the
+ * input and says what is missing. That is a better answer than a button
+ * that looks broken until you guess what it wants.
+ *
+ * `subscribed` is the one state that still steps back, because it is done
+ * rather than waiting: the label says Followed and nothing is being asked.
+ */
 function getButtonOpacityClass(opts: { isSubscribed: boolean; hasEmail: boolean; isFocused: boolean }) {
-  const { isSubscribed, hasEmail, isFocused } = opts
-  if (isSubscribed) return "opacity-70"
-  if (!hasEmail) return "opacity-70"
-  if (isFocused) return "opacity-100"
-  return "opacity-[0.95]"
+  return opts.isSubscribed ? "opacity-70" : "opacity-100"
 }
 
 function getInputOpacityClass(isSubscribed: boolean, isFocused: boolean) {
@@ -448,7 +461,7 @@ export function ProductCreatorBar({
             <Button
               size="sm"
               type="submit"
-              disabled={loading || !email || isCurrentEmailSubscribed}
+              disabled={loading || isCurrentEmailSubscribed}
               className={cn(
                 "shrink-0 h-9 px-4 text-sm md:text-[calc(0.875rem+2px)] flex items-center gap-2 relative overflow-hidden",
                 buttonOpacityClass,
@@ -1084,7 +1097,7 @@ export function LiveProductCreatorBar({
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={loading || !email || isCurrentEmailSubscribed}
+                  disabled={loading || isCurrentEmailSubscribed}
                   onClick={() => { if (!loading && email && !isCurrentEmailSubscribed) triggerAnim() }}
                   className={cn("h-9 shrink-0 px-4", buttonOpacityClass, pulse && "animate-[btnPop_520ms_ease-out]")}
                   style={{

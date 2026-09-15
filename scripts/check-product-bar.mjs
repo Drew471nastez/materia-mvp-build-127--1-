@@ -68,6 +68,17 @@ async function run() {
       emails: [...host.querySelectorAll('input[type="email"]')].filter(visible).length,
       buttons: [...host.querySelectorAll('button[type="submit"]')].filter(visible).length,
       back: [...host.querySelectorAll('button[aria-label="Back"]')].filter(visible).length,
+      /*
+        THE FOLLOW BUTTON, WITH NOTHING TYPED IN THE FIELD. Nothing here
+        touches the input first: an untouched form is the state a visitor
+        actually arrives at, and it is the state the button was washed out in.
+      */
+      follow: (function () {
+        const b = [...host.querySelectorAll('button[type="submit"]')].filter(visible)[0]
+        if (!b) return null
+        const cs = getComputedStyle(b)
+        return { opacity: cs.opacity, background: cs.backgroundColor, disabled: b.disabled }
+      })(),
       avatars: [...host.querySelectorAll('[data-slot="avatar"]')].filter(visible).length,
       /* The phone bar's own parts. It is the PRODUCT's bar there: the way
          back, the product, and the three dots. */
@@ -187,6 +198,19 @@ console.log("\nand long text does not break either row")
 console.log("\nand the desktop row is untouched")
 expect(desk.emails === 1, "the address field is still there", desk.emails)
 expect(desk.buttons === 1, "and the follow button", desk.buttons)
+
+console.log("\nand the follow button is the creator's colour, full strength")
+expect(desk.follow !== null, "the button is there to look at", desk.follow)
+if (desk.follow) {
+  /*
+    It sat at 0.7 until an address had been typed. A faded control reads as
+    disabled, and this one is not: pressing it runs the form's own `required`
+    check, which focuses the field and says what is missing.
+  */
+  expect(parseFloat(desk.follow.opacity) === 1, "not faded before anything is typed", desk.follow.opacity)
+  expect(desk.follow.disabled === false, "and not disabled either", desk.follow.disabled)
+  expect(/^rgba?\((?!0, 0, 0, 0)/.test(desk.follow.background), "painted, not transparent", desk.follow.background)
+}
 
 console.log(broken === 0
   ? "\nOn a phone it is a picture, a name and one line. The form stayed on the desktop.\n"

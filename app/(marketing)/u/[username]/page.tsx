@@ -234,6 +234,22 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
   const supabase = await createClient()
 
+  /**
+   * WHO IS LOOKING, ASKED FIRST AND AWAITED LAST.
+   *
+   * This reads the session cookie and depends on nothing else on the page,
+   * so it is started here and handed to the batch below as an already
+   * running promise. It used to be issued inside that batch, which was fine
+   * for the batch itself but not for what needs it: the purchase check could
+   * not run until the batch had come back, so it became a FOURTH round trip
+   * in series on a page that is already dynamic. Started here, it is settled
+   * by the time the batch is assembled and the purchase check can join it.
+   *
+   * No await on this line. Awaiting it here would put the round trip back in
+   * series, in a worse place.
+   */
+  const viewerPromise = supabase.auth.getUser()
+
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
@@ -323,6 +339,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     },
     { count: followerCount },
     { data: creatorReviews },
+    viewerBoughtFromCreator,
   ] = await Promise.all([
     supabase
       .from("products")
@@ -354,7 +371,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      * app/api/creator-profile/route.ts), so a forged answer here buys nothing
      * but a button that fails.
      */
-    supabase.auth.getUser(),
+    viewerPromise,
     /**
      * How many people follow this creator. A follow points at their PROFILE
      * rather than their creator row — a person is the thing you follow — so
@@ -375,6 +392,18 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       .eq("creator_id", creator.id)
       .order("created_at", { ascending: false })
       .limit(30),
+    /**
+     * HAS THIS VIEWER BOUGHT ANYTHING FROM THIS CREATOR, which decides whether
+     * the contact address goes into the page at all.
+     *
+     * It needs the viewer and the creator. The creator is known by the time
+     * this array is built, and the viewer is the promise started at the top of
+     * the request, so chaining off it here costs nothing in series: both are
+     * settled or in flight alongside everything else in this batch. Awaited on
+     * its own below the batch, as it was, it was a whole round trip of dead
+     * time on every visit by every signed-in person.
+     */
+    viewerPromise.then(({ data }) => hasBoughtFromCreator(supabase, data.user?.id, creator.id)),
   ])
 
   const viewerIsOwner = !!viewer && viewer.id === profile.id
@@ -652,9 +681,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      * itself rather than by opening the editor.
      */
     const resolvedContactEmail = headerSettings.contactEmail || profile.email || undefined
-    const viewerBought = viewerIsOwner
-      ? true
-      : await hasBoughtFromCreator(supabase, viewer?.id, creator.id)
+    /* Resolved with the batch above, not awaited here. */
+    const viewerBought = viewerIsOwner || viewerBoughtFromCreator
     const publicContactEmail = viewerBought ? resolvedContactEmail : undefined
     const globalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
     /**

@@ -94,9 +94,23 @@ async function main() {
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/^\s*\/\/.*$/gm, "")
 
-    check("the page asks the question", /hasBoughtFromCreator\(supabase, viewer\?\.id, creator\.id\)/.test(page))
+    /*
+      The question is now asked from inside the page's main batch, chained off
+      the session promise started at the top of the request, rather than
+      awaited on its own line after the batch had already come back. Same
+      question, same two arguments; it just stopped costing a round trip of
+      its own on every visit by a signed-in person.
+    */
+    check(
+      "the page asks the question",
+      /hasBoughtFromCreator\(supabase, data\.user\?\.id, creator\.id\)/.test(page),
+    )
+    check(
+      "and asks it in the batch, not in series after it",
+      /viewerPromise\.then\(\(\{ data \}\) => hasBoughtFromCreator/.test(page),
+    )
     check("and only puts the address in the page when the answer is yes", /viewerBought \? resolvedContactEmail : undefined/.test(page))
-    check("the owner sees their own", /viewerIsOwner\s*\n?\s*\? true/.test(page))
+    check("the owner sees their own", /viewerIsOwner \|\| viewerBoughtFromCreator/.test(page))
     /**
      * THE ACCOUNT ADDRESS STILL STANDS IN when a creator has typed none.
      * That is the owner's explicit call — a page with nowhere to be reached

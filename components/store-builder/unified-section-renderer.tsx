@@ -152,6 +152,24 @@ const getProductHref = (product: ProductData): string => {
 }
 
 // Icon mapping for what's included items
+/**
+ * MARKS A PHOTO AS ACTUALLY DECODED, so `.media-fade` can bring it in.
+ *
+ * Two handlers, because there are two ways an image can already be there.
+ * `onLoad` covers the normal case, a picture that arrives over the network.
+ * The ref covers the one that breaks it: an image served from cache can be
+ * `complete` before React attaches the handler, so the load event never
+ * fires and the picture would sit at opacity 0 forever. Checking `complete`
+ * on attach is what stops a fade from becoming a disappearance.
+ */
+function markMediaLoaded(event: React.SyntheticEvent<HTMLImageElement>) {
+  event.currentTarget.dataset.loaded = "true"
+}
+
+function markMediaLoadedRef(element: HTMLImageElement | null) {
+  if (element && element.complete) element.dataset.loaded = "true"
+}
+
 function getIncludedItemIcon(item: string, iconColor?: string): React.ReactNode {
   const lowerItem = item.toLowerCase()
   const colorStyle = iconColor ? { color: iconColor } : undefined
@@ -2795,16 +2813,20 @@ export function UnifiedShopHeader({
                 sizes="100vw"
                 quality={PORTRAIT_QUALITY}
                 priority
-                className="object-cover"
+                className="object-cover media-fade"
                 style={coverStyle}
+                onLoad={markMediaLoaded}
+                ref={markMediaLoadedRef}
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={coverImageUrl}
                 alt={`${profile?.display_name || "Creator"} cover`}
-                className="absolute inset-0 h-full w-full object-cover"
+                className="absolute inset-0 h-full w-full object-cover media-fade"
                 style={coverStyle}
+                onLoad={markMediaLoaded}
+                ref={markMediaLoadedRef}
               />
             )
           })()}
@@ -2993,9 +3015,16 @@ export function UnifiedShopHeader({
                 appears, and wrapping it would take that decision away.
               */}
               {avatarImageUrl ? (
+                /*
+                  Radix keeps the fallback until the photo has loaded and
+                  then swaps them on one frame, which is the snap. Mounting
+                  here already MEANS loaded, so a plain fade-in is the whole
+                  cross-fade: the initials are still underneath it.
+                */
                 <AvatarImage
                   src={optimizedImageUrl(avatarImageUrl, avatarSize)}
                   alt={profile?.display_name || ""}
+                  className="animate-in fade-in duration-300 ease-sheet"
                 />
               ) : null}
               <AvatarFallback
