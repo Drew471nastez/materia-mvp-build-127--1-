@@ -179,7 +179,6 @@ function main() {
   check("there is one depth, defined once", !!depth)
   const depthValue = depth ? depth[1] : ""
   check("the creator page's bar has it", /\.subscribe-bar-border \{[\s\S]*?box-shadow: var\(--bar-depth\)/.test(css))
-  check("its dark variant too", /\.subscribe-bar-border-dark \{[\s\S]*?box-shadow: var\(--bar-depth\)/.test(css))
   check("and the product page's bar points at the same one", /boxShadow: isDarkBackground \? "var\(--bar-depth-dark\)" : "var\(--bar-depth\)"/.test(topBar))
   /* A slate shadow under a dark bar is lighter than the bar and reads as a
      halo; the dark bars get black instead. Both are still one definition. */
