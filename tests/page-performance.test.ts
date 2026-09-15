@@ -280,7 +280,13 @@ check(
         if (entry === "node_modules" || entry.startsWith(".")) continue
         const rel = `${dir}/${entry}`
         if (statSync(join(root, rel)).isDirectory()) walk(rel)
-        else if (/\.(ts|tsx)$/.test(entry) && /navigator\.vibrate/.test(read(rel))) offenders.push(rel)
+        /**
+         * `code`, not `read`. This asks whether anything CALLS it, and the
+         * files that correctly use hapticTap explain in a comment WHY they do
+         * not call navigator.vibrate — which is prose, not a call, and used to
+         * fail this. See tests/_source: the same trap, a fifth time.
+         */
+        else if (/\.(ts|tsx)$/.test(entry) && /navigator\.vibrate/.test(code(rel))) offenders.push(rel)
       }
     }
     roots.forEach(walk)
@@ -1849,8 +1855,13 @@ check(
     if (/<DialogFooter/.test(dialog))
       missing.push("DialogFooter's sm:justify-end is winning again — the buttons will bunch up on the right")
     /* The shell's Save renders whatever label the editor hands it. */
+    /*
+      `w-full` anywhere in each button's class, not the literal attribute:
+      Save composes its classes through cn() now, because it turns off the
+      variant's disabled fade while a save is in flight.
+    */
     const buttons = dialog.match(/<Button[\s\S]*?Cancel[\s\S]*?<\/Button>[\s\S]*?<Button[\s\S]*?\{saveLabel\}/)?.[0] ?? ""
-    if ((buttons.match(/className="w-full"/g) || []).length < 2)
+    if ((buttons.match(/w-full/g) || []).length < 2)
       missing.push("one of the footer buttons no longer fills its column")
 
     // The banner may be removed; the avatar may not. Those are the profile's own.
@@ -2232,8 +2243,18 @@ check(
       missing.push("the cover hides itself until JavaScript runs again")
     if (/transition-opacity duration-700/.test(header))
       missing.push("the cover fades in over 700ms again")
-    if (!/src=\{optimizedImageUrl\(avatarImageUrl, avatarSize\)\}/.test(header))
-      missing.push("the avatar is back to downloading the full-size original")
+    /**
+     * The expression moved into lib/store-builder/header-avatar, because the
+     * creator page needs the SAME url to preload it — Radix loads its picture
+     * in an effect, so without a preload the download cannot start until the
+     * page has hydrated. Two expressions would drift and the page would fetch
+     * the avatar twice. What this guards is unchanged: the header must not go
+     * back to pointing at the original upload.
+     */
+    if (!/src=\{avatarSrc\}/.test(header))
+      missing.push("the header avatar is not coming from headerAvatar() any more")
+    if (!/optimizedImageUrl\(source, size\)/.test(code("lib/store-builder/header-avatar.ts")))
+      missing.push("headerAvatar stopped resizing — the avatar is back to the full-size original")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0

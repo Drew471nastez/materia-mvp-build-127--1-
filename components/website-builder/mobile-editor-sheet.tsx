@@ -945,6 +945,26 @@ export function MobileEditorSheet({
         if (drag.current.active) endDrag()
         return
       }
+      /**
+       * ===================================================================
+       *  A CONTROL WITH ITS OWN DRAG KEEPS ITS FINGER
+       * ===================================================================
+       * The arbitration below decides between "scroll the form" and "move
+       * the sheet", and those were the only two things a finger could mean.
+       * They are not: the reorder list is dragged by the grip on each row,
+       * and the cover is positioned by dragging the picture. Both live
+       * INSIDE the scroller, so a downward drag with the scroller at the top
+       * read as "pull the sheet down", and reordering a product or placing a
+       * cover dismissed the editor instead.
+       *
+       * Neither threshold nor direction can separate them, because the
+       * gestures are the same gesture. What separates them is what the
+       * finger landed on, which is knowable at touchdown: a control that
+       * owns its own drag says so, and the sheet does not arm at all. The
+       * drag never starts, so `moveDrag` returns immediately and nothing
+       * about the sheet moves for the length of the gesture.
+       */
+      if ((e.target as HTMLElement | null)?.closest?.("[data-sheet-no-drag]")) return
       const touch = e.touches[0]
       const onHandle = !!handleRef.current?.contains(e.target as Node)
       startDrag(touch.clientY, touch.clientX, e.target, onHandle)

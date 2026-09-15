@@ -121,9 +121,15 @@ check(
   (editor.match(/aspectRatio="cover"/g) || []).length === 1 && !/CoverFocalPicker/.test(editor),
   "a second 3:1 box showing the same photograph",
 )
+/**
+ * It was `cover ?` — any cover at all. That made the banner a live drag
+ * surface every time the drawer was opened for any reason, and on a phone a
+ * finger that grazes a 3:1 strip inside a sheet moves the creator's banner
+ * with nothing to say it did. Placing a cover is part of ADDING one.
+ */
 check(
-  "the drag reaches the frame only when there is a cover to move",
-  /reposition=\{cover \?/.test(editor),
+  "the drag reaches the frame only for a cover chosen in this session",
+  /reposition=\{\s*cover && cover !== coverUrl/.test(editor),
   'an empty box saying "drag to position" is a control for a thing that does not exist',
 )
 check(

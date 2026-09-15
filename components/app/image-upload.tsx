@@ -383,8 +383,17 @@ export function ImageUpload({
         role="group"
         aria-label={`${replaceLabel}. Drag the image, or use the arrow keys, to choose which part shows.`}
         {...focal.handlers}
-        /* touch-none, or the phone scrolls the sheet instead of moving the
-           picture and the control does nothing at all where it matters most. */
+        /**
+         * touch-none stops the BROWSER scrolling the page under the finger,
+         * without which the control does nothing at all where it matters most.
+         *
+         * It does nothing about a bottom sheet, which listens for touchmove on
+         * itself: a downward drag with the form scrolled to its top read as
+         * "pull the sheet down", so placing a cover dismissed the editor.
+         * `data-sheet-no-drag` is the sheet's own opt-out, checked at
+         * touchdown; see components/website-builder/mobile-editor-sheet.
+         */
+        data-sheet-no-drag
         className={`group relative touch-none select-none overflow-hidden rounded-lg border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
           reposition.aspect ? "w-full" : aspectClasses[aspectRatio]
         }`}

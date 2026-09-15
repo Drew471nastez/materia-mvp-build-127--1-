@@ -1524,11 +1524,20 @@ function main() {
     check("and it can always come back down", /window\.addEventListener\("pageshow", onPageShow\)/.test(workspace))
 
     /*
-      THE SAVE BUTTON KEEPS ITS WORD. Its whole label was swapped for a
-      spinner, so pressing Save removed the word and left a mark in the
-      middle of a wide button for as long as the request took.
+      THE SAVE BUTTON KEEPS ITS WORD, AND THE WORD DOES NOT MOVE.
+
+      Its whole label was swapped for a spinner first, so pressing Save removed
+      the word entirely. Putting the spinner BESIDE the word fixed that and left
+      the label sliding 12px sideways as the request went out, because the row
+      is centred and the spinner joined it. It is absolutely positioned now and
+      takes part in no layout, so the word is in the same place throughout.
+
+      And it does not fade: `disabled` carries opacity-50 from the variants, so
+      a save in flight looked like a button that had gone dead.
     */
-    check("the spinner sits beside the word, not instead of it", /\{busy && <Loader2[\s\S]{0,80}\{saveLabel\}/.test(sheet))
+    check("the word is still there under the spinner", /\{saveLabel\}/.test(sheet))
+    check("the spinner moves nothing", /<Loader2\s+className="absolute left-4/.test(sheet))
+    check("and a save in flight keeps its colour", /busy && "disabled:opacity-100"/.test(sheet))
     for (const f of ["edit-cta-button", "edit-profile-button", "edit-about-button"]) {
       check(`${f} passes a word, not a spinner`, /saveLabel="Save"/.test(code(`components/storefront/${f}.tsx`)))
     }

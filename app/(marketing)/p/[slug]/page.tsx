@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Check, ArrowRight, CheckCircle, ChevronRight, Download, Files, Infinity, Star, Heart } from "lucide-react"
 import { BuyButton } from "@/components/checkout/buy-button"
@@ -348,6 +349,17 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const creatorAvatarUrl = headerAvatarUrl && headerAvatarUrl !== ""
     ? headerAvatarUrl
     : creatorProfile?.avatar_url || null
+
+  /**
+   * The exact URL the bar at the top will ask for. Radix's Avatar loads its
+   * picture with a detached Image inside an effect, so without this the
+   * request cannot begin until the page has hydrated — which is what the
+   * creator's face appearing late in that bar is. 48, because the bar draws a
+   * 36px circle and a 2x screen wants twice that; it has to match the
+   * component's own call character for character or the preload is a second
+   * download rather than a head start. See product-creator-bar.
+   */
+  const creatorAvatarPreload = creatorAvatarUrl ? optimizedImageUrl(creatorAvatarUrl, 48) : null
 
   /*
     The same bio the creator page shows, resolved the same way: a creator who
@@ -1827,6 +1839,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
+      {creatorAvatarPreload && (
+        <link rel="preload" as="image" href={creatorAvatarPreload} fetchPriority="high" />
+      )}
       <DynamicFavicon avatarUrl={creatorAvatarUrl} />
 
       {/* Creator Bar - sticky on scroll, offset below header in Capacitor apps */}

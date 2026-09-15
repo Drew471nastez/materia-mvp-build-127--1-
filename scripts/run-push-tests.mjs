@@ -45,6 +45,7 @@ const SUITES = [
   "tests/bar-colors.test.ts",
   "tests/cover-focal.test.ts",
   "tests/catalog-order.test.ts",
+  "tests/sheet-controls.test.ts",
   "tests/theme-presets.test.ts",
   "tests/sheet-reserve.test.ts",
   "tests/featured-order.test.ts",

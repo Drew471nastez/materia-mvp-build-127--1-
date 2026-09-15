@@ -13,11 +13,13 @@
  * a hand-rolled overlay gets wrong one at a time. This borrows the app's own
  * dialog, so it also arrives on the same curve as everything else.
  *
- * THE PANEL IS THE SIZE OF THE PHOTO. That is what makes "click away to
- * close" work without a single line of hit-testing: everything around the
- * image is the overlay, and the overlay already closes on a press. Sizing the
- * panel to the viewport instead would have made the empty space part of the
- * panel, and pressing it would do nothing.
+ * PRESSING THE GROUND CLOSES IT, with no hit-testing. The panel used to be
+ * exactly the size of the photograph, so everything around the image was the
+ * overlay and the overlay already closes on a press. The panel is the whole
+ * viewport now — it had to be, see the note on the close button — and
+ * `pointer-events-none` on it keeps that behaviour unchanged: a press on
+ * empty space passes through to the overlay underneath. Only the picture and
+ * the close control take pointer events back.
  */
 import * as React from "react"
 import { X } from "lucide-react"
@@ -62,27 +64,55 @@ export function AvatarLightbox({
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
+        {/*
+          ===================================================================
+           THE PANEL IS THE WHOLE SCREEN, AND IT IS NOT TRANSFORMED
+          ===================================================================
+          It used to be exactly the size of the photograph, which made "press
+          the ground to close" free: everything around the image was the
+          overlay, and the overlay already closes on a press.
+
+          THAT IS WHY THE CLOSE BUTTON LANDED ON THE PICTURE. DialogContent
+          centres itself with `translate-x-[-50%] translate-y-[-50%]`, and a
+          transformed element becomes the containing block for every `fixed`
+          descendant — so `fixed right-4 top-4` on the button meant the top
+          right of the PHOTO, not of the screen. On a phone that is the middle
+          of somebody's face. No amount of adjusting the offsets fixes it;
+          the anchor is wrong.
+
+          So the transform goes. The panel is the viewport, centred with flex,
+          and `pointer-events-none` on it keeps the press-the-ground behaviour
+          exactly as it was: presses on empty space pass straight through to
+          the overlay. The two things a visitor can actually hit turn their
+          own pointer events back on.
+        */}
         <DialogContent
           showCloseButton={false}
           overlayClassName="bg-black/80"
-          className="w-auto max-w-none gap-0 border-0 bg-transparent p-0 shadow-none sm:max-w-none"
+          className="pointer-events-none left-0 top-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 items-center justify-center gap-0 border-0 bg-transparent p-0 shadow-none sm:max-w-none"
         >
           <DialogTitle className="sr-only">
             {name ? `${name}'s profile picture` : "Profile picture"}
           </DialogTitle>
 
           {/*
-            Fixed to the VIEWPORT, not to the panel. On a phone the panel is
-            as wide as the photo and its corner is wherever the photo's corner
-            is, which is not where a close control belongs; top right of the
-            screen is. Sized for a thumb and clear of the notch.
+            THE CORNER OF THE SCREEN. `absolute` against the panel above,
+            which is now the viewport itself — not `fixed`, which would be
+            anchored to whichever ancestor happens to carry a transform and is
+            how this ended up sitting on the photograph.
+
+            44px, the smallest thing a thumb hits reliably, and clear of the
+            notch and the rounded corner on both axes.
           */}
           <button
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Close"
-            className="fixed right-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-            style={{ top: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}
+            className="pointer-events-auto absolute z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            style={{
+              top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+              right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
+            }}
           >
             <X className="h-5 w-5" strokeWidth={2.25} />
           </button>
@@ -118,7 +148,7 @@ export function AvatarLightbox({
           <img
             src={src}
             alt={name ? `${name}'s profile picture` : "Profile picture"}
-            className="aspect-square h-auto rounded-full object-cover"
+            className="pointer-events-auto aspect-square h-auto rounded-full object-cover"
             style={{ width: "min(76vw, 56vh, 420px)" }}
           />
         </DialogContent>

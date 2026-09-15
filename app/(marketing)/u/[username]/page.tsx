@@ -1,6 +1,7 @@
 import type React from "react"
 import { hasBoughtFromCreator } from "@/lib/commerce/has-bought-from-creator"
 import { applyManualOrder } from "@/lib/store-builder/featured-order"
+import { headerAvatar } from "@/lib/store-builder/header-avatar"
 import { SafeRegion } from "@/components/storefront/safe-region"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
@@ -749,6 +750,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       },
     })
     const subscribeBarSettings = buildSubscribeBarSettings(headerSettings, chrome.bar)
+    /* The exact URL the header will request; see the preload below. */
+    const headerAvatarPreload = headerAvatar(headerSettings, profile.avatar_url)
     // Calculate total sales for About section
     const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
     // Calculate products count for About section
@@ -985,6 +988,27 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           ) : (
             <SubscribeBar settings={{ ...subscribeBarSettings, creatorUserId: profile.id }} creatorId={creator.id} />
           )
+        )}
+
+        {/*
+          ===================================================================
+           THE AVATAR STARTS DOWNLOADING WITH THE HTML, NOT AFTER HYDRATION
+          ===================================================================
+          Radix's Avatar loads its picture with a detached `new Image()` inside
+          an effect, so the request cannot begin until the bundle has arrived,
+          parsed and hydrated. On a phone that is most of a second of empty
+          circle before the download even starts — "sometimes it takes some
+          time to load the profile avatar", exactly.
+
+          A preload in the server-rendered HTML is found by the browser's
+          preload scanner in the first bytes of the document, so the picture is
+          usually in cache by the time Radix asks. The URL comes from the same
+          helper the header itself calls: one character of difference and this
+          downloads the avatar a second time and shows it no sooner.
+        */}
+        {headerAvatarPreload.url && (
+          // eslint-disable-next-line @next/next/no-page-custom-font
+          <link rel="preload" as="image" href={headerAvatarPreload.url} fetchPriority="high" />
         )}
 
         <ShopHeaderRenderer

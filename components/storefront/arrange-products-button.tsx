@@ -22,6 +22,7 @@ import * as React from "react"
 import { ArrowDown, ArrowUp, GripVertical, ListOrdered } from "lucide-react"
 
 import { EditorSheet } from "@/components/storefront/editor-sheet"
+import { hapticTap } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
 export interface ArrangeableProduct {
@@ -101,6 +102,14 @@ export function ArrangeProductsButton({
     startY.current = event.clientY
     event.currentTarget.setPointerCapture(event.pointerId)
     event.preventDefault()
+    /**
+     * PICKED UP. On iOS and Android this is a real impact through
+     * @capacitor/haptics; in a browser it is navigator.vibrate where that
+     * exists and silence where it does not. `hapticTap` is the one place that
+     * knows the difference — navigator.vibrate is simply absent in WKWebView,
+     * so the obvious guarded call is dead on the platform that matters most.
+     */
+    hapticTap("medium")
     setDrag({ id, from: index, dy: 0, to: index, rowHeight: box.height + 6 /* the gap */ })
   }
 
@@ -116,6 +125,13 @@ export function ArrangeProductsButton({
       */
       const slots = Math.round(dy / current.rowHeight)
       const to = Math.max(0, Math.min(order.length - 1, current.from + slots))
+      /**
+       * A TICK EACH TIME IT CROSSES A SLOT, and only then. Firing on every
+       * pointermove would be a continuous buzz at 120Hz; firing on the
+       * landing slot CHANGING is the same event the rows animate on, so the
+       * tap and the movement are the same moment.
+       */
+      if (to !== current.to) hapticTap("light")
       return { ...current, dy, to }
     })
   }
@@ -127,7 +143,12 @@ export function ArrangeProductsButton({
       /* The pointer can be gone already; nothing to release. */
     }
     setDrag((current) => {
-      if (current) move(current.from, current.to)
+      if (current) {
+        /* Put down. Only when it actually moved — a press and release that
+           changed nothing has nothing to confirm. */
+        if (current.to !== current.from) hapticTap("medium")
+        move(current.from, current.to)
+      }
       return null
     })
   }
@@ -245,8 +266,15 @@ export function ArrangeProductsButton({
                 type="button"
                 aria-label={`Drag ${product.title || "product"}`}
                 onPointerDown={(e) => onPointerDown(e, product.id, index)}
-                /* touch-none: without it the browser scrolls the sheet instead
-                   of letting the row follow the finger. */
+                /**
+                 * touch-none stops the BROWSER scrolling. It does nothing
+                 * about the sheet, which listens for touchmove on itself and
+                 * read a downward drag from the top of the list as "pull the
+                 * sheet down" — so reordering a product dismissed the editor.
+                 * `data-sheet-no-drag` is the sheet's own opt-out, checked at
+                 * touchdown; see mobile-editor-sheet.
+                 */
+                data-sheet-no-drag
                 className="cursor-grab touch-none rounded p-1 text-muted-foreground active:cursor-grabbing"
               >
                 <GripVertical className="h-4 w-4" aria-hidden />

@@ -185,13 +185,14 @@ export function WishlistButton({
         type="button"
         onClick={handleWishlistClick}
         className={cn(
-          "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] hover:opacity-80 transition-colors cursor-pointer relative z-10",
+          "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] cursor-pointer relative z-10",
+          "transition-[opacity,transform] duration-150 ease-out hover:opacity-80 active:scale-[0.985]",
           className
         )}
         style={buttonStyle}
       >
         <div
-          className="flex items-center justify-center w-5 h-5 rounded-full"
+          className="flex shrink-0 items-center justify-center w-5 h-5 rounded-full"
           style={{ backgroundColor: iconColor ? `${iconColor}33` : checkBadgeBg }}
         >
           <Check
@@ -206,33 +207,50 @@ export function WishlistButton({
     )
   }
 
-  // Default state - add to wishlist
+  /**
+   * ===========================================================================
+   *  NOTHING IN THIS BUTTON MOVES WHEN IT IS PRESSED
+   * ===========================================================================
+   * Pressing it used to change three things at once: the icon became a
+   * spinner, "Add to wishlist" became "Adding...", and the whole control
+   * dropped to 70% opacity. The label is centred, so a shorter word re-centres
+   * the row — the icon and the text both slide inwards — and the fade reads as
+   * the button having gone dead. For the length of a network round trip, on
+   * the one control a visitor has just committed to.
+   *
+   * The two icons are the same 16px box in the same flex slot, so swapping
+   * one for the other moves nothing at all. The label does not change, because
+   * a button says what it DOES, and it is still doing it. And it keeps its
+   * colour: busy is not unavailable.
+   *
+   * `active:scale` is the press itself, which is the one piece of feedback
+   * that was missing — there was no response at all between the press and the
+   * server answering.
+   */
   return (
     <button
       type="button"
       onClick={handleClick}
       disabled={isAdding}
+      aria-busy={isAdding || undefined}
       className={cn(
-        "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] hover:opacity-80 transition-colors group cursor-pointer relative z-10",
-        isAdding && "opacity-70 cursor-not-allowed",
+        "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] group cursor-pointer relative z-10",
+        "transition-[opacity,transform] duration-150 ease-out hover:opacity-80 active:scale-[0.985]",
+        isAdding && "cursor-progress",
         className
       )}
       style={buttonStyle}
     >
       {isAdding ? (
-        <>
-          <Loader2 className="h-4 w-4 animate-spin" style={iconStyle} />
-          <span className="text-sm font-medium">Adding...</span>
-        </>
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin" style={iconStyle} aria-hidden />
       ) : (
-        <>
-          <Heart
-            className={cn("h-4 w-4 transition-colors", !iconColor && "group-hover:text-rose-500")}
-            style={iconStyle}
-          />
-          <span className="text-sm font-medium">Add to wishlist</span>
-        </>
+        <Heart
+          className={cn("h-4 w-4 shrink-0 transition-colors", !iconColor && "group-hover:text-rose-500")}
+          style={iconStyle}
+          aria-hidden
+        />
       )}
+      <span className="text-sm font-medium">Add to wishlist</span>
     </button>
   )
 }

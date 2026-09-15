@@ -309,7 +309,27 @@ export function EditProfileButton({
                 replaceOnly
                 allowRemove
                 replaceLabel="Change banner"
-                reposition={cover ? { value: focal, onChange: setFocal, aspect: coverAspect } : undefined}
+                /**
+                 * ONLY FOR A PICTURE CHOSEN IN THIS SESSION.
+                 *
+                 * The frame was draggable whenever there was a cover at all,
+                 * which means every time the drawer is opened for any reason
+                 * — to change a name, to pick a scheme — the banner is a live
+                 * drag surface. On a phone that is a 3:1 strip near the top of
+                 * a sheet that is itself dragged, and a finger that grazes it
+                 * moves the creator's banner with nothing to say it did.
+                 *
+                 * Placing a cover is part of ADDING one. `cover !== coverUrl`
+                 * is exactly "this is not the picture the page is showing",
+                 * which is true from the moment an upload finishes and false
+                 * again after a save. An existing cover is a picture, not a
+                 * control; to move it, replace it.
+                 */
+                reposition={
+                  cover && cover !== coverUrl
+                    ? { value: focal, onChange: setFocal, aspect: coverAspect }
+                    : undefined
+                }
               />
             </div>
 

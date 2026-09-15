@@ -13,6 +13,7 @@ import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 import { SmartLink } from "@/components/smart-link"
 import { hapticTap } from "@/lib/native-bridge"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { setProductTopBarRendered } from "@/lib/store-builder/product-top-bar"
 
 // Button style presets (same as subscribe bar)
@@ -413,7 +414,7 @@ export function ProductCreatorBar({
           {/* Explicit box around the avatar: it clipped during scroll without one. */}
           <div className="relative h-9 w-9 shrink-0">
             <Avatar className="h-9 w-9 shrink-0 absolute inset-0">
-              {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} className="object-cover" /> : null}
+              {avatarUrl ? <AvatarImage src={optimizedImageUrl(avatarUrl, 48)} alt={creatorName} className="object-cover" /> : null}
               <AvatarFallback className="text-[11px]">{initials}</AvatarFallback>
             </Avatar>
           </div>
@@ -439,7 +440,7 @@ export function ProductCreatorBar({
             }}
           >
             <Avatar className="h-8 w-8 shrink-0 cursor-pointer">
-              {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
+              {avatarUrl ? <AvatarImage src={optimizedImageUrl(avatarUrl, 48)} alt={creatorName} /> : null}
               <AvatarFallback className="text-xs">{initials}</AvatarFallback>
             </Avatar>
             <p className="text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
@@ -1060,7 +1061,7 @@ export function LiveProductCreatorBar({
           aria-label={`Go to ${creatorName}'s page`}
         >
           <Avatar className="h-8 w-8 shrink-0">
-            {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
+            {avatarUrl ? <AvatarImage src={optimizedImageUrl(avatarUrl, 48)} alt={creatorName} /> : null}
             <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
           </Avatar>
           {/* min-w-0 is what lets `truncate` work inside a flex row: without

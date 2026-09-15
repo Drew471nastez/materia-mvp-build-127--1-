@@ -36,6 +36,7 @@ import { ContactReveal } from "@/components/storefront/contact-reveal"
 import { SocialMediaIcons } from "./social-media-icons"
 import { CatalogHeader } from "@/components/storefront/catalog-controls"
 import { ArrangeProductsControl } from "@/components/storefront/arrange-products-button"
+import { headerAvatar } from "@/lib/store-builder/header-avatar"
 
 /**
  * The headline this section shipped with. Anything still set to it was never
@@ -2716,13 +2717,18 @@ export function UnifiedShopHeader({
   const chosenText = isInheritedBlack(storedText) ? undefined : storedText
   const headingColor = chosenText || surface?.textColor
   const subduedColor = chosenText ? `${chosenText}99` : surface?.mutedColor
-  const avatarSizeChoice = isMobile
-    ? settings.mobileAvatarSizeChoice || "medium"
-    : settings.avatarSizeChoice || "medium"
-  const avatarSize = avatarSizeMap[avatarSizeChoice]
+  /**
+   * WHICH PICTURE AND HOW BIG, from lib/store-builder/header-avatar — which
+   * the creator page also calls, to emit a `<link rel="preload">` for exactly
+   * this URL. A preload whose URL differs by one character from the one Radix
+   * later requests downloads the avatar twice and shows it no sooner, so the
+   * two cannot be two expressions.
+   */
+  const { url: avatarSrc, size: avatarSize } = headerAvatar(settings, profile?.avatar_url, isMobile)
 
   const coverImageUrl = settings.coverImageUrl || creator?.cover_url
 
+  /** Still needed on its own: whether there IS a picture gates the lightbox. */
   const avatarImageUrl =
     settings.avatarUrl === "" ? undefined : settings.avatarUrl !== undefined ? settings.avatarUrl : profile?.avatar_url
 
@@ -3084,7 +3090,7 @@ export function UnifiedShopHeader({
                     cross-fade: the initials are still underneath it.
                   */
                   <AvatarImage
-                    src={optimizedImageUrl(avatarImageUrl, avatarSize)}
+                    src={avatarSrc}
                     alt={profile?.display_name || ""}
                     className="animate-in fade-in duration-300 ease-sheet"
                   />

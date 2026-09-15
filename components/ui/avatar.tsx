@@ -11,6 +11,21 @@ function Avatar({ className, ...props }: React.ComponentProps<typeof AvatarPrimi
       data-slot="avatar"
       className={cn(
         "relative flex shrink-0 overflow-hidden rounded-full",
+        /**
+         * A GROUND, SO THE CIRCLE IS NEVER A HOLE.
+         *
+         * The fallback below waits 600ms before it paints, deliberately — that
+         * is what stops a cached photo flashing initials first. But during
+         * those 600ms the fallback renders NOTHING, and the root had no
+         * background of its own, so the circle was transparent: on the creator
+         * page it showed the cover through it, and on a white page it was a
+         * white disc. That is the flash before the picture arrives.
+         *
+         * `bg-muted` is what the fallback already paints, so nothing changes
+         * when the fallback does appear, and nothing changes once the photo
+         * covers it. It is only ever visible in the gap.
+         */
+        "bg-muted",
         "aspect-square",
         // Default to size-8 if no size class provided
         className?.includes("h-") || className?.includes("w-") || className?.includes("size-") ? "" : "size-8",

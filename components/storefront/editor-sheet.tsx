@@ -167,19 +167,44 @@ export function EditorSheet({
         Cancel
       </Button>
       {/*
-        THE BUTTON DOES NOT CHANGE SHAPE WHEN IT IS PRESSED.
+        ===================================================================
+         NOTHING ABOUT THIS BUTTON MOVES OR FADES WHEN IT IS PRESSED
+        ===================================================================
+        Two rounds of this. First the whole label was swapped for a spinner,
+        so the word vanished at the moment it was pressed. Then the spinner
+        was put BESIDE the word — which fixed the vanishing and left two
+        things wrong that a photograph of it made obvious:
 
-        Its whole label was swapped for a spinner while the save was in
-        flight, so at the moment a creator presses Save the word goes away and
-        a 16px mark appears in the middle of a wide button. The button reads
-        as broken for as long as the request takes, which on a phone is long
-        enough to photograph.
+        1. The row is centred, so adding a 16px mark and an 8px gap shoved
+           the label 12px to the left as the request went out. The label
+           slides sideways the instant you commit, which is the "it jumps"
+           part. The spinner is absolutely positioned now: it is painted at
+           the left inset and takes part in no layout at all, so the word is
+           in exactly the same place before, during and after.
 
-        The word stays and the spinner sits beside it. Nothing about the
-        button's size depends on which state it is in.
+        2. `disabled` carries `disabled:opacity-50` from the button variants,
+           so a save in flight turned the whole control 50% transparent. A
+           faded-out button is the universal look of one that cannot be
+           used, and it is on screen for the length of the request. Busy is
+           not the same state as unavailable: it stays disabled, because a
+           second press must not send a second save, but it keeps its colour.
+
+        A Save with nothing to save still dims, which is the one case where
+        the dimming means what it looks like.
       */}
-      <Button type="button" className="w-full" onClick={onSave} disabled={busy || saveDisabled}>
-        {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+      <Button
+        type="button"
+        aria-busy={busy || undefined}
+        className={cn("relative w-full", busy && "disabled:opacity-100")}
+        onClick={onSave}
+        disabled={busy || saveDisabled}
+      >
+        {busy && (
+          <Loader2
+            className="absolute left-4 h-4 w-4 animate-spin"
+            aria-hidden
+          />
+        )}
         {saveLabel}
       </Button>
     </div>
