@@ -100,7 +100,7 @@ export function PricingPageClient({
       {/* UNLIMITED POSSIBILITIES - Product categories marquee */}
       <ProductMarquee />
 
-      {/* SPLIT FEATURES - Build Your One Page, Build Your Online Store, Know what makes you money */}
+      {/* SPLIT FEATURES - Build Your One Page, Build Your Online Store */}
       <SplitFeaturesSection />
 
       {/* REPLACE YOUR ENTIRE TOOL STACK */}

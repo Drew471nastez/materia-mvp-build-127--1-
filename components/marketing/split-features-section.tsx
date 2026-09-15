@@ -22,15 +22,6 @@ const FEATURES = [
     imageLeft: false,
     sectionBg: "bg-white",
   },
-  {
-    title: "Know what makes you money",
-    description:
-      "Track revenue, analytics, payouts, and get paid to your bank account.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(10)%20(1).webp",
-    imageLeft: true,
-    sectionBg: "bg-gray-50",
-    reducedTopPadding: true,
-  },
 ]
 
 export function SplitFeaturesSection() {

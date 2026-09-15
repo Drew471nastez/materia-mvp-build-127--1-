@@ -1291,7 +1291,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white hover:bg-white/15 transition cursor-pointer"
+                  /* A 40px disc is under the 44px a thumb reliably hits, and this one sits in the corner of the screen where a hand is least accurate. The pseudo-element extends the TOUCH target 8px in every direction without moving the disc, so a near miss still opens the menu. `touch-manipulation` drops the browser's double-tap-to-zoom wait, which is the other half of "it sometimes does not register". */
+                  className="relative flex h-10 w-10 touch-manipulation items-center justify-center rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white hover:bg-white/15 transition cursor-pointer before:absolute before:-inset-2 before:content-['']"
                   aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
                 >
                   <AnimatedHamburger isOpen={mobileMenuOpen} />
@@ -1574,7 +1575,9 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="flex h-9 w-9 items-center justify-center text-white transition cursor-pointer"
+                /* The same slack as the homepage's, and this one starts even
+                   smaller at 36px. See the note on that button. */
+                className="relative flex h-9 w-9 touch-manipulation items-center justify-center text-white transition cursor-pointer before:absolute before:-inset-2.5 before:content-['']"
                 aria-label={mobileMenuOpen ? "Close categories" : "Open categories"}
               >
                 <AnimatedHamburger isOpen={mobileMenuOpen} />

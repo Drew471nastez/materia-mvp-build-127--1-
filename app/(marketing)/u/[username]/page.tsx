@@ -2,6 +2,7 @@ import type React from "react"
 import { hasBoughtFromCreator } from "@/lib/commerce/has-bought-from-creator"
 import { applyManualOrder } from "@/lib/store-builder/featured-order"
 import { headerAvatar } from "@/lib/store-builder/header-avatar"
+import { loadCreatorForUser, loadProfileByUsername } from "@/lib/commerce/creator-page-data"
 import { SafeRegion } from "@/components/storefront/safe-region"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
@@ -253,15 +254,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    */
   const viewerPromise = supabase.auth.getUser()
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .ilike("username", username)
-    .maybeSingle()
-
-  if (profileError) {
-    console.error("[v0] Profile query error:", profileError)
-  }
+  /**
+   * THE SAME LOOKUP THE LAYOUT ALREADY MADE.
+   *
+   * The layout above this needs the creator's theme to tint the loading
+   * skeleton, and it used to fetch this row, the creator row and the shop's
+   * config for itself — in series, before anything at all could render. Both
+   * go through lib/commerce/creator-page-data now, which dedupes within the
+   * request: whichever asks first pays, and the second gets the same promise.
+   */
+  const profile = await loadProfileByUsername(username)
 
   if (!profile) {
     // Check username history for redirects (old username → new username)
@@ -281,15 +283,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     notFound()
   }
 
-  const { data: creator, error: creatorError } = await supabase
-    .from("creators")
-    .select("*")
-    .eq("user_id", profile.id)
-    .maybeSingle()
-
-  if (creatorError) {
-    console.error("[v0] Creator query error:", creatorError)
-  }
+  /* Deduped with the layout's, as above. */
+  const creator = await loadCreatorForUser(profile.id)
 
   if (!creator) {
     return (

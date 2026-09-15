@@ -1705,8 +1705,22 @@ function main() {
      */
     check("the press has an attack", /@keyframes bar-control-press/.test(read("app/globals.css")))
     check("and overshoots before it settles", /transform: scale\(1\.08\)/.test(read("app/globals.css")))
-    /** A phone reports :hover as true after a tap and keeps it until the next. */
-    check("no hover state on a device without a pointer", /@media \(hover: hover\) \{\s*\n\s*\.bar-control:hover/.test(read("app/globals.css")))
+    /**
+     * `hover: hover` ALONE WAS NOT ENOUGH, which is what this pin used to
+     * require. Plenty of touch devices answer that query true — Android
+     * browsers, an iPad with a pointer, Safari in desktop mode — and on those
+     * a tap applies `:hover` and KEEPS it until something else is tapped. So
+     * pressing the three dots left a grey disc under the icon afterwards,
+     * which reads as a control that has jammed.
+     *
+     * `pointer: fine` is the other half: a real mouse, the only thing that
+     * can hover on and off again. The intent this pin was written to protect
+     * is unchanged; the guard it named was too weak to deliver it.
+     */
+    check(
+      "no hover state on a device without a real pointer",
+      /@media \(hover: hover\) and \(pointer: fine\) \{\s*\n\s*\.bar-control:hover/.test(read("app/globals.css")),
+    )
 
     /*
       ---------------------------------------------------------------------

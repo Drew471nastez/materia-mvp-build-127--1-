@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
 
 const TYPING_PHRASES = [
   "Start monetizing your passion...",
@@ -53,11 +54,31 @@ const PARTNER_LOGOS = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9kIiwia2V5IjoibWVkaWEvY29udGFjdF9pbWFnZXMvOWQ0MDVmYmMtNGJkMS00NzEz.svg",
 ]
 
-// Supabase image transforms — mobile-first sizing.
-// Desktop center card is ~280px wide → serve 400px (2x retina cushion).
-// Side cards are ~200–240px → 320px suffices. We use a single set at 400px
-// (the browser picks from srcset via sizes) to keep the code simple.
-// quality=78/88 for crisp WebP at card size (30% bump from previous 60/68).
+/**
+ * ===========================================================================
+ *  THE COLLAGE BEHIND THE HEADLINE, AT THE SIZE IT IS DRAWN
+ * ===========================================================================
+ * THE OLD URLS WERE NOT RESIZING ANYTHING. They carried
+ * `?width=280&height=350&resize=cover&quality=55` on
+ * `/storage/v1/object/public/…` — and the OBJECT endpoint serves the stored
+ * file and ignores every one of those parameters. Supabase's resizer is a
+ * different path (`/render/image/…`), which this project deliberately does
+ * not use: it is metered, the allowance is already spent, and
+ * tests/no-image-transforms fails the build over it.
+ *
+ * So five full-size WebPs were downloaded on every visit to the front page,
+ * into cards about 260px wide, and the query string made it look handled.
+ * That is the lag behind the typing headline.
+ *
+ * `/_next/image` is the same optimizer every other image on the platform
+ * goes through: resized and re-encoded to AVIF at the edge, cached for a
+ * year (minimumCacheTTL), nothing metered. `optimizedImageUrl` doubles the
+ * display width for retina and snaps to a width Next will actually serve —
+ * anything else is a 400 rather than a picture.
+ *
+ * Quality 75, not the 88 a creator's own cover gets: this is decoration at
+ * 260px behind a white card, and it is the first thing on the site.
+ */
 const IMG_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags"
 const IMG_NAMES = [
   "Monetize%20(5)%20(2).webp",
@@ -66,10 +87,11 @@ const IMG_NAMES = [
   "Monetize%20(21).webp",
   "Monetize%20(9).webp",
 ]
-// Small (mobile / side cards): 280px wide, lower quality for fast mobile loading
-const IMAGES_SM = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=280&height=350&resize=cover&quality=55`)
-// Large (desktop center): 480px wide, moderate quality
-const IMAGES_LG = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=480&height=600&resize=cover&quality=70`)
+const IMG_ORIGINALS = IMG_NAMES.map((n) => `${IMG_BASE}/${n}`)
+/** Side cards on a phone, ~130px drawn. */
+const IMAGES_SM = IMG_ORIGINALS.map((src) => optimizedImageUrl(src, 160, 75))
+/** The centre card on a desktop, ~280px drawn. */
+const IMAGES_LG = IMG_ORIGINALS.map((src) => optimizedImageUrl(src, 320, 75))
 // Default src uses the small variant
 const IMAGES = IMAGES_SM
 
@@ -536,8 +558,18 @@ export function Hero() {
                     style={{ opacity: loadedImages.has(imageIdx) ? 0 : 1, pointerEvents: "none" }}
                   />
                   <img
-                    srcSet={`${IMAGES_SM[imageIdx]} 320w, ${IMAGES_LG[imageIdx]} 560w`}
-                    sizes="(max-width: 640px) 260px, 280px"
+                    /*
+                      The widths here must be the widths the optimizer
+                      actually SERVES, not the ones asked for.
+                      `optimizedImageUrl` doubles for retina and then snaps up
+                      to a size in Next's list — so 160 CSS px becomes 320,
+                      which snaps to 384, not to 320. A descriptor that claims
+                      320 makes the browser choose between two files by a
+                      number neither of them is. tests/product-media derives
+                      both from the helper rather than trusting this comment.
+                    */
+                    srcSet={`${IMAGES_SM[imageIdx]} 384w, ${IMAGES_LG[imageIdx]} 640w`}
+                    sizes="(max-width: 640px) 160px, 280px"
                     src={src}
                     alt=""
                     className="w-full h-full object-cover pointer-events-none transition-opacity duration-700 ease-out"

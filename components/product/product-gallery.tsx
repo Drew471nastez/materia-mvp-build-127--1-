@@ -6,6 +6,8 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { ChevronLeft, ChevronRight, Play, Pause, Volume2, VolumeX, Maximize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ProductMediaViewer } from "@/components/product/product-media-viewer"
+import { useIsPhone } from "@/components/storefront/use-is-phone"
 import { cn } from "@/lib/utils"
 
 interface MediaItem {
@@ -55,6 +57,16 @@ export function ProductGallery({
   backgroundColor
 }: ProductGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
+  /**
+   * Which pictures have actually arrived. A slide is painted transparent
+   * until its own image has decoded and then fades, so the first frame of a
+   * product page is a calm grey box rather than a flash of nothing followed
+   * by a picture snapping in. See the note where this is read.
+   */
+  const [loaded, setLoaded] = useState<Record<number, boolean>>({})
+  /** Full screen, phone only. */
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const isPhone = useIsPhone()
   const [touchStart, setTouchStart] = useState<number | null>(null)
   const [touchEnd, setTouchEnd] = useState<number | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -355,6 +367,25 @@ export function ProductGallery({
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
+        /**
+         * A TAP OPENS IT, A SWIPE DOES NOT.
+         *
+         * `onClick` fires after a swipe too, so opening on a bare click would
+         * put the viewer up every time somebody moved to the next picture.
+         * `touchEnd` has already recorded where the finger started and
+         * finished; under the threshold that decides a slide change, this was
+         * a tap.
+         *
+         * Phone only, deliberately. On a desktop the gallery is 600px wide
+         * beside the buy card and there is nothing a lightbox would add.
+         */
+        onClick={() => {
+          if (!isPhone) return
+          const moved = touchStart !== null && touchEnd !== null ? Math.abs(touchStart - touchEnd) : 0
+          if (moved > 10) return
+          if (mediaItems[currentIndex]?.type === "youtube") return
+          setViewerOpen(true)
+        }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
@@ -374,13 +405,34 @@ export function ProductGallery({
             )}
           >
             {media.type === "image" && (
+              /**
+               * IT ARRIVES RATHER THAN APPEARING.
+               *
+               * Every slide was painted at full opacity from the first frame,
+               * so the picture snapped in the instant it decoded — on a phone
+               * on mobile data that is a visible pop on the largest element
+               * of the page. Held transparent until its own `onLoad`, then
+               * faded over 400ms, it reads as the picture settling onto the
+               * grey box that was already there.
+               *
+               * `priority` on the first one, so the browser starts it from
+               * the document head instead of after hydration; the rest are
+               * lazy, because a product with eight pictures should not fetch
+               * eight before anyone has asked.
+               */
               <Image
                 src={media.url || "/placeholder.svg"}
                 alt={`${title} - Image ${index + 1}`}
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1024px) 66vw, 50vw"
-                className="object-cover pointer-events-none select-none"
+                className={cn(
+                  "object-cover pointer-events-none select-none",
+                  "transition-opacity duration-[400ms] ease-out",
+                  loaded[index] ? "opacity-100" : "opacity-0",
+                )}
                 priority={index === 0}
+                loading={index === 0 ? "eager" : "lazy"}
+                onLoad={() => setLoaded((m) => (m[index] ? m : { ...m, [index]: true }))}
                 draggable={false}
               />
             )}
@@ -574,17 +626,31 @@ export function ProductGallery({
                   setCurrentIndex(index)
                   handleUserInteraction()
                 }}
+                /**
+                 * A THIN NEUTRAL EDGE, NOT A BRANDED ONE.
+                 *
+                 * The selected thumbnail carried `border-primary` with a
+                 * `ring-2 ring-primary/20` halo around it — a 2px violet
+                 * border and a glow, under a photograph, in a strip whose
+                 * only job is to say which picture is showing. It read as a
+                 * form field with focus rather than as a selection.
+                 *
+                 * What every shop that does this well uses: the unselected
+                 * ones step back, the selected one is at full strength with a
+                 * hairline around it in the text colour. No accent, no glow.
+                 * `selectionColor` is still honoured when a theme provides
+                 * one, as a border and nothing more.
+                 */
                 className={cn(
-                  "relative shrink-0 overflow-hidden rounded-lg border-2 transition-all snap-start",
+                  "relative shrink-0 overflow-hidden rounded-lg border transition-all duration-200 snap-start",
                   "h-16 w-20 sm:h-20 sm:w-24",
                   currentIndex === index
-                    ? selectionColor ? "" : "border-primary ring-2 ring-primary/20"
-                    : "border-transparent hover:border-muted-foreground/30",
+                    ? selectionColor
+                      ? "opacity-100"
+                      : "border-foreground opacity-100"
+                    : "border-transparent opacity-55 hover:opacity-85",
                 )}
-                style={currentIndex === index && selectionColor ? {
-                  borderColor: selectionColor,
-                  boxShadow: `0 0 0 2px ${selectionColor}33`
-                } : undefined}
+                style={currentIndex === index && selectionColor ? { borderColor: selectionColor } : undefined}
                 aria-label={`View ${media.type === "image" ? "image" : "video"} ${index + 1}`}
               >
                 {media.type === "image" && (
@@ -629,6 +695,25 @@ export function ProductGallery({
             ))}
           </div>
         </div>
+      )}
+
+      {/*
+        Mounted only on a phone, so a desktop visitor never downloads it and
+        the dialog's listeners are not attached where nothing can open them.
+        YouTube embeds are left out of the list: the viewer shows a picture or
+        a file, and an iframe full screen is the player's own business.
+      */}
+      {isPhone && (
+        <ProductMediaViewer
+          media={mediaItems
+            .filter((m) => m.type !== "youtube")
+            .map((m) => ({ type: m.type === "video" ? "video" : "image", url: m.url }))}
+          title={title}
+          index={Math.min(currentIndex, Math.max(0, mediaItems.filter((m) => m.type !== "youtube").length - 1))}
+          open={viewerOpen}
+          onOpenChange={setViewerOpen}
+          onIndexChange={setCurrentIndex}
+        />
       )}
     </div>
   )

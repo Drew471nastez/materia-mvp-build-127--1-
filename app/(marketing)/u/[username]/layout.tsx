@@ -1,5 +1,6 @@
 import type React from "react"
-import { createClient } from "@/lib/supabase/server"
+
+import { loadShopThemePreset } from "@/lib/commerce/creator-page-data"
 import { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
 import type { ThemePreset } from "@/lib/store-builder/types"
 
@@ -8,44 +9,35 @@ interface ShopLayoutProps {
   params: Promise<{ username: string }>
 }
 
+/**
+ * ===========================================================================
+ *  THE SKELETON'S COLOURS, AND NOTHING ELSE
+ * ===========================================================================
+ * This used to run three SEQUENTIAL queries of its own — profiles, then
+ * creators, then store_builder_configs — to pick those colours.
+ *
+ * A layout is not inside the page's Suspense boundary, so nothing renders
+ * until it resolves, the loading skeleton included. Pressing a creator's name
+ * therefore bought three round trips of blank screen BEFORE the skeleton
+ * appeared, and the page underneath then fetched the same three rows again
+ * for itself. That is the "it goes to a skeleton and sticks there".
+ *
+ * The lookup was never the mistake — a light skeleton on a dark scheme is a
+ * white flash on every navigation, so the theme really is needed here.
+ * Paying for it twice, in series, ahead of everything else was. The loaders
+ * are deduped per request and shared between requests; see
+ * lib/commerce/creator-page-data.
+ */
 export default async function ShopLayout({ children, params }: ShopLayoutProps) {
   const { username } = await params
-  const supabase = await createClient()
 
-  // Quick query to get just the theme preset for skeleton loading
   let themePreset: ThemePreset = "default"
-
   try {
-    // Get the profile to find the creator
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .ilike("username", username)
-      .maybeSingle()
-
-    if (profile?.id) {
-      // Get the creator
-      const { data: creator } = await supabase
-        .from("creators")
-        .select("id")
-        .eq("user_id", profile.id)
-        .maybeSingle()
-
-      if (creator?.id) {
-        // Get the theme preset from the shop config
-        const { data: config } = await supabase
-          .from("store_builder_configs")
-          .select("published_config")
-          .eq("creator_id", creator.id)
-          .eq("page_type", "shop")
-          .maybeSingle()
-
-        themePreset = config?.published_config?.globalSettings?.themePreset || "default"
-      }
-    }
+    themePreset = (await loadShopThemePreset(username)) as ThemePreset
   } catch (error) {
-    // Silently fall back to default theme on error
-    console.error("Error fetching theme preset:", error)
+    /* A creator page with a default-coloured skeleton is fine. A creator page
+       that does not render because its skeleton could not be tinted is not. */
+    console.error("[shop-layout] theme preset lookup failed", error)
   }
 
   const colors = getThemeSkeletonColors(themePreset)
@@ -53,7 +45,7 @@ export default async function ShopLayout({ children, params }: ShopLayoutProps) 
   return (
     <div
       style={{
-        // Set CSS custom properties for skeleton loading
+        // CSS custom properties the loading skeleton reads.
         "--skeleton-bg": colors.backgroundColor,
         "--skeleton-color": colors.skeletonColor || "#e5e7eb",
         "--skeleton-text": colors.textColor,

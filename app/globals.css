@@ -2157,7 +2157,20 @@ html.keyboard-open [data-page="library"] main {
   transform: scale(0.95);
   transition-duration: 90ms;
 }
-@media (hover: hover) {
+/**
+ * `pointer: fine` AS WELL AS `hover: hover`, and that pair is the whole fix.
+ *
+ * A touch device that reports `hover: hover` — plenty of Android browsers, an
+ * iPad with a pointer attached, Safari in desktop mode — applies `:hover` on
+ * TAP and then keeps it until something else is tapped. So pressing the three
+ * dots left a grey disc sitting under the icon after the menu had opened and
+ * after it had closed, which reads as a control that has jammed. That is the
+ * "it gets blocked with that grey that hover applies".
+ *
+ * Requiring a fine pointer as well means a real mouse, which is the only
+ * thing that can actually hover on and off again.
+ */
+@media (hover: hover) and (pointer: fine) {
   .bar-control:hover .bar-control-disc { opacity: 0.08; transform: scale(1) }
 }
 
