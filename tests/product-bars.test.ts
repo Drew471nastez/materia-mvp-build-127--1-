@@ -174,6 +174,26 @@ function main() {
   check("and the card is sticky", /className="sticky top-\[calc\(var\(--product-topbar-h,0px\)\+1\.5rem\)\]/.test(productPage))
   check("pinned clear of the bar rather than at a bare 24px", !/className="sticky top-6 rounded-xl/.test(productPage))
 
+  /*
+    AND IT LETS GO AT THE QUESTIONS. The FAQ used to be the last thing in the
+    left column, which made the grid a single row as tall as the whole page:
+    the card stopped, but only at the very bottom of the FAQ, which reads as
+    never stopping. As its own row it keeps its width and its place and the
+    row above it ends where the description does.
+  */
+  check("the questions are their own grid row", /<div className="lg:col-span-3 min-w-0 w-full">\s*\n\s*<div data-faq-section>/.test(productPage))
+  check("so two things span three columns, not one", (productPage.match(/className="lg:col-span-3 min-w-0 w-full"/g) || []).length === 2)
+  check("and they no longer carry their own top margin", !/className="mt-8 sm:mt-10" data-faq-section/.test(productPage))
+
+  /* The card names what it is selling, above the price. */
+  check("the buy card leads with the product's title", /<p\s+className="mb-2 text-base font-semibold leading-snug"[\s\S]{0,160}\{product\.title\}/.test(productPage))
+  const cardAt = productPage.indexOf('className="sticky top-[calc(var(--product-topbar-h,0px)+1.5rem)]')
+  const cardTitleAt = productPage.indexOf("{product.title}", cardAt)
+  const cardPriceAt = productPage.indexOf("{product.price_cents === 0 ? \"Free\" : formatPrice(product.price_cents)}", cardAt)
+  check("above the price rather than under it", cardAt > 0 && cardTitleAt > cardAt && cardPriceAt > cardTitleAt)
+  /* One <h1> for the title; the card's copy is not a second heading. */
+  check("and not as a second heading of the same words", !/<h2[^>]*>\s*\{product\.title\}/.test(productPage.slice(cardAt)))
+
   /* The offset is the bar's own measured height, published once. */
   check("the bar measures itself", /const measure = \(\) => setProductTopBarHeight\(node\.getBoundingClientRect\(\)\.height\)/.test(topBar))
   check("and keeps measuring as the window changes it", /new ResizeObserver\(measure\)/.test(topBar))
