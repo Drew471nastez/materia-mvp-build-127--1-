@@ -46,6 +46,14 @@ const cardClass = (page.match(/className="(sticky top-[^"]*rounded-xl border p-6
 if (!gridClass) fail("No product grid found in the page.")
 if (!colClass) fail("No `hidden lg:block lg:col-span-2` column found — the buy card's column is gone or renamed.")
 if (!cardClass) fail("No `sticky top-… rounded-xl border p-6` card found — the buy card is gone or no longer sticky.")
+/*
+  The questions are a grid item of their own now, which is what bounds the
+  card's travel. If they go back inside the left column the grid is one row
+  again and the card rides the whole page, so their being a sibling is part
+  of what this measures.
+*/
+const faqIsOwnRow = /<div className="lg:col-span-3 min-w-0 w-full">\s*\n\s*<div data-faq-section>/.test(page)
+if (!faqIsOwnRow) fail("The FAQ is not its own grid row any more, so the buy card's travel is unbounded again.")
 
 /*
   NO BACKTICKS BELOW THIS LINE. The page is assembled in a template literal
@@ -55,7 +63,12 @@ const driver = [
   'function run() {',
   '  var card = document.getElementById("card");',
   '  var col = document.getElementById("col");',
+  '  var left = document.getElementById("left");',
+  '  var faq = document.getElementById("faq");',
   '  var out = {};',
+  '  out.leftHeight = Math.round(left.getBoundingClientRect().height);',
+  '  out.leftWidth = Math.round(left.getBoundingClientRect().width);',
+  '  out.faqWidth = Math.round(faq.getBoundingClientRect().width);',
   '  out.topOffset = getComputedStyle(card).top;',
   '  out.position = getComputedStyle(card).position;',
   '  out.colHeight = Math.round(col.getBoundingClientRect().height);',
@@ -66,6 +79,8 @@ const driver = [
   '  out.scrolledY = Math.round(window.scrollY);',
   '  out.at600 = Math.round(card.getBoundingClientRect().top);',
   '  window.scrollTo(0, 0);',
+  '  out.faqTopDoc = Math.round(faq.getBoundingClientRect().top + window.scrollY);',
+  '  out.colBottomDoc = Math.round(col.getBoundingClientRect().bottom + window.scrollY);',
   '  var colTopDoc = col.getBoundingClientRect().top + window.scrollY;',
   '  var colBottomDoc = colTopDoc + col.getBoundingClientRect().height;',
   '  out.pastTheEnd = Math.round(colBottomDoc - out.cardHeight - parseFloat(out.topOffset) + 300);',
@@ -101,10 +116,12 @@ const html = "<!doctype html><html><head><meta charset=\"utf-8\"><style>" + css 
   "<main class=\"flex-1 [overflow-x:clip]\">" +
   "<div class=\"mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12\">" +
   "<div class=\"" + gridClass + "\">" +
-  "<div class=\"lg:col-span-3 min-w-0 w-full\" style=\"height:2400px;background:#eef\"></div>" +
+  "<div id=\"left\" class=\"lg:col-span-3 min-w-0 w-full\" style=\"height:2400px;background:#eef\"></div>" +
   "<div id=\"col\" class=\"" + colClass + "\">" +
   "<div id=\"card\" class=\"" + cardClass + "\" style=\"height:320px;background:#fff\">buy</div>" +
-  "</div></div></div></main>" +
+  "</div>" +
+  "<div id=\"faq\" class=\"lg:col-span-3 min-w-0 w-full\" style=\"height:900px;background:#efe\"></div>" +
+  "</div></div></main>" +
   "<div style=\"height:1200px\"></div>" +
   "<script>" + driver + "</script></body></html>"
 
@@ -157,6 +174,23 @@ if (o.colHeight > o.cardHeight + 50) {
 }
 
 /*
+  IT LETS GO AT THE QUESTIONS. The card's column must be as tall as the row
+  it is in and NO taller — if the FAQ is back inside the left column the grid
+  is one row, the column is 3300px rather than 2400px, and the card rides the
+  whole thing.
+*/
+if (o.colHeight !== o.leftHeight) {
+  problems.push("the card's column is " + o.colHeight + "px against a " + o.leftHeight + "px row; it is stretching past its own row.")
+}
+if (o.colBottomDoc > o.faqTopDoc + 2) {
+  problems.push("the card's column runs " + (o.colBottomDoc - o.faqTopDoc) + "px into the questions; it is meant to end before them.")
+}
+/* And the questions keep the width and the place they had. */
+if (Math.abs(o.faqWidth - o.leftWidth) > 2) {
+  problems.push("the questions are " + o.faqWidth + "px wide against the column's " + o.leftWidth + "px; they changed width when they moved rows.")
+}
+
+/*
   THE OFFSET IS THE BAR'S MEASURED HEIGHT, not a number written into the
   class. The bar publishes --product-topbar-h; with it set the card has to
   pin that much lower, or the bar lands on top of it on a scroll up.
@@ -169,4 +203,4 @@ if (Math.abs(o.pinnedUnderBar - 84) > 2) {
 }
 
 if (problems.length) fail(problems.map((x) => "  - " + x).join("\n"))
-console.log("\n  pinned at " + offset + "px from 600px down (" + o.topWithBar + " with a 60px bar), parked flush with the column's end by " + o.pastTheEnd + "px.\n")
+console.log("\n  pinned at " + offset + "px from 600px down (" + o.topWithBar + " with a 60px bar), parked flush at " + o.colBottomDoc + "px, which is where the questions start (" + o.faqTopDoc + "px).\n")

@@ -1347,37 +1347,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           </div>
         )}
 
-        <div className="mt-8 sm:mt-10" data-faq-section>
-          <h2
-            className="mb-4 text-lg font-semibold"
-            style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
-          >
-            Frequently Asked Questions
-          </h2>
-
-          {/* Mobile: add a tiny inner gutter so FAQ isn't edge-to-edge */}
-          <div className="px-2 sm:px-0">
-            <Accordion type="single" collapsible className="w-full">
-              {displayFaqs.map((faq: { question: string; answer: string }, idx: number) => (
-                <AccordionItem
-                  key={`faq-${idx}`}
-                  value={`item-${idx}`}
-                  style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}
-                >
-                  <AccordionTrigger
-                    className="min-h-[44px] text-left"
-                    style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
-                  >
-                    {faq.question}
-                  </AccordionTrigger>
-                  <AccordionContent style={{ color: themeColors.faqTextColor ? `${themeColors.faqTextColor}cc` : "var(--muted-foreground)" }}>
-                    {faq.answer}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </div>
-        </div>
       </div>
 
       {/*
@@ -1408,6 +1377,24 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             borderColor: themeColors.cardBorderColor || "var(--border)",
           }}
         >
+          {/*
+            WHAT YOU ARE BUYING, ABOVE WHAT IT COSTS. The card opened on a
+            price with nothing attached to it, and once it is sticky it
+            outlives the title it sits beside — halfway down the page the
+            only thing on screen naming the product was the card, and it
+            did not name it.
+
+            A <p> rather than a heading: the title is already the page's
+            <h1> a column to the left, and a second heading with the same
+            words is a duplicate to anything reading the page out.
+          */}
+          <p
+            className="mb-2 text-base font-semibold leading-snug"
+            style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+          >
+            {product.title}
+          </p>
+
           {/* Price display - only show static if no variants */}
           {variants.length === 0 && (
             <div className="mb-4">
@@ -1528,6 +1515,57 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             </ul>
           </div>
 
+        </div>
+      </div>
+      {/*
+        =====================================================================
+         THE QUESTIONS ARE THEIR OWN ROW, AND THAT IS WHERE THE CARD LETS GO
+        =====================================================================
+        This was the last thing inside the left column, which made the grid
+        one row as tall as everything on the page — so the buy card, which is
+        sticky against that row, rode the whole FAQ before parking. It did
+        stop, but only at the very bottom of it, which reads as never
+        stopping.
+
+        As its own row it keeps the width and the place it had, three of five
+        columns under the description, and the row above it now ends where
+        the description does. The card travels the product's own information
+        and lets go at the questions, which is where it has stopped being
+        about this purchase.
+
+        The row gap replaces the top margin this block used to carry.
+      */}
+      <div className="lg:col-span-3 min-w-0 w-full">
+        <div data-faq-section>
+        <h2
+          className="mb-4 text-lg font-semibold"
+          style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+        >
+          Frequently Asked Questions
+        </h2>
+
+        {/* Mobile: add a tiny inner gutter so FAQ isn't edge-to-edge */}
+        <div className="px-2 sm:px-0">
+          <Accordion type="single" collapsible className="w-full">
+            {displayFaqs.map((faq: { question: string; answer: string }, idx: number) => (
+              <AccordionItem
+                key={`faq-${idx}`}
+                value={`item-${idx}`}
+                style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}
+              >
+                <AccordionTrigger
+                  className="min-h-[44px] text-left"
+                  style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+                >
+                  {faq.question}
+                </AccordionTrigger>
+                <AccordionContent style={{ color: themeColors.faqTextColor ? `${themeColors.faqTextColor}cc` : "var(--muted-foreground)" }}>
+                  {faq.answer}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
         </div>
       </div>
     </div>
