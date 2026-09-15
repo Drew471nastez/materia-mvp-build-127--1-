@@ -1,0 +1,136 @@
+/**
+ * ===========================================================================
+ *  ONE REQUEST, ONE QUERY PER ROW
+ * ===========================================================================
+ * Rendering a product page runs three pieces of code that each need the same
+ * handful of rows, and none of them knew about the others:
+ *
+ *   layout.tsx        products, (slug history), store_builder_configs
+ *   generateMetadata  products, (slug history), creators, profiles,
+ *                     store_builder_configs
+ *   page.tsx          products, creators, profiles, store_builder_configs x3,
+ *                     and eleven more
+ *
+ * So every visit fetched the product row three times, the creator twice, the
+ * creator's profile twice and the shop's config twice — nine round trips to
+ * fetch four rows. On a page somebody is waiting to look at.
+ *
+ * React's `cache()` is scoped to one request. The first caller pays for the
+ * query and every caller after it gets the same promise, so the three files
+ * below can go on asking for what they need without knowing who asked first.
+ * Nothing is cached BETWEEN requests: a creator who edits a product still
+ * sees the change on the next load, exactly as before.
+ *
+ * WHY THE FULL ROW EVERY TIME. The three callers wanted three different
+ * column lists, and three different column lists are three different queries.
+ * One shape, asked for once, is fewer bytes over the wire than the narrow
+ * ones were — because there were three of them.
+ */
+import { cache } from "react"
+import { createClient } from "@/lib/supabase/server"
+
+/** The page's own select, unchanged: the row plus the categories it shows. */
+const PRODUCT_SELECT = `
+      *,
+      product_categories (
+        category_id,
+        category:categories (
+          id,
+          name,
+          slug,
+          type
+        )
+      )
+    `
+
+export interface ProductLookup {
+  product: any | null
+  /**
+   * The slug in the URL is an old one and this row was found through
+   * product_slug_history. The page redirects on this; the layout and the
+   * metadata just use the row, because a redirect from three places is three
+   * chances to disagree about where to go.
+   */
+  viaHistory: boolean
+}
+
+export const loadProductBySlug = cache(async (slug: string): Promise<ProductLookup> => {
+  const supabase = await createClient()
+
+  const { data: current } = await supabase
+    .from("products")
+    .select(PRODUCT_SELECT)
+    .eq("slug", slug)
+    .eq("status", "published")
+    .maybeSingle()
+
+  if (current) return { product: current, viaHistory: false }
+
+  /*
+    THE RENAMED-PRODUCT PATH, and it is deliberately two queries rather than
+    one embedded select. Nesting categories two levels inside `products!inner`
+    is a shape PostgREST will refuse on some schemas, and this path only runs
+    for a link somebody sent before the creator renamed the product. A second
+    round trip on the rare path is cheaper than a clever query that can fail
+    on the common one.
+  */
+  const { data: history } = await supabase
+    .from("product_slug_history")
+    .select("product_id, products!inner (id, status)")
+    .eq("old_slug", slug)
+    .maybeSingle()
+
+  const historic = history?.products as { id?: string; status?: string } | undefined
+  if (!history?.product_id || historic?.status !== "published") {
+    return { product: null, viaHistory: false }
+  }
+
+  const { data: renamed } = await supabase
+    .from("products")
+    .select(PRODUCT_SELECT)
+    .eq("id", history.product_id)
+    .eq("status", "published")
+    .maybeSingle()
+
+  return { product: renamed ?? null, viaHistory: !!renamed }
+})
+
+export const loadCreator = cache(async (creatorId: string) => {
+  const supabase = await createClient()
+  const { data } = await supabase.from("creators").select("*").eq("id", creatorId).maybeSingle()
+  return data
+})
+
+export const loadCreatorProfile = cache(async (userId: string) => {
+  const supabase = await createClient()
+  const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
+  return data
+})
+
+/**
+ * `store_builder_configs` keyed by creator and page type. The page reads both
+ * "shop" and "product"; the layout reads "product"; the metadata reads
+ * "shop". Two queries between them now instead of four.
+ */
+export const loadStoreConfig = cache(async (creatorId: string, pageType: string) => {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("store_builder_configs")
+    .select("published_config")
+    .eq("creator_id", creatorId)
+    .eq("page_type", pageType)
+    .maybeSingle()
+  return data
+})
+
+/** The per-product override, which only the page reads. Here for symmetry. */
+export const loadProductPageConfig = cache(async (creatorId: string, productId: string) => {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("product_page_configs")
+    .select("published_config")
+    .eq("creator_id", creatorId)
+    .eq("product_id", productId)
+    .maybeSingle()
+  return data
+})

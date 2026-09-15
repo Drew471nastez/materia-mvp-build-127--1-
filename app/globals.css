@@ -317,6 +317,17 @@ html.capacitor body {
     animation: app-page-enter 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
   }
 
+  /*
+    OPACITY ONLY, AND THAT IS WHY A PRODUCT PAGE CAN USE IT.
+
+    A product page has two `position: fixed` bars on it. A transform, a filter
+    or a `will-change` for either on an ancestor makes that ancestor the
+    containing block for them, and both bars would stop being fixed to the
+    window for the length of the animation. `opacity` is not on that list —
+    it makes a stacking context and nothing else — so the fade is safe over
+    the buy bar and the creator bar. Do not add a transform to this rule.
+  */
+
   @media (prefers-reduced-motion: reduce) {
     .app-page-enter {
       animation: none;
