@@ -142,9 +142,15 @@ check(
   /if \(swipe\.lastTravel\.current > 10\) return/.test(gallery),
   "onClick fires after a swipe too, so the viewer would open on every slide change",
 )
+/*
+  `inset-0` rather than `h-dvh w-screen` now. Same claim — the panel is the
+  viewport and carries no transform of its own — and one fewer bug: 100vw
+  includes the scrollbar where a fixed element's right edge does not, which is
+  how the avatar lightbox put its close button in the gutter.
+*/
 check(
   "the panel is the viewport and is not transformed",
-  /translate-x-0 translate-y-0/.test(viewer) && /h-dvh w-screen/.test(viewer),
+  /translate-x-0 translate-y-0/.test(viewer) && /inset-0/.test(viewer) && !/w-screen/.test(viewer),
   "a transformed ancestor anchors every fixed child to itself — that cost the avatar lightbox a round",
 )
 check(

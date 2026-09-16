@@ -97,6 +97,14 @@ function parts(strip) {
 }
 /** How far the finger has dragged the strip from its resting slide. */
 function trackX(strip) { return Math.round(parts(strip).px) }
+/**
+ * AND WHETHER THE BROWSER ACCEPTED ANY OF IT.
+ *
+ * Everything above reads what the component ASKED for. A stylesheet can
+ * refuse it — one did — and then the inline style is perfect, the computed
+ * transform comes back as none, and nothing on screen has moved. Read both.
+ */
+function computedTransform(strip) { return getComputedStyle(strip).transform }
 /** Which slide the strip is resting on. */
 function trackIndex(strip) { return Math.round(-parts(strip).pct / 100) }
 `
@@ -191,6 +199,9 @@ async function run() {
   await nextFrame()
 
   report.touchAction = getComputedStyle(frame).touchAction
+  report.hoverNone = window.matchMedia("(hover: none)").matches
+  /* Ask for a slide and read what the browser actually applied. */
+  report.computedAtRest = computedTransform(strip)
   report.stripInlineEnd = strip.getAttribute("style")
   show(report)
 }
@@ -214,7 +225,22 @@ window.addEventListener("error", function (e) { show({ pageError: String(e.messa
 setTimeout(function () { run().catch(function (e) { show({ threw: String(e && e.stack || e) }) }) }, 900)
 </script></body></html>`)
 
+/*
+  A TOUCH-ONLY DEVICE, which is what this gallery is for.
+
+  Headless Chromium reports a mouse by default, so `@media (hover: none)`
+  never matched and this probe measured a page no phone ever sees. That let a
+  rule in globals.css — `.group *:not([data-keep-transform]) { transform:
+  none !important }` — delete the strip's translate on every real phone while
+  the probe went on reporting a perfect swipe. The gallery was completely dead
+  on mobile and this said it was fine.
+
+  So the browser is told what it is: no hover, coarse pointer.
+*/
+const TOUCH_DEVICE = "--blink-settings=availableHoverTypes=1,primaryHoverType=1,availablePointerTypes=4,primaryPointerType=4"
+
 const dom = execFileSync(CHROMIUM, ["--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars",
+  TOUCH_DEVICE,
   "--window-size=390,844", "--virtual-time-budget=15000", "--dump-dom", `file://${join(out, "index.html")}`],
   { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 32 * 1024 * 1024 })
 const m = dom.match(/<pre id="result">([\s\S]*?)<\/pre>/)
@@ -234,6 +260,7 @@ console.log(`  finger back to -30px -> strip at ${r.atMinus30}px`)
 console.log(`  short drag released -> slide ${r.afterShortDrag.index}`)
 console.log(`  finger at -${Math.round(r.frameWidth * 0.5)}px -> strip at ${r.atHalf}px, released -> slide ${r.indexAfterCommit}`)
 console.log(`  vertical swipe moved the strip ${r.duringVertical}px`)
+console.log(`  (hover: none) matches: ${r.hoverNone}   computed transform: ${r.computedAtRest}`)
 if (process.env.DEBUG_SWIPE) {
   console.log(`  [debug] native listeners fired: ${r.native}`)
   console.log(`  [debug] strip class: ${r.stripClass}`)
@@ -257,6 +284,10 @@ if (r.afterShortDrag.index !== 0) problems.push(`A 30px drag changed to slide ${
 if (r.indexAfterCommit !== 1) problems.push(`Half a screen of drag left it on slide ${r.indexAfterCommit}, not 1.`)
 /* And a scroll is a scroll. */
 if (Math.abs(r.duringVertical) > 2) problems.push(`A vertical swipe dragged the strip ${r.duringVertical}px sideways. That is the page twitching while somebody reads it.`)
+if (!r.hoverNone) problems.push("This did not run as a touch-only device, so every rule under @media (hover: none) was skipped and the measurement is of a page no phone sees.")
+if (r.computedAtRest === "none") {
+  problems.push("The browser computed the strip's transform as `none`, so whatever the component asked for was refused by a stylesheet and nothing moves on screen.")
+}
 if (r.touchAction !== "pan-y") problems.push(`touch-action is ${r.touchAction}. \`pan-y\` is what stops the browser's own horizontal pan competing while leaving the page scrollable.`)
 
 if (problems.length) {

@@ -1405,7 +1405,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             the page out loud. That one is `lg:hidden` now, so this is the
             only title on a desktop and it carries the tag.
 
-            36px at 600. It has been 14, 20, 24 and 30, and for most of those
+            35px at 600, written as a number rather than as a size step: the
+            class below text-4xl is text-3xl at 30px, and the ask was one
+            pixel, not six.
+
+            It has been 14, 20, 24, 30 and 36, and for most of those
             it sat under a bigger price — where a title reads as a caption on
             a number rather than as the name of the thing being bought. It is
             the biggest line on the card now, clear of the 24px price under
@@ -1413,7 +1417,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             what it costs.
           */}
           <h1
-            className="mb-2 text-4xl font-semibold leading-snug break-words"
+            className="mb-2 text-[35px] font-semibold leading-snug break-words"
             style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
           >
             {product.title}
