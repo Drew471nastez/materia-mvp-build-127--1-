@@ -29,11 +29,36 @@
  * the top is the pattern every browser already uses for "this is loading",
  * and it does not move the layout by a pixel.
  */
+import * as React from "react"
 import { useLinkStatus } from "next/link"
+
+/**
+ * A NAVIGATION THAT IS ALREADY WARM SHOWS NOTHING.
+ *
+ * A prefetched route commits in tens of milliseconds. A bar that appears and
+ * disappears inside a tenth of a second is a flicker, not feedback, and a
+ * flicker on every card press is worse than no answer at all — it is the
+ * interface twitching. So the bar waits, and if the page arrives first it is
+ * never drawn.
+ *
+ * The number is the same one the back arrow uses, for the same reason.
+ */
+const PENDING_DELAY_MS = 110
 
 export function NavPending() {
   const { pending } = useLinkStatus()
-  if (!pending) return null
+  const [show, setShow] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!pending) {
+      setShow(false)
+      return
+    }
+    const id = window.setTimeout(() => setShow(true), PENDING_DELAY_MS)
+    return () => window.clearTimeout(id)
+  }, [pending])
+
+  if (!show) return null
   return (
     <span
       aria-hidden
