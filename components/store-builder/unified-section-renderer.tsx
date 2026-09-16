@@ -55,7 +55,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ReviewsList } from "@/components/reviews/reviews-list"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { verifiedBadgeLabels } from "@/lib/store-builder/defaults"
-import * as LucideIcons from "lucide-react"
+import { getIconComponent } from "./section-icons"
 import { DescriptionEditWrapper, RichDescriptionContent } from "./description-rich-editor"
 import { SmartLink } from "@/components/smart-link"
 import { useRouter } from "next/navigation"
@@ -1631,165 +1631,15 @@ function UnifiedImageTextSection({
 
 // Icon mapping for benefits section
 // Get Lucide icon component by name
-function getBenefitIcon(iconName: string): React.ComponentType<{ className?: string }> | null {
-  // Common icon mappings
-  const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-    "check-circle": LucideIcons.CheckCircle,
-    "check": LucideIcons.Check,
-    "star": LucideIcons.Star,
-    "heart": LucideIcons.Heart,
-    "shield": LucideIcons.Shield,
-    "shield-check": LucideIcons.ShieldCheck,
-    "zap": LucideIcons.Zap,
-    "award": LucideIcons.Award,
-    "trophy": LucideIcons.Trophy,
-    "target": LucideIcons.Target,
-    "gift": LucideIcons.Gift,
-    "crown": LucideIcons.Crown,
-    "sparkles": LucideIcons.Sparkles,
-    "rocket": LucideIcons.Rocket,
-    "flame": LucideIcons.Flame,
-    "bolt": LucideIcons.Zap,
-    "lightning": LucideIcons.Zap,
-    "thumbs-up": LucideIcons.ThumbsUp,
-    "smile": LucideIcons.Smile,
-    "users": LucideIcons.Users,
-    "user-check": LucideIcons.UserCheck,
-    "clock": LucideIcons.Clock,
-    "timer": LucideIcons.Timer,
-    "calendar": LucideIcons.Calendar,
-    "mail": LucideIcons.Mail,
-    "phone": LucideIcons.Phone,
-    "globe": LucideIcons.Globe,
-    "map-pin": LucideIcons.MapPin,
-    "lock": LucideIcons.Lock,
-    "key": LucideIcons.Key,
-    "credit-card": LucideIcons.CreditCard,
-    "wallet": LucideIcons.Wallet,
-    "dollar-sign": LucideIcons.DollarSign,
-    "percent": LucideIcons.Percent,
-    "tag": LucideIcons.Tag,
-    "bookmark": LucideIcons.Bookmark,
-    "flag": LucideIcons.Flag,
-    "bell": LucideIcons.Bell,
-    "megaphone": LucideIcons.Megaphone,
-    "volume-2": LucideIcons.Volume2,
-    "headphones": LucideIcons.Headphones,
-    "mic": LucideIcons.Mic,
-    "video": LucideIcons.Video,
-    "camera": LucideIcons.Camera,
-    "image": LucideIcons.Image,
-    "film": LucideIcons.Film,
-    "music": LucideIcons.Music,
-    "play": LucideIcons.Play,
-    "download": LucideIcons.Download,
-    "upload": LucideIcons.Upload,
-    "cloud": LucideIcons.Cloud,
-    "server": LucideIcons.Server,
-    "database": LucideIcons.Database,
-    "cpu": LucideIcons.Cpu,
-    "monitor": LucideIcons.Monitor,
-    "smartphone": LucideIcons.Smartphone,
-    "tablet": LucideIcons.Tablet,
-    "laptop": LucideIcons.Laptop,
-    "wifi": LucideIcons.Wifi,
-    "bluetooth": LucideIcons.Bluetooth,
-    "battery": LucideIcons.Battery,
-    "power": LucideIcons.Power,
-    "settings": LucideIcons.Settings,
-    "tool": LucideIcons.Wrench,
-    "wrench": LucideIcons.Wrench,
-    "hammer": LucideIcons.Hammer,
-    "brush": LucideIcons.Brush,
-    "pen": LucideIcons.Pen,
-    "pencil": LucideIcons.Pencil,
-    "edit": LucideIcons.Edit,
-    "scissors": LucideIcons.Scissors,
-    "copy": LucideIcons.Copy,
-    "clipboard": LucideIcons.Clipboard,
-    "file": LucideIcons.File,
-    "folder": LucideIcons.Folder,
-    "archive": LucideIcons.Archive,
-    "box": LucideIcons.Box,
-    "package": LucideIcons.Package,
-    "shopping-cart": LucideIcons.ShoppingCart,
-    "shopping-bag": LucideIcons.ShoppingBag,
-    "store": LucideIcons.Store,
-    "truck": LucideIcons.Truck,
-    "plane": LucideIcons.Plane,
-    "car": LucideIcons.Car,
-    "bike": LucideIcons.Bike,
-    "ship": LucideIcons.Ship,
-    "anchor": LucideIcons.Anchor,
-    "compass": LucideIcons.Compass,
-    "map": LucideIcons.Map,
-    "navigation": LucideIcons.Navigation,
-    "home": LucideIcons.Home,
-    "building": LucideIcons.Building,
-    "building-2": LucideIcons.Building2,
-    "landmark": LucideIcons.Landmark,
-    "factory": LucideIcons.Factory,
-    "tree": LucideIcons.TreeDeciduous,
-    "leaf": LucideIcons.Leaf,
-    "flower": LucideIcons.Flower,
-    "sun": LucideIcons.Sun,
-    "moon": LucideIcons.Moon,
-    "cloud-sun": LucideIcons.CloudSun,
-    "cloud-rain": LucideIcons.CloudRain,
-    "snowflake": LucideIcons.Snowflake,
-    "droplet": LucideIcons.Droplet,
-    "wind": LucideIcons.Wind,
-    "thermometer": LucideIcons.Thermometer,
-    "activity": LucideIcons.Activity,
-    "heart-pulse": LucideIcons.HeartPulse,
-    "stethoscope": LucideIcons.Stethoscope,
-    "pill": LucideIcons.Pill,
-    "syringe": LucideIcons.Syringe,
-    "dumbbell": LucideIcons.Dumbbell,
-    "apple": LucideIcons.Apple,
-    "coffee": LucideIcons.Coffee,
-    "utensils": LucideIcons.Utensils,
-    "wine": LucideIcons.Wine,
-    "beer": LucideIcons.Beer,
-    "cake": LucideIcons.Cake,
-    "pizza": LucideIcons.Pizza,
-    "book": LucideIcons.Book,
-    "book-open": LucideIcons.BookOpen,
-    "graduation-cap": LucideIcons.GraduationCap,
-    "school": LucideIcons.School,
-    "library": LucideIcons.Library,
-    "brain": LucideIcons.Brain,
-    "lightbulb": LucideIcons.Lightbulb,
-    "puzzle": LucideIcons.Puzzle,
-    "gamepad": LucideIcons.Gamepad,
-    "dice": LucideIcons.Dice1,
-    "trophy": LucideIcons.Trophy,
-    "medal": LucideIcons.Medal,
-    "gem": LucideIcons.Gem,
-    "diamond": LucideIcons.Diamond,
-    "infinity": LucideIcons.Infinity,
-    "circle": LucideIcons.Circle,
-    "square": LucideIcons.Square,
-    "triangle": LucideIcons.Triangle,
-    "hexagon": LucideIcons.Hexagon,
-    "octagon": LucideIcons.Octagon,
-    "pentagon": LucideIcons.Pentagon,
-  }
-
-  // First check direct mapping
-  if (iconMap[iconName]) {
-    return iconMap[iconName]
-  }
-
-  // Try to find icon in LucideIcons by PascalCase name
-  const pascalCase = iconName.split("-").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join("")
-  const LucideIcon = (LucideIcons as any)[pascalCase]
-  if (LucideIcon) {
-    return LucideIcon
-  }
-
-  // Default fallback
-  return LucideIcons.CheckCircle
+function getBenefitIcon(iconName: string): React.ComponentType<React.SVGProps<SVGSVGElement>> | null {
+  /*
+    THE MAP AND THE 1736-ICON NAMESPACE IMPORT BOTH MOVED TO ./section-icons.
+    They were the largest thing on a product page — 196 KB compressed of
+    lucide, because a name looked up at runtime is a name a bundler cannot
+    tree-shake. That file explains it and is generated from the picker's own
+    list, so nothing a creator can choose stopped resolving.
+  */
+  return getIconComponent(iconName)
 }
 
 // Benefits Section - UNIFIED with Carousel Support (Mobile Only)
