@@ -522,15 +522,30 @@ function retireDomainScopedCookies(response: NextResponse, request: NextRequest)
  *
  * Mirrors app/(marketing)/[sellername]/[productSlug]. It is here so the
  * framing rule below cannot be talked into treating /app/settings as a
- * product page — `frame-ancestors 'self'` already limits any of this to our
- * own origin, so the stake is small, but a rule that says "any two segments"
- * is a rule nobody can reason about later.
+ * product page.
+ *
+ * THIS LIST HAS TO BE COMPLETE, and it was not. When the creator page moved
+ * to a single segment the framing rule had to start asking "is one segment a
+ * handle", which is the same question at the depth where every top level
+ * route on the site lives. Nineteen of them were missing from this list —
+ * /checkout, /reset-password, /downloads, /purchase, /receipt and /access
+ * among them — and each would have become framable by anything on our own
+ * origin, which includes the HTML a creator writes in the code editor. A
+ * password reset form in a frame a creator controls is a clickjacking setup,
+ * not a small stake.
+ *
+ * tests/creator-page.test.ts walks app/ and fails if a top level route is
+ * missing from here, so adding a route is enough; nobody has to remember
+ * this file exists.
  */
 const FRAME_RESERVED_FIRST_SEGMENT = new Set([
-  "account-deletion", "admin", "api", "app", "auth", "blog", "c", "creator-page",
-  "explore", "faq", "features", "l", "legal", "library", "login", "p", "pricing",
-  "register", "signup", "site", "sites", "store", "store-builder", "u", "w",
-  "website-builder", "wishlist",
+  "access", "account-deletion", "admin", "api", "app", "auth", "blog", "c",
+  "checkout", "creator-page", "dashboard", "downloads", "editions", "explore",
+  "faq", "features", "help", "l", "legal", "library", "login", "native-start",
+  "onboarding", "p", "pricing", "privacy", "products", "purchase", "receipt",
+  "register", "request", "reset-password", "signup", "site", "sites", "store",
+  "store-builder", "terms", "u", "unsubscribe", "upgrade", "verify-email",
+  "w", "website-builder", "welcome", "wishlist",
 ])
 
 export async function proxy(request: NextRequest) {
@@ -1178,8 +1193,35 @@ export async function proxy(request: NextRequest) {
       if (parts.length !== 2) return false
       return !FRAME_RESERVED_FIRST_SEGMENT.has(parts[0].toLowerCase())
     })()
+    /**
+     * AND THE CREATOR PAGE AT ITS NEW ADDRESS, WHICH IS ONE SEGMENT.
+     *
+     * The rule above named `/u/<handle>` because that is where the creator
+     * page used to live. It moved to `/<handle>`, and `/u/<handle>` became a
+     * 308 to it — so the workspace's frame asked for a framable address, was
+     * redirected to an identical page at an address this list had never heard
+     * of, and the browser refused it. The editor showed a broken rectangle
+     * and the proxy was, correctly, doing what it was told.
+     *
+     * Measured before the fix, on both the redirect and its destination:
+     *
+     *     x-frame-options: DENY          (and no frame-ancestors)
+     *
+     * One segment, and not one of the reserved routes — the same guard the
+     * product rule uses, so `/login` and `/app` can never be mistaken for a
+     * handle. `/u/` stays in the list below because the redirect carries
+     * `embedded=1` through and an old address should not start failing.
+     */
+    const creatorPath = (() => {
+      const parts = url.pathname.split("/").filter(Boolean)
+      if (parts.length !== 1) return false
+      return !FRAME_RESERVED_FIRST_SEGMENT.has(parts[0].toLowerCase())
+    })()
     const framableWhenEmbedded =
-      url.pathname.startsWith("/website-builder/code/") || url.pathname.startsWith("/u/") || productPath
+      url.pathname.startsWith("/website-builder/code/") ||
+      url.pathname.startsWith("/u/") ||
+      creatorPath ||
+      productPath
     const framed = framableWhenEmbedded && url.searchParams.get("embedded") === "1"
     if (framed) {
       const existing = supabaseResponse.headers.get("Content-Security-Policy")
