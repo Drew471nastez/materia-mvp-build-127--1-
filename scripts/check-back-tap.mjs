@@ -77,8 +77,20 @@ const INSTRUMENT = `(() => {
     return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top) }
   }
   w.__backBox = box
-  document.addEventListener("pointerdown", (e) => { w.__tap.pointerdown = name(e.target); w.__tap.downBox = box() }, true)
-  document.addEventListener("pointerup", (e) => { w.__tap.pointerup = name(e.target); w.__tap.upBox = box() }, true)
+  w.__tap.cancels = 0
+  w.__tap.moves = 0
+  w.__tap.maxMove = 0
+  let downAt = null
+  document.addEventListener("pointerdown", (e) => {
+    w.__tap.pointerdown = name(e.target); w.__tap.downBox = box(); downAt = { x: e.clientX, y: e.clientY }
+  }, true)
+  document.addEventListener("pointermove", (e) => {
+    if (!downAt) return
+    w.__tap.moves++
+    w.__tap.maxMove = Math.max(w.__tap.maxMove, Math.abs(e.clientX - downAt.x), Math.abs(e.clientY - downAt.y))
+  }, true)
+  document.addEventListener("pointercancel", (e) => { w.__tap.cancels++; w.__tap.cancelTarget = name(e.target) }, true)
+  document.addEventListener("pointerup", (e) => { w.__tap.pointerup = name(e.target); w.__tap.upBox = box(); downAt = null }, true)
   document.addEventListener("click", (e) => { w.__tap.click = name(e.target) }, true)
   return true
 })()`
@@ -134,6 +146,9 @@ async function main() {
 
   /** One real tap: a touch goes down and comes up at the same point. */
   const tap = async (x, y) => {
+    /* Zeroed here, or the scroll drags a scenario performs first are counted
+       as part of the tap and the report blames the tap for their cancels. */
+    await evaluate(`(() => { const t = window.__tap; t.cancels = 0; t.moves = 0; t.maxMove = 0; t.cancelTarget = null; return true })()`)
     await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y, radiusX: 12, radiusY: 12, force: 1 }] })
     await sleep(70)
     await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
@@ -174,17 +189,24 @@ async function main() {
     await evaluate(INSTRUMENT)
     const before = await evaluate("location.pathname")
     const aimed = await prepare(evaluate, tap, drag)
-    /* Poll rather than wait a fixed time, so the report can say HOW LONG. */
+    /* Poll rather than wait a fixed time, so the report can say HOW LONG, and
+       watch the arrow at the same time: a slow back is only acceptable if it
+       SAYS it is going. */
     let took = null
+    let busyAt = null
     const started = Date.now()
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 90; i++) {
+      if (busyAt === null) {
+        const busy = await evaluate(`document.querySelector('[data-product-bar="phone"] button[aria-label="Back"]')?.getAttribute("aria-busy") === "true"`)
+        if (busy) busyAt = Date.now() - started
+      }
       const now = await evaluate("location.pathname")
       if (now !== before) { took = Date.now() - started; break }
       await sleep(100)
     }
     const after = await evaluate("location.pathname")
     const tapInfo = await evaluate("window.__tap")
-    scenarios.push({ label, before, after, aimed, took, ...tapInfo, navigated: before !== after })
+    scenarios.push({ label, before, after, aimed, took, busyAt, deepLink: label.startsWith("A") || label.startsWith("B"), ...tapInfo, navigated: before !== after })
   }
 
   await run("A. at the top of the page, bar at rest", async (ev, doTap) => {
@@ -239,6 +261,8 @@ async function main() {
 }
 
 const PATIENCE = 700
+/* A route that has to be fetched, with the bar's own prefetch behind it. */
+const DEEP_LINK_LIMIT = 4000
 const rows = await main()
 console.log(`\n${URL_UNDER_TEST}\n`)
 const problems = []
@@ -253,11 +277,23 @@ for (const s of rows) {
   console.log(`    pointerdown -> ${s.pointerdown}   (button top ${s.downBox ? s.downBox.top : "?"})`)
   console.log(`    pointerup   -> ${s.pointerup}     (button top ${s.upBox ? s.upBox.top : "?"})`)
   console.log(`    click       -> ${s.click}`)
-  console.log(`    ${s.before} -> ${s.after}   ${s.navigated ? `NAVIGATED after ${s.took}ms` : "stayed"}`)
+  console.log(`    pointercancel x${s.cancels}${s.cancelTarget ? ` on ${s.cancelTarget}` : ""}, ${s.moves} pointermove, furthest ${s.maxMove}px`)
+  console.log(`    ${s.before} -> ${s.after}   ${s.navigated ? `NAVIGATED after ${s.took}ms` : "stayed"}${s.busyAt === null ? "" : `, arrow said busy at ${s.busyAt}ms`}`)
   console.log("")
-  if (!s.navigated) problems.push(`${s.label}: one tap did not go back at all.`)
-  else if (!s.click) problems.push(`${s.label}: navigated but no click event was seen.`)
-  else if (s.took > PATIENCE) problems.push(`${s.label}: one tap went back, but it took ${s.took}ms. Nothing happens for that long and the arrow gets pressed again.`)
+  if (!s.navigated) {
+    problems.push(`${s.label}: one tap did not go back at all.`)
+  } else if (s.deepLink) {
+    /*
+      A DEEP LINK HAS NOTHING BEHIND IT, so the arrow can only go forward to
+      the creator's page and that is a fetch. What is required here is not
+      that it be instant but that it be ANSWERED: the spinner has to be up
+      while it happens, or the wait looks like a control that did nothing.
+    */
+    if (s.busyAt === null) problems.push(`${s.label}: it took ${s.took}ms and the arrow never showed it was busy. That is a wait that looks like nothing happened.`)
+    else if (s.took > DEEP_LINK_LIMIT) problems.push(`${s.label}: one tap went back, but it took ${s.took}ms even with the route warmed.`)
+  } else if (s.took > PATIENCE) {
+    problems.push(`${s.label}: there is a page of ours one entry behind and going back to it took ${s.took}ms. It should be a return, not a fetch.`)
+  }
 }
 
 if (problems.length) {

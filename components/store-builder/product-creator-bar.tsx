@@ -983,6 +983,35 @@ export function LiveProductCreatorBar({
   }, [creatorHref, router])
 
   /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  AND THE FALLBACK IS WARMED, BECAUSE IT IS KNOWN IN ADVANCE
+   * ═════════════════════════════════════════════════════════════════════════
+   * A visitor who opened a shared link has nothing behind them, so the arrow
+   * can only go FORWARD to the creator's page, and that is a fetch. Measured
+   * on production it is 1.9 to 2.6 seconds, and the arrow is a spinner for
+   * all of it.
+   *
+   * Which page that will be is known when the bar renders, and whether it
+   * will be needed is known too: exactly when there is no history of ours.
+   * So it is asked for once, on mount, in the only case that will use it.
+   *
+   * Not for everybody. The common visit returns through history to a page the
+   * router already has, and prefetching the creator page for those would be a
+   * request per product view for something nobody is going to fetch.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (!creatorHref || creatorHref === "#") return
+    if (canReturnInApp()) return
+    try {
+      router.prefetch(creatorHref)
+    } catch {
+      /* A malformed href is the bar's problem to show, not a reason to throw
+         out of an effect. */
+    }
+  }, [creatorHref, router])
+
+  /**
    * The back half has no completion event of its own, so it is given a limit.
    * Long enough that a slow page still shows the spinner throughout, short
    * enough that a back which did nothing does not look like a hang.
