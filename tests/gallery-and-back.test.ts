@@ -284,6 +284,45 @@ console.log("\nThe sticky add to cart, and the wait before a product page\n")
   )
 }
 
+console.log("\nPressing a product, and coming back\n")
+
+{
+  const card = code("components/explore/product-card.tsx")
+  const smartLink = code("components/smart-link.tsx")
+
+  /*
+    ═════════════════════════════════════════════════════════════════════════
+     A CARD IS A LINK INSIDE THE SAME APP
+    ═════════════════════════════════════════════════════════════════════════
+    `clientNav` defaulted to false, and in SmartLink false does not mean "no
+    opinion" — it means force a full document load. So every product card
+    outside the explore page threw the page away and asked the server for
+    another one. Measured on the live site, pressing a card on a creator page
+    and then pressing back:
+
+        press -> a full document request, and `window` replaced
+        back  -> a full document request, and three YouTube iframes again
+
+    scripts/check-product-journey walks that round trip and fails when coming
+    back costs a document request.
+  */
+  check(
+    "a product card navigates on the client by default",
+    /clientNav = true,/.test(card),
+    "false is SmartLink's way of forcing a full document load, which makes back cost a round trip",
+  )
+  check(
+    "and false still means what it says, for links that need it",
+    /useClientNav === false \|\|/.test(smartLink),
+    "the escape hatch has to keep working or the default above is a trap",
+  )
+  check(
+    "the app surfaces are still hard navigations",
+    /startsWith\("\/app"\)/.test(smartLink) && /startsWith\("\/library"\)/.test(smartLink),
+    "a different layout and a different auth context; a soft navigation carries state a reload is relied on to clear",
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log("\nFailures:")
