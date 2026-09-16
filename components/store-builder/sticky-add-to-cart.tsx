@@ -246,11 +246,29 @@ export function EditorStickyAddToCart({
   420ms on `ease-sheet`, the curve the sheets and modals already use, is long
   enough to be read as a movement and short enough not to be waited for.
 
-  THE PROPERTY LIST. `transition-all` also animates the border and the
-  `0 -4px 12px` shadow. A shadow cannot be composited, so every frame of the
-  arrival was a repaint of a full-width bar — which is the other half of why
-  it felt cheap. Opacity and transform are the only two that need to move, and
-  they are the two the compositor can do on its own.
+  THE PROPERTY LIST, AND THE MISTAKE IN IT THE FIRST TIME. `transition-all`
+  also animates the border and the `0 -4px 12px` shadow, and a shadow cannot
+  be composited, so every frame of the arrival was a repaint of a full-width
+  bar. Naming the properties is what fixes that.
+
+  But the first attempt named `transform`, and this bar does not use one.
+  TAILWIND v4 EMITS THE STANDALONE `translate` PROPERTY:
+
+      .translate-y-full { --tw-translate-y: 100%; translate: var(..) var(..) }
+
+  `translate` is its own animatable property, not a part of `transform`, so it
+  was left out of the transition altogether. The bar jumped straight to its
+  resting place and only the opacity faded — which is exactly the "it is not
+  coming up from the bottom, it is a fade" that came back. Measured on the
+  live page:
+
+      transition-property: opacity, transform
+      transform: none
+
+  `transition-all` had been animating the movement all along, by including
+  everything, and naming the wrong property took it away. The list names what
+  actually moves now. tests/motion-properties checks the whole repository for
+  the same mistake; there were fourteen of them.
 */
   return (
     <>
@@ -258,7 +276,7 @@ export function EditorStickyAddToCart({
       onClick={handleWrapperClick}
       className={cn(
         "sticky bottom-0 w-full z-30 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)]",
-        "transition-[opacity,transform] duration-[420ms] ease-sheet [will-change:transform,opacity]",
+        "transition-[opacity,translate] duration-[420ms] ease-sheet [will-change:translate,opacity]",
         isMobile ? "py-3 px-[7px]" : "py-3.5 px-[15px]",
         onSelect && "cursor-pointer",
         isSelected && "ring-2 ring-sky-500 ring-inset",
@@ -537,7 +555,7 @@ export function LiveStickyAddToCart({
         "fixed bottom-0 left-0 right-0 z-50 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)]",
         /* See the note above the editor bar: 420ms on ease-sheet, and only
            the two properties the compositor can move on its own. */
-        "transition-[opacity,transform] duration-[420ms] ease-sheet [will-change:transform,opacity]",
+        "transition-[opacity,translate] duration-[420ms] ease-sheet [will-change:translate,opacity]",
         isVisible && !topBarShown ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none",
         !settings.borderColor && "border-gray-200",
       )}

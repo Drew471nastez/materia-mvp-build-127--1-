@@ -105,7 +105,7 @@ export function ResponsiveActionMenu({
                     target={item.target}
                     rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
                     onClick={() => setSheetOpen(false)}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-neutral-900 transition-[background-color,transform] duration-150 hover:bg-neutral-50 active:scale-[0.98] active:bg-neutral-100"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-neutral-900 transition-[background-color,scale] duration-150 hover:bg-neutral-50 active:scale-[0.98] active:bg-neutral-100"
                   >
                     {item.icon && <span className="flex shrink-0 items-center justify-center text-neutral-500">{item.icon}</span>}
                     <span className="truncate">{item.label}</span>
@@ -120,7 +120,7 @@ export function ResponsiveActionMenu({
                     setTimeout(() => item.onClick?.(), 140)
                   }}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium transition-[background-color,transform] duration-150 active:scale-[0.98] active:bg-neutral-100",
+                    "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium transition-[background-color,scale] duration-150 active:scale-[0.98] active:bg-neutral-100",
                     item.variant === "destructive" &&
                       "text-red-600 hover:bg-red-50 active:bg-red-100",
                     item.variant === "warning" &&

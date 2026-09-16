@@ -281,7 +281,7 @@ function CodeActionMenu({ actions }: { actions: CodeAction[] }) {
 
 const CODE_BAR_ICON_BUTTON =
   "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--code-muted)] " +
-  "transition-[background-color,color,transform] duration-150 " +
+  "transition-[background-color,color,scale] duration-150 " +
   "hover:bg-[var(--code-hover)] hover:text-[var(--code-text)] active:scale-95 " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--code-focus)]"
 

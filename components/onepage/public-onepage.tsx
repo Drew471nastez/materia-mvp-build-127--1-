@@ -908,7 +908,7 @@ function ShareButton({
         {/* Share Modal - content */}
         <div
           className={cn(
-            "relative z-10 w-[calc(100%-32px)] max-w-[380px] max-h-[90vh] overflow-y-auto overscroll-contain rounded-[28px] overflow-x-hidden transform-gpu transition-[opacity,transform] duration-250 ease-out will-change-[opacity,transform]",
+            "relative z-10 w-[calc(100%-32px)] max-w-[380px] max-h-[90vh] overflow-y-auto overscroll-contain rounded-[28px] overflow-x-hidden transform-gpu transition-[opacity,translate,scale] duration-250 ease-out will-change-[opacity,translate]",
             isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-[0.985] translate-y-1",
           )}
           style={{
