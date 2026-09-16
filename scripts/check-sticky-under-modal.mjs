@@ -46,6 +46,21 @@ const css = readdirSync(cssDir)
   .join("\n")
 
 const src = readFileSync(join(root, "components/store-builder/discover-sticky-wrapper.tsx"), "utf8")
+
+/**
+ * THE SHAPE, NOT ONLY THE CLASSES. The first fix wrapped the bar in a div
+ * that carried the reserved height, and a sticky element sticks only inside
+ * its own containing block — so a 53px wrapper stopped it sticking at all,
+ * with or without a modal. This probe measured the class strings and passed
+ * it straight through. The spacer has to be a SIBLING, so that with nothing
+ * locked the bar is a sticky child of the page exactly as it was.
+ */
+if (!/<>\s*\n\s*\{pinned \? <div style=\{\{ height: heldHeight \}\} aria-hidden \/> : null\}/.test(src)) {
+  fail(
+    "The reserved height is not a sibling of the bar.\n" +
+      "  A wrapper around a sticky element becomes its containing block and it stops sticking.",
+  )
+}
 const base = src.match(/"(z-30 transition-transform[^"]*)"/)?.[1]
 const branch = src.match(/pinned \? "([^"]+)" : "([^"]+)"/)
 if (!base || !branch) fail("Could not read the wrapper's classes.")

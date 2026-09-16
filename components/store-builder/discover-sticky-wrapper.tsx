@@ -89,8 +89,21 @@ export function DiscoverStickyWrapper({ children }: { children: React.ReactNode 
 
   const pinned = scrollLocked && heldHeight !== null
 
+  /**
+   * A SIBLING, NOT A WRAPPER. The first version of this put the bar inside a
+   * new div that carried the reserved height — and a sticky element sticks
+   * only within its own containing block, so a 53px wrapper meant the bar
+   * scrolled away with it and stopped sticking at all, modal or no modal. It
+   * shipped, and the probe did not catch it because the probe was checking
+   * the CLASS STRINGS and not the shape of the DOM around them.
+   *
+   * The spacer is a sibling instead. When nothing is locked, what renders is
+   * exactly one sticky div in the page's own flow, which is what it was
+   * before any of this.
+   */
   return (
-    <div style={pinned ? { height: heldHeight } : undefined}>
+    <>
+      {pinned ? <div style={{ height: heldHeight }} aria-hidden /> : null}
       <div
         ref={measured}
         className={cn(
@@ -102,6 +115,6 @@ export function DiscoverStickyWrapper({ children }: { children: React.ReactNode 
       >
         {children}
       </div>
-    </div>
+    </>
   )
 }
