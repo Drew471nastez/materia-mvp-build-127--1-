@@ -72,7 +72,34 @@ interface ProductCardProps {
   srcParam?: string
   /** Set to true for above-the-fold images for faster LCP */
   priority?: boolean
-  /** Use router.push() on native instead of window.location.href to avoid white flash */
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  ON BY DEFAULT, BECAUSE A CARD IS A LINK INSIDE THE SAME APP
+   * ═══════════════════════════════════════════════════════════════════════
+   * This defaulted to FALSE, and `false` is not "let the link decide" — it is
+   * SmartLink's way of saying force a full document load. So every product
+   * card outside the explore page — a creator's whole storefront, every
+   * recommendation row — threw the page away and asked the server for another
+   * one. Measured on the live site, pressing a card from a creator page and
+   * then pressing back:
+   *
+   *     press  -> a full document request, and `window` replaced
+   *     back   -> a full document request, and three YouTube iframes again
+   *
+   * That is the difference between a marketplace and a website. A client
+   * navigation prefetches the route while the card is on screen, shows the
+   * route's own loading state in the same frame as the tap, and — the part
+   * that matters most — makes BACK free, because the router still has the
+   * page it just rendered.
+   *
+   * The explore page has passed `clientNav` for a long time, so the product
+   * page has been reached this way in production all along; this is the rest
+   * of the product catching up with it. SmartLink still forces a hard load
+   * for /app, /library and the builders, which are a different layout and a
+   * different auth context.
+   *
+   * Pass `false` for a link that genuinely has to reload the document.
+   */
   clientNav?: boolean
   /**
    * `?layout=discover` tells the product page it was reached from a browse
@@ -126,7 +153,7 @@ export const ProductCard = memo(function ProductCard({
   product,
   srcParam = "",
   priority = false,
-  clientNav = false,
+  clientNav = true,
   discoverLayout = true,
   showCreator = true,
   surface,
