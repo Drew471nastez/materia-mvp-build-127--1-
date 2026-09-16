@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronLeft } from "lucide-react"
 
+import { beginPageLeave } from "@/components/navigation/page-leave-veil"
+
 /**
  * Drop this into any page that links to product pages so the back breadcrumb
  * on the product page shows that page's name (e.g. "< John's Store").
@@ -56,7 +58,17 @@ export function DiscoverBackBreadcrumb({ showOnWeb = false }: { showOnWeb?: bool
     <button
       ref={ref}
       type="button"
-      onClick={() => router.back()}
+      /*
+        The same transition as the bar's back control, for the same reason:
+        `router.back()` on the frame of the press restores a cached route in
+        one frame, which reads as a cut rather than as going back. The sheet
+        goes up first. page-leave-veil.tsx has the argument.
+      */
+      onClick={() => {
+        const wait = beginPageLeave()
+        if (wait <= 0) router.back()
+        else window.setTimeout(() => router.back(), wait)
+      }}
       data-discover-breadcrumb={showOnWeb ? "web" : "native"}
       className="items-center gap-1.5 mb-5 cursor-pointer text-[#9ca3af] hover:text-[#6b7280] transition-colors"
     >

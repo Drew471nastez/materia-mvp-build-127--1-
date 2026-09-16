@@ -54,6 +54,7 @@ const SUITES = [
   "tests/marketing-weight.test.ts",
   "tests/product-cache-scope.test.ts",
   "tests/icon-weight.test.ts",
+  "tests/back-transition.test.ts",
   "tests/reserved-segments.test.ts",
   "tests/import-shadowing.test.ts",
   "tests/admin-dashboard.test.ts",
