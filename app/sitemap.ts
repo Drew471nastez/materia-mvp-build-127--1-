@@ -120,65 +120,85 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const handleByCreatorId = new Map<string, { username: string; updatedAt: string }>()
 
   try {
-    // products has no `is_published` column — publication state lives in `status`,
-    // so the old filter silently errored and emitted zero product URLs
-    const { data: products } = await supabase
+    /**
+     * THE CREATOR COMES BACK WITH THE PRODUCT, IN ONE QUERY.
+     *
+     * The separate `creators.select().in("id", …)` this replaces returned
+     * nothing in production — every product fell back to `/p/<slug>` and not
+     * one creator page was listed. The old seller block made the same call
+     * and had the same result, so the sitemap has probably never contained a
+     * creator page. `catch {}` and a discarded `error` are why that went
+     * unnoticed, and both are fixed below.
+     *
+     * The embedded form is not a guess: components/platform/platform-header
+     * has been running `products … creators!inner(display_name, slug)` for
+     * search all along, so the relationship IS declared and PostgREST will
+     * follow it. One round trip instead of two, and no list of ids to match
+     * up by hand.
+     */
+    const { data: products, error: productsError } = await supabase
       .from("products")
-      .select("slug, updated_at, creator_id")
+      // products has no `is_published` column — publication state lives in `status`,
+      // so the old filter silently errored and emitted zero product URLs
+      .select("slug, updated_at, creator_id, creators!inner(user_id)")
       .eq("status", "published")
       .limit(5000)
 
-    const creatorIds = [
-      ...new Set((products || []).map((p: { creator_id: string | null }) => p.creator_id).filter(Boolean)),
-    ] as string[]
+    if (productsError) console.error("[sitemap] products query failed:", productsError.message)
 
-    if (creatorIds.length) {
-      // products.creator_id points at creators.id, and it is creators.user_id
-      // that matches profiles.id — two hops, neither joinable in PostgREST
-      // without an FK alias this schema does not declare.
-      const { data: creators } = await supabase
-        .from("creators")
-        .select("id, user_id")
-        .in("id", creatorIds)
+    type ProductRow = {
+      slug: string
+      updated_at: string | null
+      creator_id: string | null
+      creators?: { user_id: string | null } | { user_id: string | null }[] | null
+    }
 
-      const userIdByCreatorId = new Map<string, string>()
-      for (const c of (creators || []) as { id: string; user_id: string | null }[]) {
-        if (c.user_id) userIdByCreatorId.set(c.id, c.user_id)
-      }
+    /** PostgREST returns an embedded row as an object or a one-element array. */
+    const userIdOf = (row: ProductRow): string | null => {
+      const c = Array.isArray(row.creators) ? row.creators[0] : row.creators
+      return c?.user_id ?? null
+    }
 
-      const userIds = [...new Set(userIdByCreatorId.values())]
-      const profileByUserId = new Map<string, { username: string; updatedAt: string }>()
+    const rows = (products || []) as ProductRow[]
+    const userIds = [...new Set(rows.map(userIdOf).filter(Boolean))] as string[]
+    const profileByUserId = new Map<string, { username: string; updatedAt: string }>()
 
-      // Chunked: `.in()` builds a query string, and twenty thousand ids in one
-      // would exceed what the server will accept as a URL.
-      for (let i = 0; i < userIds.length; i += 500) {
-        const { data: sellers } = await supabase
-          .from("profiles")
-          .select("id, username, updated_at")
-          .in("id", userIds.slice(i, i + 500))
-          .not("username", "is", null)
+    // Chunked: `.in()` builds a query string, and twenty thousand ids in one
+    // would exceed what the server will accept as a URL.
+    for (let i = 0; i < userIds.length; i += 500) {
+      const { data: sellers, error: sellersError } = await supabase
+        .from("profiles")
+        .select("id, username, updated_at")
+        .in("id", userIds.slice(i, i + 500))
+        .not("username", "is", null)
 
-        for (const seller of (sellers || []) as { id: string; username: string; updated_at: string }[]) {
-          profileByUserId.set(seller.id, { username: seller.username, updatedAt: seller.updated_at })
-        }
-      }
+      if (sellersError) console.error("[sitemap] profiles query failed:", sellersError.message)
 
-      for (const [creatorId, userId] of userIdByCreatorId) {
-        const profile = profileByUserId.get(userId)
-        if (profile) handleByCreatorId.set(creatorId, profile)
+      for (const seller of (sellers || []) as { id: string; username: string; updated_at: string }[]) {
+        profileByUserId.set(seller.id, { username: seller.username, updatedAt: seller.updated_at })
       }
     }
 
-    for (const product of (products || []) as { slug: string; updated_at: string | null; creator_id: string | null }[]) {
-      const handle = product.creator_id ? handleByCreatorId.get(product.creator_id)?.username : undefined
+    for (const row of rows) {
+      const userId = userIdOf(row)
+      const profile = userId ? profileByUserId.get(userId) : undefined
+      if (profile && row.creator_id) handleByCreatorId.set(row.creator_id, profile)
       routes.push({
-        url: getProductShareUrl(handle || "", product.slug),
-        lastModified: new Date(product.updated_at || Date.now()),
+        url: getProductShareUrl(profile?.username || "", row.slug),
+        lastModified: new Date(row.updated_at || Date.now()),
         changeFrequency: "weekly",
         priority: 0.7,
       })
     }
-  } catch {}
+
+    if (rows.length > 0 && profileByUserId.size === 0) {
+      /* Every product fell back to the old address. That is the failure this
+         block used to have in silence. */
+      console.error(`[sitemap] ${rows.length} products but no creator handles resolved`)
+    }
+  } catch (error) {
+    console.error("[sitemap] product block failed:", error instanceof Error ? error.message : error)
+  }
 
   /**
    * ═════════════════════════════════════════════════════════════════════════

@@ -87,6 +87,21 @@ check(
   /url: `\$\{BASE\}\/\$\{profile\.username\}`/.test(code("app/sitemap.ts")),
   "the sellers block now reads the same map the products block built",
 )
+/**
+ * The block used to end in `catch {}` and drop every Supabase `error`, which
+ * is how it listed zero creator pages for an unknown length of time without
+ * anyone finding out.
+ */
+const sitemapSrc = code("app/sitemap.ts")
+check(
+  "a sitemap query that fails says so",
+  /console\.error\("\[sitemap\]/.test(sitemapSrc) && !/\} catch \{\}\s*$/.test(sitemapSrc.slice(sitemapSrc.indexOf("product block"))),
+  "silence is why nobody noticed",
+)
+check(
+  "and it notices when no handle resolves at all",
+  /no creator handles resolved/.test(sitemapSrc),
+)
 
 console.log("\nThe old spelling still resolves, for ever\n")
 
@@ -165,7 +180,7 @@ check(
 
 check(
   "the sitemap lists products under their creator",
-  /url: getProductShareUrl\(handle \|\| "", product\.slug\)/.test(code("app/sitemap.ts")),
+  /url: getProductShareUrl\(profile\?\.username \|\| "", row\.slug\)/.test(code("app/sitemap.ts")),
   "a sitemap entry that redirects spends crawl budget to be sent somewhere else",
 )
 
