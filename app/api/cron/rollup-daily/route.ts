@@ -12,7 +12,25 @@ import { createAdminClient } from "@/lib/supabase/admin"
  *
  * Also supports incremental rollup for "today" when called with ?date=today
  * (used by the live counters endpoint to periodically update partial day data).
+ *
+ * ===========================================================================
+ *  IT ANSWERS GET, BECAUSE THAT IS WHAT A CRON SENDS
+ * ===========================================================================
+ * This exported POST and nothing else, while vercel.json has scheduled it
+ * daily since it was written. A Vercel cron issues a GET, so the schedule was
+ * answered 405 every day and the rollup has never run — which, unlike a
+ * crash, produces no error anywhere. It looks exactly like a table that
+ * happens to be empty.
+ *
+ * (It was also being redirected before it got that far; see the note about
+ * /api in proxy.ts. Two independent reasons the same job never ran.)
+ *
+ * POST stays, because the live counters endpoint calls it that way.
  */
+export async function GET(request: Request) {
+  return POST(request)
+}
+
 export async function POST(request: Request) {
   try {
     const authHeader = request.headers.get("authorization")

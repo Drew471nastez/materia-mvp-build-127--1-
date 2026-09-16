@@ -555,6 +555,40 @@ export async function proxy(request: NextRequest) {
   const bareHost = host.split(":")[0].toLowerCase()
 
   /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  AN API CALL IS NOT A PAGE VIEW, AND MUST NOT BE REDIRECTED FOR TIDINESS
+   * ═══════════════════════════════════════════════════════════════════════════
+   * THIS KILLED EVERY CRON JOB ON THE PLATFORM, and found by reading the logs:
+   *
+   *   10:00:37 GET /api/cron/process-scheduled-emails 301 [serverless-middleware]
+   *   09:00:37 GET /api/cron/process-scheduled-emails 301 [serverless-middleware]
+   *   08:00:37 GET /api/cron/process-scheduled-emails 301 [serverless-middleware]
+   *
+   * every hour, for as long as the logs go back, and never a line from the
+   * route itself. The redirect below is the reason.
+   *
+   * Vercel invokes a cron on the PROJECT'S OWN DEPLOYMENT HOST, which for this
+   * project is v0-materia-mvp-build-…vercel.app. The canonicalisation further
+   * down treats any host that is not storelib.com and not a subdomain of it as
+   * a creator's custom domain, and sends it to `www.` — so the cron was
+   * answered with a 301 to `www.v0-materia-mvp-build-…vercel.app`, a host
+   * that does not exist, and the function never ran. Scheduled flow emails,
+   * payout holds, the daily analytics rollup and the attachment purge have all
+   * been silently skipped.
+   *
+   * A host redirect is an SEO and session-hygiene device and belongs to PAGES.
+   * An API call gains nothing from a canonical host and loses a great deal: a
+   * 301 also rewrites a POST into a GET, so any webhook pointed at the wrong
+   * spelling of the host arrives as an empty GET rather than failing loudly.
+   *
+   * So nothing under /api is canonicalised, on any host. The routes that care
+   * who is calling check for themselves — the cron checks CRON_SECRET, the
+   * admin checks its cookie, Stripe checks its signature — and none of them
+   * can do that if the request is turned away at the door.
+   */
+  const isApiCall = pathname === "/api" || pathname.startsWith("/api/")
+
+  /**
    * ── One host holds the session ────────────────────────────────────────────
    *
    * www is redirected to the apex before anything reads a cookie. With
@@ -563,7 +597,7 @@ export async function proxy(request: NextRequest) {
    * other, which reads as a broken login rather than a redirect somebody
    * forgot.
    */
-  if (bareHost === `www.${MAIN_DOMAIN}`) {
+  if (!isApiCall && bareHost === `www.${MAIN_DOMAIN}`) {
     const canonical = new URL(`https://${MAIN_DOMAIN}`)
     canonical.pathname = pathname
     canonical.search = search
@@ -890,7 +924,19 @@ export async function proxy(request: NextRequest) {
   // If no subdomain match, check if it's a custom domain
   if (!username) {
     const hostWithoutPort = host.split(":")[0]
-    const isExternalDomain = hostWithoutPort !== "localhost" &&
+    /**
+     * `*.vercel.app` IS THE PLATFORM'S OWN HOST, NOT A CREATOR'S DOMAIN.
+     *
+     * It is where Vercel invokes crons, where a preview deployment lives and
+     * where the project's production alias points. Reading it as somebody's
+     * connected domain sends it looking for a creator in the database, and —
+     * before this line existed — sent it to `www.` first, which is what
+     * stopped every cron from running. No creator can connect a vercel.app
+     * host, so there is nothing to lose by naming it.
+     */
+    const isPlatformHost = hostWithoutPort.endsWith(".vercel.app")
+    const isExternalDomain = !isPlatformHost &&
+      hostWithoutPort !== "localhost" &&
       hostWithoutPort !== "127.0.0.1" &&
       hostWithoutPort !== MAIN_DOMAIN &&
       !hostWithoutPort.endsWith(`.${MAIN_DOMAIN}`)
@@ -899,7 +945,8 @@ export async function proxy(request: NextRequest) {
     // This prevents mixed apex/www confusion that causes ERR_SSL_PROTOCOL_ERROR
     // by ensuring only ONE host (www) is canonical. Browser caches the redirect permanently (301).
     // www is chosen as canonical because Vercel provisions SSL more reliably for CNAME-based hosts.
-    if (isExternalDomain && !hostWithoutPort.startsWith("www.")) {
+    // Pages only: see the note at the top about what a 301 does to an API call.
+    if (!isApiCall && isExternalDomain && !hostWithoutPort.startsWith("www.")) {
       const wwwDomain = `www.${hostWithoutPort}`
       const canonicalUrl = new URL(`https://${wwwDomain}`)
       canonicalUrl.pathname = pathname

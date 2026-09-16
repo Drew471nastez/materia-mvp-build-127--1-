@@ -54,6 +54,7 @@ const SUITES = [
   "tests/reserved-segments.test.ts",
   "tests/import-shadowing.test.ts",
   "tests/admin-dashboard.test.ts",
+  "tests/cron-reachable.test.ts",
   "tests/theme-presets.test.ts",
   "tests/sheet-reserve.test.ts",
   "tests/featured-order.test.ts",
