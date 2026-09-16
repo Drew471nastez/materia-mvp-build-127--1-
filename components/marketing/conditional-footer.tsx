@@ -48,9 +48,22 @@ export function ConditionalFooter() {
       return
     }
 
-    const isSellerPage = isSubdomain || isSellerPath
+    /**
+     * NOT `isSellerPage`. That is the name of the imported helper called a few
+     * lines above, and a `const` of the same name shadows it for the WHOLE
+     * block — so the call above it reads a binding that has not been
+     * initialised yet and throws
+     *
+     *   ReferenceError: Cannot access 'a' before initialization
+     *
+     * on every render. This component is in the root layout, so that took out
+     * every page on the site behind an error boundary, and it shipped because
+     * `next build` is configured to ignore type errors and TypeScript is the
+     * only thing that sees a use-before-declaration.
+     */
+    const onSellerSurface = isSubdomain || isSellerPath
 
-    if (isSellerPage) {
+    if (onSellerSurface) {
       setShowFooter(false)
       return
     }
