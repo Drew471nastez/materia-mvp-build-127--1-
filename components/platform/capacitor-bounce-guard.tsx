@@ -5,24 +5,48 @@ import { useEffect } from "react"
 /**
  * CapacitorBounceGuard
  *
- * WKWebView (Capacitor iOS) ignores `overscroll-behavior: none` because the
- * scroll is backed by a native UIScrollView whose `bounces` property defaults
- * to `true`. CSS alone cannot disable it on iOS < 16 (and inconsistently on 16+).
+ * WKWebView (Capacitor iOS) ignores `overscroll-behavior: none` before iOS 16,
+ * because the scroll is backed by a native UIScrollView whose `bounces`
+ * property defaults to `true`. The Podfile targets iOS 14, so CSS alone cannot
+ * be relied on and this listener has to exist.
  *
- * This component intercepts `touchmove` events and calls `e.preventDefault()`
- * when a scroll would go beyond its container's boundaries — blocking the native
- * UIScrollView from bouncing.
+ * It intercepts `touchmove` and calls `e.preventDefault()` when a scroll would
+ * go beyond its container's boundaries, which is what stops the native
+ * UIScrollView bouncing.
  *
- * Logic:
- * 1. Walk up from the touch target to find the first element with overflow
- *    auto/scroll. If found, prevent at THAT element's top/bottom boundary.
- *    This also stops scroll chaining (bounce propagating from nested scroll to doc).
- * 2. If no scrollable ancestor found, apply the check to the document itself.
+ * No-op on web browsers (checked via html.capacitor, set synchronously before
+ * first paint only in the native shell).
  *
- * No-op on web browsers (checked via html.capacitor class, which is set
- * synchronously before first paint only in native Capacitor apps).
+ * ===========================================================================
+ *  THE DECISIONS ARE MADE ONCE PER GESTURE, NOT ONCE PER FRAME
+ * ===========================================================================
+ * "The app doesn't feel as smooth as the same site does in Safari."
  *
- * Must be rendered in a Client Component; renders null to the DOM.
+ * Safari loads the same site from the same deployment, so only code behind the
+ * `html.capacitor` gate can explain a difference — and this was the heaviest
+ * thing behind it. Every touchmove walked from the touch target up to <html>
+ * calling `getComputedStyle` on each ancestor, and `getComputedStyle` forces a
+ * style recalculation. Measured on the real component with real touch input by
+ * scripts/check-native-scroll-cost: one ordinary 40-move scroll forced 585
+ * style recalculations in the app and 0 in the browser. Fifteen per frame,
+ * ahead of the page moving at all, on a listener the compositor already has to
+ * wait for.
+ *
+ * None of that work changes DURING a gesture. Which element scrolls, whether
+ * it is a sheet that handles its own drag, how tall its content is and whether
+ * the screen is landscape are all fixed the moment a finger lands. So they are
+ * settled once in `touchstart`, and `touchmove` does arithmetic on numbers
+ * that are already in hand plus ONE `scrollTop` read, which is the only value
+ * that moves.
+ *
+ * WHAT IS DELIBERATELY NOT DONE HERE. The listener is still `{ passive: false }`
+ * and still on `document`, which by itself tells the browser the main thread
+ * may veto a scroll, so scrolling cannot take the compositor fast path the way
+ * it does in Safari. The only way to recover that is to stop registering the
+ * listener where CSS can do the job — iOS 16+ and Android both honour
+ * `overscroll-behavior: none`, and app/globals.css already sets it on
+ * `html.capacitor`. That is a real behaviour change on iOS 14 and 15, where the
+ * bounce would come back, so it is the owner's call rather than a tidy-up.
  */
 export function CapacitorBounceGuard() {
   useEffect(() => {
@@ -33,70 +57,39 @@ export function CapacitorBounceGuard() {
     let lastTouchY = 0
     let lastTouchX = 0
 
-    function onTouchStart(e: TouchEvent) {
-      lastTouchY = e.touches[0]?.clientY ?? 0
-      lastTouchX = e.touches[0]?.clientX ?? 0
-    }
+    /**
+     * Everything `touchmove` needs, worked out when the finger lands.
+     *
+     * `mode` is what the walk used to decide on every frame:
+     *   "ignore"    a sheet or the builder, which handle their own gestures
+     *   "landscape" the rotate-device overlay is up, nothing may move
+     *   "element"   a scrollable ancestor owns this gesture
+     *   "document"  nothing between the target and <html> scrolls
+     *   "free"      a horizontally scrolling ancestor; leave it alone
+     */
+    let mode: "ignore" | "landscape" | "element" | "document" | "free" = "document"
+    let scroller: HTMLElement | null = null
+    /** Fixed for the length of a gesture: content and box do not resize mid-scroll. */
+    let scrollHeight = 0
+    let clientHeight = 0
+    let canScrollDoc = false
 
-    function onTouchMove(e: TouchEvent) {
-      const touchY = e.touches[0]?.clientY ?? 0
-      const touchX = e.touches[0]?.clientX ?? 0
-      const deltaY = touchY - lastTouchY
-      const deltaX = touchX - lastTouchX
-
-      // In landscape orientation the full-screen "rotate device" overlay covers
-      // all content. Prevent every gesture so the WKWebView UIScrollView cannot
-      // rubber-band on any inner scroll container — CSS touch-action:none on
-      // html/body is not always honoured by nested overflow:auto/scroll elements.
+    /** The expensive part, and it runs once per gesture instead of once per frame. */
+    function resolve(target: Element | null): void {
       if (window.innerWidth > window.innerHeight) {
-        e.preventDefault()
+        mode = "landscape"
         return
       }
-
-      // Never interfere with mobile sheet portals — they handle their own
-      // drag-to-dismiss gesture. Calling preventDefault here would block the
-      // sheet's handle-bar from being dragged down to close.
-      //
-      // NOR WITH A SURFACE THAT ALREADY DOES ALL OF THIS ITSELF.
-      //
-      // The website builder is a fixed, self-contained screen: it locks html
-      // and body to the viewport with `overscroll-behavior: none`, sets
-      // `touch-action: pan-y` on the canvas, gives the canvas
-      // `overscroll-behavior: contain`, and nudges its scrollTop a pixel off
-      // either end at touchdown so there is never a hand-off to make. Every
-      // job this guard exists to do is already done there, by code written
-      // for that surface.
-      //
-      // And leaving the guard on did REAL harm, which is the reason this is
-      // here. Read the document branch at the bottom of this function: when
-      // the document is not scrollable it prevents EVERY vertical move. The
-      // builder's document is never scrollable — that is the whole point of
-      // the lock — so any touch that failed to find a scrollable ancestor on
-      // the way up had its gesture cancelled outright. A canvas showing a
-      // page shorter than itself, a canvas that had not finished laying out,
-      // a touch that landed on a gap between two scrollers: all of them came
-      // out as "the preview will not scroll, it is frozen", which is exactly
-      // what was reported after closing the code editor or project settings
-      // over it.
-      const target = e.target as Element | null
       if (
         target?.closest("[data-mobile-bottom-sheet]") ||
         target?.closest("[data-mobile-top-sheet]") ||
         target?.closest("[data-wb-no-bounce-guard]")
       ) {
+        mode = "ignore"
         return
       }
 
-      // Only intercept primarily vertical gestures — horizontal swipes (e.g.
-      // KPI metric tab carousels, analytics tables) must scroll freely without
-      // interference. Allow a small bias so diagonal gestures that are mostly
-      // vertical are still caught.
-      if (Math.abs(deltaX) > Math.abs(deltaY) * 0.5 && Math.abs(deltaX) > 4) {
-        return
-      }
-
-      // Walk the DOM upward from the touch target to find a scrollable ancestor
-      let el: Element | null = e.target as Element
+      let el: Element | null = target
       while (el && el !== document.documentElement) {
         const style = window.getComputedStyle(el)
         const oy = style.overflowY
@@ -104,8 +97,10 @@ export function CapacitorBounceGuard() {
         // If element scrolls horizontally, let the browser handle it
         if (ox === "auto" || ox === "scroll") {
           const htmlEl = el as HTMLElement
-          const canScrollX = htmlEl.scrollWidth > htmlEl.clientWidth + 1
-          if (canScrollX) return
+          if (htmlEl.scrollWidth > htmlEl.clientWidth + 1) {
+            mode = "free"
+            return
+          }
         }
         if (oy === "auto" || oy === "scroll") {
           const htmlEl = el as HTMLElement
@@ -113,50 +108,79 @@ export function CapacitorBounceGuard() {
           // forcing auto when overflow-x:hidden is set) but aren't actually scrollable.
           // Without this check, e.g. the settings form root div (overflow-x:hidden →
           // implicit overflow-y:auto, scrollHeight==clientHeight) would block ALL scroll.
-          const canScrollY = htmlEl.scrollHeight > htmlEl.clientHeight + 1
-          if (!canScrollY) {
-            el = el.parentElement
-            continue
+          if (htmlEl.scrollHeight > htmlEl.clientHeight + 1) {
+            mode = "element"
+            scroller = htmlEl
+            scrollHeight = htmlEl.scrollHeight
+            clientHeight = htmlEl.clientHeight
+            return
           }
-          // Nested scroll container — only prevent at its own boundaries
-          // so scroll-chaining into the document (which rubber-bands) is blocked
-          const atTop = htmlEl.scrollTop <= 0
-          const atBottom =
-            htmlEl.scrollTop + htmlEl.clientHeight >= htmlEl.scrollHeight - 1
-          if ((deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) {
-            e.preventDefault()
-          }
-          return
+          el = el.parentElement
+          continue
         }
         el = el.parentElement
       }
 
-      // No scrollable ancestor — check document-level boundaries.
-      // Use documentElement as the reliable scroll root (works in Capacitor
-      // WKWebView where html has overflow-y: auto on mobile).
-      const scrollEl =
-        (document.scrollingElement as HTMLElement) || document.documentElement
-      const scrollTop = Math.max(
-        scrollEl.scrollTop,
-        document.documentElement.scrollTop,
-        document.body.scrollTop,
-      )
-      const scrollHeight = Math.max(
-        scrollEl.scrollHeight,
-        document.documentElement.scrollHeight,
-      )
-      const atTop = scrollTop <= 0
-      const atBottom = scrollTop + window.innerHeight >= scrollHeight - 1
-      // Only prevent if page is actually taller than the viewport (has something to scroll)
-      const isScrollable = scrollHeight > window.innerHeight + 1
-      if (isScrollable) {
-        if ((deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) {
-          e.preventDefault()
-        }
-      } else {
+      // No scrollable ancestor — the document owns it.
+      // `document.scrollingElement` is the reliable root (in Capacitor
+      // WKWebView html carries overflow-y: auto on mobile).
+      mode = "document"
+      scroller = (document.scrollingElement as HTMLElement) || document.documentElement
+      scrollHeight = Math.max(scroller.scrollHeight, document.documentElement.scrollHeight)
+      clientHeight = window.innerHeight
+      // Only prevent if the page is actually taller than the viewport.
+      canScrollDoc = scrollHeight > clientHeight + 1
+    }
+
+    function onTouchStart(e: TouchEvent) {
+      lastTouchY = e.touches[0]?.clientY ?? 0
+      lastTouchX = e.touches[0]?.clientX ?? 0
+      scroller = null
+      scrollHeight = 0
+      clientHeight = 0
+      canScrollDoc = false
+      resolve(e.target as Element | null)
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      if (mode === "ignore" || mode === "free") return
+
+      // In landscape the full-screen "rotate device" overlay covers all
+      // content. Prevent every gesture so the WKWebView UIScrollView cannot
+      // rubber-band on any inner scroll container — CSS touch-action:none on
+      // html/body is not always honoured by nested overflow:auto elements.
+      if (mode === "landscape") {
+        e.preventDefault()
+        return
+      }
+
+      const touchY = e.touches[0]?.clientY ?? 0
+      const touchX = e.touches[0]?.clientX ?? 0
+      const deltaY = touchY - lastTouchY
+      const deltaX = touchX - lastTouchX
+
+      // Only intercept primarily vertical gestures — horizontal swipes (e.g.
+      // KPI metric tab carousels, analytics tables) must scroll freely without
+      // interference. Allow a small bias so diagonal gestures that are mostly
+      // vertical are still caught.
+      if (Math.abs(deltaX) > Math.abs(deltaY) * 0.5 && Math.abs(deltaX) > 4) return
+      if (!scroller) return
+
+      /* The one thing that actually changes while a finger is moving. */
+      const scrollTop =
+        mode === "document"
+          ? Math.max(scroller.scrollTop, document.documentElement.scrollTop, document.body.scrollTop)
+          : scroller.scrollTop
+
+      if (mode === "document" && !canScrollDoc) {
         // Page fits on screen — prevent rubber-band in both directions
         if (deltaY !== 0) e.preventDefault()
+        return
       }
+
+      const atTop = scrollTop <= 0
+      const atBottom = scrollTop + clientHeight >= scrollHeight - 1
+      if ((deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) e.preventDefault()
     }
 
     document.addEventListener("touchstart", onTouchStart, { passive: true })
