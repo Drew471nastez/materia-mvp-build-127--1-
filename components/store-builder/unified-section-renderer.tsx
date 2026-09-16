@@ -4476,8 +4476,32 @@ export function UnifiedProductsGrid({
                     alt={product.title}
                     fill
                     className="object-cover transition-all duration-500 [@media(hover:hover)]:group-hover:scale-105 opacity-0"
-                        ref={el => { if ((el as any)?.complete) (el as any).style.opacity = "1" }}
-                        onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
+                    /*
+                      A PICTURE THAT IS ALREADY DECODED DOES NOT FADE IN.
+
+                      This starts transparent and transitions to 1, which is
+                      right the first time a photograph is fetched. Coming BACK
+                      to this grid it is wrong: every card remounts, every
+                      picture is already in the browser cache, and they all
+                      re-run a 500ms fade over a page that was on screen a
+                      moment ago. Filmed on production, that is the whole of
+                      the dip and the 300ms climb on the way back.
+
+                      `complete` is true for a cached image before the first
+                      paint, so the transition is switched off for that frame
+                      and the picture is simply there. Setting opacity without
+                      that was not enough — the transition still ran.
+                    */
+                    ref={(el) => {
+                      const img = el as HTMLImageElement | null
+                      if (img?.complete) {
+                        img.style.transition = "none"
+                        img.style.opacity = "1"
+                      }
+                    }}
+                    onLoad={(e) => {
+                      ;(e.target as HTMLImageElement).style.opacity = "1"
+                    }}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">
