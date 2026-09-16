@@ -55,8 +55,25 @@ export async function POST(req: NextRequest) {
   /**
    * Both compared, and both in constant time, and the answer is the same
    * either way: "invalid credentials" never says which half was wrong.
+   *
+   * THE USERNAME IS FOLDED TO LOWER CASE AND THE PASSWORD IS NOT, which is a
+   * deliberate asymmetry rather than an oversight.
+   *
+   * The password is a secret: every byte of it counts, and comparing it
+   * loosely would hand an attacker a smaller space to search. The username is
+   * not a secret at all — its default is written in this file, in the
+   * repository — so the only thing case-sensitivity there can do is refuse
+   * the right person. It very nearly did: the login was typed as "Storelib"
+   * and, because this refusal says nothing about which half was wrong, that
+   * would have read as a bad password for as long as it took to notice the
+   * capital letter.
+   *
+   * Lowercasing before the digest keeps the comparison constant-time and
+   * length-independent, because the digests are still equal size.
    */
-  const ok = sameSecret(username, EXPECTED_USER) && sameSecret(password, expectedPassword)
+  const ok =
+    sameSecret(username.toLowerCase(), EXPECTED_USER.toLowerCase()) &&
+    sameSecret(password, expectedPassword)
   if (!ok) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
 
   const token = issueSessionToken()

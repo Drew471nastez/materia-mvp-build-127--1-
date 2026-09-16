@@ -87,6 +87,47 @@ check(
   "a sibling route would be a second door with its own lock to forget",
 )
 
+console.log("\nThe login refuses the wrong password, not the wrong capital letter\n")
+
+/**
+ * The username is not a secret: its default is written in the auth route, in
+ * this repository. So comparing it case-sensitively can only ever refuse the
+ * right person — and because the refusal deliberately says nothing about
+ * which half was wrong, "Storelib" instead of "storelib" reads as a bad
+ * password until somebody spots the capital.
+ *
+ * The password keeps every byte. A loose comparison there would hand an
+ * attacker a smaller space to search, which is the opposite trade.
+ */
+const auth = code("app/api/admin/blog/auth/route.ts")
+check(
+  "the username is compared without case",
+  /sameSecret\(username\.toLowerCase\(\), EXPECTED_USER\.toLowerCase\(\)\)/.test(auth),
+)
+check(
+  "the password is compared exactly",
+  /sameSecret\(password, expectedPassword\)/.test(auth) && !/password\.toLowerCase\(\)/.test(auth),
+  "every byte of a secret counts",
+)
+/**
+ * `typeof body.username === "string"` contains the words but is not a
+ * comparison of credentials, and a first version of this check failed on it.
+ * What must never appear is either credential compared to what it is checked
+ * against with `===`, which short-circuits on the first wrong byte.
+ */
+check(
+  "and both stay constant time",
+  /timingSafeEqual/.test(auth) &&
+    !/username(\.toLowerCase\(\))? === EXPECTED_USER/.test(auth) &&
+    !/password === expectedPassword/.test(auth),
+)
+check(
+  "with no default password",
+  /const expectedPassword = process\.env\.BLOG_ADMIN_PASSWORD \?\? ""/.test(auth) &&
+    /if \(!expectedPassword\)/.test(auth),
+  "a default password on a route that can delete accounts is the same bug somewhere else",
+)
+
 console.log("\nA figure that could not be read is never printed as a zero\n")
 
 const metrics = code(METRICS)
