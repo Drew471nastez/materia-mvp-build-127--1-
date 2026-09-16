@@ -171,9 +171,37 @@ const KNOWN_GAPS = new Set([
  * Give the product page a real streaming shell and this can come back.
  */
 const DELIBERATELY_NONE = new Map([
-  ["app/(marketing)/p/[slug]", "the router keeps the grid instead; see the note above"],
+  ["app/(marketing)/p/[slug]", "the router keeps the page you are on instead; see the note above"],
   ["app/(marketing)/[sellername]/[productSlug]", "the same page at its nested address"],
+  ["app/(marketing)/[sellername]", "a boundary here catches its children too; see the note below"],
 ])
+
+/**
+ * ===========================================================================
+ *  WHY THE PARENT HAD TO GO WITH THEM, WHICH I GOT WRONG THE FIRST TIME
+ * ===========================================================================
+ * Removing the product route's own boundary did NOT stop the grey page. A
+ * loading boundary catches every segment BELOW it, so with the child's gone
+ * the creator page's boundary took over — and pressing a product then showed
+ * the CREATOR page's skeleton: still grey, and now the wrong shape. Filmed on
+ * production after that deploy, a skeleton was still up at +1541ms.
+ *
+ * `app/(marketing)/[sellername]/loading.tsx` argued for its own existence in
+ * its header, and the argument was sound when it was written: without one,
+ * "the page you were on stays on screen for the whole round trip — measured
+ * 1.5 seconds of a press that appeared to do nothing at all."
+ *
+ * Two things have changed since, and both are measured.
+ *
+ * THE ROUTE IS NOT 1.5 SECONDS ANY MORE. Sampled against production, the
+ * creator page answers in 0.28s to 0.58s, median about 0.34s.
+ *
+ * AND THE PRESS IS NO LONGER UNANSWERED. Product cards navigate on the client
+ * now, and components/nav-pending draws a bar on the card that was pressed —
+ * on the picture and on the creator's name both. "Appeared to do nothing" was
+ * the real complaint in that header, and it is addressed at the press rather
+ * than by replacing the page with furniture.
+ */
 
 for (const page of dynamicPages) {
   const dir = dirname(page).replace(/\\/g, "/")

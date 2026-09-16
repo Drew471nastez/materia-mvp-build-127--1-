@@ -268,9 +268,17 @@ export const ProductCard = memo(function ProductCard({
             {showCreator && (
               <SmartLink
                 href={storeUrl}
-                className="group/seller flex items-center gap-1.5"
+                /* `relative`, so the pending bar below has something to pin to. */
+                className="group/seller relative flex items-center gap-1.5"
                 onClick={(e) => e.stopPropagation()}
               >
+                {/*
+                  The creator's page has no loading boundary either, so this
+                  press is answered the same way the picture's is: by the thing
+                  that was pressed, rather than by the page being swapped for a
+                  grey one.
+                */}
+                <NavPending />
                 <CreatorAvatar url={creatorAvatarUrl} name={creatorName} size={20} />
                 <span
                   className="text-[13px] text-muted-foreground truncate max-w-[120px] group-hover/seller:underline"
