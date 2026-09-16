@@ -818,8 +818,34 @@ function UnifiedAboutSection({
                           className="relative w-full h-full flex-shrink-0"
                           style={{ minWidth: '100%' }}
                         >
-                          {/* Skeleton loader shown while media loads */}
-                          {mediaLoading[item.id] !== false && item.type === "image" && (
+                          /*
+                            ═══════════════════════════════════════════════
+                             `=== true`, NOT `!== false`, AND THAT IS THE
+                             WHOLE OF THE FLASH ON THE WAY BACK
+                            ═══════════════════════════════════════════════
+                            `mediaLoading` starts as an empty object, so
+                            `!== false` was true for every picture on mount:
+                            a shimmering grey skeleton over each one, and the
+                            picture itself held at opacity 0.
+
+                            That is right the first time. Coming BACK to this
+                            page it is wrong — the component remounts, the
+                            state is empty again, and every picture that is
+                            already in the browser cache shows a loading
+                            skeleton and then fades in over 300ms, on a page
+                            that was on screen a moment ago.
+
+                            Filmed on production, document.getAnimations()
+                            during a back navigation reported a 1500ms
+                            `shimmer` and a 300ms fade still running.
+
+                            Asking for `=== true` inverts the default from
+                            "loading" to "not loading". A picture that has to
+                            be fetched still fires onLoadStart and still gets
+                            its skeleton; one that is already decoded is
+                            simply there.
+                          */
+                          {mediaLoading[item.id] === true && item.type === "image" && (
                             <div className="absolute inset-0 z-10">
                               <MediaSkeleton className="w-full h-full rounded-lg" />
                             </div>
@@ -832,7 +858,8 @@ function UnifiedAboutSection({
                               fill
                               className={cn(
                                 "object-cover transition-opacity duration-300",
-                                mediaLoading[item.id] !== false ? "opacity-0" : "opacity-100"
+                                /* Same inversion as the skeleton above. */
+                                mediaLoading[item.id] === true ? "opacity-0" : "opacity-100"
                               )}
                               onLoadStart={() => handleMediaLoadStart(item.id)}
                               onLoad={() => handleMediaLoad(item.id)}
