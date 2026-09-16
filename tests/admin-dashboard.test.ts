@@ -106,7 +106,7 @@ check(
 )
 check(
   "the password is compared exactly",
-  /sameSecret\(password, expectedPassword\)/.test(auth) && !/password\.toLowerCase\(\)/.test(auth),
+  /sameSecret\(password, EXPECTED_PASSWORD\)/.test(auth) && !/password\.toLowerCase\(\)/.test(auth),
   "every byte of a secret counts",
 )
 /**
@@ -119,46 +119,26 @@ check(
   "and both stay constant time",
   /timingSafeEqual/.test(auth) &&
     !/username(\.toLowerCase\(\))? === EXPECTED_USER/.test(auth) &&
-    !/password === expectedPassword/.test(auth),
+    !/password === EXPECTED_PASSWORD/.test(auth),
 )
 /**
- * THE BUILT-IN CREDENTIAL IS A DIGEST, NEVER A PASSWORD.
+ * THE CREDENTIAL IS IN THE ROUTE, AND THAT IS THE OWNER'S DECISION.
  *
- * This pin used to say "no default password at all", and the default is back
- * by request: the login has to work with nothing configured. The question it
- * was really asking is unchanged, though, and it is the one that matters —
- * can somebody who reads this file sign in. A scrypt digest and its salt
- * answer no; a string answers yes, for ever, including in the history after
- * it is changed.
+ * This asked twice for the opposite — first for no default at all, then for a
+ * scrypt digest — and both were declined in favour of the two values written
+ * out, with no environment variable to set. So the checks are about what is
+ * still true rather than about the shape of the secret: the environment can
+ * still take over without a deploy, and the comparison is still constant
+ * time, which is the part that would be a bug rather than a trade.
  */
 check(
-  "the built-in credential is a scrypt digest",
-  /const BUILTIN_DIGEST = "[0-9a-f]{64}"/.test(auth) &&
-    /const BUILTIN_SALT = "[0-9a-f]{16,}"/.test(auth) &&
-    /scryptSync\(password, BUILTIN_SALT/.test(auth),
-  "reading the file must not tell you the password",
+  "the environment can still take over from what is in the file",
+  /process\.env\.BLOG_ADMIN_USER \|\| "/.test(auth) && /process\.env\.BLOG_ADMIN_PASSWORD \|\| "/.test(auth),
+  "otherwise the only way to change the credential is a deploy",
 )
 check(
-  "and it is compared in constant time",
-  /timingSafeEqual\(got, want\)/.test(auth),
-)
-check(
-  "the environment still overrides it",
-  /const expectedPassword = process\.env\.BLOG_ADMIN_PASSWORD \?\? ""/.test(auth) &&
-    /expectedPassword \? sameSecret\(password, expectedPassword\) : matchesBuiltin\(password\)/.test(auth),
-  "that is how it is rotated without a deploy",
-)
-/**
- * The literal-password check. A `const PASSWORD = "…"` is exactly what this
- * route was hardened against, and it is the shape to refuse rather than the
- * particular value.
- */
-check(
-  "and no password is written out as a string",
-  !/(PASSWORD|password)\s*[:=]\s*"[^"]{6,}"/.test(
-    auth.replace(/process\.env\.\w+/g, "").replace(/BUILTIN_(SALT|DIGEST) = "[0-9a-f]+"/g, ""),
-  ),
-  "a password in source is a password everybody with the repository has",
+  "and the comparison does not short-circuit on the first wrong byte",
+  /sameSecret\(password, EXPECTED_PASSWORD\)/.test(auth) && /timingSafeEqual/.test(auth),
 )
 
 console.log("\nA figure that could not be read is never printed as a zero\n")

@@ -53,30 +53,48 @@ function main() {
      * itself, so this looks for an assignment, not a mention.
      */
     check("no session token is assigned a literal", !/SESSION_TOKEN\s*=\s*"/.test(auth))
-    check("no password is assigned a literal", !/PASSWORD\s*=\s*"[^"]+"/.test(route))
-    check("the sign-in name comes from the environment too", /process\.env\.BLOG_ADMIN_USER/.test(route))
-    check("the password comes from the environment", /process\.env\.BLOG_ADMIN_PASSWORD/.test(route))
     /**
-     * THIS ASKED FOR NO DEFAULT AT ALL, AND THERE IS ONE NOW, BY REQUEST: the
-     * login has to work with nothing configured. The question underneath it
-     * has not moved, and it is the one that matters — can somebody who reads
-     * this file sign in.
+     * "no password is assigned a literal" USED TO BE HERE, and it is gone on
+     * the repository owner's explicit, repeated instruction: the username and
+     * the password are written in the route, no environment variable needed.
+     * An intermediate version stored a scrypt digest, which behaves
+     * identically from the outside, and that was declined too.
      *
-     * A scrypt digest and its salt answer no. A string answers yes, for ever,
-     * including in the history after it is changed. So the shape is checked
-     * instead of the absence: a derived digest, compared in constant time,
-     * and an environment variable that still takes precedence over it.
+     * The check is not weakened quietly — it is removed and the reason is
+     * written down, because a test that fails for a decision somebody made on
+     * purpose gets deleted by the next person without the reason surviving.
+     *
+     * What is still checked is the part that is not a matter of taste: the
+     * environment still overrides both, so the owner can move the credential
+     * out of the file with one variable and no deploy.
+     */
+    check("the sign-in name can come from the environment", /process\.env\.BLOG_ADMIN_USER/.test(route))
+    check("and so can the password", /process\.env\.BLOG_ADMIN_PASSWORD/.test(route))
+    check(
+      "the environment wins over what is written in the file",
+      /process\.env\.BLOG_ADMIN_USER \|\| "/.test(route) && /process\.env\.BLOG_ADMIN_PASSWORD \|\| "/.test(route),
+      "otherwise the only way to rotate the credential is a deploy",
+    )
+    /**
+     * The token is the half that must never be a constant whatever the
+     * credential is. A password in the file lets somebody with the repository
+     * SIGN IN; a session token in the file lets them skip the login entirely
+     * and cannot be revoked without a deploy.
+     */
+    check("the session token is still signed and dated, not a string", /createHmac/.test(auth) && /v2\./.test(auth))
+    /**
+     * The cost of the credential living in the file is recorded in the route
+     * itself, in a comment addressed to whoever comes to "fix" it. That
+     * comment is the only thing standing between this decision and somebody
+     * reverting it and locking the owner out, so it is checked like anything
+     * else that matters.
      */
     check(
-      "the built-in default is a digest, not a password",
-      /const BUILTIN_DIGEST = "[0-9a-f]{64}"/.test(route) &&
-        /scryptSync\(password, BUILTIN_SALT/.test(route) &&
-        /timingSafeEqual\(got, want\)/.test(route),
-    )
-    check(
-      "and the environment still overrides it",
-      /expectedPassword \? sameSecret\(password, expectedPassword\) : matchesBuiltin\(password\)/.test(route),
-      "that is how it is rotated without a deploy",
+      "the trade is written down where somebody would undo it",
+      /THE CREDENTIAL IS WRITTEN HERE, AND THE OWNER ASKED FOR IT TWICE/.test(
+        read("app/api/admin/blog/auth/route.ts"),
+      ),
+      "an undocumented decision is one the next person deletes",
     )
     check("the answer never says which half was wrong", (route.match(/Invalid credentials/g) ?? []).length === 1)
     check("both halves are compared in constant time", /timingSafeEqual/.test(route) && /sameSecret\(username/.test(route) && /sameSecret\(password/.test(route))

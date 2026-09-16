@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createHash, scryptSync, timingSafeEqual } from "node:crypto"
+import { createHash, timingSafeEqual } from "node:crypto"
 import { ADMIN_COOKIE, SESSION_MAX_AGE, issueSessionToken } from "@/lib/admin-session"
 
 /** `node:crypto`, and a cookie that must be set on the real host. */
@@ -18,47 +18,30 @@ export const dynamic = "force-dynamic"
  * so everybody who could read the repo could sign in, and the only way to
  * change either was a deploy. They come from the environment now.
  *
- * THERE IS A BUILT-IN CREDENTIAL AGAIN, AND IT IS NOT WRITTEN DOWN.
+ * ===========================================================================
+ *  THE CREDENTIAL IS WRITTEN HERE, AND THE OWNER ASKED FOR IT TWICE
+ * ===========================================================================
+ * IF YOU ARE ABOUT TO "FIX" THIS, READ THIS FIRST. It was hardened out of
+ * this file once, then put back deliberately, on the repository owner's
+ * explicit and repeated instruction: no environment variable, these two
+ * values, in the source. An intermediate version stored a scrypt digest
+ * instead, which works identically from the outside, and that was declined
+ * too. This is a decision, not an oversight, and undoing it silently would
+ * lock the owner out of their own platform.
  *
- * What was asked for is a login that works with nothing configured. What that
- * cannot mean is the password back in this file as a string. This cookie
- * opens a dashboard over the whole platform and, through
- * /api/admin/spam-purge, can delete user accounts — and a password in source
- * is a password that everybody with the repository has, that stays in the
- * history long after it is changed, and that gets tried on other things
- * because people reuse passwords.
+ * WHAT IT COSTS, recorded so the trade is visible rather than forgotten:
  *
- * So what is in the file is a SCRYPT DIGEST and the salt it was made with.
- * The login works exactly as asked with nothing set anywhere; reading this
- * file does not tell you the password; and scrypt is deliberately slow and
- * memory-hard, so the digest is not a cheap thing to guess against either.
+ *   - anybody who can read this repository can sign in;
+ *   - the password stays in the git history after it is changed here;
+ *   - this cookie opens a dashboard over the whole platform and, through
+ *     /api/admin/spam-purge, can delete user accounts.
  *
- * `BLOG_ADMIN_PASSWORD` still wins when it is set. That is how to rotate
- * without a deploy, and how to have a password this file has never seen.
- * `BLOG_ADMIN_USER` still overrides the username, which is compared without
- * regard to case because a username is not a secret.
+ * `BLOG_ADMIN_PASSWORD` and `BLOG_ADMIN_USER` still win when they are set, so
+ * the way out of all three is one environment variable and no deploy. Nothing
+ * below has to change for that to work.
  */
-const EXPECTED_USER = (process.env.BLOG_ADMIN_USER || "storelib").trim()
-
-/**
- * The built-in credential. `scryptSync(password, salt, 32)` and the salt,
- * both hex. Changing the password without an environment variable means
- * replacing these two lines with a fresh pair.
- */
-const BUILTIN_SALT = "f541f0ac1d61bdf5f7d4cdb491dcef77"
-const BUILTIN_DIGEST = "43235df7deb6e096ac31b957e9ed18a166d37b950044a6533b8d4df171b3fe46"
-
-/** Constant time against the built-in digest. */
-function matchesBuiltin(password: string): boolean {
-  const want = Buffer.from(BUILTIN_DIGEST, "hex")
-  let got: Buffer
-  try {
-    got = scryptSync(password, BUILTIN_SALT, want.length)
-  } catch {
-    return false
-  }
-  return got.length === want.length && timingSafeEqual(got, want)
-}
+const EXPECTED_USER = (process.env.BLOG_ADMIN_USER || "Storelib").trim()
+const EXPECTED_PASSWORD = process.env.BLOG_ADMIN_PASSWORD || "Amfetamina11"
 
 /** Constant time, and length-independent because the digests are equal size. */
 function sameSecret(a: string, b: string): boolean {
@@ -68,10 +51,6 @@ function sameSecret(a: string, b: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  /* The environment when it is set, the built-in digest when it is not.
-     Never a default written out as a string. */
-  const expectedPassword = process.env.BLOG_ADMIN_PASSWORD ?? ""
-
   let username = ""
   let password = ""
   try {
@@ -103,7 +82,7 @@ export async function POST(req: NextRequest) {
    */
   const ok =
     sameSecret(username.toLowerCase(), EXPECTED_USER.toLowerCase()) &&
-    (expectedPassword ? sameSecret(password, expectedPassword) : matchesBuiltin(password))
+    sameSecret(password, EXPECTED_PASSWORD)
   if (!ok) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
 
   const token = issueSessionToken()
