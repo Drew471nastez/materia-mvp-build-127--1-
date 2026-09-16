@@ -1,22 +1,36 @@
 /**
  * ===========================================================================
- *  THE GALLERY'S SWIPE MOVES THE PICTURE
+ *  THE GALLERY'S SWIPE MOVES THE PICTURE, AND COSTS NOTHING TO MOVE IT
  * ===========================================================================
- * "Make sure the image player also supports touch swipe, and it's smooth."
+ * "The swiping is still not smooth. When I swipe between the images it has a
+ * gap and it is not real time tracking with the touch."
  *
- * It already changed slide on a swipe, so "does swiping work" was the wrong
- * question and would have answered yes. The gallery stacked its slides and
- * crossfaded between them, which means there is no position to move: a finger
- * could travel a hundred pixels with nothing happening at all, and then the
- * picture would jump at the fiftieth. That is what "not smooth" is.
+ * Three separate claims, and each is a number:
  *
- * So what is measured is whether the strip is UNDER THE FINGER: how far it
- * has moved when the finger has moved, sampled mid-gesture, on the real
- * component driven by real touch events.
+ *   IS THE STRIP UNDER THE FINGER. Sampled mid-gesture: how far the strip has
+ *   moved against how far the finger has moved. A carousel that watches for a
+ *   threshold and then jumps scores zero here while still "working".
+ *
+ *   WHAT DOES A DRAG COST. React commits between the touch going down and
+ *   coming up, counted with a Profiler. The version that kept the drag offset
+ *   in state scored 30 for a 30-move drag: the whole gallery, every slide and
+ *   every thumbnail, re-rendered on every frame of the gesture.
+ *
+ *   IS THERE A GAP. Whether the picture either side of the one on screen has
+ *   actually been fetched. A neighbour left lazy is an empty box dragged into
+ *   view halfway through the swipe, which is the "gap".
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * A LIVE BROWSER, NOT --virtual-time-budget --dump-dom, which is what this
+ * probe used to be. Embla animates on requestAnimationFrame, and under
+ * virtual time there is no frame loop: the settle after a release never runs,
+ * every reading is the position the strip had when the finger left it, and a
+ * perfectly good carousel measures as broken. The page is driven over CDP
+ * with real touch input instead, which is also what the phone sends.
  *
  *   pnpm build && node scripts/check-gallery-swipe.mjs
  */
-import { execFileSync } from "node:child_process"
+import { execFileSync, spawn } from "node:child_process"
 import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -28,6 +42,7 @@ if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 const cssDir = join(root, ".next/static/chunks")
 if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first.")
 const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const out = mkdtempSync(join(tmpdir(), "storelib-gallery-swipe-"))
 execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-gallery-swipe.tsx"),
@@ -40,295 +55,315 @@ execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-galle
   { stdio: ["ignore", "ignore", "inherit"] })
 
 /*
-  A real touch, in the steps a finger makes. Dispatched on the element under
-  the point so the gesture's own handlers see exactly what a phone sends.
-  Touch objects have to be constructed with an identifier and a target or
-  Chromium rejects the TouchEvent.
+  THE VIEWPORT META IS NOT BOILERPLATE HERE. Without it an emulated phone
+  still lays out at 980px, so `matchMedia("(max-width: 767px)")` answers NO
+  and every phone-only branch in the page is off — the full-screen viewer is
+  not even mounted. The frame measured 390px throughout, because the host div
+  is 390px wide, which is what made it look like a faithful phone.
 */
-const TOUCH = `
-function touchAt(el, x, y) {
-  var t = new Touch({ identifier: 1, target: el, clientX: x, clientY: y })
-  return t
-}
-function send(el, type, x, y) {
-  var t = touchAt(el, x, y)
-  el.dispatchEvent(new TouchEvent(type, {
-    bubbles: true, cancelable: true, composed: true,
-    touches: type === "touchend" ? [] : [t],
-    targetTouches: type === "touchend" ? [] : [t],
-    changedTouches: [t],
-  }))
-}
-/*
-  WHAT THE COMPONENT DECIDED, read off the strip's own inline transform.
+writeFileSync(join(out, "index.html"), `<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style>
+<style>body{margin:0;background:#fff}</style></head><body><div id="app"></div><script src="probe.js"></script></body></html>`)
 
-  Two earlier versions of this read the rendered geometry and both reported a
-  working gesture as completely dead:
-
-    getComputedStyle().transform into a DOMMatrix — DOMMatrix cannot parse a
-    percentage or a calc, so every reading came back as the identity matrix.
-
-    getBoundingClientRect() — the strip carries a 300ms transition, and under
-    --virtual-time-budget there is no compositor advancing the animation
-    clock, so the PAINTED position stays at the start value however many
-    times the inline style changes.
-
-  The inline style is the thing under test: it is where the component puts the
-  strip, and it is written as translate3d(calc(P% + Dpx), 0, 0) — P is which
-  slide, D is how far the finger has dragged it. Both are read out of it.
-*/
-function parts(strip) {
-  /* No regex: this lives inside a template literal, where a backslash is an
-     escape and mangles the pattern before the browser ever sees it. */
-  var text = strip.getAttribute("style") || ""
-  var open = text.indexOf("calc(")
-  if (open < 0) return { pct: 0, px: 0 }
-  var body = text.slice(open + 5, text.indexOf(")", open))
-  /*
-    NOT split("+"). The component writes calc(0% + -60px) and the browser
-    normalises that to calc(0% - 60px), so splitting on a plus found no second
-    term, read the drag as zero, and reported a gesture that works perfectly
-    as one that does not move at all. Take everything after the percent sign
-    and let parseFloat read the sign.
-  */
-  var cut = body.indexOf("%")
-  var pct = parseFloat(body) || 0
-  var tail = cut < 0 ? "" : body.slice(cut + 1).split(" ").join("")
-  return { pct: pct, px: parseFloat(tail) || 0 }
-}
-/** How far the finger has dragged the strip from its resting slide. */
-function trackX(strip) { return Math.round(parts(strip).px) }
 /**
- * AND WHETHER THE BROWSER ACCEPTED ANY OF IT.
+ * WHERE THE STRIP IS, in pixels, relative to the slide it is resting on.
  *
- * Everything above reads what the component ASKED for. A stylesheet can
- * refuse it — one did — and then the inline style is perfect, the computed
- * transform comes back as none, and nothing on screen has moved. Read both.
+ * The old reader parsed `translate3d(calc(P% + Dpx))` out of the inline
+ * style, because the component wrote it that way. Embla writes plain pixels
+ * to the same node, so the computed matrix is readable directly — and reading
+ * the COMPUTED value is better anyway: a stylesheet can refuse a transform,
+ * one did, and then the inline style is perfect while nothing has moved.
  */
-function computedTransform(strip) { return getComputedStyle(strip).transform }
-/** Which slide the strip is resting on. */
-function trackIndex(strip) { return Math.round(-parts(strip).pct / 100) }
-`
+const READ = `(() => {
+  const frame = document.querySelector("[data-gallery-index]")
+  if (!frame) return { found: false }
+  const strip = frame.firstElementChild
+  const computed = getComputedStyle(strip).transform
+  let x = 0
+  if (computed && computed !== "none") {
+    const n = computed.slice(computed.indexOf("(") + 1, computed.lastIndexOf(")")).split(",").map(Number)
+    x = n.length === 6 ? n[4] : n.length === 16 ? n[12] : 0
+  }
+  const index = Number(frame.getAttribute("data-gallery-index"))
+  const width = Math.round(frame.getBoundingClientRect().width)
+  return {
+    found: true,
+    index,
+    width,
+    computed,
+    /* Offset from where this slide rests, which is what a finger drags. */
+    offset: Math.round(x + index * width),
+    slides: strip.children.length,
+    touchAction: getComputedStyle(frame).touchAction,
+    eager: [...frame.querySelectorAll("img")].map((i) => i.getAttribute("loading")),
+    decoded: [...frame.querySelectorAll("img")].map((i) => i.complete && i.naturalWidth > 0),
+  }
+})()`
 
-writeFileSync(join(out, "index.html"), `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style><style>body{margin:0}
-/* Motion off: this is about position under a finger, not about the curve. */
-*,*::before,*::after{animation:none!important}
-</style></head><body><div id="app"></div><script src="probe.js"></script>
-<script>
-${TOUCH}
-/*
-  ASYNCHRONOUSLY, because React batches continuous events. touchmove is not
-  a discrete event, so the state it sets is flushed on a later tick — reading
-  the transform on the line after the dispatch reads the frame BEFORE the one
-  the move produced, and the strip looks like it never moved. The first
-  version of this probe did exactly that and reported a working gesture as
-  broken.
-*/
-/* A timer, not requestAnimationFrame. Under --virtual-time-budget there is
-   no compositor driving rAF, so a promise waiting on one never resolves and
-   the probe reports nothing at all — which is what it did. Timers advance. */
-var nextFrame = function () { return new Promise(function (r) { setTimeout(r, 40) }) }
+async function main() {
+  const profile = mkdtempSync(join(tmpdir(), "storelib-swipe-profile-"))
+  /*
+    A TOUCH-ONLY DEVICE, which is what this gallery is for. Headless Chromium
+    reports a mouse by default, so `@media (hover: none)` never matched and an
+    earlier round of this probe measured a page no phone ever sees — while a
+    rule in globals.css deleted the strip's transform on every real phone.
+  */
+  const chrome = spawn(CHROMIUM, [
+    "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
+    "--blink-settings=availableHoverTypes=1,primaryHoverType=1,availablePointerTypes=4,primaryPointerType=4",
+    `--user-data-dir=${profile}`, "--remote-debugging-port=0", "--remote-allow-origins=*",
+    "--window-size=390,844", "about:blank",
+  ], { stdio: ["ignore", "ignore", "pipe"] })
+  const reap = () => { try { chrome.kill("SIGKILL") } catch {} }
+  for (const sig of ["exit", "SIGINT", "SIGTERM"]) process.on(sig, reap)
 
-async function run() {
-  var report = {}
-  var host = document.getElementById("host")
-  var frame = host.querySelector(".aspect-video")
-  var strip = frame && frame.querySelector(".flex.h-full.w-full")
-  report.foundFrame = !!frame
-  report.foundStrip = !!strip
-  if (!strip) { show(report); return }
+  const portFile = join(profile, "DevToolsActivePort")
+  let port = null
+  for (let i = 0; i < 80 && !port; i++) {
+    if (existsSync(portFile)) {
+      const first = readFileSync(portFile, "utf8").split("\n")[0].trim()
+      if (first) port = Number(first)
+    }
+    if (!port) await sleep(250)
+  }
+  if (!port) { reap(); fail("Chromium never reported a debugging port.") }
+  let version = null
+  for (let i = 0; i < 40 && !version; i++) {
+    try { version = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json() } catch { await sleep(250) }
+  }
+  if (!version) { reap(); fail("Chromium did not answer on its port.") }
 
-  report.stripClass = strip.className
-  report.stripInline = strip.getAttribute("style")
-  report.frameClass = frame.className
-  /* Does a raw listener on the frame see the events at all? */
-  report.native = 0
-  frame.addEventListener("touchstart", function () { report.native++ }, true)
-  frame.addEventListener("touchmove", function () { report.native++ }, true)
+  const ws = new WebSocket(version.webSocketDebuggerUrl)
+  await new Promise((r, j) => { ws.addEventListener("open", r, { once: true }); ws.addEventListener("error", j, { once: true }) })
+  let id = 0
+  const pending = new Map()
+  /*
+    A file:// script reports `Script error.` to window.onerror with no detail
+    at all, so the page's own listener cannot say what broke. The protocol
+    can: exceptionThrown carries the stack, and React logs its own failures
+    through console.error.
+  */
+  const thrown = []
+  ws.addEventListener("message", (ev) => {
+    const msg = JSON.parse(ev.data)
+    if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg.result ?? {}); pending.delete(msg.id); return }
+    if (msg.method === "Runtime.exceptionThrown") {
+      const d = msg.params?.exceptionDetails
+      thrown.push(`${d?.exception?.description || d?.text || "exception"}`.split("\n").slice(0, 4).join("\n      "))
+    }
+    if (msg.method === "Runtime.consoleAPICalled" && msg.params?.type === "error") {
+      thrown.push((msg.params.args || []).map((a) => a.value ?? a.description ?? "").join(" ").split("\n").slice(0, 4).join("\n      "))
+    }
+  })
+  let sessionId = null
+  const send = (method, params = {}, session = sessionId) =>
+    new Promise((resolve) => { const n = ++id; pending.set(n, resolve); ws.send(JSON.stringify({ id: n, method, params, ...(session ? { sessionId: session } : {}) })) })
+  const ev = async (expr) => {
+    const { result } = await send("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true })
+    return result?.value
+  }
 
-  var box = frame.getBoundingClientRect()
-  report.frameWidth = Math.round(box.width)
-  report.slides = strip.children.length
-  report.restingX = trackX(strip)
-  show(report)
+  const { targetId } = await send("Target.createTarget", { url: "about:blank" }, null)
+  sessionId = (await send("Target.attachToTarget", { targetId, flatten: true }, null)).sessionId
+  await send("Page.enable")
+  await send("Runtime.enable")
+  await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
+  await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 })
+  await send("Page.navigate", { url: `file://${join(out, "index.html")}` })
+  await sleep(2500)
+  /* Anything the page throws, so a blank probe reports the cause rather than
+     a row of undefineds. */
+  await ev(`window.__errors = []; window.addEventListener("error", e => window.__errors.push(String(e.message) + " @ " + (e.filename||"") + ":" + e.lineno)); window.addEventListener("unhandledrejection", e => window.__errors.push("rejected: " + String(e.reason && e.reason.message || e.reason))); true`)
 
-  var y = Math.round(box.top + box.height / 2)
-  var x0 = Math.round(box.left + box.width - 20)
-  var indexNow = function () { return trackIndex(strip) }
+  const point = (x, y) => [{ x, y, radiusX: 12, radiusY: 12, force: 1 }]
+  const down = (x, y) => send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: point(x, y) })
+  const move = (x, y) => send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: point(x, y) })
+  const up = () => send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
 
-  /* 1. A drag that stops short: the strip follows, then springs back. */
-  send(frame, "touchstart", x0, y)
-  send(frame, "touchmove", x0 - 12, y)
-  await nextFrame()
-  send(frame, "touchmove", x0 - 60, y)
-  await nextFrame()
-  report.atMinus60 = trackX(strip)
-  report.inlineAtMinus60 = strip.getAttribute("style")
-  show(report)
-  send(frame, "touchmove", x0 - 30, y)
-  await nextFrame()
-  report.atMinus30 = trackX(strip)
-  show(report)
-  send(frame, "touchend", x0 - 30, y)
-  await new Promise(function (r) { setTimeout(r, 450) })
-  report.afterShortDrag = { index: indexNow() }
-  show(report)
-
-  /* 2. A drag past the commit point changes slide. */
-  send(frame, "touchstart", x0, y)
-  send(frame, "touchmove", x0 - 12, y)
-  await nextFrame()
-  send(frame, "touchmove", x0 - Math.round(box.width * 0.5), y)
-  await nextFrame()
-  report.atHalf = trackX(strip)
-  show(report)
-  send(frame, "touchend", x0 - Math.round(box.width * 0.5), y)
-  await new Promise(function (r) { setTimeout(r, 600) })
-  report.indexAfterCommit = indexNow()
-  show(report)
-
-  /* 3. A vertical swipe must not drag the strip sideways at all. */
-  var before = trackX(strip)
-  send(frame, "touchstart", x0, y)
-  send(frame, "touchmove", x0 - 6, y - 40)
-  await nextFrame()
-  send(frame, "touchmove", x0 - 14, y - 120)
-  await nextFrame()
-  report.duringVertical = trackX(strip) - before
-  show(report)
-  send(frame, "touchend", x0 - 14, y - 120)
-  await nextFrame()
+  const report = {}
+  report.atLoad = await ev(READ)
+  if (!report.atLoad?.found) { reap(); fail("No gallery frame in the page. It did not render.") }
+  const W = report.atLoad.width
+  const y = 110
+  const x0 = W - 30
 
   /*
-    4. THE COST OF A DRAG, which is what "laggy" was.
+    1. THE STRIP UNDER THE FINGER.
 
-    Thirty moves across the frame, the way a finger produces them, and two
-    counts either side: how many touchmoves the gesture delivered, and how
-    many times React rendered the gallery while it was happening. The version
-    that kept the offset in state rendered once per move — the whole gallery,
-    every slide and every thumbnail, thirty times for one swipe. Nothing in a
-    drag needs a render, so the honest number here is zero.
+    Moved in 16ms steps, the way a finger produces them, and sampled after a
+    short hold at each waypoint. The hold matters and is not slack in the
+    test: Embla eases toward the pointer over a frame or two rather than
+    teleporting, so a reading taken in the same millisecond as the last move
+    catches it mid-approach and calls a carousel that is 1px out "not
+    tracking". What is being claimed is that the picture sits under the
+    finger, which is a question about where it comes to rest while the finger
+    is still down, not about the interpolation on the way.
   */
-  var commitsBefore = window.__commits
-  var movesSent = 0
-  send(frame, "touchstart", x0, y)
-  for (var i = 1; i <= 30; i++) {
-    send(frame, "touchmove", x0 - i * 4, y)
-    movesSent++
-    await nextFrame()
+  report.tracking = []
+  await ev("window.__commits = 0; true")
+  await down(x0, y)
+  let at = 0
+  for (const dx of [40, 110, 70, 30]) {
+    const step = dx > at ? 6 : -6
+    while (Math.abs(dx - at) > 6) { at += step; await move(x0 - at, y); await sleep(16) }
+    at = dx
+    await move(x0 - at, y)
+    await sleep(140)
+    const s = await ev(READ)
+    report.tracking.push({ finger: -dx, strip: s.offset })
   }
-  report.dragMoves = movesSent
-  report.dragTrackedTo = trackX(strip)
-  report.commitsDuringDrag = window.__commits - commitsBefore
-  send(frame, "touchend", x0 - 120, y)
-  await new Promise(function (r) { setTimeout(r, 600) })
-  show(report)
+  report.commitsDuringDrag = await ev("window.__commits")
+  /* Back near the start, so the release is short of the commit point. */
+  while (at > 20) { at -= 6; await move(x0 - at, y); await sleep(16) }
+  await up()
+  await sleep(1000)
+  report.afterShortDrag = await ev(READ)
 
-  report.touchAction = getComputedStyle(frame).touchAction
-  report.hoverNone = window.matchMedia("(hover: none)").matches
-  /* Ask for a slide and read what the browser actually applied. */
-  report.computedAtRest = computedTransform(strip)
-  report.stripInlineEnd = strip.getAttribute("style")
-  show(report)
+  /* 2. PAST THE COMMIT POINT IT CHANGES SLIDE, and settles cleanly. */
+  await down(x0, y)
+  for (let i = 1; i <= 20; i++) { await move(x0 - i * 11, y); await sleep(16) }
+  await up()
+  await sleep(1000)
+  report.afterCommit = await ev(READ)
+
+  /* 3. A VERTICAL SWIPE IS A SCROLL, not a sideways drag. */
+  const before = (await ev(READ)).offset
+  await down(x0, y)
+  await move(x0 - 5, y - 40)
+  await sleep(40)
+  await move(x0 - 10, y - 120)
+  await sleep(60)
+  report.duringVertical = (await ev(READ)).offset - before
+  await up()
+  await sleep(600)
+
+  /* 4. A THUMBNAIL CHANGES THE PICTURE. */
+  report.thumbPressed = await ev(`(() => {
+    const t = document.querySelectorAll("[data-gallery-thumb]")
+    if (t.length < 3) return "only " + t.length + " thumbnails"
+    t[2].click()
+    return "pressed thumbnail 3"
+  })()`)
+  await sleep(1200)
+  report.afterThumb = await ev(READ)
+
+  /*
+    5. OPENING A PICTURE MUST NOT LEAVE A BOX ROUND THE X.
+
+    A dialog moves focus inside itself when it opens, and the first focusable
+    thing in this one is the close button. iOS draws that focus: a blue
+    rounded rectangle sitting around the X for as long as the viewer is open,
+    on a control nobody has touched. Reported with a screenshot.
+
+    So: who holds focus after a tap opens it, and does the close button paint
+    an outline or a ring.
+  */
+  await ev(`(() => {
+    window.__tapClicks = 0
+    const f = document.querySelector("[data-gallery-index]")
+    f.addEventListener("click", () => { window.__tapClicks++ }, true)
+    window.__viewerMounted = () => !!document.querySelector('[data-slot="dialog-portal"], [role="dialog"]')
+    return true
+  })()`)
+  await down(Math.round(W / 2), y)
+  await sleep(60)
+  await up()
+  await sleep(900)
+  report.tapClicks = await ev("window.__tapClicks")
+  report.why = await ev(`({
+    phoneMedia: window.matchMedia("(max-width: 767px)").matches,
+    innerWidth: window.innerWidth,
+    anyDialog: !!document.querySelector('[role="dialog"]'),
+    bodyTail: document.body.lastElementChild ? document.body.lastElementChild.tagName + "." + String(document.body.lastElementChild.className).slice(0,40) : null,
+  })`)
+  report.viewer = await ev(`(() => {
+    const close = document.querySelector('button[aria-label="Close"]')
+    if (!close) return { open: false }
+    const a = document.activeElement
+    const cs = getComputedStyle(close)
+    return {
+      open: true,
+      focused: a === close ? "the close button" : (a && a.getAttribute ? (a.getAttribute("aria-label") || a.tagName.toLowerCase()) : String(a)),
+      outlineStyle: cs.outlineStyle,
+      outlineWidth: cs.outlineWidth,
+      boxShadow: cs.boxShadow,
+    }
+  })()`)
+
+  report.errors = thrown
+  await send("Target.closeTarget", { targetId }, null)
+  ws.close()
+  reap()
+  return report
 }
 
-/*
-  WRITTEN AS IT GOES, not once at the end. A probe that only reports on
-  success tells you nothing at all when it hangs — which is the state this
-  spent three rounds in. Whatever step it reached is on the page.
-*/
-function show(report) {
-  var pre = document.getElementById("result")
-  if (!pre) {
-    pre = document.createElement("pre")
-    pre.id = "result"
-    document.body.append(pre)
-  }
-  pre.textContent = JSON.stringify(report)
-}
-
-window.addEventListener("error", function (e) { show({ pageError: String(e.message) }) })
-setTimeout(function () { run().catch(function (e) { show({ threw: String(e && e.stack || e) }) }) }, 900)
-</script></body></html>`)
-
-/*
-  A TOUCH-ONLY DEVICE, which is what this gallery is for.
-
-  Headless Chromium reports a mouse by default, so `@media (hover: none)`
-  never matched and this probe measured a page no phone ever sees. That let a
-  rule in globals.css — `.group *:not([data-keep-transform]) { transform:
-  none !important }` — delete the strip's translate on every real phone while
-  the probe went on reporting a perfect swipe. The gallery was completely dead
-  on mobile and this said it was fine.
-
-  So the browser is told what it is: no hover, coarse pointer.
-*/
-const TOUCH_DEVICE = "--blink-settings=availableHoverTypes=1,primaryHoverType=1,availablePointerTypes=4,primaryPointerType=4"
-
-const dom = execFileSync(CHROMIUM, ["--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars",
-  TOUCH_DEVICE,
-  "--window-size=390,844", "--virtual-time-budget=15000", "--dump-dom", `file://${join(out, "index.html")}`],
-  { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 32 * 1024 * 1024 })
-const m = dom.match(/<pre id="result">([\s\S]*?)<\/pre>/)
-if (!m) fail("The gallery never reported. It probably did not render.")
-const r = JSON.parse(m[1].replace(/&quot;/g, '"'))
-
+const r = await main()
 const problems = []
 console.log("")
-if (r.pageError) fail(`The probe page threw before it could measure anything:\n  ${r.pageError}`)
-if (r.threw) fail(`The probe threw:\n  ${r.threw}`)
-if (!r.foundFrame) fail("No gallery frame in the page.")
-if (!r.foundStrip) fail("No strip inside the frame. The slides are still stacked, so nothing can follow a finger.")
-
-console.log(`  frame ${r.frameWidth}px, ${r.slides} slides, touch-action: ${r.touchAction}`)
-console.log(`  finger at -60px -> strip at ${r.atMinus60}px`)
-console.log(`  finger back to -30px -> strip at ${r.atMinus30}px`)
-console.log(`  short drag released -> slide ${r.afterShortDrag.index}`)
-console.log(`  finger at -${Math.round(r.frameWidth * 0.5)}px -> strip at ${r.atHalf}px, released -> slide ${r.indexAfterCommit}`)
+if (r.errors?.length) {
+  console.error("  the page threw:")
+  for (const e of r.errors) console.error(`    ${e}`)
+  console.error("")
+}
+console.log(`  frame ${r.atLoad.width}px, ${r.atLoad.slides} slides, touch-action: ${r.atLoad.touchAction}`)
+for (const t of r.tracking) console.log(`  finger ${String(t.finger).padStart(5)}px -> strip ${String(t.strip).padStart(5)}px`)
+console.log(`  a ${r.tracking.length}-sample drag cost ${r.commitsDuringDrag} React commit${r.commitsDuringDrag === 1 ? "" : "s"}`)
+console.log(`  short drag released -> slide ${r.afterShortDrag.index}, resting at ${r.afterShortDrag.offset}px`)
+console.log(`  drag past the commit point -> slide ${r.afterCommit.index}, resting at ${r.afterCommit.offset}px`)
 console.log(`  vertical swipe moved the strip ${r.duringVertical}px`)
-console.log(`  a ${r.dragMoves}-move drag: strip at ${r.dragTrackedTo}px, ${r.commitsDuringDrag} React commit${r.commitsDuringDrag === 1 ? "" : "s"}`)
-console.log(`  (hover: none) matches: ${r.hoverNone}   computed transform: ${r.computedAtRest}`)
-if (process.env.DEBUG_SWIPE) {
-  console.log(`  [debug] native listeners fired: ${r.native}`)
-  console.log(`  [debug] strip class: ${r.stripClass}`)
-  console.log(`  [debug] strip style at rest: ${r.stripInline}`)
-  console.log(`  [debug] strip style mid-drag: ${r.inlineAtMinus60}`)
-  console.log(`  [debug] strip style at end:  ${r.stripInlineEnd}`)
-  console.log(`  [debug] frame class: ${r.frameClass}`)
+console.log(`  ${r.thumbPressed} -> slide ${r.afterThumb.index}`)
+console.log(`  images: loading=${JSON.stringify(r.afterThumb.eager)} decoded=${JSON.stringify(r.afterThumb.decoded)}`)
+console.log(`  computed transform: ${r.afterThumb.computed}`)
+if (r.viewer?.open) {
+  console.log(`  viewer opened: focus is on ${r.viewer.focused}, close button outline ${r.viewer.outlineStyle} ${r.viewer.outlineWidth}, shadow ${r.viewer.boxShadow}`)
+} else {
+  console.log(`  viewer did not open on a tap (clicks on the frame: ${r.tapClicks}, ${JSON.stringify(r.why)})`)
 }
 console.log("")
 
-/* The whole claim: the picture is under the finger. */
-if (Math.abs(r.atMinus60 - -60) > 6) {
-  problems.push(`The finger was 60px in and the strip had moved ${r.atMinus60}px. It is not following.`)
+/* THE CLAIM: the picture is under the finger, the whole way. */
+for (const t of r.tracking) {
+  if (Math.abs(t.strip - t.finger) > 8) {
+    problems.push(`The finger was ${t.finger}px in and the strip was at ${t.strip}px. It is not tracking.`)
+  }
 }
-if (Math.abs(r.atMinus30 - -30) > 6) {
-  problems.push(`The finger came back to 30px and the strip is at ${r.atMinus30}px, so it does not track backwards either.`)
-}
-/* Short of the commit point, it springs back rather than changing. */
-if (r.afterShortDrag.index !== 0) problems.push(`A 30px drag changed to slide ${r.afterShortDrag.index}. That is short of the commit point and should spring back.`)
-/* Past it, it commits. */
-if (r.indexAfterCommit !== 1) problems.push(`Half a screen of drag left it on slide ${r.indexAfterCommit}, not 1.`)
-/* And a scroll is a scroll. */
-if (Math.abs(r.duringVertical) > 2) problems.push(`A vertical swipe dragged the strip ${r.duringVertical}px sideways. That is the page twitching while somebody reads it.`)
-if (!r.hoverNone) problems.push("This did not run as a touch-only device, so every rule under @media (hover: none) was skipped and the measurement is of a page no phone sees.")
-if (r.computedAtRest === "none") {
-  problems.push("The browser computed the strip's transform as `none`, so whatever the component asked for was refused by a stylesheet and nothing moves on screen.")
-}
-if (r.touchAction !== "pan-y") problems.push(`touch-action is ${r.touchAction}. \`pan-y\` is what stops the browser's own horizontal pan competing while leaving the page scrollable.`)
-/*
-  A DRAG COSTS NO RENDERS. This is the lag report stated as a number. One
-  setState per touchmove re-renders the gallery, its slides and its
-  thumbnails on every frame of a gesture that needs none of it.
-
-  Not zero, because the touch going down and coming up each flip `dragging`,
-  which is one render at each end and is not per-frame work.
-*/
+/* A drag costs no renders. Not zero, because the touch going down and coming
+   up each flip a flag; anything above that is per-frame work. */
 if (r.commitsDuringDrag > 2) {
-  problems.push(`${r.dragMoves} touchmoves produced ${r.commitsDuringDrag} React commits of the gallery. A drag is a transform on one node and needs none.`)
+  problems.push(`The drag cost ${r.commitsDuringDrag} React commits of the gallery. Moving a strip is a transform on one node and needs none.`)
 }
-if (Math.abs(r.dragTrackedTo - -120) > 6) {
-  problems.push(`After 30 moves the finger was 120px in and the strip is at ${r.dragTrackedTo}px. It stopped following part way.`)
+if (r.afterShortDrag.index !== 0) problems.push(`A 20px drag left it on slide ${r.afterShortDrag.index}. That is short of the commit point and should spring back.`)
+if (Math.abs(r.afterShortDrag.offset) > 2) problems.push(`After springing back the strip is ${r.afterShortDrag.offset}px off its slide. It did not settle.`)
+if (r.afterCommit.index !== 1) problems.push(`A drag past the commit point left it on slide ${r.afterCommit.index}, not 1.`)
+if (Math.abs(r.afterCommit.offset) > 2) problems.push(`After committing the strip is ${r.afterCommit.offset}px off its slide. It did not settle.`)
+if (Math.abs(r.duringVertical) > 2) problems.push(`A vertical swipe dragged the strip ${r.duringVertical}px sideways. That is the page twitching while somebody reads it.`)
+if (r.afterThumb.index !== 2) problems.push(`Pressing thumbnail 3 left the gallery on slide ${r.afterThumb.index}.`)
+if (r.afterThumb.computed === "none") {
+  problems.push("The browser computed the strip's transform as `none`, so a stylesheet refused it and nothing moves on screen. See data-keep-transform.")
+}
+if (!/pan-y/.test(r.afterThumb.touchAction)) {
+  problems.push(`touch-action is ${r.afterThumb.touchAction}. Without pan-y a finger that starts on a picture cannot scroll the page.`)
+}
+/* THE GAP: the neighbour has to be fetched before it is dragged into view. */
+{
+  const i = r.afterThumb.index
+  const neighbours = [i - 1, i + 1].filter((n) => n >= 0 && n < r.afterThumb.eager.length)
+  const lazy = neighbours.filter((n) => r.afterThumb.eager[n] === "lazy")
+  if (lazy.length) {
+    problems.push(`Slide ${i} is showing and its neighbour${lazy.length > 1 ? "s" : ""} ${lazy.join(" and ")} ${lazy.length > 1 ? "are" : "is"} still lazy. Dragging toward a picture nobody has fetched is the gap.`)
+  }
+}
+
+/* THE BLUE BOX: nothing is focused into the X, and it paints no ring. */
+if (!r.viewer?.open) {
+  problems.push("A tap on the picture did not open the full-screen viewer.")
+} else {
+  if (r.viewer.focused === "the close button") {
+    problems.push("Opening the viewer put focus on the close button, which is the blue rectangle drawn around the X.")
+  }
+  if (r.viewer.outlineStyle !== "none" && r.viewer.outlineWidth !== "0px") {
+    problems.push(`The close button paints an outline (${r.viewer.outlineStyle} ${r.viewer.outlineWidth}) without being tabbed to.`)
+  }
 }
 
 if (problems.length) {
@@ -337,4 +372,4 @@ if (problems.length) {
   console.error("")
   process.exit(1)
 }
-console.log("  The picture moves with the finger, springs back short of the commit point, and a scroll is still a scroll.\n")
+console.log("  The picture is under the finger, it settles on a slide, and the neighbours are already there.\n")

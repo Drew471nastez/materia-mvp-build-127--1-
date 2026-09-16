@@ -51,103 +51,85 @@ console.log("\nThe gallery swipe\n")
   */
   /*
     ═══════════════════════════════════════════════════════════════════════
-     THE ENGINE IS EMBLA'S, AND WHAT IS CHECKED IS WHAT IT CANNOT KNOW
+     THE GESTURE IS EMBLA'S NOW, AND THESE ASK THE SAME THINGS OF THAT
     ═══════════════════════════════════════════════════════════════════════
-    These used to read a hand-written hook's internals: its axis lock, its
-    velocity window, its rubber band. The hook is gone. It was not badly
-    written and it still felt cheap, because of the one thing it did not do —
-    every release ran the same fixed 300ms curve, so a hard flick and a lazy
-    half-drag settled identically. Momentum is a spring with friction and its
-    own clock, and embla-carousel was already in the dependencies.
+    This block used to read the gallery's own touch handling, then the shared
+    hook's, because the gesture was written here by hand three times. Each
+    version fixed the fault the last one was pinned against and had its own:
+    a threshold with no motion in it, then a live drag that re-rendered the
+    whole gallery on every touchmove, then one that tracked exactly and still
+    snapped back with a fixed 300ms transition whatever the hand did.
 
-    The axis lock, the rubber band, the flick threshold and the settle are its
-    problem now, and there is nothing here to check about them. What is left
-    is the handful of things a carousel library cannot know about THIS page,
-    every one of which has broken this gallery before.
+    None of those are questions a source-reading check answers well. What a
+    carousel does with a finger is measured, and scripts/check-gallery-swipe
+    measures it in a real browser with real touch input: the strip's position
+    against the finger's at each waypoint, the React commits a drag costs, and
+    whether the picture either side has been fetched.
+
+    What is left here is what a probe cannot see: that there is ONE engine,
+    that it is not hand-rolled, and that the two settings a phone depends on
+    are still set.
   */
-  check(
-    "the slides are a strip, not a stack",
-    /className="flex h-full w-full"/.test(gallery),
-    "an absolutely-stacked crossfade has no position, so it cannot follow a finger",
-  )
-  check(
-    "the strip is handed to Embla rather than styled here",
-    /emblaRef\(node\)/.test(gallery) && !/style=\{\{ transform/.test(gallery),
-    "a style prop on the moving node is painted back over the drag on the next render",
-  )
-  check(
-    "and no React state is set while a finger is moving",
-    !/setDragX/.test(gallery) && !/onTouchMove/.test(gallery),
-    "one setState per touchmove is one render of every slide and thumbnail per frame",
-  )
+  const carouselHook = code("lib/gestures/use-media-carousel.ts")
+  const viewer = code("components/product/product-media-viewer.tsx")
 
+  check(
+    "the gallery and the viewer share one carousel engine",
+    /useMediaCarousel\(\{/.test(gallery) && /useMediaCarousel\(\{/.test(viewer),
+    "two copies of one gesture drift; they did, and the same flick behaved differently in each",
+  )
+  check(
+    "and it is a library rather than a fourth hand-rolled attempt",
+    /from "embla-carousel-react"/.test(carouselHook),
+    "momentum, pointer events, resize and re-measure are the parts a hand-rolled drag never gets to",
+  )
+  check(
+    "no hand-rolled touch handling is left in either",
+    !/onTouchMove/.test(gallery) && !/onTouchMove/.test(viewer) && !existsSync(join(root, "lib/gestures/use-swipe-track.ts")),
+    "the old hook and the viewer's copy of it both go, or there are three engines instead of one",
+  )
+  check(
+    "the strip is handed over rather than styled",
+    /data-keep-transform/.test(gallery) && !/transform: `translate3d/.test(gallery),
+    "Embla owns that node's transform and a style prop is painted back over it on the next render",
+  )
   /*
-    THE ONE THAT KILLS IT ON EVERY PHONE AND NOWHERE ELSE.
-
-    globals.css carries a rule that sets `transform: none !important` on every
-    descendant of a `.group` on a touch device, and the gallery frame is
-    inside one. Embla moves the strip by transform. Without the opt-out the
-    computed transform is `none` on every phone while the inline one says
-    otherwise, so the picture never moves — broken for everybody on a phone
-    and perfect on every desktop it is tested on. That is how it shipped once.
+    `data-keep-transform` is not decoration. globals.css deletes every
+    untagged transform inside a `.group` on a touch-only device, and the
+    gallery frame carries `group`. Without the tag the strip's transform is
+    computed as `none` on every real phone: the carousel is perfect in the
+    source and nothing moves on screen. That shipped once.
   */
   check(
-    "the strip opts out of the rule that strips transforms on touch devices",
-    /data-keep-transform/.test(gallery),
-    "without it `transform: none !important` wins on every phone and the strip never moves",
+    "the slides are exempt from the touch-device transform reset too",
+    /data-keep-transform\n\s+className="relative h-full min-w-0 flex-\[0_0_100%\]"/.test(gallery),
+    "in loop mode Embla moves individual slides as well as the strip",
   )
-
-  /*
-    NOT `loop`. Looping makes Embla clone slide nodes, and these slides hold
-    <video> elements and a YouTube iframe — a clone is a second player outside
-    React's knowledge, playing behind the one you can see.
-  */
   check(
-    "the carousel does not loop, because the slides contain players",
-    !/loop:\s*true/.test(gallery),
-    "a cloned <video> is a second player React does not know it has",
+    "a jump of more than one slide does not scroll through the ones between",
+    /Math\.abs\(at - index\) > 1/.test(carouselHook),
+    "a thumbnail four along would otherwise drag every picture in between across the box",
   )
-
-  check(
-    "one engine, not two: the hand-written gesture is gone",
-    !/useSwipeTrack/.test(gallery) && !/const onTouchMove = /.test(gallery),
-    "two implementations of one gesture drift, and this pair already did",
-  )
-
-  /*
-    A click fires at the end of a drag as well as after a tap, so opening the
-    viewer on a bare click puts it up every time somebody changes picture.
-    Embla answers this internally with `clickAllowed()`, which 8.5.1 does not
-    expose on its public type — it is behind `internalEngine()`, and reaching
-    in there is how a dependency bump breaks a product page in silence. The
-    `scroll` event answers the same question from the public API.
-  */
-  check(
-    "a drag is told apart from a tap, without reaching into Embla's internals",
-    /dragMoved/.test(gallery) && !/internalEngine\(\)/.test(gallery),
-    "`clickAllowed` is not on EmblaCarouselType in 8.5.1",
-  )
-
   check(
     "the page still scrolls under a finger that starts on a picture",
-    /touchAction: "pan-y"/.test(gallery),
-    "`none` would stop the browser's horizontal pan and vertical scrolling with it",
+    /touchAction: "pan-y pinch-zoom"/.test(gallery),
+    "Embla does not set this itself; without it the browser takes the horizontal gesture",
+  )
+  /*
+    The neighbour is the picture about to be dragged to. Left lazy it is an
+    empty box arriving mid-swipe, which is what "it has a gap" was.
+  */
+  check(
+    "the picture either side is fetched before it is dragged to",
+    /Math\.abs\(index - currentIndex\) <= 1 \? "eager" : "lazy"/.test(gallery),
+    "a neighbour nobody has asked for is a gap between one picture and the next",
+  )
+  check(
+    "and the first slide is never asked to be priority and lazy at once",
+    /index === 0 \|\| Math\.abs\(index - currentIndex\)/.test(gallery),
+    "Next throws on an image with both, which it became as soon as the gallery moved two slides away",
   )
 }
-
-/*
-  ═════════════════════════════════════════════════════════════════════════
-   THE BLOCK THAT USED TO BE HERE CHECKED A HOOK THAT NO LONGER EXISTS
-  ═════════════════════════════════════════════════════════════════════════
-  It read the axis lock, the rubber band, the commit ratio and the flick
-  threshold out of lib/gestures/use-swipe-track, and ran the last two as
-  numbers. All of that is embla-carousel's now, and checking a dependency's
-  internals from here would be worse than checking nothing: it would fail on
-  an upgrade that changed nothing about how the gallery feels.
-
-  What replaced it is above — the things Embla cannot know about this page,
-  and which have each broken this gallery before.
-*/
 
 console.log("\nThe back arrow\n")
 
@@ -166,15 +148,29 @@ console.log("\nThe back arrow\n")
   )
   /*
     CHECKED BY ORDER, NOT BY PROXIMITY. This used to pin the two as adjacent
-    lines, which broke the moment anything was inserted between them. The
-    property worth holding is that the bar marks itself as leaving BEFORE the
-    navigation, because a popstate has no completion event to set it from
-    afterwards.
+    lines, which broke the moment anything was inserted between them.
+
+    What was inserted, briefly, was a cross-fade: a sheet of the page's own
+    colour rose over it for 190ms and the navigation happened underneath. It
+    filmed clean and it looked cheap — on a white product page a dissolve
+    through a flat colour is a white flash — so it is gone, along with the
+    check that pinned it. A page transition has to MOVE to read as one, and
+    that is blocked on the buy bar being `position: fixed` inside the page
+    root; the note in product-creator-bar says what would have to change.
+
+    The property worth holding either way is that the bar marks itself as
+    leaving BEFORE the navigation, because a popstate has no completion event
+    to set it from afterwards.
   */
   check(
     "going back holds its own state, because a popstate has no completion event",
     /setLeaving\(true\)/.test(bar) &&
       bar.indexOf("setLeaving(true)") < bar.indexOf("window.history.back()"),
+  )
+  check(
+    "and nothing washes the page out on the way",
+    !/beginPageLeave/.test(bar) && !/page-leave-veil/.test(bar),
+    "a dissolve through a flat colour is a white flash, which is worse than the cut it replaced",
   )
   check(
     "and gives up rather than spinning for ever",

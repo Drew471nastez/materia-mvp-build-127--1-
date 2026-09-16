@@ -37,7 +37,7 @@ import Image from "next/image"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
-import useEmblaCarousel from "embla-carousel-react"
+import { useMediaCarousel } from "@/lib/gestures/use-media-carousel"
 
 export interface ViewerMedia {
   type: "image" | "video" | "youtube"
@@ -81,62 +81,19 @@ export function ProductMediaViewer({
   }, [open, index, go])
 
   /**
-   * ONE GESTURE, NOT TWO COPIES OF IT — and it is Embla's, the same as the
-   * gallery underneath.
+   * ONE ENGINE, AND IT IS THE GALLERY'S.
    *
-   * This file had its own axis lock, rubber band and release test; then a
-   * shared hook was lifted out of it so the two could not drift; and the two
-   * drifted anyway, because the hook had no momentum and neither did this.
-   * Every release ran a fixed 300ms curve whatever the finger did, which is
-   * the whole of "it feels laggish": a hard flick and a slow drag arrived at
-   * exactly the same speed.
+   * This file had its own axis lock, its own rubber band and its own release
+   * test, and the gallery underneath had another — two hand-rolled copies of
+   * one gesture, which drifted, so the same flick changed the picture in the
+   * small gallery and sprang back full screen. Both are gone. See
+   * lib/gestures/use-media-carousel.
    *
-   * Embla carries the release velocity into the settle. Full screen that
-   * matters more than it does in the gallery, because the travel is the width
-   * of the phone and a fixed duration reads as the picture being dragged
-   * rather than thrown.
-   *
-   * `duration` is a touch higher than the gallery's 22: the distance is
-   * greater at this size, and the same spring over a longer span arrives
-   * abruptly.
+   * No loop here. Full screen the two ends are meaningful: reaching the last
+   * picture should feel like the last picture, not wrap silently to the
+   * first while somebody is looking at it.
    */
-  const [emblaRef, emblaApi] = useEmblaCarousel({
-    align: "start",
-    containScroll: "trimSnaps",
-    duration: 25,
-    dragThreshold: 6,
-    watchDrag: count > 1,
-  })
-
-  /** Embla holds the position, the caller holds the index; kept level both ways. */
-  React.useEffect(() => {
-    if (!emblaApi) return
-    const onSelect = () => go(emblaApi.selectedScrollSnap())
-    emblaApi.on("select", onSelect)
-    return () => { emblaApi.off("select", onSelect) }
-  }, [emblaApi, go])
-
-  React.useEffect(() => {
-    if (!emblaApi) return
-    if (emblaApi.selectedScrollSnap() === index) return
-    emblaApi.scrollTo(index)
-  }, [emblaApi, index])
-
-  /**
-   * A dialog measures nothing while it is closed, so Embla starts with every
-   * slide at zero width and settles on the wrong one. Re-measured when it
-   * opens, and jumped to the picture that was tapped without animating
-   * through the ones in between.
-   */
-  React.useEffect(() => {
-    if (!emblaApi || !open) return
-    const id = requestAnimationFrame(() => {
-      emblaApi.reInit()
-      emblaApi.scrollTo(index, true)
-    })
-    return () => cancelAnimationFrame(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emblaApi, open])
+  const carousel = useMediaCarousel({ index, count, onIndexChange: go })
 
   if (count === 0) return null
 
@@ -163,8 +120,28 @@ export function ProductMediaViewer({
       <DialogContent
         showCloseButton={false}
         disableDefaultAnimations
+        /**
+         * ═══════════════════════════════════════════════════════════════════
+         *  NOTHING IS FOCUSED WHEN IT OPENS, WHICH IS THE BLUE BOX
+         * ═══════════════════════════════════════════════════════════════════
+         * A dialog moves focus inside itself when it opens, and the first
+         * focusable thing here is the close button. On iOS that focus is
+         * drawn: a blue rounded rectangle sitting around the X, for as long
+         * as the viewer is open, on a control nobody had touched.
+         *
+         * Opening a picture is a touch gesture and there is no keyboard in
+         * it, so the focus it moved was never wanted. It is prevented, and
+         * the panel takes it instead — Radix gives the content `tabindex=-1`
+         * for exactly this, and a programmatic focus on one of those draws
+         * nothing. The focus trap and Escape both still work, because both
+         * need focus inside the dialog and not on any particular control.
+         */
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          ;(e.currentTarget as HTMLElement | null)?.focus?.()
+        }}
         overlayClassName="media-viewer-overlay bg-black/95"
-        className="media-viewer-panel inset-0 flex h-auto w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden border-0 bg-transparent p-0 shadow-none sm:max-w-none"
+        className="media-viewer-panel inset-0 flex h-auto w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden border-0 bg-transparent p-0 shadow-none outline-none focus:outline-none focus-visible:outline-none sm:max-w-none"
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
 
@@ -173,7 +150,11 @@ export function ProductMediaViewer({
           type="button"
           onClick={() => onOpenChange(false)}
           aria-label="Close"
-          className="absolute z-20 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors active:bg-white/20"
+          /* `outline-none` for the pointer, a ring of our own for the
+             keyboard. Dropping the outline without putting anything back
+             would leave somebody tabbing through with no idea where they
+             are, which is a worse bug than the one being fixed. */
+          className="absolute z-20 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white outline-none backdrop-blur-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 active:bg-white/20"
           style={{
             top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
             right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
@@ -193,27 +174,21 @@ export function ProductMediaViewer({
         )}
 
         <div
-          ref={emblaRef}
+          ref={carousel.viewportRef}
           className="relative flex-1 overflow-hidden"
-          /* touch-none, or the browser's own horizontal pan competes with the
-             track and the swipe drops frames. Full screen there is nothing
-             under this to scroll, so unlike the gallery it does not need to
-             leave `pan-y` to the page. */
+          /* `none` rather than the gallery's `pan-y`: full screen there is
+             nothing underneath to scroll, so the whole gesture is the
+             carousel's. Embla does not set this itself. */
           style={{ touchAction: "none" }}
         >
           <div
-            /* `data-keep-transform` because globals.css kills transforms on
-               every touch device inside a `.group`, and Embla moves this node
-               by transform. Without it the strip is dead on every phone,
-               which is exactly how the gallery broke once before. */
+            /* Embla owns this node's transform and writes it every frame, of
+               the drag and of the settle after it. Nothing else may style it. */
             data-keep-transform
-            /* Embla writes this node's transform on its own clock. See the
-               gallery for why neither that nor a transition belongs in a
-               style prop. */
-            className="flex h-full w-full"
+            className="flex h-full"
           >
             {media.map((item, i) => (
-              <div key={i} className="relative h-full w-full shrink-0">
+              <div key={i} data-keep-transform className="relative h-full min-w-0 flex-[0_0_100%]">
                 {item.type === "image" ? (
                   <Image
                     src={item.url || "/placeholder.svg"}
