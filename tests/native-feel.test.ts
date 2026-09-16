@@ -339,6 +339,75 @@ section("Every dialog in the app gets to finish closing")
   )
 }
 
+// ---------------------------------------------------------------------------
+section("What the native shell adds to every scroll frame")
+// ---------------------------------------------------------------------------
+
+{
+  /*
+    "The app doesn't feel as smooth as the same site does in Safari."
+
+    Safari loads the same site from the same deployment, so only code behind
+    the `html.capacitor` gate can explain a difference, and the heaviest thing
+    behind it is this guard's touchmove listener. It has to be non-passive,
+    because its whole job is to call preventDefault and the Podfile targets
+    iOS 14, where WKWebView ignores `overscroll-behavior`. What it must not be
+    is EXPENSIVE, because the compositor is already waiting on it.
+
+    Measured by scripts/check-native-scroll-cost, on the real component with
+    real touch input: one ordinary 40-move scroll forced 585 style
+    recalculations when the ancestor walk ran per frame, and 15 once it ran
+    per gesture. The numbers are the probe's job. What is pinned here is the
+    shape that produced them, because it is the kind of thing a later edit
+    puts back without noticing.
+  */
+  const guard = read("components/platform/capacitor-bounce-guard.tsx")
+  const move = guard.slice(guard.indexOf("function onTouchMove"), guard.indexOf("document.addEventListener"))
+  const start = guard.slice(guard.indexOf("function resolve"), guard.indexOf("function onTouchStart"))
+
+  check(
+    "the walk that costs a style recalculation per ancestor is in touchstart",
+    /getComputedStyle/.test(start) && !/getComputedStyle/.test(move),
+    "getComputedStyle forces a style recalculation, and this one ran fifteen times per frame",
+  )
+  check(
+    "and so is asking whether this element handles its own gestures",
+    /closest\("\[data-mobile-bottom-sheet\]"\)/.test(start) && !/closest\(/.test(move),
+    "three closest() walks per frame, for an answer that cannot change mid-gesture",
+  )
+  check(
+    "the height of the thing being scrolled is measured once, not per move",
+    /scrollHeight = /.test(start) && !/\.scrollHeight/.test(move),
+    "reading scrollHeight forces layout; content does not resize while a finger is down",
+  )
+  check(
+    "what a move reads is the one number that moves",
+    /scroller\.scrollTop/.test(move),
+    "scrollTop is the only value a scroll changes",
+  )
+  check(
+    "the orientation check is settled with the rest",
+    /window\.innerWidth > window\.innerHeight/.test(start) && !/innerWidth/.test(move),
+    "two layout reads per frame to ask a question that changes on rotation",
+  )
+  /*
+    And it is still allowed to veto, which is the whole point of it. A future
+    edit that makes this passive to chase the fast path removes the bounce
+    protection on iOS 14 and 15 silently: preventDefault in a passive listener
+    is ignored with a console warning nobody reads.
+  */
+  check(
+    "it can still refuse the move it is there to refuse",
+    /touchmove", onTouchMove, \{ passive: false \}/.test(guard) && /e\.preventDefault\(\)/.test(move),
+    "preventDefault in a passive listener is ignored, and the bounce comes back with no error",
+  )
+  check(
+    "and the cheap half of the pair is passive",
+    /touchstart", onTouchStart, \{ passive: true \}/.test(guard),
+    "touchstart never calls preventDefault here, so it has no reason to hold the compositor",
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
