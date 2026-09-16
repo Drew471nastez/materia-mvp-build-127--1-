@@ -4,9 +4,9 @@
  * ===========================================================================
  *  THE CREATOR PAGE, EDITED WHERE IT LIVES
  * ===========================================================================
- * The frame holds the real /u/<handle>, signed in, so every control a creator
- * already has on their page is the control they use here. Nothing is
- * reimplemented, so nothing can drift from what a visitor sees.
+ * The frame holds the real creator page at /<handle>, signed in, so every
+ * control a creator already has on their page is the control they use here.
+ * Nothing is reimplemented, so nothing can drift from what a visitor sees.
  *
  * `?embedded=1` tells the page it is inside the workspace, and the proxy
  * relaxes X-Frame-Options only for that exact combination. At its own address
@@ -55,6 +55,7 @@ import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navi
 import { CreatorPageShare } from "@/components/app/creator-page-share"
 import { CREATOR_EDITOR_CHANNEL } from "@/lib/store-builder/editor-channel"
 import { cn } from "@/lib/utils"
+import { getStoreInternalPath } from "@/lib/url-helpers"
 
 export function CreatorPageWorkspace({
   handle,
@@ -217,7 +218,17 @@ export function CreatorPageWorkspace({
     return () => mq.removeEventListener("change", sync)
   }, [])
 
-  const srcFor = (v: number) => `/u/${encodeURIComponent(handle)}?embedded=1&v=${v}`
+  /*
+    THE CANONICAL ADDRESS, NOT THE OLD ONE. This framed `/u/<handle>`, which
+    is now a 308 to `/<handle>` — so every preview load, and every reload
+    after a change, paid a redirect before it started. Worse, the redirect
+    landed on an address the proxy's framing rule did not cover, so the frame
+    was refused outright and the canvas showed a broken rectangle.
+
+    getStoreInternalPath is the one helper that decides where a creator page
+    lives; using it here means this cannot drift from it again.
+  */
+  const srcFor = (v: number) => `${getStoreInternalPath(encodeURIComponent(handle))}?embedded=1&v=${v}`
 
   // ── The two frames ──────────────────────────────────────────────────────
   /** Which frame is showing, and what each one has been told to load. */

@@ -26,7 +26,7 @@
  * Run with:  npm run test:push
  */
 
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { themePresets } from "../lib/store-builder/defaults"
@@ -240,7 +240,16 @@ function main() {
   // ── 2. The frame is the real page ──────────────────────────────────────
   {
     const workspace = read("components/app/creator-page-workspace.tsx")
-    check("it frames the public creator page", /\/u\/\$\{encodeURIComponent\(handle\)\}\?embedded=1/.test(workspace))
+    /**
+     * The address here moved from /u/<handle> to /<handle>; this check moved
+     * with it rather than being deleted. Framing the old one still worked in
+     * the sense that the redirect resolved, and did not work in the sense
+     * that mattered: it landed somewhere the proxy would not let us frame.
+     */
+    check(
+      "it frames the public creator page",
+      /getStoreInternalPath\(encodeURIComponent\(handle\)\)\}\?embedded=1/.test(workspace),
+    )
     /**
      * TWO FRAMES, SO A CHANGE IS NEVER A WHITE FLASH. Reloading one frame in
      * place unmounts the document first and the canvas is white for a
@@ -300,6 +309,123 @@ function main() {
       "and only by us",
       proxy.includes(`frame-ancestors 'self'`) && !/frame-ancestors \*|frame-ancestors '\*'/.test(proxy),
     )
+
+    /**
+     * AND NARROW IS A THING YOU RUN, NOT A THING YOU GREP FOR.
+     *
+     * The checks above ask whether lines of code are still present. They all
+     * passed on the day the editor showed a broken rectangle, because the
+     * rule they were reading was intact and simply did not cover the address
+     * the creator page had moved to: `/u/<handle>` became a 308 to
+     * `/<handle>`, one segment, matching nothing in the list.
+     *
+     * So this lifts the real predicate out of proxy.ts and runs it. The
+     * reserved list comes out of the same file, so a route added there is
+     * covered here without anybody remembering to come back.
+     */
+    const proxySource = read("proxy.ts")
+    const reserved = (() => {
+      const open = proxySource.indexOf("FRAME_RESERVED_FIRST_SEGMENT = new Set([")
+      const close = proxySource.indexOf("])", open)
+      if (open === -1 || close === -1) return [] as string[]
+      return Array.from(proxySource.slice(open, close).matchAll(/"([^"]+)"/g)).map((m) => m[1])
+    })()
+    check("the reserved route list was found", reserved.length > 10, `found ${reserved.length}`)
+
+    /**
+     * AND THE LIST HAS TO STAY COMPLETE.
+     *
+     * A handle is one segment. So is every top level route on the site, so
+     * the only thing separating /checkout from a creator called "checkout"
+     * is whether somebody remembered to add it to that list. Nineteen of
+     * them were missing when this was written.
+     *
+     * This walks app/ instead of trusting a list to be maintained by hand:
+     * add a route tomorrow and this fails until the proxy knows about it.
+     * Route groups — the (marketing) kind — are not in the URL, so they are
+     * unwrapped; dynamic segments are the creator page itself.
+     */
+    const topLevelRoutes = (() => {
+      const found = new Set<string>()
+      const walk = (dir: string, url: string[]) => {
+        for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
+          if (!entry.isDirectory()) continue
+          const next = entry.name.startsWith("(") || entry.name.startsWith("@") ? url : [...url, entry.name]
+          if (next.length === 1 && next[0].startsWith("[")) continue
+          if (next.length === 1) found.add(next[0])
+          if (next.length <= 1) walk(`${dir}/${entry.name}`, next)
+        }
+      }
+      walk("app", [])
+      return [...found]
+    })()
+    check("app/ was walked", topLevelRoutes.length > 20, `found ${topLevelRoutes.length}`)
+    const unlisted = topLevelRoutes.filter((r) => !reserved.includes(r))
+    check(
+      "every top level route is reserved, so none can be read as a handle",
+      unlisted.length === 0,
+      `missing from FRAME_RESERVED_FIRST_SEGMENT in proxy.ts: ${unlisted.join(", ")}`,
+    )
+
+    const framable = (() => {
+      const open = proxySource.indexOf("const productPath = (() => {")
+      const close = proxySource.indexOf("const framed =", open)
+      if (open === -1 || close === -1) return null
+      const body = proxySource.slice(open, close).replace(/: boolean|: string/g, "")
+      return new Function(
+        "url",
+        "FRAME_RESERVED_FIRST_SEGMENT",
+        `${body}\nreturn framableWhenEmbedded`,
+      ) as (url: URL, set: Set<string>) => boolean
+    })()
+    check("the framing rule was found and is runnable", framable !== null)
+
+    if (framable) {
+      const set = new Set(reserved)
+      const asks = (path: string) => framable(new URL(`https://storelib.com${path}`), set)
+
+      /** What the workspace actually loads. This is the case that was broken. */
+      check("a creator page at /{handle} may be framed", asks("/andrewrullz"))
+      check("a product inside it may be framed", asks("/andrewrullz/men-s-white-t-shirt"))
+      check("the old /u/{handle} still may be, so the redirect keeps working", asks("/u/andrewrullz"))
+      check("and /p/{slug}", asks("/p/men-s-white-t-shirt"))
+      check("and the code editor", asks("/website-builder/code/abc"))
+
+      /**
+       * THE BREAK TEST. One segment is also the shape of every top level
+       * route on the site. If the reserved guard stopped working, /login
+       * would become framable, and a login form in a frame is the setup for
+       * clickjacking a password. Each of these is checked by name.
+       */
+      const escaped = reserved.filter((r) => asks(`/${r}`))
+      check("no reserved route is framable on its own", escaped.length === 0, `framable: ${escaped.join(", ")}`)
+      /**
+       * `p` and `u` are in the reserved list so that /p and /u alone are not
+       * mistaken for handles, but /p/<slug> and /u/<handle> are the two
+       * addresses we mean to frame. Everything else stays shut.
+       */
+      const framablePrefixes = new Set(["p", "u"])
+      const escapedTwo = reserved.filter((r) => !framablePrefixes.has(r) && asks(`/${r}/anything`))
+      check("nor with something after it", escapedTwo.length === 0, `framable: ${escapedTwo.join(", ")}`)
+      check("nor in a different case", !asks("/Login") && !asks("/APP"))
+
+      /** Depth is still bounded: nothing three deep is a page we frame. */
+      check("nothing three segments deep is framable", !asks("/a/b/c"))
+      check("and not the site root", !asks("/"))
+    }
+
+    /**
+     * THE OTHER HALF. The rule can be right and the editor still broken if
+     * the frame asks for the old address: the 308 lands on the canonical one
+     * and costs a round trip before the page starts. url-helpers is the one
+     * place that knows where a creator page lives.
+     */
+    const framedSrc = strip(read("components/app/creator-page-workspace.tsx"))
+    check(
+      "the workspace frames the canonical address through url-helpers",
+      /getStoreInternalPath\(encodeURIComponent\(handle\)\)\}\?embedded=1/.test(framedSrc),
+    )
+    check("and no longer hardcodes the address it redirects from", !/`\/u\/\$\{/.test(framedSrc))
   }
 
   // ── 4. Embedded mode offers no door into itself ────────────────────────
