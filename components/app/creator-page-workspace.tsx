@@ -55,7 +55,7 @@ import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navi
 import { CreatorPageShare } from "@/components/app/creator-page-share"
 import { CREATOR_EDITOR_CHANNEL } from "@/lib/store-builder/editor-channel"
 import { cn } from "@/lib/utils"
-import { getStoreInternalPath } from "@/lib/url-helpers"
+import { getMainDomain, getStoreInternalPath } from "@/lib/url-helpers"
 
 export function CreatorPageWorkspace({
   handle,
@@ -358,7 +358,14 @@ export function CreatorPageWorkspace({
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-semibold leading-tight text-[#1a1a2e]">{displayName}</p>
           <p className="truncate text-[11px] leading-tight text-[#9ca3af]">
-            storelib.com/u/{handle}
+            {/*
+              THE ADDRESS AS IT IS, not as it was. The creator page moved to
+              storelib.com/<handle>; this line went on reading /u/<handle>, so
+              a creator was being shown the one address of their page that now
+              only redirects. Built from the same helper the frame uses so the
+              label and the thing it labels cannot disagree.
+            */}
+            {getMainDomain()}{getStoreInternalPath(handle)}
             {published ? "" : "  ·  not published yet"}
           </p>
         </div>
