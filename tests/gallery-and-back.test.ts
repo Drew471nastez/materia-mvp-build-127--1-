@@ -19,7 +19,6 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { stripComments } from "./_source"
-import { COMMIT_RATIO, FLICK_VELOCITY } from "../lib/gestures/use-swipe-track"
 
 let passed = 0
 let failed = 0
@@ -51,82 +50,84 @@ console.log("\nThe gallery swipe\n")
     nothing happening, then the picture jumped at the fiftieth.
   */
   /*
-    THE TRANSFORM MOVED, AND THAT IS THE POINT OF THE MOVE.
+    ═══════════════════════════════════════════════════════════════════════
+     THE GESTURE IS EMBLA'S NOW, AND THESE ASK THE SAME THINGS OF THAT
+    ═══════════════════════════════════════════════════════════════════════
+    This block used to read the gallery's own touch handling, then the shared
+    hook's, because the gesture was written here by hand three times. Each
+    version fixed the fault the last one was pinned against and had its own:
+    a threshold with no motion in it, then a live drag that re-rendered the
+    whole gallery on every touchmove, then one that tracked exactly and still
+    snapped back with a fixed 300ms transition whatever the hand did.
 
-    These two used to read the translate out of the GALLERY, because the
-    gallery held the drag offset in React state and put it in a style prop.
-    That is a render of the whole gallery per touchmove, which is what "the
-    swipe is laggy" was: measured by scripts/check-gallery-swipe, thirty
-    touchmoves produced thirty React commits.
+    None of those are questions a source-reading check answers well. What a
+    carousel does with a finger is measured, and scripts/check-gallery-swipe
+    measures it in a real browser with real touch input: the strip's position
+    against the finger's at each waypoint, the React commits a drag costs, and
+    whether the picture either side has been fetched.
 
-    The offset is not state anybody renders from, so the hook writes it to
-    the node directly and the gallery hands over the node. The question is
-    the same one — is there a position that can follow a finger — asked of
-    where the position now lives.
+    What is left here is what a probe cannot see: that there is ONE engine,
+    that it is not hand-rolled, and that the two settings a phone depends on
+    are still set.
   */
-  const swipeHook = code("lib/gestures/use-swipe-track.ts")
+  const carouselHook = code("lib/gestures/use-media-carousel.ts")
+  const viewer = code("components/product/product-media-viewer.tsx")
+
   check(
-    "the slides are a strip, not a stack",
-    /translate3d\(calc\(\$\{-pendingIndex\.current \* 100\}% \+ \$\{offset\}px\)/.test(swipeHook),
-    "an absolutely-stacked crossfade has no position, so it cannot follow a finger",
+    "the gallery and the viewer share one carousel engine",
+    /useMediaCarousel\(\{/.test(gallery) && /useMediaCarousel\(\{/.test(viewer),
+    "two copies of one gesture drift; they did, and the same flick behaved differently in each",
   )
   check(
-    "and the drag is part of that position",
-    /paint\(dragRef\.current, false\)/.test(swipeHook),
-    "without it the strip only moves when the gesture has already ended",
+    "and it is a library rather than a fourth hand-rolled attempt",
+    /from "embla-carousel-react"/.test(carouselHook),
+    "momentum, pointer events, resize and re-measure are the parts a hand-rolled drag never gets to",
   )
   check(
-    "the gallery hands the strip over rather than styling it",
-    /ref=\{swipe\.trackRef\}/.test(gallery) && !/swipe\.dragX/.test(gallery),
-    "a style prop on the same node is written back over the drag on the next render",
+    "no hand-rolled touch handling is left in either",
+    !/onTouchMove/.test(gallery) && !/onTouchMove/.test(viewer) && !existsSync(join(root, "lib/gestures/use-swipe-track.ts")),
+    "the old hook and the viewer's copy of it both go, or there are three engines instead of one",
   )
   check(
-    "and no state is set while a finger is moving",
-    !/setDragX/.test(swipeHook) && /el\.style\.transform =/.test(swipeHook),
-    "one setState per touchmove is one render of every slide and thumbnail per frame",
+    "the strip is handed over rather than styled",
+    /data-keep-transform/.test(gallery) && !/transform: `translate3d/.test(gallery),
+    "Embla owns that node's transform and a style prop is painted back over it on the next render",
   )
   /*
-    `minSwipeDistance` is deliberately still here: a mouse drag on a desktop
-    has no finger to follow and still commits on distance. What must be gone
-    is the gallery's own TOUCH handling, which is the part the shared gesture
-    replaced.
+    `data-keep-transform` is not decoration. globals.css deletes every
+    untagged transform inside a `.group` on a touch-only device, and the
+    gallery frame carries `group`. Without the tag the strip's transform is
+    computed as `none` on every real phone: the carousel is perfect in the
+    source and nothing moves on screen. That shipped once.
   */
   check(
-    "it uses the shared gesture rather than its own",
-    /useSwipeTrack\(\{/.test(gallery) && !/const onTouchMove = /.test(gallery),
-    "the full-screen viewer had this working already; two copies drift",
+    "the slides are exempt from the touch-device transform reset too",
+    /data-keep-transform\n\s+className="relative h-full min-w-0 flex-\[0_0_100%\]"/.test(gallery),
+    "in loop mode Embla moves individual slides as well as the strip",
   )
   check(
-    "a jump of more than one slide does not animate",
-    /animateSlide/.test(gallery) && /step <= 1/.test(gallery),
-    "a thumbnail four along would smear every picture in between across the box",
+    "a jump of more than one slide does not scroll through the ones between",
+    /Math\.abs\(at - index\) > 1/.test(carouselHook),
+    "a thumbnail four along would otherwise drag every picture in between across the box",
   )
   check(
     "the page still scrolls under a finger that starts on a picture",
-    /touchAction: "pan-y"/.test(gallery),
-    "`none` would stop the browser's horizontal pan and vertical scrolling with it",
+    /touchAction: "pan-y pinch-zoom"/.test(gallery),
+    "Embla does not set this itself; without it the browser takes the horizontal gesture",
   )
-}
-
-{
-  const hook = code("lib/gestures/use-swipe-track.ts")
-  check("the gesture locks to an axis", /axis\.current = Math\.abs\(dx\) > Math\.abs\(dy\)/.test(hook),
-    "without it a vertical scroll drags the strip sideways and springs back")
-  check("it rubber-bands at the two ends", /dx \/ 3/.test(hook))
-  check("and a flick commits on speed as well as distance", /velocity > FLICK_VELOCITY/.test(hook))
-  /** Run, not read: the two numbers a release is decided by. */
-  check("the commit point is about a fifth of the width", COMMIT_RATIO > 0.15 && COMMIT_RATIO < 0.35, `${COMMIT_RATIO}`)
-  check("and a flick is measured in px per ms", FLICK_VELOCITY > 0.1 && FLICK_VELOCITY < 1.5, `${FLICK_VELOCITY}`)
-
   /*
-    The release reads the drag from a ref rather than from state. A state
-    value read in the same tick it was set is the PREVIOUS value, so the
-    commit would be decided on where the finger was one move ago.
+    The neighbour is the picture about to be dragged to. Left lazy it is an
+    empty box arriving mid-swipe, which is what "it has a gap" was.
   */
   check(
-    "the release reads the live drag, not last render's",
-    /const travelled = dragRef\.current/.test(hook),
-    "reading the state value here decides the commit on a stale position",
+    "the picture either side is fetched before it is dragged to",
+    /Math\.abs\(index - currentIndex\) <= 1 \? "eager" : "lazy"/.test(gallery),
+    "a neighbour nobody has asked for is a gap between one picture and the next",
+  )
+  check(
+    "and the first slide is never asked to be priority and lazy at once",
+    /index === 0 \|\| Math\.abs\(index - currentIndex\)/.test(gallery),
+    "Next throws on an image with both, which it became as soon as the gallery moved two slides away",
   )
 }
 

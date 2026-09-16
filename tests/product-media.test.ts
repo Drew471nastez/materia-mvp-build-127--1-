@@ -103,10 +103,23 @@ check(
   "and it fades rather than appearing",
   /transition-opacity duration-\[400ms\]/.test(gallery),
 )
+/*
+  AND THE NEIGHBOURS ARE FETCHED WITH IT NOW, which is the second half of
+  this. A slide is held transparent until its own picture decodes, so
+  dragging toward one that was still lazy showed the empty box behind it for
+  as long as the fetch took: a gap between one picture and the next, in the
+  middle of the gesture. The rest stay lazy, which is what this line was
+  protecting and still protects.
+
+  `index === 0` is in the test twice over on purpose: that slide carries
+  `priority`, and Next throws outright on an image that is both priority and
+  lazy — which it became the moment the gallery moved two slides away.
+*/
 check(
   "the first one is fetched from the document head",
-  /priority=\{index === 0\}/.test(gallery) && /loading=\{index === 0 \? "eager" : "lazy"\}/.test(gallery),
-  "eight pictures should not all be fetched before anyone asks",
+  /priority=\{index === 0\}/.test(gallery) &&
+    /loading=\{index === 0 \|\| Math\.abs\(index - currentIndex\) <= 1 \? "eager" : "lazy"\}/.test(gallery),
+  "eight pictures should not all be fetched before anyone asks, and the two either side should be",
 )
 
 console.log("\nThe thumbnail strip\n")
@@ -133,13 +146,18 @@ check(
   "a desktop visitor should not download a lightbox nothing can open",
 )
 /*
-  The distance comes off the shared gesture now rather than from the gallery's
-  own touchStart/touchEnd pair, which the strip replaced. Same ten pixels,
-  same reason.
+  THE ENGINE ANSWERS THIS NOW rather than a pixel count of our own. The
+  gallery measured how far the finger had travelled and called anything under
+  ten pixels a tap; Embla already knows whether the gesture that just ended
+  moved the strip, which is the same question asked of the thing that would
+  know. (Embla 7 exposed it as `clickAllowed()` and 8 does not, so
+  use-media-carousel assembles it from the pointerDown/scroll/pointerUp
+  events it does emit.)
 */
 check(
   "a swipe does not count as a tap",
-  /if \(swipe\.lastTravel\.current > 10\) return/.test(gallery),
+  /if \(!carousel\.clickAllowed\(\)\) return/.test(gallery) &&
+    /const clickAllowed = React\.useCallback\(\(\) => !dragged\.current/.test(code("lib/gestures/use-media-carousel.ts")),
   "onClick fires after a swipe too, so the viewer would open on every slide change",
 )
 /*
@@ -158,35 +176,48 @@ check(
   /className="absolute z-20 inline-flex h-11 w-11/.test(viewer),
 )
 /*
-  ONE GESTURE, AND THESE TWO NOW ASK IT OF THAT ONE.
+  ONE ENGINE, AND THESE ASK WHAT A PROBE CANNOT SEE.
 
-  Both used to read the viewer's own axis lock and its own release test. The
-  viewer had a complete second copy of the gesture, written before
-  lib/gestures/use-swipe-track was lifted out of it — and the hook's own
-  header said the gallery would use the same one "rather than a second
-  implementation that drifts". It drifted: the hook measures a flick over the
-  end of the gesture and the copy averaged it from the first touch, so the
-  same flick committed in the gallery and sprang back full screen.
+  Both of these used to read the viewer's own axis lock and its own release
+  test, because the viewer had a complete second copy of the gesture and the
+  gallery had a third. They drifted, and the same flick changed the picture in
+  one place and sprang back in the other.
 
-  The copy is gone. The claims are unchanged and are made of the hook, plus
-  one that the viewer does not grow another.
+  Both copies are gone and so is the hook that replaced them: the two share
+  lib/gestures/use-media-carousel, which is Embla. What a swipe actually does
+  with a finger is measured in a real browser by
+  scripts/check-gallery-swipe — tracking, cost and the gap — rather than read
+  out of a file. What is pinned here is that there is one engine and that the
+  viewer has not grown another.
 */
-const swipeHook = code("lib/gestures/use-swipe-track.ts")
+const carouselHook = code("lib/gestures/use-media-carousel.ts")
 check(
-  "the swipe locks to one axis before it moves anything",
-  /axis\.current = Math\.abs\(dx\) > Math\.abs\(dy\) \? "x" : "y"/.test(swipeHook),
-  "without it a vertical swipe drags the track sideways and springs back",
-)
-check(
-  "a short flick counts as well as a long drag",
-  /velocity > FLICK_VELOCITY/.test(swipeHook),
-)
-check(
-  "and the viewer uses that one rather than its own",
-  /useSwipeTrack\(\{ index, count, onIndexChange: go \}\)/.test(viewer) &&
+  "the viewer shares the gallery's carousel rather than rolling its own",
+  /useMediaCarousel\(\{ index, count, onIndexChange: go \}\)/.test(viewer) &&
     !/axis\.current/.test(viewer) &&
-    !/setDragX/.test(viewer),
+    !/onTouchMove/.test(viewer),
   "two copies of one gesture drift, and the drift is a flick that works in one place and not the other",
+)
+check(
+  "and that carousel is a library, not a fourth attempt at one",
+  /from "embla-carousel-react"/.test(carouselHook),
+  "momentum, pointer input, resize and re-measure are what three hand-rolled versions each missed",
+)
+check(
+  "full screen it does not wrap silently from the last picture to the first",
+  /loop = false/.test(carouselHook) && !/loop: true/.test(viewer),
+  "at the end of a set of pictures, the end should feel like the end",
+)
+/*
+  Embla owns the track's transform, and globals.css deletes untagged
+  transforms inside a `.group` on touch devices. The viewer is not inside one
+  today; the tag is there because the gallery's was missed once and the whole
+  carousel was dead on every phone while reading perfectly in the source.
+*/
+check(
+  "the track is exempt from the touch-device transform reset",
+  /data-keep-transform/.test(viewer),
+  "a stylesheet that deletes the transform leaves a carousel that is perfect on paper and still on screen",
 )
 check(
   "the picture is shown whole, not cropped",

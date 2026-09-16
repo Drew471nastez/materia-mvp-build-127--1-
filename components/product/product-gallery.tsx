@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { ProductMediaViewer } from "@/components/product/product-media-viewer"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
 import { cn } from "@/lib/utils"
-import { useSwipeTrack } from "@/lib/gestures/use-swipe-track"
+import { useMediaCarousel } from "@/lib/gestures/use-media-carousel"
 
 interface MediaItem {
   url: string
@@ -68,13 +68,10 @@ export function ProductGallery({
   /** Full screen, phone only. */
   const [viewerOpen, setViewerOpen] = useState(false)
   const isPhone = useIsPhone()
-  const [isDragging, setIsDragging] = useState(false)
-  const [startX, setStartX] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [isMobileScreen, setIsMobileScreen] = useState(false)
   const [isDesktopScreen, setIsDesktopScreen] = useState(true)
   const [isHovering, setIsHovering] = useState(false)
-  const [isTransitioning, setIsTransitioning] = useState(false)
 
   // Video player state
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
@@ -193,9 +190,6 @@ export function ProductGallery({
     }
   }, [currentIndex, mediaItems])
 
-  /** Mouse drag on a desktop still commits on distance; there is no finger to follow. */
-  const minSwipeDistance = 50
-
   // Detect actual screen size (only for live page, not editor preview)
   useEffect(() => {
     // Skip screen detection if we're in editor preview mode
@@ -235,29 +229,46 @@ export function ProductGallery({
     return false
   })()
 
-  const goToPrevious = useCallback(() => {
-    if (isTransitioning) return
-    setIsTransitioning(true)
-    setCurrentIndex((prev) => (prev === 0 ? mediaItems.length - 1 : prev - 1))
-    // Reset transition state after animation completes
-    setTimeout(() => setIsTransitioning(false), 300)
-  }, [mediaItems.length, isTransitioning])
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE SWIPE IS EMBLA'S, AND THE STEPPERS GO THROUGH IT
+   * ═════════════════════════════════════════════════════════════════════════
+   * The gesture was written here by hand, three times. See
+   * lib/gestures/use-media-carousel for what each version was missing and why
+   * the engine is a library rather than a fourth attempt.
+   *
+   * DECLARED HERE, ABOVE THE AUTOPLAY EFFECT THAT USES IT, and the order is
+   * not cosmetic. A `useEffect` dependency array is evaluated during render,
+   * so naming a `const` declared further down is a temporal dead zone and the
+   * component throws before it can paint. That is the fault that took every
+   * page on this site down for an hour; tsc reports it as TS2448 and
+   * next.config.mjs sets `ignoreBuildErrors`, so the build stays green.
+   */
+  const carousel = useMediaCarousel({
+    index: currentIndex,
+    count: mediaItems.length,
+    /* The last picture leads back to the first, which is what the autoplay
+       in dots mode has always done. */
+    loop: true,
+    onIndexChange: setCurrentIndex,
+  })
 
-  const goToNext = useCallback(() => {
-    if (isTransitioning) return
-    setIsTransitioning(true)
-    setCurrentIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1))
-    // Reset transition state after animation completes
-    setTimeout(() => setIsTransitioning(false), 300)
-  }, [mediaItems.length, isTransitioning])
+  /*
+    THE TWO STEPPERS AND THE MOUSE THRESHOLD ARE GONE, not moved.
 
+    `goToPrevious` and `goToNext` each held a 300ms `isTransitioning` latch to
+    stop a second press landing mid-animation, and the mouse had its own
+    50px-threshold drag with no motion in it at all. Embla is the one engine
+    now: it guards its own settle, and a mouse drags the strip exactly as a
+    finger does.
+  */
   // Autoplay for dots mode (only for images, pause on video/youtube)
   useEffect(() => {
     const currentMedia = mediaItems[currentIndex]
     if (!showDotsNavigation || mediaItems.length <= 1 || isPaused || currentMedia?.type !== "image") return
 
     autoplayRef.current = setInterval(() => {
-      goToNext()
+      carousel.scrollNext()
     }, autoplayInterval)
 
     return () => {
@@ -265,7 +276,7 @@ export function ProductGallery({
         clearInterval(autoplayRef.current)
       }
     }
-  }, [showDotsNavigation, mediaItems.length, mediaItems, currentIndex, isPaused, autoplayInterval, goToNext])
+  }, [showDotsNavigation, mediaItems.length, mediaItems, currentIndex, isPaused, autoplayInterval, carousel])
 
   // Pause autoplay on user interaction, resume after delay
   const handleUserInteraction = useCallback(() => {
@@ -274,89 +285,13 @@ export function ProductGallery({
     setTimeout(() => setIsPaused(false), 10000)
   }, [])
 
-  /**
-   * ═════════════════════════════════════════════════════════════════════════
-   *  THE SWIPE MOVES THE PICTURE, RATHER THAN WATCHING FOR ONE
-   * ═════════════════════════════════════════════════════════════════════════
-   * This used to record where a touch started, where it ended, and change
-   * slide if the difference passed 50px. Nothing moved while the finger
-   * moved, so there was no feedback until the instant it jumped, and a
-   * careful 40px drag did nothing at all with no way to tell that it had
-   * done nothing. That is the difference between a gallery that feels like a
-   * web page and one that feels like an app.
-   *
-   * lib/gestures/use-swipe-track is the same gesture the full-screen viewer
-   * already used — axis lock so a vertical scroll does not drag the strip,
-   * rubber band at the two ends, and a flick that commits on speed as well as
-   * on distance. Shared rather than copied, so the two cannot drift.
-   */
-  /**
-   * Whether the move that just happened is one the strip should animate.
-   *
-   * Adjacent is a slide. Anything further — a thumbnail several along, or the
-   * wrap from the last picture back to the first — would drag every picture
-   * in between across the box, so it is moved without a transition instead.
-   */
-  const previousIndex = useRef(currentIndex)
-  const [animateSlide, setAnimateSlide] = useState(true)
-  useEffect(() => {
-    const step = Math.abs(currentIndex - previousIndex.current)
-    previousIndex.current = currentIndex
-    if (step <= 1) return
-    setAnimateSlide(false)
-    /* Back on for the next move, once this one has been painted without it. */
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setAnimateSlide(true)))
-    return () => cancelAnimationFrame(id)
-  }, [currentIndex])
-
-  const swipe = useSwipeTrack({
-    index: currentIndex,
-    count: mediaItems.length,
-    animate: animateSlide,
-    onIndexChange: (next) => {
-      handleUserInteraction()
-      setCurrentIndex(next)
-    },
-  })
-
-  const onMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true)
-    setStartX(e.clientX)
-    handleUserInteraction()
-  }
-
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return
-    e.preventDefault()
-  }
-
-  const onMouseUp = (e: React.MouseEvent) => {
-    if (!isDragging) return
-
-    const distance = startX - e.clientX
-    const isLeftSwipe = distance > minSwipeDistance
-    const isRightSwipe = distance < -minSwipeDistance
-
-    if (isLeftSwipe) {
-      goToNext()
-    } else if (isRightSwipe) {
-      goToPrevious()
-    }
-
-    setIsDragging(false)
-  }
-
-  const onMouseLeave = () => {
-    setIsDragging(false)
-  }
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") {
-        goToPrevious()
+        carousel.scrollPrev()
         handleUserInteraction()
       } else if (e.key === "ArrowRight") {
-        goToNext()
+        carousel.scrollNext()
         handleUserInteraction()
       } else if (e.key === " " && mediaItems[currentIndex]?.type === "video") {
         e.preventDefault()
@@ -366,7 +301,7 @@ export function ProductGallery({
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [currentIndex, mediaItems, goToPrevious, goToNext, handleUserInteraction, toggleVideoPlay])
+  }, [currentIndex, mediaItems, carousel, handleUserInteraction, toggleVideoPlay])
 
   if (mediaItems.length === 0) return null
 
@@ -374,48 +309,49 @@ export function ProductGallery({
     <div className="space-y-3 sm:space-y-4 w-full">
       {/* Main Image */}
       <div
-        /* Two owners, one element: imageRef is what goes fullscreen, and the
-           gesture measures a slide by this box's width. */
+        /* Two owners, one element: imageRef is what goes fullscreen, and
+           Embla measures and clips inside this box. It sets `touch-action`
+           itself — `pan-y pinch-zoom`, so the page still scrolls vertically
+           under a finger that started on a picture. */
         ref={(node) => {
           imageRef.current = node
-          swipe.frameRef.current = node
+          carousel.viewportRef(node)
         }}
+        /* A stable hook for the probes, which cannot read which slide is in
+           front off a transform any more: Embla writes pixels, not a percent
+           per slide. Nothing styles off it. */
+        data-gallery-index={currentIndex}
         className={cn(
           "relative aspect-video overflow-hidden rounded-xl w-full group",
           !backgroundColor && "bg-muted",
-          isDragging ? "cursor-grabbing" : "cursor-grab",
+          "cursor-grab active:cursor-grabbing",
         )}
-        /* `pan-y`, not `none`: the browser's own horizontal pan would compete
-           with the strip and drop frames off the drag, but the page still has
-           to scroll vertically under a finger that started on a picture. */
-        style={{ touchAction: "pan-y", ...(backgroundColor ? { backgroundColor } : {}) }}
-        {...swipe.handlers}
+        /* `pan-y`, so a finger that lands on a picture can still scroll the
+           page while a sideways drag belongs to the carousel. Embla does not
+           set this itself; measured without it, touch-action came back as
+           `auto` and the browser took the horizontal gesture. */
+        style={{ touchAction: "pan-y pinch-zoom", ...(backgroundColor ? { backgroundColor } : {}) }}
         /**
          * A TAP OPENS IT, A SWIPE DOES NOT.
          *
          * `onClick` fires after a swipe too, so opening on a bare click would
          * put the viewer up every time somebody moved to the next picture.
-         * The gesture records how far the finger travelled; under ten pixels
-         * it was a tap rather than a swipe.
+         * Embla answers that question itself: `clickAllowed()` is false for
+         * the moment after a drag.
          *
          * Phone only, deliberately. On a desktop the gallery is 600px wide
          * beside the buy card and there is nothing a lightbox would add.
          */
         onClick={() => {
           if (!isPhone) return
-          /* How far the finger actually travelled on the gesture that just
-             ended. Under ten pixels it was a tap, not a swipe. */
-          if (swipe.lastTravel.current > 10) return
+          /* Embla's own answer to "was that a tap or the end of a drag". It
+             is false for the moment after a drag, which is what stops the
+             viewer opening on every slide change. */
+          if (!carousel.clickAllowed()) return
           if (mediaItems[currentIndex]?.type === "youtube") return
           setViewerOpen(true)
         }}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={() => {
-          setIsDragging(false)
-          setIsHovering(false)
-        }}
+        onMouseLeave={() => setIsHovering(false)}
         onMouseEnter={() => setIsHovering(true)}
       >
         {/*
@@ -463,21 +399,24 @@ export function ProductGallery({
             the transform is load-bearing.
           */
           data-keep-transform
-          ref={swipe.trackRef}
           /*
-            NO `style` AND NO TRANSITION CLASS. The hook owns both, because a
-            drag is written straight to this node every frame and a style prop
-            would be painted back over it on the next render. The class is
-            gone for the same reason: the transition has to be off during the
-            drag and on for the snap, and that is one decision made in one
-            place rather than two that have to agree.
+            NO `style` AND NO TRANSITION CLASS. Embla owns this node's
+            transform outright and writes it every frame of a drag and every
+            frame of the settle afterwards. A style prop here would be painted
+            back over it on the next render, and a transition class would
+            fight the engine's own easing.
           */
-          className="flex h-full w-full"
+          className="flex h-full"
         >
         {mediaItems.map((media, index) => (
           <div
             key={index}
-            className="relative h-full w-full shrink-0"
+            /* In loop mode Embla moves individual slides as well as the
+               strip, and globals.css deletes untagged transforms inside a
+               `.group` on every touch-only device. See the note on the strip
+               above; this is the same rule and the same exemption. */
+            data-keep-transform
+            className="relative h-full min-w-0 flex-[0_0_100%]"
           >
             {media.type === "image" && (
               /**
@@ -506,7 +445,28 @@ export function ProductGallery({
                   loaded[index] ? "opacity-100" : "opacity-0",
                 )}
                 priority={index === 0}
-                loading={index === 0 ? "eager" : "lazy"}
+                /**
+                 * THE NEIGHBOURS ARE FETCHED, WHICH IS THE "GAP".
+                 *
+                 * Every slide but the first was `lazy`, and a slide is held
+                 * transparent until its own picture decodes. Dragging toward
+                 * a picture that had not been asked for yet showed the empty
+                 * box behind it for as long as the fetch took — a gap between
+                 * one picture and the next, in the middle of the gesture.
+                 *
+                 * The one either side is the one about to be dragged to, so
+                 * it is fetched with the current one. The rest stay lazy: a
+                 * product with eight pictures should still not fetch eight
+                 * before anyone has asked.
+                 *
+                 * `index === 0` is part of the test and not redundant. That
+                 * slide carries `priority`, and Next throws outright on an
+                 * image with both `priority` and `loading="lazy"` — which is
+                 * what it became the moment the gallery moved two slides away
+                 * from it. The probe caught it; a visitor would have had the
+                 * whole page fall over on the third picture.
+                 */
+                loading={index === 0 || Math.abs(index - currentIndex) <= 1 ? "eager" : "lazy"}
                 onLoad={() => setLoaded((m) => (m[index] ? m : { ...m, [index]: true }))}
                 draggable={false}
               />
@@ -633,7 +593,7 @@ export function ProductGallery({
               )}
               onClick={(e) => {
                 e.stopPropagation()
-                goToPrevious()
+                carousel.scrollPrev()
                 handleUserInteraction()
               }}
               aria-label="Previous"
@@ -650,7 +610,7 @@ export function ProductGallery({
               )}
               onClick={(e) => {
                 e.stopPropagation()
-                goToNext()
+                carousel.scrollNext()
                 handleUserInteraction()
               }}
               aria-label="Next"
@@ -675,7 +635,7 @@ export function ProductGallery({
                 key={index}
                 onClick={(e) => {
                   e.stopPropagation()
-                  setCurrentIndex(index)
+                  carousel.scrollTo(index)
                   handleUserInteraction()
                 }}
                 className={cn(
@@ -702,7 +662,7 @@ export function ProductGallery({
                    these the way a visitor does. Nothing styles off it. */
                 data-gallery-thumb={index}
                 onClick={() => {
-                  setCurrentIndex(index)
+                  carousel.scrollTo(index)
                   handleUserInteraction()
                 }}
                 /**

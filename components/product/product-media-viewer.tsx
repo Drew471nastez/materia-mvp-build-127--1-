@@ -37,7 +37,7 @@ import Image from "next/image"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
-import { useSwipeTrack } from "@/lib/gestures/use-swipe-track"
+import { useMediaCarousel } from "@/lib/gestures/use-media-carousel"
 
 export interface ViewerMedia {
   type: "image" | "video" | "youtube"
@@ -81,22 +81,19 @@ export function ProductMediaViewer({
   }, [open, index, go])
 
   /**
-   * ONE GESTURE, NOT TWO COPIES OF IT.
+   * ONE ENGINE, AND IT IS THE GALLERY'S.
    *
    * This file had its own axis lock, its own rubber band and its own release
-   * test, written before lib/gestures/use-swipe-track existed — and that hook
-   * was lifted OUT of this file, with a header saying the gallery underneath
-   * would use the same one "rather than a second implementation that drifts".
-   * The second implementation was this one, still here, and it drifted: the
-   * gallery's release measures velocity over the end of the gesture and this
-   * one averaged it from the first touch, so the same flick committed in one
-   * place and sprang back in the other.
+   * test, and the gallery underneath had another — two hand-rolled copies of
+   * one gesture, which drifted, so the same flick changed the picture in the
+   * small gallery and sprang back full screen. Both are gone. See
+   * lib/gestures/use-media-carousel.
    *
-   * It also carried the same fault that made the gallery feel laggy: a
-   * setState on every touchmove, which is a React render per frame of the
-   * drag, of a component holding every full-screen picture.
+   * No loop here. Full screen the two ends are meaningful: reaching the last
+   * picture should feel like the last picture, not wrap silently to the
+   * first while somebody is looking at it.
    */
-  const swipe = useSwipeTrack({ index, count, onIndexChange: go })
+  const carousel = useMediaCarousel({ index, count, onIndexChange: go })
 
   if (count === 0) return null
 
@@ -123,8 +120,28 @@ export function ProductMediaViewer({
       <DialogContent
         showCloseButton={false}
         disableDefaultAnimations
+        /**
+         * ═══════════════════════════════════════════════════════════════════
+         *  NOTHING IS FOCUSED WHEN IT OPENS, WHICH IS THE BLUE BOX
+         * ═══════════════════════════════════════════════════════════════════
+         * A dialog moves focus inside itself when it opens, and the first
+         * focusable thing here is the close button. On iOS that focus is
+         * drawn: a blue rounded rectangle sitting around the X, for as long
+         * as the viewer is open, on a control nobody had touched.
+         *
+         * Opening a picture is a touch gesture and there is no keyboard in
+         * it, so the focus it moved was never wanted. It is prevented, and
+         * the panel takes it instead — Radix gives the content `tabindex=-1`
+         * for exactly this, and a programmatic focus on one of those draws
+         * nothing. The focus trap and Escape both still work, because both
+         * need focus inside the dialog and not on any particular control.
+         */
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          ;(e.currentTarget as HTMLElement | null)?.focus?.()
+        }}
         overlayClassName="media-viewer-overlay bg-black/95"
-        className="media-viewer-panel inset-0 flex h-auto w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden border-0 bg-transparent p-0 shadow-none sm:max-w-none"
+        className="media-viewer-panel inset-0 flex h-auto w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden border-0 bg-transparent p-0 shadow-none outline-none focus:outline-none focus-visible:outline-none sm:max-w-none"
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
 
@@ -133,7 +150,11 @@ export function ProductMediaViewer({
           type="button"
           onClick={() => onOpenChange(false)}
           aria-label="Close"
-          className="absolute z-20 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors active:bg-white/20"
+          /* `outline-none` for the pointer, a ring of our own for the
+             keyboard. Dropping the outline without putting anything back
+             would leave somebody tabbing through with no idea where they
+             are, which is a worse bug than the one being fixed. */
+          className="absolute z-20 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white outline-none backdrop-blur-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 active:bg-white/20"
           style={{
             top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
             right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
@@ -153,23 +174,21 @@ export function ProductMediaViewer({
         )}
 
         <div
-          ref={swipe.frameRef}
+          ref={carousel.viewportRef}
           className="relative flex-1 overflow-hidden"
-          /* touch-none, or the browser's own horizontal pan competes with the
-             track and the swipe drops frames. Full screen there is nothing
-             under this to scroll, so unlike the gallery it does not need to
-             leave `pan-y` to the page. */
+          /* `none` rather than the gallery's `pan-y`: full screen there is
+             nothing underneath to scroll, so the whole gesture is the
+             carousel's. Embla does not set this itself. */
           style={{ touchAction: "none" }}
-          {...swipe.handlers}
         >
           <div
-            ref={swipe.trackRef}
-            /* The hook writes this node's transform and its transition. See
-               the gallery for why neither belongs in a style prop. */
-            className="flex h-full w-full"
+            /* Embla owns this node's transform and writes it every frame, of
+               the drag and of the settle after it. Nothing else may style it. */
+            data-keep-transform
+            className="flex h-full"
           >
             {media.map((item, i) => (
-              <div key={i} className="relative h-full w-full shrink-0">
+              <div key={i} data-keep-transform className="relative h-full min-w-0 flex-[0_0_100%]">
                 {item.type === "image" ? (
                   <Image
                     src={item.url || "/placeholder.svg"}
