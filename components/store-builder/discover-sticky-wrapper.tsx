@@ -43,7 +43,7 @@ export function DiscoverStickyWrapper({ children }: { children: React.ReactNode 
    * reader was doing — while the subscribe bar one page over hid on the way
    * down and came back on the way up. Same hook now, so the two agree.
    */
-  const { visible } = useRevealOnScrollUp()
+  const { visible, ready: barPlaced } = useRevealOnScrollUp()
 
   /* The buy bar reads this and stays down while the top bar is up. See
      lib/store-builder/product-top-bar.ts for why the buy bar is not allowed
@@ -107,7 +107,18 @@ export function DiscoverStickyWrapper({ children }: { children: React.ReactNode 
       <div
         ref={measured}
         className={cn(
-          "z-30 transition-transform duration-300 ease-out motion-reduce:transition-none",
+          "z-30 motion-reduce:transition-none",
+          /*
+            THE TRANSITION IS ATTACHED ONLY ONCE THE BAR IS PLACED.
+
+            Arriving on a product page, this mounts while the scroll is still
+            wherever the previous page was, so the bar starts hidden and then
+            slides DOWN as the reset lands — filmed on production as the dark
+            creator bar easing into place over 200ms on every product open.
+            `barPlaced` is false for the first moments, so the opening frame
+            is a placement. Scrolling animates exactly as before.
+          */
+          barPlaced && "transition-transform duration-300 ease-out",
           pinned ? "fixed inset-x-0" : "sticky",
           !visible && "-translate-y-full",
         )}

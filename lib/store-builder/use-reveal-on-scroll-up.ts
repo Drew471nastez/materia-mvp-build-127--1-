@@ -93,11 +93,29 @@ export function useRevealOnScrollUp(enabled = true): RevealState {
       return
     }
     /*
-      Re-read on mount as well as in the initialiser. If restoration landed
-      after the first render this is the correction, and it happens before
-      `ready`, so it is a placement rather than a movement.
+      RE-READ ON MOUNT, AND AGAIN ON THE NEXT TWO FRAMES.
+
+      The scroll position at the moment this mounts is not necessarily the
+      one the page will settle at, and it is wrong in BOTH directions:
+
+        going back, the browser restores the old offset, which may land after
+        this component has already read zero;
+
+        going forward, the router resets to the top, which may land after
+        this has already read the 700px the previous page was at — and that
+        is the product page's own bar sliding DOWN into place over 300ms,
+        filmed at 928ms through 1155ms.
+
+      Re-reading over the first frames catches whichever lands late, and all
+      of it happens inside the SETTLE_MS window, so it is a placement rather
+      than a movement.
     */
-    setVisible(Math.max(window.scrollY, 0) < TOP_ZONE)
+    const place = () => setVisible(Math.max(window.scrollY, 0) < TOP_ZONE)
+    place()
+    const f1 = window.requestAnimationFrame(() => {
+      place()
+      window.requestAnimationFrame(place)
+    })
     let ticking = false
 
     const evaluate = () => {
@@ -125,7 +143,10 @@ export function useRevealOnScrollUp(enabled = true): RevealState {
 
     last.current = Math.max(window.scrollY, 0)
     window.addEventListener("scroll", onScroll, { passive: true })
-    return () => window.removeEventListener("scroll", onScroll)
+    return () => {
+      window.cancelAnimationFrame(f1)
+      window.removeEventListener("scroll", onScroll)
+    }
   }, [enabled])
 
   return { visible, ready }

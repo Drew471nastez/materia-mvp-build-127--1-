@@ -445,6 +445,26 @@ export function ProductGallery({
                  * whole page fall over on the third picture.
                  */
                 loading={index === 0 || Math.abs(index - currentIndex) <= 1 ? "eager" : "lazy"}
+                /*
+                  A PICTURE ALREADY IN THE CACHE IS NOT "LOADING".
+
+                  `loaded` starts empty, so every slide is held at opacity 0
+                  until its own onLoad. The first time a photograph is fetched
+                  that is right — it settles onto the grey box rather than
+                  snapping in. Opening the same product again, or coming back
+                  to it, the picture is already decoded and the gate is a
+                  fade over something that could simply have been there.
+
+                  `complete` is true for a cached image before the first
+                  paint, so this marks it loaded in the same commit and the
+                  transition has nothing to animate.
+                */
+                ref={(el) => {
+                  const img = el as HTMLImageElement | null
+                  if (img?.complete && img.naturalWidth > 0) {
+                    setLoaded((m) => (m[index] ? m : { ...m, [index]: true }))
+                  }
+                }}
                 onLoad={() => setLoaded((m) => (m[index] ? m : { ...m, [index]: true }))}
                 draggable={false}
               />
