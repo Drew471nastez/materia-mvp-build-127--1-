@@ -1646,14 +1646,18 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
       // Track old username for redirects (only if actually changing)
       const oldUsername = profile.username
-      if (oldUsername && oldUsername !== cleanUsername) {
-        try {
-          await supabase.from("username_history").insert({
-            user_id: profile.id,
-            old_username: oldUsername,
-            new_username: cleanUsername,
-          })
-        } catch {} // Non-fatal
+      const renamed = !!oldUsername && oldUsername !== cleanUsername
+      if (renamed) {
+        /* The row behind every "your old link still works" redirect. A
+           Supabase update RESOLVES with an error rather than throwing, so the
+           try/catch this replaces could never have caught one — the error was
+           simply dropped. */
+        const { error: historyError } = await supabase.from("username_history").insert({
+          user_id: profile.id,
+          old_username: oldUsername,
+          new_username: cleanUsername,
+        })
+        if (historyError) console.error("[settings] username_history insert failed:", historyError.message)
       }
 
       const { error: profileError } = await supabase
@@ -1683,14 +1687,35 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
       if (creatorError) throw creatorError
 
-      // Sync OnePage slug to match new username
-      if (oldUsername && oldUsername !== cleanUsername) {
-        try {
-          await supabase
-            .from("onepages")
-            .update({ slug: cleanUsername })
-            .eq("owner_id", profile.id)
-        } catch {} // Non-fatal
+      /**
+       * =====================================================================
+       *  A HANDLE IS THREE ADDRESSES, AND THEY MOVE TOGETHER OR NOT AT ALL
+       * =====================================================================
+       *   storelib.com/<handle>         the creator page  (profiles.username)
+       *   <handle>.storelib.com         the website       (creators.slug)
+       *   storelib.com/<handle>/links   the OnePage       (onepages.slug)
+       *
+       * The first two are updated above. This is the third, and it used to be
+       * wrapped in `try { } catch {}` marked "non-fatal" — but a Supabase
+       * update resolves with an error instead of throwing, so the catch never
+       * ran and the error was discarded either way. When it failed, the
+       * OnePage kept the old slug while the Share card went on advertising
+       * the new handle, and the address it gave out was a 404.
+       *
+       * It is not fatal, because the name change has already happened by the
+       * time we get here and there is nothing to roll back. It is not silent
+       * either: the save reports what did not move so it can be retried.
+       */
+      let onepageWarning: string | null = null
+      if (renamed) {
+        const { error: onepageError } = await supabase
+          .from("onepages")
+          .update({ slug: cleanUsername })
+          .eq("owner_id", profile.id)
+        if (onepageError) {
+          console.error("[settings] onepage slug sync failed:", onepageError.message)
+          onepageWarning = `Your details were saved, but your OnePage address could not be moved to storelib.com/${cleanUsername}/links. Save again to retry.`
+        }
       }
 
       // Save timezone to localStorage
@@ -1698,7 +1723,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         localStorage.setItem('storelib_timezone', selectedTimezone)
       }
 
-      setSuccess(true)
+      if (onepageWarning) {
+        setError(onepageWarning)
+      } else {
+        setSuccess(true)
+      }
       setShowSaveToast(true)
 
       // Check if language was changed
@@ -3635,7 +3664,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       {[
                         { title: "Your Store", from: `${username}.storelib.com`, to: displayDomain },
                         { title: "Your OnePage", from: `storelib.com/${username}/links`, to: `${displayDomain}/links` },
-                        { title: "Product Pages", from: `${username}.storelib.com/p/...`, to: `${displayDomain}/p/...` },
+                        { title: "Product Pages", from: `storelib.com/${username}/...`, to: `${displayDomain}/p/...` },
                       ].map((item, i) => (
                         <div key={i} className="group bg-[#f9fafb] hover:bg-[#f5f3ff]/50 rounded-xl p-3.5 border border-[#e5e7eb] hover:border-[#ede9fe] transition-all duration-200">
                           <p className="text-[13px] font-semibold text-[#374151] mb-2">{item.title}</p>

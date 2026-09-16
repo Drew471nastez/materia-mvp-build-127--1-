@@ -218,6 +218,34 @@ for (const file of [
   check(`${file} builds no /p/ link by hand`, !/[`"']\/p\/\$?\{/.test(src))
 }
 
+console.log("\nA handle is three addresses and they move together\n")
+
+/**
+ *   storelib.com/<handle>         profiles.username
+ *   <handle>.storelib.com         creators.slug
+ *   storelib.com/<handle>/links   onepages.slug
+ *
+ * A rename that moves two of the three leaves the OnePage advertising an
+ * address that 404s, which is what a creator reported. The third update was
+ * wrapped in `try {} catch {}` and marked non-fatal — and a Supabase update
+ * RESOLVES with an error rather than throwing, so the catch could never have
+ * run and the error was dropped either way.
+ */
+const settings = code("components/app/settings-form-new.tsx")
+check("the rename moves the creator page", /\.from\("profiles"\)[\s\S]{0,400}username: cleanUsername/.test(settings))
+check("and the website", /\.from\("creators"\)[\s\S]{0,200}slug: cleanUsername/.test(settings))
+check("and the OnePage", /\.from\("onepages"\)[\s\S]{0,200}slug: cleanUsername/.test(settings))
+check("and records the old handle for the redirect", /from\("username_history"\)/.test(settings))
+check(
+  "a failed OnePage move is reported rather than swallowed",
+  /if \(onepageError\) \{/.test(settings) && /setError\(onepageWarning\)/.test(settings),
+  "the error has to be BRANCHED ON and shown; naming the variable is not reading it",
+)
+check(
+  "no empty catch is left in the rename",
+  !/catch \{\} \/\/ Non-fatal/.test(settings),
+)
+
 console.log("\nThe subdomain is still the website\n")
 
 check(

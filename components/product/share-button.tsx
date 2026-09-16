@@ -103,12 +103,37 @@ export function ShareButton({
         variant="ghost"
         size={size}
         className={className}
+        /* The trigger is an icon and had no name, so it was a button that
+           announced nothing. */
+        aria-label="Share"
         onClick={() => setIsOpen(true)}
       >
         <Share2 className={iconSize} />
       </Button>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-[240px] p-4 rounded-2xl">
+        <DialogContent
+          className="max-w-[240px] p-4 rounded-2xl"
+          /**
+           * ===================================================================
+           *  A SHARE SHEET IS NOT A "STOP AND ANSWER THIS"
+           * ===================================================================
+           * The shared dialog scrim is `bg-black/50`, which is half of the
+           * page painted out — the product, its pictures and the bar at the
+           * top all go to a flat grey behind three buttons. That weight is
+           * right for a destructive confirmation, where the point is that
+           * nothing else matters until you answer.
+           *
+           * This is a choice of where to send a link. The page it is about
+           * should still be the page you are looking at, and the top bar in
+           * particular should not read as having been switched off. A quarter
+           * is enough separation for a white card with a shadow on it, and
+           * leaves the product legible underneath.
+           *
+           * Only this dialog. `overlayClassName` goes through tailwind-merge,
+           * so it replaces the opacity without touching any other layer.
+           */
+          overlayClassName="bg-black/25"
+        >
           <div className="flex flex-col gap-3">
             <Button
               className="w-full justify-center gap-2 h-14 rounded-xl bg-black text-white hover:bg-black/90 text-base font-medium"

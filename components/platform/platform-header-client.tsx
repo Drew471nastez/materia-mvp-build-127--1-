@@ -205,9 +205,18 @@ type SearchProduct = {
   }
 }
 
-/** Where a search result points. The handle when the row has one. */
+/**
+ * Where a search result points.
+ *
+ * `creators.slug` FIRST, because that is the column that actually holds the
+ * handle. Asked of the live database: `creators.username` exists and is null
+ * on every row sampled, while `slug` reads "zarrabianco", "ghazi-gharbi" —
+ * and it is `slug` that the rename in settings keeps in step with
+ * `profiles.username`. Preferring `username` would have quietly sent every
+ * result back to `/p/<slug>`.
+ */
 const productPath = (product: SearchProduct) =>
-  getProductInternalPath(product.slug, product.creator?.username || undefined)
+  getProductInternalPath(product.slug, product.creator?.slug || product.creator?.username || undefined)
 
 type Profile = {
   display_name?: string | null
