@@ -1,6 +1,7 @@
 "use client"
 
 import { memo, useState, useRef, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
@@ -160,6 +161,43 @@ export const ProductCard = memo(function ProductCard({
 }: ProductCardProps) {
   // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
   // Hooks must be declared before any early return (React rules).
+  const router = useRouter()
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  PREFETCHED ON INTENT, NOT ON SIGHT
+   * ═════════════════════════════════════════════════════════════════════════
+   * next/link prefetches a route when the link scrolls into view, and for a
+   * `force-dynamic` route that fetch stops at the nearest loading boundary —
+   * which this route deliberately has none of. So the prefetch worth having
+   * is the one that asks for the whole thing, and asking for the whole thing
+   * from every card in a grid would fetch a hundred product pages to open one.
+   *
+   * Intent is the middle. A pointer arriving over the card, a finger landing
+   * on it, or the keyboard reaching it all happen tens to hundreds of
+   * milliseconds before the press — most of the wait — and none of them
+   * happens for a card somebody merely scrolled past.
+   *
+   * ABOVE THE EARLY RETURN, with the rest of the hooks. tests/hook-order
+   * caught this sitting below one, which is React error #310 and a blank
+   * card rather than a slow one.
+   *
+   * The URL is carried in a ref because it is computed further down, after
+   * the branch that can return. Writing a ref during render is not state and
+   * not an effect; it is the same value every time for the same props.
+   */
+  const prefetched = useRef(false)
+  const prefetchUrl = useRef("")
+  const warm = useCallback(() => {
+    if (prefetched.current || !prefetchUrl.current) return
+    prefetched.current = true
+    try {
+      router.prefetch(prefetchUrl.current)
+    } catch {
+      /* A malformed href is the card's problem to show, not a reason to
+         throw out of a pointer event. */
+    }
+  }, [router])
+
   const touchStartY = useRef(0)
   const touchStartX = useRef(0)
   const didScroll = useRef(false)
@@ -205,6 +243,8 @@ export const ProductCard = memo(function ProductCard({
   const productUrl = discoverLayout
     ? `${baseProductUrl}${baseProductUrl.includes("?") ? "&" : "?"}layout=discover&recommended=1`
     : baseProductUrl
+  prefetchUrl.current = productUrl
+
   // "#" when username is unknown so the creator link is a safe no-op.
   const storeUrl = creatorUsername ? getStoreUrl(creatorUsername) : "#"
 
@@ -219,7 +259,14 @@ export const ProductCard = memo(function ProductCard({
           ? { backgroundColor: surface.backgroundColor, borderColor: surface.borderColor, color: surface.textColor }
           : undefined
       }
-      onTouchStart={onTouchStart}
+      /* Intent: a pointer arriving, a finger landing, or the keyboard getting
+         here. See the note on `warm`. */
+      onPointerEnter={warm}
+      onFocusCapture={warm}
+      onTouchStart={(e) => {
+        warm()
+        onTouchStart(e)
+      }}
       onTouchMove={onTouchMove}
       onClickCapture={onClickCapture}
     >

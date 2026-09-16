@@ -506,6 +506,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     const {
       data: { user: authUser },
     } = await userPromise
+  timer.mark("user")
 
     user = authUser
 
@@ -584,6 +585,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // The download API enforces entitlement; exposing file IDs is safe.
   if (assetsPromise) {
     const { data: assets } = await assetsPromise
+  timer.mark("assets")
 
     if (assets && assets.length > 0) {
       firstAssetId = assets[0].id
