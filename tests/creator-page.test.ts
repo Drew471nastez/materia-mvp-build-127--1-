@@ -1611,7 +1611,17 @@ function main() {
      * which is "the top bar is not showing". Read the inset, never branch on
      * a user agent.
      */
-    check("the toolbar sits under the status bar, not behind it", workspace.includes('paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)"'))
+    /**
+     * The padding beside the inset is not part of the question — it was 8px
+     * and is 5px, because the bar was asked to lose a little height, and
+     * scripts/check-workspace-bar is what measures that. What must not change
+     * is that the inset is READ: a bar that adds a fixed number instead sits
+     * behind the status bar on any phone whose notch is a different size.
+     */
+    check(
+      "the toolbar sits under the status bar, not behind it",
+      /paddingTop: "calc\(env\(safe-area-inset-top, 0px\) \+ \d+px\)"/.test(workspace),
+    )
     check("and nothing sniffs a user agent to do it", !/navigator\.userAgent|isNativeApp\(\)/.test(workspace))
 
     /** A form that opens to the whole screen is a page, not a sheet. */
