@@ -2221,9 +2221,44 @@ html.keyboard-open [data-page="library"] main {
   55% { opacity: 0.2; transform: scale(1.08) }
   100% { opacity: 0.16; transform: scale(1) }
 }
+/* ── The arrow becomes a spinner while the page is on its way ──────────────
+ *
+ * A RING WITH A GAP, not a chasing dot and not three bouncing ones. The bar
+ * is quiet and this sits inside a 19px box next to a name, so the only thing
+ * it is allowed to do is turn.
+ *
+ * It borrows the icon's own colour through `currentColor`, which is what
+ * keeps it correct on every colour scheme a creator can pick: the bar's text
+ * colour is set from the theme, and a spinner with a colour of its own would
+ * be the one element that ignores it.
+ *
+ * The track is the same colour at a sixth, so the ring reads as a ring rather
+ * than as a single arc floating in space, and the two together weigh about as
+ * much as the arrow they replaced.
+ */
+.bar-control-spinner {
+  border-radius: 9999px;
+  border: 2px solid color-mix(in srgb, currentColor 16%, transparent);
+  border-top-color: currentColor;
+  animation: bar-control-spin 620ms linear infinite;
+  pointer-events: none;
+}
+@keyframes bar-control-spin {
+  to { transform: rotate(360deg) }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bar-control, .bar-control-pressed { transition: none }
   .bar-control-disc, .bar-control-disc.is-on { animation: none; transition: none }
+  /*
+    STILL A RING, JUST NOT TURNING. Removing the animation and leaving the gap
+    would be a static broken circle, which says nothing. A complete ring at a
+    low opacity reads as "waiting" without moving.
+  */
+  .bar-control-spinner {
+    animation: none;
+    border-color: color-mix(in srgb, currentColor 38%, transparent);
+  }
 }
 
 /* ── The product bar's menu opens where it was pressed ───────────────────────

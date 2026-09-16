@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { createPortal } from "react-dom"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -571,8 +572,48 @@ function usePressFeedback(): [boolean, { onPointerDown: () => void }] {
   return [pressed, { onPointerDown }]
 }
 
-function BackControl({ onBack, label }: { onBack: () => void; label: string }) {
+/**
+ * ===========================================================================
+ *  AND THEN IT SAYS IT IS GOING
+ * ===========================================================================
+ * The press was acknowledged — the disc, the sink, the haptic — and then
+ * nothing happened until the next page arrived. On a product page that is a
+ * navigation with a server round trip in it, so the gap is real, and a
+ * control that answers a touch and then goes quiet reads as a control that
+ * did not work. That is what makes going back feel jumpy: nothing, nothing,
+ * a new page.
+ *
+ * So the arrow turns into a spinner while the page is on its way.
+ *
+ * NOT IMMEDIATELY, and that is the whole craft of it. Most backs are a
+ * client-side transition and land in well under a tenth of a second; a
+ * spinner shown at once would be a flash of something a person cannot read,
+ * which is worse than no spinner at all. It waits SPINNER_DELAY_MS, which is
+ * long enough that a fast transition never shows one and short enough that a
+ * slow one is covered.
+ *
+ * The two swap by crossfade, both absolutely placed on the same centre, so
+ * the icon does not move, resize or shift the bar. The press disc underneath
+ * is untouched: acknowledgement belongs at the moment of contact, and this is
+ * about the wait afterwards.
+ */
+const SPINNER_DELAY_MS = 110
+/** How long a back is given before the arrow comes back. */
+const BACK_GIVE_UP_MS = 4000
+
+function BackControl({ onBack, label, pending }: { onBack: () => void; label: string; pending: boolean }) {
   const [pressed, press] = usePressFeedback()
+  /** Pending for long enough to be worth showing, rather than merely pending. */
+  const [showSpinner, setShowSpinner] = useState(false)
+  useEffect(() => {
+    if (!pending) {
+      setShowSpinner(false)
+      return
+    }
+    const id = window.setTimeout(() => setShowSpinner(true), SPINNER_DELAY_MS)
+    return () => window.clearTimeout(id)
+  }, [pending])
+
   return (
     <button
       type="button"
@@ -580,6 +621,7 @@ function BackControl({ onBack, label }: { onBack: () => void; label: string }) {
       onClick={onBack}
       aria-label={label}
       title={label}
+      aria-busy={showSpinner || undefined}
       className={cn(
         "relative -ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
         "select-none outline-none",
@@ -593,7 +635,27 @@ function BackControl({ onBack, label }: { onBack: () => void; label: string }) {
         colour can only appear; this comes up under the finger.
       */}
       <span aria-hidden className={cn("bar-control-disc", pressed && "is-on")} />
-      <ArrowLeft className="relative h-[19px] w-[19px]" strokeWidth={2} />
+      {/*
+        One box, two icons on the same centre. Laying them out in flow would
+        move the arrow by a pixel as the spinner mounted, which is exactly the
+        twitch this is supposed to remove.
+      */}
+      <span className="relative block h-[19px] w-[19px]">
+        <ArrowLeft
+          className={cn(
+            "absolute inset-0 h-[19px] w-[19px] transition-opacity duration-200 ease-sheet",
+            showSpinner ? "opacity-0" : "opacity-100",
+          )}
+          strokeWidth={2}
+        />
+        <span
+          aria-hidden
+          className={cn(
+            "bar-control-spinner absolute inset-0 transition-opacity duration-200 ease-sheet",
+            showSpinner ? "opacity-100" : "opacity-0",
+          )}
+        />
+      </span>
     </button>
   )
 }
@@ -847,6 +909,34 @@ export function LiveProductCreatorBar({
    * Anything else goes to the creator's page, which is where the product
    * belongs.
    */
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  A TRANSITION, NOT A NEW DOCUMENT
+   * ═════════════════════════════════════════════════════════════════════════
+   * The fallback used to be `window.location.href = …`, which throws the page
+   * away and loads another from scratch: a white flash, the fonts again, the
+   * whole shell again. That is the jump. `router.push` keeps the document and
+   * swaps the route, so the creator's page arrives the way it does from any
+   * other link in the app.
+   *
+   * `startTransition` is what makes the wait legible. It marks the navigation
+   * as non-urgent, and `isPending` is true for exactly as long as React is
+   * waiting for the route — which is the signal the spinner needs. Without it
+   * there is no way to know the difference between "instant" and "still
+   * going", and the control has to either flash a spinner at everybody or
+   * show one to nobody.
+   *
+   * Going BACK cannot report that way: a popstate is the browser's, not
+   * React's. So pending is set by hand and left for the page to end by
+   * unmounting. If the navigation somehow does not happen — a history entry
+   * that is not ours, a blocked back — BACK_GIVE_UP_MS puts the arrow back
+   * rather than leaving a creator looking at a spinner for ever.
+   */
+  const router = useRouter()
+  const [backPending, startBackTransition] = useTransition()
+  /** True from the moment a back is asked for until this page goes away. */
+  const [leaving, setLeaving] = useState(false)
+
   const goBack = useCallback(() => {
     if (typeof window === "undefined") return
     const referrer = document.referrer
@@ -857,11 +947,27 @@ export function LiveProductCreatorBar({
       cameFromHere = false
     }
     if (cameFromHere && window.history.length > 1) {
+      setLeaving(true)
       window.history.back()
       return
     }
-    if (creatorHref && creatorHref !== "#") window.location.href = creatorHref
-  }, [creatorHref])
+    if (creatorHref && creatorHref !== "#") {
+      startBackTransition(() => {
+        router.push(creatorHref)
+      })
+    }
+  }, [creatorHref, router])
+
+  /**
+   * The back half has no completion event of its own, so it is given a limit.
+   * Long enough that a slow page still shows the spinner throughout, short
+   * enough that a back which did nothing does not look like a hang.
+   */
+  useEffect(() => {
+    if (!leaving) return
+    const id = window.setTimeout(() => setLeaving(false), BACK_GIVE_UP_MS)
+    return () => window.clearTimeout(id)
+  }, [leaving])
 
   useEffect(() => {
     setIsHydrated(true)
@@ -1063,7 +1169,7 @@ export function LiveProductCreatorBar({
         width: out, who, and more.
       */}
       <div data-product-bar="phone" className="flex w-full items-center gap-2.5 px-3 py-2 sm:hidden">
-        <BackControl onBack={goBack} label="Back" />
+        <BackControl onBack={goBack} label="Back" pending={backPending || leaving} />
 
         <SmartLink
           href={creatorHref}
@@ -1087,7 +1193,7 @@ export function LiveProductCreatorBar({
       <div className={cn("hidden sm:block py-[calc(0.625rem+5px)] px-4 sm:px-5")}>
         <div className={cn("mx-auto w-full", LIVE_DESKTOP_MAX_W)}>
           <div className="w-full flex items-center gap-3">
-            <BackControl onBack={goBack} label="Back" />
+            <BackControl onBack={goBack} label="Back" pending={backPending || leaving} />
             <SmartLink
               href={creatorHref}
               className="flex items-center gap-2 min-w-0 group"
