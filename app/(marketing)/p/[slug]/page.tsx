@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
+import { startPhaseTimer } from "@/lib/perf/phase-timer"
 import {
   loadCreator,
   loadCreatorProfile,
@@ -194,7 +195,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const { purchase, already_owned, src, layout, recommended, embedded } = await searchParams
   const showDiscoverBreadcrumb = recommended === "1"
   const inEditorCanvas = embedded === "1"
+  const timer = startPhaseTimer("product-timing", slug)
   const supabase = await createClient()
+  timer.mark("client")
 
   /*
     ONE LOOKUP FOR THE WHOLE REQUEST. The layout and generateMetadata ask the
@@ -357,6 +360,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     loadStoreConfig(product.creator_id, "product"),
     loadProductPageConfig(product.creator_id, product.id),
   ])
+  timer.mark("creatorAndConfig")
 
   const creatorProfile: any = creatorProfileRow
 
@@ -591,6 +595,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // Product Variants (for variant selection)
   // ---------------------------------------------------------------------------
   const { data: productVariants } = await variantsPromise
+  timer.mark("variants")
 
   // Transform variants data - price_cents is the FINAL price for the variant
   const variants = productVariants?.map(v => ({
@@ -637,6 +642,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // More products from seller (for "More from seller" section)
   // ---------------------------------------------------------------------------
   const { data: moreProducts } = await moreProductsPromise
+  timer.mark("moreProducts")
+  timer.done()
 
   const moreProductsData: ProductData[] =
     moreProducts?.map((p) => ({
