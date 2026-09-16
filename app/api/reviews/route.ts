@@ -1,7 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { revalidateTag } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { resolveSellerEmail, sendReviewNotificationEmail } from "@/lib/email"
+import { productTag } from "@/lib/commerce/product-page-cache"
 
 // GET - Fetch reviews for a product
 export async function GET(request: NextRequest) {
@@ -153,6 +155,15 @@ export async function POST(request: NextRequest) {
   }
 
   console.log("[reviews] ✅ Review created successfully:", review.id)
+
+  /*
+    THE PRODUCT PAGE'S REVIEWS ARE SHARED BETWEEN VISITORS NOW
+    (lib/commerce/product-page-cache.ts), so a review that is written and then
+    not there when the buyer looks is the same bug as a save that appears to
+    do nothing. The tag clears it immediately; the sixty-second backstop is
+    only there for the paths that forget, and this one does not.
+  */
+  revalidateTag(productTag(productId), "max")
 
   // Create notification and send email to seller (don't block response on this)
   const creatorUserId = (product.creator as any)?.user_id
