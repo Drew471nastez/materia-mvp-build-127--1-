@@ -130,10 +130,20 @@ async function main() {
   await evaluate(`window.scrollTo(0, 700); "ok"`)
   await sleep(900)
 
+  /*
+    A CARD THAT IS ACTUALLY ON SCREEN.
+
+    This used to take the first product link in the document, which after
+    scrolling down is one that has already gone past the top — a run of this
+    probe picked a link at y=-339 and filmed a journey nobody could have
+    taken. Every reading from it was unusable and it looked like a finding.
+  */
   const target = await evaluate(`(() => {
     const links = [...document.querySelectorAll("a[href]")].filter((a) => {
       const p = new URL(a.href, location.href).pathname.split("/").filter(Boolean)
-      return p.length === 2 && p[1] !== "links"
+      if (p.length !== 2 || p[1] === "links") return false
+      const b = a.getBoundingClientRect()
+      return b.top > 80 && b.bottom < window.innerHeight - 40 && b.width > 80
     })
     if (!links.length) return null
     const b = links[0].getBoundingClientRect()
