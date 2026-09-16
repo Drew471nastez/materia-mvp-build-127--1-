@@ -30,15 +30,74 @@ const DELTA = 6
 /** Always visible this near the top, whichever way the last movement went. */
 const TOP_ZONE = 50
 
-export function useRevealOnScrollUp(enabled = true): boolean {
-  const [visible, setVisible] = useState(true)
+export interface RevealState {
+  /** Whether the bar belongs on screen right now. */
+  visible: boolean
+  /**
+   * False for the first moments after mount, while the page settles where it
+   * is being restored to. A caller must not attach its transition until this
+   * is true, or the bar animates into its opening position.
+   */
+  ready: boolean
+}
+
+/**
+ * ===========================================================================
+ *  AND IT DOES NOT ANIMATE INTO ITS OPENING POSITION
+ * ===========================================================================
+ * `visible` started as `true` unconditionally, which is right for a page
+ * opened at the top and wrong for every page RESTORED by the back button.
+ *
+ * Coming back, the browser puts the scroll where it was — 700px down, say —
+ * and this component mounts fresh with `visible: true`. So the bar paints
+ * across the top of a page that is scrolled half way down, the first scroll
+ * evaluation decides it should be hidden, and it slides up and off over
+ * 300ms. Filmed on production going back from a product page, that is a
+ * black newsletter bar over the top of the grid for a third of a second, on
+ * every single return:
+ *
+ *      76ms   the bar, full width, over the grid
+ *     152ms   sliding up
+ *     273ms   nearly gone
+ *     371ms   gone
+ *
+ * That is the flash in the header. It is not the platform header at all.
+ *
+ * TWO CHANGES, AND BOTH ARE NEEDED. Reading the scroll position in the
+ * initialiser fixes the common case. It is not enough on its own, because
+ * scroll restoration does not have a guaranteed order against mount — if the
+ * component mounts first it still reads 0, still starts visible, and still
+ * slides. So the caller is also told not to attach its transition until the
+ * position has settled, and the bar simply IS wherever it belongs on the
+ * first frame.
+ */
+const SETTLE_MS = 180
+
+export function useRevealOnScrollUp(enabled = true): RevealState {
+  const [visible, setVisible] = useState(() => {
+    if (typeof window === "undefined") return true
+    return Math.max(window.scrollY, 0) < TOP_ZONE
+  })
+  const [ready, setReady] = useState(false)
   const last = useRef(0)
+
+  /* Nothing may animate until the page has stopped being put back. */
+  useEffect(() => {
+    const id = window.setTimeout(() => setReady(true), SETTLE_MS)
+    return () => window.clearTimeout(id)
+  }, [])
 
   useEffect(() => {
     if (!enabled) {
       setVisible(true)
       return
     }
+    /*
+      Re-read on mount as well as in the initialiser. If restoration landed
+      after the first render this is the correction, and it happens before
+      `ready`, so it is a placement rather than a movement.
+    */
+    setVisible(Math.max(window.scrollY, 0) < TOP_ZONE)
     let ticking = false
 
     const evaluate = () => {
@@ -69,5 +128,5 @@ export function useRevealOnScrollUp(enabled = true): boolean {
     return () => window.removeEventListener("scroll", onScroll)
   }, [enabled])
 
-  return visible
+  return { visible, ready }
 }

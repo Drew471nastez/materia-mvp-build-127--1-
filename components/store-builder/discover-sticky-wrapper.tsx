@@ -43,7 +43,7 @@ export function DiscoverStickyWrapper({ children }: { children: React.ReactNode 
    * reader was doing — while the subscribe bar one page over hid on the way
    * down and came back on the way up. Same hook now, so the two agree.
    */
-  const visible = useRevealOnScrollUp()
+  const { visible } = useRevealOnScrollUp()
 
   /* The buy bar reads this and stays down while the top bar is up. See
      lib/store-builder/product-top-bar.ts for why the buy bar is not allowed
