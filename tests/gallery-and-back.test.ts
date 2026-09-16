@@ -147,15 +147,20 @@ console.log("\nThe back arrow\n")
     "without a pending signal the control must flash a spinner at everybody or show one to nobody",
   )
   /*
-    THE TWO USED TO BE ADJACENT LINES and this check pinned them that way.
-    They are not adjacent any more: the sheet that turns a back from a cut
-    into a transition goes up in between (components/navigation/
-    page-leave-veil.tsx), so the navigation now happens on a delay.
+    CHECKED BY ORDER, NOT BY PROXIMITY. This used to pin the two as adjacent
+    lines, which broke the moment anything was inserted between them.
 
-    The property worth holding was never the adjacency — it is that the bar
-    marks itself as leaving BEFORE the navigation, because a popstate has no
-    completion event to set it from afterwards. That is what is checked now,
-    by order rather than by proximity.
+    What was inserted, briefly, was a cross-fade: a sheet of the page's own
+    colour rose over it for 190ms and the navigation happened underneath. It
+    filmed clean and it looked cheap — on a white product page a dissolve
+    through a flat colour is a white flash — so it is gone, along with the
+    check that pinned it. A page transition has to MOVE to read as one, and
+    that is blocked on the buy bar being `position: fixed` inside the page
+    root; the note in product-creator-bar says what would have to change.
+
+    The property worth holding either way is that the bar marks itself as
+    leaving BEFORE the navigation, because a popstate has no completion event
+    to set it from afterwards.
   */
   check(
     "going back holds its own state, because a popstate has no completion event",
@@ -163,10 +168,9 @@ console.log("\nThe back arrow\n")
       bar.indexOf("setLeaving(true)") < bar.indexOf("window.history.back()"),
   )
   check(
-    "and it leaves on a transition rather than on the frame of the press",
-    /const wait = beginPageLeave\(\)/.test(bar) &&
-      /setTimeout\(\(\) => window\.history\.back\(\), wait\)/.test(bar),
-    "history.back() on the press frame restores a cached route in one frame, which reads as a cut",
+    "and nothing washes the page out on the way",
+    !/beginPageLeave/.test(bar) && !/page-leave-veil/.test(bar),
+    "a dissolve through a flat colour is a white flash, which is worse than the cut it replaced",
   )
   check(
     "and gives up rather than spinning for ever",
