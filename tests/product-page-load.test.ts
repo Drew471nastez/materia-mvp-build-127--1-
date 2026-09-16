@@ -98,9 +98,15 @@ function main() {
   const body = page.slice(metaEnd)
   check("the page reads the product through the loader", /const \{ product, viaHistory \} = await loadProductBySlug\(slug\)/.test(body))
   check("the page looks the product up by slug nowhere itself", !/\.eq\("slug", slug\)/.test(body))
-  /* It still queries `products` once, for more from this seller. That is a
-     different question, not a second copy of the row. */
-  check("its one remaining products query is the seller's other work", countFrom(body, "products") === 1 && /\.neq\("id", product\.id\)/.test(body))
+  /* The seller's other work was the page's last `products` query of its own.
+     It is the same question for every visitor, so it moved into the shared
+     cache with the variants and the reviews; the `.neq` that excludes the
+     product you are looking at went with it. */
+  check("the page has no products query left of its own", countFrom(body, "products") === 0)
+  check(
+    "and the seller's other work still excludes this product",
+    /\.neq\("id", excludeProductId\)/.test(read("lib/commerce/product-page-cache.ts")),
+  )
   check("and no slug history", countFrom(body, "product_slug_history") === 0)
   check("the creator, both configs and the override go through loaders too",
     /loadCreator\(product\.creator_id\)/.test(body) &&

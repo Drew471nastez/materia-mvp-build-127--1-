@@ -52,6 +52,7 @@ const SUITES = [
   "tests/product-media.test.ts",
   "tests/creator-url.test.ts",
   "tests/marketing-weight.test.ts",
+  "tests/product-cache-scope.test.ts",
   "tests/reserved-segments.test.ts",
   "tests/import-shadowing.test.ts",
   "tests/admin-dashboard.test.ts",
