@@ -79,13 +79,23 @@ async function main() {
   let id = 0
   const pending = new Map()
   const docRequests = []
+  let mainFrameId = null
   ws.addEventListener("message", (ev) => {
     const msg = JSON.parse(ev.data)
     if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg.result ?? {}); pending.delete(msg.id); return }
-    /* Every navigation that went to the network, so "was coming back free?"
-       is answered by evidence rather than by feel. */
+    /*
+      Navigations of the PAGE, so "was coming back free?" is answered by
+      evidence rather than by feel.
+
+      THE MAIN FRAME ONLY. An iframe is a document too, and this creator's page
+      embeds three YouTube players — so counting every Document request made
+      the probe report a free, 52ms client navigation back as "a full load".
+      The page has one main frame and its id does not change across a client
+      navigation; everything else is somebody's embed.
+    */
     if (msg.method === "Network.requestWillBeSent" && msg.params?.type === "Document") {
-      docRequests.push({ url: msg.params.request.url, at: Date.now() })
+      const isMain = mainFrameId && msg.params.frameId === mainFrameId
+      docRequests.push({ url: msg.params.request.url, at: Date.now(), isMain: !!isMain })
     }
   })
   let sessionId = null
@@ -99,6 +109,8 @@ async function main() {
   const { targetId } = await send("Target.createTarget", { url: "about:blank" }, null)
   sessionId = (await send("Target.attachToTarget", { targetId, flatten: true }, null)).sessionId
   await send("Page.enable"); await send("Runtime.enable"); await send("Network.enable")
+  mainFrameId = (await send("Page.getFrameTree"))?.frameTree?.frame?.id ?? null
+  if (!mainFrameId) { reap(); fail("Could not identify the page's main frame, so a page load could not be told from an embed.") }
   await send("Emulation.setDeviceMetricsOverride", { width: 430, height: 900, deviceScaleFactor: 2, mobile: true })
   await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 })
 
@@ -140,12 +152,12 @@ async function main() {
     if (!arrived) await sleep(100)
   }
   report.toProduct = arrived
-  report.docRequestsAfterPress = docRequests.length
+  report.docRequestsAfterPress = docRequests.filter((d) => d.isMain).length
 
   await sleep(1200)
 
   /* And back, the way the browser's own back does it. */
-  const backStarted = docRequests.length
+  const backStarted = docRequests.filter((d) => d.isMain).length
   await evaluate(`window.__t1 = performance.now(); window.__productPath = location.pathname; history.back(); "ok"`)
   let returned = null
   for (let i = 0; i < 80 && !returned; i++) {
@@ -159,8 +171,9 @@ async function main() {
   await sleep(1200)
   report.back = returned
   report.scrollAfterSettle = await evaluate(`Math.round(window.scrollY)`)
-  report.docRequestsOnBack = docRequests.length - backStarted
-  report.docUrls = docRequests.map((d) => d.url.replace("https://storelib.com", "")).slice(0, 12)
+  report.docRequestsOnBack = docRequests.filter((d) => d.isMain).length - backStarted
+  report.embedsOnBack = docRequests.filter((d) => !d.isMain).length
+  report.docUrls = docRequests.map((d) => `${d.isMain ? "page  " : "embed "}${d.url.replace("https://storelib.com", "")}`).slice(0, 12)
   report.scrollRestoration = await evaluate(`history.scrollRestoration`)
 
   await send("Target.closeTarget", { targetId }, null)
@@ -173,10 +186,10 @@ console.log(`\n  start: ${r.start}`)
 console.log(`  scrolled to ${r.scrolledTo}px, then pressed ${r.pressed.href}`)
 console.log("")
 console.log(`  to the product page:  ${r.toProduct ? `${r.toProduct.ms}ms  ("${r.toProduct.title}")` : "never arrived"}`)
-console.log(`  document requests during that press: ${r.docRequestsAfterPress - 1}`)
+console.log(`  page loads during that press: ${r.docRequestsAfterPress - 1}`)
 console.log("")
 console.log(`  back:                 ${r.back ? `${r.back.ms}ms  -> ${r.back.path}` : "never returned"}`)
-console.log(`  document requests on back: ${r.docRequestsOnBack}  ${r.docRequestsOnBack === 0 ? "(free, from the client router)" : "(a full load)"}`)
+console.log(`  page loads on back: ${r.docRequestsOnBack}  ${r.docRequestsOnBack === 0 ? "(free, from the client router)" : "(a full load)"}`)
 console.log(`  scroll on return:     ${r.back ? r.back.scrollY : "?"}px, settled at ${r.scrollAfterSettle}px  (was ${r.scrolledTo}px)`)
 console.log(`  history.scrollRestoration: ${r.scrollRestoration}`)
 console.log("  documents fetched:"); for (const u of r.docUrls || []) console.log("    " + u)
@@ -186,7 +199,7 @@ if (!r.toProduct) problems.push("The product page never arrived after pressing a
 else if (r.toProduct.ms > 2000) problems.push(`The product page took ${r.toProduct.ms}ms to show its title. Past about two seconds a press stops feeling connected to the result.`)
 if (!r.back) problems.push("Pressing back never returned to the grid.")
 else {
-  if (r.docRequestsOnBack > 0) problems.push(`Coming back cost ${r.docRequestsOnBack} document request(s). Back should be free: the page was already rendered once.`)
+  if (r.docRequestsOnBack > 0) problems.push(`Coming back cost ${r.docRequestsOnBack} page load(s). Back should be free: the page was already rendered once.`)
   const drift = Math.abs(r.scrollAfterSettle - r.scrolledTo)
   if (drift > 120) {
     problems.push(`Back landed at ${r.scrollAfterSettle}px having left from ${r.scrolledTo}px, a drift of ${drift}px. Losing your place in a grid is the thing that makes browsing feel like a website rather than an app.`)
