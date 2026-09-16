@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createHash, timingSafeEqual } from "node:crypto"
+import { createHash, scryptSync, timingSafeEqual } from "node:crypto"
 import { ADMIN_COOKIE, SESSION_MAX_AGE, issueSessionToken } from "@/lib/admin-session"
 
 /** `node:crypto`, and a cookie that must be set on the real host. */
@@ -18,13 +18,47 @@ export const dynamic = "force-dynamic"
  * so everybody who could read the repo could sign in, and the only way to
  * change either was a deploy. They come from the environment now.
  *
- * THERE IS NO DEFAULT PASSWORD. With `BLOG_ADMIN_PASSWORD` unset this route
- * refuses everybody, including whoever set it up, because a default password
- * on an endpoint that can delete accounts is the same bug in a different
- * place. Set it in the environment and the login works again; the username
- * keeps its old value unless `BLOG_ADMIN_USER` says otherwise.
+ * THERE IS A BUILT-IN CREDENTIAL AGAIN, AND IT IS NOT WRITTEN DOWN.
+ *
+ * What was asked for is a login that works with nothing configured. What that
+ * cannot mean is the password back in this file as a string. This cookie
+ * opens a dashboard over the whole platform and, through
+ * /api/admin/spam-purge, can delete user accounts — and a password in source
+ * is a password that everybody with the repository has, that stays in the
+ * history long after it is changed, and that gets tried on other things
+ * because people reuse passwords.
+ *
+ * So what is in the file is a SCRYPT DIGEST and the salt it was made with.
+ * The login works exactly as asked with nothing set anywhere; reading this
+ * file does not tell you the password; and scrypt is deliberately slow and
+ * memory-hard, so the digest is not a cheap thing to guess against either.
+ *
+ * `BLOG_ADMIN_PASSWORD` still wins when it is set. That is how to rotate
+ * without a deploy, and how to have a password this file has never seen.
+ * `BLOG_ADMIN_USER` still overrides the username, which is compared without
+ * regard to case because a username is not a secret.
  */
 const EXPECTED_USER = (process.env.BLOG_ADMIN_USER || "storelib").trim()
+
+/**
+ * The built-in credential. `scryptSync(password, salt, 32)` and the salt,
+ * both hex. Changing the password without an environment variable means
+ * replacing these two lines with a fresh pair.
+ */
+const BUILTIN_SALT = "f541f0ac1d61bdf5f7d4cdb491dcef77"
+const BUILTIN_DIGEST = "43235df7deb6e096ac31b957e9ed18a166d37b950044a6533b8d4df171b3fe46"
+
+/** Constant time against the built-in digest. */
+function matchesBuiltin(password: string): boolean {
+  const want = Buffer.from(BUILTIN_DIGEST, "hex")
+  let got: Buffer
+  try {
+    got = scryptSync(password, BUILTIN_SALT, want.length)
+  } catch {
+    return false
+  }
+  return got.length === want.length && timingSafeEqual(got, want)
+}
 
 /** Constant time, and length-independent because the digests are equal size. */
 function sameSecret(a: string, b: string): boolean {
@@ -34,13 +68,9 @@ function sameSecret(a: string, b: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  /* The environment when it is set, the built-in digest when it is not.
+     Never a default written out as a string. */
   const expectedPassword = process.env.BLOG_ADMIN_PASSWORD ?? ""
-  if (!expectedPassword) {
-    return NextResponse.json(
-      { error: "Blog admin is not configured. Set BLOG_ADMIN_PASSWORD in the environment." },
-      { status: 503 },
-    )
-  }
 
   let username = ""
   let password = ""
@@ -73,7 +103,7 @@ export async function POST(req: NextRequest) {
    */
   const ok =
     sameSecret(username.toLowerCase(), EXPECTED_USER.toLowerCase()) &&
-    sameSecret(password, expectedPassword)
+    (expectedPassword ? sameSecret(password, expectedPassword) : matchesBuiltin(password))
   if (!ok) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
 
   const token = issueSessionToken()

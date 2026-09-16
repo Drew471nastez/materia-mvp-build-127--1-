@@ -56,9 +56,27 @@ function main() {
     check("no password is assigned a literal", !/PASSWORD\s*=\s*"[^"]+"/.test(route))
     check("the sign-in name comes from the environment too", /process\.env\.BLOG_ADMIN_USER/.test(route))
     check("the password comes from the environment", /process\.env\.BLOG_ADMIN_PASSWORD/.test(route))
+    /**
+     * THIS ASKED FOR NO DEFAULT AT ALL, AND THERE IS ONE NOW, BY REQUEST: the
+     * login has to work with nothing configured. The question underneath it
+     * has not moved, and it is the one that matters — can somebody who reads
+     * this file sign in.
+     *
+     * A scrypt digest and its salt answer no. A string answers yes, for ever,
+     * including in the history after it is changed. So the shape is checked
+     * instead of the absence: a derived digest, compared in constant time,
+     * and an environment variable that still takes precedence over it.
+     */
     check(
-      "and there is no default for it, so an unconfigured deploy lets nobody in",
-      /if \(!expectedPassword\)[\s\S]{0,200}status: 503/.test(route) && !/BLOG_ADMIN_PASSWORD \|\|/.test(route),
+      "the built-in default is a digest, not a password",
+      /const BUILTIN_DIGEST = "[0-9a-f]{64}"/.test(route) &&
+        /scryptSync\(password, BUILTIN_SALT/.test(route) &&
+        /timingSafeEqual\(got, want\)/.test(route),
+    )
+    check(
+      "and the environment still overrides it",
+      /expectedPassword \? sameSecret\(password, expectedPassword\) : matchesBuiltin\(password\)/.test(route),
+      "that is how it is rotated without a deploy",
     )
     check("the answer never says which half was wrong", (route.match(/Invalid credentials/g) ?? []).length === 1)
     check("both halves are compared in constant time", /timingSafeEqual/.test(route) && /sameSecret\(username/.test(route) && /sameSecret\(password/.test(route))

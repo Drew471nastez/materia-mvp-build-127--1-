@@ -121,11 +121,44 @@ check(
     !/username(\.toLowerCase\(\))? === EXPECTED_USER/.test(auth) &&
     !/password === expectedPassword/.test(auth),
 )
+/**
+ * THE BUILT-IN CREDENTIAL IS A DIGEST, NEVER A PASSWORD.
+ *
+ * This pin used to say "no default password at all", and the default is back
+ * by request: the login has to work with nothing configured. The question it
+ * was really asking is unchanged, though, and it is the one that matters —
+ * can somebody who reads this file sign in. A scrypt digest and its salt
+ * answer no; a string answers yes, for ever, including in the history after
+ * it is changed.
+ */
 check(
-  "with no default password",
+  "the built-in credential is a scrypt digest",
+  /const BUILTIN_DIGEST = "[0-9a-f]{64}"/.test(auth) &&
+    /const BUILTIN_SALT = "[0-9a-f]{16,}"/.test(auth) &&
+    /scryptSync\(password, BUILTIN_SALT/.test(auth),
+  "reading the file must not tell you the password",
+)
+check(
+  "and it is compared in constant time",
+  /timingSafeEqual\(got, want\)/.test(auth),
+)
+check(
+  "the environment still overrides it",
   /const expectedPassword = process\.env\.BLOG_ADMIN_PASSWORD \?\? ""/.test(auth) &&
-    /if \(!expectedPassword\)/.test(auth),
-  "a default password on a route that can delete accounts is the same bug somewhere else",
+    /expectedPassword \? sameSecret\(password, expectedPassword\) : matchesBuiltin\(password\)/.test(auth),
+  "that is how it is rotated without a deploy",
+)
+/**
+ * The literal-password check. A `const PASSWORD = "…"` is exactly what this
+ * route was hardened against, and it is the shape to refuse rather than the
+ * particular value.
+ */
+check(
+  "and no password is written out as a string",
+  !/(PASSWORD|password)\s*[:=]\s*"[^"]{6,}"/.test(
+    auth.replace(/process\.env\.\w+/g, "").replace(/BUILTIN_(SALT|DIGEST) = "[0-9a-f]+"/g, ""),
+  ),
+  "a password in source is a password everybody with the repository has",
 )
 
 console.log("\nA figure that could not be read is never printed as a zero\n")
