@@ -132,10 +132,19 @@ async function main() {
     press back. That is the path with a history entry, and the one the sheet
     is for. So the probe walks it.
   */
+  /*
+    DIRECT=1 checks the OTHER path on purpose: land on the product page with
+    nothing behind it, press back, and assert that no sheet is raised. That
+    path pushes the creator's page — a server render — and a sheet held over
+    a wait of unknown length is a coloured screen for as long as the server
+    takes. Filmed before it was split out, the sheet went up at 202ms and the
+    route did not change until 1372ms.
+  */
+  const direct = process.env.DIRECT === "1"
   await send("Page.navigate", { url: START })
   await sleep(9000)
 
-  const wentIn = await evaluate(`(() => {
+  const wentIn = direct ? { ok: true, skipped: "DIRECT=1" } : await evaluate(`(() => {
     const links = [...document.querySelectorAll("a[href]")].filter((a) => {
       const p = new URL(a.href, location.href).pathname.split("/").filter(Boolean)
       return p.length === 2 && p[1] !== "links"
@@ -146,7 +155,7 @@ async function main() {
   })()`)
   report.wentIn = wentIn
   if (!wentIn?.ok) { reap(); fail(`Could not get to a product page: ${wentIn?.reason ?? "no result"}`) }
-  await sleep(9000)
+  if (!direct) await sleep(9000)
 
   const ready = await evaluate(`(() => ({
     veil: !!document.querySelector(".page-leave-veil"),
@@ -158,7 +167,7 @@ async function main() {
   if (!ready) { reap(); fail('The readiness probe returned nothing, so the page never evaluated it.') }
   if (!ready?.veil) { reap(); fail(`No .page-leave-veil on the product page. What the browser saw: ${JSON.stringify(ready)}`) }
   if (!ready?.back) { reap(); fail('No button[aria-label="Back"] on the product page, so nothing could be pressed.') }
-  if (ready.path === new URL(START).pathname) { reap(); fail("The card press did not leave the creator page, so there is no back to measure.") }
+  if (!direct && ready.path === new URL(START).pathname) { reap(); fail("The card press did not leave the creator page, so there is no back to measure.") }
 
   /*
     The camera, then the press. Both inside the page, so the first sample is
@@ -218,6 +227,21 @@ async function main() {
   console.log("\n" + JSON.stringify(report, null, 2) + "\n")
 
   const problems = []
+  if (direct) {
+    /*
+      The whole assertion for this path is the absence of a sheet. A route
+      change is not required: the push may still be in flight when the film
+      ends, and that is exactly why nothing should be covering the page.
+    */
+    if (peak.o > 0.02) problems.push(`a sheet was raised on the push path (peak ${peak.o}) — that wait has no known length`)
+    reap()
+    if (problems.length) {
+      console.error("PROBLEMS:\n  - " + problems.join("\n  - ") + "\n")
+      process.exit(1)
+    }
+    console.log(`No sheet on the push path: peak opacity ${peak.o}, the page stays put while the creator's page is fetched.\n`)
+    process.exit(0)
+  }
   if (peak.o < 0.95) problems.push(`the veil never became opaque (peak ${peak.o}) — the page was still visible through the swap`)
   if (!swapped) problems.push("the route never changed, so the back did nothing")
   if (swapped && swapped.o < 0.95) problems.push(`the route changed at opacity ${swapped.o} — the swap was visible, which is the cut this replaces`)
