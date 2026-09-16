@@ -2009,7 +2009,31 @@ function main() {
     check("and it is the origin that decides, not a leading slash",
       /const internalPath = toSameOriginPath\(resolvedHref\)/.test(link))
     check("and the routes that must reload still do", /useClientNav === false \|\|/.test(link) && /startsWith\("\/library"\)/.test(link))
-    check("the product page has a skeleton to show while it streams", existsSync(join(root, "app/(marketing)/p/[slug]/loading.tsx")))
+    /*
+      AND THE PRODUCT PAGE HAS NO SKELETON, WHICH IS THE OPPOSITE OF WHAT THIS
+      LINE USED TO ASSERT.
+
+      A loading boundary is not a delay you can tune: the router swaps the
+      page for it the instant a navigation starts. Filmed on production, a
+      press of a product card gave a fifth of a second of blank — the route
+      had swapped, the skeleton was still transparent under its own deferral —
+      and then a second of grey furniture before the product arrived.
+
+      Without it the router keeps the grid until the product is ready, and
+      components/nav-pending answers the press on the card that was pressed.
+      tests/marketing-weight holds the decision, what it costs on a cold
+      direct visit, and what would let it come back.
+    */
+    check(
+      "and the product page has no boundary to swap that grid out for",
+      !existsSync(join(root, "app/(marketing)/p/[slug]/loading.tsx")),
+      "a boundary throws away the page somebody is reading the moment they press something on it",
+    )
+    check(
+      "so the card answers the press itself",
+      /<NavPending \/>/.test(code("components/explore/product-card.tsx")),
+      "with nothing swapping in, the pressed card is the only thing left to say the press landed",
+    )
     check("and so does the creator page", existsSync(join(root, "app/(marketing)/u/[username]/loading.tsx")))
 
     /**

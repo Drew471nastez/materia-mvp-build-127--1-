@@ -15,7 +15,7 @@
  *
  * Run with:  npm run test:push
  */
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { stripComments } from "./_source"
@@ -270,17 +270,23 @@ console.log("\nThe sticky add to cart, and the wait before a product page\n")
     looking at is noise, and every detail it gets wrong is a jump when the
     real content lands.
   */
-  const skeleton = readFileSync(join(root, "app/(marketing)/p/[slug]/loading.tsx"), "utf8")
-  const shapes = (skeleton.match(/animate-pulse/g) ?? []).length
-  check("the product skeleton is the shape of the page, not a copy of it", shapes <= 4, `${shapes} pulsing shapes`)
+  /*
+    The skeleton is gone entirely now, and that is the point: a loading
+    boundary is not a delay you can tune, so trimming it only made the grey
+    page smaller. tests/marketing-weight holds the decision and its cost;
+    what matters here is that the press is still answered.
+  */
   check(
-    "and it still holds the same grid, so nothing jumps when the page lands",
-    /max-w-\[1200px\]/.test(skeleton) && /lg:grid-cols-5/.test(skeleton) && /lg:col-span-3/.test(skeleton),
+    "the product route has no loading boundary to swap the grid out for",
+    !existsSync(join(root, "app/(marketing)/p/[slug]/loading.tsx")) &&
+      !existsSync(join(root, "app/(marketing)/[sellername]/[productSlug]/loading.tsx")),
+    "a boundary replaces the page you are on the instant a navigation starts",
   )
   check(
-    "and it waits before showing itself",
-    /skeleton-deferred/.test(skeleton),
-    "a load that beats the delay should show nothing at all",
+    "and the card that was pressed answers instead",
+    /useLinkStatus/.test(code("components/nav-pending.tsx")) &&
+      /<NavPending \/>/.test(code("components/explore/product-card.tsx")),
+    "without a boundary the only thing left to say a press landed is the card itself",
   )
 }
 

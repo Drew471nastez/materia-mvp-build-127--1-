@@ -136,8 +136,56 @@ const KNOWN_GAPS = new Set([
   "app/(marketing)/wishlist",
   "app/(marketing)/blog/explore/categories/[category]",
 ])
+
+/**
+ * ===========================================================================
+ *  AND ONE ROUTE HAS NONE ON PURPOSE, WHICH IS NOT THE SAME AS NOT YET
+ * ===========================================================================
+ * The list above is work outstanding. This is a decision, and it is kept
+ * apart from that list so nobody "finishes" it by accident.
+ *
+ * A loading boundary is not a delay you can tune. The router swaps the page
+ * for it the instant a navigation starts, so a boundary on the product route
+ * meant every press of a product card threw away the grid somebody was
+ * reading. Filmed on production, from the tap:
+ *
+ *     +   9ms   the grid
+ *     +  71ms   blank — the route had swapped and the skeleton was still
+ *     + 194ms   transparent under its own 200ms deferral
+ *     + 256ms   the skeleton fading up
+ *     +1188ms   still the skeleton
+ *     +1265ms   the product
+ *
+ * A fifth of a second of nothing, then a second of grey furniture. Without
+ * the boundary the router keeps the current page until the next one is ready,
+ * and components/nav-pending answers the press on the card that was pressed.
+ *
+ * WHAT IT COSTS, because it does cost something. A boundary is also the
+ * streaming fallback on a cold DIRECT visit — somebody opening a shared link.
+ * Without one the server finishes the page before any HTML is sent, so first
+ * paint moves later and then arrives complete, rather than arriving early as
+ * a grey approximation. That trade is deliberate: one complete paint beats a
+ * grey one followed by a real one, and the path being optimised — pressing a
+ * card — is the common one.
+ *
+ * Give the product page a real streaming shell and this can come back.
+ */
+const DELIBERATELY_NONE = new Map([
+  ["app/(marketing)/p/[slug]", "the router keeps the grid instead; see the note above"],
+  ["app/(marketing)/[sellername]/[productSlug]", "the same page at its nested address"],
+])
+
 for (const page of dynamicPages) {
   const dir = dirname(page).replace(/\\/g, "/")
+  const why = DELIBERATELY_NONE.get(dir)
+  if (why) {
+    check(
+      `${dir} has no loading boundary, deliberately`,
+      !existsSync(join(dir, "loading.tsx")),
+      `this route is listed as having none on purpose (${why}), so finding one means the two disagree`,
+    )
+    continue
+  }
   if (KNOWN_GAPS.has(dir)) {
     console.log(`  --    ${dir} has no loading boundary (known, listed in this file)`)
     continue

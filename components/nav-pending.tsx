@@ -6,11 +6,17 @@
  * ===========================================================================
  * "I click a product card and there is no sign that I clicked on it."
  *
- * The navigation itself is a client one now, so the next page's skeleton does
- * arrive — but only once the router has something to show. In between there
- * is a gap, and on a slow connection the gap is most of a second of a card
- * sitting there looking untouched. A person's second press during that gap is
- * not impatience; it is the interface failing to answer the first one.
+ * The navigation is a client one, and the product route has no loading
+ * boundary any more — on purpose. A boundary is not a delay you can tune: the
+ * router swaps the page for it the instant a navigation starts, so every tap
+ * threw away the grid somebody was reading and replaced it with a grey copy
+ * of a page. Without it the router KEEPS the page you are on until the next
+ * one is ready, which is right, and leaves exactly one problem: a press with
+ * no answer.
+ *
+ * This is that answer. The gap is most of a second on a slow connection, and
+ * a person's second press during it is not impatience; it is the interface
+ * failing to answer the first one.
  *
  * `useLinkStatus` is Next's own answer: it reports whether the <Link> this is
  * rendered inside is currently navigating. It only works inside a real Link,
