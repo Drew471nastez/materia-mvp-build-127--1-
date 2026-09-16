@@ -143,10 +143,37 @@ function main() {
   /* ---------------------------------------------------------------------
      THE ARRIVAL
      --------------------------------------------------------------------- */
-  console.log("\n  the arrival is a fade, not a swap")
+  console.log("\n  the arrival is a swap, not a fade")
 
-  check("both of the page's branches fade in", (page.match(/className="app-page-enter min-h-screen w-full"/g) || []).length === 2)
-  check("on the rule the rest of the product already uses", /\.app-page-enter \{\s*\n\s*animation: app-page-enter 380ms/.test(css))
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THIS USED TO REQUIRE THE FADE. IT NOW REQUIRES ITS ABSENCE.
+    ═══════════════════════════════════════════════════════════════════════
+    `.app-page-enter` animates an element from opacity 0 over 380ms. On a
+    panel inside an /app page, on a background of its own colour, that reads
+    as content settling in and it is what the rule was written for.
+
+    On a product page it fills the window, so the first painted frame is the
+    BODY behind it — white — and the page fades up out of that. Filmed on
+    production over a real navigation (scripts/check-nav-flash.mjs): the first
+    frame of the product page measured 97% white pixels and stayed above 82%
+    for 120ms before anything was legible.
+
+    That is the flash that was reported three times, and it was never the
+    navigation: the router keeps the previous page on screen until this one is
+    ready, and then this page fades itself in out of nothing. So the check is
+    inverted rather than deleted, because the next person to reach for
+    `app-page-enter` here will be solving the problem it causes.
+  */
+  check(
+    "neither branch of the page fades itself in",
+    !/className="app-page-enter/.test(page),
+    "a full-window fade from opacity 0 paints the white body first; that is the flash",
+  )
+  check(
+    "and the rule still exists for the /app pages it was written for",
+    /\.app-page-enter \{\s*\n\s*animation: app-page-enter 380ms/.test(css),
+  )
   /*
     THE ONE THING THAT WOULD BREAK THIS PAGE. A product page has two
     `position: fixed` bars. A transform, a filter or a will-change for either
