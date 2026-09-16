@@ -231,9 +231,19 @@ function main() {
     /* The lift was the bump; what settles now is the discs and the shadow. */
     check("and selecting one settles rather than snapping", picker.includes("transition-[left]") && picker.includes("box-shadow] duration-200"))
 
-    /** Every one of them tells the workspace, so nothing needs a reload button. */
+    /**
+     * Every one of them tells the workspace, so nothing needs a reload button.
+     *
+     * They say it through `useSaveThenRefresh` now rather than inline, because
+     * it has to happen AFTER the sheet has finished leaving — on the same line
+     * as the close, the page redrew underneath a sheet that was still
+     * animating down. So each editor is checked for its half, and the sheet
+     * for the other.
+     */
+    const editorSheet = read("components/storefront/editor-sheet.tsx")
+    check("the sheet tells the workspace once it has gone", editorSheet.includes("notifyEditorSaved()"))
     for (const [name, src] of [["the bar", bar], ["the profile", profile], ["About", about]] as const) {
-      check(`${name} editor tells the workspace it saved`, src.includes("notifyEditorSaved()"))
+      check(`${name} editor reports a save to the sheet`, src.includes("markSaved()"))
     }
   }
 

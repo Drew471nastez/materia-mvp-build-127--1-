@@ -18,13 +18,11 @@
 
 import * as React from "react"
 import { useSavedValues } from "@/lib/store-builder/use-saved-values"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
-import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
-import { EditorSheet } from "@/components/storefront/editor-sheet"
+import { EditorSheet, useSaveThenRefresh } from "@/components/storefront/editor-sheet"
 import { ImageUpload } from "@/components/app/image-upload"
 import { Pencil, Plus } from "lucide-react"
 import type { AboutMediaItem } from "@/lib/store-builder/types"
@@ -46,7 +44,7 @@ export interface EditAboutButtonProps {
 }
 
 export function EditAboutButton({ headline, story, media, contactEmail = "" }: EditAboutButtonProps) {
-  const router = useRouter()
+  const { markSaved, onClosed } = useSaveThenRefresh()
   const [open, setOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -112,10 +110,9 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
       }
       setOpen(false)
       // The server re-renders and the new story appears without a reload.
-      /* Inside the workspace the frame reloads; at its own address the
-         refresh below is the only thing that can show the save. */
-      notifyEditorSaved()
-      router.refresh()
+      /* The page changes once the sheet has gone, not underneath it on its
+         way down. useSaveThenRefresh + onClosed in editor-sheet. */
+      markSaved()
     } catch {
       setError("Could not reach the server. Check your connection and try again.")
     } finally {
@@ -136,6 +133,7 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
 
       <EditorSheet
         open={open}
+        onClosed={onClosed}
         onClose={() => setOpen(false)}
         title="Your story"
         wide

@@ -19,12 +19,10 @@
  * works on a desktop and silently does nothing on a phone.
  */
 import * as React from "react"
-import { useRouter } from "next/navigation"
 import { ArrowDown, ArrowUp, GripVertical, ListOrdered } from "lucide-react"
 
-import { EditorSheet } from "@/components/storefront/editor-sheet"
+import { EditorSheet, useSaveThenRefresh } from "@/components/storefront/editor-sheet"
 import { hapticTap } from "@/lib/native-bridge"
-import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
 import { cn } from "@/lib/utils"
 
 export interface ArrangeableProduct {
@@ -40,7 +38,7 @@ export function ArrangeProductsButton({
   products: ArrangeableProduct[]
   className?: string
 }) {
-  const router = useRouter()
+  const { markSaved, onClosed } = useSaveThenRefresh()
   const [open, setOpen] = React.useState(false)
   const [order, setOrder] = React.useState<ArrangeableProduct[]>(products)
   const [saving, setSaving] = React.useState(false)
@@ -216,18 +214,18 @@ export function ArrangeProductsButton({
        * takes, immediately after pressing Save, which is what "it becomes
        * white and disappears" is, and what "a very direct, cheap reset" is.
        *
-       * `router.refresh()` re-renders the server components in place and
-       * reconciles the result into the DOM that is already there. The
-       * reordered grid slides into its new order under a sheet that is
-       * animating out, with no white frame at any point.
+       * A refresh re-renders the server components in place and reconciles
+       * the result into the DOM that is already there, with no white frame at
+       * any point.
        *
-       * `notifyEditorSaved` is the other half, for the workspace: inside the
-       * builder's frame this page is an iframe and the frame reloads it, and
-       * both are asked for so whichever applies happens. Every other editor
-       * on this page already finished exactly this way.
+       * AND IT WAITS FOR THE SHEET. It used to run on the same line as the
+       * close, so the reordered grid redrew underneath a sheet that was still
+       * animating down — two things at once, neither finishing before the
+       * other started. `markSaved` records that there is something to show;
+       * `useSaveThenRefresh` in editor-sheet does the refresh, and the
+       * workspace's reload with it, once the sheet has actually gone.
        */
-      notifyEditorSaved()
-      router.refresh()
+      markSaved()
     } catch (e) {
       setError(e instanceof Error ? e.message : "That did not save.")
     } finally {
@@ -276,6 +274,7 @@ export function ArrangeProductsButton({
 
       <EditorSheet
         open={open}
+        onClosed={onClosed}
         onClose={() => setOpen(false)}
         title="Arrange products"
         onSave={save}

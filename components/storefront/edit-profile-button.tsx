@@ -17,13 +17,12 @@
  */
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { EditorSheet } from "@/components/storefront/editor-sheet"
+import { EditorSheet, useSaveThenRefresh } from "@/components/storefront/editor-sheet"
 import type { FocalPoint } from "@/lib/images/use-focal-drag"
 import { useCoverAspect } from "@/components/storefront/use-cover-aspect"
 import { useSavedValues } from "@/lib/store-builder/use-saved-values"
@@ -31,7 +30,6 @@ import { ImageUpload } from "@/components/app/image-upload"
 import { Pencil, Wand2 } from "lucide-react"
 import { SocialLinksEditor } from "@/components/social/social-links-editor"
 import { SchemePicker } from "@/components/storefront/scheme-picker"
-import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
 import type { SocialPlatformKey } from "@/lib/social/platforms"
 
 // The platforms, their order and their icons all come from
@@ -84,7 +82,7 @@ export function EditProfileButton({
   display,
   themePreset = "default",
 }: EditProfileButtonProps) {
-  const router = useRouter()
+  const { markSaved, onClosed } = useSaveThenRefresh()
   const [open, setOpen] = React.useState(false)
   /**
    * BELT AND BRACES FOR THE WORKSPACE. `embedded` arrives as a prop from the
@@ -207,10 +205,9 @@ export function EditProfileButton({
        * used to come straight back from the edge, unchanged, which is why the
        * page had to be hard-reloaded to show a save. See next.config.mjs.
        */
-      /* Inside the workspace the frame around this reloads the page; at its
-         own address the refresh below is the only thing that can. */
-      notifyEditorSaved()
-      router.refresh()
+      /* The page changes once the sheet has gone, not underneath it on its
+         way down. useSaveThenRefresh + onClosed in editor-sheet. */
+      markSaved()
     } catch {
       setError("Could not reach the server. Check your connection and try again.")
     } finally {
@@ -269,6 +266,7 @@ export function EditProfileButton({
 
       <EditorSheet
         open={open}
+        onClosed={onClosed}
         onClose={() => setOpen(false)}
         title="Profile details"
         wide

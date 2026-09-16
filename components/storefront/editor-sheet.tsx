@@ -48,7 +48,9 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
-import { notifyEditorSheet } from "@/lib/store-builder/editor-channel"
+import { useRouter } from "next/navigation"
+
+import { notifyEditorSaved, notifyEditorSheet } from "@/lib/store-builder/editor-channel"
 import { cn } from "@/lib/utils"
 
 export function EditorField({
@@ -118,6 +120,45 @@ export function EditorSelect({
   )
 }
 
+/** The phone sheet's own snap, from MobileEditorSheet. */
+export const SHEET_EXIT_MS_PHONE = 360
+/** The drawer's Radix exit, the `duration-200` in components/ui/dialog. */
+export const SHEET_EXIT_MS_DESKTOP = 200
+
+/**
+ * ===========================================================================
+ *  SAVE, CLOSE, AND THEN SHOW THE RESULT
+ * ===========================================================================
+ * The four editors on a creator page all did the same thing, and all did it
+ * at the same moment as the close. Pair this with `onClosed` and the order
+ * becomes: the request finishes, the sheet leaves, and only then does the
+ * page behind it change.
+ *
+ * `markSaved` is what separates a save from a cancel — closing with Cancel
+ * must not refresh anything, because nothing changed.
+ */
+export function useSaveThenRefresh() {
+  const router = useRouter()
+  const pending = React.useRef(false)
+
+  return React.useMemo(
+    () => ({
+      markSaved: () => {
+        pending.current = true
+      },
+      onClosed: () => {
+        if (!pending.current) return
+        pending.current = false
+        /* Inside the workspace the frame around this reloads the page; at its
+           own address the refresh is the only thing that can show the save. */
+        notifyEditorSaved()
+        router.refresh()
+      },
+    }),
+    [router],
+  )
+}
+
 export function EditorSheet({
   open,
   onClose,
@@ -129,6 +170,7 @@ export function EditorSheet({
   saveLabel = "Save",
   children,
   wide = false,
+  onClosed,
 }: {
   open: boolean
   onClose: () => void
@@ -140,8 +182,42 @@ export function EditorSheet({
   saveLabel?: React.ReactNode
   children: React.ReactNode
   wide?: boolean
+  /** Runs once the sheet has finished leaving. See the note below. */
+  onClosed?: () => void
 }) {
   const phone = useIsPhone()
+
+  /**
+   * ===========================================================================
+   *  THE SHEET LEAVES FIRST, AND THE PAGE CHANGES AFTER
+   * ===========================================================================
+   * Every editor did `setOpen(false)` and `router.refresh()` on the same line.
+   * The refresh re-renders the whole page from a new server payload, and that
+   * commit landed in the middle of the sheet's exit — so the sheet stuttered
+   * on its way down while the page redrew underneath it, and the result
+   * appeared halfway through the animation instead of at the end of it. That
+   * is the "abrupt" part: two things happening at once, neither finishing
+   * before the other starts.
+   *
+   * So the close plays on its own, and whatever the caller wanted to do
+   * afterwards happens when the sheet is actually gone. The delay is the
+   * sheet's own exit: the phone sheet snaps in SNAP_DURATION_MS and the
+   * desktop drawer's Radix exit is 200ms, which is the `duration-200` in
+   * components/ui/dialog.
+   */
+  const closedRef = React.useRef(onClosed)
+  closedRef.current = onClosed
+  const wasOpen = React.useRef(open)
+
+  React.useEffect(() => {
+    const leaving = wasOpen.current && !open
+    wasOpen.current = open
+    if (!leaving) return
+    const fn = closedRef.current
+    if (!fn) return
+    const timer = setTimeout(fn, phone ? SHEET_EXIT_MS_PHONE : SHEET_EXIT_MS_DESKTOP)
+    return () => clearTimeout(timer)
+  }, [open, phone])
 
   /**
    * THE DIM HAS TO REACH THE BAR ABOVE THE FRAME.

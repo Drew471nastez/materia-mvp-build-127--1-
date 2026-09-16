@@ -29,12 +29,10 @@
 
 import * as React from "react"
 import { useSavedValues } from "@/lib/store-builder/use-saved-values"
-import { useRouter } from "next/navigation"
 import { Pencil } from "lucide-react"
 
-import { EditorField, EditorSelect, EditorSheet } from "@/components/storefront/editor-sheet"
+import { EditorField, EditorSelect, EditorSheet, useSaveThenRefresh } from "@/components/storefront/editor-sheet"
 import { ColorField } from "@/components/storefront/color-field"
-import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
 
 const MAX_TEXT = 120
 const MAX_BUTTON = 30
@@ -87,7 +85,7 @@ export function EditCtaButton({
    */
   onPreview?: (draft: CtaValues | null) => void
 }) {
-  const router = useRouter()
+  const { markSaved, onClosed } = useSaveThenRefresh()
   const [open, setOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -172,8 +170,9 @@ export function EditCtaButton({
         and a refresh is the only way to see it, so both are asked for and
         whichever applies happens.
       */
-      notifyEditorSaved()
-      router.refresh()
+      /* The page changes once the sheet has gone, not underneath it on its
+         way down. useSaveThenRefresh + onClosed in editor-sheet. */
+      markSaved()
     } catch {
       setError("Could not reach the server. Check your connection and try again.")
     } finally {
@@ -204,6 +203,7 @@ export function EditCtaButton({
 
       <EditorSheet
         open={open}
+        onClosed={onClosed}
         onClose={close}
         title="The bar at the top"
         busy={saving}

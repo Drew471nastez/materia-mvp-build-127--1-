@@ -217,14 +217,22 @@ check(
  * A control experiment put the reload back and every check in this file still
  * passed, which is why this one exists.
  */
+/**
+ * BOTH HALVES MOVED, AND THE QUESTIONS DID NOT. The refresh and the
+ * workspace's reload used to sit inline here; they are in
+ * `useSaveThenRefresh` now, so that they can run when the sheet has finished
+ * leaving rather than while it is still on its way down. What must not come
+ * back is the browser reload, and what must still happen is both halves.
+ */
+const editorSheetSrc = code("components/storefront/editor-sheet.tsx")
 check(
   "saving the order refreshes the page rather than reloading the browser",
-  !/window\.location\.reload/.test(arrange) && /router\.refresh\(\)/.test(arrange),
+  !/window\.location\.reload/.test(arrange) && /markSaved\(\)/.test(arrange),
   "a reload is a white screen for the length of the round trip",
 )
 check(
-  "and the workspace's frame is told too",
-  /notifyEditorSaved\(\)/.test(arrange),
+  "and the refresh, with the workspace's frame, is what that leads to",
+  /router\.refresh\(\)/.test(editorSheetSrc) && /notifyEditorSaved\(\)/.test(editorSheetSrc),
   "inside the builder this page is an iframe and the frame is what reloads it",
 )
 
@@ -338,6 +346,46 @@ check(
 check(
   "neither leaves the old price on a line of its own",
   !/mt-1 flex items-center gap-2">\s*<span\s+className="text-(lg|base) line-through/.test(productPage),
+)
+
+console.log("\nThe sheet leaves before the page changes\n")
+
+/**
+ * Every editor on a creator page did `setOpen(false)` and `router.refresh()`
+ * on the same line. The refresh re-renders the whole page from a new server
+ * payload, and that commit landed in the middle of the sheet's exit — so the
+ * sheet stuttered on the way down while the page redrew underneath it, and
+ * the result appeared halfway through the animation instead of at the end.
+ * Two things at once, neither finishing before the other started, which is
+ * what "abrupt" is.
+ *
+ * `markSaved` records that there is something to show; the sheet calls
+ * `onClosed` when it has actually gone.
+ */
+const EDITORS = [
+  "components/storefront/edit-profile-button.tsx",
+  "components/storefront/edit-about-button.tsx",
+  "components/storefront/edit-cta-button.tsx",
+  "components/storefront/arrange-products-button.tsx",
+]
+for (const file of EDITORS) {
+  const src = code(file)
+  check(`${file} defers the refresh`, /markSaved\(\)/.test(src) && /onClosed=\{onClosed\}/.test(src))
+  check(
+    `${file} does not refresh on the way down`,
+    !/router\.refresh\(\)/.test(src),
+    "a refresh on the same line as the close redraws the page under a sheet that is still animating",
+  )
+}
+
+check(
+  "the sheet waits for its own exit before calling back",
+  /setTimeout\(fn, phone \? SHEET_EXIT_MS_PHONE : SHEET_EXIT_MS_DESKTOP\)/.test(editorSheetSrc),
+  "the delay has to be the sheet's own animation, not a number somebody liked",
+)
+check(
+  "and only a save refreshes, never a cancel",
+  /if \(!pending\.current\) return/.test(editorSheetSrc),
 )
 
 console.log("\nA stuck finger does not erase a button it is resting on\n")

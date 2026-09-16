@@ -2568,10 +2568,17 @@ check(
     /**
      * And the save still asks for the re-render. Without this the header would
      * only mean the NEXT navigation was fresh.
+     *
+     * The call moved into `useSaveThenRefresh` so that it can run when the
+     * sheet has finished leaving rather than underneath it on the way down.
+     * Both halves are checked: the dialog asks, and the sheet does it.
      */
     const dialog = code("components/storefront/edit-profile-button.tsx")
-    if (!/router\.refresh\(\)/.test(dialog))
-      missing.push("saving a profile no longer refreshes the page")
+    const sheetSrc = code("components/storefront/editor-sheet.tsx")
+    if (!/markSaved\(\)/.test(dialog))
+      missing.push("saving a profile no longer asks for the page to be re-read")
+    if (!/router\.refresh\(\)/.test(sheetSrc))
+      missing.push("the sheet no longer refreshes the page after a save")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -2765,7 +2772,10 @@ check(
     for (const [name, src] of [["the profile dialog", profile], ["the story dialog", about]] as const) {
       if (!/data\.storefront === false/.test(src))
         missing.push(`${name} still reports success for a save that never reached the storefront`)
-      if (!/router\.refresh\(\)/.test(src)) missing.push(`${name} no longer refreshes the page`)
+      /* The refresh moved into `useSaveThenRefresh`, so that it runs when the
+         sheet has finished leaving rather than under it on the way down. The
+         dialog's half is asking for it. */
+      if (!/markSaved\(\)/.test(src)) missing.push(`${name} no longer asks for the page to be re-read`)
     }
 
     /**

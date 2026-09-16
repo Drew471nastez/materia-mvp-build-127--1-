@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { setProductTopBarRevealed } from "@/lib/store-builder/product-top-bar"
 import { isNativeApp } from "@/lib/platform-utils"
 import { useRevealOnScrollUp } from "@/lib/store-builder/use-reveal-on-scroll-up"
+import { useScrollLocked } from "@/lib/store-builder/use-scroll-locked"
 import { cn } from "@/lib/utils"
 
 /**
@@ -51,15 +52,56 @@ export function DiscoverStickyWrapper({ children }: { children: React.ReactNode 
     setProductTopBarRevealed(visible)
   }, [visible])
 
+  /**
+   * ===========================================================================
+   *  A MODAL TAKES THE SCROLLING AWAY, AND STICKY GOES WITH IT
+   * ===========================================================================
+   * See lib/store-builder/use-scroll-locked for the measurement. In short: a
+   * modal gives the body `overflow: hidden`, a sticky element has no scrolling
+   * ancestor left to stick to, and it drops to its static place in the
+   * document — 480px above the window on a page scrolled 480px down. Opening
+   * the share sheet threw the creator bar off the top of the screen, which is
+   * "it closes the top bar instead of leaving it there".
+   *
+   * While the page is held, the bar is `fixed` at the same offset instead, so
+   * it stays exactly where it was. It sits at z-30, under the modal's scrim,
+   * so it is visible and not interactive — which is what a background should
+   * be.
+   *
+   * AND THE SPACE IT LEAVES IS KEPT. A fixed element is out of flow, so the
+   * page underneath would jump up by the bar's height at the moment the sheet
+   * opens and back down when it closes — a 53px lurch behind the scrim, on
+   * both edges of the interaction. The outer div measures the bar once and
+   * holds that height for as long as the bar is out of the flow.
+   */
+  const measured = useRef<HTMLDivElement | null>(null)
+  const [heldHeight, setHeldHeight] = useState<number | null>(null)
+  const scrollLocked = useScrollLocked()
+
+  useEffect(() => {
+    if (!scrollLocked) {
+      setHeldHeight(null)
+      return
+    }
+    const h = measured.current?.offsetHeight ?? 0
+    if (h > 0) setHeldHeight(h)
+  }, [scrollLocked])
+
+  const pinned = scrollLocked && heldHeight !== null
+
   return (
-    <div
-      className={cn(
-        "sticky z-30 transition-transform duration-300 ease-out motion-reduce:transition-none",
-        !visible && "-translate-y-full",
-      )}
-      style={{ top: topOffset }}
-    >
-      {children}
+    <div style={pinned ? { height: heldHeight } : undefined}>
+      <div
+        ref={measured}
+        className={cn(
+          "z-30 transition-transform duration-300 ease-out motion-reduce:transition-none",
+          pinned ? "fixed inset-x-0" : "sticky",
+          !visible && "-translate-y-full",
+        )}
+        style={{ top: topOffset }}
+      >
+        {children}
+      </div>
     </div>
   )
 }
