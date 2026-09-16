@@ -144,6 +144,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { getIconComponent as sectionIcon } from "./section-icons"
 
 // Niche categories (mirrored from onboarding)
 const NICHE_PRIMARY = [
@@ -3180,85 +3181,16 @@ function BenefitIconPicker({
     icon.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // Import all icons dynamically for the comprehensive icon library
-  const LucideIcons = require("lucide-react")
-
-  // Get icon component for preview - comprehensive map for all icons
-  const getIconComponent = (iconName: string) => {
-    // Convert kebab-case to PascalCase for lucide-react
-    const toPascalCase = (str: string) => {
-      return str.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('')
-    }
-
-    // Manual mappings for icons that don't follow standard naming
-    const specialMappings: Record<string, string> = {
-      "check-circle": "CheckCircle",
-      "check-square": "CheckSquare",
-      "badge-check": "BadgeCheck",
-      "circle-check": "CircleCheck",
-      "star-half": "StarHalf",
-      "party-popper": "PartyPopper",
-      "hand-heart": "HeartHandshake",
-      "handshake": "Handshake",
-      "shield-check": "ShieldCheck",
-      "eye-off": "EyeOff",
-      "thumbs-up": "ThumbsUp",
-      "message-circle": "MessageCircle",
-      "message-square": "MessageSquare",
-      "map-pin": "MapPin",
-      "dollar-sign": "DollarSign",
-      "piggy-bank": "PiggyBank",
-      "trending-up": "TrendingUp",
-      "chart-bar": "BarChart",
-      "bar-chart": "BarChart",
-      "link-2": "Link2",
-      "volume-2": "Volume2",
-      "pen-tool": "PenTool",
-      "cloud-download": "CloudDownload",
-      "cloud-upload": "CloudUpload",
-      "hard-drive": "HardDrive",
-      "toggle-left": "ToggleLeft",
-      "toggle-right": "ToggleRight",
-      "edit-2": "Edit2",
-      "edit-3": "Edit3",
-      "text-cursor": "TextCursor",
-      "clipboard-check": "ClipboardCheck",
-      "clipboard-list": "ClipboardList",
-      "file-text": "FileText",
-      "file-plus": "FilePlus",
-      "folder-open": "FolderOpen",
-      "building-2": "Building2",
-      "cloud-sun": "CloudSun",
-      "heart-pulse": "HeartPulse",
-      "book-open": "BookOpen",
-      "graduation-cap": "GraduationCap",
-      "game-controller": "Gamepad2",
-      "user-check": "UserCheck",
-      "user-plus": "UserPlus",
-      "user-star": "UserCircle",
-      "user-shield": "ShieldCheck",
-      "arrow-right": "ArrowRight",
-      "arrow-up": "ArrowUp",
-      "arrow-down": "ArrowDown",
-      "chevron-right": "ChevronRight",
-      "help-circle": "HelpCircle",
-      "alert-circle": "AlertCircle",
-      "alert-triangle": "AlertTriangle",
-      "x-circle": "XCircle",
-      "x-octagon": "XOctagon",
-      "puzzle-piece": "Puzzle",
-      "calendar-check": "CalendarCheck",
-      "calendar-star": "CalendarDays",
-      "shield-star": "ShieldCheck",
-      "credit-card": "CreditCard",
-      "shopping-cart": "ShoppingCart",
-      "shopping-bag": "ShoppingBag",
-      "share-2": "Share2",
-    }
-
-    const iconKey = specialMappings[iconName] || toPascalCase(iconName)
-    return LucideIcons[iconKey] || LucideIcons.CheckCircle || CheckCircle
-  }
+  /*
+    THIS USED TO BE `require("lucide-react")` AND ITS OWN COPY OF THE NAME MAP.
+    A runtime lookup against the whole library is a bundler instruction to keep
+    all 1736 icons, which is how 196 KB of pictograms ended up in the editor as
+    well as on every product page. ./section-icons holds the registry, the
+    aliases and the PascalCase fallback, generated from BENEFIT_ICONS above, so
+    this picker and the live page resolve a name the same way by construction
+    rather than by two lists agreeing.
+  */
+  const getIconComponent = (iconName: string) => sectionIcon(iconName)
 
   const IconComponent = getIconComponent(selectedIcon)
 
