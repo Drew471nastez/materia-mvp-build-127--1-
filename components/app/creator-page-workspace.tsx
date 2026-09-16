@@ -328,8 +328,24 @@ export function CreatorPageWorkspace({
           the dim like everything else and goes with it. Same 1px, same
           colour, same place.
         */
-        className="relative flex shrink-0 items-center gap-1.5 bg-white px-3 pb-2 shadow-[inset_0_-1px_0_#e5e7eb] sm:gap-2 sm:px-4"
-        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}
+        /*
+          THE BAR'S HEIGHT IS ITS PADDING, NOT ITS CONTROLS.
+
+          8px above and below a 36px button is 52px of chrome over a page the
+          whole screen is meant to be showing. It is 5px now, so the bar is
+          46px — six pixels back, which is what was asked for and about as far
+          as this can go from the top.
+
+          NOT BY SHRINKING THE BUTTONS. The other way to find those pixels is
+          h-9 to h-8, and that takes the back control from 36px to 32px on a
+          surface that is used with a thumb. The padding costs nothing to
+          give up; a touch target does.
+
+          The safe-area inset stays outside the arithmetic, so the bar sits
+          below the notch by exactly as much as it did.
+        */
+        className="relative flex shrink-0 items-center gap-1.5 bg-white px-3 pb-[5px] shadow-[inset_0_-1px_0_#e5e7eb] sm:gap-2 sm:px-4"
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 5px)" }}
       >
         {/*
           The same 30% black the sheet lays over the page, over this bar, for
