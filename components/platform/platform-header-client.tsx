@@ -1231,7 +1231,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                       href={item.href}
                       onClick={(e) => onCanonicalNav(e, item.href)}
                       className={cn(
-                        "px-4 py-2 text-[15px] font-medium rounded-full border transition-[background-color,border-color,color,transform] duration-180 ease-out",
+                        "px-4 py-2 text-[15px] font-medium rounded-full border transition-[background-color,border-color,color,scale] duration-180 ease-out",
                         item.active
                           ? "border-white/20 bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
                           : "border-transparent text-white/70 hover:text-white hover:bg-white/10 hover:border-white/15 active:scale-[0.98]",

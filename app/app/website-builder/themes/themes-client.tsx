@@ -112,7 +112,7 @@ export function ThemeMarketplaceClient({
               href="/app/website-builder"
               onClick={() => startNavigationLoading()}
               aria-label="Back to Website"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-[background-color,color,transform] duration-150 hover:bg-[#f8f9fa] hover:text-[#1a1a2e] active:scale-95"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-[background-color,color,scale] duration-150 hover:bg-[#f8f9fa] hover:text-[#1a1a2e] active:scale-95"
             >
               <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.25} />
             </Link>

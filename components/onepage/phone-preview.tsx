@@ -642,7 +642,7 @@ function ShareButtonPreview({
         {/* Modal - centered within phone preview */}
         <div
           className={cn(
-            "relative z-10 rounded-2xl overflow-hidden transform-gpu transition-[opacity,transform] duration-250 ease-out will-change-[opacity,transform]",
+            "relative z-10 rounded-2xl overflow-hidden transform-gpu transition-[opacity,translate,scale] duration-250 ease-out will-change-[opacity,translate]",
             isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-[0.985] translate-y-1",
           )}
           style={{

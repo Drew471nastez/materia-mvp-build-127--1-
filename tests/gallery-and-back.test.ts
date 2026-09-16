@@ -258,9 +258,16 @@ console.log("\nThe sticky add to cart, and the wait before a product page\n")
     (sticky.match(/duration-\[420ms\] ease-sheet/g) ?? []).length === 2,
     "both bars, the editor's and the live one",
   )
+  /*
+    `translate`, not `transform`. Tailwind v4 emits the standalone property
+    for `translate-y-*`, so naming `transform` here left the slide out of the
+    transition entirely and the bar appeared in place with a fade. That is a
+    whole class of mistake rather than one line, so tests/motion-properties
+    sweeps the repository for it; this pins the bar it was found on.
+  */
   check(
     "and animates only what the compositor can move",
-    !/transition-all duration-300/.test(sticky) && /transition-\[opacity,transform\]/.test(sticky),
+    !/transition-all duration-300/.test(sticky) && /transition-\[opacity,translate\]/.test(sticky),
     "transition-all also animates the shadow, and a shadow cannot be composited",
   )
 

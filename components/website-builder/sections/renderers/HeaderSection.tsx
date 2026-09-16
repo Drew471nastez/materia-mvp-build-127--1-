@@ -882,7 +882,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
               "absolute left-0 top-full mt-2 min-w-[200px] rounded-xl shadow-xl ring-1 ring-black/5 bg-white py-2 z-[70]",
               "opacity-0 translate-y-1 pointer-events-none",
               "group-hover/navitem:opacity-100 group-hover/navitem:translate-y-0 group-hover/navitem:pointer-events-auto",
-              "transition-[opacity,transform] duration-200 ease-out",
+              "transition-[opacity,translate] duration-200 ease-out",
             )}
           >
             {kids.map(child => {

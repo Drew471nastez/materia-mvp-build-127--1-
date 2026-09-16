@@ -186,7 +186,7 @@ export function WishlistButton({
         onClick={handleWishlistClick}
         className={cn(
           "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] cursor-pointer relative z-10",
-          "transition-[opacity,transform] duration-150 ease-out hover:opacity-80 active:scale-[0.985]",
+          "transition-[opacity,scale] duration-150 ease-out hover:opacity-80 active:scale-[0.985]",
           className
         )}
         style={buttonStyle}
@@ -235,7 +235,7 @@ export function WishlistButton({
       aria-busy={isAdding || undefined}
       className={cn(
         "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] group cursor-pointer relative z-10",
-        "transition-[opacity,transform] duration-150 ease-out hover:opacity-80 active:scale-[0.985]",
+        "transition-[opacity,scale] duration-150 ease-out hover:opacity-80 active:scale-[0.985]",
         isAdding && "cursor-progress",
         className
       )}

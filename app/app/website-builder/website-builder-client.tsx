@@ -810,7 +810,7 @@ export function WebsiteBuilderClient({
       <div
         aria-hidden
         className={cn(
-          "pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 origin-left bg-[#1a1a2e] transition-[transform,opacity] duration-300",
+          "pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 origin-left bg-[#1a1a2e] transition-[opacity,translate,scale] duration-300",
           isRefreshing ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0",
         )}
       />
@@ -865,7 +865,7 @@ function ExploreCard({
               onClick={onAdd}
               disabled={busy || disabled}
               aria-label={`Add ${def.name}`}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1a1a2e] text-white transition-[background-color,transform] duration-150 hover:bg-[#2d2d44] active:scale-95 disabled:opacity-40"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1a1a2e] text-white transition-[background-color,scale] duration-150 hover:bg-[#2d2d44] active:scale-95 disabled:opacity-40"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             </button>
