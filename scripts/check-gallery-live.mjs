@@ -1,17 +1,12 @@
 /**
  * ===========================================================================
- *  THE GALLERY ON A REAL PRODUCT PAGE, DRIVEN LIKE A VISITOR
+ *  THE GALLERY, ON THE LIVE SITE, UNDER A REAL FINGER
  * ===========================================================================
- * Reported: pressing a thumbnail does not change the picture, swiping does not
- * change the picture, and when the picture does change nothing is shown.
- *
- * The probe that accompanied the strip measured the TRANSFORM — where the
- * strip was — and it was right about that and blind to this. A strip can move
- * perfectly while every picture on it is invisible, and that is a different
- * question with a different answer: is the image that is now in front of me
- * actually loaded and actually painted.
- *
- * So this drives a real product page over CDP and asks that question.
+ * scripts/check-gallery-swipe mounts the component in a harness with the
+ * production stylesheet, which is the right place to iterate. This asks the
+ * same question of the deployed page, because the two things that have broken
+ * this gallery before were both environmental: a stylesheet rule that only
+ * applies on a touch device, and an overlay that only exists in the real page.
  *
  *   node scripts/check-gallery-live.mjs
  *   URL=https://storelib.com/<handle>/<slug> node scripts/check-gallery-live.mjs
@@ -23,12 +18,11 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
-const URL_UNDER_TEST = process.env.URL ?? "https://storelib.com/andrewrullz/men-s-white-t-shirt"
+const START = process.env.URL ?? "https://storelib.com/andrewrullz/men-s-white-t-shirt"
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-/** The same pin the client-error gate uses; see its note. */
 function reachabilityFlags() {
   const flags = []
   const proxy = process.env.HTTPS_PROXY || process.env.https_proxy
@@ -41,61 +35,13 @@ function reachabilityFlags() {
       const spki = createHash("sha256").update(execFileSync("openssl", ["pkey", "-pubin", "-outform", "der"], { input: pem })).digest("base64")
       flags.push(`--ignore-certificate-errors-spki-list=${spki}`)
       break
-    } catch { /* let the run fail loudly instead */ }
+    } catch { /* fall through */ }
   }
   return flags
 }
 
-/** Read inside the page: which slide is in front, and is its picture there. */
-const READ = `(() => {
-  const frame = document.querySelector(".aspect-video.overflow-hidden")
-  if (!frame) return { found: false }
-  const strip = frame.firstElementChild
-  const box = frame.getBoundingClientRect()
-  const stripRect = strip.getBoundingClientRect()
-  const stripInfo = {
-    left: Math.round(stripRect.left - frame.getBoundingClientRect().left),
-    width: Math.round(stripRect.width),
-    computed: getComputedStyle(strip).transform,
-    display: getComputedStyle(strip).display,
-  }
-  const slides = [...strip.children].map((s, i) => {
-    const img = s.querySelector("img")
-    const r = s.getBoundingClientRect()
-    return {
-      i,
-      hasImg: !!img,
-      complete: img ? img.complete : null,
-      naturalWidth: img ? img.naturalWidth : null,
-      loadingAttr: img ? img.getAttribute("loading") : null,
-      opacity: img ? Math.round(parseFloat(getComputedStyle(img).opacity) * 100) / 100 : null,
-      src: img ? (img.currentSrc || img.src || "").slice(-70) : null,
-      /* Is this slide the one filling the frame right now? */
-      inFront: Math.abs(r.left - box.left) < 4,
-      offset: Math.round(r.left - box.left),
-      width: Math.round(r.width),
-    }
-  })
-  /* The hook if this build has it, and the deployed markup's own aria-label
-     if it does not — so the probe works against production as well as against
-     a local build. */
-  const allFrames = [...document.querySelectorAll(".aspect-video.overflow-hidden")].map((f, n) => {
-    const st = f.firstElementChild
-    return {
-      n,
-      visible: f.getBoundingClientRect().width > 0 && getComputedStyle(f).display !== "none",
-      width: Math.round(f.getBoundingClientRect().width),
-      transform: st ? (st.getAttribute("style") || "").slice(0, 70) : "(no strip)",
-      slides: st ? st.children.length : 0,
-    }
-  })
-  const thumbs = (document.querySelectorAll("[data-gallery-thumb]").length
-    || document.querySelectorAll('button[aria-label^="View image"], button[aria-label^="View video"]').length)
-  return { found: true, slides, thumbs, frameWidth: Math.round(box.width), allFrames, stripInfo }
-})()`
-
 async function main() {
-  const profile = mkdtempSync(join(tmpdir(), "storelib-gallery-live-"))
+  const profile = mkdtempSync(join(tmpdir(), "storelib-livegallery-"))
   const chrome = spawn(CHROMIUM, [
     "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
     `--user-data-dir=${profile}`, "--remote-debugging-port=0", "--remote-allow-origins=*",
@@ -124,9 +70,25 @@ async function main() {
   await new Promise((r, j) => { ws.addEventListener("open", r, { once: true }); ws.addEventListener("error", j, { once: true }) })
   let id = 0
   const pending = new Map()
+  const docRequests = []
+  let mainFrameId = null
   ws.addEventListener("message", (ev) => {
     const msg = JSON.parse(ev.data)
-    if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg.result ?? {}); pending.delete(msg.id) }
+    if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg.result ?? {}); pending.delete(msg.id); return }
+    /*
+      Navigations of the PAGE, so "was coming back free?" is answered by
+      evidence rather than by feel.
+
+      THE MAIN FRAME ONLY. An iframe is a document too, and this creator's page
+      embeds three YouTube players — so counting every Document request made
+      the probe report a free, 52ms client navigation back as "a full load".
+      The page has one main frame and its id does not change across a client
+      navigation; everything else is somebody's embed.
+    */
+    if (msg.method === "Network.requestWillBeSent" && msg.params?.type === "Document") {
+      const isMain = mainFrameId && msg.params.frameId === mainFrameId
+      docRequests.push({ url: msg.params.request.url, at: Date.now(), isMain: !!isMain })
+    }
   })
   let sessionId = null
   const send = (method, params = {}, session = sessionId) =>
@@ -138,67 +100,156 @@ async function main() {
 
   const { targetId } = await send("Target.createTarget", { url: "about:blank" }, null)
   sessionId = (await send("Target.attachToTarget", { targetId, flatten: true }, null)).sessionId
-  await send("Page.enable")
-  await send("Runtime.enable")
+  await send("Page.enable"); await send("Runtime.enable"); await send("Network.enable")
+  mainFrameId = (await send("Page.getFrameTree"))?.frameTree?.frame?.id ?? null
+  if (!mainFrameId) { reap(); fail("Could not identify the page's main frame, so a page load could not be told from an embed.") }
   await send("Emulation.setDeviceMetricsOverride", { width: 430, height: 900, deviceScaleFactor: 2, mobile: true })
   await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 })
-  await send("Page.navigate", { url: URL_UNDER_TEST })
+
+  const report = { start: START }
+  await send("Page.navigate", { url: START })
   await sleep(9000)
 
-  const report = { url: URL_UNDER_TEST }
-  report.atLoad = await evaluate(READ)
-  if (!report.atLoad?.found) { reap(); fail(`No gallery found on ${URL_UNDER_TEST}.`) }
-
-  /* Press the second thumbnail, the way a visitor does. */
-  report.thumbClicked = await evaluate(`(() => {
-    const t = document.querySelectorAll("[data-gallery-thumb]").length
-      ? document.querySelectorAll("[data-gallery-thumb]")
-      : document.querySelectorAll('button[aria-label^="View image"], button[aria-label^="View video"]')
-    if (t.length < 2) return "only " + t.length + " thumbnails"
-    t[1].click()
-    return "pressed thumbnail 2 (" + t[1].getAttribute("aria-label") + ")"
+  const found = await evaluate(`(() => {
+    const wrapper = document.querySelector(".swiper-wrapper")
+    if (!wrapper) return { ok: false, reason: "no .swiper-wrapper on the page" }
+    const slides = wrapper.querySelectorAll(".swiper-slide").length
+    const box = wrapper.getBoundingClientRect()
+    return { ok: true, slides, top: Math.round(box.top), height: Math.round(box.height), width: Math.round(box.width) }
   })()`)
-  await sleep(1400)
-  report.afterThumb = await evaluate(READ)
+  report.gallery = found
+  if (!found?.ok) { reap(); fail(`Gallery not found on the live page: ${found?.reason ?? "no result"}`) }
+  if (found.slides < 2) { reap(); fail(`Only ${found.slides} slide on this product, so a swipe has nothing to prove. Pass URL= a product with several pictures.`) }
 
-  await send("Target.closeTarget", { targetId }, null)
-  ws.close()
+  /* Scroll it into view, then read where it actually sits. */
+  await evaluate(`document.querySelector(".swiper-wrapper").scrollIntoView({ block: "center" }); "ok"`)
+  await sleep(900)
+  const at = await evaluate(`(() => {
+    const b = document.querySelector(".swiper-wrapper").getBoundingClientRect()
+    return { x: Math.round(b.left + b.width * 0.72), y: Math.round(b.top + b.height / 2), w: Math.round(b.width) }
+  })()`)
+  report.dragFrom = at
+
+  const READ = `(() => {
+    const w = document.querySelector(".swiper-wrapper")
+    const c = getComputedStyle(w).transform
+    let x = 0
+    if (c && c !== "none") {
+      const n = c.slice(c.indexOf("(") + 1, c.lastIndexOf(")")).split(",").map(Number)
+      x = n.length === 6 ? n[4] : n.length === 16 ? n[12] : 0
+    }
+    return { computed: c, x: Math.round(x) }
+  })()`
+
+  const rest = await evaluate(READ)
+  report.restingAt = rest
+
+  const point = (x, y) => [{ x, y, radiusX: 12, radiusY: 12, force: 1 }]
+  const down = (x, y) => send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: point(x, y) })
+  const move = (x, y) => send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: point(x, y) })
+  const up = () => send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+
+  /* 1. Does the picture follow the finger. */
+  report.tracking = []
+  await down(at.x, at.y)
+  let travelled = 0
+  for (const target of [40, 100]) {
+    while (travelled < target) { travelled += 8; await move(at.x - travelled, at.y); await sleep(16) }
+    await sleep(140)
+    const now = await evaluate(READ)
+    report.tracking.push({ finger: -travelled, strip: now.x - rest.x })
+  }
+  await up()
+  await sleep(700)
+  report.slowShortRelease = (await evaluate(READ)).x - rest.x
+
+  /*
+    2. A FLICK, AND IT IS A DIFFERENT QUESTION FROM A DRAG.
+
+    Swiper commits a SLOW drag only past half the slide (longSwipesRatio 0.5)
+    and commits a QUICK one at any distance (shortSwipes). Those are its
+    defaults and they are what was asked for, so both are checked rather than
+    one number being asserted for both.
+
+    The first version of this probe dragged 100px of a 406px strip, paused
+    140ms so the release velocity was zero, and then required a commit. That
+    is a slow quarter-drag: springing back is correct, and the probe was
+    reporting the library behaving exactly as documented as a fault.
+  */
+  const flickFrom = at.x
+  await down(flickFrom, at.y)
+  let f = 0
+  while (f < 90) { f += 18; await move(flickFrom - f, at.y); await sleep(8) }
+  await up()
+  await sleep(900)
+  report.afterFlick = (await evaluate(READ)).x - rest.x
+
+  /*
+    3. A LONG SLOW DRAG, WHICH COMMITS ON DISTANCE ALONE — and it goes the
+    OTHER WAY, back toward the first picture.
+
+    The flick above left the strip on the second slide, and this product has
+    two. Dragging further in the same direction from the last picture cannot
+    advance, so the first version of this asked the gallery to do something
+    impossible and reported the refusal as a fault. Rubber-banding at the end
+    is correct behaviour, not a failure to commit.
+  */
+  /*
+    BOTH ENDS OF THIS DRAG HAVE TO CLEAR THE ARROWS. Each is about 36px wide,
+    inset 8px from its side, and Swiper lets a button keep its own gesture —
+    so a drag that begins on one begins nothing. The first attempt at this
+    started at 0.62 of the width to the LEFT of the drag point, which landed
+    on the previous arrow, and reported a gallery that works as broken.
+
+    0.15 to 0.77 of the strip is inside both arrows and is a 62% drag.
+  */
+  const far = Math.round(found.width * 0.62)
+  const startX = Math.round(at.x - found.width * 0.57)
+  await down(startX, at.y)
+  let g = 0
+  while (g < far) { g += 10; await move(startX + g, at.y); await sleep(16) }
+  await sleep(160)
+  await up()
+  await sleep(900)
+  report.afterLongDrag = (await evaluate(READ)).x - rest.x
+
+  console.log("")
+  console.log(`  ${found.slides} pictures, strip ${found.width}px wide, dragged from x=${at.x}`)
+  for (const t of report.tracking) {
+    console.log(`  finger ${String(t.finger).padStart(5)}px -> strip ${String(t.strip).padStart(5)}px`)
+  }
+  console.log(`  slow 100px drag released     -> ${report.slowShortRelease}px (a quarter of a slide: springs back)`)
+  console.log(`  quick 90px flick             -> ${report.afterFlick}px`)
+  console.log(`  slow drag back past 62%      -> ${report.afterLongDrag}px (back to the first picture)`)
+  console.log("")
+
+  const problems = []
+  if (report.restingAt.computed === "none") {
+    problems.push("The strip's computed transform is `none` on the live page, so a stylesheet refused it and nothing can move. See the .swiper-wrapper exemption in globals.css.")
+  }
+  for (const t of report.tracking) {
+    if (Math.abs(t.strip - t.finger) > 10) {
+      problems.push(`The finger was ${t.finger}px in and the strip had moved ${t.strip}px. It is not tracking the finger.`)
+    }
+  }
+  const slide = found.width
+  if (Math.abs(report.slowShortRelease) > 10) {
+    problems.push(`A slow quarter-drag should spring back and it rested at ${report.slowShortRelease}px.`)
+  }
+  if (Math.abs(report.afterFlick) < slide * 0.5) {
+    problems.push(`A quick flick did not change picture: the strip rests at ${report.afterFlick}px of a ${slide}px slide. shortSwipes is what makes a flick count however short it is.`)
+  }
+  if (Math.abs(report.afterLongDrag) > 10) {
+    problems.push(`A slow drag back past 62% of the slide did not return to the first picture: the strip rests at ${report.afterLongDrag}px.`)
+  }
+
   reap()
-  return report
+  if (problems.length) {
+    console.error("PROBLEMS:\n  - " + problems.join("\n  - ") + "\n")
+    process.exit(1)
+  }
+  console.log("On the live site: the picture follows the finger and a flick lands on the next one.\n")
+  process.exit(0)
 }
 
-const r = await main()
-const show = (label, s) => {
-  console.log(`\n  ${label}  (frame ${s.frameWidth}px, ${s.thumbs} thumbnails)`)
-  console.log(`    strip: left ${s.stripInfo.left}px, width ${s.stripInfo.width}px, display ${s.stripInfo.display}, computed transform ${s.stripInfo.computed}`)
-  for (const sl of s.slides) {
-    console.log(`    slide ${sl.i}${sl.inFront ? " <- in front" : "        "}  offset ${String(sl.offset).padStart(5)}px  width ${sl.width}  img ${sl.hasImg ? "yes" : "NO "}  complete=${sl.complete}  opacity=${sl.opacity}`)
-  }
-}
-console.log(`\n${r.url}`)
-show("on load", r.atLoad)
-console.log(`\n  ${r.thumbClicked}`)
-show("after pressing thumbnail 2", r.afterThumb)
-
-const problems = []
-const front = r.afterThumb.slides.find((s) => s.inFront)
-if (!front) problems.push("After pressing thumbnail 2, no slide is aligned with the frame. The strip did not move.")
-else {
-  if (front.i !== 1) problems.push(`Thumbnail 2 was pressed and slide ${front.i} is in front, not slide 1.`)
-  if (!front.complete || !front.naturalWidth) {
-    problems.push(`The slide now in front has an image that has not loaded (complete=${front.complete}, naturalWidth=${front.naturalWidth}). A visitor is looking at an empty box.`)
-  }
-  if (front.opacity !== null && front.opacity < 0.9) {
-    problems.push(`The slide now in front is at opacity ${front.opacity}. It is loaded or not, but either way it is not being shown.`)
-  }
-}
-if (r.atLoad.thumbs < 2) problems.push(`Only ${r.atLoad.thumbs} thumbnails found, so pressing one could not be tested. Check the data-gallery-thumb hook.`)
-
-console.log("")
-if (problems.length) {
-  console.error(`${problems.length} problem${problems.length > 1 ? "s" : ""}:\n`)
-  problems.forEach((p, i) => console.error(`  ${i + 1}. ${p}`))
-  console.error("")
-  process.exit(1)
-}
-console.log("  Pressing a thumbnail brings that picture to the front, loaded and visible.\n")
+main().catch((e) => fail(String(e?.stack || e)))
