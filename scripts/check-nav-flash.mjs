@@ -143,11 +143,22 @@ async function main() {
       const p = new URL(a.href, location.href).pathname.split("/").filter(Boolean)
       if (p.length !== 2 || p[1] === "links") return false
       const b = a.getBoundingClientRect()
-      return b.top > 80 && b.bottom < window.innerHeight - 40 && b.width > 80
+      /* Overlap with the safe band, not containment. A product card is often
+         taller than the window once the page is scrolled, so demanding the
+         whole card fit on screen rejected every card and the probe reported
+         "no product card" on a page covered in them. */
+      return b.width > 80 && b.bottom > 120 && b.top < window.innerHeight - 80
     })
     if (!links.length) return null
     const b = links[0].getBoundingClientRect()
-    return { href: links[0].getAttribute("href"), x: Math.round(b.left + b.width / 2), y: Math.round(b.top + b.height / 2) }
+    /* And the click lands in the part of it a finger could actually reach. */
+    const top = Math.max(b.top, 100)
+    const bottom = Math.min(b.bottom, window.innerHeight - 60)
+    return {
+      href: links[0].getAttribute("href"),
+      x: Math.round(b.left + b.width / 2),
+      y: Math.round((top + bottom) / 2),
+    }
   })()`)
   if (!target) { reap(); fail("No product card on the creator page.") }
   report.target = target
