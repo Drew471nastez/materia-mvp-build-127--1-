@@ -444,29 +444,6 @@ html.capacitor body {
   }
 
   /*
-    The pressed-and-waiting line. It runs across the top of whatever was
-    pressed, so the answer to "did that register" is immediate and local to
-    the thing you touched. Transform only, so it costs a compositor layer and
-    no layout.
-  */
-  @keyframes nav-pending-sweep {
-    0%   { transform: translateX(-100%); }
-    100% { transform: translateX(400%); }
-  }
-
-  .nav-pending-bar {
-    animation: nav-pending-sweep 900ms cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .nav-pending-bar {
-      animation: none;
-      width: 100%;
-      opacity: 0.5;
-    }
-  }
-
-  /*
     AND NO SCROLLBAR PROPERTIES ON <html>.
 
     A slim bar was styled here at first, and the note further down this file

@@ -312,6 +312,7 @@ export function ProductGallery({
   const swipe = useSwipeTrack({
     index: currentIndex,
     count: mediaItems.length,
+    animate: animateSlide,
     onIndexChange: (next) => {
       handleUserInteraction()
       setCurrentIndex(next)
@@ -462,11 +463,16 @@ export function ProductGallery({
             the transform is load-bearing.
           */
           data-keep-transform
-          className={cn(
-            "flex h-full w-full",
-            !swipe.dragging && animateSlide && "transition-transform duration-300 ease-sheet",
-          )}
-          style={{ transform: `translate3d(calc(${-currentIndex * 100}% + ${swipe.dragX}px), 0, 0)` }}
+          ref={swipe.trackRef}
+          /*
+            NO `style` AND NO TRANSITION CLASS. The hook owns both, because a
+            drag is written straight to this node every frame and a style prop
+            would be painted back over it on the next render. The class is
+            gone for the same reason: the transition has to be off during the
+            drag and on for the snap, and that is one decision made in one
+            place rather than two that have to agree.
+          */
+          className="flex h-full w-full"
         >
         {mediaItems.map((media, index) => (
           <div

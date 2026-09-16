@@ -46,6 +46,7 @@ import { CapacitorBounceGuard } from "@/components/platform/capacitor-bounce-gua
 import { StuckLayerGuard } from "@/components/platform/stuck-layer-guard"
 import { KeyboardGuard } from "@/components/platform/keyboard-guard"
 import { RotationGuard } from "@/components/platform/rotation-guard"
+import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
 import { NativePushInit } from "@/components/native-push-init"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
@@ -215,6 +216,7 @@ export default function RootLayout({
         <StuckLayerGuard />
         <KeyboardGuard />
         <RotationGuard />
+        <AppHistoryTracker />
         <NativePushInit /> 
         <CookieConsentBanner />
         {/*

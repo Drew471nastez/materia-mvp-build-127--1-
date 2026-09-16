@@ -1244,11 +1244,58 @@ function main() {
       destination, and the claim here is unchanged; what changed is that it no
       longer throws the document away and loads the whole shell again, which
       was the white flash on the way back.
+
+      AND WHAT DECIDES BETWEEN THEM IS NO LONGER `document.referrer`, which is
+      the fault this line used to pin in place. A referrer describes how the
+      DOCUMENT was fetched, and pressing a product card does not fetch one, so
+      the commonest visit of all — creator page, tap a product, tap back — read
+      as "arrived from nowhere" and took the fallback every time. Timed against
+      production that path is 2.0 to 3.5 seconds of the same page, which is why
+      the arrow was being pressed twice. The referrer is still consulted, inside
+      canReturnInApp, for a hard load that really did come from a page of ours.
     */
     check(
       "which falls back to the creator's page when there is no history of ours",
-      /new URL\(referrer\)\.origin === window\.location\.origin/.test(bar) &&
-        /router\.push\(creatorHref\)/.test(bar),
+      /if \(canReturnInApp\(\)\)/.test(bar) && /router\.push\(creatorHref\)/.test(bar),
+    )
+    /*
+      AND THE TAP HAS TO ARRIVE THE FIRST TIME, which is the other half of
+      "I have to press it twice" and a completely separate fault.
+
+      Driven against production with touch emulated: scroll down the product
+      page, scroll back up so the bar returns, tap the arrow — and the page
+      reports `pointerdown -> button[Back]`, `pointerup -> button[Back]`,
+      `click -> null`. A touch that lands while the page is still flinging is
+      spent stopping it and the browser withholds the click, so an onClick
+      handler never runs. Pointer events are delivered either way.
+    */
+    {
+      const tapHook = code("lib/gestures/use-tap.ts")
+      check(
+        "the arrow acts on the pointer coming up, not on a click",
+        /const tap = useTap\(onBack\)/.test(bar) && !/onClick=\{onBack\}/.test(bar),
+        "a click after a fling is a click the browser does not send",
+      )
+      check(
+        "the gesture is captured, so a bar sliding into place is still hit",
+        /setPointerCapture\(e\.pointerId\)/.test(tapHook),
+        "a click goes to the common ancestor of down and up; a control that moved between them gets none",
+      )
+      check(
+        "a drag off the control is not a tap",
+        /g\.moved = true/.test(tapHook) && /TAP_SLOP_PX/.test(tapHook),
+      )
+      check(
+        "and the keyboard still works without firing twice",
+        /if \(e\.detail > 0\) return/.test(tapHook),
+        "Enter on a focused button is a click with detail 0; the touch's synthesised click is detail 1",
+      )
+    }
+    check(
+      "and it asks the app, not the document, whether there is one",
+      !/document\.referrer/.test(bar) &&
+        /noteClientNavigation/.test(code("components/platform/app-history-tracker.tsx")),
+      "document.referrer cannot see a client navigation, which is how every product card is opened",
     )
     /*
       Two links, one on each bar. It was briefly one, while the phone bar
@@ -2030,7 +2077,7 @@ function main() {
       and then a second of grey furniture before the product arrived.
 
       Without it the router keeps the grid until the product is ready, and
-      components/nav-pending answers the press on the card that was pressed.
+      the card that was pressed answers the press itself.
       tests/marketing-weight holds the decision, what it costs on a cold
       direct visit, and what would let it come back.
     */
@@ -2039,10 +2086,21 @@ function main() {
       !existsSync(join(root, "app/(marketing)/p/[slug]/loading.tsx")),
       "a boundary throws away the page somebody is reading the moment they press something on it",
     )
+    /*
+      This asked for a 3px bar across the pressed card, drawn for as long as
+      the navigation was in flight. It is gone on the owner's instruction: an
+      indicator on a card marks the thing you are LEAVING. What answers now is
+      the dip, which lands with the touch and does not outlive it.
+    */
     check(
       "so the card answers the press itself",
-      /<NavPending \/>/.test(code("components/explore/product-card.tsx")),
+      /active:brightness-95/.test(code("components/explore/product-card.tsx")),
       "with nothing swapping in, the pressed card is the only thing left to say the press landed",
+    )
+    check(
+      "and it answers by dipping, not by running a bar",
+      !/NavPending/.test(code("components/explore/product-card.tsx")),
+      "a bar on the pressed card keeps animating on a card that is about to be replaced",
     )
     check("and so does the creator page", existsSync(join(root, "app/(marketing)/u/[username]/loading.tsx")))
 
