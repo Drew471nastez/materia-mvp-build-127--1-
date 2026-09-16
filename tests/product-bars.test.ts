@@ -116,7 +116,21 @@ function main() {
   )
   check(
     "the bar counts as absent when a creator has switched it off",
-    /const barIsOnThePage = settings\.visible && isHydrated && !hideOnMobileDiscover/.test(topBar),
+    /const barIsOnThePage = settings\.visible && !hideOnMobileDiscover/.test(topBar),
+  )
+  /*
+    AND IT IS NOT GATED ON HYDRATION, which is the check that matters here.
+    `if (!isHydrated) return null` used to stand above this bar's markup, so
+    the top 53px of every product page was white until React hydrated — 632ms
+    of it, filmed on production. Nothing in the subtree needs the gate: every
+    `window` read is inside a handler and the menu's portal is behind `open`.
+    Putting it back would restore the flash, so the ban is written down.
+  */
+  const barBody = topBar.slice(topBar.indexOf("export function LiveProductCreatorBar"))
+  check(
+    "and the bar itself is never gated on hydration",
+    !/^\s*if \(!isHydrated\) return null/m.test(barBody),
+    "that gate keeps the bar out of the server HTML and paints white until hydration",
   )
   check(
     "the buy bar will not paint while the top bar is up",

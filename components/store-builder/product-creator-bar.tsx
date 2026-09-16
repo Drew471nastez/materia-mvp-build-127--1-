@@ -1103,7 +1103,10 @@ export function LiveProductCreatorBar({
     hooks and above the early return, because a hook below a `return null` is
     a hook that runs on some renders and not others (React #310).
   */
-  const barIsOnThePage = settings.visible && isHydrated && !hideOnMobileDiscover
+  /* `isHydrated` is deliberately NOT part of this any more — see the note at
+     the return below. The bar is on the page from the server render, so the
+     buy bar is told so on the first commit rather than one render later. */
+  const barIsOnThePage = settings.visible && !hideOnMobileDiscover
   useEffect(() => {
     setProductTopBarRendered(barIsOnThePage)
     return () => setProductTopBarRendered(false)
@@ -1172,7 +1175,38 @@ export function LiveProductCreatorBar({
     }
   }
 
-  if (!isHydrated) return null
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     NO HYDRATION GATE. THE GATE *WAS* THE WHITE FLASH IN THE HEADER.
+    ═══════════════════════════════════════════════════════════════════════
+    `if (!isHydrated) return null` stood here. It meant the bar was absent
+    from the server HTML and absent from the first paint, so the top 53px of
+    every product page was the white body until React hydrated. Filmed on
+    production over a real forward navigation (scripts/check-nav-flash.mjs):
+
+         48ms   the creator page, header 138.1 luminance
+        713ms   header 246.4 luminance, 0.0% dark pixels — WHITE
+       1345ms   still white
+       1370ms   header 101.9 in ONE frame, a 149.8 jump
+
+    632ms of white, then a snap. That is the flash that was reported as
+    "the white flash in the header", and going back never showed it because
+    the bar was already hydrated on the page being returned to.
+
+    THERE WAS NEVER ANYTHING TO GUARD. A hydration gate earns its place when
+    the first client render cannot match the server's — a date, a random id,
+    a width, a localStorage read used DURING render. This subtree has none:
+    every `window` read in it lives in an event handler, the menu's portal is
+    behind `open` which starts false, and the two values that do come from
+    localStorage (`email`, `subscribedEmail`) are plain state initialised to
+    "" and filled in by an effect, which is a post-hydration update and not a
+    mismatch. So the server renders the bar, the first paint has the bar, and
+    hydration changes nothing visible.
+
+    If you add something here that genuinely differs between server and
+    client, gate THAT VALUE. Do not put the gate back on the whole bar: it
+    costs a third of a second of white across the top of every product page.
+  */
 
   return (
     <div
