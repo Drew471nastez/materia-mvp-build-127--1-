@@ -158,7 +158,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
   const [subscribed, setSubscribed] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string>("")
   const [isHydrated, setIsHydrated] = useState(false)
-  const isVisible = useRevealOnScrollUp(!!settings.enableStickyBar && !!settings.enableStickyOnScrollUp)
+  const { visible: isVisible, ready: barPlaced } = useRevealOnScrollUp(!!settings.enableStickyBar && !!settings.enableStickyOnScrollUp)
 
   // Extract solid color first, then check if dark
   const computedSolidBgColor = useMemo(() => extractSolidColor(settings.backgroundColor), [settings.backgroundColor])
@@ -503,7 +503,24 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
         <div
           ref={barRef}
           className={cn(
-            "fixed left-0 right-0 w-full py-2.5 px-3 sm:py-3 sm:px-4 transition-transform duration-300 ease-out",
+            "fixed left-0 right-0 w-full py-2.5 px-3 sm:py-3 sm:px-4",
+            /*
+              THE TRANSITION IS ATTACHED ONLY ONCE THE BAR IS WHERE IT BELONGS.
+
+              Coming back to this page the browser restores the scroll — half
+              way down, say — and this component mounts fresh. With the
+              transition already on, the bar paints across the top, decides it
+              should be hidden, and slides away over 300ms. Filmed on
+              production that is a black newsletter bar over the grid for a
+              third of a second on every single return, which is what was
+              reported as a flash in the header.
+
+              `barPlaced` is false for the first moments after mount, so the
+              first frame is a placement rather than a movement. Everything
+              after it — hiding on the way down, coming back on the way up —
+              animates exactly as before.
+            */
+            barPlaced && "transition-transform duration-300 ease-out",
             stickyZ,
             isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border",
             !isVisible && settings.enableStickyOnScrollUp && "-translate-y-full"
