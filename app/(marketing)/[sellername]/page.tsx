@@ -16,6 +16,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import StorefrontPage, { generateMetadata as storefrontMetadata } from "../u/[username]/page"
+import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
 
 export const dynamic = "force-dynamic"
 
@@ -24,17 +25,16 @@ interface PageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
-// Known static paths that should NOT match this dynamic route
-const RESERVED_PATHS = new Set([
-  "account-deletion", "blog", "c", "explore", "faq", "features",
-  "l", "legal", "p", "pricing", "u", "w", "wishlist",
-  "app", "api", "login", "signup", "register", "auth",
-  "store", "store-builder", "website-builder", "admin", "site",
-])
-
+/**
+ * The platform's own first segments, from lib/routes/reserved-segments — the
+ * same list signup checks and the product route below uses. It was a copy
+ * here and another copy there, and the two had already drifted apart over one
+ * word. Next prefers a real route over this one anyway; this is the belt to
+ * that braces, for segments that have no route of their own.
+ */
 const asUsername = async (params: PageProps["params"]) => {
   const { sellername } = await params
-  if (RESERVED_PATHS.has(sellername.toLowerCase())) return null
+  if (!sellername || isReservedRootSegment(sellername)) return null
   return sellername
 }
 

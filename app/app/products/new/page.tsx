@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { getProductUrl } from "@/lib/url-helpers"
+import { getProductUrl, getProductShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
@@ -3310,7 +3310,14 @@ export default function NewProductPage() {
         await fetch("/api/revalidate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug: savedSlug, type: "product" }),
+          /* The handle too: the product has two addresses and each holds its
+             own cache, so revalidating `/p/<slug>` alone left
+             `/<handle>/<slug>` — the one every link uses — stale. */
+          body: JSON.stringify({
+            slug: savedSlug,
+            type: "product",
+            handle: creator?.username || creator?.slug || undefined,
+          }),
         })
       } catch (revalidateErr) {
         console.log("Revalidation skipped:", revalidateErr)
@@ -3370,12 +3377,14 @@ export default function NewProductPage() {
   const handleRedirectToProduct = () => {
     if (slug && creator) {
       const sellerSubdomain = creator.username || creator.slug || 'store'
+      /* One address for both branches. The native one used to build
+         `<handle>.storelib.com/p/<slug>`, which is the old subdomain spelling
+         of a page that now lives at storelib.com/<handle>/<slug>. */
+      const productUrl = getProductShareUrl(sellerSubdomain, slug)
       if (isNativeApp()) {
         // In Capacitor, open in external browser (not inside the app)
-        const fullUrl = `https://${sellerSubdomain}.storelib.com/p/${slug}`
-        openExternal(fullUrl)
+        openExternal(productUrl)
       } else {
-        const productUrl = getProductUrl(sellerSubdomain, slug)
         window.open(productUrl, "_blank")
       }
     }

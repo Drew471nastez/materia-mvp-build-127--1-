@@ -1194,7 +1194,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               */}
               {creatorReviewCount > 0 && (
                 <SafeRegion name="reviews">
-                  <ReviewsPanel reviews={reviewsForPanel} average={creatorRating} total={creatorReviewCount} />
+                  <ReviewsPanel reviews={reviewsForPanel} average={creatorRating} total={creatorReviewCount} creatorUsername={username} />
                 </SafeRegion>
               )}
               <SafeRegion name="about">{about}</SafeRegion>

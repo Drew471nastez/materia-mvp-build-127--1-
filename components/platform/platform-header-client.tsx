@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
-import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain } from "@/lib/url-helpers"
+import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain, isSellerPage, isProductPage, getProductInternalPath } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { cn } from "@/lib/utils"
 
@@ -200,8 +200,14 @@ type SearchProduct = {
   creator?: {
     display_name?: string
     slug?: string
+    /** The handle, so a result links to `/<handle>/<slug>` rather than `/p/`. */
+    username?: string
   }
 }
+
+/** Where a search result points. The handle when the row has one. */
+const productPath = (product: SearchProduct) =>
+  getProductInternalPath(product.slug, product.creator?.username || undefined)
 
 type Profile = {
   display_name?: string | null
@@ -805,7 +811,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             creator_id,
             creators!inner (
               display_name,
-              slug
+              slug,
+              username
             )
           `)
           .ilike("title", `%${value}%`)
@@ -822,6 +829,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             creator: p.creators ? {
               display_name: p.creators.display_name,
               slug: p.creators.slug,
+              username: p.creators.username,
             } : undefined,
           }))
           setSearchResults(results)
@@ -1039,8 +1047,10 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   }
 
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
-  const isDiscoverProductContext = pathname.startsWith("/p/") && isDiscoverMode(pathname, searchParams)
-  const isSellerOrProductPage = pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/") || pathname.startsWith("/s/")
+  /* Both spellings of a product: `/p/<slug>` still resolves and redirects,
+     and `/<handle>/<slug>` is what everything hands out now. */
+  const isDiscoverProductContext = isProductPage(pathname) && isDiscoverMode(pathname, searchParams)
+  const isSellerOrProductPage = isSellerPage(pathname) || pathname.startsWith("/s/")
   const isBlogRoute = pathname === "/blog" || pathname.startsWith('/blog/')
   const isFaqRoute = pathname === "/faq"
   const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute
@@ -1503,9 +1513,9 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                       {searchResults.map((product) => (
                         <Link
                           key={product.id}
-                          href={getCanonicalOrRelativePath(`/p/${product.slug}`)}
+                          href={getCanonicalOrRelativePath(productPath(product))}
                           onClick={(e) => {
-                            onCanonicalNav(e, `/p/${product.slug}`)
+                            onCanonicalNav(e, productPath(product))
                             setSearchModalOpen(false)
                           }}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
@@ -1902,7 +1912,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                       key={product.id}
                       type="button"
                       onClick={() => {
-                        navigateReliably(`/p/${product.slug}`)
+                        navigateReliably(productPath(product))
                         setSearchModalOpen(false)
                       }}
                       className="flex w-full items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation text-left"

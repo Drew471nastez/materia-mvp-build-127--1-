@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { Mail, ArrowLeft, Check, Flag, MoreHorizontal, Share2 } from "lucide-react"
-import { getStoreInternalPath } from "@/lib/url-helpers"
+import { getStoreInternalPath, getProductShareUrl } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 import { SmartLink } from "@/components/smart-link"
@@ -620,7 +620,7 @@ function BackControl({ onBack, label }: { onBack: () => void; label: string }) {
  * table behind this yet, so a form saying "we'll look into it" would be a lie
  * about what happens next.
  */
-function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
+function ProductBarMenu({ title, slug, handle }: { title: string; slug: string; handle?: string }) {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [pressed, press] = usePressFeedback()
@@ -679,12 +679,14 @@ function ProductBarMenu({ title, slug }: { title: string; slug: string }) {
     }
   }, [open, place])
 
-  const url =
-    typeof window === "undefined"
+  /* What gets pasted into a message. The apex address with the handle in it,
+     not `/p/<slug>` (which redirects) and not this window's origin (which on
+     a subdomain or a custom domain is a page that does not exist there). */
+  const url = slug
+    ? getProductShareUrl(handle || "", slug)
+    : typeof window === "undefined"
       ? ""
-      : slug
-        ? `${window.location.origin}/p/${slug}`
-        : window.location.href
+      : window.location.href
 
   const share = async () => {
     setOpen(false)
@@ -1078,7 +1080,7 @@ export function LiveProductCreatorBar({
           <span className="truncate text-sm font-semibold leading-tight">{creatorName}</span>
         </SmartLink>
 
-        <ProductBarMenu title={productTitle || creatorName} slug={productSlug || ""} />
+        <ProductBarMenu title={productTitle || creatorName} slug={productSlug || ""} handle={creatorUsername || undefined} />
       </div>
 
       {/* Desktop - with reduced width (1170px instead of 1200px) */}

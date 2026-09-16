@@ -17,6 +17,7 @@
 import { Star } from "lucide-react"
 import { SmartLink } from "@/components/smart-link"
 import { cn } from "@/lib/utils"
+import { getProductInternalPath } from "@/lib/url-helpers"
 
 export interface StorefrontReview {
   id: string
@@ -48,10 +49,13 @@ export function ReviewsPanel({
   reviews,
   average,
   total,
+  creatorUsername,
 }: {
   reviews: StorefrontReview[]
   average: number
   total: number
+  /** Whose page this is, so a review links to `/<handle>/<slug>`. */
+  creatorUsername?: string
 }) {
   if (total === 0 || reviews.length === 0) {
     return (
@@ -126,7 +130,7 @@ export function ReviewsPanel({
             <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
               {review.productTitle &&
                 (review.productSlug ? (
-                  <SmartLink href={`/p/${review.productSlug}`} className="hover:text-foreground hover:underline">
+                  <SmartLink href={getProductInternalPath(review.productSlug, creatorUsername)} className="hover:text-foreground hover:underline">
                     {review.productTitle}
                   </SmartLink>
                 ) : (

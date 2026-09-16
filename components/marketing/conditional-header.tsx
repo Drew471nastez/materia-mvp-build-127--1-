@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
-import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
+import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 
 /**
@@ -110,10 +110,14 @@ export function ConditionalHeader({
       return
     }
 
-    const isSellerPath =
-      pathname.startsWith("/u/") ||
-      pathname.startsWith("/p/") ||
-      pathname.startsWith("/l/")
+    /**
+     * `isSellerPage` rather than three startsWith calls, because a creator's
+     * page is `/<handle>` now and a product is `/<handle>/<slug>`. Asking only
+     * about the prefixes meant the marketing header came back over every
+     * creator page the moment their address lost its `/u/`. The helper knows
+     * both spellings and knows which first segments are the platform's.
+     */
+    const isSellerPath = isSellerPage(pathname)
 
     // Read search params from the live URL — avoids useSearchParams() which
     // triggers Next.js Suspense on every navigation, causing the header to flash.

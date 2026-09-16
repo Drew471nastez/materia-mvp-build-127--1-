@@ -19,6 +19,7 @@ import type React from "react"
 
 import { ProductCard } from "@/components/explore/product-card"
 import { ProductOwnerMenu } from "./product-owner-menu"
+import { getProductInternalPath } from "@/lib/url-helpers"
 
 export interface StorefrontCardProduct {
   id: string
@@ -104,7 +105,7 @@ export function StorefrontProductCard({
     <div className="relative">
       {card}
       <div className="absolute right-3 top-3 z-10">
-        <ProductOwnerMenu productId={product.id} productHref={product.slug ? `/p/${product.slug}` : undefined} />
+        <ProductOwnerMenu productId={product.id} productHref={product.slug ? getProductInternalPath(product.slug, creatorUsername ?? undefined) : undefined} />
       </div>
     </div>
   )

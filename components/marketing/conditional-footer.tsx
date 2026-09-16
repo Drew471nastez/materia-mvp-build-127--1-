@@ -3,7 +3,7 @@
 import { usePathname, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { MarketingFooter } from "@/components/marketing/footer"
-import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
+import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 
@@ -30,7 +30,10 @@ export function ConditionalFooter() {
       return
     }
 
-    const isSellerPath = pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/")
+    /* Both spellings, via the one helper — see the note in
+       conditional-header. `/<handle>` and `/<handle>/<slug>` are seller
+       surfaces just as much as `/u/` and `/p/` were. */
+    const isSellerPath = isSellerPage(pathname)
 
     // In Capacitor native apps, hide the black footer on seller pages,
     // product pages, and /explore for a clean native app experience.

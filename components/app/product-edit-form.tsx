@@ -48,6 +48,7 @@ import { FileUpload } from "@/components/app/file-upload"
 import { ImageUpload } from "@/components/app/image-upload"
 import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-upload"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
+import { getProductShareUrl } from "@/lib/url-helpers"
 
 interface ProductEditFormProps {
   product: Product & {
@@ -242,8 +243,10 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
   }
 
   const copyProductLink = () => {
-    const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
-    navigator.clipboard.writeText(`${baseUrl}/p/${product.slug}`)
+    /* The address the creator is about to send to someone: the apex one with
+       their handle in it. `window.location.origin` is /app here, and `/p/` is
+       the spelling that redirects. */
+    navigator.clipboard.writeText(getProductShareUrl(creatorUsername, product.slug))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }

@@ -21,7 +21,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { stripComments } from "./_source"
-import { getStoreInternalPath } from "../lib/url-helpers"
+import { getStoreInternalPath, getProductShareUrl, getProductInternalPath } from "../lib/url-helpers"
 
 let passed = 0
 let failed = 0
@@ -84,7 +84,8 @@ check(
 )
 check(
   "the sitemap lists it",
-  /url: `\$\{BASE\}\/\$\{seller\.username\}`/.test(code("app/sitemap.ts")),
+  /url: `\$\{BASE\}\/\$\{profile\.username\}`/.test(code("app/sitemap.ts")),
+  "the sellers block now reads the same map the products block built",
 )
 
 console.log("\nThe old spelling still resolves, for ever\n")
@@ -128,6 +129,59 @@ check(
   /if \(handle\) \{/.test(proxy.slice(proxy.indexOf('pathname.startsWith("/u/")'))),
   "a bare /u is the platform's, not a creator called nothing",
 )
+
+console.log("\nA product lives under the creator who sells it\n")
+
+check("a product is /<handle>/<slug>", getProductShareUrl("andrew-rullz", "t-shirt") === "https://storelib.com/andrew-rullz/t-shirt")
+check("and the relative form matches", getProductInternalPath("t-shirt", "andrew-rullz") === "/andrew-rullz/t-shirt")
+/**
+ * A product whose creator has no handle has only the old address, and it must
+ * keep working rather than becoming `//t-shirt`, which is protocol-relative
+ * and points at a host called "t-shirt".
+ */
+check("no handle falls back to /p/<slug>", getProductShareUrl("", "t-shirt") === "https://storelib.com/p/t-shirt")
+check("and so does the relative form", getProductInternalPath("t-shirt") === "/p/t-shirt")
+
+/**
+ * TWO URLS SERVING IDENTICAL CONTENT IS THE DUPLICATE A CANONICAL EXISTS TO
+ * COLLAPSE. `/p/<slug>` still renders the page, so the tag has to name the
+ * address everything links to, or the two compete.
+ */
+const productPage = code("app/(marketing)/p/[slug]/page.tsx")
+check(
+  "the product's canonical names the nested address",
+  /canonical: productUrl/.test(productPage) && /const productUrl = getProductShareUrl\(/.test(productPage),
+  "a canonical pointing at /p/ tells search engines to prefer the spelling nobody links to",
+)
+check(
+  "and the structured data agrees with it",
+  /const canonicalUrl = getProductShareUrl\(creatorUsername, product\.slug\)/.test(productPage),
+  "the JSON-LD url and the <link> must not name different addresses",
+)
+check(
+  "no hardcoded https://storelib.com/p/ left in the product page",
+  !/https:\/\/storelib\.com\/p\//.test(productPage),
+)
+
+check(
+  "the sitemap lists products under their creator",
+  /url: getProductShareUrl\(handle \|\| "", product\.slug\)/.test(code("app/sitemap.ts")),
+  "a sitemap entry that redirects spends crawl budget to be sent somewhere else",
+)
+
+/**
+ * What a person copies out of the app. `window.location.origin` is wrong on a
+ * subdomain and wrong in /app, and `/p/` is the spelling that redirects.
+ */
+for (const file of [
+  "components/product/share-button.tsx",
+  "components/app/product-edit-form.tsx",
+  "components/store-builder/product-creator-bar.tsx",
+]) {
+  const src = code(file)
+  check(`${file} shares the canonical address`, /getProductShareUrl\(/.test(src))
+  check(`${file} builds no /p/ link by hand`, !/[`"']\/p\/\$?\{/.test(src))
+}
 
 console.log("\nThe subdomain is still the website\n")
 

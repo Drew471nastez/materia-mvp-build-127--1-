@@ -27,6 +27,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
 import ProductPage, { generateMetadata as productMetadata } from "../../p/[slug]/page"
+import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
 
 export const dynamic = "force-dynamic"
 
@@ -36,22 +37,14 @@ interface PageProps {
 }
 
 /**
- * The same list the storefront route uses for its own first segment. A
- * request for /app/something must never be read as a creator and a product,
- * and Next already prefers a real route over this one — this is the belt to
- * that braces, for segments that have no route of their own.
+ * The same list the storefront route uses, and the same one signup checks,
+ * from lib/routes/reserved-segments. It used to be a second copy written out
+ * here, and the two copies had already disagreed about one word.
  */
-const RESERVED_FIRST_SEGMENT = new Set([
-  "account-deletion", "blog", "c", "explore", "faq", "features",
-  "l", "legal", "p", "pricing", "u", "w", "wishlist",
-  "app", "api", "login", "signup", "register", "auth",
-  "store", "store-builder", "creator-page", "website-builder", "admin", "site",
-])
-
 async function resolve(params: PageProps["params"]) {
   const { sellername, productSlug } = await params
   if (!sellername || !productSlug) return null
-  if (RESERVED_FIRST_SEGMENT.has(sellername.toLowerCase())) return null
+  if (isReservedRootSegment(sellername)) return null
   return productSlug
 }
 

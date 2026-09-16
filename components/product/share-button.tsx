@@ -9,10 +9,13 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { isNativeApp } from "@/lib/native-bridge"
+import { getProductShareUrl } from "@/lib/url-helpers"
 
 interface ShareButtonProps {
   productTitle: string
   productSlug: string
+  /** The seller's handle. Without it the link falls back to `/p/<slug>`. */
+  creatorUsername?: string
   className?: string
   size?: "default" | "sm" | "lg" | "icon"
   iconSize?: string
@@ -21,6 +24,7 @@ interface ShareButtonProps {
 export function ShareButton({
   productTitle,
   productSlug,
+  creatorUsername,
   className,
   size = "icon",
   iconSize = "h-5 w-5"
@@ -28,9 +32,14 @@ export function ShareButton({
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  const shareUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/p/${productSlug}`
-    : `/p/${productSlug}`
+  /**
+   * The address a person is about to paste somewhere. `window.location.origin`
+   * was wrong on two counts: on a creator's subdomain or custom domain it
+   * produced a link to a page that domain does not serve, and it handed out
+   * `/p/<slug>`, which now redirects. getProductShareUrl always names the
+   * canonical apex address, which is the one that should end up in a message.
+   */
+  const shareUrl = getProductShareUrl(creatorUsername || "", productSlug)
 
   const shareText = `Check out ${productTitle}`
 

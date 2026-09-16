@@ -40,7 +40,7 @@ import { SellerFooter } from "@/components/storefront/seller-footer"
 import { ShareButton } from "@/components/product/share-button"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
-import { getStoreUrl } from "@/lib/url-helpers"
+import { getStoreUrl, getProductShareUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
 import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
 import { EmbeddedBackBar } from "@/components/storefront/embedded-back-bar"
@@ -98,6 +98,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
   // Fetch creator's display name and published config for favicon
   let sellerName: string | undefined
   let faviconUrl: string | undefined
+  let sellerHandle: string | undefined
   if (product.creator_id) {
     /*
       THE NAME AND THE FAVICON, from rows the page needs anyway.
@@ -114,9 +115,18 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
     if (creator) {
       sellerName = creator.display_name || undefined
-      if (!sellerName && creator.user_id) {
+      /**
+       * THE HANDLE IS NEEDED WHETHER OR NOT THE NAME WAS, because the
+       * canonical address of a product is storelib.com/<handle>/<slug> and
+       * this is where that is declared. The profile was previously fetched
+       * only as a fallback for a missing display name; the loader is
+       * request-scoped and the page asks for the same row anyway, so asking
+       * for it here costs nothing.
+       */
+      if (creator.user_id) {
         const profile = await loadCreatorProfile(creator.user_id)
-        sellerName = profile?.display_name || profile?.full_name || undefined
+        sellerHandle = profile?.username || undefined
+        if (!sellerName) sellerName = profile?.display_name || profile?.full_name || undefined
       }
     }
 
@@ -133,6 +143,18 @@ export async function generateMetadata({ params }: ProductPageProps) {
   const ogTitle = `${product.title} | ${sellerName || "Storelib"}`
   const pageDescription = product.description || "Check out this product on Storelib"
 
+  /**
+   * ONE ADDRESS WINS, AND IT IS THE ONE EVERY LINK USES.
+   *
+   * `/p/<slug>` and `/<handle>/<slug>` both render this page, which is two
+   * URLs serving identical content — exactly the duplicate that a canonical
+   * exists to collapse. Everything hands out the nested one, so that is the
+   * one declared here; the old spelling keeps working and points at it.
+   * A product whose creator has no handle has only the old address, and
+   * getProductShareUrl returns it.
+   */
+  const productUrl = getProductShareUrl(sellerHandle || "", product.slug)
+
   return {
     title: tabTitle,
     description: pageDescription,
@@ -141,7 +163,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
       description: pageDescription,
       type: "website",
       siteName: "Storelib",
-      url: `https://storelib.com/p/${product.slug}`,
+      url: productUrl,
       ...(socialImage && {
         images: [{ url: socialImage, width: 1200, height: 630, alt: product.title }],
       }),
@@ -155,7 +177,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
       }),
     },
     alternates: {
-      canonical: `https://storelib.com/p/${product.slug}`,
+      canonical: productUrl,
     },
     robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } },
     ...(faviconUrl && {
@@ -1053,7 +1075,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   </>
                 )}
               </div>
-              <ShareButton productTitle={product.title} productSlug={product.slug} className="shrink-0" />
+              <ShareButton productTitle={product.title} productSlug={product.slug} creatorUsername={creatorUsername} className="shrink-0" />
             </div>
           )}
 
@@ -1248,6 +1270,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 <ShareButton
                   productTitle={product.title}
                   productSlug={product.slug}
+                  creatorUsername={creatorUsername}
                   className="shrink-0 h-8 w-8"
                   iconSize="h-4 w-4"
                 />
@@ -1732,7 +1755,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   // JSON-LD Structured Data
   // ---------------------------------------------------------------------------
-  const canonicalUrl = `https://storelib.com/p/${product.slug}`
+  /* The same address the canonical tag declares, so the structured data and
+     the <link> cannot disagree about which URL this product lives at. */
+  const canonicalUrl = getProductShareUrl(creatorUsername, product.slug)
   const sellerDisplayName = creatorProfile?.display_name || creator?.name || "Creator"
 
   const primaryCategory = productCategories[0] || null

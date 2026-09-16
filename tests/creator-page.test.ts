@@ -668,9 +668,16 @@ function main() {
 
     const nestedCode = read(nested)
     check("the nested route reuses the product page rather than copying it", nestedCode.includes("from \"../../p/[slug]/page\""))
+    /**
+     * This named the route's own copy of the reserved list. There were three
+     * copies and they had drifted; there is one now, in
+     * lib/routes/reserved-segments, checked against the filesystem by
+     * tests/reserved-segments. The question is unchanged — a platform path
+     * must never be read as a creator and a product.
+     */
     check(
       "and a reserved first segment is not read as a creator",
-      nestedCode.includes("RESERVED_FIRST_SEGMENT") && nestedCode.includes("notFound()"),
+      nestedCode.includes("isReservedRootSegment") && nestedCode.includes("notFound()"),
     )
   }
 

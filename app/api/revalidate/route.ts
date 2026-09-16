@@ -4,11 +4,20 @@ import { revalidatePath } from "next/cache"
 // API to revalidate product pages after save
 export async function POST(request: NextRequest) {
   try {
-    const { slug, type } = await request.json()
+    const { slug, type, handle } = await request.json()
 
     if (type === "product" && slug) {
-      // Revalidate the specific product page
+      /**
+       * A PRODUCT HAS TWO ADDRESSES AND BOTH HOLD A CACHE.
+       * `/<handle>/<slug>` is where everything links now; `/p/<slug>` still
+       * resolves, and is what an old shared link lands on. Revalidating only
+       * the second one left the address people actually use serving the copy
+       * from before the save.
+       */
       revalidatePath(`/p/${slug}`)
+      if (typeof handle === "string" && handle.trim()) {
+        revalidatePath(`/${handle.trim().toLowerCase()}/${slug}`)
+      }
       return NextResponse.json({ revalidated: true, slug })
     }
 

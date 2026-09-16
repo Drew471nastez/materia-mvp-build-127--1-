@@ -1,0 +1,116 @@
+/**
+ * ===========================================================================
+ *  THE FIRST SEGMENT OF A PATH IS A CREATOR'S HANDLE, UNLESS THE PLATFORM
+ *  ALREADY OWNS IT
+ * ===========================================================================
+ * `storelib.com/<handle>` is a creator's page and `storelib.com/<handle>/<slug>`
+ * is one of their products, so every top-level route the platform has is a
+ * word no creator may hold. A handle that collides does not produce an error:
+ * Next prefers the real route, and that creator's page becomes permanently
+ * unreachable while still being advertised to them as their address.
+ *
+ * THIS LIST WAS THREE LISTS AND THEY HAD ALREADY DRIFTED. The two route
+ * guards disagreed about `creator-page`, and neither agreed with
+ * lib/reserved-words, which is what signup and the username field actually
+ * check — so `checkout`, `library`, `dashboard`, `wishlist` and a dozen more
+ * were free to claim. One list now, with tests/reserved-segments walking
+ * `app/` and failing if a route exists that is not named here.
+ *
+ * ADDING A TOP-LEVEL ROUTE MEANS ADDING A WORD HERE. That is the whole cost,
+ * and the test will tell you.
+ */
+
+/** Every first path segment with a route of its own, from `app/`. */
+export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
+  "access",
+  "account-deletion",
+  "admin",
+  "api",
+  "app",
+  "auth",
+  "blog",
+  "c",
+  "checkout",
+  "creator-page",
+  "dashboard",
+  "downloads",
+  "editions",
+  "explore",
+  "faq",
+  "features",
+  "help",
+  "l",
+  "legal",
+  "library",
+  "login",
+  "native-start",
+  "onboarding",
+  "p",
+  "pricing",
+  "privacy",
+  "products",
+  "purchase",
+  "receipt",
+  "request",
+  "reset-password",
+  "signup",
+  "site",
+  "sites",
+  "store",
+  "store-builder",
+  "terms",
+  "u",
+  "unsubscribe",
+  "upgrade",
+  "verify-email",
+  "w",
+  "website-builder",
+  "welcome",
+  "wishlist",
+]
+
+/**
+ * Names with no route of their own that a creator still must not hold: files
+ * served from the root, the platform's own identity, and the spellings people
+ * type at a domain expecting the platform rather than a person.
+ */
+export const RESERVED_ROOT_EXTRAS: readonly string[] = [
+  "_next",
+  "about",
+  "analytics",
+  "assets",
+  "community",
+  "contact",
+  "courses",
+  "favicon",
+  "files",
+  "images",
+  "member",
+  "messages",
+  "orders",
+  "profile",
+  "public",
+  "private",
+  "purchases",
+  "robots",
+  "sales",
+  "settings",
+  "sitemap",
+  "signin",
+  "sign-in",
+  "sign-up",
+  "static",
+  "storelib",
+  "support",
+  "uploads",
+  "www",
+]
+
+const SET: ReadonlySet<string> = new Set(
+  [...RESERVED_ROOT_SEGMENTS, ...RESERVED_ROOT_EXTRAS].map((s) => s.toLowerCase()),
+)
+
+/** Is this first path segment the platform's rather than a creator's? */
+export function isReservedRootSegment(segment: string): boolean {
+  return SET.has(segment.trim().toLowerCase())
+}

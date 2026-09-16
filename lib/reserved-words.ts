@@ -1,4 +1,5 @@
 import { scoreHandle } from "@/lib/security/spam-signals"
+import { RESERVED_ROOT_SEGMENTS, RESERVED_ROOT_EXTRAS } from "@/lib/routes/reserved-segments"
 
 // Reserved words that cannot be used as usernames/slugs
 export const RESERVED_WORDS = [
@@ -79,8 +80,27 @@ export const RESERVED_WORDS = [
   "sitemap",
 ]
 
+/**
+ * ===========================================================================
+ *  EVERY TOP-LEVEL ROUTE IS ALSO A RESERVED WORD
+ * ===========================================================================
+ * A handle is the first segment of `storelib.com/<handle>`, so a handle that
+ * matches a route the platform owns is not a clash to resolve later — Next
+ * serves the route, and that creator's page is unreachable for ever while
+ * still being shown to them as their address.
+ *
+ * The list above was maintained by hand and had fallen behind the app:
+ * `checkout`, `library`, `dashboard`, `wishlist`, `downloads`, `receipt` and
+ * others were all free to take. Rather than copy them in, this unions the one
+ * list that tests/reserved-segments checks against the filesystem, so a new
+ * route closes the hole by existing.
+ */
+const RESERVED_SET: ReadonlySet<string> = new Set(
+  [...RESERVED_WORDS, ...RESERVED_ROOT_SEGMENTS, ...RESERVED_ROOT_EXTRAS].map((w) => w.toLowerCase()),
+)
+
 export function isReservedWord(word: string): boolean {
-  return RESERVED_WORDS.includes(word.toLowerCase())
+  return RESERVED_SET.has(word.toLowerCase())
 }
 
 export function isValidUsername(username: string): { valid: boolean; error?: string } {

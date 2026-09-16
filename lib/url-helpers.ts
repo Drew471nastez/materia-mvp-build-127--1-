@@ -17,6 +17,7 @@
  */
 
 import { isNativeApp } from "@/lib/platform-utils"
+import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
 
 // Main domain from environment or default
 export const getMainDomain = () => process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
@@ -376,8 +377,68 @@ export function isSellerPage(pathname: string, host?: string): boolean {
     if (username) return true
   }
 
-  // Check path-based routes
-  return pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/")
+  /**
+   * THE PREFIXED SPELLINGS ARE NOT THE ONLY ONES ANY MORE. A creator page is
+   * `/<handle>` and a product is `/<handle>/<slug>`; `/u/` and `/p/` still
+   * resolve and still have to be recognised, because a saved link redirects
+   * here and a component sees whatever it is handed. Everything that decides
+   * "is this a creator's surface" was still asking only about the prefixes,
+   * so the marketing header and footer came back on every creator page the
+   * moment their address lost its `/u/`.
+   */
+  return (
+    pathname.startsWith("/u/") ||
+    pathname.startsWith("/p/") ||
+    pathname.startsWith("/l/") ||
+    creatorHandleFromPath(pathname) !== null ||
+    productFromPath(pathname) !== null
+  )
+}
+
+/** The path split into segments, with empty ones dropped. */
+function segmentsOf(pathname: string): string[] {
+  return pathname.split("?")[0].split("#")[0].split("/").filter(Boolean)
+}
+
+/**
+ * ===========================================================================
+ *  READING THE TWO BARE ADDRESSES
+ * ===========================================================================
+ *   /<handle>          a creator's page
+ *   /<handle>/<slug>   one of their products
+ *
+ * A first segment the platform owns is neither, which is what
+ * `isReservedRootSegment` is for — and it is the same list the routes
+ * themselves guard with and signup refuses, so these three cannot disagree
+ * about what a handle is.
+ *
+ * On a creator's own subdomain the paths mean something else entirely, so
+ * pass the host when you have it and these stay out of the way.
+ */
+export function creatorHandleFromPath(pathname: string, host?: string): string | null {
+  if (host && extractUsernameFromHost(host)) return null
+  const parts = segmentsOf(pathname)
+  if (parts.length !== 1) return null
+  const handle = parts[0].toLowerCase()
+  if (isReservedRootSegment(handle)) return null
+  return handle
+}
+
+export function productFromPath(
+  pathname: string,
+  host?: string,
+): { handle: string; slug: string } | null {
+  if (host && extractUsernameFromHost(host)) return null
+  const parts = segmentsOf(pathname)
+  if (parts.length !== 2) return null
+  const handle = parts[0].toLowerCase()
+  if (isReservedRootSegment(handle)) return null
+  return { handle, slug: parts[1] }
+}
+
+/** A product page under either spelling. */
+export function isProductPage(pathname: string, host?: string): boolean {
+  return pathname.startsWith("/p/") || productFromPath(pathname, host) !== null
 }
 
 /**

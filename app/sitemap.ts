@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { CATEGORIES } from "@/lib/marketplace/categories"
 import { deservesIndexing } from "@/lib/security/spam-signals"
+import { getProductShareUrl } from "@/lib/url-helpers"
 
 export const dynamic = "force-dynamic"
 
@@ -99,19 +100,79 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   } catch {}
 
-  // Published products
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  PUBLISHED PRODUCTS, AND THE SELLERS BEHIND THEM, FROM ONE PASS
+   * ═════════════════════════════════════════════════════════════════════════
+   * A product's address is `storelib.com/<handle>/<slug>`, so the sitemap has
+   * to know whose product each one is. That is the same two hops the seller
+   * block below already made — products to creators to profiles — and it used
+   * to make them separately, querying products twice per request.
+   *
+   * It is one pass now, and the map it builds serves both lists. A product
+   * whose creator has no handle keeps the only address it has, `/p/<slug>`,
+   * which is what getProductShareUrl returns for an empty handle.
+   *
+   * Listing a URL here that redirects elsewhere is the specific thing a
+   * sitemap should not do: it spends crawl budget to be told to go somewhere
+   * else, and splits the signal between two addresses for the same page.
+   */
+  const handleByCreatorId = new Map<string, { username: string; updatedAt: string }>()
+
   try {
     // products has no `is_published` column — publication state lives in `status`,
     // so the old filter silently errored and emitted zero product URLs
     const { data: products } = await supabase
       .from("products")
-      .select("slug, updated_at")
+      .select("slug, updated_at, creator_id")
       .eq("status", "published")
       .limit(5000)
 
-    for (const product of products || []) {
+    const creatorIds = [
+      ...new Set((products || []).map((p: { creator_id: string | null }) => p.creator_id).filter(Boolean)),
+    ] as string[]
+
+    if (creatorIds.length) {
+      // products.creator_id points at creators.id, and it is creators.user_id
+      // that matches profiles.id — two hops, neither joinable in PostgREST
+      // without an FK alias this schema does not declare.
+      const { data: creators } = await supabase
+        .from("creators")
+        .select("id, user_id")
+        .in("id", creatorIds)
+
+      const userIdByCreatorId = new Map<string, string>()
+      for (const c of (creators || []) as { id: string; user_id: string | null }[]) {
+        if (c.user_id) userIdByCreatorId.set(c.id, c.user_id)
+      }
+
+      const userIds = [...new Set(userIdByCreatorId.values())]
+      const profileByUserId = new Map<string, { username: string; updatedAt: string }>()
+
+      // Chunked: `.in()` builds a query string, and twenty thousand ids in one
+      // would exceed what the server will accept as a URL.
+      for (let i = 0; i < userIds.length; i += 500) {
+        const { data: sellers } = await supabase
+          .from("profiles")
+          .select("id, username, updated_at")
+          .in("id", userIds.slice(i, i + 500))
+          .not("username", "is", null)
+
+        for (const seller of (sellers || []) as { id: string; username: string; updated_at: string }[]) {
+          profileByUserId.set(seller.id, { username: seller.username, updatedAt: seller.updated_at })
+        }
+      }
+
+      for (const [creatorId, userId] of userIdByCreatorId) {
+        const profile = profileByUserId.get(userId)
+        if (profile) handleByCreatorId.set(creatorId, profile)
+      }
+    }
+
+    for (const product of (products || []) as { slug: string; updated_at: string | null; creator_id: string | null }[]) {
+      const handle = product.creator_id ? handleByCreatorId.get(product.creator_id)?.username : undefined
       routes.push({
-        url: `${BASE}/p/${product.slug}`,
+        url: getProductShareUrl(handle || "", product.slug),
         lastModified: new Date(product.updated_at || Date.now()),
         changeFrequency: "weekly",
         priority: 0.7,
@@ -146,54 +207,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
    * A seller crosses the line the moment they publish. Nothing to re-run: the
    * sitemap is force-dynamic and rebuilt per request.
    */
-  try {
-    // Who has published something. products.creator_id points at creators.id,
-    // and it is creators.user_id that matches profiles.id — two hops, both
-    // needed, and neither is joinable in PostgREST without an FK alias that
-    // this schema does not declare.
-    const { data: publishedRows } = await supabase
-      .from("products")
-      .select("creator_id")
-      .eq("status", "published")
-      .limit(20000)
-
-    const publishingCreatorIds = [
-      ...new Set((publishedRows || []).map((p: { creator_id: string | null }) => p.creator_id).filter(Boolean)),
-    ] as string[]
-
-    if (publishingCreatorIds.length) {
-      const { data: creators } = await supabase
-        .from("creators")
-        .select("user_id")
-        .in("id", publishingCreatorIds)
-
-      const publishingUserIds = [
-        ...new Set((creators || []).map((c: { user_id: string | null }) => c.user_id).filter(Boolean)),
-      ] as string[]
-
-      // Chunked: `.in()` builds a query string, and twenty thousand ids in one
-      // would exceed what the server will accept as a URL.
-      for (let i = 0; i < publishingUserIds.length; i += 500) {
-        const { data: sellers } = await supabase
-          .from("profiles")
-          .select("username, updated_at")
-          .in("id", publishingUserIds.slice(i, i + 500))
-          .not("username", "is", null)
-
-        for (const seller of sellers || []) {
-          // The spam verdict is checked as well as the publication gate, so a
-          // farm that files one decoy listing to buy its way in still does not.
-          if (!deservesIndexing({ publishedProducts: 1, handle: seller.username })) continue
-          routes.push({
-            url: `${BASE}/${seller.username}`,
-            lastModified: new Date(seller.updated_at),
-            changeFrequency: "weekly",
-            priority: 0.6,
-          })
-        }
-      }
-    }
-  } catch {}
+  /* Every entry in this map is by definition a creator with a published
+     product, because that is the only query it was built from. The two hops
+     are already paid for above. */
+  for (const profile of new Set(handleByCreatorId.values())) {
+    // The spam verdict is checked as well as the publication gate, so a farm
+    // that files one decoy listing to buy its way in still does not get in.
+    if (!deservesIndexing({ publishedProducts: 1, handle: profile.username })) continue
+    routes.push({
+      url: `${BASE}/${profile.username}`,
+      lastModified: new Date(profile.updatedAt),
+      changeFrequency: "weekly",
+      priority: 0.6,
+    })
+  }
 
   return routes
 }
