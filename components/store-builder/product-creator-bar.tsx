@@ -8,6 +8,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { useTap } from "@/lib/gestures/use-tap"
+import { canReturnInApp } from "@/lib/navigation/in-app-history"
 import { Mail, ArrowLeft, Check, Flag, MoreHorizontal, Share2 } from "lucide-react"
 import { getStoreInternalPath, getProductShareUrl } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
@@ -603,6 +605,15 @@ const BACK_GIVE_UP_MS = 4000
 
 function BackControl({ onBack, label, pending }: { onBack: () => void; label: string; pending: boolean }) {
   const [pressed, press] = usePressFeedback()
+  /**
+   * THE TAP IS READ FROM THE POINTER, NOT FROM THE CLICK. Measured against
+   * production: after scrolling down and back up so the bar returns, the
+   * arrow gets a pointerdown and a pointerup and NO click, because the touch
+   * that lands while the page is still flinging is spent stopping it. The
+   * page did not move and the arrow had to be pressed again. See
+   * lib/gestures/use-tap.
+   */
+  const tap = useTap(onBack)
   /** Pending for long enough to be worth showing, rather than merely pending. */
   const [showSpinner, setShowSpinner] = useState(false)
   useEffect(() => {
@@ -617,8 +628,10 @@ function BackControl({ onBack, label, pending }: { onBack: () => void; label: st
   return (
     <button
       type="button"
-      {...press}
-      onClick={onBack}
+      {...tap}
+      /* Both want pointerdown: the disc and the haptic answer the contact,
+         the tap hook starts watching the gesture. */
+      onPointerDown={(e) => { press.onPointerDown(); tap.onPointerDown(e) }}
       aria-label={label}
       title={label}
       aria-busy={showSpinner || undefined}
@@ -685,6 +698,11 @@ function BackControl({ onBack, label, pending }: { onBack: () => void; label: st
 function ProductBarMenu({ title, slug, handle }: { title: string; slug: string; handle?: string }) {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  /* The same reason the arrow reads the pointer: a click after a fling is a
+     click the browser withholds. The outside-press handler below ignores
+     anything inside the trigger, so opening on pointerup is not undone by
+     the pointerdown that preceded it. */
+  const tap = useTap(() => setOpen((v) => !v))
   const [pressed, press] = usePressFeedback()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -794,8 +812,8 @@ function ProductBarMenu({ title, slug, handle }: { title: string; slug: string; 
       <button
         ref={triggerRef}
         type="button"
-        {...press}
-        onClick={() => setOpen((v) => !v)}
+        {...tap}
+        onPointerDown={(e) => { press.onPointerDown(); tap.onPointerDown(e) }}
         aria-label="More"
         aria-expanded={open}
         aria-haspopup="menu"
@@ -939,14 +957,20 @@ export function LiveProductCreatorBar({
 
   const goBack = useCallback(() => {
     if (typeof window === "undefined") return
-    const referrer = document.referrer
-    let cameFromHere = false
-    try {
-      cameFromHere = !!referrer && new URL(referrer).origin === window.location.origin
-    } catch {
-      cameFromHere = false
-    }
-    if (cameFromHere && window.history.length > 1) {
+    /**
+     * `document.referrer` used to decide this, and it is the wrong
+     * instrument: it describes how the DOCUMENT was fetched, and pressing a
+     * product card does not fetch a document. So the most common visit of
+     * all — creator page, tap a product, tap back — read as "arrived from
+     * nowhere" and took the slow path. Measured against production, that
+     * path is 2.0 to 3.5 seconds of the same page with a spinner on it,
+     * which is why the arrow was being pressed a second time.
+     *
+     * canReturnInApp counts this document's own navigations instead, and
+     * still accepts a same-origin referrer for a hard load that really did
+     * come from another page of ours.
+     */
+    if (canReturnInApp()) {
       setLeaving(true)
       window.history.back()
       return

@@ -37,17 +37,12 @@ import Image from "next/image"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
-import { cn } from "@/lib/utils"
+import { useSwipeTrack } from "@/lib/gestures/use-swipe-track"
 
 export interface ViewerMedia {
   type: "image" | "video" | "youtube"
   url: string
 }
-
-/** Past this, a release changes slide rather than springing back. */
-const COMMIT_RATIO = 0.22
-/** And a flick is a flick however short, if it is fast enough. */
-const FLICK_VELOCITY = 0.4
 
 export function ProductMediaViewer({
   media,
@@ -65,14 +60,6 @@ export function ProductMediaViewer({
   /** Kept in step with the gallery underneath, so closing lands where you were. */
   onIndexChange: (index: number) => void
 }) {
-  const [dragX, setDragX] = React.useState(0)
-  const [dragging, setDragging] = React.useState(false)
-  const start = React.useRef<{ x: number; y: number; t: number } | null>(null)
-  /** Locked on the first move: a vertical swipe must not drag the track. */
-  const axis = React.useRef<"undecided" | "x" | "y">("undecided")
-  const width = React.useRef(1)
-  const frameRef = React.useRef<HTMLDivElement>(null)
-
   const count = media.length
   const clamp = React.useCallback((i: number) => Math.max(0, Math.min(count - 1, i)), [count])
 
@@ -93,51 +80,23 @@ export function ProductMediaViewer({
     return () => window.removeEventListener("keydown", onKey)
   }, [open, index, go])
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length !== 1) return
-    width.current = frameRef.current?.clientWidth || window.innerWidth || 1
-    start.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now() }
-    axis.current = "undecided"
-    setDragging(true)
-  }
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    const from = start.current
-    if (!from || e.touches.length !== 1) return
-    const dx = e.touches[0].clientX - from.x
-    const dy = e.touches[0].clientY - from.y
-
-    /*
-      ONE DECISION PER GESTURE, made on the first movement past a threshold.
-      Without it a mostly-vertical swipe drags the track sideways by a few
-      pixels and springs back, which reads as the viewer twitching.
-    */
-    if (axis.current === "undecided") {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
-      axis.current = Math.abs(dx) > Math.abs(dy) ? "x" : "y"
-    }
-    if (axis.current !== "x") return
-
-    /* Rubber-band at the two ends, so the track feels attached to a finger
-       rather than to a clamp. */
-    const atEnd = (dx > 0 && index === 0) || (dx < 0 && index === count - 1)
-    setDragX(atEnd ? dx / 3 : dx)
-  }
-
-  const onTouchEnd = () => {
-    const from = start.current
-    start.current = null
-    setDragging(false)
-    if (!from || axis.current !== "x") {
-      setDragX(0)
-      return
-    }
-    const elapsed = Math.max(1, performance.now() - from.t)
-    const velocity = Math.abs(dragX) / elapsed
-    const past = Math.abs(dragX) > width.current * COMMIT_RATIO
-    if (past || velocity > FLICK_VELOCITY) go(index + (dragX < 0 ? 1 : -1))
-    setDragX(0)
-  }
+  /**
+   * ONE GESTURE, NOT TWO COPIES OF IT.
+   *
+   * This file had its own axis lock, its own rubber band and its own release
+   * test, written before lib/gestures/use-swipe-track existed — and that hook
+   * was lifted OUT of this file, with a header saying the gallery underneath
+   * would use the same one "rather than a second implementation that drifts".
+   * The second implementation was this one, still here, and it drifted: the
+   * gallery's release measures velocity over the end of the gesture and this
+   * one averaged it from the first touch, so the same flick committed in one
+   * place and sprang back in the other.
+   *
+   * It also carried the same fault that made the gallery feel laggy: a
+   * setState on every touchmove, which is a React render per frame of the
+   * drag, of a component holding every full-screen picture.
+   */
+  const swipe = useSwipeTrack({ index, count, onIndexChange: go })
 
   if (count === 0) return null
 
@@ -194,19 +153,20 @@ export function ProductMediaViewer({
         )}
 
         <div
-          ref={frameRef}
+          ref={swipe.frameRef}
           className="relative flex-1 overflow-hidden"
           /* touch-none, or the browser's own horizontal pan competes with the
-             track and the swipe drops frames. */
+             track and the swipe drops frames. Full screen there is nothing
+             under this to scroll, so unlike the gallery it does not need to
+             leave `pan-y` to the page. */
           style={{ touchAction: "none" }}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-          onTouchCancel={onTouchEnd}
+          {...swipe.handlers}
         >
           <div
-            className={cn("flex h-full w-full", !dragging && "transition-transform duration-300 ease-sheet")}
-            style={{ transform: `translate3d(calc(${-index * 100}% + ${dragX}px), 0, 0)` }}
+            ref={swipe.trackRef}
+            /* The hook writes this node's transform and its transition. See
+               the gallery for why neither belongs in a style prop. */
+            className="flex h-full w-full"
           >
             {media.map((item, i) => (
               <div key={i} className="relative h-full w-full shrink-0">

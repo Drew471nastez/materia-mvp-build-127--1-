@@ -50,15 +50,40 @@ console.log("\nThe gallery swipe\n")
     which leaves nothing to move: a finger could travel a hundred pixels with
     nothing happening, then the picture jumped at the fiftieth.
   */
+  /*
+    THE TRANSFORM MOVED, AND THAT IS THE POINT OF THE MOVE.
+
+    These two used to read the translate out of the GALLERY, because the
+    gallery held the drag offset in React state and put it in a style prop.
+    That is a render of the whole gallery per touchmove, which is what "the
+    swipe is laggy" was: measured by scripts/check-gallery-swipe, thirty
+    touchmoves produced thirty React commits.
+
+    The offset is not state anybody renders from, so the hook writes it to
+    the node directly and the gallery hands over the node. The question is
+    the same one — is there a position that can follow a finger — asked of
+    where the position now lives.
+  */
+  const swipeHook = code("lib/gestures/use-swipe-track.ts")
   check(
     "the slides are a strip, not a stack",
-    /transform: `translate3d\(calc\(\$\{-currentIndex \* 100\}% \+ \$\{swipe\.dragX\}px\)/.test(gallery),
+    /translate3d\(calc\(\$\{-pendingIndex\.current \* 100\}% \+ \$\{offset\}px\)/.test(swipeHook),
     "an absolutely-stacked crossfade has no position, so it cannot follow a finger",
   )
   check(
     "and the drag is part of that position",
-    /swipe\.dragX/.test(gallery),
+    /paint\(dragRef\.current, false\)/.test(swipeHook),
     "without it the strip only moves when the gesture has already ended",
+  )
+  check(
+    "the gallery hands the strip over rather than styling it",
+    /ref=\{swipe\.trackRef\}/.test(gallery) && !/swipe\.dragX/.test(gallery),
+    "a style prop on the same node is written back over the drag on the next render",
+  )
+  check(
+    "and no state is set while a finger is moving",
+    !/setDragX/.test(swipeHook) && /el\.style\.transform =/.test(swipeHook),
+    "one setState per touchmove is one render of every slide and thumbnail per frame",
   )
   /*
     `minSwipeDistance` is deliberately still here: a mouse drag on a desktop

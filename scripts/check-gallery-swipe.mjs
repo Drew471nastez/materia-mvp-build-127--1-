@@ -33,8 +33,9 @@ const out = mkdtempSync(join(tmpdir(), "storelib-gallery-swipe-"))
 execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-gallery-swipe.tsx"),
   "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error",
   `--outfile=${join(out, "probe.js")}`,
-  '--banner:js=var process=globalThis.process||{env:{NODE_ENV:"production"},browser:true};globalThis.process=process;',
-  '--define:process.env.NODE_ENV="production"',
+  /* Development, so React's Profiler reports commits. See the host file. */
+  '--banner:js=var process=globalThis.process||{env:{NODE_ENV:"development"},browser:true};globalThis.process=process;',
+  '--define:process.env.NODE_ENV="development"',
   `--alias:@=${root}`, "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
   { stdio: ["ignore", "ignore", "inherit"] })
 
@@ -198,6 +199,31 @@ async function run() {
   send(frame, "touchend", x0 - 14, y - 120)
   await nextFrame()
 
+  /*
+    4. THE COST OF A DRAG, which is what "laggy" was.
+
+    Thirty moves across the frame, the way a finger produces them, and two
+    counts either side: how many touchmoves the gesture delivered, and how
+    many times React rendered the gallery while it was happening. The version
+    that kept the offset in state rendered once per move — the whole gallery,
+    every slide and every thumbnail, thirty times for one swipe. Nothing in a
+    drag needs a render, so the honest number here is zero.
+  */
+  var commitsBefore = window.__commits
+  var movesSent = 0
+  send(frame, "touchstart", x0, y)
+  for (var i = 1; i <= 30; i++) {
+    send(frame, "touchmove", x0 - i * 4, y)
+    movesSent++
+    await nextFrame()
+  }
+  report.dragMoves = movesSent
+  report.dragTrackedTo = trackX(strip)
+  report.commitsDuringDrag = window.__commits - commitsBefore
+  send(frame, "touchend", x0 - 120, y)
+  await new Promise(function (r) { setTimeout(r, 600) })
+  show(report)
+
   report.touchAction = getComputedStyle(frame).touchAction
   report.hoverNone = window.matchMedia("(hover: none)").matches
   /* Ask for a slide and read what the browser actually applied. */
@@ -260,6 +286,7 @@ console.log(`  finger back to -30px -> strip at ${r.atMinus30}px`)
 console.log(`  short drag released -> slide ${r.afterShortDrag.index}`)
 console.log(`  finger at -${Math.round(r.frameWidth * 0.5)}px -> strip at ${r.atHalf}px, released -> slide ${r.indexAfterCommit}`)
 console.log(`  vertical swipe moved the strip ${r.duringVertical}px`)
+console.log(`  a ${r.dragMoves}-move drag: strip at ${r.dragTrackedTo}px, ${r.commitsDuringDrag} React commit${r.commitsDuringDrag === 1 ? "" : "s"}`)
 console.log(`  (hover: none) matches: ${r.hoverNone}   computed transform: ${r.computedAtRest}`)
 if (process.env.DEBUG_SWIPE) {
   console.log(`  [debug] native listeners fired: ${r.native}`)
@@ -289,6 +316,20 @@ if (r.computedAtRest === "none") {
   problems.push("The browser computed the strip's transform as `none`, so whatever the component asked for was refused by a stylesheet and nothing moves on screen.")
 }
 if (r.touchAction !== "pan-y") problems.push(`touch-action is ${r.touchAction}. \`pan-y\` is what stops the browser's own horizontal pan competing while leaving the page scrollable.`)
+/*
+  A DRAG COSTS NO RENDERS. This is the lag report stated as a number. One
+  setState per touchmove re-renders the gallery, its slides and its
+  thumbnails on every frame of a gesture that needs none of it.
+
+  Not zero, because the touch going down and coming up each flip `dragging`,
+  which is one render at each end and is not per-frame work.
+*/
+if (r.commitsDuringDrag > 2) {
+  problems.push(`${r.dragMoves} touchmoves produced ${r.commitsDuringDrag} React commits of the gallery. A drag is a transform on one node and needs none.`)
+}
+if (Math.abs(r.dragTrackedTo - -120) > 6) {
+  problems.push(`After 30 moves the finger was 120px in and the strip is at ${r.dragTrackedTo}px. It stopped following part way.`)
+}
 
 if (problems.length) {
   console.error(`${problems.length} problem${problems.length > 1 ? "s" : ""}:\n`)

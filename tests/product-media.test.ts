@@ -157,14 +157,36 @@ check(
   "so the close control is absolute against the screen",
   /className="absolute z-20 inline-flex h-11 w-11/.test(viewer),
 )
+/*
+  ONE GESTURE, AND THESE TWO NOW ASK IT OF THAT ONE.
+
+  Both used to read the viewer's own axis lock and its own release test. The
+  viewer had a complete second copy of the gesture, written before
+  lib/gestures/use-swipe-track was lifted out of it — and the hook's own
+  header said the gallery would use the same one "rather than a second
+  implementation that drifts". It drifted: the hook measures a flick over the
+  end of the gesture and the copy averaged it from the first touch, so the
+  same flick committed in the gallery and sprang back full screen.
+
+  The copy is gone. The claims are unchanged and are made of the hook, plus
+  one that the viewer does not grow another.
+*/
+const swipeHook = code("lib/gestures/use-swipe-track.ts")
 check(
   "the swipe locks to one axis before it moves anything",
-  /axis\.current = Math\.abs\(dx\) > Math\.abs\(dy\) \? "x" : "y"/.test(viewer),
+  /axis\.current = Math\.abs\(dx\) > Math\.abs\(dy\) \? "x" : "y"/.test(swipeHook),
   "without it a vertical swipe drags the track sideways and springs back",
 )
 check(
   "a short flick counts as well as a long drag",
-  /velocity > FLICK_VELOCITY/.test(viewer),
+  /velocity > FLICK_VELOCITY/.test(swipeHook),
+)
+check(
+  "and the viewer uses that one rather than its own",
+  /useSwipeTrack\(\{ index, count, onIndexChange: go \}\)/.test(viewer) &&
+    !/axis\.current/.test(viewer) &&
+    !/setDragX/.test(viewer),
+  "two copies of one gesture drift, and the drift is a flick that works in one place and not the other",
 )
 check(
   "the picture is shown whole, not cropped",
