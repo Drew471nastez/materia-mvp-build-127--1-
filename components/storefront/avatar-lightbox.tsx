@@ -13,13 +13,21 @@
  * a hand-rolled overlay gets wrong one at a time. This borrows the app's own
  * dialog, so it also arrives on the same curve as everything else.
  *
- * PRESSING THE GROUND CLOSES IT, with no hit-testing. The panel used to be
- * exactly the size of the photograph, so everything around the image was the
- * overlay and the overlay already closes on a press. The panel is the whole
- * viewport now — it had to be, see the note on the close button — and
- * `pointer-events-none` on it keeps that behaviour unchanged: a press on
- * empty space passes through to the overlay underneath. Only the picture and
- * the close control take pointer events back.
+ * PRESSING THE GROUND CLOSES IT, and it does so by saying so. This used to
+ * put `pointer-events-none` on the panel and trust presses to fall through
+ * to the overlay, which closes on a press. That class never applied. Radix
+ * writes `pointer-events: auto` as an INLINE STYLE on the content of a modal
+ * dialog, and an inline style beats a class, so the panel — which is the
+ * whole viewport — quietly swallowed every press on empty space. Measured:
+ *
+ *     inline pointer-events on the panel: "auto"
+ *     press on the ground -> dialog-content, state after: open
+ *
+ * So the ground is handled here instead, on the element the press actually
+ * reaches. Pressing down AND releasing on the panel itself, rather than on
+ * the picture or the close control, closes it. Both halves are checked so
+ * that dragging off the photograph and releasing does not count as a press
+ * on the ground.
  */
 import * as React from "react"
 import { X } from "lucide-react"
@@ -40,6 +48,15 @@ export function AvatarLightbox({
   disabled?: boolean
 }) {
   const [open, setOpen] = React.useState(false)
+  /**
+   * Whether the press that is in progress began on empty ground.
+   *
+   * A click fires on the nearest common ancestor of where the press went
+   * down and where it came up, so pressing on the photograph and releasing
+   * beside it reports the panel as the target. Without this, letting go of
+   * a drag anywhere outside the picture would close it.
+   */
+  const pressStartedOnGround = React.useRef(false)
 
   if (!src || disabled) return <>{children}</>
 
@@ -80,16 +97,32 @@ export function AvatarLightbox({
           of somebody's face. No amount of adjusting the offsets fixes it;
           the anchor is wrong.
 
-          So the transform goes. The panel is the viewport, centred with flex,
-          and `pointer-events-none` on it keeps the press-the-ground behaviour
-          exactly as it was: presses on empty space pass straight through to
-          the overlay. The two things a visitor can actually hit turn their
-          own pointer events back on.
+          So the transform goes and the panel is the viewport, centred with
+          flex.
+
+          `inset-0`, NOT `w-screen`. `w-screen` is `100vw`, and `100vw`
+          includes the scrollbar; a fixed element's `right: 0` does not. So
+          the panel was wider than the overlay by exactly the width of the
+          gutter, and the close control, pinned to the panel's right edge,
+          was pushed into it. In the creator page editor, where the framed
+          page has a visible scrollbar, that is the X sitting half under it.
+          Measured on a 1200px window with a 15px scrollbar:
+
+              overlay right 1185   panel right 1200   close right 1188
+
+          `inset-0` is measured against the same box the overlay uses, so the
+          two now agree and the corner is a corner.
         */}
         <DialogContent
           showCloseButton={false}
           overlayClassName="bg-black/80"
-          className="pointer-events-none left-0 top-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 items-center justify-center gap-0 border-0 bg-transparent p-0 shadow-none sm:max-w-none"
+          className="inset-0 flex h-auto w-auto max-w-none translate-x-0 translate-y-0 items-center justify-center gap-0 border-0 bg-transparent p-0 shadow-none sm:max-w-none"
+          onPointerDown={(e) => {
+            pressStartedOnGround.current = e.target === e.currentTarget
+          }}
+          onClick={(e) => {
+            if (pressStartedOnGround.current && e.target === e.currentTarget) setOpen(false)
+          }}
         >
           <DialogTitle className="sr-only">
             {name ? `${name}'s profile picture` : "Profile picture"}
@@ -138,18 +171,27 @@ export function AvatarLightbox({
           {/*
             AND NOT THE WHOLE SCREEN. At 88vw the circle ran from edge to edge
             with the close control sitting on top of it, which is a picture
-            that has taken the page over rather than one being shown. This is
-            about twice the header's circle and still clearly a picture on a
-            page: on a 390px phone, 296px; on a laptop, 420px.
+            that has taken the page over rather than one being shown.
+
+            420px was still too big — reported from the creator page editor,
+            where the frame is shorter than a window and the circle filled it.
+            The cap is 320px now, a little over twice the 150px circle in the
+            header, which is enough to be worth opening and little enough to
+            read as a picture on a page. The phone barely moves: 296px to
+            281px, because nobody complained about the phone.
+
+            The height stays at 56vh because a phone held sideways is only
+            390px tall, and anything less than that leaves a circle smaller
+            than the one already on the page.
 
             Measured by scripts/check-avatar-lightbox, which reads this very
-            expression out of this file and lays it out at three sizes.
+            expression out of this file and lays it out at five sizes.
           */}
           <img
             src={src}
             alt={name ? `${name}'s profile picture` : "Profile picture"}
             className="pointer-events-auto aspect-square h-auto rounded-full object-cover"
-            style={{ width: "min(76vw, 56vh, 420px)" }}
+            style={{ width: "min(72vw, 56vh, 320px)" }}
           />
         </DialogContent>
       </Dialog>

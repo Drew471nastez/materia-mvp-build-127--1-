@@ -47,6 +47,31 @@ import { join } from "node:path"
  * would reintroduce exactly this bug from the other end. A regex containing an
  * unmatched quote is the only thing that would confuse this, and there is none
  * in the files these suites read.
+ *
+ * ---------------------------------------------------------------------------
+ * AND AN APOSTROPHE IN JSX TEXT IS NOT A STRING EITHER
+ * ---------------------------------------------------------------------------
+ * The same bug, from the other end, and found the same way. In JSX, prose is
+ * not quoted:
+ *
+ *     <p>Don't lose your work</p>
+ *
+ * That apostrophe was read as opening a string, and nothing closed it, so
+ * every `/*` after it in the file was treated as text inside a string and
+ * left alone. Demonstrated on a two-line file:
+ *
+ *     const a = <p>Don't</p>
+ *     /* SECRET *\/            <- survived the strip
+ *
+ * components/onepage/onboarding-modal.tsx is a real one: a negative assertion
+ * matched the sentence in a comment explaining the thing it forbids, which is
+ * the precise failure this file exists to prevent.
+ *
+ * A quote with a word character on BOTH sides is an English contraction, not a
+ * delimiter. That rule covers `don't`, `it's` and `creator's`, and it cannot
+ * touch a real string: the opening quote of `'a'` has a space or a bracket
+ * before it, and the closing one has a comma or a bracket after it, so neither
+ * has word characters on both sides.
  */
 
 export function stripComments(src: string): string {
@@ -73,7 +98,10 @@ export function stripComments(src: string): string {
     }
 
     if (c === '"' || c === "'" || c === "`") {
-      quote = c
+      /* An apostrophe between two letters is a contraction in JSX prose. */
+      const isContraction =
+        c === "'" && /\w/.test(src[i - 1] ?? "") && /\w/.test(next ?? "")
+      if (!isContraction) quote = c
       out += c
       i++
       continue

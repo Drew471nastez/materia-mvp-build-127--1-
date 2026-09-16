@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
-import { toSameOriginPath } from "@/lib/url-helpers"
+import { getLinksInternalPath, toSameOriginPath } from "@/lib/url-helpers"
 
 /**
  * Convert a full subdomain URL to an internal path for in-app navigation.
@@ -12,7 +12,7 @@ import { toSameOriginPath } from "@/lib/url-helpers"
  * Examples:
  *   https://seller.storelib.com           -> /u/seller
  *   https://seller.storelib.com/p/slug     -> /p/slug
- *   https://seller.storelib.com/links      -> /l/seller
+ *   https://seller.storelib.com/links      -> /seller/links
  *   /u/seller  (already internal)          -> /u/seller
  */
 function toInternalHref(href: string): string {
@@ -35,8 +35,8 @@ function toInternalHref(href: string): string {
     // sellername.storelib.com/ -> /u/sellername
     if (path === "/" || path === "") return `/${username}`
 
-    // sellername.storelib.com/links -> /l/username
-    if (path === "/links" || path === "/links/") return `/l/${username}`
+    // sellername.storelib.com/links -> /username/links
+    if (path === "/links" || path === "/links/") return getLinksInternalPath(username)
 
     // Any other path on the subdomain — keep as /u/username + path
     return path

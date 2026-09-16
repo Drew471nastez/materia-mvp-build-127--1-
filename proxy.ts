@@ -590,6 +590,28 @@ export async function proxy(request: NextRequest) {
    * `request.nextUrl.pathname` here is still what the BROWSER asked for,
    * because this runs before any rewriting.
    */
+  if (bareHost === MAIN_DOMAIN && (pathname === "/l" || pathname.startsWith("/l/"))) {
+    /*
+      ── The OnePage moved under the handle, and /l/ still answers ──────────
+      `storelib.com/{handle}/links`, beside the creator page at
+      `storelib.com/{handle}` and the products at `storelib.com/{handle}/{slug}`.
+      `/l/{slug}` is the old spelling and consolidates onto the new one for
+      the same reason `/u/` does: shared links and search results should not
+      compete with the address being handed out now.
+
+      The slug is carried through rather than swapped for a handle. An
+      onepage is looked up by slug first and by username second, which is
+      what /l/{slug} already did, so a creator whose onepage slug is not
+      their username lands on their own page either way.
+    */
+    const slug = pathname.slice(3)
+    if (slug) {
+      const to = request.nextUrl.clone()
+      to.pathname = `/${slug.replace(/\/+$/, "")}/links`
+      return NextResponse.redirect(to, { status: 308 })
+    }
+  }
+
   if (bareHost === MAIN_DOMAIN && (pathname === "/u" || pathname.startsWith("/u/"))) {
     const handle = pathname.slice(3)
     /* `/u` and `/u/` alone are not a creator; they belong to the platform. */
@@ -667,6 +689,32 @@ export async function proxy(request: NextRequest) {
        * collision it avoids.
        */
       if (pathname === "/api" || pathname.startsWith("/api/")) return NextResponse.next()
+      /**
+       * ═══════════════════════════════════════════════════════════════════
+       *  /links ON A SUBDOMAIN WAS A 404, AND IT WAS THE ADDRESS WE GAVE OUT
+       * ═══════════════════════════════════════════════════════════════════
+       * The Share card handed every creator `{handle}.storelib.com/links` as
+       * their OnePage. This host serves the WEBSITE they built, so `/links`
+       * was looked up as a page of that website and, for anybody who never
+       * made a page by that name, was not there. Measured on production:
+       *
+       *     andrewrullz.storelib.com/links -> 404, x-matched-path /w/[username]/[page]
+       *
+       * Every one of those links is already broken, so sending them to the
+       * page they were meant to reach cannot cost anything, and the OnePage
+       * now has one address: storelib.com/{handle}/links.
+       *
+       * It does take the name `links` away from a creator's own website
+       * pages. That is the same trade the custom-domain branch below already
+       * makes — it has rewritten `/links` to the OnePage all along — so this
+       * makes the two hosts agree rather than introducing a new rule.
+       */
+      if (pathname === "/links" || pathname === "/links/") {
+        const to = new URL(`https://${MAIN_DOMAIN}`)
+        to.pathname = `/${subdomain}/links`
+        to.search = search
+        return NextResponse.redirect(to, { status: 308 })
+      }
       if (PLATFORM_APEX_PATHS.some((r) => pathname === r || pathname.startsWith(`${r}/`))) {
         const apex = new URL(`https://${MAIN_DOMAIN}`)
         apex.pathname = pathname

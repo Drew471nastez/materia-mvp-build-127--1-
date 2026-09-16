@@ -3634,7 +3634,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     <div className="space-y-3">
                       {[
                         { title: "Your Store", from: `${username}.storelib.com`, to: displayDomain },
-                        { title: "Your OnePage", from: `${username}.storelib.com/links`, to: `${displayDomain}/links` },
+                        { title: "Your OnePage", from: `storelib.com/${username}/links`, to: `${displayDomain}/links` },
                         { title: "Product Pages", from: `${username}.storelib.com/p/...`, to: `${displayDomain}/p/...` },
                       ].map((item, i) => (
                         <div key={i} className="group bg-[#f9fafb] hover:bg-[#f5f3ff]/50 rounded-xl p-3.5 border border-[#e5e7eb] hover:border-[#ede9fe] transition-all duration-200">

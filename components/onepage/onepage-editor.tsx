@@ -688,7 +688,7 @@ function EditorLayout() {
     )
   }
 
-  // Always use the external (shareable) URL so the format is always username.storelib.com/links
+  // Always the external, shareable address: storelib.com/{handle}/links
   const pageUrl = connectedDomain ? getLinksUrlWithCustomDomain(onepage.slug, connectedDomain) : getLinksShareUrl(onepage.slug)
 
   const copyLink = async () => {

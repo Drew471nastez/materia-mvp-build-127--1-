@@ -165,6 +165,83 @@ check(
   )
 }
 
+/**
+ * ===========================================================================
+ *  THE OPEN PROFILE PICTURE
+ * ===========================================================================
+ * Three things were reported about it in the creator page editor: the X in
+ * the corner was cut off, pressing away from the picture did nothing, and it
+ * opened too big. All three are measured for real in
+ * scripts/check-avatar-lightbox-behaviour, which opens the actual component
+ * with the actual Radix dialog and presses it.
+ *
+ * That probe needs a build and a browser, so it does not run on a push. What
+ * is here is the shape of each fix, so putting one back is loud.
+ */
+{
+  const lightboxSource = readFileSync(join(root, "components/storefront/avatar-lightbox.tsx"), "utf8")
+  /*
+    WITH THE COMMENTS TAKEN OUT. The note in that file explaining why
+    `w-screen` was removed contains the word `w-screen`, so "is this class
+    gone" matched the explanation of its removal and failed. Anything below
+    asking whether code is still present reads the stripped copy; the checks
+    about what the code says read the original.
+  */
+  const lightbox = lightboxSource
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "")
+
+  /*
+    `w-screen` is `100vw`, which INCLUDES the scrollbar; the overlay's
+    `inset-0` does not. The panel was therefore wider than the overlay by the
+    width of the gutter, and the close control, pinned to the panel's right
+    edge, went into it. Measured at 1200px with a 15px scrollbar: overlay
+    right 1185, panel right 1200, close right 1188.
+  */
+  check(
+    "the open picture's panel is anchored where the overlay is",
+    /className="inset-0 /.test(lightbox),
+    "the panel has to be measured against the same box as the overlay",
+  )
+  check(
+    "and not against 100vw, which includes the scrollbar",
+    !/w-screen/.test(lightbox),
+    "w-screen pushes anything pinned to the right edge into the scrollbar gutter",
+  )
+
+  /*
+    Radix writes `pointer-events: auto` as an inline style on a modal
+    dialog's content, and an inline style beats a class. So the old
+    `pointer-events-none` on the panel never applied, the panel swallowed
+    every press on empty space, and the dialog only closed on Escape or on
+    the X. The ground is handled explicitly now.
+  */
+  check(
+    "pressing the ground closes it, on the element the press reaches",
+    /onPointerDown=\{\(e\) => \{\s*pressStartedOnGround\.current = e\.target === e\.currentTarget/.test(lightbox) &&
+      /pressStartedOnGround\.current && e\.target === e\.currentTarget\) setOpen\(false\)/.test(lightbox),
+    "without both halves, a drag off the photograph would close it too",
+  )
+  check(
+    "and not by a class the library overrides inline",
+    !/className="pointer-events-none/.test(lightbox),
+    "pointer-events-none on the panel reads as working and does nothing",
+  )
+
+  /*
+    420px was inside every percentage guard the size probe had and was still
+    too big, twice reported. The cap is the number that bites on a big
+    screen, so the cap is what is pinned here and in the probe.
+  */
+  const cap = lightbox.match(/width: "min\([^)]*?(\d+)px\)"/)?.[1]
+  check(
+    "the open picture is capped at 320px across",
+    cap === "320",
+    `the cap reads ${cap ?? "nothing"}. scripts/check-avatar-lightbox asserts the same number.`,
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log("\nFailures:")
