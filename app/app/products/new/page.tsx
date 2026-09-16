@@ -76,6 +76,7 @@ import {
   rectSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import { avoidReservedProductSlug } from "@/lib/commerce/reserved-slugs"
 
 // Section definitions - internal refs for all sections
 const SECTIONS = [
@@ -2192,6 +2193,8 @@ export default function NewProductPage() {
 
     try {
       let finalSlug = slug
+      /** One suffix scheme, used by both checks below. */
+      const suffix = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
       // Check for duplicate slug for THIS creator (unique constraint is per-creator)
       // Runs for both create AND update — excludes current product when updating
       {
@@ -2210,9 +2213,19 @@ export default function NewProductPage() {
 
         if (existing) {
           // Add timestamp + random suffix to ensure uniqueness
-          finalSlug = `${slug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
+          finalSlug = `${slug}-${suffix()}`
         }
       }
+
+      /*
+        AND NOT A NAME A ROUTE ALREADY ANSWERS TO. A product sits at
+        /{handle}/{slug}, and the OnePage sits at /{handle}/links — a static
+        segment, which Next matches ahead of the dynamic one. A product
+        slugged `links` would open the creator's OnePage instead of itself,
+        with nothing anywhere saying why. It gets the same suffix a duplicate
+        gets, so it keeps an address that works.
+      */
+      finalSlug = avoidReservedProductSlug(finalSlug, suffix)
 
       // Get photo URLs from media items (images and YouTube)
       const photoUrls = mediaItems.filter(m => m.type === "image").map(m => m.url)

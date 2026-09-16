@@ -2,13 +2,14 @@
  * URL Helpers for subdomain-based routing
  *
  * URL Structure:
- * - username.storelib.com         -> Seller store homepage
- * - username.storelib.com/links   -> Seller onepage/links page
+ * - username.storelib.com         -> the WEBSITE they built
+ * - storelib.com/{username}       -> Seller store homepage
+ * - storelib.com/{username}/links -> Seller onepage/links page
  * - username.storelib.com/p/slug  -> Product page (on seller's subdomain)
  *
  * Internal routes (still work for compatibility):
- * - /u/{username}  -> Seller store homepage
- * - /l/{slug}      -> Seller onepage/links page
+ * - /u/{username}  -> Seller store homepage (308 to /{username})
+ * - /l/{slug}      -> Seller onepage/links page (308 to /{slug}/links)
  * - /p/{slug}      -> Product page
  *
  * Capacitor (native app):
@@ -73,27 +74,43 @@ export function getStoreUrl(username: string): string {
 }
 
 /**
- * Get the URL for a seller's links/onepage (subdomain format)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE ONEPAGE LIVES UNDER THE CREATOR'S HANDLE
+ * ═══════════════════════════════════════════════════════════════════════════
+ * It used to be handed out as `username.storelib.com/links`, and that address
+ * had stopped working. The subdomain is the WEBSITE a creator builds, so
+ * `/links` on it is read as a page of that website; for anybody who has not
+ * made a page by that name it is a 404. Measured on production:
+ *
+ *     andrewrullz.storelib.com/links  ->  404, x-matched-path /w/[username]/[page]
+ *     storelib.com/l/andrewrullz      ->  200, the real page
+ *
+ * So the Share card was handing every creator a dead link to give out.
+ *
+ * `storelib.com/{handle}/links` is the address now: under the handle, beside
+ * the creator page at `storelib.com/{handle}` and the products at
+ * `storelib.com/{handle}/{slug}`, which is one shape a person can hold in
+ * their head instead of three. `/l/{slug}` still answers and redirects here.
+ *
  * @param username - The seller's username (same as onepage slug in most cases)
- * @returns Full URL like "https://username.storelib.com/links"
+ * @returns Full URL like "https://storelib.com/username/links"
  */
 export function getLinksUrl(username: string): string {
   if (!username) return getSiteUrl()
 
-  if (isNativeApp()) {
-    return `/l/${username.toLowerCase()}`
-  }
+  const handle = username.toLowerCase()
+
+  /* In the native shell, a path: a cross-origin hop loses the session. */
+  if (isNativeApp()) return getLinksInternalPath(handle)
 
   const mainDomain = getMainDomain()
   const protocol = mainDomain.includes("localhost") ? "http" : "https"
 
-  // Handle localhost for development
   if (mainDomain.includes("localhost")) {
-    // In development, use path-based routing as fallback
-    return `${getSiteUrl()}/l/${username}`
+    return `${getSiteUrl()}${getLinksInternalPath(handle)}`
   }
 
-  return `${protocol}://${username.toLowerCase()}.${mainDomain}/links`
+  return `${protocol}://${mainDomain}${getLinksInternalPath(handle)}`
 }
 
 /**
@@ -173,13 +190,14 @@ export function getStoreShareUrl(username: string): string {
 export function getLinksShareUrl(username: string): string {
   if (!username) return getSiteUrl()
 
+  const handle = username.toLowerCase()
   const mainDomain = getMainDomain()
 
   if (mainDomain.includes("localhost")) {
-    return `${getSiteUrl()}/l/${username.toLowerCase()}`
+    return `${getSiteUrl()}${getLinksInternalPath(handle)}`
   }
 
-  return `https://${username.toLowerCase()}.${mainDomain}/links`
+  return `https://${mainDomain}${getLinksInternalPath(handle)}`
 }
 
 /**
@@ -230,12 +248,16 @@ export function getStoreInternalPath(username: string): string {
 }
 
 /**
- * Get relative path for links page internal navigation
+ * Get relative path for links page internal navigation.
+ *
+ * THE ONE PLACE THAT KNOWS THE SHAPE. Every other helper above builds its
+ * answer out of this, so the format is changed here and nowhere else.
+ *
  * @param slug - The onepage slug (usually same as username)
- * @returns Relative path like "/l/slug"
+ * @returns Relative path like "/slug/links"
  */
 export function getLinksInternalPath(slug: string): string {
-  return `/l/${slug}`
+  return `/${slug}/links`
 }
 
 /**
@@ -269,19 +291,13 @@ export function getStoreUrlDisplay(username: string): string {
 /**
  * Format a links URL for display (shorter version)
  * @param username - The seller's username
- * @returns Display string like "username.storelib.com/links"
+ * @returns Display string like "storelib.com/username/links"
  */
 export function getLinksUrlDisplay(username: string): string {
-  if (!username) return `${getMainDomain()}/links`
-
   const mainDomain = getMainDomain()
+  if (!username) return `${mainDomain}/links`
 
-  // Handle localhost for development
-  if (mainDomain.includes("localhost")) {
-    return `${mainDomain}/l/${username}`
-  }
-
-  return `${username.toLowerCase()}.${mainDomain}/links`
+  return `${mainDomain}${getLinksInternalPath(username.toLowerCase())}`
 }
 
 /**
@@ -488,7 +504,11 @@ export function isLinksPage(pathname: string, host?: string): boolean {
     }
   }
 
-  // Check path-based route
+  /* The address now: /{handle}/links, two segments with `links` as the second. */
+  const parts = pathname.split("/").filter(Boolean)
+  if (parts.length === 2 && parts[1].toLowerCase() === "links") return true
+
+  // And the old path-based route, which still answers.
   return pathname.startsWith("/l/")
 }
 

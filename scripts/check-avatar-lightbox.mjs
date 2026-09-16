@@ -53,6 +53,18 @@ for (const wanted of ["aspect-square", "rounded-full", "object-cover"]) {
 const HEADER_AVATAR = 150
 
 /**
+ * THE CAP, READ OUT OF THE EXPRESSION ITSELF.
+ *
+ * The percentage guards below never caught the actual complaint. At 420px on
+ * a desktop the circle was 29% of the width and 47% of the height, comfortably
+ * inside every limit here, and it was still too big — reported twice, from the
+ * creator page editor, where the frame is shorter than a window. A percentage
+ * of a large screen is not a size; the pixel cap is, so the pixel cap is what
+ * gets asserted.
+ */
+const MAX_DIAMETER = 320
+
+/**
  * MEASURED IN A SIZED IFRAME, not in the browser window. Headless Chromium
  * refuses to make its window narrower than 500px, so `--window-size=390` gives
  * a 500px viewport and every `vw` in the result is wrong — which would have
@@ -127,6 +139,9 @@ for (const r of rows) {
   if (pctW > 82) problems.push(`${r.name}: ${pctW}% of the screen's width, so there is no ground left to press to close.`)
   if (r.w <= HEADER_AVATAR * 1.4) {
     problems.push(`${r.name}: ${r.w}px against a ${HEADER_AVATAR}px circle in the header. Not worth opening.`)
+  }
+  if (r.w > MAX_DIAMETER) {
+    problems.push(`${r.name}: ${r.w}px across, over the ${MAX_DIAMETER}px cap. On a big screen the percentages never bite, so this is the guard that does.`)
   }
 }
 

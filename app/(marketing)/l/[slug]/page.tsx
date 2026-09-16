@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { headers } from "next/headers"
+import { getLinksInternalPath } from "@/lib/url-helpers"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -265,7 +266,8 @@ export default async function PublicOnePageRoute({ params }: Props) {
       .maybeSingle()
 
     if (historyRecord?.new_username) {
-      redirect(`/l/${historyRecord.new_username}`)
+      /* Their page, at the address it has now: /{handle}/links. */
+      redirect(getLinksInternalPath(historyRecord.new_username))
     }
 
     notFound()

@@ -116,15 +116,23 @@ check(
  * three are pages I have not measured and cannot see:
  *
  *   /l/<slug>      a creator's link page, entirely their own layout
+ *   /<handle>/links  the same page, at the address it now has
  *   /wishlist      signed-in only
  *   /blog/explore/categories/<category>
  *
  * They have the same gap and it is worth closing; drawing their skeletons
  * blind is how you ship a flash of the wrong page. Delete a line here when
  * one gets a real one.
+ *
+ * The second is not a new gap. The OnePage moved from `/l/<slug>` to
+ * `/<handle>/links` and the new route renders the page the first one already
+ * rendered, so it inherits the reason above rather than adding to it: one
+ * page, one missing skeleton, now reachable at two addresses. Whichever one
+ * gets a real loading.tsx, both lines go.
  */
 const KNOWN_GAPS = new Set([
   "app/(marketing)/l/[slug]",
+  "app/(marketing)/[sellername]/links",
   "app/(marketing)/wishlist",
   "app/(marketing)/blog/explore/categories/[category]",
 ])

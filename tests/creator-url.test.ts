@@ -17,11 +17,20 @@
  * those visitors to the apex — the subdomain stops serving anything at all.
  * So the guard is checked here, by name.
  */
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { stripComments } from "./_source"
-import { getStoreInternalPath, getProductShareUrl, getProductInternalPath } from "../lib/url-helpers"
+import {
+  getLinksInternalPath,
+  getLinksShareUrl,
+  getLinksUrl,
+  getLinksUrlDisplay,
+  getProductInternalPath,
+  getProductShareUrl,
+  getStoreInternalPath,
+} from "../lib/url-helpers"
+import { avoidReservedProductSlug, isReservedProductSlug } from "../lib/commerce/reserved-slugs"
 
 let passed = 0
 let failed = 0
@@ -216,6 +225,132 @@ check(
   /\/w\/\$\{subdomain\}/.test(proxy),
   "that is the other half of the pair and must not have moved",
 )
+
+console.log("\nThe OnePage sits under the handle too\n")
+
+/**
+ * ===========================================================================
+ *  storelib.com/<handle>/links
+ * ===========================================================================
+ * It was handed out as `<handle>.storelib.com/links`, and that address had
+ * stopped working. The subdomain serves the WEBSITE a creator builds, so
+ * `/links` on it is looked up as a page of that website; for anybody who
+ * never made a page by that name it is a 404. Measured on production before
+ * this changed:
+ *
+ *     andrewrullz.storelib.com/links  ->  404, x-matched-path /w/[username]/[page]
+ *     storelib.com/l/andrewrullz      ->  200, the real page
+ *     storelib.com/andrewrullz/links  ->  200, "Product Not Found"
+ *
+ * So the Share card was giving every creator a dead link to pass around, and
+ * the address that reads like the right one was being looked up as a product.
+ */
+check("a OnePage is /<handle>/links", getLinksInternalPath("andrew-rullz") === "/andrew-rullz/links")
+check("with no /l/ prefix", !getLinksInternalPath("x").startsWith("/l/"))
+
+/**
+ * THE FOUR OF THEM AGREE. A creator sees the share URL in one place, the
+ * display string in another and follows the link from a third; when those
+ * were built separately, one of them was a 404 for months. All three are
+ * built out of getLinksInternalPath now, so they cannot disagree.
+ */
+{
+  const handle = "andrew-rullz"
+  const path = getLinksInternalPath(handle)
+  check("the share URL ends in the same path", getLinksShareUrl(handle).endsWith(path), getLinksShareUrl(handle))
+  check("and so does the one links navigate to", getLinksUrl(handle).endsWith(path), getLinksUrl(handle))
+  check("and so does the string a creator is shown", getLinksUrlDisplay(handle).endsWith(path), getLinksUrlDisplay(handle))
+  check(
+    "none of them is a subdomain any more",
+    ![getLinksShareUrl(handle), getLinksUrl(handle), getLinksUrlDisplay(handle)].some((u) => u.includes(`${handle}.`)),
+    "the handle belongs in the path, not in the host",
+  )
+}
+
+/**
+ * A ROUTE FILE, NOT A REWRITE. `/{handle}/links` is otherwise caught by
+ * `[sellername]/[productSlug]` and looked up as a product — the third
+ * measurement above. A static segment beats a dynamic sibling in Next's own
+ * matching, so the file is what makes the address mean the OnePage, with no
+ * ordering in the proxy to get right.
+ *
+ * Verified by running it: /andrewrullz/links answered with the OnePage while
+ * /andrewrullz/some-product still answered with the product route.
+ */
+check(
+  "the address is a real route",
+  existsSync(join(root, "app/(marketing)/[sellername]/links/page.tsx")),
+  "without it the path is a product lookup",
+)
+{
+  const route = code("app/(marketing)/[sellername]/links/page.tsx")
+  check(
+    "and it renders the page /l/<slug> already renders, rather than a second copy",
+    /from "\.\.\/\.\.\/l\/\[slug\]\/page"/.test(route),
+    "two implementations of one page drift, and the drift is invisible until somebody publishes",
+  )
+}
+
+/**
+ * AND THE TWO OLD ADDRESSES STILL ANSWER. Both are links people have already
+ * sent each other. `/l/<slug>` is the platform's own prefix and consolidates;
+ * the subdomain's `/links` was the broken one and is sent to the page it was
+ * always meant to reach.
+ */
+{
+  const proxySource = code("proxy.ts")
+  check(
+    "/l/<slug> redirects to the new address",
+    /pathname === "\/l" \|\| pathname\.startsWith\("\/l\/"\)/.test(proxySource) &&
+      /to\.pathname = `\/\$\{slug\.replace\(\/\\\/\+\$\/, ""\)\}\/links`/.test(proxySource),
+    "old links and search results should not compete with the address being handed out now",
+  )
+  check(
+    "and only on the main domain",
+    /bareHost === MAIN_DOMAIN && \(pathname === "\/l"/.test(proxySource),
+    "without the host guard it would catch the custom-domain rewrite to /l/<username> and break it",
+  )
+  check(
+    "the subdomain's /links goes to the page it was meant to reach",
+    /to\.pathname = `\/\$\{subdomain\}\/links`/.test(proxySource),
+    "it was a 404, and it is the address the Share card gave out",
+  )
+}
+
+/**
+ * NOTHING CAN BE PARKED ON TOP OF IT. A product slugged `links` would be
+ * shadowed by the static segment and unreachable at its own address, with
+ * nothing saying why.
+ */
+check("`links` is reserved as a product slug", isReservedProductSlug("links") && isReservedProductSlug("LINKS"))
+check("and an ordinary slug is not", !isReservedProductSlug("men-s-white-t-shirt"))
+check(
+  "a reserved slug is given the same suffix a duplicate gets",
+  avoidReservedProductSlug("links", () => "m3k2p-a7f") === "links-m3k2p-a7f" &&
+    avoidReservedProductSlug("t-shirt", () => "m3k2p-a7f") === "t-shirt",
+)
+check(
+  "and the product form applies it",
+  /avoidReservedProductSlug\(finalSlug, suffix\)/.test(code("app/app/products/new/page.tsx")),
+  "the rule is worth nothing if the one place that writes a slug does not use it",
+)
+
+/** Nobody hands out the dead address any more. */
+{
+  const HANDOUTS = [
+    "lib/url-helpers.ts",
+    "components/onepage/onboarding-modal.tsx",
+    "components/onepage/onepage-editor.tsx",
+    "components/app/settings-form-new.tsx",
+    "components/smart-link.tsx",
+  ]
+  const stale = HANDOUTS.filter((f) => /\.storelib\.com\/links|storelib\.com\}\/links/.test(code(f)))
+  check(
+    "no file still shows <handle>.storelib.com/links",
+    stale.length === 0,
+    `still there in: ${stale.join(", ")}`,
+  )
+}
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {

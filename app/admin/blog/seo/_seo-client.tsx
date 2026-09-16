@@ -688,7 +688,7 @@ export default function SeoAdminClient() {
                             )}
                             <a href={`https://${creator.username}.storelib.com`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-purple-500 hover:underline">{creator.username}.storelib.com ↗</a>
                             {creator.onepage_slug && (
-                              <a href={`https://storelib.com/l/${creator.onepage_slug}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:underline">
+                              <a href={`https://storelib.com/${creator.onepage_slug}/links`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:underline">
                                 /l/{creator.onepage_slug} ↗
                               </a>
                             )}
