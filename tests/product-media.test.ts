@@ -146,18 +146,16 @@ check(
   "a desktop visitor should not download a lightbox nothing can open",
 )
 /*
-  THE ENGINE ANSWERS THIS NOW rather than a pixel count of our own. The
-  gallery measured how far the finger had travelled and called anything under
-  ten pixels a tap; Embla already knows whether the gesture that just ended
-  moved the strip, which is the same question asked of the thing that would
-  know. (Embla 7 exposed it as `clickAllowed()` and 8 does not, so
-  use-media-carousel assembles it from the pointerDown/scroll/pointerUp
-  events it does emit.)
+  THE ENGINE ANSWERS THIS rather than a pixel count of our own. The gallery
+  used to measure how far the finger had travelled and call anything under
+  ten pixels a tap. Swiper already knows: `allowClick` is false for the click
+  that ends a drag, and it is a documented part of the instance rather than
+  something reached out of its internals.
 */
 check(
   "a swipe does not count as a tap",
   /if \(!carousel\.clickAllowed\(\)\) return/.test(gallery) &&
-    /const clickAllowed = React\.useCallback\(\(\) => !dragged\.current/.test(code("lib/gestures/use-media-carousel.ts")),
+    /swiper\.allowClick !== false/.test(code("components/product/media-swiper.tsx")),
   "onClick fires after a swipe too, so the viewer would open on every slide change",
 )
 /*
@@ -178,46 +176,43 @@ check(
 /*
   ONE ENGINE, AND THESE ASK WHAT A PROBE CANNOT SEE.
 
-  Both of these used to read the viewer's own axis lock and its own release
-  test, because the viewer had a complete second copy of the gesture and the
-  gallery had a third. They drifted, and the same flick changed the picture in
-  one place and sprang back in the other.
+  These used to read the viewer's own axis lock and its own release test,
+  because the viewer had a complete second copy of the gesture and the gallery
+  had a third. They drifted, and the same flick changed the picture in one
+  place and sprang back in the other. Then a shared hook over Embla replaced
+  both, and now Swiper replaces that.
 
-  Both copies are gone and so is the hook that replaced them: the two share
-  lib/gestures/use-media-carousel, which is Embla. What a swipe actually does
-  with a finger is measured in a real browser by
+  What a swipe actually does with a finger is measured in a real browser by
   scripts/check-gallery-swipe — tracking, cost and the gap — rather than read
-  out of a file. What is pinned here is that there is one engine and that the
-  viewer has not grown another.
+  out of a file. What is pinned here is that there is ONE engine, that it is a
+  library, and the two things about a full-screen dialog that a carousel
+  cannot know.
 */
-const carouselHook = code("lib/gestures/use-media-carousel.ts")
+const swiperModule = code("components/product/media-swiper.tsx")
 check(
   "the viewer shares the gallery's carousel rather than rolling its own",
-  /useMediaCarousel\(\{ index, count, onIndexChange: go \}\)/.test(viewer) &&
-    !/axis\.current/.test(viewer) &&
-    !/onTouchMove/.test(viewer),
+  /<MediaSwiper/.test(viewer) && !/axis\.current/.test(viewer) && !/onTouchMove/.test(viewer),
   "two copies of one gesture drift, and the drift is a flick that works in one place and not the other",
 )
 check(
-  "and that carousel is a library, not a fourth attempt at one",
-  /from "embla-carousel-react"/.test(carouselHook),
-  "momentum, pointer input, resize and re-measure are what three hand-rolled versions each missed",
+  "and that carousel is Swiper, not a fifth attempt at one",
+  /from "swiper\/react"/.test(swiperModule),
+  "momentum, pointer input, resize and re-measure are what four hand-rolled versions each missed",
 )
 check(
   "full screen it does not wrap silently from the last picture to the first",
-  /loop = false/.test(carouselHook) && !/loop: true/.test(viewer),
+  !/loop/.test(viewer),
   "at the end of a set of pictures, the end should feel like the end",
 )
 /*
-  Embla owns the track's transform, and globals.css deletes untagged
-  transforms inside a `.group` on touch devices. The viewer is not inside one
-  today; the tag is there because the gallery's was missed once and the whole
-  carousel was dead on every phone while reading perfectly in the source.
+  A DIALOG MEASURES NOTHING WHILE IT IS CLOSED. Swiper sizes its slides on
+  init, and a closed dialog has no layout — every slide is zero wide, so the
+  strip lands between pictures the moment it opens.
 */
 check(
-  "the track is exempt from the touch-device transform reset",
-  /data-keep-transform/.test(viewer),
-  "a stylesheet that deletes the transform leaves a carousel that is perfect on paper and still on screen",
+  "it re-measures when the dialog opens",
+  /swiper\.update\(\)/.test(viewer) && /swiper\.slideTo\(index, 0\)/.test(viewer),
+  "slides sized against a closed dialog are zero wide, and the strip settles between pictures",
 )
 check(
   "the picture is shown whole, not cropped",

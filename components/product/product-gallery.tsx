@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { ProductMediaViewer } from "@/components/product/product-media-viewer"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
 import { cn } from "@/lib/utils"
-import { useMediaCarousel } from "@/lib/gestures/use-media-carousel"
+import { MediaSwiper, SwiperSlide, useMediaSwiper, type SwiperClass } from "./media-swiper"
 
 interface MediaItem {
   url: string
@@ -244,14 +244,38 @@ export function ProductGallery({
    * page on this site down for an hour; tsc reports it as TS2448 and
    * next.config.mjs sets `ignoreBuildErrors`, so the build stays green.
    */
-  const carousel = useMediaCarousel({
-    index: currentIndex,
-    count: mediaItems.length,
-    /* The last picture leads back to the first, which is what the autoplay
-       in dots mode has always done. */
-    loop: true,
-    onIndexChange: setCurrentIndex,
-  })
+  const [swiperRef, carousel] = useMediaSwiper()
+
+  /**
+   * Swiper owns the position, this component owns the index — the counter,
+   * the video controls, the dots and the thumbnails all read it — so the two
+   * are kept level in both directions, each side checking before it writes so
+   * they cannot drive each other round in a circle.
+   */
+  useEffect(() => {
+    carousel.slideToIndex(currentIndex, swiperRef.current?.activeIndex ?? currentIndex)
+  }, [currentIndex, carousel, swiperRef])
+
+  const onSwiper = useCallback((swiper: SwiperClass) => {
+    swiperRef.current = swiper
+  }, [swiperRef])
+
+  const step = useCallback(
+    (delta: number) => {
+      const last = mediaItems.length - 1
+      /* The ends wrap, which is what the arrows and the dots autoplay have
+         always done. Swiper's own `loop` would clone slides, and these slides
+         hold <video> and a YouTube iframe — a clone is a second player React
+         does not know it has. */
+      setCurrentIndex((prev) => {
+        const next = prev + delta
+        if (next < 0) return last
+        if (next > last) return 0
+        return next
+      })
+    },
+    [mediaItems.length],
+  )
 
   /*
     THE TWO STEPPERS AND THE MOUSE THRESHOLD ARE GONE, not moved.
@@ -268,7 +292,7 @@ export function ProductGallery({
     if (!showDotsNavigation || mediaItems.length <= 1 || isPaused || currentMedia?.type !== "image") return
 
     autoplayRef.current = setInterval(() => {
-      carousel.scrollNext()
+      step(1)
     }, autoplayInterval)
 
     return () => {
@@ -276,7 +300,7 @@ export function ProductGallery({
         clearInterval(autoplayRef.current)
       }
     }
-  }, [showDotsNavigation, mediaItems.length, mediaItems, currentIndex, isPaused, autoplayInterval, carousel])
+  }, [showDotsNavigation, mediaItems.length, mediaItems, currentIndex, isPaused, autoplayInterval, step])
 
   // Pause autoplay on user interaction, resume after delay
   const handleUserInteraction = useCallback(() => {
@@ -288,10 +312,10 @@ export function ProductGallery({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") {
-        carousel.scrollPrev()
+        step(-1)
         handleUserInteraction()
       } else if (e.key === "ArrowRight") {
-        carousel.scrollNext()
+        step(1)
         handleUserInteraction()
       } else if (e.key === " " && mediaItems[currentIndex]?.type === "video") {
         e.preventDefault()
@@ -309,17 +333,14 @@ export function ProductGallery({
     <div className="space-y-3 sm:space-y-4 w-full">
       {/* Main Image */}
       <div
-        /* Two owners, one element: imageRef is what goes fullscreen, and
-           Embla measures and clips inside this box. It sets `touch-action`
-           itself — `pan-y pinch-zoom`, so the page still scrolls vertically
-           under a finger that started on a picture. */
-        ref={(node) => {
-          imageRef.current = node
-          carousel.viewportRef(node)
-        }}
+        /* The box that goes fullscreen, and the box Swiper is measured
+           against. Swiper is a child of it rather than this element itself,
+           so the rounding, the aspect ratio and the click target stay where
+           they were and the strip lives inside them. */
+        ref={imageRef}
         /* A stable hook for the probes, which cannot read which slide is in
-           front off a transform any more: Embla writes pixels, not a percent
-           per slide. Nothing styles off it. */
+           front off a transform: an engine writes pixels, not a percent per
+           slide. Nothing styles off it. */
         data-gallery-index={currentIndex}
         className={cn(
           "relative aspect-video overflow-hidden rounded-xl w-full group",
@@ -344,9 +365,9 @@ export function ProductGallery({
          */
         onClick={() => {
           if (!isPhone) return
-          /* Embla's own answer to "was that a tap or the end of a drag". It
-             is false for the moment after a drag, which is what stops the
-             viewer opening on every slide change. */
+          /* Swiper's own answer to "was that a tap or the end of a drag".
+             `allowClick` is false for the click that ends a drag, which is
+             what stops the viewer opening on every slide change. */
           if (!carousel.clickAllowed()) return
           if (mediaItems[currentIndex]?.type === "youtube") return
           setViewerOpen(true)
@@ -356,68 +377,25 @@ export function ProductGallery({
       >
         {/*
           ═══════════════════════════════════════════════════════════════════
-           ONE STRIP, TRANSLATED — NOT A STACK THAT CROSSFADES
+           THE STRIP IS SWIPER'S
           ═══════════════════════════════════════════════════════════════════
-          The slides used to be stacked on top of each other and faded between.
-          A fade cannot follow a finger: there is no position to move, so a
-          swipe could only watch for a threshold and then jump. This is a row,
-          moved by the index and by the live drag, so the picture is attached
-          to the finger and the release snaps it.
+          One row, moved by the engine: under a finger it follows it exactly,
+          and on release it carries the speed of the flick into the settle.
+          That last part is the whole difference between this and the three
+          versions before it, each of which ran a fixed curve however the hand
+          moved. ./media-swiper holds the settings and the reasoning.
 
-          WHEN IT ANIMATES, AND WHEN IT MUST NOT. A neighbouring slide slides,
-          which is the whole point. A jump of more than one — a thumbnail four
-          along, or the wrap from the last picture back to the first — would
-          smear every picture in between across 300ms, so those move without a
-          transition. That is what a gallery with thumbnails does everywhere
-          else, and it is one rule rather than two mechanisms.
+          It is a child of the frame rather than the frame itself, so the
+          aspect ratio, the rounding and the click target are untouched.
         */}
-        <div
-          /*
-            ═══════════════════════════════════════════════════════════════
-             THIS TRANSFORM IS THE GALLERY, NOT DECORATION
-            ═══════════════════════════════════════════════════════════════
-            The frame above carries `group`, and globals.css has this, for
-            every touch-only device:
-
-                @media (hover: none) {
-                  .group *:not([data-keep-transform]) {
-                    transform: none !important;
-                  }
-                }
-
-            It exists to stop a hover nudge firing on a tap. On a phone it was
-            also deleting the translate that IS this carousel, so the strip
-            never moved: pressing a thumbnail changed the index and nothing
-            happened, swiping dragged state that painted nowhere, and the
-            picture appeared to be stuck on the first one. Measured on a real
-            product page with touch emulated on:
-
-                inline    transform: translate3d(calc(-100% + 0px), 0, 0)
-                computed  transform: none
-
-            `data-keep-transform` is that rule's own documented way of saying
-            the transform is load-bearing.
-          */
-          data-keep-transform
-          /*
-            NO `style` AND NO TRANSITION CLASS. Embla owns this node's
-            transform outright and writes it every frame of a drag and every
-            frame of the settle afterwards. A style prop here would be painted
-            back over it on the next render, and a transition class would
-            fight the engine's own easing.
-          */
-          className="flex h-full"
+        <MediaSwiper
+          className="h-full w-full"
+          onSwiper={onSwiper}
+          onIndexChange={setCurrentIndex}
+          enabled={mediaItems.length > 1}
         >
         {mediaItems.map((media, index) => (
-          <div
-            key={index}
-            /* In loop mode Embla moves individual slides as well as the
-               strip, and globals.css deletes untagged transforms inside a
-               `.group` on every touch-only device. See the note on the strip
-               above; this is the same rule and the same exemption. */
-            data-keep-transform
-            className="relative h-full min-w-0 flex-[0_0_100%]"
-          >
+          <SwiperSlide key={index} className="relative h-full w-full">
             {media.type === "image" && (
               /**
                * IT ARRIVES RATHER THAN APPEARING.
@@ -576,9 +554,28 @@ export function ProductGallery({
                 </div>
               </div>
             )}
-          </div>
+          </SwiperSlide>
         ))}
-        </div>
+        {/*
+          ═══════════════════════════════════════════════════════════════════
+           THE OVERLAYS LIVE INSIDE THE SWIPER, NOT BESIDE IT
+          ═══════════════════════════════════════════════════════════════════
+          `slot="container-end"` puts them inside the `.swiper` element and
+          outside `.swiper-wrapper`, which is Swiper's own arrangement for
+          controls that sit over the strip.
+
+          THIS IS NOT TIDINESS. Rendered as siblings of the swiper they are
+          siblings of the thing listening for the gesture, so a drag that
+          STARTS on one never reaches it — and the arrows are visible on a
+          phone, at the vertical middle of the picture, which is exactly where
+          a thumb lands. Measured in a real browser with touch input: a drag
+          from the right edge delivered zero pointer or touch events to the
+          carousel, and the strip sat at 0px while the finger moved 110.
+
+          Inside the container the same drag bubbles to it and the picture
+          follows the finger, while the buttons still take their own clicks.
+        */}
+        <div slot="container-end" className="contents">
 
         {/* Navigation Arrows - show on hover for desktop, always visible on mobile */}
         {mediaItems.length > 1 && (
@@ -593,7 +590,7 @@ export function ProductGallery({
               )}
               onClick={(e) => {
                 e.stopPropagation()
-                carousel.scrollPrev()
+                step(-1)
                 handleUserInteraction()
               }}
               aria-label="Previous"
@@ -610,7 +607,7 @@ export function ProductGallery({
               )}
               onClick={(e) => {
                 e.stopPropagation()
-                carousel.scrollNext()
+                step(1)
                 handleUserInteraction()
               }}
               aria-label="Next"
@@ -635,7 +632,7 @@ export function ProductGallery({
                 key={index}
                 onClick={(e) => {
                   e.stopPropagation()
-                  carousel.scrollTo(index)
+                  setCurrentIndex(index)
                   handleUserInteraction()
                 }}
                 className={cn(
@@ -649,6 +646,9 @@ export function ProductGallery({
             ))}
           </div>
         )}
+        </div>
+
+        </MediaSwiper>
       </div>
 
       {/* Thumbnail Strip (hide when dots mode is active) */}
@@ -662,7 +662,7 @@ export function ProductGallery({
                    these the way a visitor does. Nothing styles off it. */
                 data-gallery-thumb={index}
                 onClick={() => {
-                  carousel.scrollTo(index)
+                  setCurrentIndex(index)
                   handleUserInteraction()
                 }}
                 /**

@@ -37,7 +37,7 @@ import Image from "next/image"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
-import { useMediaCarousel } from "@/lib/gestures/use-media-carousel"
+import { MediaSwiper, SwiperSlide, useMediaSwiper, type SwiperClass } from "./media-swiper"
 
 export interface ViewerMedia {
   type: "image" | "video" | "youtube"
@@ -87,13 +87,41 @@ export function ProductMediaViewer({
    * test, and the gallery underneath had another — two hand-rolled copies of
    * one gesture, which drifted, so the same flick changed the picture in the
    * small gallery and sprang back full screen. Both are gone. See
-   * lib/gestures/use-media-carousel.
+   * ./media-swiper.
    *
    * No loop here. Full screen the two ends are meaningful: reaching the last
    * picture should feel like the last picture, not wrap silently to the
    * first while somebody is looking at it.
    */
-  const carousel = useMediaCarousel({ index, count, onIndexChange: go })
+  const [swiperRef, carousel] = useMediaSwiper()
+
+  const onSwiper = React.useCallback((swiper: SwiperClass) => {
+    swiperRef.current = swiper
+  }, [swiperRef])
+
+  /** Swiper holds the position, the caller holds the index; level both ways. */
+  React.useEffect(() => {
+    carousel.slideToIndex(index, swiperRef.current?.activeIndex ?? index)
+  }, [index, carousel, swiperRef])
+
+  /**
+   * A DIALOG MEASURES NOTHING WHILE IT IS CLOSED. Swiper sizes its slides on
+   * init, and a closed dialog has no layout — so every slide is zero wide and
+   * the strip settles between pictures the moment it opens. Re-measured on
+   * open, and moved to the picture that was tapped without animating through
+   * the ones in between.
+   */
+  React.useEffect(() => {
+    if (!open) return
+    const id = requestAnimationFrame(() => {
+      const swiper = swiperRef.current
+      if (!swiper || swiper.destroyed) return
+      swiper.update()
+      swiper.slideTo(index, 0)
+    })
+    return () => cancelAnimationFrame(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, swiperRef])
 
   if (count === 0) return null
 
@@ -173,22 +201,19 @@ export function ProductMediaViewer({
           </span>
         )}
 
-        <div
-          ref={carousel.viewportRef}
-          className="relative flex-1 overflow-hidden"
-          /* `none` rather than the gallery's `pan-y`: full screen there is
-             nothing underneath to scroll, so the whole gesture is the
-             carousel's. Embla does not set this itself. */
-          style={{ touchAction: "none" }}
-        >
-          <div
-            /* Embla owns this node's transform and writes it every frame, of
-               the drag and of the settle after it. Nothing else may style it. */
-            data-keep-transform
-            className="flex h-full"
+        <div className="relative flex-1 overflow-hidden">
+          {/* The same strip as the gallery underneath, with the same
+              settings, so a flick that changes the picture small changes it
+              full screen too. That is exactly what two hand-rolled copies of
+              this gesture could not manage between them. */}
+          <MediaSwiper
+            className="h-full w-full"
+            onSwiper={onSwiper}
+            onIndexChange={go}
+            enabled={count > 1}
           >
             {media.map((item, i) => (
-              <div key={i} data-keep-transform className="relative h-full min-w-0 flex-[0_0_100%]">
+              <SwiperSlide key={i} className="relative h-full w-full">
                 {item.type === "image" ? (
                   <Image
                     src={item.url || "/placeholder.svg"}
@@ -243,9 +268,9 @@ export function ProductMediaViewer({
                     preload={Math.abs(i - index) <= 1 ? "metadata" : "none"}
                   />
                 )}
-              </div>
+              </SwiperSlide>
             ))}
-          </div>
+          </MediaSwiper>
         </div>
 
         {/*

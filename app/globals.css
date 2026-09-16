@@ -2902,7 +2902,18 @@ html.capacitor.library-layout::before {
      the only reason the preview fits at all — killing it left every preview
      on a phone rendered at full width and cropped to its top-left corner.
      An element that says the transform is load-bearing keeps it. */
-  .group *:not([data-keep-transform]) {
+  /*
+    `.swiper-wrapper` IS NAMED HERE OR THE GALLERY IS DEAD ON EVERY PHONE.
+
+    Swiper moves the strip by writing `transform` on `.swiper-wrapper`, and
+    animates a programmatic slide with a transition on the same property.
+    Both halves of this rule would apply to it inside a `.group`, which the
+    product gallery is: the strip would not follow a finger, and pressing a
+    thumbnail would jump instead of slide. Invisible on every desktop,
+    completely broken for everybody on a phone — which is how this gallery
+    shipped once already, under a different engine.
+  */
+  .group *:not([data-keep-transform]):not(.swiper-wrapper) {
     transition-property: none !important;
     transform: none !important;
   }
