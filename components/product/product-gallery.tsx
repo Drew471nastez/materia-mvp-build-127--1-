@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { ProductMediaViewer } from "@/components/product/product-media-viewer"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
 import { cn } from "@/lib/utils"
+import { useSwipeTrack } from "@/lib/gestures/use-swipe-track"
 
 interface MediaItem {
   url: string
@@ -67,8 +68,6 @@ export function ProductGallery({
   /** Full screen, phone only. */
   const [viewerOpen, setViewerOpen] = useState(false)
   const isPhone = useIsPhone()
-  const [touchStart, setTouchStart] = useState<number | null>(null)
-  const [touchEnd, setTouchEnd] = useState<number | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [startX, setStartX] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
@@ -194,7 +193,7 @@ export function ProductGallery({
     }
   }, [currentIndex, mediaItems])
 
-  // Minimum swipe distance (in px) to trigger navigation
+  /** Mouse drag on a desktop still commits on distance; there is no finger to follow. */
   const minSwipeDistance = 50
 
   // Detect actual screen size (only for live page, not editor preview)
@@ -275,32 +274,49 @@ export function ProductGallery({
     setTimeout(() => setIsPaused(false), 10000)
   }, [])
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null)
-    setTouchStart(e.targetTouches[0].clientX)
-    handleUserInteraction()
-  }
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE SWIPE MOVES THE PICTURE, RATHER THAN WATCHING FOR ONE
+   * ═════════════════════════════════════════════════════════════════════════
+   * This used to record where a touch started, where it ended, and change
+   * slide if the difference passed 50px. Nothing moved while the finger
+   * moved, so there was no feedback until the instant it jumped, and a
+   * careful 40px drag did nothing at all with no way to tell that it had
+   * done nothing. That is the difference between a gallery that feels like a
+   * web page and one that feels like an app.
+   *
+   * lib/gestures/use-swipe-track is the same gesture the full-screen viewer
+   * already used — axis lock so a vertical scroll does not drag the strip,
+   * rubber band at the two ends, and a flick that commits on speed as well as
+   * on distance. Shared rather than copied, so the two cannot drift.
+   */
+  /**
+   * Whether the move that just happened is one the strip should animate.
+   *
+   * Adjacent is a slide. Anything further — a thumbnail several along, or the
+   * wrap from the last picture back to the first — would drag every picture
+   * in between across the box, so it is moved without a transition instead.
+   */
+  const previousIndex = useRef(currentIndex)
+  const [animateSlide, setAnimateSlide] = useState(true)
+  useEffect(() => {
+    const step = Math.abs(currentIndex - previousIndex.current)
+    previousIndex.current = currentIndex
+    if (step <= 1) return
+    setAnimateSlide(false)
+    /* Back on for the next move, once this one has been painted without it. */
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setAnimateSlide(true)))
+    return () => cancelAnimationFrame(id)
+  }, [currentIndex])
 
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX)
-  }
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return
-
-    const distance = touchStart - touchEnd
-    const isLeftSwipe = distance > minSwipeDistance
-    const isRightSwipe = distance < -minSwipeDistance
-
-    if (isLeftSwipe) {
-      goToNext()
-    } else if (isRightSwipe) {
-      goToPrevious()
-    }
-
-    setTouchStart(null)
-    setTouchEnd(null)
-  }
+  const swipe = useSwipeTrack({
+    index: currentIndex,
+    count: mediaItems.length,
+    onIndexChange: (next) => {
+      handleUserInteraction()
+      setCurrentIndex(next)
+    },
+  })
 
   const onMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true)
@@ -357,32 +373,38 @@ export function ProductGallery({
     <div className="space-y-3 sm:space-y-4 w-full">
       {/* Main Image */}
       <div
-        ref={imageRef}
+        /* Two owners, one element: imageRef is what goes fullscreen, and the
+           gesture measures a slide by this box's width. */
+        ref={(node) => {
+          imageRef.current = node
+          swipe.frameRef.current = node
+        }}
         className={cn(
           "relative aspect-video overflow-hidden rounded-xl w-full group",
           !backgroundColor && "bg-muted",
           isDragging ? "cursor-grabbing" : "cursor-grab",
         )}
-        style={backgroundColor ? { backgroundColor } : undefined}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+        /* `pan-y`, not `none`: the browser's own horizontal pan would compete
+           with the strip and drop frames off the drag, but the page still has
+           to scroll vertically under a finger that started on a picture. */
+        style={{ touchAction: "pan-y", ...(backgroundColor ? { backgroundColor } : {}) }}
+        {...swipe.handlers}
         /**
          * A TAP OPENS IT, A SWIPE DOES NOT.
          *
          * `onClick` fires after a swipe too, so opening on a bare click would
          * put the viewer up every time somebody moved to the next picture.
-         * `touchEnd` has already recorded where the finger started and
-         * finished; under the threshold that decides a slide change, this was
-         * a tap.
+         * The gesture records how far the finger travelled; under ten pixels
+         * it was a tap rather than a swipe.
          *
          * Phone only, deliberately. On a desktop the gallery is 600px wide
          * beside the buy card and there is nothing a lightbox would add.
          */
         onClick={() => {
           if (!isPhone) return
-          const moved = touchStart !== null && touchEnd !== null ? Math.abs(touchStart - touchEnd) : 0
-          if (moved > 10) return
+          /* How far the finger actually travelled on the gesture that just
+             ended. Under ten pixels it was a tap, not a swipe. */
+          if (swipe.lastTravel.current > 10) return
           if (mediaItems[currentIndex]?.type === "youtube") return
           setViewerOpen(true)
         }}
@@ -395,14 +417,34 @@ export function ProductGallery({
         }}
         onMouseEnter={() => setIsHovering(true)}
       >
-        {/* Media items with smooth fade transition */}
+        {/*
+          ═══════════════════════════════════════════════════════════════════
+           ONE STRIP, TRANSLATED — NOT A STACK THAT CROSSFADES
+          ═══════════════════════════════════════════════════════════════════
+          The slides used to be stacked on top of each other and faded between.
+          A fade cannot follow a finger: there is no position to move, so a
+          swipe could only watch for a threshold and then jump. This is a row,
+          moved by the index and by the live drag, so the picture is attached
+          to the finger and the release snaps it.
+
+          WHEN IT ANIMATES, AND WHEN IT MUST NOT. A neighbouring slide slides,
+          which is the whole point. A jump of more than one — a thumbnail four
+          along, or the wrap from the last picture back to the first — would
+          smear every picture in between across 300ms, so those move without a
+          transition. That is what a gallery with thumbnails does everywhere
+          else, and it is one rule rather than two mechanisms.
+        */}
+        <div
+          className={cn(
+            "flex h-full w-full",
+            !swipe.dragging && animateSlide && "transition-transform duration-300 ease-sheet",
+          )}
+          style={{ transform: `translate3d(calc(${-currentIndex * 100}% + ${swipe.dragX}px), 0, 0)` }}
+        >
         {mediaItems.map((media, index) => (
           <div
             key={index}
-            className={cn(
-              "absolute inset-0 transition-opacity duration-300 ease-in-out",
-              currentIndex === index ? "opacity-100 z-10" : "opacity-0 z-0"
-            )}
+            className="relative h-full w-full shrink-0"
           >
             {media.type === "image" && (
               /**
@@ -543,6 +585,7 @@ export function ProductGallery({
             )}
           </div>
         ))}
+        </div>
 
         {/* Navigation Arrows - show on hover for desktop, always visible on mobile */}
         {mediaItems.length > 1 && (

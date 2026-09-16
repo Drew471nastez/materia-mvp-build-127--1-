@@ -1239,10 +1239,16 @@ function main() {
       "it carries a way back",
       /<BackControl onBack=\{goBack\}/.test(live) && /window\.history\.back\(\)/.test(bar),
     )
+    /*
+      The fallback is a router.push now, not an assignment to location. Same
+      destination, and the claim here is unchanged; what changed is that it no
+      longer throws the document away and loads the whole shell again, which
+      was the white flash on the way back.
+    */
     check(
       "which falls back to the creator's page when there is no history of ours",
       /new URL\(referrer\)\.origin === window\.location\.origin/.test(bar) &&
-        /window\.location\.href = creatorHref/.test(bar),
+        /router\.push\(creatorHref\)/.test(bar),
     )
     /*
       Two links, one on each bar. It was briefly one, while the phone bar

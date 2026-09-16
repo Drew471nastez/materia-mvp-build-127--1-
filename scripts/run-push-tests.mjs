@@ -37,6 +37,7 @@ const SUITES = [
   "tests/oauth-errors.test.ts",
   "tests/session-durability.test.ts",
   "tests/client-error-gate.test.ts",
+  "tests/gallery-and-back.test.ts",
   "tests/creator-page.test.ts",
   "tests/contact-gate.test.ts",
   "tests/hook-order.test.ts",

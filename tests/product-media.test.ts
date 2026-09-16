@@ -132,9 +132,14 @@ check(
   /\{isPhone && \(\s*<ProductMediaViewer/.test(gallery),
   "a desktop visitor should not download a lightbox nothing can open",
 )
+/*
+  The distance comes off the shared gesture now rather than from the gallery's
+  own touchStart/touchEnd pair, which the strip replaced. Same ten pixels,
+  same reason.
+*/
 check(
   "a swipe does not count as a tap",
-  /if \(moved > 10\) return/.test(gallery),
+  /if \(swipe\.lastTravel\.current > 10\) return/.test(gallery),
   "onClick fires after a swipe too, so the viewer would open on every slide change",
 )
 check(
