@@ -102,6 +102,17 @@ check(
   "and it notices when no handle resolves at all",
   /no creator handles resolved/.test(sitemapSrc),
 )
+/**
+ * THE COLUMN THAT DOES NOT EXIST. `profiles.updated_at` is what the seller
+ * block selected, and PostgREST answers an unknown column with an error and
+ * a null body — which `|| []` turned into "no sellers". Asking for it again
+ * puts the sitemap straight back to listing no creator pages at all.
+ */
+check(
+  "the sitemap does not ask profiles for updated_at",
+  !/from\("profiles"\)[\s\S]{0,400}?updated_at/.test(sitemapSrc),
+  "profiles has no such column; the date comes from the newest product",
+)
 
 console.log("\nThe old spelling still resolves, for ever\n")
 
@@ -180,7 +191,7 @@ check(
 
 check(
   "the sitemap lists products under their creator",
-  /url: getProductShareUrl\(profile\?\.username \|\| "", row\.slug\)/.test(code("app/sitemap.ts")),
+  /url: getProductShareUrl\(username \|\| "", row\.slug\)/.test(code("app/sitemap.ts")),
   "a sitemap entry that redirects spends crawl budget to be sent somewhere else",
 )
 

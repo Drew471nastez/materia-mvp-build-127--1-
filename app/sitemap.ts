@@ -161,37 +161,58 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     const rows = (products || []) as ProductRow[]
     const userIds = [...new Set(rows.map(userIdOf).filter(Boolean))] as string[]
-    const profileByUserId = new Map<string, { username: string; updatedAt: string }>()
+    const usernameByUserId = new Map<string, string>()
 
     // Chunked: `.in()` builds a query string, and twenty thousand ids in one
     // would exceed what the server will accept as a URL.
     for (let i = 0; i < userIds.length; i += 500) {
       const { data: sellers, error: sellersError } = await supabase
         .from("profiles")
-        .select("id, username, updated_at")
+        /**
+         * `updated_at` WAS IN THIS SELECT AND PROFILES HAS NO SUCH COLUMN.
+         * PostgREST answers an unknown column with an error and a null body,
+         * and the destructure took `data` and dropped `error`, so `|| []`
+         * turned it into an empty list that reads exactly like "no sellers".
+         * That is why this sitemap has never listed one creator page.
+         *
+         * The date it was reaching for is better answered by the products
+         * anyway: a storefront changed when something on it changed, not when
+         * a row somewhere was touched. It is taken from the newest product
+         * below.
+         */
+        .select("id, username")
         .in("id", userIds.slice(i, i + 500))
         .not("username", "is", null)
 
       if (sellersError) console.error("[sitemap] profiles query failed:", sellersError.message)
 
-      for (const seller of (sellers || []) as { id: string; username: string; updated_at: string }[]) {
-        profileByUserId.set(seller.id, { username: seller.username, updatedAt: seller.updated_at })
+      for (const seller of (sellers || []) as { id: string; username: string }[]) {
+        usernameByUserId.set(seller.id, seller.username)
       }
     }
 
     for (const row of rows) {
       const userId = userIdOf(row)
-      const profile = userId ? profileByUserId.get(userId) : undefined
-      if (profile && row.creator_id) handleByCreatorId.set(row.creator_id, profile)
+      const username = userId ? usernameByUserId.get(userId) : undefined
+      const updatedAt = row.updated_at || new Date().toISOString()
+
+      if (username && row.creator_id) {
+        const seen = handleByCreatorId.get(row.creator_id)
+        /* A storefront's date is its newest product's. */
+        if (!seen || seen.updatedAt < updatedAt) {
+          handleByCreatorId.set(row.creator_id, { username, updatedAt })
+        }
+      }
+
       routes.push({
-        url: getProductShareUrl(profile?.username || "", row.slug),
-        lastModified: new Date(row.updated_at || Date.now()),
+        url: getProductShareUrl(username || "", row.slug),
+        lastModified: new Date(updatedAt),
         changeFrequency: "weekly",
         priority: 0.7,
       })
     }
 
-    if (rows.length > 0 && profileByUserId.size === 0) {
+    if (rows.length > 0 && usernameByUserId.size === 0) {
       /* Every product fell back to the old address. That is the failure this
          block used to have in silence. */
       console.error(`[sitemap] ${rows.length} products but no creator handles resolved`)
@@ -230,7 +251,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   /* Every entry in this map is by definition a creator with a published
      product, because that is the only query it was built from. The two hops
      are already paid for above. */
-  for (const profile of new Set(handleByCreatorId.values())) {
+  const byHandle = new Map<string, { username: string; updatedAt: string }>()
+  for (const profile of handleByCreatorId.values()) {
+    const seen = byHandle.get(profile.username)
+    if (!seen || seen.updatedAt < profile.updatedAt) byHandle.set(profile.username, profile)
+  }
+  for (const profile of byHandle.values()) {
     // The spam verdict is checked as well as the publication gate, so a farm
     // that files one decoy listing to buy its way in still does not get in.
     if (!deservesIndexing({ publishedProducts: 1, handle: profile.username })) continue
