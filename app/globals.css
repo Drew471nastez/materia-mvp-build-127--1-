@@ -350,64 +350,6 @@ html.capacitor body {
     }
   }
 
-  /*
-    ═══════════════════════════════════════════════════════════════════════
-     THE LINE ACROSS THE TOP WHILE THE NEXT PAGE IS BEING FETCHED
-    ═══════════════════════════════════════════════════════════════════════
-    components/navigation/navigation-progress.tsx has the argument. The short
-    version: the page you are reading stays put until the next one is ready,
-    which is right, and it leaves most of a second in which only the pressed
-    card has answered. This is the indicator a browser tab and every large
-    shop uses for exactly that wait.
-
-    THREE PIXELS, AND IT COVERS NOTHING. Not a fade, not a veil, not a
-    skeleton — all of those replace the page you are reading with something
-    that is not the page. This sits above it and the grid stays readable and
-    scrollable the whole time.
-
-    THE RESTING STATE IS INVISIBLE AND IT IS IN THE BASE RULE, not at the end
-    of an animation with a fill mode. A bar that is never told to finish is
-    then nothing rather than a stripe left across somebody's shop.
-    `pointer-events: none` for the same reason.
-
-    The width transition is longer than the opacity one on purpose: the bar
-    should glide between its staged positions, and disappear promptly.
-  */
-  .nav-progress {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    z-index: 2147483000;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 200ms ease-out;
-  }
-
-  .nav-progress[data-shown="true"] {
-    opacity: 1;
-  }
-
-  .nav-progress-fill {
-    height: 100%;
-    width: 0;
-    border-radius: 0 3px 3px 0;
-    background: linear-gradient(90deg, #8b5cf6, #a78bfa);
-    box-shadow: 0 0 8px rgba(139, 92, 246, 0.55);
-    transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  /*
-    Still shown under reduced motion, because it is information rather than
-    decoration — a person who has asked for less movement still needs to know
-    the press was heard. The creep just stops gliding between its steps.
-  */
-  @media (prefers-reduced-motion: reduce) {
-    .nav-progress-fill {
-      transition: none;
-    }
-  }
 
 
 

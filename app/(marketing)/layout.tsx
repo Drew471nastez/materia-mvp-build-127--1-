@@ -5,7 +5,6 @@ import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
-import { NavigationProgress } from "@/components/navigation/navigation-progress"
 
 /**
  * Read on the server so the wishlist badge is in the FIRST PAINTED HTML.
@@ -66,14 +65,6 @@ export default async function MarketingLayout({
       <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="preconnect" href="https://cdn.sanity.io" />
       <BodyScrollRestorer />
-      {/*
-        Mounted in the layout because it has to outlive the navigation it is
-        reporting on: it starts on the press, on the page being left, and
-        finishes on the page arrived at.
-      */}
-      <Suspense fallback={null}>
-        <NavigationProgress />
-      </Suspense>
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
 
       <main className="flex-1 [overflow-x:clip]">{children}</main>

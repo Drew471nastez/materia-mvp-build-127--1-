@@ -74,14 +74,38 @@ export interface RevealState {
 const SETTLE_MS = 180
 
 export function useRevealOnScrollUp(enabled = true): RevealState {
-  const [visible, setVisible] = useState(() => {
-    if (typeof window === "undefined") return true
-    return Math.max(window.scrollY, 0) < TOP_ZONE
-  })
+  /*
+    ALWAYS TRUE TO BEGIN WITH, AND THAT IS THE FIX RATHER THAN A DEFAULT.
+
+    The previous attempt derived this from `window.scrollY` on mount, which
+    looked right and was the white flash. Arriving on a product page the
+    router resets the scroll to the top, and that reset can land AFTER this
+    first read — so the first painted frame is computed from the 700px the
+    PREVIOUS page was at, the bar renders hidden, and the top of the page is
+    a white gap where the creator bar should be.
+
+    The model was wrong, not the timing. This bar hides because somebody
+    SCROLLED DOWN. A position that was restored by the back button, or reset
+    by a forward navigation, is not a gesture — nobody has scrolled in this
+    session yet. So it opens visible, which is also exactly what the server
+    rendered, and only a real scroll can hide it.
+
+    Both directions come out right and neither has a frame to flash in:
+
+      forward, reset to the top   the bar belongs on screen, and it is there
+      back, restored to 700px     the bar belongs on screen until you scroll
+                                  down again, which is what a native app does
+
+    What still has to be handled is that the restore or the reset must not
+    itself READ as a scroll down of 700px. `last.current` is therefore
+    re-seeded across the first frames, which moves the baseline without
+    touching visibility.
+  */
+  const [visible, setVisible] = useState(true)
   const [ready, setReady] = useState(false)
   const last = useRef(0)
 
-  /* Nothing may animate until the page has stopped being put back. */
+  /* Nothing may animate until the page has stopped being put where it goes. */
   useEffect(() => {
     const id = window.setTimeout(() => setReady(true), SETTLE_MS)
     return () => window.clearTimeout(id)
@@ -92,30 +116,6 @@ export function useRevealOnScrollUp(enabled = true): RevealState {
       setVisible(true)
       return
     }
-    /*
-      RE-READ ON MOUNT, AND AGAIN ON THE NEXT TWO FRAMES.
-
-      The scroll position at the moment this mounts is not necessarily the
-      one the page will settle at, and it is wrong in BOTH directions:
-
-        going back, the browser restores the old offset, which may land after
-        this component has already read zero;
-
-        going forward, the router resets to the top, which may land after
-        this has already read the 700px the previous page was at — and that
-        is the product page's own bar sliding DOWN into place over 300ms,
-        filmed at 928ms through 1155ms.
-
-      Re-reading over the first frames catches whichever lands late, and all
-      of it happens inside the SETTLE_MS window, so it is a placement rather
-      than a movement.
-    */
-    const place = () => setVisible(Math.max(window.scrollY, 0) < TOP_ZONE)
-    place()
-    const f1 = window.requestAnimationFrame(() => {
-      place()
-      window.requestAnimationFrame(place)
-    })
     let ticking = false
 
     const evaluate = () => {
@@ -141,10 +141,29 @@ export function useRevealOnScrollUp(enabled = true): RevealState {
       window.requestAnimationFrame(evaluate)
     }
 
-    last.current = Math.max(window.scrollY, 0)
+    /*
+      THE BASELINE, SEEDED ACROSS THE FIRST FRAMES AND NOT ONLY ON MOUNT.
+
+      Whichever of the two lands late — a restore on the way back, a reset on
+      the way in — it arrives as a single enormous jump from wherever this
+      read first. Left unseeded that is a 700px "scroll down" nobody
+      performed, and the bar hides itself on arrival. Re-seeding moves the
+      reference without ever touching `visible`.
+    */
+    const seed = () => {
+      last.current = Math.max(window.scrollY, 0)
+    }
+    seed()
+    const f1 = window.requestAnimationFrame(() => {
+      seed()
+      window.requestAnimationFrame(seed)
+    })
+    const settle = window.setTimeout(seed, SETTLE_MS)
+
     window.addEventListener("scroll", onScroll, { passive: true })
     return () => {
       window.cancelAnimationFrame(f1)
+      window.clearTimeout(settle)
       window.removeEventListener("scroll", onScroll)
     }
   }, [enabled])
