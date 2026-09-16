@@ -117,12 +117,30 @@ console.log("\nThe back arrow\n")
   )
   check(
     "the wait is reported by React rather than guessed",
-    /startBackTransition\(\(\) => \{/.test(bar) && /useTransition\(\)/.test(bar),
+    /startBackTransition\(/.test(bar) && /useTransition\(\)/.test(bar),
     "without a pending signal the control must flash a spinner at everybody or show one to nobody",
   )
+  /*
+    THE TWO USED TO BE ADJACENT LINES and this check pinned them that way.
+    They are not adjacent any more: the sheet that turns a back from a cut
+    into a transition goes up in between (components/navigation/
+    page-leave-veil.tsx), so the navigation now happens on a delay.
+
+    The property worth holding was never the adjacency — it is that the bar
+    marks itself as leaving BEFORE the navigation, because a popstate has no
+    completion event to set it from afterwards. That is what is checked now,
+    by order rather than by proximity.
+  */
   check(
     "going back holds its own state, because a popstate has no completion event",
-    /setLeaving\(true\)\s*\n\s*window\.history\.back\(\)/.test(bar),
+    /setLeaving\(true\)/.test(bar) &&
+      bar.indexOf("setLeaving(true)") < bar.indexOf("window.history.back()"),
+  )
+  check(
+    "and it leaves on a transition rather than on the frame of the press",
+    /const wait = beginPageLeave\(\)/.test(bar) &&
+      /setTimeout\(\(\) => window\.history\.back\(\), wait\)/.test(bar),
+    "history.back() on the press frame restores a cached route in one frame, which reads as a cut",
   )
   check(
     "and gives up rather than spinning for ever",

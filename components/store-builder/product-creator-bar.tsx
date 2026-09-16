@@ -3,6 +3,7 @@
 import type React from "react"
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
+import { beginPageLeave } from "@/components/navigation/page-leave-veil"
 import { createPortal } from "react-dom"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -946,15 +947,38 @@ export function LiveProductCreatorBar({
     } catch {
       cameFromHere = false
     }
+    /*
+      ═════════════════════════════════════════════════════════════════════
+       AND IT LEAVES, RATHER THAN VANISHING
+      ═════════════════════════════════════════════════════════════════════
+      `window.history.back()` on the frame of the press is instant, because
+      the route it goes to is already in the client router's cache. That is
+      not a fast transition, it is no transition: the product page and the
+      grid meet at a hard edge with nothing in between, which is what "too
+      direct" is.
+
+      So the sheet goes up first and the navigation happens underneath it.
+      `beginPageLeave` returns how long to wait — and returns zero when the
+      visitor has asked for reduced motion, so respecting that preference
+      needs nothing here beyond using the number it gives back.
+      components/navigation/page-leave-veil.tsx has the rest.
+    */
     if (cameFromHere && window.history.length > 1) {
       setLeaving(true)
-      window.history.back()
+      const wait = beginPageLeave()
+      if (wait <= 0) {
+        window.history.back()
+        return
+      }
+      window.setTimeout(() => window.history.back(), wait)
       return
     }
     if (creatorHref && creatorHref !== "#") {
-      startBackTransition(() => {
-        router.push(creatorHref)
-      })
+      setLeaving(true)
+      const wait = beginPageLeave()
+      const push = () => startBackTransition(() => router.push(creatorHref))
+      if (wait <= 0) push()
+      else window.setTimeout(push, wait)
     }
   }, [creatorHref, router])
 

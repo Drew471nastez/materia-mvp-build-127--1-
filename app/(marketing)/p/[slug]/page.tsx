@@ -1583,6 +1583,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
     return (
       <div
+        data-page-root
         className="app-page-enter min-h-screen w-full"
         style={{
           background: pageBackgroundColor || "var(--background)",
@@ -1797,6 +1798,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   return (
     <div
+      data-page-root
       className="app-page-enter min-h-screen w-full"
       style={{
         background: defaultPageBackgroundColor || "var(--background)",

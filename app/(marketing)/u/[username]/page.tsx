@@ -290,7 +290,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     return (
       // Same page colour as a real storefront — this is still a creator page,
       // just one with nothing set up on it yet.
-      <div className="min-h-screen overflow-x-hidden" style={{ background: STOREFRONT_PAGE_BACKGROUND }}>
+      <div data-page-root className="min-h-screen overflow-x-hidden" style={{ background: STOREFRONT_PAGE_BACKGROUND }}>
         <div className="mx-auto max-w-4xl px-4 py-12">
           <div className="flex flex-col items-center text-center">
             <Avatar
@@ -926,6 +926,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           only the default.
         */}
         <div
+          data-page-root
           className="min-h-screen overflow-x-hidden"
           /**
            * The scheme's colours AND the design system's variables rebound to
@@ -1261,6 +1262,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         </>
       )}
       <div
+        data-page-root
         className="min-h-screen overflow-x-hidden"
         style={{ background: STOREFRONT_PAGE_BACKGROUND }}
       >

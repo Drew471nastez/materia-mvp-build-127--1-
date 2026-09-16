@@ -5,6 +5,7 @@ import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
+import { PageLeaveVeil } from "@/components/navigation/page-leave-veil"
 
 /**
  * Read on the server so the wishlist badge is in the FIRST PAINTED HTML.
@@ -65,6 +66,16 @@ export default async function MarketingLayout({
       <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="preconnect" href="https://cdn.sanity.io" />
       <BodyScrollRestorer />
+      {/*
+        Mounted here rather than on the product page because it has to outlive
+        the navigation: half of the transition plays on the page arrived at,
+        and a veil owned by the page being left unmounts in the middle of its
+        own fade. This layout is shared by /p/<slug> and /<handle>, so it is
+        still there on both sides of the press.
+      */}
+      <Suspense fallback={null}>
+        <PageLeaveVeil />
+      </Suspense>
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
 
       <main className="flex-1 [overflow-x:clip]">{children}</main>
