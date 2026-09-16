@@ -3,7 +3,6 @@
 import type React from "react"
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { beginPageLeave } from "@/components/navigation/page-leave-veil"
 import { createPortal } from "react-dom"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -960,19 +959,27 @@ export function LiveProductCreatorBar({
     if (typeof window === "undefined") return
     /*
       ═════════════════════════════════════════════════════════════════════
-       AND IT LEAVES, RATHER THAN VANISHING
+       NO CROSS-FADE HERE, AND THAT WAS TRIED
       ═════════════════════════════════════════════════════════════════════
-      `window.history.back()` on the frame of the press is instant, because
-      the route it goes to is already in the client router's cache. That is
-      not a fast transition, it is no transition: the product page and the
-      grid meet at a hard edge with nothing in between, which is what "too
-      direct" is.
+      A sheet of the page's own colour used to rise over it for 190ms before
+      this navigated, so the swap happened underneath something opaque. The
+      film said it worked; looking at it said otherwise. On a white product
+      page a dissolve through a flat colour is a white flash, and a white
+      flash is what a cheap transition looks like — it was worse than the cut
+      it replaced.
 
-      So the sheet goes up first and the navigation happens underneath it.
-      `beginPageLeave` returns how long to wait — and returns zero when the
-      visitor has asked for reduced motion, so respecting that preference
-      needs nothing here beyond using the number it gives back.
-      components/navigation/page-leave-veil.tsx has the rest.
+      The lesson is not "no transition". It is that a page transition has to
+      MOVE, the way every native one does: the leaving page slides or scales
+      while the one beneath comes forward. Nothing about a colour wash reads
+      as an app.
+
+      That is blocked on the buy bar, not on taste. It is `position: fixed`
+      inside this page's root (components/store-builder/sticky-add-to-cart),
+      and a transform on an ancestor makes that ancestor the containing block
+      for it — so the bar would snap from the bottom of the window to the
+      bottom of the document on the first frame of any slide. The creator bar
+      is already portaled out and would be fine; the buy bar is not. Portal
+      it and the spatial version becomes available.
     */
     /**
      * `document.referrer` used to decide this, and it is the wrong
@@ -988,35 +995,15 @@ export function LiveProductCreatorBar({
      * come from another page of ours.
      */
     if (canReturnInApp()) {
-      /*
-        NO SPINNER ON THIS PATH, and that is the point of the sheet. The
-        arrow used to turn into one because the wait was unexplained; the
-        wait is now a visible transition, and a spinner appearing at 110ms
-        only to be covered at 190ms is a flicker rather than an answer.
-      */
-      const wait = beginPageLeave()
-      if (wait <= 0) {
-        setLeaving(true)
-        window.history.back()
-        return
-      }
-      window.setTimeout(() => window.history.back(), wait)
+      setLeaving(true)
+      window.history.back()
       return
     }
     /*
-      ═════════════════════════════════════════════════════════════════════
-       AND THE FALLBACK GETS NO SHEET, DELIBERATELY
-      ═════════════════════════════════════════════════════════════════════
-      There is no history entry to return to here — a shared link opened
-      cold — so this is a push, and a push is a server render behind a
-      network. The sheet is only honest over a wait whose length is known:
-      hold it over one that can take seconds and it is a coloured screen for
-      as long as the server takes, which is the grey-skeleton problem in a
-      different coat.
-
-      So this path keeps what it had. The page stays, the arrow becomes a
-      spinner once the wait is long enough to need explaining, and React
-      reports when the route lands.
+      No history entry to return to — a shared link opened cold — so this is
+      a push, and a push is a server render behind a network. The page stays,
+      the arrow becomes a spinner once the wait is long enough to need
+      explaining, and React reports when the route lands.
     */
     if (creatorHref && creatorHref !== "#") {
       setLeaving(true)

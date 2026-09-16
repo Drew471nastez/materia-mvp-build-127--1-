@@ -37,7 +37,7 @@ import Image from "next/image"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
-import { useSwipeTrack } from "@/lib/gestures/use-swipe-track"
+import useEmblaCarousel from "embla-carousel-react"
 
 export interface ViewerMedia {
   type: "image" | "video" | "youtube"
@@ -81,22 +81,62 @@ export function ProductMediaViewer({
   }, [open, index, go])
 
   /**
-   * ONE GESTURE, NOT TWO COPIES OF IT.
+   * ONE GESTURE, NOT TWO COPIES OF IT — and it is Embla's, the same as the
+   * gallery underneath.
    *
-   * This file had its own axis lock, its own rubber band and its own release
-   * test, written before lib/gestures/use-swipe-track existed — and that hook
-   * was lifted OUT of this file, with a header saying the gallery underneath
-   * would use the same one "rather than a second implementation that drifts".
-   * The second implementation was this one, still here, and it drifted: the
-   * gallery's release measures velocity over the end of the gesture and this
-   * one averaged it from the first touch, so the same flick committed in one
-   * place and sprang back in the other.
+   * This file had its own axis lock, rubber band and release test; then a
+   * shared hook was lifted out of it so the two could not drift; and the two
+   * drifted anyway, because the hook had no momentum and neither did this.
+   * Every release ran a fixed 300ms curve whatever the finger did, which is
+   * the whole of "it feels laggish": a hard flick and a slow drag arrived at
+   * exactly the same speed.
    *
-   * It also carried the same fault that made the gallery feel laggy: a
-   * setState on every touchmove, which is a React render per frame of the
-   * drag, of a component holding every full-screen picture.
+   * Embla carries the release velocity into the settle. Full screen that
+   * matters more than it does in the gallery, because the travel is the width
+   * of the phone and a fixed duration reads as the picture being dragged
+   * rather than thrown.
+   *
+   * `duration` is a touch higher than the gallery's 22: the distance is
+   * greater at this size, and the same spring over a longer span arrives
+   * abruptly.
    */
-  const swipe = useSwipeTrack({ index, count, onIndexChange: go })
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    align: "start",
+    containScroll: "trimSnaps",
+    duration: 25,
+    dragThreshold: 6,
+    watchDrag: count > 1,
+  })
+
+  /** Embla holds the position, the caller holds the index; kept level both ways. */
+  React.useEffect(() => {
+    if (!emblaApi) return
+    const onSelect = () => go(emblaApi.selectedScrollSnap())
+    emblaApi.on("select", onSelect)
+    return () => { emblaApi.off("select", onSelect) }
+  }, [emblaApi, go])
+
+  React.useEffect(() => {
+    if (!emblaApi) return
+    if (emblaApi.selectedScrollSnap() === index) return
+    emblaApi.scrollTo(index)
+  }, [emblaApi, index])
+
+  /**
+   * A dialog measures nothing while it is closed, so Embla starts with every
+   * slide at zero width and settles on the wrong one. Re-measured when it
+   * opens, and jumped to the picture that was tapped without animating
+   * through the ones in between.
+   */
+  React.useEffect(() => {
+    if (!emblaApi || !open) return
+    const id = requestAnimationFrame(() => {
+      emblaApi.reInit()
+      emblaApi.scrollTo(index, true)
+    })
+    return () => cancelAnimationFrame(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emblaApi, open])
 
   if (count === 0) return null
 
@@ -153,19 +193,23 @@ export function ProductMediaViewer({
         )}
 
         <div
-          ref={swipe.frameRef}
+          ref={emblaRef}
           className="relative flex-1 overflow-hidden"
           /* touch-none, or the browser's own horizontal pan competes with the
              track and the swipe drops frames. Full screen there is nothing
              under this to scroll, so unlike the gallery it does not need to
              leave `pan-y` to the page. */
           style={{ touchAction: "none" }}
-          {...swipe.handlers}
         >
           <div
-            ref={swipe.trackRef}
-            /* The hook writes this node's transform and its transition. See
-               the gallery for why neither belongs in a style prop. */
+            /* `data-keep-transform` because globals.css kills transforms on
+               every touch device inside a `.group`, and Embla moves this node
+               by transform. Without it the strip is dead on every phone,
+               which is exactly how the gallery broke once before. */
+            data-keep-transform
+            /* Embla writes this node's transform on its own clock. See the
+               gallery for why neither that nor a transition belongs in a
+               style prop. */
             className="flex h-full w-full"
           >
             {media.map((item, i) => (

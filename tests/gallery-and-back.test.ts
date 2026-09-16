@@ -19,7 +19,6 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { stripComments } from "./_source"
-import { COMMIT_RATIO, FLICK_VELOCITY } from "../lib/gestures/use-swipe-track"
 
 let passed = 0
 let failed = 0
@@ -51,56 +50,84 @@ console.log("\nThe gallery swipe\n")
     nothing happening, then the picture jumped at the fiftieth.
   */
   /*
-    THE TRANSFORM MOVED, AND THAT IS THE POINT OF THE MOVE.
+    ═══════════════════════════════════════════════════════════════════════
+     THE ENGINE IS EMBLA'S, AND WHAT IS CHECKED IS WHAT IT CANNOT KNOW
+    ═══════════════════════════════════════════════════════════════════════
+    These used to read a hand-written hook's internals: its axis lock, its
+    velocity window, its rubber band. The hook is gone. It was not badly
+    written and it still felt cheap, because of the one thing it did not do —
+    every release ran the same fixed 300ms curve, so a hard flick and a lazy
+    half-drag settled identically. Momentum is a spring with friction and its
+    own clock, and embla-carousel was already in the dependencies.
 
-    These two used to read the translate out of the GALLERY, because the
-    gallery held the drag offset in React state and put it in a style prop.
-    That is a render of the whole gallery per touchmove, which is what "the
-    swipe is laggy" was: measured by scripts/check-gallery-swipe, thirty
-    touchmoves produced thirty React commits.
-
-    The offset is not state anybody renders from, so the hook writes it to
-    the node directly and the gallery hands over the node. The question is
-    the same one — is there a position that can follow a finger — asked of
-    where the position now lives.
+    The axis lock, the rubber band, the flick threshold and the settle are its
+    problem now, and there is nothing here to check about them. What is left
+    is the handful of things a carousel library cannot know about THIS page,
+    every one of which has broken this gallery before.
   */
-  const swipeHook = code("lib/gestures/use-swipe-track.ts")
   check(
     "the slides are a strip, not a stack",
-    /translate3d\(calc\(\$\{-pendingIndex\.current \* 100\}% \+ \$\{offset\}px\)/.test(swipeHook),
+    /className="flex h-full w-full"/.test(gallery),
     "an absolutely-stacked crossfade has no position, so it cannot follow a finger",
   )
   check(
-    "and the drag is part of that position",
-    /paint\(dragRef\.current, false\)/.test(swipeHook),
-    "without it the strip only moves when the gesture has already ended",
+    "the strip is handed to Embla rather than styled here",
+    /emblaRef\(node\)/.test(gallery) && !/style=\{\{ transform/.test(gallery),
+    "a style prop on the moving node is painted back over the drag on the next render",
   )
   check(
-    "the gallery hands the strip over rather than styling it",
-    /ref=\{swipe\.trackRef\}/.test(gallery) && !/swipe\.dragX/.test(gallery),
-    "a style prop on the same node is written back over the drag on the next render",
-  )
-  check(
-    "and no state is set while a finger is moving",
-    !/setDragX/.test(swipeHook) && /el\.style\.transform =/.test(swipeHook),
+    "and no React state is set while a finger is moving",
+    !/setDragX/.test(gallery) && !/onTouchMove/.test(gallery),
     "one setState per touchmove is one render of every slide and thumbnail per frame",
   )
+
   /*
-    `minSwipeDistance` is deliberately still here: a mouse drag on a desktop
-    has no finger to follow and still commits on distance. What must be gone
-    is the gallery's own TOUCH handling, which is the part the shared gesture
-    replaced.
+    THE ONE THAT KILLS IT ON EVERY PHONE AND NOWHERE ELSE.
+
+    globals.css carries a rule that sets `transform: none !important` on every
+    descendant of a `.group` on a touch device, and the gallery frame is
+    inside one. Embla moves the strip by transform. Without the opt-out the
+    computed transform is `none` on every phone while the inline one says
+    otherwise, so the picture never moves — broken for everybody on a phone
+    and perfect on every desktop it is tested on. That is how it shipped once.
   */
   check(
-    "it uses the shared gesture rather than its own",
-    /useSwipeTrack\(\{/.test(gallery) && !/const onTouchMove = /.test(gallery),
-    "the full-screen viewer had this working already; two copies drift",
+    "the strip opts out of the rule that strips transforms on touch devices",
+    /data-keep-transform/.test(gallery),
+    "without it `transform: none !important` wins on every phone and the strip never moves",
   )
+
+  /*
+    NOT `loop`. Looping makes Embla clone slide nodes, and these slides hold
+    <video> elements and a YouTube iframe — a clone is a second player outside
+    React's knowledge, playing behind the one you can see.
+  */
   check(
-    "a jump of more than one slide does not animate",
-    /animateSlide/.test(gallery) && /step <= 1/.test(gallery),
-    "a thumbnail four along would smear every picture in between across the box",
+    "the carousel does not loop, because the slides contain players",
+    !/loop:\s*true/.test(gallery),
+    "a cloned <video> is a second player React does not know it has",
   )
+
+  check(
+    "one engine, not two: the hand-written gesture is gone",
+    !/useSwipeTrack/.test(gallery) && !/const onTouchMove = /.test(gallery),
+    "two implementations of one gesture drift, and this pair already did",
+  )
+
+  /*
+    A click fires at the end of a drag as well as after a tap, so opening the
+    viewer on a bare click puts it up every time somebody changes picture.
+    Embla answers this internally with `clickAllowed()`, which 8.5.1 does not
+    expose on its public type — it is behind `internalEngine()`, and reaching
+    in there is how a dependency bump breaks a product page in silence. The
+    `scroll` event answers the same question from the public API.
+  */
+  check(
+    "a drag is told apart from a tap, without reaching into Embla's internals",
+    /dragMoved/.test(gallery) && !/internalEngine\(\)/.test(gallery),
+    "`clickAllowed` is not on EmblaCarouselType in 8.5.1",
+  )
+
   check(
     "the page still scrolls under a finger that starts on a picture",
     /touchAction: "pan-y"/.test(gallery),
@@ -108,27 +135,19 @@ console.log("\nThe gallery swipe\n")
   )
 }
 
-{
-  const hook = code("lib/gestures/use-swipe-track.ts")
-  check("the gesture locks to an axis", /axis\.current = Math\.abs\(dx\) > Math\.abs\(dy\)/.test(hook),
-    "without it a vertical scroll drags the strip sideways and springs back")
-  check("it rubber-bands at the two ends", /dx \/ 3/.test(hook))
-  check("and a flick commits on speed as well as distance", /velocity > FLICK_VELOCITY/.test(hook))
-  /** Run, not read: the two numbers a release is decided by. */
-  check("the commit point is about a fifth of the width", COMMIT_RATIO > 0.15 && COMMIT_RATIO < 0.35, `${COMMIT_RATIO}`)
-  check("and a flick is measured in px per ms", FLICK_VELOCITY > 0.1 && FLICK_VELOCITY < 1.5, `${FLICK_VELOCITY}`)
+/*
+  ═════════════════════════════════════════════════════════════════════════
+   THE BLOCK THAT USED TO BE HERE CHECKED A HOOK THAT NO LONGER EXISTS
+  ═════════════════════════════════════════════════════════════════════════
+  It read the axis lock, the rubber band, the commit ratio and the flick
+  threshold out of lib/gestures/use-swipe-track, and ran the last two as
+  numbers. All of that is embla-carousel's now, and checking a dependency's
+  internals from here would be worse than checking nothing: it would fail on
+  an upgrade that changed nothing about how the gallery feels.
 
-  /*
-    The release reads the drag from a ref rather than from state. A state
-    value read in the same tick it was set is the PREVIOUS value, so the
-    commit would be decided on where the finger was one move ago.
-  */
-  check(
-    "the release reads the live drag, not last render's",
-    /const travelled = dragRef\.current/.test(hook),
-    "reading the state value here decides the commit on a stale position",
-  )
-}
+  What replaced it is above — the things Embla cannot know about this page,
+  and which have each broken this gallery before.
+*/
 
 console.log("\nThe back arrow\n")
 
@@ -146,26 +165,16 @@ console.log("\nThe back arrow\n")
     "without a pending signal the control must flash a spinner at everybody or show one to nobody",
   )
   /*
-    THE TWO USED TO BE ADJACENT LINES and this check pinned them that way.
-    They are not adjacent any more: the sheet that turns a back from a cut
-    into a transition goes up in between (components/navigation/
-    page-leave-veil.tsx), so the navigation now happens on a delay.
-
-    The property worth holding was never the adjacency — it is that the bar
-    marks itself as leaving BEFORE the navigation, because a popstate has no
-    completion event to set it from afterwards. That is what is checked now,
-    by order rather than by proximity.
+    CHECKED BY ORDER, NOT BY PROXIMITY. This used to pin the two as adjacent
+    lines, which broke the moment anything was inserted between them. The
+    property worth holding is that the bar marks itself as leaving BEFORE the
+    navigation, because a popstate has no completion event to set it from
+    afterwards.
   */
   check(
     "going back holds its own state, because a popstate has no completion event",
     /setLeaving\(true\)/.test(bar) &&
       bar.indexOf("setLeaving(true)") < bar.indexOf("window.history.back()"),
-  )
-  check(
-    "and it leaves on a transition rather than on the frame of the press",
-    /const wait = beginPageLeave\(\)/.test(bar) &&
-      /setTimeout\(\(\) => window\.history\.back\(\), wait\)/.test(bar),
-    "history.back() on the press frame restores a cached route in one frame, which reads as a cut",
   )
   check(
     "and gives up rather than spinning for ever",

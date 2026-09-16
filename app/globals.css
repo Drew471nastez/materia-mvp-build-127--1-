@@ -350,68 +350,6 @@ html.capacitor body {
     }
   }
 
-  /*
-    ═══════════════════════════════════════════════════════════════════════
-     THE SHEET THAT MAKES GOING BACK A TRANSITION
-    ═══════════════════════════════════════════════════════════════════════
-    components/navigation/page-leave-veil.tsx has the argument. The short
-    version: back ran on the same frame as the press, so the product page and
-    the grid met at a hard edge with no motion between them, and the page
-    being left has no exit animation to give it one.
-
-    Nothing fades OUT, because fading a page out reveals the body behind it
-    and a dark product page would flash white in the middle of the
-    transition. A sheet of the page's own measured background colour fades
-    IN, the navigation happens underneath while it is opaque, and it fades
-    off the page arrived at.
-
-    TWO CURVES, NOT ONE, because leaving and arriving are not the same
-    motion. Leaving accelerates away (ease-in, 190ms); arriving decelerates
-    into place (ease-out, 300ms). Symmetrical timing is what makes a
-    transition feel mechanical.
-
-    THE RESTING STATE IS TRANSPARENT, and it is on the base rule rather than
-    at the end of an animation with `fill-mode`. A veil that is never told to
-    clear is then invisible instead of an opaque rectangle over somebody's
-    shop. `pointer-events: none` throughout for the same reason: even a stuck
-    one cannot swallow a tap.
-
-    No transform, no filter, no `will-change` — `position: fixed` bars on the
-    page below would stop being fixed to the window for the length of it. The
-    note on .app-page-enter above is the same constraint.
-  */
-  .page-leave-veil {
-    position: fixed;
-    inset: 0;
-    z-index: 2147483000;
-    pointer-events: none;
-    opacity: 0;
-    background: var(--background);
-  }
-
-  .page-leave-veil[data-state="rising"] {
-    opacity: 1;
-    transition: opacity 190ms cubic-bezier(0.4, 0, 1, 1);
-  }
-
-  .page-leave-veil[data-state="clearing"] {
-    opacity: 0;
-    transition: opacity 300ms cubic-bezier(0, 0, 0.2, 1);
-  }
-
-  /*
-    beginPageLeave() already returns a zero delay under this preference, so
-    the navigation is immediate and no veil is asked for. This is the second
-    lock: if one is ever asked for anyway, it does not appear.
-  */
-  @media (prefers-reduced-motion: reduce) {
-    .page-leave-veil,
-    .page-leave-veil[data-state="rising"],
-    .page-leave-veil[data-state="clearing"] {
-      opacity: 0;
-      transition: none;
-    }
-  }
 
 
   /* Global overflow prevention.

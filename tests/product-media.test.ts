@@ -133,13 +133,15 @@ check(
   "a desktop visitor should not download a lightbox nothing can open",
 )
 /*
-  The distance comes off the shared gesture now rather than from the gallery's
-  own touchStart/touchEnd pair, which the strip replaced. Same ten pixels,
-  same reason.
+  Asked of Embla's public events now. A click fires at the end of a drag as
+  well as after a tap, and `clickAllowed()` — Embla's own answer — is not on
+  its public type in 8.5.1; it sits behind `internalEngine()`, which is how a
+  dependency bump breaks a product page in silence. `scroll` fires whenever
+  the strip moves, so a gesture that moved has fired it and a tap has not.
 */
 check(
   "a swipe does not count as a tap",
-  /if \(swipe\.lastTravel\.current > 10\) return/.test(gallery),
+  /if \(dragMoved\.current\) return/.test(gallery),
   "onClick fires after a swipe too, so the viewer would open on every slide change",
 )
 /*
@@ -158,35 +160,41 @@ check(
   /className="absolute z-20 inline-flex h-11 w-11/.test(viewer),
 )
 /*
-  ONE GESTURE, AND THESE TWO NOW ASK IT OF THAT ONE.
+  ONE ENGINE, AND IT IS EMBLA'S IN BOTH PLACES.
 
-  Both used to read the viewer's own axis lock and its own release test. The
-  viewer had a complete second copy of the gesture, written before
-  lib/gestures/use-swipe-track was lifted out of it — and the hook's own
-  header said the gallery would use the same one "rather than a second
-  implementation that drifts". It drifted: the hook measures a flick over the
-  end of the gesture and the copy averaged it from the first touch, so the
-  same flick committed in the gallery and sprang back full screen.
+  The viewer had a complete second copy of the gesture; then a shared hook was
+  lifted out of it so the two could not drift; and the two drifted anyway,
+  because the hook had no momentum and neither did the copy. Every release ran
+  a fixed 300ms curve whatever the finger did, which is the whole of "it feels
+  laggish" — a hard flick and a slow drag arrived at exactly the same speed.
 
-  The copy is gone. The claims are unchanged and are made of the hook, plus
-  one that the viewer does not grow another.
+  Both are Embla now. The axis lock and the flick threshold are its problem,
+  so what is checked is that this file did not keep a copy of either, and the
+  two things a carousel library cannot know about a full-screen dialog.
 */
-const swipeHook = code("lib/gestures/use-swipe-track.ts")
 check(
-  "the swipe locks to one axis before it moves anything",
-  /axis\.current = Math\.abs\(dx\) > Math\.abs\(dy\) \? "x" : "y"/.test(swipeHook),
-  "without it a vertical swipe drags the track sideways and springs back",
+  "the viewer uses the same engine as the gallery, and keeps no copy",
+  /useEmblaCarousel\(/.test(viewer) && !/axis\.current/.test(viewer) && !/useSwipeTrack/.test(viewer),
+  "two implementations of one gesture drift, and this pair already did",
 )
+
+/*
+  A DIALOG MEASURES NOTHING WHILE IT IS CLOSED. Embla sizes its slides once,
+  on init, and a closed dialog has no layout — so every slide is zero wide and
+  the strip settles on the wrong one the moment it opens. Re-measured on open,
+  and jumped straight to the picture that was tapped rather than animating
+  through the ones in between.
+*/
 check(
-  "a short flick counts as well as a long drag",
-  /velocity > FLICK_VELOCITY/.test(swipeHook),
+  "it re-measures when the dialog opens",
+  /emblaApi\.reInit\(\)/.test(viewer) && /scrollTo\(index, true\)/.test(viewer),
+  "slides sized against a closed dialog are zero wide, and the strip lands between pictures",
 )
+
 check(
-  "and the viewer uses that one rather than its own",
-  /useSwipeTrack\(\{ index, count, onIndexChange: go \}\)/.test(viewer) &&
-    !/axis\.current/.test(viewer) &&
-    !/setDragX/.test(viewer),
-  "two copies of one gesture drift, and the drift is a flick that works in one place and not the other",
+  "and the full-screen strip opts out of the touch-device transform rule too",
+  /data-keep-transform/.test(viewer),
+  "`transform: none !important` on a touch device would freeze this one the same way",
 )
 check(
   "the picture is shown whole, not cropped",

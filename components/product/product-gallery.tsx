@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { ProductMediaViewer } from "@/components/product/product-media-viewer"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
 import { cn } from "@/lib/utils"
-import { useSwipeTrack } from "@/lib/gestures/use-swipe-track"
+import useEmblaCarousel from "embla-carousel-react"
 
 interface MediaItem {
   url: string
@@ -69,12 +69,10 @@ export function ProductGallery({
   const [viewerOpen, setViewerOpen] = useState(false)
   const isPhone = useIsPhone()
   const [isDragging, setIsDragging] = useState(false)
-  const [startX, setStartX] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [isMobileScreen, setIsMobileScreen] = useState(false)
   const [isDesktopScreen, setIsDesktopScreen] = useState(true)
   const [isHovering, setIsHovering] = useState(false)
-  const [isTransitioning, setIsTransitioning] = useState(false)
 
   // Video player state
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
@@ -194,7 +192,6 @@ export function ProductGallery({
   }, [currentIndex, mediaItems])
 
   /** Mouse drag on a desktop still commits on distance; there is no finger to follow. */
-  const minSwipeDistance = 50
 
   // Detect actual screen size (only for live page, not editor preview)
   useEffect(() => {
@@ -235,39 +232,12 @@ export function ProductGallery({
     return false
   })()
 
-  const goToPrevious = useCallback(() => {
-    if (isTransitioning) return
-    setIsTransitioning(true)
-    setCurrentIndex((prev) => (prev === 0 ? mediaItems.length - 1 : prev - 1))
-    // Reset transition state after animation completes
-    setTimeout(() => setIsTransitioning(false), 300)
-  }, [mediaItems.length, isTransitioning])
-
-  const goToNext = useCallback(() => {
-    if (isTransitioning) return
-    setIsTransitioning(true)
-    setCurrentIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1))
-    // Reset transition state after animation completes
-    setTimeout(() => setIsTransitioning(false), 300)
-  }, [mediaItems.length, isTransitioning])
-
-  // Autoplay for dots mode (only for images, pause on video/youtube)
-  useEffect(() => {
-    const currentMedia = mediaItems[currentIndex]
-    if (!showDotsNavigation || mediaItems.length <= 1 || isPaused || currentMedia?.type !== "image") return
-
-    autoplayRef.current = setInterval(() => {
-      goToNext()
-    }, autoplayInterval)
-
-    return () => {
-      if (autoplayRef.current) {
-        clearInterval(autoplayRef.current)
-      }
-    }
-  }, [showDotsNavigation, mediaItems.length, mediaItems, currentIndex, isPaused, autoplayInterval, goToNext])
-
-  // Pause autoplay on user interaction, resume after delay
+  /*
+    DECLARED BEFORE THE THINGS THAT CLOSE OVER IT. `goToNext` names this in a
+    dependency array, and a dependency array is evaluated at the line it is
+    written on — so with this below it, the page threw a ReferenceError
+    before it could paint. That exact fault has taken this file down before.
+  */
   const handleUserInteraction = useCallback(() => {
     setIsPaused(true)
     // Resume autoplay after 10 seconds of no interaction
@@ -276,75 +246,146 @@ export function ProductGallery({
 
   /**
    * ═════════════════════════════════════════════════════════════════════════
-   *  THE SWIPE MOVES THE PICTURE, RATHER THAN WATCHING FOR ONE
+   *  THE SWIPE IS EMBLA'S NOW, AND THE REASON IS MOMENTUM
    * ═════════════════════════════════════════════════════════════════════════
-   * This used to record where a touch started, where it ended, and change
-   * slide if the difference passed 50px. Nothing moved while the finger
-   * moved, so there was no feedback until the instant it jumped, and a
-   * careful 40px drag did nothing at all with no way to tell that it had
-   * done nothing. That is the difference between a gallery that feels like a
-   * web page and one that feels like an app.
+   * What was here was hand-written and not badly written: it moved the strip
+   * with the finger, locked the axis, rubber-banded at the ends and committed
+   * on velocity as well as distance. It still felt cheap, and the reason is
+   * the one thing it did not do.
    *
-   * lib/gestures/use-swipe-track is the same gesture the full-screen viewer
-   * already used — axis lock so a vertical scroll does not drag the strip,
-   * rubber band at the two ends, and a flick that commits on speed as well as
-   * on distance. Shared rather than copied, so the two cannot drift.
-   */
-  /**
-   * Whether the move that just happened is one the strip should animate.
+   * IT HAD NO MOMENTUM. Every release ran the same 300ms curve whatever the
+   * finger did — a lazy half-drag and a hard flick settled identically, and
+   * the distance still to travel did not change the timing either. That is
+   * the difference a hand feels: a real carousel carries the speed you let go
+   * at into the settle, so a flick arrives fast and a nudge drifts. Writing
+   * that properly means a spring, friction, and a scroll body with its own
+   * clock, which is a physics engine, and there is a good one in the
+   * dependencies already.
    *
-   * Adjacent is a slide. Anything further — a thumbnail several along, or the
-   * wrap from the last picture back to the first — would drag every picture
-   * in between across the box, so it is moved without a transition instead.
+   * Embla also brings the parts that were separate implementations here: the
+   * mouse drag on a desktop was its own ad-hoc pair of handlers with a 50px
+   * threshold and no motion at all until it fired, and now it is the same
+   * gesture as the touch one.
+   *
+   * WHAT IT IS TUNED TO. `duration` is Embla's own unit rather than
+   * milliseconds — it scales the spring — and 22 is slightly quicker than the
+   * default 25, which suits a box this size. `dragThreshold` is the movement
+   * before a drag is a drag; the default of 10 makes a short flick feel
+   * ignored. `containScroll: "trimSnaps"` stops the first and last slide
+   * being draggable past the edge into empty space.
+   *
+   * NOT `loop`. Looping makes Embla clone slides, and these slides hold
+   * <video> elements and a YouTube iframe — a cloned one is a second player
+   * outside React's knowledge. The arrows still wrap, below, by asking for
+   * the other end explicitly.
    */
-  const previousIndex = useRef(currentIndex)
-  const [animateSlide, setAnimateSlide] = useState(true)
-  useEffect(() => {
-    const step = Math.abs(currentIndex - previousIndex.current)
-    previousIndex.current = currentIndex
-    if (step <= 1) return
-    setAnimateSlide(false)
-    /* Back on for the next move, once this one has been painted without it. */
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setAnimateSlide(true)))
-    return () => cancelAnimationFrame(id)
-  }, [currentIndex])
+  /** Whether the gesture that just ended moved the strip at all. */
+  const dragMoved = useRef(false)
 
-  const swipe = useSwipeTrack({
-    index: currentIndex,
-    count: mediaItems.length,
-    animate: animateSlide,
-    onIndexChange: (next) => {
-      handleUserInteraction()
-      setCurrentIndex(next)
-    },
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    align: "start",
+    containScroll: "trimSnaps",
+    duration: 22,
+    dragThreshold: 6,
+    watchDrag: mediaItems.length > 1,
   })
 
-  const onMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true)
-    setStartX(e.clientX)
-    handleUserInteraction()
-  }
-
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return
-    e.preventDefault()
-  }
-
-  const onMouseUp = (e: React.MouseEvent) => {
-    if (!isDragging) return
-
-    const distance = startX - e.clientX
-    const isLeftSwipe = distance > minSwipeDistance
-    const isRightSwipe = distance < -minSwipeDistance
-
-    if (isLeftSwipe) {
-      goToNext()
-    } else if (isRightSwipe) {
-      goToPrevious()
+  /**
+   * Embla owns the position; this component owns the index, because the
+   * counter, the video controls, the dots and the thumbnails all read it.
+   * The two are kept level in both directions, and each side checks before
+   * it writes so they cannot drive each other round in a circle.
+   */
+  useEffect(() => {
+    if (!emblaApi) return
+    const onSelect = () => setCurrentIndex(emblaApi.selectedScrollSnap())
+    const onPointerDown = () => {
+      dragMoved.current = false
+      setIsDragging(true)
+      handleUserInteraction()
     }
+    const onPointerUp = () => setIsDragging(false)
+    /*
+      A TAP AND A DRAG BOTH END IN A CLICK, and the viewer must only open for
+      the first. Embla answers this internally with `clickAllowed()`, which
+      8.5.1 does not put on its public type — it is behind `internalEngine()`,
+      and reaching in there is how a dependency upgrade breaks a product page
+      silently.
 
-    setIsDragging(false)
-  }
+      `scroll` fires whenever the strip moves, so a gesture that moved has
+      fired it and a gesture that did not has not. Reset on the way down,
+      read on the click. Public API, same answer.
+    */
+    const onScroll = () => { dragMoved.current = true }
+    emblaApi.on("select", onSelect)
+    emblaApi.on("pointerDown", onPointerDown)
+    emblaApi.on("pointerUp", onPointerUp)
+    emblaApi.on("scroll", onScroll)
+    onSelect()
+    return () => {
+      emblaApi.off("select", onSelect)
+      emblaApi.off("pointerDown", onPointerDown)
+      emblaApi.off("pointerUp", onPointerUp)
+      emblaApi.off("scroll", onScroll)
+    }
+  }, [emblaApi, handleUserInteraction])
+
+  /** The other direction: a thumbnail, an arrow, a key or the autoplay. */
+  useEffect(() => {
+    if (!emblaApi) return
+    if (emblaApi.selectedScrollSnap() === currentIndex) return
+    emblaApi.scrollTo(currentIndex)
+  }, [emblaApi, currentIndex])
+
+  /**
+   * Embla measures its slides once. A picture that decodes later, or a phone
+   * turning on its side, changes the width it measured against, and without
+   * this the strip settles a few pixels off its own slide for the rest of the
+   * session.
+   */
+  useEffect(() => {
+    if (!emblaApi) return
+    emblaApi.reInit()
+  }, [emblaApi, mediaItems.length])
+
+  /*
+    THE ARROWS STILL WRAP, which is what they did before and is not what a
+    drag does. Asking Embla to loop would mean cloned slides; asking it for
+    the far end explicitly costs one line and clones nothing.
+  */
+  const goToPrevious = useCallback(() => {
+    handleUserInteraction()
+    setCurrentIndex((prev) => (prev === 0 ? mediaItems.length - 1 : prev - 1))
+  }, [mediaItems.length, handleUserInteraction])
+
+  const goToNext = useCallback(() => {
+    handleUserInteraction()
+    setCurrentIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1))
+  }, [mediaItems.length, handleUserInteraction])
+
+  // Autoplay for dots mode (only for images, pause on video/youtube)
+  useEffect(() => {
+    const currentMedia = mediaItems[currentIndex]
+    if (!showDotsNavigation || mediaItems.length <= 1 || isPaused || currentMedia?.type !== "image") return
+
+    autoplayRef.current = setInterval(() => {
+      setCurrentIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1))
+    }, autoplayInterval)
+
+    return () => {
+      if (autoplayRef.current) {
+        clearInterval(autoplayRef.current)
+      }
+    }
+  }, [showDotsNavigation, mediaItems.length, mediaItems, currentIndex, isPaused, autoplayInterval])
+
+
+  /*
+    The mouse drag was its own pair of handlers with a 50px threshold and no
+    movement until it fired. Embla drags with a mouse the same way it drags
+    with a finger, so there is one gesture now instead of two that behaved
+    differently on the same element.
+  */
 
   const onMouseLeave = () => {
     setIsDragging(false)
@@ -374,11 +415,13 @@ export function ProductGallery({
     <div className="space-y-3 sm:space-y-4 w-full">
       {/* Main Image */}
       <div
-        /* Two owners, one element: imageRef is what goes fullscreen, and the
-           gesture measures a slide by this box's width. */
+        /* Three owners, one element: imageRef is what goes fullscreen, and
+           this is also Embla's viewport — the box a slide is measured against
+           and the one that clips the strip. `emblaRef` is a callback ref, so
+           it composes with the other by being called. */
         ref={(node) => {
           imageRef.current = node
-          swipe.frameRef.current = node
+          emblaRef(node)
         }}
         className={cn(
           "relative aspect-video overflow-hidden rounded-xl w-full group",
@@ -387,9 +430,10 @@ export function ProductGallery({
         )}
         /* `pan-y`, not `none`: the browser's own horizontal pan would compete
            with the strip and drop frames off the drag, but the page still has
-           to scroll vertically under a finger that started on a picture. */
+           to scroll vertically under a finger that started on a picture.
+           Embla sets the same thing on its container; both is not a conflict,
+           and this one is what the browser reads first. */
         style={{ touchAction: "pan-y", ...(backgroundColor ? { backgroundColor } : {}) }}
-        {...swipe.handlers}
         /**
          * A TAP OPENS IT, A SWIPE DOES NOT.
          *
@@ -403,15 +447,13 @@ export function ProductGallery({
          */
         onClick={() => {
           if (!isPhone) return
-          /* How far the finger actually travelled on the gesture that just
-             ended. Under ten pixels it was a tap, not a swipe. */
-          if (swipe.lastTravel.current > 10) return
+          /* A click fires after a drag as well, so opening on a bare click
+             would put the viewer up every time somebody moved to the next
+             picture. This is false only when the gesture never moved. */
+          if (dragMoved.current) return
           if (mediaItems[currentIndex]?.type === "youtube") return
           setViewerOpen(true)
         }}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
         onMouseLeave={() => {
           setIsDragging(false)
           setIsHovering(false)
@@ -463,14 +505,12 @@ export function ProductGallery({
             the transform is load-bearing.
           */
           data-keep-transform
-          ref={swipe.trackRef}
           /*
-            NO `style` AND NO TRANSITION CLASS. The hook owns both, because a
-            drag is written straight to this node every frame and a style prop
-            would be painted back over it on the next render. The class is
-            gone for the same reason: the transition has to be off during the
-            drag and on for the snap, and that is one decision made in one
-            place rather than two that have to agree.
+            NO `style` AND NO TRANSITION CLASS, and now it is Embla that owns
+            both. It writes this node's transform on its own clock — every
+            frame of a drag, then the spring that settles it — so a style prop
+            from React would be painted over the top on the next render, and a
+            CSS transition would fight the physics for the same property.
           */
           className="flex h-full w-full"
         >
