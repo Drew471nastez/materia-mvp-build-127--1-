@@ -6,7 +6,6 @@ import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
-import { NavPending } from "@/components/nav-pending"
 import { Star } from "lucide-react"
 
 function CreatorAvatar({ url, name, size = 20 }: { url?: string | null; name: string; size?: number }) {
@@ -271,17 +270,23 @@ export const ProductCard = memo(function ProductCard({
       onClickCapture={onClickCapture}
     >
       {/*
-        `active:` gives the press an answer in the same frame, before any
-        navigation has started; NavPending covers the wait after it. A card
-        that neither dips nor shows a line is a card that looks broken for as
-        long as the server takes.
+        THE PRESS IS ANSWERED BY THE CARD DIPPING, AND BY NOTHING ELSE.
+
+        There was a 3px bar across the top of the card while the navigation
+        was in flight. It went, on the owner's instruction: a loading
+        indicator on a card is a loading indicator ON THE THING YOU ARE
+        LEAVING, and it draws the eye back to a card that is about to be
+        replaced.
+
+        `active:brightness-95` still answers in the same frame as the touch,
+        before any navigation starts, so a press is never unacknowledged. What
+        is gone is the part that kept animating afterwards.
       */}
       <SmartLink
         href={productUrl}
         useClientNav={clientNav}
         className="relative aspect-video bg-muted overflow-hidden transition-[filter] duration-100 active:brightness-95"
       >
-        <NavPending />
         {product.thumbnail_url ? (
           <Image
             src={product.thumbnail_url}
@@ -315,17 +320,9 @@ export const ProductCard = memo(function ProductCard({
             {showCreator && (
               <SmartLink
                 href={storeUrl}
-                /* `relative`, so the pending bar below has something to pin to. */
-                className="group/seller relative flex items-center gap-1.5"
+                className="group/seller flex items-center gap-1.5 transition-opacity duration-100 active:opacity-70"
                 onClick={(e) => e.stopPropagation()}
               >
-                {/*
-                  The creator's page has no loading boundary either, so this
-                  press is answered the same way the picture's is: by the thing
-                  that was pressed, rather than by the page being swapped for a
-                  grey one.
-                */}
-                <NavPending />
                 <CreatorAvatar url={creatorAvatarUrl} name={creatorName} size={20} />
                 <span
                   className="text-[13px] text-muted-foreground truncate max-w-[120px] group-hover/seller:underline"

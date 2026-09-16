@@ -158,7 +158,7 @@ const KNOWN_GAPS = new Set([
  *
  * A fifth of a second of nothing, then a second of grey furniture. Without
  * the boundary the router keeps the current page until the next one is ready,
- * and components/nav-pending answers the press on the card that was pressed.
+ * and the card that was pressed answers the press itself.
  *
  * WHAT IT COSTS, because it does cost something. A boundary is also the
  * streaming fallback on a cold DIRECT visit — somebody opening a shared link.
@@ -197,10 +197,16 @@ const DELIBERATELY_NONE = new Map([
  * creator page answers in 0.28s to 0.58s, median about 0.34s.
  *
  * AND THE PRESS IS NO LONGER UNANSWERED. Product cards navigate on the client
- * now, and components/nav-pending draws a bar on the card that was pressed —
- * on the picture and on the creator's name both. "Appeared to do nothing" was
- * the real complaint in that header, and it is addressed at the press rather
- * than by replacing the page with furniture.
+ * now, and the card dips under the finger the moment it is touched — the
+ * picture and the creator's name both. "Appeared to do nothing" was the real
+ * complaint in that header, and it is addressed at the press rather than by
+ * replacing the page with furniture.
+ *
+ * It used to be a 3px bar that ran for as long as the navigation took. The
+ * owner asked for that out, and it deserved to go: an indicator drawn on a
+ * card is drawn on the thing being LEFT, so it holds the eye on something
+ * about to be replaced. The dip lands in the same frame as the touch, which
+ * is the part that was doing the work, and then it stops.
  */
 
 for (const page of dynamicPages) {

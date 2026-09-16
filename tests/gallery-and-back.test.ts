@@ -289,11 +289,28 @@ console.log("\nThe sticky add to cart, and the wait before a product page\n")
       !existsSync(join(root, "app/(marketing)/[sellername]/[productSlug]/loading.tsx")),
     "a boundary replaces the page you are on the instant a navigation starts",
   )
+  /*
+    AND THE BAR ON THE CARD IS GONE TOO, WHICH THIS LINE USED TO REQUIRE.
+
+    It pinned a 3px indeterminate bar drawn on the pressed card while the
+    navigation was in flight. The owner asked for it out: a loading indicator
+    on a card is a loading indicator on the thing you are LEAVING, so it pulls
+    the eye back to something that is about to be replaced.
+
+    The question the line was asking still stands, so it is asked of what
+    answers the press now. `active:brightness-95` lands in the same frame as
+    the touch, before any navigation starts, and then stops.
+  */
   check(
     "and the card that was pressed answers instead",
-    /useLinkStatus/.test(code("components/nav-pending.tsx")) &&
-      /<NavPending \/>/.test(code("components/explore/product-card.tsx")),
+    /active:brightness-95/.test(code("components/explore/product-card.tsx")),
     "without a boundary the only thing left to say a press landed is the card itself",
+  )
+  check(
+    "and nothing on the card keeps animating after it",
+    !existsSync(join(root, "components/nav-pending.tsx")) &&
+      !/NavPending/.test(code("components/explore/product-card.tsx")),
+    "an indicator on the card being left is pointed at the wrong thing",
   )
 }
 

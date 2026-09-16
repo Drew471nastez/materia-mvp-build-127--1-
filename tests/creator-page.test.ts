@@ -2030,7 +2030,7 @@ function main() {
       and then a second of grey furniture before the product arrived.
 
       Without it the router keeps the grid until the product is ready, and
-      components/nav-pending answers the press on the card that was pressed.
+      the card that was pressed answers the press itself.
       tests/marketing-weight holds the decision, what it costs on a cold
       direct visit, and what would let it come back.
     */
@@ -2039,10 +2039,21 @@ function main() {
       !existsSync(join(root, "app/(marketing)/p/[slug]/loading.tsx")),
       "a boundary throws away the page somebody is reading the moment they press something on it",
     )
+    /*
+      This asked for a 3px bar across the pressed card, drawn for as long as
+      the navigation was in flight. It is gone on the owner's instruction: an
+      indicator on a card marks the thing you are LEAVING. What answers now is
+      the dip, which lands with the touch and does not outlive it.
+    */
     check(
       "so the card answers the press itself",
-      /<NavPending \/>/.test(code("components/explore/product-card.tsx")),
+      /active:brightness-95/.test(code("components/explore/product-card.tsx")),
       "with nothing swapping in, the pressed card is the only thing left to say the press landed",
+    )
+    check(
+      "and it answers by dipping, not by running a bar",
+      !/NavPending/.test(code("components/explore/product-card.tsx")),
+      "a bar on the pressed card keeps animating on a card that is about to be replaced",
     )
     check("and so does the creator page", existsSync(join(root, "app/(marketing)/u/[username]/loading.tsx")))
 
