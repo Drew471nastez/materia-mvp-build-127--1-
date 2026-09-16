@@ -3330,6 +3330,9 @@ export default function NewProductPage() {
             slug: savedSlug,
             type: "product",
             handle: creator?.username || creator?.slug || undefined,
+            /* The id too: the variants, files and reviews are cached under
+               it, and the slug alone does not reach them. */
+            productId: savedProductId,
           }),
         })
       } catch (revalidateErr) {

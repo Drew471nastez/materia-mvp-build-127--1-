@@ -25,6 +25,8 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { stripComments } from "./_source"
+
 let passed = 0
 let failed = 0
 const failures: string[] = []
@@ -41,6 +43,13 @@ function check(label: string, ok: boolean, detail?: string) {
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const cacheLayer = read("lib/commerce/product-page-cache.ts")
+/*
+  Counting `unstable_cache(` on the raw file counts the one in the header
+  comment explaining what `unstable_cache()` is for — the same trap that has
+  caught three guards in this suite, where a check matched the prose above the
+  code instead of the code.
+*/
+const cacheCode = stripComments(cacheLayer)
 const publicClient = read("lib/supabase/public-read.ts")
 const loaders = read("lib/commerce/product-page-data.ts")
 const page = read("app/(marketing)/p/[slug]/page.tsx")
@@ -111,8 +120,20 @@ function main() {
   check("publishing revalidates the creator's tag", /revalidateTag\(creatorTag\(creator\.id\), "max"\)/.test(publishRoute))
   check("and the product's, when there is one", /if \(productId\) revalidateTag\(productTag\(productId\), "max"\)/.test(publishRoute))
   check("there is a backstop for the paths that forget", /export const PRODUCT_CACHE_TTL = 60/.test(cacheLayer))
-  check("and every cached read carries it", (cacheLayer.match(/revalidate: PRODUCT_CACHE_TTL/g) || []).length === 5)
-  check("with a tag on each", (cacheLayer.match(/tags: \[/g) || []).length === 5)
+  /*
+    Counted against the number of cached reads rather than a literal, because
+    the literal was 5 and the answer to the product page being slow was five
+    MORE of them — the variants, the files, the reviews, the seller's other
+    products, the course outline. A guard that has to be edited every time
+    the thing it guards grows is a guard that gets edited without being read.
+  */
+  const cachedReads = (cacheCode.match(/unstable_cache\(/g) || []).length
+  check("there are cached reads to check", cachedReads >= 10, `        found ${cachedReads}`)
+  check(
+    "and every cached read carries it",
+    (cacheCode.match(/revalidate: PRODUCT_CACHE_TTL/g) || []).length === cachedReads,
+  )
+  check("with a tag on each", (cacheCode.match(/tags: \[/g) || []).length === cachedReads)
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

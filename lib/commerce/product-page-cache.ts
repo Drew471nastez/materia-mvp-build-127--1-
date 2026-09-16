@@ -141,3 +141,231 @@ export const cachedProductPageConfig = (creatorId: string, productId: string) =>
     ["product-page-config", creatorId, productId],
     { revalidate: PRODUCT_CACHE_TTL, tags: [creatorTag(creatorId), productTag(productId)] },
   )()
+
+/**
+ * ===========================================================================
+ *  THE REST OF THE SHARED HALF, WHICH IS WHERE THE TIME ACTUALLY WENT
+ * ===========================================================================
+ * The five loaders above cache the product row, the creator, and the three
+ * config rows. Instrumented on production (lib/perf/phase-timer.ts), those
+ * five together answer in 21ms to 66ms, and the page still took a second or
+ * more. The timing split says where the rest of it is:
+ *
+ *     total=3827  client=1  creatorAndConfig=21  user=0  assets=503  variants=3302
+ *     total=2882  client=1  creatorAndConfig=35  user=0  assets=38   variants=2808
+ *     total=1012  client=1  creatorAndConfig=52  user=0  assets=26   variants=933
+ *     total=367   client=0  creatorAndConfig=62  user=0  assets=166  variants=139
+ *
+ * One query, `product_variants` with its files joined, is 40% to 86% of the
+ * whole render. It is not a missing index — scripts/045 and scripts/048 both
+ * create `idx_product_variants_product` — it is the row-level security policy
+ * on that table, which runs
+ *
+ *     EXISTS (SELECT 1 FROM products p WHERE p.id = product_variants.product_id
+ *             AND p.status = 'published')
+ *     OR EXISTS (SELECT 1 FROM products p JOIN creators c ON ...
+ *                WHERE ... AND c.user_id = auth.uid())
+ *
+ * per row, on the variants AND on the two tables joined to them, with
+ * `auth.uid()` re-evaluated every time. That is why the same query measures
+ * 139ms cold and 3302ms under a handful of concurrent visitors: the cost is
+ * per row and it compounds.
+ *
+ * supabase/migrations/20260916_rls_initplan.sql fixes the policy itself. This
+ * caches the result, which is the half that ships without database access and
+ * helps every visitor after the first either way.
+ *
+ * ---------------------------------------------------------------------------
+ *  WHY THE ANON CLIENT IS ALLOWED TO READ THESE
+ * ---------------------------------------------------------------------------
+ * Not by assumption. The first branch of the policy quoted above grants the
+ * SELECT to anybody as long as the product is published, and this page only
+ * ever renders a published product — `cachedProductBySlug` filters on it. So
+ * the sessionless client sees exactly what the cookie client would see here,
+ * and nothing that belongs to one visitor is stored.
+ *
+ * Personalised data is NOT here and must never move here: whether you own
+ * this product, your orders, your session. Those stay on the per-request
+ * client in the page, uncached, exactly as they were.
+ */
+
+/**
+ * ---------------------------------------------------------------------------
+ *  SHAPES, DECLARED HERE BECAUSE THE CLIENT CANNOT INFER THEM
+ * ---------------------------------------------------------------------------
+ * `createClient` from supabase-js with no Database generic resolves a row to
+ * `never`, so every field read downstream is an error. The per-request client
+ * in lib/supabase/server.ts happens to widen to `any` instead, which is why
+ * the page typechecked before. These say what the selects above return, so
+ * the page keeps real types rather than trading one silent `any` for another.
+ */
+export type CachedVariant = {
+  id: string
+  name: string | null
+  description: string | null
+  price_cents: number | null
+  max_purchases: number | null
+  position: number | null
+  pay_what_you_want?: boolean | null
+  pwyw_min_price_cents?: number | null
+  pwyw_suggested_price_cents?: number | null
+  product_variant_files?: Array<{
+    digital_asset_id: string | null
+    digital_assets?: { id: string; file_name: string | null } | null
+  }> | null
+}
+
+export type CachedAsset = { id: string; file_name: string | null }
+
+export type CachedCourseModule = {
+  id: string
+  title: string
+  lessons: Array<{ id: string; title: string; module_id: string }>
+}
+
+/** The seller's other products: the card's fields, and the row's others. */
+export type CachedProductRow = {
+  id: string
+  slug: string | null
+  title: string | null
+  thumbnail_url: string | null
+  price_cents: number | null
+  compare_at_cents: number | null
+  sales_count: number | null
+  description: string | null
+  [key: string]: unknown
+}
+
+export type CachedReview = { [key: string]: any }
+
+export const VARIANT_SELECT = `
+      id,
+      name,
+      description,
+      price_cents,
+      max_purchases,
+      position,
+      pay_what_you_want,
+      pwyw_min_price_cents,
+      pwyw_suggested_price_cents,
+      product_variant_files (
+        digital_asset_id,
+        digital_assets (
+          id,
+          file_name
+        )
+      )
+    `
+
+export const cachedVariants = (productId: string) =>
+  unstable_cache(
+    async () => {
+      const supabase = createPublicReadClient()
+      const { data } = await supabase
+        .from("product_variants")
+        .select(VARIANT_SELECT)
+        .eq("product_id", productId)
+        .order("position")
+      return (data ?? []) as unknown as CachedVariant[]
+    },
+    ["product-variants", productId],
+    { revalidate: PRODUCT_CACHE_TTL, tags: [productTag(productId)] },
+  )()
+
+/**
+ * File NAMES and ids, which the page already treats as public — the comment
+ * at the call site says so, and the download API is what enforces
+ * entitlement. No storage path, no signed URL, no bytes.
+ */
+export const cachedProductAssets = (productId: string) =>
+  unstable_cache(
+    async () => {
+      const supabase = createPublicReadClient()
+      const { data } = await supabase
+        .from("digital_assets")
+        .select("id, file_name")
+        .eq("product_id", productId)
+        .order("created_at", { ascending: true })
+      return (data ?? []) as unknown as CachedAsset[]
+    },
+    ["product-assets", productId],
+    { revalidate: PRODUCT_CACHE_TTL, tags: [productTag(productId)] },
+  )()
+
+export const cachedMoreFromCreator = (creatorId: string, excludeProductId: string) =>
+  unstable_cache(
+    async () => {
+      const supabase = createPublicReadClient()
+      const { data } = await supabase
+        .from("products")
+        .select("*")
+        .eq("creator_id", creatorId)
+        .eq("status", "published")
+        .neq("id", excludeProductId)
+        .limit(4)
+      return (data ?? []) as unknown as CachedProductRow[]
+    },
+    ["more-from-creator", creatorId, excludeProductId],
+    { revalidate: PRODUCT_CACHE_TTL, tags: [creatorTag(creatorId)] },
+  )()
+
+export const cachedReviews = (productId: string) =>
+  unstable_cache(
+    async () => {
+      const supabase = createPublicReadClient()
+      const { data } = await supabase
+        .from("reviews")
+        .select(`
+      *,
+      buyer:profiles!buyer_id(id, display_name, avatar_url)
+    `)
+        .eq("product_id", productId)
+        .order("created_at", { ascending: false })
+        .limit(10)
+      return (data ?? []) as unknown as CachedReview[]
+    },
+    ["product-reviews", productId],
+    { revalidate: PRODUCT_CACHE_TTL, tags: [productTag(productId)] },
+  )()
+
+/**
+ * THE COURSE OUTLINE WAS THREE ROUND TRIPS IN A ROW: the course, then its
+ * modules, then the lessons in those modules. Each one needs the answer to
+ * the one before it, so they could not be started together — but the whole
+ * chain is the same for every visitor, so it can be run once and shared.
+ * Titles only, which is what the page renders before anybody buys.
+ */
+export const cachedCourseOutline = (productId: string) =>
+  unstable_cache(
+    async () => {
+      const supabase = createPublicReadClient()
+      const { data: course } = await supabase
+        .from("courses")
+        .select("id")
+        .eq("product_id", productId)
+        .maybeSingle()
+      if (!course) return null as CachedCourseModule[] | null
+
+      const { data: modules } = await supabase
+        .from("course_modules")
+        .select("id, title")
+        .eq("course_id", (course as unknown as { id: string }).id)
+        .order("position")
+      if (!modules || modules.length === 0) return [] as CachedCourseModule[]
+
+      const { data: lessons } = await supabase
+        .from("course_lessons")
+        .select("id, title, module_id")
+        .in("module_id", modules.map((m) => (m as unknown as { id: string }).id))
+        .order("position")
+
+      return modules.map((m) => ({
+        ...(m as unknown as { id: string; title: string }),
+        lessons: (lessons ?? []).filter(
+          (l) => (l as unknown as { module_id: string }).module_id === (m as unknown as { id: string }).id,
+        ),
+      })) as unknown as CachedCourseModule[]
+    },
+    ["course-outline", productId],
+    { revalidate: PRODUCT_CACHE_TTL, tags: [productTag(productId)] },
+  )()

@@ -3114,14 +3114,46 @@ section("The product page does not ask one question at a time")
    * calls `then` on it, so `const p = supabase.from(...)` would be a rename
    * with no effect at all — the request would still be made by the `await`
    * further down, in series, and this whole section would pass while the page
-   * stayed exactly as slow.
+   * stayed exactly as slow. `start()` existed to force that `then`.
+   *
+   * IT IS GONE, AND OVERLAPPING THE QUERIES WAS NOT THE ANSWER ANYWAY.
+   * Measured on production afterwards, the variants query alone was still
+   * between 139ms and 3302ms of a render that has under a second to spend:
+   * running a slow query next to four fast ones leaves the page waiting for
+   * the slow one. They are cached now, and each of these five names is bound
+   * to a CALL — `cachedVariants(product.id)` — which is an async function
+   * already running by the time the next line is read. So the property the
+   * check below was defending is now structural, and what is worth guarding
+   * is that none of them slid back onto the request's own client.
    */
-  check(
-    "the queries are actually started, not just named",
-    /const start = <T,>\(query: PromiseLike<T>\) => Promise\.resolve\(query\)/.test(src) &&
-      /variantsPromise = start\(/.test(src),
-    "        a bare assignment to a query builder starts no request",
-  )
+  for (const [name, loader] of [
+    ["variantsPromise", "cachedVariants"],
+    ["moreProductsPromise", "cachedMoreFromCreator"],
+    ["reviewsPromise", "cachedReviews"],
+    ["assetsPromise", "cachedProductAssets"],
+    ["coursePromise", "cachedCourseOutline"],
+  ] as const) {
+    check(
+      `${name} comes from the shared cache, already running`,
+      new RegExp(`${name} =[^\\n]*${loader}\\(`).test(src),
+      `        expected ${name} to be bound to ${loader}(...)`,
+    )
+  }
+
+  /**
+   * And nothing was left behind on the per-request client. A `supabase.from`
+   * between the top of the component and the config batch is a query that
+   * runs per visitor, which is the thing this section exists to prevent.
+   */
+  {
+    const before = src.slice(component, batch)
+    const strays = (before.match(/supabase\s*\n?\s*\.from\(/g) || []).length
+    check(
+      "no per-visitor query is started before the batch",
+      strays === 0,
+      `        found ${strays}`,
+    )
+  }
 
   /**
    * The block that reads the user catches everything and leaves the page

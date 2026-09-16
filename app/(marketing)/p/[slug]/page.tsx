@@ -3,6 +3,13 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { startPhaseTimer } from "@/lib/perf/phase-timer"
 import {
+  cachedVariants,
+  cachedMoreFromCreator,
+  cachedReviews,
+  cachedProductAssets,
+  cachedCourseOutline,
+} from "@/lib/commerce/product-page-cache"
+import {
   loadCreator,
   loadCreatorProfile,
   loadProductBySlug,
@@ -238,27 +245,33 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
    */
   /**
    * ===========================================================================
-   *  EVERYTHING THAT ONLY NEEDS THE PRODUCT STARTS NOW
+   *  EVERYTHING THAT ONLY NEEDS THE PRODUCT STARTS NOW, AND MOST OF IT IS
+   *  ALREADY ANSWERED
    * ===========================================================================
-   * The four configs below were batched already, and then the page went back
+   * The four configs above were batched already, and then the page went back
    * to asking one question at a time: the variants, the digital files, the
-   * course, the other products by this seller, the reviews, and who is
-   * logged in. SIX MORE ROUND TRIPS, one after another, none of them needing
-   * anything the others produce — every one of them is keyed on `product.id`
-   * or `product.creator_id`, both of which are known by the line above.
+   * course, the other products by this seller, the reviews. SIX MORE ROUND
+   * TRIPS, one after another, none of them needing anything the others
+   * produce.
    *
-   * On a server component that is dead time paid before the first byte of
-   * HTML leaves the server, and it is most of "it takes too long to load".
-   * Started here, they overlap; each is still awaited exactly where it was
-   * used, so the logic below is unchanged and reads the same.
+   * Overlapping them helped and was not the fix. Instrumented on production,
+   * the variants query alone was between 139ms and 3302ms of a render that
+   * has under a second to spend, because the row-level security policy on
+   * that table runs a subquery per row across three joined tables. Making a
+   * slow query concurrent with the others still leaves the page waiting for
+   * the slow query.
    *
-   * `Promise.resolve`, not a bare assignment. A Supabase query builder is a
-   * thenable that does not issue its request until something calls `then` on
-   * it, so `const p = supabase.from(...)` starts nothing at all and this
-   * would have been a rename with no effect. That is also why the batch below
-   * works: `Promise.all` calls `then` on each one.
+   * So they are cached instead. Every one of these is the same answer for
+   * every visitor -- a variant's name and price, a file's name, the seller's
+   * other products, the reviews, a course's chapter list -- and each is
+   * fetched once and shared until the creator changes it.
+   * lib/commerce/product-page-cache.ts holds the numbers, the reason, and the
+   * argument for why a sessionless client is allowed to read them.
+   *
+   * WHAT DID NOT MOVE, and must not: who is logged in, what they own, what
+   * they have ordered. Those are read below on the per-request client with
+   * the session attached, uncached, exactly as before.
    */
-  const start = <T,>(query: PromiseLike<T>) => Promise.resolve(query)
 
   /**
    * Who is looking. The block that reads this catches everything and leaves
@@ -267,69 +280,22 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
    */
   const userPromise = supabase.auth.getUser().catch(() => ({ data: { user: null } }))
 
-  const variantsPromise = start(
-    supabase
-      .from("product_variants")
-      .select(`
-      id,
-      name,
-      description,
-      price_cents,
-      max_purchases,
-      position,
-      pay_what_you_want,
-      pwyw_min_price_cents,
-      pwyw_suggested_price_cents,
-      product_variant_files (
-        digital_asset_id,
-        digital_assets (
-          id,
-          file_name
-        )
-      )
-    `)
-      .eq("product_id", product.id)
-      .order("position"),
-  )
+  const variantsPromise = cachedVariants(product.id)
 
-  const moreProductsPromise = start(
-    supabase
-      .from("products")
-      .select("*")
-      .eq("creator_id", product.creator_id)
-      .eq("status", "published")
-      .neq("id", product.id)
-      .limit(4),
-  )
+  const moreProductsPromise = cachedMoreFromCreator(product.creator_id, product.id)
 
-  const reviewsPromise = start(
-    supabase
-      .from("reviews")
-      .select(`
-      *,
-      buyer:profiles!buyer_id(id, display_name, avatar_url)
-    `)
-      .eq("product_id", product.id)
-      .order("created_at", { ascending: false })
-      .limit(10),
-  )
+  const reviewsPromise = cachedReviews(product.id)
 
   /** Only for the kind of product that has them, exactly as before. */
-  const assetsPromise =
-    product.type === "digital"
-      ? start(
-          supabase
-            .from("digital_assets")
-            .select("id, file_name")
-            .eq("product_id", product.id)
-            .order("created_at", { ascending: true }),
-        )
-      : null
+  const assetsPromise = product.type === "digital" ? cachedProductAssets(product.id) : null
 
-  const coursePromise =
-    product.type === "course"
-      ? start(supabase.from("courses").select("id").eq("product_id", product.id).maybeSingle())
-      : null
+  /**
+   * The course, its modules, then the lessons in those modules: three round
+   * trips in a row, each one waiting on the answer to the last, so they could
+   * never be started together. As one cached call the whole chain runs once
+   * for everybody rather than once per visitor.
+   */
+  const coursePromise = product.type === "course" ? cachedCourseOutline(product.id) : null
 
   /*
     THE PROFILE JOINS THE BATCH INSTEAD OF WAITING BEHIND IT.
@@ -556,35 +522,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   }> | null = null
 
   if (coursePromise) {
-    const { data: course } = await coursePromise
-
-    if (course) {
-      const { data: modules } = await supabase
-        .from("course_modules")
-        .select("id, title")
-        .eq("course_id", course.id)
-        .order("position")
-
-      if (modules) {
-        const moduleIds = modules.map((m) => m.id)
-        const { data: lessons } = await supabase
-          .from("course_lessons")
-          .select("id, title, module_id")
-          .in("module_id", moduleIds)
-          .order("position")
-
-        courseModules = modules.map((m) => ({
-          ...m,
-          lessons: lessons?.filter((l) => l.module_id === m.id) || [],
-        }))
-      }
-    }
+    /* The three-query chain moved into the cache; this is the answer to it. */
+    const outline = await coursePromise
+    if (outline && outline.length > 0) courseModules = outline
   }
 
   // Always query product-level files — no hasPurchased gate.
   // The download API enforces entitlement; exposing file IDs is safe.
   if (assetsPromise) {
-    const { data: assets } = await assetsPromise
+    const assets = await assetsPromise
   timer.mark("assets")
 
     if (assets && assets.length > 0) {
@@ -596,26 +542,32 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   // Product Variants (for variant selection)
   // ---------------------------------------------------------------------------
-  const { data: productVariants } = await variantsPromise
+  const productVariants = await variantsPromise
   timer.mark("variants")
 
   // Transform variants data - price_cents is the FINAL price for the variant
-  const variants = productVariants?.map(v => ({
+  const variants = productVariants.map((v) => ({
     id: v.id,
-    name: v.name,
+    name: v.name ?? "",
     description: v.description,
     price_cents: v.price_cents || 0, // FINAL price, not additional
     max_purchases: v.max_purchases,
-    position: v.position,
+    position: v.position ?? 0,
     // Pay What You Want fields per variant
-    pay_what_you_want: (v as any).pay_what_you_want || false,
-    pwyw_min_price_cents: (v as any).pwyw_min_price_cents || null,
-    pwyw_suggested_price_cents: (v as any).pwyw_suggested_price_cents || null,
-    files: v.product_variant_files?.map((pvf: any) => ({
-      id: pvf.digital_assets?.id,
-      file_name: pvf.digital_assets?.file_name,
-    })).filter((f: any) => f.id) || [],
-  })) || []
+    pay_what_you_want: v.pay_what_you_want || false,
+    pwyw_min_price_cents: v.pwyw_min_price_cents ?? null,
+    pwyw_suggested_price_cents: v.pwyw_suggested_price_cents ?? null,
+    /*
+      The cached rows carry real types now (lib/commerce/product-page-cache),
+      so the `any` that used to sit on this map is gone and the nulls the
+      database actually allows have to be answered here instead of being
+      waved through. A variant with no name rendered the word "null".
+    */
+    files: (v.product_variant_files ?? [])
+      .map((pvf) => ({ id: pvf.digital_assets?.id, file_name: pvf.digital_assets?.file_name }))
+      .filter((f): f is { id: string; file_name: string | null | undefined } => !!f.id)
+      .map((f) => ({ id: f.id, file_name: f.file_name || "File" })),
+  }))
 
   // Merge variant files into productDownloadFiles so the sticky bar and purchase
   // wrapper both see ALL files. Prefer the purchased variant's files; fall back to
@@ -625,10 +577,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       purchasedVariantIds.length > 0
         ? variants.filter((v) => purchasedVariantIds.includes(v.id))
         : variants
-    const variantFiles = targetVariants
-      .flatMap((v) => v.files)
-      .filter((f): f is { id: string; file_name?: string } => !!f.id)
-      .map((f) => ({ id: f.id as string, file_name: f.file_name || "File" }))
+    const variantFiles = targetVariants.flatMap((v) => v.files)
 
     // Merge, deduplicating by id
     const existingIds = new Set(productDownloadFiles.map((f) => f.id))
@@ -643,21 +592,21 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   // More products from seller (for "More from seller" section)
   // ---------------------------------------------------------------------------
-  const { data: moreProducts } = await moreProductsPromise
+  const moreProducts = await moreProductsPromise
   timer.mark("moreProducts")
   timer.done()
 
   const moreProductsData: ProductData[] =
-    moreProducts?.map((p) => ({
+    moreProducts.map((p) => ({
       id: p.id,
-      slug: p.slug,
-      title: p.title,
+      slug: p.slug ?? undefined,
+      title: p.title ?? "",
       thumbnail_url: p.thumbnail_url,
-      price_cents: p.price_cents,
-      compare_at_cents: p.compare_at_cents,
-      sales_count: p.sales_count,
+      price_cents: p.price_cents ?? 0,
+      compare_at_cents: p.compare_at_cents ?? undefined,
+      sales_count: p.sales_count ?? undefined,
       description: p.description,
-    })) || []
+    }))
 
   // Apply theme colors to all sections from the product page config
   // This ensures sections always reflect the current theme preset
@@ -843,7 +792,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     ? productFaqs
     : (configFaqs.length > 0 ? [...configFaqs, ...defaultFaqs] : defaultFaqs)
 
-  const { data: reviews } = await reviewsPromise
+  const reviews = await reviewsPromise
 
   const reviewsCount = product.reviews_count || 0
   const reviewsAverage = product.reviews_average || 0
