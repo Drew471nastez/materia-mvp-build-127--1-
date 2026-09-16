@@ -135,10 +135,33 @@ async function main() {
     window.__before = location.pathname
     window.__t0 = performance.now()
     a.click()
-    return { ok: true, href: a.getAttribute("href") }
+    return { ok: true, href: a.getAttribute("href"), fromPath: location.pathname }
   })()`)
   report.pressed = pressed
   if (!pressed?.ok) { reap(); fail(`Could not press a product: ${pressed?.reason}`) }
+
+  /*
+    WHAT IS ON SCREEN WHILE THE PRESS IS BEING HONOURED. The question "is the
+    skeleton needed" cannot be answered without knowing what a visitor looks
+    at during the wait, and for how long. Sampled every 60ms from the tap.
+  */
+  const film = []
+  for (let i = 0; i < 40; i++) {
+    const frame = await evaluate(`(() => {
+      const sk = document.querySelector(".skeleton-deferred")
+      const h1 = document.querySelector("h1")
+      return {
+        t: Math.round(performance.now() - (window.__t0 ?? performance.now())),
+        path: location.pathname,
+        skeleton: sk ? Math.round(parseFloat(getComputedStyle(sk).opacity) * 100) / 100 : null,
+        heading: h1 ? h1.textContent.trim().slice(0, 24) : null,
+      }
+    })()`)
+    film.push(frame)
+    if (frame?.heading && frame.path !== report.pressed.fromPath) break
+    await sleep(60)
+  }
+  report.film = film
 
   /* Poll until the product page has actually painted its title. */
   let arrived = null
@@ -192,6 +215,10 @@ console.log(`  back:                 ${r.back ? `${r.back.ms}ms  -> ${r.back.pat
 console.log(`  page loads on back: ${r.docRequestsOnBack}  ${r.docRequestsOnBack === 0 ? "(free, from the client router)" : "(a full load)"}`)
 console.log(`  scroll on return:     ${r.back ? r.back.scrollY : "?"}px, settled at ${r.scrollAfterSettle}px  (was ${r.scrolledTo}px)`)
 console.log(`  history.scrollRestoration: ${r.scrollRestoration}`)
+console.log("\n  what is on screen from the moment of the tap:")
+for (const f of r.film || []) {
+  console.log(`    +${String(f.t).padStart(5)}ms  ${f.path === r.pressed.fromPath ? "grid   " : "product"}  skeleton ${f.skeleton === null ? "-   " : String(f.skeleton).padEnd(4)}  heading ${JSON.stringify(f.heading)}`)
+}
 console.log("  documents fetched:"); for (const u of r.docUrls || []) console.log("    " + u)
 
 const problems = []

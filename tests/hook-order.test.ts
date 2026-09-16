@@ -19,7 +19,7 @@
  * proof the fix works. This is the cheap net that covers every other
  * component, so the next one is caught before it ships.
  */
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { execSync } from "node:child_process"
 
 let passed = 0
@@ -65,6 +65,14 @@ function violations(): string[] {
     .filter(Boolean)
   const found: string[] = []
   for (const file of files) {
+    /*
+      `git ls-files` reads the INDEX, which can name a file that is no longer
+      on disk — a deletion that has not been staged, or a half-applied stash.
+      Reading it blind threw ENOENT and took the whole suite down with a stack
+      trace instead of a result, which is a bad way to find out that a file
+      was removed.
+    */
+    if (!existsSync(file)) continue
     const src = readFileSync(file, "utf8")
     if (!src.includes("use client")) continue
     const lines = src.split("\n")
