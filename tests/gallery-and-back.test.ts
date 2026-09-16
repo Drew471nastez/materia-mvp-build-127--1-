@@ -168,6 +168,122 @@ console.log("\nThe back arrow\n")
   )
 }
 
+console.log("\nThe gallery on a phone\n")
+
+{
+  const gallery = code("components/product/product-gallery.tsx")
+  const css = readFileSync(join(root, "app/globals.css"), "utf8")
+
+  /*
+    ═════════════════════════════════════════════════════════════════════════
+     THE RULE THAT DELETED THE CAROUSEL ON EVERY PHONE
+    ═════════════════════════════════════════════════════════════════════════
+    globals.css has, for touch-only devices:
+
+        @media (hover: none) {
+          .group *:not([data-keep-transform]) { transform: none !important }
+        }
+
+    It is there to stop a hover nudge firing on a tap. The gallery frame
+    carries `group`, so on a phone it was also deleting the translate that IS
+    the carousel: pressing a thumbnail changed the index and nothing moved,
+    swiping dragged state that painted nowhere, and the picture looked stuck
+    on the first one. Measured on a real product page with touch emulated:
+    inline transform translate3d(calc(-100% + 0px), 0, 0), computed `none`.
+
+    scripts/check-gallery-swipe runs as a touch-only device now and fails on a
+    computed transform of `none`; this is the cheap version of the same check.
+  */
+  check(
+    "the strip says its transform is load-bearing",
+    /data-keep-transform/.test(gallery),
+    "without it the touch-device rule in globals.css deletes the translate and the gallery does not move at all",
+  )
+  check(
+    "and that rule still has the escape hatch it documents",
+    /\.group \*:not\(\[data-keep-transform\]\)/.test(css),
+    "if the selector changes, the attribute above becomes decoration",
+  )
+}
+
+console.log("\nThe full-screen picture viewer\n")
+
+{
+  const viewer = code("components/product/product-media-viewer.tsx")
+  const gallery = code("components/product/product-gallery.tsx")
+  const css = readFileSync(join(root, "app/globals.css"), "utf8")
+
+  /*
+    YouTube used to be filtered out before the viewer saw it, which broke the
+    obvious thing — a video that would not open — and a quiet one: removing an
+    item shifts every index after it, so opening picture four opened picture
+    five, and closing wrote the filtered index back into the unfiltered list.
+  */
+  check(
+    "the viewer is handed the gallery's list whole",
+    /media=\{mediaItems\.map\(\(m\) => \(\{ type: m\.type, url: m\.url \}\)\)\}/.test(gallery) &&
+      !/filter\(\(m\) => m\.type !== "youtube"\)/.test(gallery),
+    "filtering shifts every index after the removed item",
+  )
+  check("so the two indices are the same number", /index=\{currentIndex\}/.test(gallery))
+  check("and a video can open", /item\.type === "youtube"/.test(viewer) && /<iframe/.test(viewer))
+  check(
+    "with only the one being looked at mounted",
+    /i === index \? \(\s*<iframe/.test(viewer),
+    "three iframes behind a photograph is three documents loading, which is the swipe stuttering",
+  )
+
+  /* The open and close, which were the dialog's 200ms zoom from 95%. */
+  check("it opens on its own curve, not the dialog's default", /disableDefaultAnimations/.test(viewer) && /media-viewer-panel/.test(viewer))
+  check("the ground fades with it", /media-viewer-overlay/.test(viewer))
+  check("opening is longer than closing", /media-viewer-in 300ms/.test(css) && /media-viewer-out 220ms/.test(css))
+  check(
+    "and it scales from 96.5%, not 95%",
+    /@keyframes media-viewer-in[\s\S]{0,120}scale\(0\.965\)/.test(css),
+    "at full-screen size a 5% jump is the whole viewport lurching",
+  )
+  check(
+    "reduced motion states the resting state rather than only removing the animation",
+    /media-viewer-panel\[data-state="open"\] \{\s*animation: none;\s*opacity: 1/.test(css),
+    "fill-mode both pins an element at its from state, so `animation: none` alone opens to an empty screen",
+  )
+}
+
+console.log("\nThe sticky add to cart, and the wait before a product page\n")
+
+{
+  const sticky = code("components/store-builder/sticky-add-to-cart.tsx")
+  check(
+    "the bar arrives over 420ms rather than 300",
+    (sticky.match(/duration-\[420ms\] ease-sheet/g) ?? []).length === 2,
+    "both bars, the editor's and the live one",
+  )
+  check(
+    "and animates only what the compositor can move",
+    !/transition-all duration-300/.test(sticky) && /transition-\[opacity,transform\]/.test(sticky),
+    "transition-all also animates the shadow, and a shadow cannot be composited",
+  )
+
+  /*
+    The skeleton was a replica of the page: 42 pulsing shapes, on screen for
+    about a third of a second. Everything in it that a person cannot finish
+    looking at is noise, and every detail it gets wrong is a jump when the
+    real content lands.
+  */
+  const skeleton = readFileSync(join(root, "app/(marketing)/p/[slug]/loading.tsx"), "utf8")
+  const shapes = (skeleton.match(/animate-pulse/g) ?? []).length
+  check("the product skeleton is the shape of the page, not a copy of it", shapes <= 4, `${shapes} pulsing shapes`)
+  check(
+    "and it still holds the same grid, so nothing jumps when the page lands",
+    /max-w-\[1200px\]/.test(skeleton) && /lg:grid-cols-5/.test(skeleton) && /lg:col-span-3/.test(skeleton),
+  )
+  check(
+    "and it waits before showing itself",
+    /skeleton-deferred/.test(skeleton),
+    "a load that beats the delay should show nothing at all",
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log("\nFailures:")

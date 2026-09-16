@@ -213,7 +213,7 @@ function main() {
   /* The card names what it is selling, above the price. */
   check(
     "the buy card leads with the product's title",
-    /<h1\s+className="mb-2 text-4xl font-semibold leading-snug break-words"[\s\S]{0,160}\{product\.title\}/.test(productPage),
+    /<h1\s+className="mb-2 text-\[35px\] font-semibold leading-snug break-words"[\s\S]{0,160}\{product\.title\}/.test(productPage),
   )
 
   /*
@@ -242,11 +242,12 @@ function main() {
     THE NAME LEADS AND THE PRICE ANSWERS IT, and it took three rounds of
     moving them past each other to get there. 14/30, then 20/36, then 24/30 —
     every one of those put the title UNDER the price, where a title reads as
-    a caption on a number. 30/24 now: the product's name is the biggest line
+    a caption on a number. 35/24 now: the product's name is the biggest line
     on the card, which is the size it was as the heading under the gallery
     before it moved here. scripts/check-product-titles.mjs measures both.
   */
-  check("the title is 36px", /className="mb-2 text-4xl font-semibold leading-snug break-words"/.test(productPage))
+  /* 36px, less the one pixel that was asked for. */
+  check("the title is 35px", /className="mb-2 text-\[35px\] font-semibold leading-snug break-words"/.test(productPage))
   check("the price is 24px, under it", /className="text-2xl font-bold tracking-tight"/.test(productPage))
   check("and neither of the sizes the price has already been", !/text-(3xl|4xl) font-bold tracking-tight/.test(productPage))
 

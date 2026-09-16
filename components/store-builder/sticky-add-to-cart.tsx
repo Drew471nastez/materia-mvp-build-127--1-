@@ -233,12 +233,32 @@ export function EditorStickyAddToCart({
   const thumbnail = barThumbnail(product.thumbnail_url, !!isDarkBg)
   const ratingLine = barRating(reviewsCount, reviewsAverage, contentTextColor, !!isDarkBg)
 
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   IT ARRIVES, RATHER THAN SNAPPING INTO PLACE
+  ═══════════════════════════════════════════════════════════════════════════
+  This was `transition-all duration-300`, and two things were wrong with it.
+
+  THE CURVE AND THE LENGTH. 300ms on Tailwind's default ease, over a travel of
+  the bar's whole height, is quick enough that the bar reads as appearing
+  rather than as sliding in — and because it arrives while somebody is
+  scrolling, a fast arrival is a thing jumping into the page under a thumb.
+  420ms on `ease-sheet`, the curve the sheets and modals already use, is long
+  enough to be read as a movement and short enough not to be waited for.
+
+  THE PROPERTY LIST. `transition-all` also animates the border and the
+  `0 -4px 12px` shadow. A shadow cannot be composited, so every frame of the
+  arrival was a repaint of a full-width bar — which is the other half of why
+  it felt cheap. Opacity and transform are the only two that need to move, and
+  they are the two the compositor can do on its own.
+*/
   return (
     <>
       <div
       onClick={handleWrapperClick}
       className={cn(
-        "sticky bottom-0 w-full z-30 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)] transition-all duration-300",
+        "sticky bottom-0 w-full z-30 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)]",
+        "transition-[opacity,transform] duration-[420ms] ease-sheet [will-change:transform,opacity]",
         isMobile ? "py-3 px-[7px]" : "py-3.5 px-[15px]",
         onSelect && "cursor-pointer",
         isSelected && "ring-2 ring-sky-500 ring-inset",
@@ -514,7 +534,10 @@ export function LiveStickyAddToCart({
     <div
       ref={barRef}
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)] transition-all duration-300",
+        "fixed bottom-0 left-0 right-0 z-50 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)]",
+        /* See the note above the editor bar: 420ms on ease-sheet, and only
+           the two properties the compositor can move on its own. */
+        "transition-[opacity,transform] duration-[420ms] ease-sheet [will-change:transform,opacity]",
         isVisible && !topBarShown ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none",
         !settings.borderColor && "border-gray-200",
       )}

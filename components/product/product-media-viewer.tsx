@@ -40,7 +40,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
 export interface ViewerMedia {
-  type: "image" | "video"
+  type: "image" | "video" | "youtube"
   url: string
 }
 
@@ -143,10 +143,29 @@ export function ProductMediaViewer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/*
+        ═════════════════════════════════════════════════════════════════════
+         IT OPENS LIKE A PICTURE BEING OPENED
+        ═════════════════════════════════════════════════════════════════════
+        The dialog's default is a 200ms zoom from 95%, which is right for a
+        small panel arriving over a page and wrong for a photograph taking the
+        whole screen: at that size a 5% jump is the entire viewport lurching,
+        and 200ms is too short to read as anything but a cut.
+
+        So it has its own. The ground fades, and the picture comes up from
+        96.5% over 300ms on the curve the rest of the product uses. Closing is
+        shorter than opening, 220ms, because a thing on its way out should not
+        keep anybody waiting for it.
+
+        `inset-0` rather than `w-screen`: 100vw includes the scrollbar and a
+        fixed element's right edge does not, which is how the avatar lightbox
+        ended up with its close button in the gutter.
+      */}
       <DialogContent
         showCloseButton={false}
-        overlayClassName="bg-black/95"
-        className="left-0 top-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden border-0 bg-transparent p-0 shadow-none sm:max-w-none"
+        disableDefaultAnimations
+        overlayClassName="media-viewer-overlay bg-black/95"
+        className="media-viewer-panel inset-0 flex h-auto w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden border-0 bg-transparent p-0 shadow-none sm:max-w-none"
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
 
@@ -209,6 +228,33 @@ export function ProductMediaViewer({
                     loading={Math.abs(i - index) <= 1 ? "eager" : "lazy"}
                     draggable={false}
                   />
+                ) : item.type === "youtube" ? (
+                  /*
+                    ═══════════════════════════════════════════════════════
+                     A YOUTUBE VIDEO OPENS TOO
+                    ═══════════════════════════════════════════════════════
+                    It used to be filtered out of this list entirely, so a
+                    creator who added one had a gallery where that slide was
+                    the only thing that would not open — and, worse, removing
+                    it shifted every index after it, so opening any picture
+                    past the video showed a different picture.
+
+                    MOUNTED ONLY WHEN IT IS THE ONE BEING LOOKED AT. An
+                    iframe is a whole document; three of them behind a
+                    photograph is three documents loading, and on a phone
+                    that is the swipe stuttering.
+                  */
+                  i === index ? (
+                    <iframe
+                      src={`${item.url}?autoplay=0&modestbranding=1&rel=0&playsinline=1`}
+                      className="absolute inset-0 h-full w-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={`${title} — video ${i + 1}`}
+                    />
+                  ) : (
+                    <div className="h-full w-full" />
+                  )
                 ) : (
                   <video
                     src={item.url}

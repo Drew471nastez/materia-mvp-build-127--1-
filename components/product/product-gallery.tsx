@@ -435,6 +435,33 @@ export function ProductGallery({
           else, and it is one rule rather than two mechanisms.
         */}
         <div
+          /*
+            ═══════════════════════════════════════════════════════════════
+             THIS TRANSFORM IS THE GALLERY, NOT DECORATION
+            ═══════════════════════════════════════════════════════════════
+            The frame above carries `group`, and globals.css has this, for
+            every touch-only device:
+
+                @media (hover: none) {
+                  .group *:not([data-keep-transform]) {
+                    transform: none !important;
+                  }
+                }
+
+            It exists to stop a hover nudge firing on a tap. On a phone it was
+            also deleting the translate that IS this carousel, so the strip
+            never moved: pressing a thumbnail changed the index and nothing
+            happened, swiping dragged state that painted nowhere, and the
+            picture appeared to be stuck on the first one. Measured on a real
+            product page with touch emulated on:
+
+                inline    transform: translate3d(calc(-100% + 0px), 0, 0)
+                computed  transform: none
+
+            `data-keep-transform` is that rule's own documented way of saying
+            the transform is load-bearing.
+          */
+          data-keep-transform
           className={cn(
             "flex h-full w-full",
             !swipe.dragging && animateSlide && "transition-transform duration-300 ease-sheet",
@@ -665,6 +692,9 @@ export function ProductGallery({
             {mediaItems.map((media, index) => (
               <button
                 key={index}
+                /* A stable hook for scripts/check-gallery-live, which presses
+                   these the way a visitor does. Nothing styles off it. */
+                data-gallery-thumb={index}
                 onClick={() => {
                   setCurrentIndex(index)
                   handleUserInteraction()
@@ -743,16 +773,30 @@ export function ProductGallery({
       {/*
         Mounted only on a phone, so a desktop visitor never downloads it and
         the dialog's listeners are not attached where nothing can open them.
-        YouTube embeds are left out of the list: the viewer shows a picture or
-        a file, and an iframe full screen is the player's own business.
+
+        ─────────────────────────────────────────────────────────────────────
+         THE SAME LIST, IN THE SAME ORDER
+        ─────────────────────────────────────────────────────────────────────
+        YouTube items used to be filtered out before this, which broke two
+        things at once. The obvious one: a creator who added a video had one
+        slide in their gallery that would not open. The quiet one: removing an
+        item shifts every index after it, so on a gallery with a video in the
+        middle, opening picture four opened picture five — and closing it
+        wrote the filtered index straight back into the unfiltered list,
+        leaving the gallery on a different slide than the one just looked at.
+
+        Passing the list whole means the two indices are the same number and
+        there is nothing to map.
+
+        (This comment lives ABOVE the conditional on purpose. A JSX comment
+        placed directly after `{isPhone && (` sits in an expression position
+        and does not parse. Same trap, twice now.)
       */}
       {isPhone && (
         <ProductMediaViewer
-          media={mediaItems
-            .filter((m) => m.type !== "youtube")
-            .map((m) => ({ type: m.type === "video" ? "video" : "image", url: m.url }))}
+          media={mediaItems.map((m) => ({ type: m.type, url: m.url }))}
           title={title}
-          index={Math.min(currentIndex, Math.max(0, mediaItems.filter((m) => m.type !== "youtube").length - 1))}
+          index={currentIndex}
           open={viewerOpen}
           onOpenChange={setViewerOpen}
           onIndexChange={setCurrentIndex}

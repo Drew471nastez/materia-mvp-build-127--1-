@@ -2236,6 +2236,59 @@ html.keyboard-open [data-page="library"] main {
  * than as a single arc floating in space, and the two together weigh about as
  * much as the arrow they replaced.
  */
+/* ── The full-screen picture viewer opens like a picture being opened ──────
+ *
+ * The dialog's default is a 200ms zoom from 95%. On a small centred panel
+ * that is right; on a photograph filling the screen it is the whole viewport
+ * lurching 5% in a fifth of a second, which is the "too direct, feels cheap"
+ * that was reported.
+ *
+ * 96.5% over 300ms instead, on the curve the rest of the product arrives on,
+ * with the ground fading under it. Out is shorter than in — a thing leaving
+ * should not keep anybody waiting — and ends slightly ABOVE its resting size,
+ * so closing reads as the picture receding rather than as it being sucked
+ * away.
+ *
+ * The transform ends at `none`, which matters here: a transformed element is
+ * the containing block for any `fixed` descendant, and this panel deliberately
+ * holds its controls at the corners of the SCREEN.
+ */
+.media-viewer-overlay[data-state="open"] { animation: media-viewer-ground-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both }
+.media-viewer-overlay[data-state="closed"] { animation: media-viewer-ground-out 200ms cubic-bezier(0.4, 0, 1, 1) both }
+.media-viewer-panel[data-state="open"] { animation: media-viewer-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both }
+.media-viewer-panel[data-state="closed"] { animation: media-viewer-out 220ms cubic-bezier(0.4, 0, 1, 1) both }
+
+@keyframes media-viewer-ground-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes media-viewer-ground-out { from { opacity: 1 } to { opacity: 0 } }
+@keyframes media-viewer-in {
+  from { opacity: 0; transform: scale(0.965) }
+  to { opacity: 1; transform: none }
+}
+@keyframes media-viewer-out {
+  from { opacity: 1; transform: none }
+  to { opacity: 0; transform: scale(1.012) }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /*
+    NOT JUST `animation: none`. These run with fill-mode `both`, so an
+    animation that never starts pins the element at its FROM state — opacity
+    zero — and the viewer would open to a black screen with nothing on it.
+    The resting state has to be stated.
+  */
+  .media-viewer-overlay[data-state="open"],
+  .media-viewer-panel[data-state="open"] {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .media-viewer-overlay[data-state="closed"],
+  .media-viewer-panel[data-state="closed"] {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 .bar-control-spinner {
   border-radius: 9999px;
   border: 2px solid color-mix(in srgb, currentColor 16%, transparent);
