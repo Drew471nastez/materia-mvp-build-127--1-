@@ -70,50 +70,68 @@ console.log("\nThe gallery swipe\n")
     that it is not hand-rolled, and that the two settings a phone depends on
     are still set.
   */
-  const carouselHook = code("lib/gestures/use-media-carousel.ts")
+  const swiperModule = code("components/product/media-swiper.tsx")
   const viewer = code("components/product/product-media-viewer.tsx")
+  const css = readFileSync(join(root, "app/globals.css"), "utf8")
 
   check(
     "the gallery and the viewer share one carousel engine",
-    /useMediaCarousel\(\{/.test(gallery) && /useMediaCarousel\(\{/.test(viewer),
+    /<MediaSwiper/.test(gallery) && /<MediaSwiper/.test(viewer),
     "two copies of one gesture drift; they did, and the same flick behaved differently in each",
   )
   check(
-    "and it is a library rather than a fourth hand-rolled attempt",
-    /from "embla-carousel-react"/.test(carouselHook),
+    "and it is Swiper rather than a fifth hand-rolled attempt",
+    /from "swiper\/react"/.test(swiperModule),
     "momentum, pointer events, resize and re-measure are the parts a hand-rolled drag never gets to",
   )
   check(
     "no hand-rolled touch handling is left in either",
-    !/onTouchMove/.test(gallery) && !/onTouchMove/.test(viewer) && !existsSync(join(root, "lib/gestures/use-swipe-track.ts")),
-    "the old hook and the viewer's copy of it both go, or there are three engines instead of one",
+    !/onTouchMove/.test(gallery) &&
+      !/onTouchMove/.test(viewer) &&
+      !existsSync(join(root, "lib/gestures/use-swipe-track.ts")) &&
+      !existsSync(join(root, "lib/gestures/use-media-carousel.ts")),
+    "every earlier engine goes, or there are several instead of one",
   )
   check(
     "the strip is handed over rather than styled",
-    /data-keep-transform/.test(gallery) && !/transform: `translate3d/.test(gallery),
-    "Embla owns that node's transform and a style prop is painted back over it on the next render",
+    !/transform: `translate3d/.test(gallery) && !/style=\{\{ transform/.test(gallery),
+    "Swiper owns that node's transform and a style prop is painted back over it on the next render",
   )
+
   /*
-    `data-keep-transform` is not decoration. globals.css deletes every
-    untagged transform inside a `.group` on a touch-only device, and the
-    gallery frame carries `group`. Without the tag the strip's transform is
-    computed as `none` on every real phone: the carousel is perfect in the
-    source and nothing moves on screen. That shipped once.
+    ═══════════════════════════════════════════════════════════════════════
+     THE LINE THAT DECIDES WHETHER THIS WORKS ON A PHONE AT ALL
+    ═══════════════════════════════════════════════════════════════════════
+    globals.css sets `transform: none !important` AND `transition-property:
+    none !important` on every descendant of a `.group` on a touch-only
+    device, to stop hover lifts sticking after a tap. The gallery frame
+    carries `group`, and Swiper moves `.swiper-wrapper` by transform and
+    animates it with a transition — so without an exemption the strip does
+    not follow a finger and a thumbnail press jumps instead of sliding.
+
+    Perfect in the source, perfect on every desktop it is tested on, broken
+    for everybody on a phone. That has now shipped once under one engine and
+    been caught before shipping under two more.
   */
   check(
-    "the slides are exempt from the touch-device transform reset too",
-    /data-keep-transform\n\s+className="relative h-full min-w-0 flex-\[0_0_100%\]"/.test(gallery),
-    "in loop mode Embla moves individual slides as well as the strip",
+    "Swiper's strip is exempt from the touch-device transform reset",
+    /:not\(\.swiper-wrapper\)/.test(css),
+    "without it `transform: none !important` wins on every phone and nothing moves",
   )
   check(
     "a jump of more than one slide does not scroll through the ones between",
-    /Math\.abs\(at - index\) > 1/.test(carouselHook),
+    /Math\.abs\(next - currentIndex\) > 1 \? 0 :/.test(swiperModule),
     "a thumbnail four along would otherwise drag every picture in between across the box",
+  )
+  check(
+    "a mouse drags it the same way a finger does",
+    /simulateTouch=\{enabled\}/.test(swiperModule) && /grabCursor=\{enabled\}/.test(swiperModule),
+    "the desktop path used to be a separate 50px threshold with no motion in it",
   )
   check(
     "the page still scrolls under a finger that starts on a picture",
     /touchAction: "pan-y pinch-zoom"/.test(gallery),
-    "Embla does not set this itself; without it the browser takes the horizontal gesture",
+    "without it the browser takes the horizontal gesture",
   )
   /*
     The neighbour is the picture about to be dragged to. Left lazy it is an
@@ -241,16 +259,22 @@ console.log("\nThe gallery on a phone\n")
 
     scripts/check-gallery-swipe runs as a touch-only device now and fails on a
     computed transform of `none`; this is the cheap version of the same check.
+
+    THE ESCAPE IS BY CLASS NOW, NOT BY ATTRIBUTE. Swiper renders its own
+    `.swiper-wrapper` and there is no prop that would put an attribute on it,
+    so the rule names the class instead. Same exemption, same reason, and it
+    also has to cover `transition-property`, because a programmatic slide is
+    animated rather than written frame by frame.
   */
   check(
-    "the strip says its transform is load-bearing",
-    /data-keep-transform/.test(gallery),
-    "without it the touch-device rule in globals.css deletes the translate and the gallery does not move at all",
+    "the rule that deletes transforms on touch devices spares Swiper's strip",
+    /:not\(\.swiper-wrapper\)/.test(css),
+    "without it the strip does not follow a finger and a thumbnail press jumps instead of sliding",
   )
   check(
-    "and that rule still has the escape hatch it documents",
+    "and the escape hatch for everything else is still there",
     /\.group \*:not\(\[data-keep-transform\]\)/.test(css),
-    "if the selector changes, the attribute above becomes decoration",
+    "the attribute version covers the preview cards, which are not Swiper",
   )
 }
 

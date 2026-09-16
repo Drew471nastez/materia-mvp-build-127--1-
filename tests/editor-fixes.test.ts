@@ -168,7 +168,17 @@ function main() {
 
     // The preview's scale is what makes a section drawn at 390 or 800 fit a
     // card a third of that, so it is not hover decoration.
-    check("a load-bearing transform survives touch", /\.group \*:not\(\[data-keep-transform\]\) \{/.test(css))
+    /*
+      The selector has grown a second exception since — `.swiper-wrapper`,
+      because Swiper renders its own strip and there is no prop that would put
+      an attribute on it. So this matches the opt-out rather than the whole
+      selector text, which is the part the preview cards depend on.
+    */
+    check(
+      "a load-bearing transform survives touch",
+      /\.group \*:not\(\[data-keep-transform\]\)/.test(css),
+      "the preview's scale is what makes a section drawn at 800px fit a card a third of that",
+    )
     check("and its transitions are still killed like the rest", /\.group \*\[data-keep-transform\] \{\s*transition-property: none !important;/.test(css))
     check("both preview boxes claim their transform", (editor.match(/data-keep-transform/g) ?? []).length >= 2)
 

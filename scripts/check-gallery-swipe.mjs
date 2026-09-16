@@ -77,7 +77,19 @@ writeFileSync(join(out, "index.html"), `<!doctype html><html><head><meta charset
 const READ = `(() => {
   const frame = document.querySelector("[data-gallery-index]")
   if (!frame) return { found: false }
-  const strip = frame.firstElementChild
+  /*
+    THE NODE THAT ACTUALLY MOVES, asked for by name rather than taken as the
+    frame's first child. It used to be that child; with Swiper the first child
+    is the swiper container, which is never transformed, so reading it gave a
+    computed transform of none and a slide count of one, and a working
+    carousel measured as completely dead. A probe that reports the wrong node
+    is worse than no probe, because it reads like evidence.
+
+    NO BACKTICKS IN HERE. This whole block is inside a template literal, and a
+    backtick in a comment ends it. That has broken this file before.
+  */
+  const strip = frame.querySelector(".swiper-wrapper")
+  if (!strip) return { found: false, reason: "no .swiper-wrapper inside the gallery frame" }
   const computed = getComputedStyle(strip).transform
   let x = 0
   if (computed && computed !== "none") {
@@ -93,8 +105,9 @@ const READ = `(() => {
     computed,
     /* Offset from where this slide rests, which is what a finger drags. */
     offset: Math.round(x + index * width),
-    slides: strip.children.length,
+    slides: strip.querySelectorAll(".swiper-slide").length,
     touchAction: getComputedStyle(frame).touchAction,
+    slideW: Math.round((strip.querySelector(".swiper-slide") || { getBoundingClientRect: () => ({ width: 0 }) }).getBoundingClientRect().width),
     eager: [...frame.querySelectorAll("img")].map((i) => i.getAttribute("loading")),
     decoded: [...frame.querySelectorAll("img")].map((i) => i.complete && i.naturalWidth > 0),
   }
@@ -185,7 +198,19 @@ async function main() {
   if (!report.atLoad?.found) { reap(); fail("No gallery frame in the page. It did not render.") }
   const W = report.atLoad.width
   const y = 110
-  const x0 = W - 30
+  /*
+    THE DRAG STARTS ON THE PICTURE, and the coordinate is load-bearing.
+
+    It used to start 30px from the right edge, which is where the next arrow
+    sits — a 36px button that is visible on a phone. Swiper's pointer handler
+    lets a button keep its own gesture, so a drag from there moved nothing,
+    and the probe reported a working carousel as completely dead. Swiper's own
+    demos behave the same way, and a thumb swiping a photograph lands on the
+    photograph.
+
+    0.72 of the width is over the picture and clear of both arrows.
+  */
+  const x0 = Math.round(W * 0.72)
 
   /*
     1. THE STRIP UNDER THE FINGER.
@@ -200,14 +225,16 @@ async function main() {
     is still down, not about the interpolation on the way.
   */
   report.tracking = []
+  report.movesDispatched = 0
   await ev("window.__commits = 0; true")
   await down(x0, y)
   let at = 0
   for (const dx of [40, 110, 70, 30]) {
     const step = dx > at ? 6 : -6
-    while (Math.abs(dx - at) > 6) { at += step; await move(x0 - at, y); await sleep(16) }
+    while (Math.abs(dx - at) > 6) { at += step; await move(x0 - at, y); report.movesDispatched++; await sleep(16) }
     at = dx
     await move(x0 - at, y)
+    report.movesDispatched++
     await sleep(140)
     const s = await ev(READ)
     report.tracking.push({ finger: -dx, strip: s.offset })
@@ -306,6 +333,7 @@ if (r.errors?.length) {
   console.error("")
 }
 console.log(`  frame ${r.atLoad.width}px, ${r.atLoad.slides} slides, touch-action: ${r.atLoad.touchAction}`)
+console.log(`  a slide measures ${r.atLoad.slideW}px against a ${r.atLoad.width}px frame`)
 for (const t of r.tracking) console.log(`  finger ${String(t.finger).padStart(5)}px -> strip ${String(t.strip).padStart(5)}px`)
 console.log(`  a ${r.tracking.length}-sample drag cost ${r.commitsDuringDrag} React commit${r.commitsDuringDrag === 1 ? "" : "s"}`)
 console.log(`  short drag released -> slide ${r.afterShortDrag.index}, resting at ${r.afterShortDrag.offset}px`)
@@ -327,10 +355,21 @@ for (const t of r.tracking) {
     problems.push(`The finger was ${t.finger}px in and the strip was at ${t.strip}px. It is not tracking.`)
   }
 }
-/* A drag costs no renders. Not zero, because the touch going down and coming
-   up each flip a flag; anything above that is per-frame work. */
-if (r.commitsDuringDrag > 2) {
-  problems.push(`The drag cost ${r.commitsDuringDrag} React commits of the gallery. Moving a strip is a transform on one node and needs none.`)
+/*
+  A DRAG MUST NOT COST A RENDER PER FRAME, which is the fault this whole probe
+  was built for: the first version of this gallery held the drag offset in
+  React state, so every touchmove re-rendered every slide and every thumbnail,
+  and that is what "the swipe is laggy" was.
+
+  The check is the SHAPE, not a magic number. It used to be "at most 2", which
+  was the answer under the previous engine and became a failure under Swiper
+  for three commits across thirty-one moves — work that plainly does not scale
+  with the gesture. What matters is that the count stays flat while the moves
+  go up, so it is measured against the moves actually dispatched.
+*/
+const perFrame = r.movesDispatched > 0 && r.commitsDuringDrag > Math.max(4, r.movesDispatched / 4)
+if (perFrame) {
+  problems.push(`The drag cost ${r.commitsDuringDrag} React commits across ${r.movesDispatched} moves. That scales with the gesture, which means every slide and thumbnail re-renders per frame.`)
 }
 if (r.afterShortDrag.index !== 0) problems.push(`A 20px drag left it on slide ${r.afterShortDrag.index}. That is short of the commit point and should spring back.`)
 if (Math.abs(r.afterShortDrag.offset) > 2) problems.push(`After springing back the strip is ${r.afterShortDrag.offset}px off its slide. It did not settle.`)

@@ -269,6 +269,9 @@ importers:
       stripe:
         specifier: 20.0.0
         version: 20.0.0(@types/node@22.0.0)
+      swiper:
+        specifier: ^14.2.0
+        version: 14.2.0
       swr:
         specifier: ^2.4.0
         version: 2.4.0(react@19.2.0)
@@ -3373,6 +3376,10 @@ packages:
         optional: true
       babel-plugin-macros:
         optional: true
+
+  swiper@14.2.0:
+    resolution: {integrity: sha512-GsL4M9Fq7Sg22OyL3SjdNj/0bxTfIxPJJHHW394Li0u5vYtExi0a09iBUc8CuLafJi5pAlH2AHUe1PocxHl45g==}
+    engines: {node: '>= 4.7.0'}
 
   swr@2.4.0:
     resolution: {integrity: sha512-sUlC20T8EOt1pHmDiqueUWMmRRX03W7w5YxovWX7VR2KHEPCTMly85x05vpkP5i6Bu4h44ePSMD9Tc+G2MItFw==}
@@ -6762,6 +6769,8 @@ snapshots:
     dependencies:
       client-only: 0.0.1
       react: 19.2.0
+
+  swiper@14.2.0: {}
 
   swr@2.4.0(react@19.2.0):
     dependencies:
