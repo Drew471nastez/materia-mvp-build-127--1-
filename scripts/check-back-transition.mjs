@@ -31,7 +31,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
-const START = process.env.URL ?? "https://storelib.com/andrewrullz/men-s-white-t-shirt"
+const START = process.env.URL ?? "https://storelib.com/andrewrullz"
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -120,7 +120,32 @@ async function main() {
   await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 })
 
   const report = { start: START }
+  /*
+    THE JOURNEY, NOT THE PAGE. Landing on the product page directly and
+    pressing back is a different code path: there is no history entry, so the
+    control pushes the creator's page instead, and that is a server render
+    rather than a client restore. Measured that way the first version of this
+    probe reported the route changing at 1372ms, which says nothing about the
+    transition and everything about a cold push.
+
+    What a visitor does is arrive on the creator's page, press a product, and
+    press back. That is the path with a history entry, and the one the sheet
+    is for. So the probe walks it.
+  */
   await send("Page.navigate", { url: START })
+  await sleep(9000)
+
+  const wentIn = await evaluate(`(() => {
+    const links = [...document.querySelectorAll("a[href]")].filter((a) => {
+      const p = new URL(a.href, location.href).pathname.split("/").filter(Boolean)
+      return p.length === 2 && p[1] !== "links"
+    })
+    if (!links.length) return { ok: false, reason: "no product links on the creator page" }
+    links[0].click()
+    return { ok: true, href: links[0].getAttribute("href") }
+  })()`)
+  report.wentIn = wentIn
+  if (!wentIn?.ok) { reap(); fail(`Could not get to a product page: ${wentIn?.reason ?? "no result"}`) }
   await sleep(9000)
 
   const ready = await evaluate(`(() => ({
@@ -130,8 +155,10 @@ async function main() {
     path: location.pathname,
   }))()`)
   report.ready = ready
-  if (!ready?.veil) { reap(); fail("No .page-leave-veil on the product page — the layout is not mounting it.") }
+  if (!ready) { reap(); fail('The readiness probe returned nothing, so the page never evaluated it.') }
+  if (!ready?.veil) { reap(); fail(`No .page-leave-veil on the product page. What the browser saw: ${JSON.stringify(ready)}`) }
   if (!ready?.back) { reap(); fail('No button[aria-label="Back"] on the product page, so nothing could be pressed.') }
+  if (ready.path === new URL(START).pathname) { reap(); fail("The card press did not leave the creator page, so there is no back to measure.") }
 
   /*
     The camera, then the press. Both inside the page, so the first sample is

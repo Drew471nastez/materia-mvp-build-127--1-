@@ -988,21 +988,39 @@ export function LiveProductCreatorBar({
      * come from another page of ours.
      */
     if (canReturnInApp()) {
-      setLeaving(true)
+      /*
+        NO SPINNER ON THIS PATH, and that is the point of the sheet. The
+        arrow used to turn into one because the wait was unexplained; the
+        wait is now a visible transition, and a spinner appearing at 110ms
+        only to be covered at 190ms is a flicker rather than an answer.
+      */
       const wait = beginPageLeave()
       if (wait <= 0) {
+        setLeaving(true)
         window.history.back()
         return
       }
       window.setTimeout(() => window.history.back(), wait)
       return
     }
+    /*
+      ═════════════════════════════════════════════════════════════════════
+       AND THE FALLBACK GETS NO SHEET, DELIBERATELY
+      ═════════════════════════════════════════════════════════════════════
+      There is no history entry to return to here — a shared link opened
+      cold — so this is a push, and a push is a server render behind a
+      network. The sheet is only honest over a wait whose length is known:
+      hold it over one that can take seconds and it is a coloured screen for
+      as long as the server takes, which is the grey-skeleton problem in a
+      different coat.
+
+      So this path keeps what it had. The page stays, the arrow becomes a
+      spinner once the wait is long enough to need explaining, and React
+      reports when the route lands.
+    */
     if (creatorHref && creatorHref !== "#") {
       setLeaving(true)
-      const wait = beginPageLeave()
-      const push = () => startBackTransition(() => router.push(creatorHref))
-      if (wait <= 0) push()
-      else window.setTimeout(push, wait)
+      startBackTransition(() => router.push(creatorHref))
     }
   }, [creatorHref, router])
 

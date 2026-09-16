@@ -85,10 +85,20 @@ for (const [name, src, pattern] of [
   )
 }
 
-/** The fallback path, where there is no history entry, gets it too. */
+/**
+ * AND THE FALLBACK GETS NO SHEET, which is a decision rather than an
+ * omission, so it is checked as one.
+ *
+ * That path has no history entry to return to — a shared link opened cold —
+ * so it pushes, and a push is a server render behind a network. A sheet is
+ * only honest over a wait whose length is known; held over one that can take
+ * seconds it is a coloured screen for as long as the server takes. That path
+ * keeps the spinner, which is the answer designed for an unknown wait.
+ */
 check(
-  "the push fallback also waits",
-  /const push = \(\) => startBackTransition/.test(bar) && /setTimeout\(push, wait\)/.test(bar),
+  "the push fallback is left alone",
+  /startBackTransition\(\(\) => router\.push\(creatorHref\)\)/.test(bar) &&
+    !/setTimeout\(push, wait\)/.test(bar),
   "components/store-builder/product-creator-bar.tsx",
 )
 
