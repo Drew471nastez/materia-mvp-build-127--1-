@@ -13,6 +13,7 @@ import { usePurchaseStatus } from "@/components/checkout/use-purchase-status"
 import { DownloadFilesSheet } from "@/components/checkout/download-files-sheet"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { useProductTopBarShown } from "@/lib/store-builder/product-top-bar"
+import { useRouter } from "next/navigation"
 
 export interface StickyAddToCartSettings {
   visible: boolean
@@ -197,6 +198,7 @@ export function EditorStickyAddToCart({
 
   /* Browsing in the editor's canvas is the point; buying from it is not. */
   const inEditorFrame = useEditorFrame()
+  const router = useRouter()
 
   const handleButtonClick = async (e: React.MouseEvent) => {
     if (inEditorFrame) { e.preventDefault(); e.stopPropagation(); return }
@@ -209,7 +211,33 @@ export function EditorStickyAddToCart({
     if (product.selectedVariantId) {
       checkoutUrl += `&variantId=${product.selectedVariantId}`
     }
-    window.location.href = checkoutUrl
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       A CLIENT NAVIGATION, BECAUSE A DOCUMENT LOAD HERE BLINDS THE BACK ARROW
+      ═══════════════════════════════════════════════════════════════════════
+      This was `window.location.href = checkoutUrl`, which throws the document
+      away to reach a route in this same app. Two costs, and the second is the
+      one that was reported:
+
+      The visitor waits for a full page load to start buying.
+
+      AND THE IN-APP HISTORY COUNTER DIES WITH THE DOCUMENT. It is a module
+      variable — see lib/navigation/in-app-history — so a hard navigation
+      resets it to zero. Coming back to the product page afterwards, its back
+      arrow could no longer prove there was anything behind it and took the
+      slow path: a push to the creator page, rather than a return to the
+      marketplace the visitor came from. Measured on production, the referrer
+      says which navigations were hard ones:
+
+          explore -> product    referrer ""             client
+          product -> checkout   referrer <the product>  DOCUMENT LOAD
+          back to product       referrer ""             counter gone
+
+      router.push keeps the document, so the count survives and back means
+      back. The checkout still renders on the server; a client navigation
+      fetches it as an RSC payload rather than as a new page.
+    */
+    router.push(checkoutUrl)
   }
 
   const handleWrapperClick = () => {
@@ -372,6 +400,7 @@ export function LiveStickyAddToCart({
 }: StickyAddToCartProps & { onAddToCart?: () => void }) {
   /* Browsing in the editor's canvas is the point; buying from it is not. */
   const inEditorFrame = useEditorFrame()
+  const router = useRouter()
   // Client-side purchase detection (checks localStorage + server state)
   const { hasPurchased: clientHasPurchased, isChecking } = usePurchaseStatus(
     product.id,
@@ -526,7 +555,10 @@ export function LiveStickyAddToCart({
       if (product.selectedVariantId) {
         checkoutUrl += `&variantId=${product.selectedVariantId}`
       }
-      window.location.href = checkoutUrl
+      /* Same reason as the handler above: a document load here resets the
+         in-app history counter and the product page's back arrow loses its
+         way home. */
+      router.push(checkoutUrl)
     }
   }
 
