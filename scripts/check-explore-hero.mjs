@@ -2,21 +2,26 @@
  * ===========================================================================
  *  THE HERO SAYS DISCOVER, THE WORD CHANGES, AND THE LINE DOES NOT MOVE
  * ===========================================================================
- * Four claims, and every one of them is a measurement rather than an opinion:
+ * Five claims, and every one of them is a measurement rather than an opinion:
  *
  *   THE WORD ROTATES. Sampled over four seconds, how many different nouns
- *   appear. One means the rotation is dead; the point of it is that the
- *   catalogue is more than one kind of thing.
+ *   appear. One means the rotation is dead.
  *
- *   AND THE HEADING DOES NOT JUMP. The chip is sized from the longest word
- *   and centres the current one inside it. Without that the whole line
- *   re-centres every two seconds, which is what makes a rotating word look
- *   cheap. Measured as the movement of the word "Discover" across the swaps.
+ *   THE CHIP HUGS IT. One width across every word means the box is sized to
+ *   the LONGEST one, which is the lake of empty violet around a short word
+ *   that the owner reported. The widths have to differ, and the space left
+ *   over inside the chip, with its own padding taken off, has to be nothing.
  *
- *   THE COLOUR IS PURPLE, NOT BLUE. Read off the computed style, as a hue.
+ *   IT ROLLS RATHER THAN DISSOLVING. At rest exactly one word is in the
+ *   window; mid-roll there are two, the one leaving and the one arriving,
+ *   both fully opaque. An earlier version of this check called that second
+ *   state a crossfade and was wrong: two moving words IS a roll. What would
+ *   be a crossfade is a word caught part way between opaque and gone, so
+ *   that is counted too, and has to be zero.
  *
- *   IT FITS A PHONE. The heading, the sub-line and the field all inside
- *   375px with nothing overflowing.
+ *   THE COLOUR IS PURPLE, NOT BLUE, read off the computed style as a hue.
+ *
+ *   IT FITS A PHONE, with nothing overflowing at 375px.
  *
  *   pnpm build && node scripts/check-explore-hero.mjs
  */
@@ -49,26 +54,63 @@ writeFileSync(join(out, "index.html"), `<!doctype html><html><head><meta charset
 
 const READ = `(() => {
   const h = document.querySelector("#host")
-  const chip = h.querySelector("[aria-hidden] span.relative")
+  const chip = h.querySelector("span.relative.inline-flex")
   const line = h.querySelector("p")
   const field = h.querySelector("input")
   const anchor = h.querySelector("[data-explore-search-anchor]")
-  const word = chip ? chip.lastElementChild : null
+  /* The stack that rolls, and the word sitting in the window right now. */
+  const windowEl = chip ? chip.querySelector(".overflow-hidden") : null
+  const stack = windowEl ? windowEl.firstElementChild : null
+  const chipRect = windowEl ? windowEl.getBoundingClientRect() : null
+  let visible = null
+  if (stack && chipRect) {
+    for (const w of stack.children) {
+      const r = w.getBoundingClientRect()
+      /* Whichever word's middle is inside the chip's window. */
+      if (r.top + r.height / 2 > chipRect.top && r.top + r.height / 2 < chipRect.bottom) {
+        visible = w.textContent.trim()
+        break
+      }
+    }
+  }
+  const cs = chip ? getComputedStyle(chip) : null
+  const stackCs = stack ? getComputedStyle(stack) : null
   const lineRect = line.getBoundingClientRect()
   return {
-    /*
-      The chip holds TWO words: the visible one and an invisible copy of the
-      longest, which is what stops the line re-centring on every swap. A plain
-      textContent read therefore reports "Discover templatesebooks" and looks
-      like a bug in the component rather than one in the reading.
-    */
-    heading: ("Discover " + (word ? word.textContent.trim() : "")).trim(),
-    sizer: chip ? chip.firstElementChild.textContent.trim() : null,
-    srOnly: (document.querySelector("h1") || {}).textContent || null,
-    word: word ? word.textContent.trim() : null,
-    wordColor: word ? getComputedStyle(word).color : null,
+    heading: ("Discover " + (visible || "")).trim(),
+    word: visible,
+    /* How many words are showing at once. A roll shows one; a crossfade
+       shows two, half-faded, which is what "junky" looks like. */
+    wordsInWindow: (() => {
+      if (!stack || !chipRect) return 0
+      let n = 0
+      for (const w of stack.children) {
+        const r = w.getBoundingClientRect()
+        if (r.bottom > chipRect.top + 1 && r.top < chipRect.bottom - 1) n++
+      }
+      return n
+    })(),
+    wordColor: stack && stack.children[0] ? getComputedStyle(stack.children[0]).color : null,
+    /* A roll moves opaque words. A crossfade dissolves them, and that shows
+       up here as a word part way between 0 and 1. */
+    opacities: stack ? [...stack.children].map((w) => Math.round(parseFloat(getComputedStyle(w).opacity) * 100) / 100) : [],
     chipWidth: chip ? Math.round(chip.getBoundingClientRect().width) : 0,
-    /* Where the line starts. If the chip resized, this moves. */
+    chipHeight: chip ? Math.round(chip.getBoundingClientRect().height) : 0,
+    chipOverflow: windowEl ? getComputedStyle(windowEl).overflow : null,
+    chipTransition: cs ? cs.transitionProperty : null,
+    stackTransition: stackCs ? stackCs.transitionProperty : null,
+    /* Empty space around the word, with the chip's own padding taken off.
+       This is the "so much space" the owner reported: a chip sized to the
+       longest word left a five-letter one floating in a nine-letter box. */
+    slack: (() => {
+      if (!chip || !chipRect || !visible) return null
+      for (const w of stack.children) {
+        if (w.textContent.trim() !== visible) continue
+        const pad = parseFloat(getComputedStyle(chip).paddingLeft) + parseFloat(getComputedStyle(chip).paddingRight)
+        return Math.round(chip.getBoundingClientRect().width - pad - w.getBoundingClientRect().width)
+      }
+      return null
+    })(),
     lineLeft: Math.round(lineRect.left),
     lineWidth: Math.round(lineRect.width),
     fieldWidth: field ? Math.round(field.getBoundingClientRect().width) : 0,
@@ -76,6 +118,13 @@ const READ = `(() => {
     hasAnchor: !!anchor,
     docWidth: Math.round(document.documentElement.scrollWidth),
     viewport: window.innerWidth,
+    srOnly: (document.querySelector("h1") || {}).textContent || null,
+    chipStyle: chip ? chip.getAttribute("style") : null,
+    stackStyle: stack ? stack.getAttribute("style") : null,
+    measurerFound: !!h.querySelector("span.fixed"),
+    measuredWidths: h.querySelector("span.fixed") ? [...h.querySelector("span.fixed").children].map((c) => Math.round(c.getBoundingClientRect().width)) : null,
+    sectionTop: Math.round(h.querySelector("section").getBoundingClientRect().top),
+    headingTop: Math.round(lineRect.top),
   }
 })()`
 
@@ -145,19 +194,39 @@ const desk = await main(1280)
 
 const report = (label, s) => {
   const words = [...new Set(s.map((x) => x.word).filter(Boolean))]
-  const lefts = [...new Set(s.map((x) => x.lineLeft))]
   const chips = [...new Set(s.map((x) => x.chipWidth))]
+  const slacks = s.map((x) => x.slack).filter((x) => x !== null)
+  const maxInWindow = Math.max(...s.map((x) => x.wordsInWindow))
+  /*
+    AT REST, one word. DURING THE ROLL, two — the one leaving and the one
+    arriving, both moving. That is what a roll IS, and an earlier version of
+    this check called it a crossfade for exactly that reason. The number that
+    means something is the minimum: if even the settled frames hold two
+    words, the window is taller than a line.
+  */
+  const minInWindow = Math.min(...s.map((x) => x.wordsInWindow))
+  const fadedWords = s.flatMap((x) => x.opacities).filter((o) => o > 0 && o < 1)
   const last = s[s.length - 1]
   console.log(`  ${label} (${last.viewport}px)`)
-  console.log(`    heading reads: ${JSON.stringify(last.heading)}  (chip sized from "${last.sizer}")`)
+  console.log(`    heading reads: ${JSON.stringify(last.heading)}`)
   console.log(`    for a screen reader: ${JSON.stringify(last.srOnly)}`)
   console.log(`    words seen: ${words.join(", ")}`)
-  console.log(`    the chip is ${chips.join("/")}px wide and the line starts at ${lefts.join("/")}px`)
+  console.log(`    chip widths: ${chips.sort((a, b) => a - b).join(", ")}px  (it hugs the word rather than the longest)`)
+  console.log(`    empty space inside the chip: ${Math.min(...slacks)} to ${Math.max(...slacks)}px`)
+  console.log(`    words in the window: ${minInWindow} at rest, ${maxInWindow} mid-roll`)
+  console.log(`    words caught part-faded: ${fadedWords.length}`)
+  console.log(`    chip overflow ${last.chipOverflow}, chip animates ${last.chipTransition}, stack animates ${last.stackTransition}`)
   console.log(`    word colour: ${last.wordColor}`)
+  console.log(`    gap above the heading: ${last.headingTop - last.sectionTop}px`)
   console.log(`    search field ${last.fieldWidth}x${last.fieldHeight}, anchor present: ${last.hasAnchor}`)
   console.log(`    document is ${last.docWidth}px wide in a ${last.viewport}px window`)
+  if (process.env.DEBUG_HERO) {
+    console.log(`    [debug] chip style: ${last.chipStyle}`)
+    console.log(`    [debug] stack style: ${last.stackStyle}`)
+    console.log(`    [debug] measured widths: ${JSON.stringify(last.measuredWidths)}`)
+  }
   console.log("")
-  return { words, lefts, chips, last }
+  return { words, chips, slacks, maxInWindow, minInWindow, fadedWords, last }
 }
 
 console.log("")
@@ -167,12 +236,25 @@ const d = report("on a desktop", desk)
 const problems = []
 for (const [label, r] of [["phone", p], ["desktop", d]]) {
   if (r.words.length < 3) problems.push(`On ${label} only ${r.words.length} word(s) appeared in four seconds: ${r.words.join(", ")}. The rotation is not running.`)
-  if (r.lefts.length > 1) problems.push(`On ${label} the heading moved between ${r.lefts.join(" and ")}px as the word changed. The line is re-centring on every swap.`)
-  if (r.chips.length > 1) problems.push(`On ${label} the chip resized (${r.chips.join(", ")}px), which is what moves the line.`)
-  if (!r.last.hasAnchor) problems.push(`On ${label} the search carries no ${"data-explore-search-anchor"}, so the header can never take it over.`)
+  /*
+    IT HAS TO HUG. A single chip width across every word is the box sized to
+    the longest one, which is the lake of empty violet the owner reported.
+  */
+  if (r.chips.length < 2) problems.push(`On ${label} the chip held one width (${r.chips.join(", ")}px) across ${r.words.length} words. It is sized to the longest rather than to the word in it.`)
+  if (Math.max(...r.slacks) > 40) problems.push(`On ${label} the chip has up to ${Math.max(...r.slacks)}px of empty space around the word. It is not hugging it.`)
+  /*
+    AND IT HAS TO BE A ROLL. Two words in the window at once, both part way
+    through an opacity change, is the crossfade that read as cheap. One word
+    at a time means the stack slides and nothing dissolves.
+  */
+  if (r.minInWindow !== 1) problems.push(`On ${label} the settled chip holds ${r.minInWindow} words. The window should be exactly one line tall, or the words above and below show their edges.`)
+  if (r.maxInWindow < 2) problems.push(`On ${label} never more than one word was in the window. Nothing is sliding; the word is being swapped in place.`)
+  if (r.fadedWords.length) problems.push(`On ${label} ${r.fadedWords.length} readings caught a word part-faded. A roll moves opaque words; dissolving them is the crossfade that read as cheap.`)
+  if (r.last.chipOverflow !== "hidden") problems.push(`On ${label} the chip's overflow is ${r.last.chipOverflow}; a roll needs the window to clip.`)
+  if (!/width/.test(r.last.chipTransition || "")) problems.push(`On ${label} the chip does not animate its width (${r.last.chipTransition}), so it will snap between words.`)
+  if (!/transform/.test(r.last.stackTransition || "")) problems.push(`On ${label} the stack does not animate (${r.last.stackTransition}), so the word will jump.`)
+  if (!r.last.hasAnchor) problems.push(`On ${label} the search carries no data-explore-search-anchor, so the header can never take it over.`)
   if (r.last.docWidth > r.last.viewport + 1) problems.push(`On ${label} the document is ${r.last.docWidth}px in a ${r.last.viewport}px window. Something overflows.`)
-  /* Purple, not blue: red has to be present and the hue has to sit in the
-     violet band rather than the blue one. */
   const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(r.last.wordColor || "")
   if (!m) problems.push(`On ${label} the word's colour could not be read (${r.last.wordColor}).`)
   else {
@@ -191,4 +273,4 @@ if (problems.length) {
   console.error("")
   process.exit(1)
 }
-console.log("  The word rotates, the line holds still, the colour is purple, and it fits a phone.\n")
+console.log("  The word rolls, the chip hugs it, nothing dissolves, and it fits a phone.\n")

@@ -176,20 +176,18 @@ export default async function ExplorePage({
         />
 
         {/*
-          Below-the-fold sections, wrapped in Suspense for streaming SSR.
-
-          MOST POPULAR COMES FIRST, directly under the list and its
-          pagination, because that is where somebody who has read to the
-          bottom of page one is. The categories board was in between and it is
-          a change of subject: it sends you somewhere else rather than showing
-          you more of what you were looking at.
+          Below-the-fold sections, wrapped in Suspense for streaming SSR, in
+          the order the owner asked for: eight rows of products and their
+          pagination, then the categories board, then Most popular. Most
+          popular was briefly first, directly under the pagination; the
+          instruction that put the board back in between is the current one.
         */}
         <Suspense fallback={null}>
-          <MostPopularSection products={productsWithCreators} />
+          <FeaturedCategoriesSection products={productsWithCreators} />
         </Suspense>
 
         <Suspense fallback={null}>
-          <FeaturedCategoriesSection products={productsWithCreators} />
+          <MostPopularSection products={productsWithCreators} />
         </Suspense>
       </div>
     </main>
