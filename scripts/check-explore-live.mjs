@@ -1,0 +1,195 @@
+/**
+ * ===========================================================================
+ *  THE EXPLORE PAGE, ON THE REAL SITE, AT BOTH WIDTHS
+ * ===========================================================================
+ * Four claims that only the deployed page can settle, because every one of
+ * them is about how the header and the page behave TOGETHER and they are
+ * different component trees:
+ *
+ *   THE HEADER IS SMALLER. Measured, not asserted: #platform-header-root's
+ *   own height against the number it was before.
+ *
+ *   THERE IS NO CATEGORY STRIP. The All / Audio & Music / … row is gone.
+ *
+ *   THE SEARCH IS IN ONE PLACE AT A TIME. At rest the header has none and the
+ *   page's hero field does; scrolled past it, the header has one and it is
+ *   the only one on screen. This is the piece most likely to be wrong in a
+ *   real page, because the header mounts before the hero exists.
+ *
+ *   PAGING RETURNS TO THE TOP OF THE LIST rather than leaving the visitor at
+ *   the bottom of the page they have just read.
+ *
+ *   node scripts/check-explore-live.mjs
+ */
+import { execFileSync, spawn } from "node:child_process"
+import { createHash } from "node:crypto"
+import { existsSync, mkdtempSync, readFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+
+const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
+const URL_UNDER_TEST = process.env.URL ?? "https://storelib.com/explore"
+const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
+if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/** The same pin the client-error gate uses; see its note. */
+function reachabilityFlags() {
+  const flags = []
+  const proxy = process.env.HTTPS_PROXY || process.env.https_proxy
+  if (!proxy) return flags
+  flags.push(`--proxy-server=${proxy}`)
+  for (const ca of ["/root/.ccr/agent-proxy-ca.crt", "/root/.ccr/ca-bundle.crt"]) {
+    if (!existsSync(ca)) continue
+    try {
+      const pem = execFileSync("openssl", ["x509", "-in", ca, "-pubkey", "-noout"], { encoding: "buffer" })
+      const spki = createHash("sha256").update(execFileSync("openssl", ["pkey", "-pubin", "-outform", "der"], { input: pem })).digest("base64")
+      flags.push(`--ignore-certificate-errors-spki-list=${spki}`)
+      break
+    } catch { /* let the run fail loudly instead */ }
+  }
+  return flags
+}
+
+const READ = `(() => {
+  const header = document.getElementById("platform-header-root")
+  const hero = document.querySelector("[data-explore-search-anchor]")
+  /* Any text input inside the header, whatever it is called. */
+  const headerFields = header ? [...header.querySelectorAll("input")].filter((i) => {
+    const r = i.getBoundingClientRect()
+    return r.width > 40 && r.height > 20
+  }) : []
+  /* The phone's trigger is a button, not an input. */
+  const headerTriggers = header ? [...header.querySelectorAll("button")].filter((b) => /search/i.test(b.textContent || "")) : []
+  const heroRect = hero ? hero.getBoundingClientRect() : null
+  return {
+    headerHeight: header ? Math.round(header.getBoundingClientRect().height) : null,
+    headerSearches: headerFields.length + headerTriggers.length,
+    heroSearchPresent: !!hero,
+    heroTop: heroRect ? Math.round(heroRect.top) : null,
+    /* The strip that was removed, by the labels it carried. */
+    categoryStrip: [...document.querySelectorAll("button")]
+      .filter((b) => ["Audio & Music", "Business & Money", "Freebies"].includes((b.textContent || "").trim())).length,
+    heading: (document.querySelector("h1") || {}).textContent || null,
+    y: Math.round(window.scrollY),
+  }
+})()`
+
+async function main(width) {
+  const profile = mkdtempSync(join(tmpdir(), "storelib-explore-live-"))
+  const chrome = spawn(CHROMIUM, [
+    "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
+    `--user-data-dir=${profile}`, "--remote-debugging-port=0", "--remote-allow-origins=*",
+    `--window-size=${width},900`, ...reachabilityFlags(), "about:blank",
+  ], { stdio: ["ignore", "ignore", "pipe"] })
+  const reap = () => { try { chrome.kill("SIGKILL") } catch {} }
+  for (const sig of ["exit", "SIGINT", "SIGTERM"]) process.on(sig, reap)
+
+  const portFile = join(profile, "DevToolsActivePort")
+  let port = null
+  for (let i = 0; i < 80 && !port; i++) {
+    if (existsSync(portFile)) {
+      const first = readFileSync(portFile, "utf8").split("\n")[0].trim()
+      if (first) port = Number(first)
+    }
+    if (!port) await sleep(250)
+  }
+  if (!port) { reap(); fail("Chromium never reported a debugging port.") }
+  let version = null
+  for (let i = 0; i < 40 && !version; i++) {
+    try { version = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json() } catch { await sleep(250) }
+  }
+  if (!version) { reap(); fail("Chromium did not answer on its port.") }
+
+  const ws = new WebSocket(version.webSocketDebuggerUrl)
+  await new Promise((r, j) => { ws.addEventListener("open", r, { once: true }); ws.addEventListener("error", j, { once: true }) })
+  let id = 0
+  const pending = new Map()
+  ws.addEventListener("message", (e) => {
+    const m = JSON.parse(e.data)
+    if (m.id && pending.has(m.id)) { pending.get(m.id)(m.result ?? {}); pending.delete(m.id) }
+  })
+  let sessionId = null
+  const send = (method, params = {}, session = sessionId) =>
+    new Promise((resolve) => { const n = ++id; pending.set(n, resolve); ws.send(JSON.stringify({ id: n, method, params, ...(session ? { sessionId: session } : {}) })) })
+  const ev = async (expr) => {
+    const { result } = await send("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true })
+    return result?.value
+  }
+
+  const { targetId } = await send("Target.createTarget", { url: "about:blank" }, null)
+  sessionId = (await send("Target.attachToTarget", { targetId, flatten: true }, null)).sessionId
+  await send("Page.enable")
+  await send("Runtime.enable")
+  await send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 2, mobile: width < 700 })
+  await send("Emulation.setTouchEmulationEnabled", { enabled: width < 700, maxTouchPoints: width < 700 ? 5 : 0 })
+  await send("Page.navigate", { url: URL_UNDER_TEST })
+  await sleep(11000)
+
+  const r = { width }
+  r.atRest = await ev(READ)
+
+  /* Past the hero's field, which is what hands the search over. */
+  await ev("window.scrollTo(0, 900); true")
+  await sleep(1200)
+  r.scrolled = await ev(READ)
+
+  /* And back up, to be sure it hands it back. */
+  await ev("window.scrollTo(0, 0); true")
+  await sleep(1200)
+  r.backAtTop = await ev(READ)
+
+  /* Paging: press page 2 from the bottom of the list and see where it lands. */
+  r.paging = await ev(`(() => {
+    const two = [...document.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === "2" && b.className.includes("rounded-full"))
+    if (!two) return { found: false }
+    two.scrollIntoView({ block: "center" })
+    const before = Math.round(window.scrollY)
+    two.click()
+    return { found: true, before }
+  })()`)
+  await sleep(1600)
+  r.afterPaging = await ev("Math.round(window.scrollY)")
+
+  await send("Target.closeTarget", { targetId }, null)
+  ws.close()
+  reap()
+  return r
+}
+
+const desk = await main(1280)
+const phone = await main(390)
+
+const problems = []
+console.log(`\n${URL_UNDER_TEST}\n`)
+for (const r of [desk, phone]) {
+  const label = r.width >= 700 ? "desktop" : "phone"
+  console.log(`  ${label} (${r.width}px)`)
+  console.log(`    header height: ${r.atRest.headerHeight}px`)
+  console.log(`    heading: ${JSON.stringify((r.atRest.heading || "").slice(0, 70))}`)
+  console.log(`    category strip buttons still present: ${r.atRest.categoryStrip}`)
+  console.log(`    at rest      hero search: ${r.atRest.heroSearchPresent}   searches in header: ${r.atRest.headerSearches}`)
+  console.log(`    scrolled 900 hero top: ${r.scrolled.heroTop}   searches in header: ${r.scrolled.headerSearches}`)
+  console.log(`    back at top  searches in header: ${r.backAtTop.headerSearches}`)
+  if (r.paging.found) console.log(`    pressed page 2 at y=${r.paging.before} and landed at y=${r.afterPaging}`)
+  else console.log(`    no page 2 control found`)
+  console.log("")
+
+  if (!r.atRest.heroSearchPresent) problems.push(`${label}: the hero has no search field.`)
+  if (r.atRest.categoryStrip > 0) problems.push(`${label}: ${r.atRest.categoryStrip} category-strip buttons are still on the page.`)
+  if (r.atRest.headerSearches !== 0) problems.push(`${label}: the header carries ${r.atRest.headerSearches} search control(s) while the page's own field is on screen. That is the same control twice.`)
+  if (r.scrolled.headerSearches < 1) problems.push(`${label}: scrolled past the hero field, the header still has no search. The handoff did not happen.`)
+  if (r.backAtTop.headerSearches !== 0) problems.push(`${label}: back at the top, the header kept its search. It should hand it back.`)
+  if (r.paging.found && r.afterPaging >= r.paging.before) {
+    problems.push(`${label}: pressing page 2 from y=${r.paging.before} left the visitor at y=${r.afterPaging}. Paging should return to the top of the list.`)
+  }
+}
+if (desk.atRest.headerHeight >= 84) problems.push(`The desktop header is ${desk.atRest.headerHeight}px; it was 84px and should be about 80px.`)
+
+if (problems.length) {
+  console.error(`${problems.length} problem${problems.length > 1 ? "s" : ""}:\n`)
+  problems.forEach((p, i) => console.error(`  ${i + 1}. ${p}`))
+  console.error("")
+  process.exit(1)
+}
+console.log("  Smaller header, no strip, one search at a time, and paging lands at the top.\n")
