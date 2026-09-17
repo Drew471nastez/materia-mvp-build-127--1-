@@ -128,6 +128,27 @@ check(
   FILES.filter((f) => /<LanguageProvider>/.test(read.get(f) || "")).join(", "),
 )
 
+/*
+  AND THE SECOND HALF OF THE RULE: this provider renders NOTHING until a
+  client effect has run, so putting it above a server-rendered tree does not
+  merely add a context, it empties the HTML. That is how the first fix for the
+  outage went wrong in the other direction.
+*/
+const contextSrc = readFileSync("lib/i18n/context.tsx", "utf8")
+check(
+  "LanguageProvider still returns null before hydration, which is why placement matters",
+  /if \(!isHydrated\) \{\s*\n\s*return null/.test(contextSrc),
+  "if this stops being true, the rule below can be relaxed",
+)
+const serverRenderedMounts = FILES.filter(
+  (f) => /<LanguageProvider>/.test(read.get(f) || "") && f.startsWith("app/"),
+)
+check(
+  "and it is not mounted in any route layout, whose HTML has to exist without JavaScript",
+  serverRenderedMounts.length === 0,
+  serverRenderedMounts.join(", "),
+)
+
 const outsiders: string[] = []
 for (const caller of callers) {
   const reach = importersOf(caller)

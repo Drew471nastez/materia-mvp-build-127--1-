@@ -5,7 +5,6 @@ import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
-import { LanguageProvider } from "@/lib/i18n/context"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 
 /**
@@ -63,26 +62,28 @@ export default async function MarketingLayout({
   return (
     /*
       ═══════════════════════════════════════════════════════════════════════
-       THE LANGUAGE CONTEXT BELONGS TO THIS TREE TOO
+       THE PROVIDER IS GONE AGAIN, AND #253's OWN NOTE SAYS WHY IT CAN BE
       ═══════════════════════════════════════════════════════════════════════
-      It was mounted only in components/app/app-layout-wrapper, so it existed
-      under /app and nowhere else. Explore then started calling useLanguage —
-      it puts `?lang=` on the URLs it hands out and reads one back, so a link
-      opens in the language it was shared from — and threw on every render:
+      #253 wrapped this tree in LanguageProvider to stop /explore throwing,
+      and its test says so in as many words: "if this ever stops being true
+      the provider above can go too". It has stopped being true. The page
+      calls useLocale now, whose LocaleProvider is in the ROOT layout, so
+      nothing under (marketing) reaches the hook that needed this one.
 
-          Error: useLanguage must be used within a LanguageProvider
+      IT HAD TO GO, NOT MERELY COULD. lib/i18n/context returns null until a
+      client effect has run:
 
-      which the route's error boundary caught, so storelib.com/explore served
-      "Something went wrong while loading the explore page" to everyone. Found
-      by driving the deployed page rather than by a build, because the build is
-      green either way: this is a runtime context, and nothing type-checks that
-      a hook's provider is above it.
+          if (!isHydrated) return null
 
-      The provider is safe to put here. It reads localStorage and
-      navigator.language and holds a string; there is no fetch in it, nothing
-      authenticated, and no server work.
+      Wrapped around this layout, that is every marketing page rendering
+      nothing on the server. Measured against production while it was live,
+      storelib.com/explore served 778 characters of visible text and no
+      <main> element at all: no heading, no search field, no category pills,
+      no products. The page still worked in a browser, because the content
+      was in the RSC payload and hydration put it on screen, which is why
+      nothing looked broken. A crawler that does not run JavaScript saw an
+      empty document, and everybody else saw a blank frame first.
     */
-    <LanguageProvider>
     <div className="flex min-h-svh flex-col marketing-flex-wrapper">
       {/* Preconnect to image CDN — saves ~200-400ms on first image request */}
       <link rel="preconnect" href="https://skgtqglupjcnfhfscink.supabase.co" />
@@ -130,6 +131,5 @@ export default async function MarketingLayout({
         </Suspense>
       </div>
     </div>
-    </LanguageProvider>
   )
 }

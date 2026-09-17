@@ -325,13 +325,28 @@ function main() {
     every marketing surface that calls useLanguage must have the provider in
     an ancestor layout.
   */
+  /*
+    IT STOPPED BEING TRUE, SO THE PROVIDER WENT. Explore calls useLocale now,
+    whose LocaleProvider is in the root layout, and nothing else under
+    (marketing) reaches the hook that needed this one. The rule itself is
+    enforced properly in tests/provider-scope, which resolves every import in
+    the repository into a graph and walks up from any caller of useLanguage to
+    the routes that render it.
+
+    AND IT HAD TO GO. LanguageProvider returns null until a client effect has
+    run, so wrapped around this layout it blanked the server render of every
+    marketing page: /explore served 778 characters of visible text and no
+    <main> at all while it was live.
+  */
   const marketingLayout = read("app/(marketing)/layout.tsx")
-  check("the layout imports it", /import \{ LanguageProvider \} from "@\/lib\/i18n\/context"/.test(marketingLayout))
-  check("and wraps the tree in it", /<LanguageProvider>[\s\S]*<\/LanguageProvider>/.test(marketingLayout))
   check(
-    "which is what the page under it needs",
-    /useLanguage\(\)/.test(read("components/explore/explore-page-client.tsx")),
-    "if this ever stops being true the provider above can go too",
+    "the marketing layout is not wrapped in a provider that renders null before hydration",
+    !/<LanguageProvider>/.test(marketingLayout),
+    "lib/i18n/context returns null until isHydrated, which empties the server HTML of every page under it",
+  )
+  check(
+    "and the page under it uses the root-level locale context instead",
+    /useLocale\(\)/.test(read("components/explore/explore-page-client.tsx")),
   )
 
   console.log(`\n${passed} passed, ${failed} failed`)
