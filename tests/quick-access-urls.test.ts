@@ -129,14 +129,16 @@ function main() {
   check("the row names its height", !!row, `matched: ${row}`)
   if (row) {
     const n = Number(row)
-    check(`the row is 70.75px, down from ${ORIGINAL}`, n === 70.75)
-    /* Two cuts, asked for separately: 3% off the original, then 5% off that. */
+    check(`the row is 69.35px, down from ${ORIGINAL}`, n === 69.35)
+    /* Three cuts, asked for separately: 3% off the original, 5% off that,
+       then 2% off that. The chain is what the numbers below check. */
     check(
-      "which is five percent off the previous 74.5",
-      Math.abs(1 - n / AFTER_FIRST_CUT - 0.05) < 0.002,
-      `${(100 * (1 - n / AFTER_FIRST_CUT)).toFixed(1)}%`,
+      "which is two percent off the previous 70.75",
+      Math.abs(1 - n / 70.75 - 0.02) < 0.002,
+      `${(100 * (1 - n / 70.75)).toFixed(1)}%`,
     )
-    check("and about eight percent off where it started", Math.abs(1 - n / ORIGINAL - 0.081) < 0.005)
+    check("and about ten percent off where it started", Math.abs(1 - n / ORIGINAL - 0.099) < 0.006)
+    void AFTER_FIRST_CUT
   }
   check("the padding rails are untouched", /md:pb-\[3px\]/.test(header) && /padding-top: 3px/.test(read("app/globals.css")))
   /* The SSR placeholder holds the header's space before hydration; if it
@@ -167,6 +169,121 @@ function main() {
   /* The bottom padding was trimmed separately on main while this trimmed the
      top; both are deliberate, so the merge kept both rather than picking one. */
   check("the hero's top spacing is 48 / 88", /className="pt-\[48px\] pb-3 sm:pt-\[88px\] sm:pb-4"/.test(hero))
+
+  /* ---------------------------------------------------------------------
+     THE HERO'S SUBTITLE
+     --------------------------------------------------------------------- */
+  console.log("\n  the subtitle is closer and a little heavier")
+
+  /*
+    Inter is a variable font, so 400 -> 420 -> 450 are three real weights
+    rather than one weight and two rounding errors. On a static family the
+    browser would synthesise the middle one and the second request would have
+    changed nothing visible.
+  */
+  check(
+    "it sits 12px under the heading and carries 450",
+    /className="mt-3 text-\[15px\] sm:text-\[17px\] font-\[450\] text-neutral-600"/.test(hero),
+  )
+  check("and the weight is a real one, not a synthesised bold", !/font-bold/.test(hero.slice(hero.indexOf("mt-3 text-[15px]"), hero.indexOf("mt-3 text-[15px]") + 200)))
+
+  /* ---------------------------------------------------------------------
+     THE FILTER CHIPS
+     --------------------------------------------------------------------- */
+  console.log("\n  the chips under the pills")
+
+  const explore = read("components/explore/explore-page-client.tsx")
+  /*
+    Violet is what this page spends on the thing you are looking at. Clear is
+    a way out of a filter, not a destination, so it was the loudest colour on
+    screen given to the least important control.
+  */
+  check(
+    "Clear is grey, not violet",
+    /bg-neutral-100 text-neutral-600 ring-1 ring-inset ring-neutral-200/.test(explore),
+  )
+  check("and it is not wearing the accent any more", !/bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors cursor-pointer\"\s*\n\s*>\s*\n\s*<X className="w-3 h-3" \/>\s*\n\s*Clear/.test(explore))
+  /*
+    THE CATEGORY'S NAME WAS PRINTED TWICE. The pill row already shows which
+    category is on — it is the filled chip — so a second black chip under it
+    saying the same word read as another, different filter. A SUBcategory
+    still earns one, because the row above only names the parent.
+  */
+  check(
+    "the duplicate category chip is gone",
+    /\{selectedSubcategoryLabel && \(/.test(explore) &&
+      !/\{selectedSubcategoryLabel \|\| CATEGORIES\.find\(c => c\.id === mainCategory\)\?\.label \|\| "Category"\}/.test(explore),
+  )
+
+  /* ---------------------------------------------------------------------
+     THE WISHLIST BADGE
+     --------------------------------------------------------------------- */
+  console.log("\n  the wishlist count reads as a badge")
+
+  /*
+    14px with 7px type, half off the heart's corner, read as part of the
+    outline rather than as a count on top of it. The ring is the thing that
+    fixes it: a gap in the header's own black is how every app separates a
+    badge from the icon under it.
+  */
+  const badges = header.match(/absolute -top-1\.5 -right-2 flex h-\[17px\] min-w-\[17px\][^"]*/g) ?? []
+  check("both badges were reworked, not just the one on screen", badges.length === 2, `${badges.length} found`)
+  check("they are ringed in the header's own black", badges.every((b) => /ring-2 ring-black/.test(b)))
+  check("and the digits do not shift the disc", badges.every((b) => /tabular-nums/.test(b)))
+  check("nothing is left at the old 7px size", !/text-\[7px\] font-bold/.test(header))
+
+  /* ---------------------------------------------------------------------
+     THE GROUND
+     --------------------------------------------------------------------- */
+  console.log("\n  the renaissance ground")
+
+  check("Explore carries it", /className="explore-ground min-h-screen/.test(read("app/(marketing)/explore/page.tsx")))
+  check("it is an inline tile, so it costs no request", /\.explore-ground::before \{[\s\S]*?background-image: url\("data:image\/svg\+xml,/.test(css))
+  /* Almost invisible on purpose: about two levels of grey on #f5f5f5. */
+  check("and it is almost invisible", /\.explore-ground::before \{[\s\S]*?opacity: 0\.045;/.test(css))
+  /* It has to END before the products do, or a picture sits on ornament. */
+  check(
+    "it fades out above the grid",
+    /\.explore-ground::before \{[\s\S]*?height: 620px;/.test(css) &&
+      /mask-image: linear-gradient\(to bottom, #000 0%, #000 34%, transparent 100%\)/.test(css),
+  )
+  check(
+    "and it cannot eat a click",
+    /\.explore-ground::before \{[\s\S]*?pointer-events: none;/.test(css),
+    "a pseudo-element over the hero would stop the search field taking focus",
+  )
+
+  /* ---------------------------------------------------------------------
+     THE HEADER SCROLLS AWAY AND COMES BACK PAST THE SEARCH
+     --------------------------------------------------------------------- */
+  console.log("\n  the bar pins itself only past the search")
+
+  /*
+    STILL `sticky`, MOVED WITH A TRANSFORM. Switching relative -> fixed at a
+    threshold takes the element out of flow in that frame and everything below
+    jumps by the height of the bar unless a spacer appears at the same moment.
+    Sticky never leaves the flow, so a transform costs no layout at all.
+  */
+  check("it is still sticky rather than swapped to fixed", /isSellerOrProductPage \? "relative" : "sticky top-0"/.test(header))
+  check("and it is moved with a translate", /headerTuckedAway && "-translate-y-full"/.test(header))
+  /* Tailwind v4 builds -translate-y-full out of the standalone `translate`
+     property; naming `transform` animates nothing and lets the bar jump. */
+  check(
+    "the transition names translate, not transform",
+    /motion-safe:transition-\[translate\]/.test(header),
+    "tests/motion-properties exists because of exactly this mistake",
+  )
+  /*
+    THE THRESHOLD IS THE SEARCH FIELD, not a number of pixels. searchInHeader
+    is already false while Explore's own field is on screen and true once it
+    has gone, so the bar arrives carrying the control the page just lost.
+  */
+  check(
+    "the threshold is the search anchor, not a magic number",
+    /const headerTuckedAway = isExploreSurface && pastHeader && !searchInHeader/.test(header),
+  )
+  check("and at the top of the page it is always there", /window\.scrollY > Math\.max\(headerH, 1\)/.test(header))
+  check("only Explore behaves this way", /if \(!isExploreSurface\) return/.test(header))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

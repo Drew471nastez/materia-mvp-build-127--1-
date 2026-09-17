@@ -218,10 +218,15 @@ export function ExploreHero({
           </span>
         </p>
 
-        {/* 420 rather than 400: about five per cent more weight, which is what
-            the owner asked for. Inter is a variable font, so this is a real
-            weight rather than a synthesised bold. */}
-        <p className="mt-4 text-[15px] sm:text-[17px] font-[420] text-neutral-600">
+        {/*
+          450, up from 420, up from 400. Asked for twice, a little each time,
+          and Inter is a variable font so each of those is a real weight
+          rather than a synthesised bold — 430 and 450 are genuinely
+          different, which they would not be on a static family.
+
+          And mt-3 rather than mt-4: 12px under the heading instead of 16.
+        */}
+        <p className="mt-3 text-[15px] sm:text-[17px] font-[450] text-neutral-600">
           Discover what creators are building across the internet.
         </p>
         {/* "or start selling your own" was here. The owner took it off: this
