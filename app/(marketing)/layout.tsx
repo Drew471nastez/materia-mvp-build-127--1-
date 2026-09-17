@@ -5,6 +5,7 @@ import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
+import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 
 /**
  * Read on the server so the wishlist badge is in the FIRST PAINTED HTML.
@@ -65,6 +66,9 @@ export default async function MarketingLayout({
       <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="preconnect" href="https://cdn.sanity.io" />
       <BodyScrollRestorer />
+      {/* Nothing until a navigation has been slow for 220ms; see the
+          component for why it cannot block and cannot get stuck. */}
+      <RouteLoadingBar />
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
 
       <main className="flex-1 [overflow-x:clip]">{children}</main>
