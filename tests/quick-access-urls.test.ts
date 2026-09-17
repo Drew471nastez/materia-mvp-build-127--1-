@@ -244,10 +244,15 @@ function main() {
     a way out of a filter, not a destination, so it was the loudest colour on
     screen given to the least important control.
   */
-  check(
-    "Clear is grey, not violet",
-    /bg-neutral-100 text-neutral-600 ring-1 ring-inset ring-neutral-200/.test(explore),
-  )
+  /*
+    THE CLEAR CHIP IS GONE, so there is no colour left to check. It was made
+    grey here first, because violet is the accent this page spends on the
+    thing you are looking at and Clear is a way out of a filter; the owner
+    then took the control out altogether. The pill row is the control: the
+    category you are in is the filled pill and the way out is the first one.
+    tests/keyboard-scroll-loop owns that rule now.
+  */
+  check("no Clear chip under the pills", !/>\s*Clear\s*</.test(explore))
   check("and it is not wearing the accent any more", !/bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors cursor-pointer\"\s*\n\s*>\s*\n\s*<X className="w-3 h-3" \/>\s*\n\s*Clear/.test(explore))
   /*
     THE CATEGORY'S NAME WAS PRINTED TWICE. The pill row already shows which

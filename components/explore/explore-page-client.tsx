@@ -2024,53 +2024,30 @@ export function ExplorePageClient({
               already had a sort with the same options in it.
             */}
 
-            {/* Mobile: Clear Badge and Category Badge - shown below pills on mobile when category selected */}
-            {(mainCategory !== "all" || selectedSubcategoryId) && (
+            {/*
+              NO "CLEAR" CHIP. It sat under the pills whenever a category was
+              on, and the owner took it out: the pill row is already the
+              control. The category you are in is the filled pill, and the way
+              out of it is the first pill — tapping that is how you get back to
+              everything, which is what a visitor tries first anyway.
+
+              A SUBcategory still earns a chip, because the row above only
+              names the parent, so without it there is nothing on screen
+              saying which subcategory is on.
+            */}
+            {selectedSubcategoryLabel && (
               <div className="md:hidden flex items-center gap-2 mt-2">
-                {/*
-                  GREY, NOT VIOLET. Violet is the accent this page spends on
-                  the thing you are looking at — the word in the heading, the
-                  focused field. "Clear" is a way out of a filter, not a
-                  destination, and dressing it in the accent gave the loudest
-                  colour on screen to the least important control.
-                */}
                 <button
                   onClick={() => {
-                    setMainCategory("all")
                     setSelectedSubcategoryId(null)
                     setSelectedSubcategoryLabel(null)
-                    router.push("/explore", { scroll: false })
+                    router.push(`/explore/${mainCategory}`, { scroll: false })
                   }}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-600 ring-1 ring-inset ring-neutral-200 hover:bg-neutral-200 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
                 >
                   <X className="w-3 h-3" />
-                  Clear
+                  {selectedSubcategoryLabel}
                 </button>
-                {/*
-                  THE CATEGORY'S NAME WAS PRINTED TWICE, and this was the
-                  second one. The pill row above already shows which category
-                  is on — it is the filled black chip — so a black chip below
-                  it saying the same word was the same fact in two places, and
-                  the one underneath looked like a second, different filter.
-
-                  Removed. The pill above is the indicator; Clear beside it is
-                  the way out. A subcategory still needs naming, because the
-                  row above only shows the parent category, so that case keeps
-                  its chip.
-                */}
-                {selectedSubcategoryLabel && (
-                  <button
-                    onClick={() => {
-                      setSelectedSubcategoryId(null)
-                      setSelectedSubcategoryLabel(null)
-                      router.push(`/explore/${mainCategory}`, { scroll: false })
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                    {selectedSubcategoryLabel}
-                  </button>
-                )}
               </div>
             )}
 
