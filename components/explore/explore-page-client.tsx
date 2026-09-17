@@ -73,7 +73,10 @@ const CATEGORIES = [
   },
   {
     id: "development",
-    label: "Development",
+    /* "Tech", per the owner. The id stays `development` because it is what
+       products carry in their category column and what every link already
+       written points at; the label is the part a visitor reads. */
+    label: "Tech",
     icon: Code,
     subcategories: [
       { id: "web", label: "Web Templates" },
@@ -314,6 +317,13 @@ function normalizeCategoryToId(dbCategory: string): string {
   return DB_CATEGORY_TO_ID[lower] || lower
 }
 
+/**
+ * The sheet's own motion. 320ms on the iOS sheet curve: 400 was long enough
+ * to notice as a wait rather than as the sheet arriving.
+ */
+const SHEET_MS = 320
+const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+
 // Filter types for Recommended section
 /**
  * THE PILLS, WHICH ARE A SUBSET AND SAY SO.
@@ -413,8 +423,7 @@ function MobileFilterSheet({
 }) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
+  /* No state per frame: see the note on handleTouchMove below. */
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
 
@@ -436,44 +445,103 @@ function MobileFilterSheet({
     setIsAnimating(false)
     const timer = setTimeout(() => {
       setIsVisible(false)
-      setDragY(0)
-    }, 400)
+      paint(0)
+    }, SHEET_MS)
 
     return () => clearTimeout(timer)
   }, [isOpen, isVisible])
 
   const handleClose = () => {
     setIsAnimating(false)
-    setDragY(0)
+    dragY.current = 0
     setTimeout(() => {
       onClose()
-    }, 400)
+    }, SHEET_MS)
+  }
+
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE SHEET FOLLOWS THE FINGER, WRITTEN STRAIGHT TO THE NODE
+    ═══════════════════════════════════════════════════════════════════════
+    This used to call setDragY on every touchmove, which is a React render
+    per frame of a drag: the sheet, its header, every filter row and every
+    subcategory chip reconciled sixty times a second while a thumb moved.
+    That is the lag. components/app/analytics-chart already solved the same
+    problem the same way and tests/analytics-chart pins it — "the box follows
+    the finger every frame, written straight to the node", "no React state
+    carries the position".
+
+    So the offset lives in a ref and goes onto the element's own transform.
+    React is told once, at the end, and only to decide open or closed.
+
+    ONE TO ONE, NOT 0.8. The old damping meant the sheet trailed the thumb by
+    a fifth of the distance, which reads as the sheet being heavy rather than
+    as it being held. Downward is exact. Upward is rubber-banded to a few
+    pixels, because there is nowhere above for it to go.
+
+    AND A FLICK COUNTS. Distance alone means a fast short swipe leaves the
+    sheet open under a thumb that has clearly thrown it away, so velocity over
+    the last moments of the gesture closes it too.
+  */
+  const dragY = useRef(0)
+  const dragging = useRef(false)
+  const lastY = useRef(0)
+  const lastT = useRef(0)
+  const velocity = useRef(0)
+
+  const paint = (y: number) => {
+    const el = sheetRef.current
+    if (el) el.style.transform = y === 0 ? "none" : `translate3d(0, ${y}px, 0)`
   }
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    const el = sheetRef.current
+    if (!el) return
     const touch = e.touches[0]
-    const sheetElement = sheetRef.current
-    if (!sheetElement) return
-    const sheetRect = sheetElement.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - sheetRect.top
-    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
-      startY.current = touch.clientY
-      setIsDragging(true)
-    }
+    /* Only from the grip, or from a content area already scrolled to its top:
+       otherwise a drag on the list is a scroll, not a dismissal. */
+    const fromHandle = (e.target as HTMLElement).closest("[data-sheet-grip]") !== null
+    const scroller = (e.target as HTMLElement).closest("[data-sheet-scroll]") as HTMLElement | null
+    if (!fromHandle && scroller && scroller.scrollTop > 0) return
+    startY.current = touch.clientY
+    lastY.current = touch.clientY
+    lastT.current = e.timeStamp
+    velocity.current = 0
+    dragging.current = true
+    el.style.transition = "none"
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startY.current
-    if (diff > 0) { e.preventDefault(); setDragY(diff * 0.8) }
+    if (!dragging.current) return
+    const y = e.touches[0].clientY
+    const dt = e.timeStamp - lastT.current
+    if (dt > 0) velocity.current = (y - lastY.current) / dt
+    lastY.current = y
+    lastT.current = e.timeStamp
+
+    const diff = y - startY.current
+    /* Up has nowhere to go, so it gives a little and stops. */
+    const offset = diff >= 0 ? diff : Math.max(diff / 6, -24)
+    if (diff > 0) e.preventDefault()
+    dragY.current = offset
+    paint(offset)
   }
 
   const handleTouchEnd = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 80) handleClose()
-    else setDragY(0)
+    if (!dragging.current) return
+    dragging.current = false
+    const el = sheetRef.current
+    if (el) el.style.transition = `transform ${SHEET_MS}ms ${SHEET_EASE}`
+    /* Thrown away, or dragged more than a third of the way down. */
+    const thrown = velocity.current > 0.5
+    const far = dragY.current > 96
+    if (thrown || far) {
+      dragY.current = 0
+      handleClose()
+      return
+    }
+    dragY.current = 0
+    paint(0)
   }
 
   const toggleSubcategory = (subId: string) => {
@@ -487,29 +555,39 @@ function MobileFilterSheet({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100] md:hidden" style={{ touchAction: 'none' }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+    <div
+      className="fixed inset-0 z-[100] md:hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* No backdrop-filter. A full-screen blurring layer over a very tall
+          page is the one iOS reliably mispaints; plain black does the job. */}
       <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
-        style={{ transitionDuration: '400ms' }}
+        className={`absolute inset-0 bg-black/40 transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
+        style={{ transitionDuration: `${SHEET_MS}ms` }}
         onClick={handleClose}
       />
       <div
         ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
+        data-filters-sheet
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[22px] flex flex-col shadow-[0_-8px_28px_-12px_rgba(15,23,42,0.28)]"
         style={{
-          transform: !isAnimating
-            ? 'translate3d(0, 100%, 0)'
-            : dragY > 0
-              ? `translate3d(0, ${dragY}px, 0)`
-              : 'none',
-          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          maxHeight: '85vh',
+          transform: isAnimating ? "none" : "translate3d(0, 100%, 0)",
+          transition: `transform ${SHEET_MS}ms ${SHEET_EASE}`,
+          /*
+            72% of the SMALL viewport, down from 85vh. `vh` on a phone is the
+            height with the browser chrome retracted, so 85vh was taller than
+            the screen it had to fit into whenever the bar was showing.
+          */
+          maxHeight: "72svh",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}
       >
-        <div className="pt-3 pb-2 shrink-0">
-          <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
-            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-          </button>
+        {/* The grip is the drag target, and it is not a button: tapping it did
+            nothing a visitor wanted and swallowed the start of the gesture. */}
+        <div data-sheet-grip className="pt-2.5 pb-1.5 shrink-0 touch-none flex justify-center">
+          <div className="h-1 w-9 rounded-full bg-neutral-300" />
         </div>
 
         <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100 shrink-0">
@@ -521,7 +599,13 @@ function MobileFilterSheet({
           )}
         </div>
 
-        <div className="overflow-y-auto overscroll-contain p-4 space-y-6 flex-1 min-h-0" style={{ touchAction: 'pan-y' }}>
+        {/* data-sheet-scroll: a drag that starts in here is a scroll unless the
+            list is already at its top. See handleTouchStart. */}
+        <div
+          data-sheet-scroll
+          className="overflow-y-auto overscroll-contain px-4 pt-3 pb-4 space-y-5 flex-1 min-h-0"
+          style={{ touchAction: "pan-y" }}
+        >
           {availableSubcategories.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-neutral-900 mb-3">Subcategories</h4>
@@ -1923,7 +2007,15 @@ export function ExplorePageClient({
               )}
             </>
           ) : (
-            <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
+            /*
+              MIN-HEIGHT, SO AN EMPTY RESULT CANNOT PULL THE FOOTER UP INTO
+              THE FOLD. A search that matches nothing is a normal thing to
+              happen, and when it does the page should still be a page. Two
+              thirds of the viewport keeps the footer where a footer belongs,
+              below what you are looking at, rather than arriving under the
+              category pills.
+            */
+            <div className="min-h-[60svh] flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
               <p className="text-neutral-500">
                 {localSearchQuery
                   ? `No products found for "${localSearchQuery}"`

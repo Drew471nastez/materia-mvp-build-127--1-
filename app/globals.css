@@ -3608,22 +3608,19 @@ html:has(.wb-editor) body {
 }
 
 /* ===========================================================================
-    A RENAISSANCE GROUND UNDER THE EXPLORE HERO
+    A DOT GROUND UNDER THE EXPLORE HERO
    ===========================================================================
-   An ogee lattice — the frame a damask repeat is built on — with acanthus
-   scrolls at the crossings and a rosette where the curves meet. Drawn once as
-   a 180px tile and repeated; it is 1.4KB of URL-encoded SVG inside the
-   stylesheet, so it costs no request and nothing to decode.
+   This was an ogee lattice with acanthus scrolls, and the owner's objection
+   to it was the right one: you could name the shape. A ground you can name is
+   a pattern, and a pattern behind product images competes with them.
 
-   IT IS MEANT TO BE ALMOST INVISIBLE. 4.5% of slate on a #f5f5f5 ground is
-   about two levels of grey — you notice the page has a texture rather than
-   noticing a pattern. Rendered and looked at before it shipped, at three
-   weights; anything heavier stopped being a ground and started being wallpaper
-   behind the product images.
+   Dots instead, staggered, and about a tenth of the ink. The detail is on the
+   ::before rule below, and the number is measured by scripts/check-ground.mjs
+   rather than judged by eye.
 
-   AND IT ENDS BEFORE THE PRODUCTS DO. A mask takes it to nothing by 620px,
-   which is under the hero, so the grid below is on flat colour and no picture
-   is ever sitting on top of ornament.
+   IT ENDS BEFORE THE PRODUCTS DO. A mask takes it to nothing by 620px, which
+   is under the hero, so the grid below is on flat colour and no picture ever
+   sits on top of texture.
 
    pointer-events: none because it is a pseudo-element over the page's own
    background; without it the whole hero would stop taking clicks. */
@@ -3639,10 +3636,39 @@ html:has(.wb-editor) body {
   height: 620px;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.045;
-  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22180%22%20height%3D%22180%22%20viewBox%3D%220%200%20180%20180%22%3E%20%3Cg%20fill%3D%22none%22%20stroke%3D%22%230f172a%22%20stroke-width%3D%221.1%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%20%3C%21--%20ogee%20lattice%3A%20the%20damask%20frame%20a%20renaissance%20repeat%20is%20built%20on%20--%3E%20%3Cpath%20d%3D%22M90%200%20C90%2026%20116%2032%20116%2058%20C116%2080%20100%2090%2090%2090%20C80%2090%2064%2080%2064%2058%20C64%2032%2090%2026%2090%200Z%22%2F%3E%20%3Cpath%20d%3D%22M90%2090%20C90%20116%20116%20122%20116%20148%20C116%20170%20100%20180%2090%20180%20C80%20180%2064%20170%2064%20148%20C64%20122%2090%20116%2090%2090Z%22%2F%3E%20%3Cpath%20d%3D%22M0%2090%20C26%2090%2032%2064%2058%2064%20C80%2064%2090%2080%2090%2090%20C90%20100%2080%20116%2058%20116%20C32%20116%2026%2090%200%2090Z%22%2F%3E%20%3Cpath%20d%3D%22M90%2090%20C116%2090%20122%2064%20148%2064%20C170%2064%20180%2080%20180%2090%20C180%20100%20170%20116%20148%20116%20C122%20116%20116%2090%2090%2090Z%22%2F%3E%20%3C%21--%20acanthus%20scrolls%20at%20the%20crossings%20--%3E%20%3Cpath%20d%3D%22M90%2044%20c-7%204%20-11%2011%20-8%2018%202%205%208%206%2011%202%203%20-4%201%20-9%20-3%20-9%22%2F%3E%20%3Cpath%20d%3D%22M90%2044%20c7%204%2011%2011%208%2018%20-2%205%20-8%206%20-11%202%22%2F%3E%20%3Cpath%20d%3D%22M90%20136%20c-7%20-4%20-11%20-11%20-8%20-18%202%20-5%208%20-6%2011%20-2%203%204%201%209%20-3%209%22%2F%3E%20%3Cpath%20d%3D%22M90%20136%20c7%20-4%2011%20-11%208%20-18%20-2%20-5%20-8%20-6%20-11%20-2%22%2F%3E%20%3C%21--%20a%20small%20rosette%20where%20the%20ogees%20meet%20--%3E%20%3Ccircle%20cx%3D%2290%22%20cy%3D%2290%22%20r%3D%225.5%22%2F%3E%20%3Ccircle%20cx%3D%220%22%20cy%3D%220%22%20r%3D%225.5%22%2F%3E%20%3Ccircle%20cx%3D%22180%22%20cy%3D%220%22%20r%3D%225.5%22%2F%3E%20%3Ccircle%20cx%3D%220%22%20cy%3D%22180%22%20r%3D%225.5%22%2F%3E%20%3Ccircle%20cx%3D%22180%22%20cy%3D%22180%22%20r%3D%225.5%22%2F%3E%20%3C%2Fg%3E%20%3C%2Fsvg%3E");
-  background-size: 180px 180px;
-  background-repeat: repeat;
+  /*
+    A DOT GRID, AND ALMOST NOTHING OF IT.
+
+    The damask that was here read as a pattern: you could name the shape, and
+    the owner did. This is the other kind of ground, the one you only notice
+    when it is taken away. Two radial gradients rather than a tile of SVG, so
+    there is nothing to decode and it scales to any density without softening.
+
+    THE INK IS THE POINT, AND IT IS MEASURED. scripts/check-ground.mjs renders
+    this rule and the damask it replaced over #f5f5f5 and counts. The first
+    attempt at these dots was 1px at 5% on a 22px grid, and the numbers said
+    what the eye would not have:
+
+                   coverage   mean delta   darkest pixel
+      dots            1.63%        0.175            11.0
+      damask          2.83%        0.158             9.7
+
+    Less of the surface touched, but each dot DARKER than the damask's
+    strokes and slightly more ink on average. "Fewer, bigger marks" is not
+    subtler. So: 3.2% of slate on a 24px grid, which is under the damask on
+    every one of the three.
+
+    The second gradient is the same grid offset by half a step, which turns a
+    square lattice into a staggered one. A square grid at this spacing shows
+    its rows and columns as faint lines when the eye tracks across it; the
+    stagger has no straight line in it to find.
+  */
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.032) 1px, transparent 1.15px),
+    radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.032) 1px, transparent 1.15px);
+  background-size: 24px 24px, 24px 24px;
+  background-position: 0 0, 12px 12px;
+  background-repeat: repeat, repeat;
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 34%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 34%, transparent 100%);
 }

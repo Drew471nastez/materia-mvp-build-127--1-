@@ -46,7 +46,9 @@ const CATEGORIES_WITH_SUBS = [
     ]
   },
   {
-    label: "Development",
+    /* "Tech" here too, or the header's menu and the page's pills disagree
+       about the name of the same category. The href keeps `development`. */
+    label: "Tech",
     href: "/explore?category=development",
     icon: Code,
     subcategories: [
@@ -946,88 +948,21 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  /**
-   * ═════════════════════════════════════════════════════════════════════════
-   *  THE BAR SCROLLS AWAY WITH THE HERO AND COMES BACK PAST THE SEARCH
-   * ═════════════════════════════════════════════════════════════════════════
-   * On Explore the header was pinned from the first pixel, which means the
-   * black bar sits over the hero the whole way down it. The owner asked for
-   * the bar to start behaving like part of the page and to become sticky only
-   * once the scroll has passed the big search field under the heading.
-   *
-   * IT STAYS `position: sticky` AND IS TRANSLATED INSTEAD. Switching between
-   * relative and fixed at a threshold takes the element out of flow at that
-   * moment, and everything below jumps up by the height of the bar unless a
-   * spacer appears in the same frame. Sticky never leaves the flow, so moving
-   * it with a transform costs no layout at all — and a transform is one of the
-   * two things a compositor can animate without the main thread.
-   *
-   * THE THRESHOLD IS THE SEARCH FIELD ITSELF, not a magic number of pixels.
-   * `searchInHeader` already reports exactly this: it is false while Explore's
-   * own field is on screen and true once it has gone. The same signal that
-   * gives the header its search back is the one that pins it, so the bar
-   * arrives carrying the control the page just lost — which is the whole
-   * reason the two belong to one gesture rather than two.
-   *
-   * AT THE TOP IT IS ALWAYS THERE. Under one header's worth of scroll there is
-   * nothing to hide from: the bar is where the document puts it anyway, and
-   * translating it then would blank the top of the page on arrival.
-   */
-  const [pastHeader, setPastHeader] = useState(false)
-  useEffect(() => {
-    if (!isExploreSurface) return
-    let ticking = false
-    const read = () => {
-      ticking = false
-      setPastHeader((v) => {
-        const next = window.scrollY > Math.max(headerH, 1)
-        return v === next ? v : next
-      })
-    }
-    const onScroll = () => {
-      if (ticking) return
-      ticking = true
-      window.requestAnimationFrame(read)
-    }
-    read()
-    window.addEventListener("scroll", onScroll, { passive: true })
-    return () => window.removeEventListener("scroll", onScroll)
-  }, [isExploreSurface, headerH])
-
   /*
-    Hidden only in the band between "scrolled past the bar" and "scrolled past
-    the search". Above it the bar is simply where it belongs; below it the bar
-    is pinned and carries the search.
-  */
-  /*
-    AND IT CAN ALWAYS BE REACHED AGAIN. Hiding on "past the bar but not past
-    the search" is right while there is a search left to scroll past; on a
-    short result — one product, or a filter that matched almost nothing — the
-    field may never leave the viewport at all, and the bar would then be
-    tucked away for as long as the visitor stayed on the page. Measured on
-    production at 1280x860 the whole document was 1315px, so there were 455px
-    of scroll and the search never went anywhere.
+    ═══════════════════════════════════════════════════════════════════════
+     THE BAR DOES NOT GO ANYWHERE ANY MORE
+    ═══════════════════════════════════════════════════════════════════════
+    #252 hid it in the band between "scrolled past the bar" and "scrolled past
+    the search", with a second reading of the document so a page too short for
+    the search to scroll away could not hide it for ever. The owner has asked
+    for it sticky always, so both readings and the translate are gone rather
+    than left behind switched off: two scroll listeners and a resize listener
+    that feed nothing are cost with no behaviour attached.
 
-    Reaching the bottom brings it back regardless. On a page short enough for
-    the first condition to fail, the bottom is where the visitor already is.
+    What stays is the handoff. searchInHeader still decides whether the bar
+    carries a search field, because that is a different question from whether
+    the bar is on screen.
   */
-  const [atBottom, setAtBottom] = useState(false)
-  useEffect(() => {
-    if (!isExploreSurface) return
-    const read = () => {
-      const doc = document.documentElement
-      setAtBottom(doc.scrollHeight - window.scrollY - window.innerHeight < 120)
-    }
-    read()
-    window.addEventListener("scroll", read, { passive: true })
-    window.addEventListener("resize", read)
-    return () => {
-      window.removeEventListener("scroll", read)
-      window.removeEventListener("resize", read)
-    }
-  }, [isExploreSurface])
-
-  const headerTuckedAway = isExploreSurface && pastHeader && !searchInHeader && !atBottom
 
   /* Both spellings of a product: `/p/<slug>` still resolves and redirects,
      and `/<handle>/<slug>` is what everything hands out now. */
@@ -1177,17 +1112,6 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         */
         "platform-header-depth z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black",
         isSellerOrProductPage ? "relative" : "sticky top-0",
-        /*
-          `translate`, not `transform`: Tailwind v4 builds -translate-y-full
-          out of the standalone `translate` property, and naming the wrong one
-          animates nothing and lets the bar jump. tests/motion-properties
-          exists because of exactly that mistake.
-
-          Reduced motion gets the same two positions with no travel between
-          them — the objection is the movement, not the behaviour.
-        */
-        isExploreSurface && "motion-safe:transition-[translate] motion-safe:duration-[240ms] motion-safe:ease-out",
-        headerTuckedAway && "-translate-y-full",
       )}>
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">

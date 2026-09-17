@@ -245,12 +245,33 @@ function main() {
   /* ---------------------------------------------------------------------
      THE GROUND
      --------------------------------------------------------------------- */
-  console.log("\n  the renaissance ground")
+  console.log("\n  the dot ground")
 
   check("Explore carries it", /className="explore-ground min-h-screen/.test(read("app/(marketing)/explore/page.tsx")))
-  check("it is an inline tile, so it costs no request", /\.explore-ground::before \{[\s\S]*?background-image: url\("data:image\/svg\+xml,/.test(css))
-  /* Almost invisible on purpose: about two levels of grey on #f5f5f5. */
-  check("and it is almost invisible", /\.explore-ground::before \{[\s\S]*?opacity: 0\.045;/.test(css))
+  /*
+    THE DAMASK IS GONE. The owner's objection was that you could name the
+    shape, and a ground you can name is a pattern. Dots, staggered, and about
+    a tenth of the ink; scripts/check-ground.mjs renders it and counts the
+    pixels that differ from the page colour at all.
+  */
+  const ground = css.match(/\.explore-ground::before \{[\s\S]*?\n\}/)?.[0] ?? ""
+  check("it is gradients rather than a tile, so it costs no request and nothing to decode", /radial-gradient\(/.test(ground) && !/url\(/.test(ground))
+  /* The declarations, not the notes: the comment above the rule says what it
+     used to be, and a check that reads comments would fail on its own history. */
+  const cssDeclarations = css.replace(/\/\*[\s\S]*?\*\//g, " ")
+  check("there is no ogee lattice left anywhere", !/renaissance|acanthus|ogee/i.test(cssDeclarations))
+  const inks = [...ground.matchAll(/rgba\(15, 23, 42, ([0-9.]+)\)/g)].map((m) => Number(m[1]))
+  check(
+    /* 3.2%, measured down from a first attempt at 5% that was darker per dot
+       than the damask it replaced. scripts/check-ground.mjs has the numbers. */
+    "and every dot is drawn at 4% of slate or less",
+    inks.length >= 2 && inks.every((a) => a > 0 && a <= 0.04),
+    `alphas found: ${inks.join(", ") || "none"}`,
+  )
+  check(
+    "the second grid is offset half a step, so there is no straight line to find",
+    /background-position: 0 0, 12px 12px;/.test(ground) && /background-size: 24px 24px, 24px 24px;/.test(ground),
+  )
   /* It has to END before the products do, or a picture sits on ornament. */
   check(
     "it fades out above the grid",
@@ -274,37 +295,28 @@ function main() {
     jumps by the height of the bar unless a spacer appears at the same moment.
     Sticky never leaves the flow, so a transform costs no layout at all.
   */
-  check("it is still sticky rather than swapped to fixed", /isSellerOrProductPage \? "relative" : "sticky top-0"/.test(header))
-  check("and it is moved with a translate", /headerTuckedAway && "-translate-y-full"/.test(header))
-  /* Tailwind v4 builds -translate-y-full out of the standalone `translate`
-     property; naming `transform` animates nothing and lets the bar jump. */
-  check(
-    "the transition names translate, not transform",
-    /motion-safe:transition-\[translate\]/.test(header),
-    "tests/motion-properties exists because of exactly this mistake",
-  )
   /*
-    THE THRESHOLD IS THE SEARCH FIELD, not a number of pixels. searchInHeader
-    is already false while Explore's own field is on screen and true once it
-    has gone, so the bar arrives carrying the control the page just lost.
+    ═══════════════════════════════════════════════════════════════════════
+     AND THEN THE OWNER ASKED FOR IT STICKY ALWAYS
+    ═══════════════════════════════════════════════════════════════════════
+    #252 hid the bar in the band between "past the bar" and "past the search",
+    and these checks pinned every part of that: the translate, the threshold,
+    the bottom-of-page escape. The request now is the opposite one, so what is
+    asserted is the opposite: the bar is sticky, and nothing moves it.
+
+    The handoff is a separate question and still checked below. Whether the
+    bar CARRIES a search field is not the same as whether it is on screen.
   */
+  check("it is sticky rather than fixed", /isSellerOrProductPage \? "relative" : "sticky top-0"/.test(header))
   check(
-    "the threshold is the search anchor, not a magic number",
-    /const headerTuckedAway = isExploreSurface && pastHeader && !searchInHeader/.test(header),
+    "and nothing translates it out of view",
+    !/-translate-y-full/.test(header) && !/headerTuckedAway/.test(header),
+    "the bar stays put; see the note in platform-header-client",
   )
-  check("and at the top of the page it is always there", /window\.scrollY > Math\.max\(headerH, 1\)/.test(header))
-  check("only Explore behaves this way", /if \(!isExploreSurface\) return/.test(header))
-  /*
-    AND IT CAN ALWAYS BE REACHED AGAIN. On a short result the search may never
-    leave the viewport, and without this the bar would stay tucked away for as
-    long as the visitor stayed. Measured on production at 1280x860 the whole
-    document was 1315px — 455px of scroll, and the field went nowhere.
-  */
   check(
-    "reaching the bottom brings the bar back regardless",
-    /!searchInHeader && !atBottom/.test(header) &&
-      /doc\.scrollHeight - window\.scrollY - window\.innerHeight < 120/.test(header),
-    "a page too short for the search to scroll away would hide the header for ever",
+    "the scroll listeners that fed it are gone rather than switched off",
+    !/setPastHeader/.test(header) && !/setAtBottom/.test(header),
+    "a listener feeding nothing is cost with no behaviour attached",
   )
 
   /* ---------------------------------------------------------------------

@@ -129,6 +129,34 @@ export function ExploreHero({
   const { index, box, measureRef, chipRef } = useRollingNoun()
 
   /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE SEARCH RUNS WHEN YOU ASK IT TO, NOT ON EVERY LETTER
+    ═══════════════════════════════════════════════════════════════════════
+    This field used to hand each keystroke straight to the page's filter, and
+    that is what the reported footer bug actually is. Typing "Just" narrowed
+    twenty-four products to none, the listing became a dashed box about a
+    hundred pixels tall, and a document that was eleven thousand pixels tall
+    became about a thousand. The footer arrived directly under the category
+    pills, which on a phone with the keyboard up is the whole screen: pills,
+    then footer. Nothing was painted in the wrong place. The page really had
+    collapsed, between one letter and the next.
+
+    It also meant the Search key on the keyboard did nothing, because the
+    search had already happened four letters ago.
+
+    So the text lives here while it is being typed, and the page is told
+    once, on submit. Clearing the field is a submit too, because emptying a
+    search is a request to see everything again.
+  */
+  const [draft, setDraft] = useState(query)
+
+  /* An external change — a category that resets it, arriving with ?q= — is
+     the one case where the field should follow the page rather than lead. */
+  useEffect(() => {
+    setDraft(query)
+  }, [query])
+
+  /*
     THE AIR BETWEEN THE HEADER AND THE HEADING, TRIMMED BACK A LITTLE.
 
     It was opened up because the two were stacked with nothing between them;
@@ -242,11 +270,22 @@ export function ExploreHero({
 
       {/* The page's search. The header's appears only once this has gone. */}
       <div className="mt-6 sm:mt-8 mx-auto w-full max-w-[720px]" {...{ [SEARCH_ANCHOR_ATTR]: "" }}>
-        <div className="relative">
+        <form
+          role="search"
+          className="relative"
+          onSubmit={(e) => {
+            e.preventDefault()
+            onQueryChange(draft.trim())
+          }}
+        >
           <Search className="pointer-events-none absolute left-4 sm:left-5 top-1/2 h-[18px] w-[18px] sm:h-5 sm:w-5 -translate-y-1/2 text-neutral-400" />
           <input
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            type="search"
+            inputMode="search"
+            /* iOS labels the return key from this, so it reads Search. */
+            enterKeyHint="search"
             placeholder="Search products, creators, topics..."
             aria-label="Search products, creators and topics"
             className={cn(
@@ -270,17 +309,20 @@ export function ExploreHero({
               "focus:shadow-[0_1px_3px_rgba(15,23,42,0.054),0_11px_27px_-16px_rgba(15,23,42,0.36)]",
             )}
           />
-          {query && (
+          {draft && (
             <button
               type="button"
-              onClick={() => onQueryChange("")}
+              onClick={() => {
+                setDraft("")
+                onQueryChange("")
+              }}
               aria-label="Clear search"
               className="absolute right-4 sm:right-5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 cursor-pointer"
             >
               <X className="h-[18px] w-[18px]" />
             </button>
           )}
-        </div>
+        </form>
       </div>
     </section>
   )
