@@ -1,6 +1,8 @@
 import { Metadata } from "next"
 import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
+import { EMPTY_INTERESTS, type Interests } from "@/lib/explore/interests"
+import { readInterests } from "@/lib/explore/read-interests"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
 import { MostPopularSection } from "@/components/explore/most-popular-section"
@@ -84,11 +86,40 @@ export default async function ExplorePage({
   const rawCategory = (params?.c || params?.category || "all").toLowerCase()
   const category = VALID_CATEGORIES.includes(rawCategory) ? rawCategory : "all"
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     WHO IS THIS, AND HAVE THEY SHOWN US ANYTHING
+    ═══════════════════════════════════════════════════════════════════════
+    Signed out, this is one cheap auth call that returns nobody and the page
+    is exactly what it was. Signed in with too little history, the same: the
+    threshold is in lib/explore/interests and nothing on screen changes until
+    it is met. Only past it does "All" become "For you".
+
+    It sits next to the catalogue query rather than in front of it, because
+    neither needs the other.
+  */
+  let interests: Interests = EMPTY_INTERESTS
+
   // Initialize data
   let productsWithCreators: any[] = []
 
   try {
     const supabase = await createClient()
+
+    /*
+      Asked for beside the catalogue rather than before it: neither needs the
+      other, and this route is force-dynamic with nothing cached in front of
+      it, so a read in series is a round trip every visitor pays for.
+      A failure here is not a failure of the page — the catch below leaves
+      `interests` empty and everybody gets the ordinary Explore.
+    */
+    const interestsPromise = (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return EMPTY_INTERESTS
+      return readInterests(user.id, user.email)
+    })().catch(() => EMPTY_INTERESTS)
 
     // Fetch published products — apply search filter server-side via ILIKE
     // to avoid fetching 100 rows when only a few match the query
@@ -148,6 +179,9 @@ export default async function ExplorePage({
         }
       })
     }
+
+    /* Started above, collected here, so the two reads overlap. */
+    interests = await interestsPromise
   } catch (error: any) {
     console.error("[ExplorePage] Exception:", error?.message || error)
   }
@@ -182,6 +216,7 @@ export default async function ExplorePage({
         <ExplorePageClient
           initialProducts={filteredProducts}
           initialCategory={category}
+          interests={interests}
           searchQuery={searchQuery}
         />
 

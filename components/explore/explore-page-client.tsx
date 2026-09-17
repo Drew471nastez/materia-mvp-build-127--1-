@@ -11,6 +11,7 @@ import { ProductCardSkeleton } from "./product-card-skeleton"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ChevronDown, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Palette, Code, Lightbulb, FileText } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useLocale } from "@/components/locale-provider"
+import { EMPTY_INTERESTS, FOR_YOU_ID, buildPillRow, interestScore, type Interests } from "@/lib/explore/interests"
 
 // Safe body scroll lock/unlock helpers that prevent scroll bugs
 let scrollLockCount = 0
@@ -355,6 +356,11 @@ const PILL_IDS = [
  */
 const PILL_EMOJI: Record<string, string> = {
   all: "\u{1F30D}",
+  /* For you keeps the globe, per the owner: the pill in that position has
+     always been the world and swapping its face as well as its name would
+     make it read as a different control rather than the same one, named
+     for you. */
+  "for-you": "\u{1F30D}",
   design: "\u{1F3A8}",
   business: "\u{1F4BC}",
   marketing: "\u{1F4C8}",
@@ -363,11 +369,37 @@ const PILL_EMOJI: Record<string, string> = {
   development: "\u{1F4BB}",
   productivity: "\u{26A1}",
   video: "\u{1F3AC}",
+  /* The other six, because an interest pill can be any category and a pill
+     with no face next to eight that have one looks broken. */
+  "social-media": "\u{1F4AC}",
+  photography: "\u{1F4F7}",
+  "audio-music": "\u{1F3B5}",
+  ecommerce: "\u{1F6D2}",
+  freebies: "\u{1F381}",
+  other: "\u{1F4E6}",
 }
 const CATEGORY_PILLS = PILL_IDS
   .map((id) => CATEGORIES.find((c) => c.id === id))
   .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c))
 
+/**
+ * The row's shape is decided by lib/explore/interests, which is pure and
+ * tested. This turns its ids into the objects the pills are drawn from.
+ */
+function pillsFrom(interests: Interests) {
+  const row = buildPillRow(
+    interests,
+    PILL_IDS,
+    CATEGORIES.map((c) => c.id),
+  )
+  return {
+    first: { id: row.firstId, label: row.firstLabel },
+    pills: row.ids
+      .map((id) => CATEGORIES.find((c) => c.id === id))
+      .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c)),
+    personalised: row.personalised,
+  }
+}
 
 // Price filter options
 const PRICE_FILTERS = [
@@ -488,61 +520,149 @@ function MobileFilterSheet({
   const lastY = useRef(0)
   const lastT = useRef(0)
   const velocity = useRef(0)
+  const startedInList = useRef(false)
 
   const paint = (y: number) => {
     const el = sheetRef.current
     if (el) el.style.transform = y === 0 ? "none" : `translate3d(0, ${y}px, 0)`
   }
 
-  const handleTouchStart = (e: React.TouchEvent) => {
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     NATIVE LISTENERS, BECAUSE REACT'S touchmove IS PASSIVE
+    ═══════════════════════════════════════════════════════════════════════
+    These were React props, and the e.preventDefault() in the move handler
+    has never done anything. React 17 moved event delegation to the root
+    container and registers touchstart, touchmove and wheel as PASSIVE
+    listeners, where preventDefault is a no-op the browser ignores (Chrome
+    logs "Unable to preventDefault inside passive event listener invocation"
+    and Safari silently does nothing).
+
+    That is both reported bugs at once. Dragging the sheet asked the page not
+    to scroll, the page scrolled anyway; and a downward drag near the top of
+    the document is what Safari's pull-to-refresh is, so it offered to reload
+    the page instead of moving the sheet.
+
+    components/ui/bottom-sheet already drags from a native listener for this
+    reason. So does this now: attached to the sheet itself, non-passive, and
+    torn down with it.
+  */
+  useEffect(() => {
     const el = sheetRef.current
-    if (!el) return
-    const touch = e.touches[0]
-    /* Only from the grip, or from a content area already scrolled to its top:
-       otherwise a drag on the list is a scroll, not a dismissal. */
-    const fromHandle = (e.target as HTMLElement).closest("[data-sheet-grip]") !== null
-    const scroller = (e.target as HTMLElement).closest("[data-sheet-scroll]") as HTMLElement | null
-    if (!fromHandle && scroller && scroller.scrollTop > 0) return
-    startY.current = touch.clientY
-    lastY.current = touch.clientY
-    lastT.current = e.timeStamp
-    velocity.current = 0
-    dragging.current = true
-    el.style.transition = "none"
-  }
+    if (!isVisible || !el) return
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!dragging.current) return
-    const y = e.touches[0].clientY
-    const dt = e.timeStamp - lastT.current
-    if (dt > 0) velocity.current = (y - lastY.current) / dt
-    lastY.current = y
-    lastT.current = e.timeStamp
-
-    const diff = y - startY.current
-    /* Up has nowhere to go, so it gives a little and stops. */
-    const offset = diff >= 0 ? diff : Math.max(diff / 6, -24)
-    if (diff > 0) e.preventDefault()
-    dragY.current = offset
-    paint(offset)
-  }
-
-  const handleTouchEnd = () => {
-    if (!dragging.current) return
-    dragging.current = false
-    const el = sheetRef.current
-    if (el) el.style.transition = `transform ${SHEET_MS}ms ${SHEET_EASE}`
-    /* Thrown away, or dragged more than a third of the way down. */
-    const thrown = velocity.current > 0.5
-    const far = dragY.current > 96
-    if (thrown || far) {
-      dragY.current = 0
-      handleClose()
-      return
+    const onStart = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      const target = e.target as HTMLElement
+      /* Only from the grip, or from a list already scrolled to its top:
+         otherwise a drag on the list is a scroll of the list. */
+      const fromGrip = target.closest("[data-sheet-grip]") !== null
+      const scroller = target.closest("[data-sheet-scroll]") as HTMLElement | null
+      if (!fromGrip && scroller && scroller.scrollTop > 0) return
+      startedInList.current = !fromGrip && scroller !== null
+      startY.current = touch.clientY
+      lastY.current = touch.clientY
+      lastT.current = e.timeStamp
+      velocity.current = 0
+      dragging.current = true
+      el.style.transition = "none"
     }
-    dragY.current = 0
-    paint(0)
-  }
+
+    const onMove = (e: TouchEvent) => {
+      if (!dragging.current) return
+      const y = e.touches[0].clientY
+      const dt = e.timeStamp - lastT.current
+      if (dt > 0) velocity.current = (y - lastY.current) / dt
+      lastY.current = y
+      lastT.current = e.timeStamp
+
+      const diff = y - startY.current
+      /*
+        A DRAG THAT BEGAN IN THE LIST AND TURNS UPWARD IS A SCROLL. The list
+        was at its top, which is why the drag was allowed to start, but the
+        moment it heads up the visitor is reaching for the rest of the
+        filters. Hand the gesture back rather than rubber-banding a sheet
+        that cannot go up anyway.
+      */
+      if (diff < 0 && startedInList.current) {
+        dragging.current = false
+        el.style.transition = `transform ${SHEET_MS}ms ${SHEET_EASE}`
+        dragY.current = 0
+        paint(0)
+        return
+      }
+      /* Up from the grip has nowhere to go, so it gives a little and stops. */
+      const offset = diff >= 0 ? diff : Math.max(diff / 6, -24)
+      /* Non-passive, so this is the thing that actually stops the page
+         moving and stops Safari reading the gesture as a reload. */
+      if (e.cancelable) e.preventDefault()
+      dragY.current = offset
+      paint(offset)
+    }
+
+    const onEnd = () => {
+      if (!dragging.current) return
+      dragging.current = false
+      el.style.transition = `transform ${SHEET_MS}ms ${SHEET_EASE}`
+      const thrown = velocity.current > 0.5
+      const far = dragY.current > 96
+      dragY.current = 0
+      if (thrown || far) {
+        handleClose()
+        return
+      }
+      paint(0)
+    }
+
+    el.addEventListener("touchstart", onStart, { passive: true })
+    el.addEventListener("touchmove", onMove, { passive: false })
+    el.addEventListener("touchend", onEnd)
+    el.addEventListener("touchcancel", onEnd)
+    return () => {
+      el.removeEventListener("touchstart", onStart)
+      el.removeEventListener("touchmove", onMove)
+      el.removeEventListener("touchend", onEnd)
+      el.removeEventListener("touchcancel", onEnd)
+    }
+  })
+
+  /*
+    AND NOTHING BEHIND IT MOVES AT ALL.
+
+    `overflow: hidden` on body is what the other sheets use and it is not
+    enough on iOS, which keeps scrolling the document through it. Taking the
+    document out of flow at its current offset is the version that holds: the
+    page cannot scroll because there is nothing to scroll, so it cannot chain
+    and cannot be pulled far enough to trigger a refresh either.
+
+    The offset is put back on the way out, or closing the sheet jumps the
+    visitor to the top of a very long page.
+  */
+  useEffect(() => {
+    if (!isVisible) return
+    const body = document.body
+    const y = window.scrollY
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+    }
+    body.style.position = "fixed"
+    body.style.top = `-${y}px`
+    body.style.left = "0"
+    body.style.right = "0"
+    body.style.width = "100%"
+    return () => {
+      body.style.position = prev.position
+      body.style.top = prev.top
+      body.style.left = prev.left
+      body.style.right = prev.right
+      body.style.width = prev.width
+      window.scrollTo(0, y)
+    }
+  }, [isVisible])
 
   const toggleSubcategory = (subId: string) => {
     if (selectedSubcategories.includes(subId)) {
@@ -555,17 +675,18 @@ function MobileFilterSheet({
   if (!isVisible) return null
 
   return (
-    <div
-      className="fixed inset-0 z-[100] md:hidden"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+    /*
+      NO touch-action HERE. The used value is the intersection down the tree,
+      so `none` on this root would override the scroller's `pan-y` and the
+      filter list would not scroll at all. It goes on the scrim and on the
+      sheet's chrome instead, which are the parts that have nothing to scroll.
+    */
+    <div className="fixed inset-0 z-[100] md:hidden">
       {/* No backdrop-filter. A full-screen blurring layer over a very tall
           page is the one iOS reliably mispaints; plain black does the job. */}
       <div
         className={`absolute inset-0 bg-black/40 transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
-        style={{ transitionDuration: `${SHEET_MS}ms` }}
+        style={{ transitionDuration: `${SHEET_MS}ms`, touchAction: "none" }}
         onClick={handleClose}
       />
       <div
@@ -586,7 +707,7 @@ function MobileFilterSheet({
       >
         {/* The grip is the drag target, and it is not a button: tapping it did
             nothing a visitor wanted and swallowed the start of the gesture. */}
-        <div data-sheet-grip className="pt-2.5 pb-1.5 shrink-0 touch-none flex justify-center">
+        <div data-sheet-grip className="pt-2.5 pb-1.5 shrink-0 touch-none flex justify-center" style={{ touchAction: "none" }}>
           <div className="h-1 w-9 rounded-full bg-neutral-300" />
         </div>
 
@@ -991,12 +1112,15 @@ function smoothScrollToBrowseSection(ref: React.RefObject<HTMLElement | null>) {
 interface ExplorePageClientProps {
   initialProducts: any[]
   initialCategory: string
+  /** See lib/explore/interests. Empty and `enough: false` when signed out. */
+  interests?: Interests
   searchQuery: string
 }
 
 export function ExplorePageClient({
   initialProducts,
   initialCategory,
+  interests = EMPTY_INTERESTS,
   searchQuery: urlSearchQuery,
 }: ExplorePageClientProps) {
   const router = useRouter()
@@ -1004,7 +1128,16 @@ export function ExplorePageClient({
   const [isPending, startTransition] = useTransition()
 
   // Main category (for Recommended section)
-  const [mainCategory, setMainCategory] = useState(initialCategory.toLowerCase() || "all")
+  /*
+    FOR YOU IS THE DEFAULT, for an account that has shown us enough. Arriving
+    on /explore with no category in the address is "show me the front of the
+    shop", and for somebody we know something about the front of the shop is
+    their own. An address that names a category still wins.
+  */
+  const [mainCategory, setMainCategory] = useState(() => {
+    const fromUrl = initialCategory.toLowerCase() || "all"
+    return fromUrl === "all" && interests.enough ? FOR_YOU_ID : fromUrl
+  })
 
   // Selected subcategory from modal
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | null>(null)
@@ -1017,6 +1150,22 @@ export function ExplorePageClient({
   const [recommendationFilter, setRecommendationFilter] = useState<"curated" | "trending" | "hot-new">("curated")
   const categoryChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const categorySectionRef = useRef<HTMLElement>(null)
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE LAST CATEGORY THE VISITOR ACTUALLY CHOSE
+    ═══════════════════════════════════════════════════════════════════════
+    Tapping a pill sets the state at once and writes the URL a moment later,
+    and the URL write is a server round trip. When it lands, the effect below
+    reads the category out of it and applies it — which is right when somebody
+    arrives on a link, and wrong when they have tapped two more pills since.
+    The reply to "design" would arrive after they had moved to "ai" and put
+    them back on design.
+
+    That is "it bugs when I switch too fast". So the choice is remembered, and
+    an incoming URL that does not match it is a reply to a question that has
+    been superseded.
+  */
+  const chosenCategoryRef = useRef<string | null>(null)
   const categoryAutoScrollTimeoutRef = useRef<number | null>(null)
   const pendingCategoryAutoScrollRef = useRef(false)
   const browseSectionRef = useRef<HTMLElement>(null)
@@ -1042,6 +1191,9 @@ export function ExplorePageClient({
     a marketing route can use.
   */
   const { language, setLanguage, languages: availableLanguages } = useLocale()
+
+  /* See buildPills: identical to everybody else's row below the threshold. */
+  const pillRow = useMemo(() => pillsFrom(interests), [interests])
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
@@ -1088,8 +1240,29 @@ export function ExplorePageClient({
   const recommendedProducts = useMemo(() => {
     let products = [...initialProducts]
 
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       FOR YOU IS AN ORDER, NOT A FILTER
+      ═══════════════════════════════════════════════════════════════════════
+      It could have been "only products in your categories", and that makes a
+      page that runs out. Ranking instead means the things this person is most
+      likely to want are at the top and the rest of the catalogue is still
+      underneath, so scrolling never hits a wall and the pagination still has
+      eight rows to fill.
+
+      What it does remove is what they already own. Being sold a thing you
+      have already bought is the one recommendation that is definitely wrong.
+    */
+    if (mainCategory === FOR_YOU_ID) {
+      const owned = new Set(interests.ownedProductIds)
+      products = products
+        .filter((p) => !owned.has(p.id))
+        .map((p) => ({ p, score: interestScore(p, interests) }))
+        .sort((a, b) => b.score - a.score)
+        .map(({ p }) => p)
+    }
     // Special handling for "freebies" category - show free products
-    if (mainCategory === "freebies") {
+    else if (mainCategory === "freebies") {
       products = products.filter(p => p.price_cents === 0)
     }
     // For all other categories (including "other"): strictly filter by normalized DB category
@@ -1238,7 +1411,7 @@ export function ExplorePageClient({
     }
 
     return products
-  }, [initialProducts, mainCategory, selectedSubcategoryId, recommendationFilter, priceFilter, sortBy, selectedSubcategories, localSearchQuery])
+  }, [initialProducts, mainCategory, selectedSubcategoryId, recommendationFilter, priceFilter, sortBy, selectedSubcategories, localSearchQuery, interests])
 
   // Paginated products
   const paginatedProducts = useMemo(() => {
@@ -1315,7 +1488,7 @@ export function ExplorePageClient({
   const exploreHref = useCallback(
     (categoryId: string, sort: string = sortBy) => {
       const params = new URLSearchParams()
-      if (categoryId && categoryId !== "all") params.set("c", categoryId)
+      if (categoryId && categoryId !== "all" && categoryId !== FOR_YOU_ID) params.set("c", categoryId)
       params.set("lang", language)
       params.set("srt", sort)
       return `/explore?${params.toString()}`
@@ -1405,6 +1578,7 @@ export function ExplorePageClient({
     setSelectedSubcategoryLabel(subcategoryLabel || null)
     setSelectedSubcategories([])
     setCurrentPage(1)
+    chosenCategoryRef.current = categoryId
     pendingCategoryAutoScrollRef.current = shouldAutoScrollToRecommended
 
     /*
@@ -1548,8 +1722,17 @@ export function ExplorePageClient({
   }, [])
 
   useEffect(() => {
-    const normalizedCategory = initialCategory.toLowerCase() || "all"
-    if (normalizedCategory !== mainCategory) setMainCategory(normalizedCategory)
+    const raw = initialCategory.toLowerCase() || "all"
+    /* The address has no word for For you: it is the absence of a category,
+       same as All. Which of the two that means depends on the account. */
+    const normalizedCategory = raw === "all" && interests.enough ? FOR_YOU_ID : raw
+    /* A reply that has been overtaken. Ignore the category it carries; the
+       rest of the effect still runs, because sub, srt and lang are not part
+       of what was superseded. */
+    const superseded =
+      chosenCategoryRef.current !== null && chosenCategoryRef.current !== normalizedCategory
+    if (chosenCategoryRef.current === normalizedCategory) chosenCategoryRef.current = null
+    if (!superseded && normalizedCategory !== mainCategory) setMainCategory(normalizedCategory)
 
     /* Written by exploreHref above; both are ignored when absent. */
     const srtParam = searchParams.get("srt")
@@ -1574,7 +1757,7 @@ export function ExplorePageClient({
         }
       }
     }
-  }, [initialCategory, searchParams])
+  }, [initialCategory, searchParams, interests.enough])
 
   const showSkeletons = isPending || isLoadingCategory
 
@@ -1637,7 +1820,10 @@ export function ExplorePageClient({
                 data-category-pills-row
                 className="flex w-max mx-auto items-center gap-2 sm:w-full sm:flex-wrap sm:justify-center sm:gap-y-2"
               >
-                {CATEGORY_PILLS.map((cat) => {
+                {/* "All", or "For you" for an account we know something about.
+                    Same position, same globe, same behaviour: it is the pill
+                    that clears the category, and it is first. */}
+                {[{ id: pillRow.first.id, label: pillRow.first.label }, ...pillRow.pills].map((cat) => {
                   const isSelected = mainCategory === cat.id
                   return (
                     <button
@@ -1647,6 +1833,7 @@ export function ExplorePageClient({
                         setSelectedSubcategoryId(null)
                         setSelectedSubcategoryLabel(null)
                         setCurrentPage(1)
+                        chosenCategoryRef.current = cat.id
                         /* Debounced and replacing, for the reason in
                            handleCategorySelect: a tap is not a page. */
                         if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
