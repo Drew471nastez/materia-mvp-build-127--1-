@@ -10,8 +10,7 @@ import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 import { ProductCardSkeleton } from "./product-card-skeleton"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ChevronDown, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Palette, Code, Lightbulb, FileText } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { useLanguage } from "@/lib/i18n/context"
-import { LANGUAGES } from "@/lib/i18n"
+import { useLocale } from "@/components/locale-provider"
 
 // Safe body scroll lock/unlock helpers that prevent scroll bugs
 let scrollLockCount = 0
@@ -944,7 +943,21 @@ export function ExplorePageClient({
   // Filter states
   const [priceFilter, setPriceFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("newest")
-  const { language, setLanguage } = useLanguage()
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     useLocale, NOT useLanguage, AND THE DIFFERENCE TOOK THE PAGE DOWN
+    ═══════════════════════════════════════════════════════════════════════
+    There are two language contexts in this codebase. lib/i18n/context's
+    LanguageProvider is mounted in ONE place, components/app/app-layout-wrapper,
+    which wraps the /app workspace and nothing else. Its useLanguage throws
+    when there is no provider above it, and /explore is under (marketing),
+    so calling it here replaced the whole page with an error boundary.
+
+    LocaleProvider is in the root layout, so it is above everything, and its
+    useLocale carries the same language and the same setter. That is the one
+    a marketing route can use.
+  */
+  const { language, setLanguage, languages: availableLanguages } = useLocale()
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
@@ -1449,7 +1462,7 @@ export function ExplorePageClient({
       setSortBy(srtParam)
     }
     const langParam = searchParams.get("lang")
-    if (langParam && LANGUAGES.some((l) => l.code === langParam) && langParam !== language) {
+    if (langParam && availableLanguages.some((l) => l.code === langParam) && langParam !== language) {
       setLanguage(langParam as typeof language)
     }
 
