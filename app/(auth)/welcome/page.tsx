@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 // ── Typing effect ────────────────────────────────────────────────────────────
 const PHRASES = [
@@ -147,7 +148,7 @@ export default function WelcomePage() {
           style={{ paddingTop: "clamp(18px, 4vh, 40px)" }}
         >
           <img
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+            src={STORELIB_LOGO}
             alt="Storelib"
             width={34}
             height={34}

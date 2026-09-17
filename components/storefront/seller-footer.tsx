@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 export interface SellerFooterSurface {
   backgroundColor?: string
@@ -74,7 +75,7 @@ export function SellerFooter({ isMobile, surface }: SellerFooterProps = {}) {
           aria-label="Explore Storelib"
         >
           <img
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+            src={STORELIB_LOGO}
             alt="Storelib"
             className="h-[15px] w-auto rounded-[4px]"
           />
@@ -115,7 +116,7 @@ export function SellerFooter({ isMobile, surface }: SellerFooterProps = {}) {
           aria-label="Explore Storelib"
         >
           <img
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+            src={STORELIB_LOGO}
             alt="Storelib"
             className="h-[18px] w-auto rounded-[4px]"
           />
@@ -158,7 +159,7 @@ export function SellerFooter({ isMobile, surface }: SellerFooterProps = {}) {
           aria-label="Explore Storelib"
         >
           <img
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+            src={STORELIB_LOGO}
             alt="Storelib"
             className="h-[15px] sm:h-[18px] w-auto rounded-[4px]"
           />

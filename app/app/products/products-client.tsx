@@ -10,6 +10,7 @@ import { getProductUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 interface Product {
   id: string
@@ -71,7 +72,7 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
     <body>
       <div class="header">
         <div class="logo">
-          <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg" alt="StoreLib" />
+          <img src={STORELIB_LOGO} alt="StoreLib" />
         </div>
         <h1>Products Report</h1>
         <p>Generated on ${today}</p>
@@ -121,7 +122,7 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
 
       <div class="footer">
         <div class="branding">
-          <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg" alt="StoreLib" />
+          <img src={STORELIB_LOGO} alt="StoreLib" />
         </div>
         <p>This report contains ${products.length} product(s) • Powered by StoreLib</p>
       </div>
