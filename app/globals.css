@@ -2313,7 +2313,33 @@ html.keyboard-open [data-page="library"] main {
   .product-bar-menu { animation: none }
 }
 
-html.keyboard-open main,
+/* ────────────────────────────────────────────────────────────────────────────
+   CLAMPING A SCROLL CONTAINER TO THE KEYBOARD, AND ONLY A SCROLL CONTAINER
+   ────────────────────────────────────────────────────────────────────────────
+   This used to name `main` with no scope, which is EVERY <main> on the site.
+
+   It is right for a fixed-height scroller: the /app shell and the library are
+   a viewport-tall box with the page scrolling inside it, and while the
+   keyboard is up that box has to shrink or it extends into the blank area
+   behind the keyboard and rubber-bands.
+
+   It is destructive for a page that scrolls the DOCUMENT. Measured on
+   production, /explore with the keyboard open:
+
+                     main height    footer top
+       normal            10676         10741
+       keyboard open       420           485
+
+   The marketing layout is a flex column — header, <main class="flex-1">,
+   footer — so clamping main to the visual viewport pulled the footer up
+   underneath the search field, with ten thousand pixels of products
+   overflowing invisibly behind it. That is the footer appearing under the
+   keyboard the moment the field is tapped.
+
+   So it names the two containers it was written for. Both already have their
+   own keyboard rules a few hundred lines above; this is the height one.
+   ──────────────────────────────────────────────────────────────────────────── */
+html.keyboard-open [data-page="library"] main,
 html.keyboard-open .app-content-scroll {
   height: var(--vvh, 100svh) !important;
   max-height: var(--vvh, 100svh) !important;
