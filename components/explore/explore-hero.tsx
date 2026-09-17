@@ -305,12 +305,20 @@ export function ExploreHero({
                 NO VIOLET HALO ON FOCUS. It bloomed a purple glow around the
                 whole field the moment it was tapped, which on a phone is the
                 first thing that happens and the loudest thing on the screen.
-                Focus darkens the border and lifts the same neutral shadow the
-                field already wears, so it is still plainly the focused thing
-                without changing colour.
+                Focus darkens the border instead: neutral-200/80 to
+                neutral-300, which is the affordance without the colour.
+
+                THERE WAS A FOCUS SHADOW HERE AND IT DID NOTHING. It shipped:
+                the rule is in the built stylesheet, correctly generated, with
+                the specificity to win. Driving the deployed page and reading
+                the computed value before and after focus gave the same two
+                layers both times, at both widths. Rather than keep a
+                declaration that measurably has no effect, it is gone, and the
+                border carries the state on its own. scripts/check-explore-live
+                reports both now, so a focus style that changes nothing cannot
+                sit here unnoticed again.
               */
-              "outline-none transition-shadow focus:border-neutral-300",
-              "focus:shadow-[0_1px_3px_rgba(15,23,42,0.054),0_11px_27px_-16px_rgba(15,23,42,0.36)]",
+              "outline-none transition-colors focus:border-neutral-300",
             )}
           />
           {draft && (
