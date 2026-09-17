@@ -270,7 +270,7 @@ async function main(width) {
     focus on the search input make sure no purple glow thing", so this reads
     the computed shadow off the focused element rather than the class list.
   */
-  r.focusGlow = await ev(`(() => {
+  r.focusGlow = await ev(`(async () => {
     const anchor = document.querySelector("[data-explore-search-anchor]")
     const field = anchor && anchor.querySelector("input")
     if (!field) return null
@@ -281,7 +281,25 @@ async function main(width) {
     const resting = restingCs.boxShadow || "none"
     const restingBorder = restingCs.borderColor || ""
     field.focus()
-    const focused = document.activeElement === field
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       WAIT FOR THE TRANSITION, OR READ THE VALUE IT STARTED FROM
+      ═══════════════════════════════════════════════════════════════════════
+      getComputedStyle DURING a transition returns the current interpolated
+      value, not the target. Reading a frame after focus() therefore reports
+      whatever the property was before focus, which is indistinguishable from
+      a focus rule that does nothing.
+
+      That mistake is already in this session's history: the field's focus
+      shadow was called dead on exactly this reading, while transition-shadow
+      was animating it. (And the backticks that used to be around that class
+      name closed this template literal. No backticks in here.) So this waits
+      longer than any transition on the
+      element before it looks, and it asks the element whether it matches
+      :focus rather than only whether it is the active one.
+    */
+    await new Promise((r) => setTimeout(r, 600))
+    const focused = document.activeElement === field && field.matches(":focus")
     const cs = getComputedStyle(field)
     const shadow = cs.boxShadow || "none"
     const border = cs.borderColor || ""

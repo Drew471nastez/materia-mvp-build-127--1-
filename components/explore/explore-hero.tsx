@@ -336,17 +336,26 @@ export function ExploreHero({
                 Focus darkens the border instead: neutral-200/80 to
                 neutral-300, which is the affordance without the colour.
 
-                THERE WAS A FOCUS SHADOW HERE AND IT DID NOTHING. It shipped:
-                the rule is in the built stylesheet, correctly generated, with
-                the specificity to win. Driving the deployed page and reading
-                the computed value before and after focus gave the same two
-                layers both times, at both widths. Rather than keep a
-                declaration that measurably has no effect, it is gone, and the
-                border carries the state on its own. scripts/check-explore-live
-                reports both now, so a focus style that changes nothing cannot
-                sit here unnoticed again.
+                AND THE SHADOW IS BACK, BECAUSE I TOOK IT OUT ON A BAD
+                MEASUREMENT. I reported it as dead CSS: the rule shipped, had
+                the specificity to win, and reading the computed value after
+                focus gave the resting shadow at both widths.
+
+                The reading was wrong. getComputedStyle DURING a transition
+                returns the current interpolated value, not the target, and
+                the probe read one frame after calling focus() while
+                transition-shadow was animating that exact property. It was
+                reporting the value the transition had started from. The same
+                artefact then hid the border change too, once the transition
+                covered colours, which is what gave it away: a border that had
+                measurably worked an hour earlier could not have stopped.
+
+                With the probe waiting for the transition, both move. So both
+                are here: a slightly deeper neutral shadow and a darker
+                border, and no violet in either.
               */
-              "outline-none transition-colors focus:border-neutral-300",
+              "outline-none transition-[box-shadow,border-color] focus:border-neutral-300",
+              "focus:shadow-[0_1px_3px_rgba(15,23,42,0.054),0_11px_27px_-16px_rgba(15,23,42,0.36)]",
             )}
           />
           {draft && (
