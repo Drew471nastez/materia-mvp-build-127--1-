@@ -1198,7 +1198,16 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div
-          className="platform-header-row flex md:h-[77px] items-center justify-between gap-4 pb-3 md:pb-[3px]"
+          /*
+            THREE PERCENT OFF, AND IT IS TAKEN OFF THE ROW RATHER THAN THE
+            PADDING. The desktop header is 3px of padding-top (globals.css),
+            this row, and 3px of padding-bottom: 83px in total. 97% of that is
+            80.5, so the row goes 77 -> 74.5 and the two 3px rails stay where
+            they are — they are what keeps the logo clear of the window edge,
+            and trimming them instead would have moved the contents rather
+            than made the bar shorter.
+          */
+          className="platform-header-row flex md:h-[74.5px] items-center justify-between gap-4 pb-3 md:pb-[3px]"
         >
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
           {isMarketingNavRoute ? (
