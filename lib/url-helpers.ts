@@ -40,6 +40,25 @@ export function getCanonicalSiteUrl(): string {
  * @param username - The seller's username
  * @returns Full URL like "https://username.storelib.com"
  */
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE CREATOR PAGE IS storelib.com/<name>. THE WEBSITE IS <name>.storelib.com.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * getWebsiteUrl already says this, at length, and these three helpers said the
+ * opposite: they returned the SUBDOMAIN for the creator page, so the two
+ * helpers handed out byte-identical URLs and the page's real address appeared
+ * nowhere in the product. Quick access printed
+ *
+ *     Creator page   https://andrewrullz.storelib.com
+ *     Website        andrewrullz.storelib.com
+ *
+ * which is one address under two names, and the creator page — the profile
+ * with the products and the follow button, served by
+ * app/(marketing)/[sellername] — could not be copied at all.
+ *
+ * The native branch of getStoreUrl was already right: it returns `/<name>`,
+ * the apex path, because that is the route. Only the web branch disagreed.
+ */
 export function getStoreUrl(username: string): string {
   if (!username) return getSiteUrl()
 
@@ -70,7 +89,7 @@ export function getStoreUrl(username: string): string {
     return `${getSiteUrl()}/u/${sanitizedUsername}`
   }
 
-  return `${protocol}://${sanitizedUsername}.${mainDomain}`
+  return `${protocol}://${mainDomain}/${sanitizedUsername}`
 }
 
 /**
@@ -180,7 +199,7 @@ export function getStoreShareUrl(username: string): string {
     return `${getSiteUrl()}/u/${sanitizedUsername}`
   }
 
-  return `https://${sanitizedUsername}.${mainDomain}`
+  return `https://${mainDomain}/${sanitizedUsername}`
 }
 
 /**
@@ -285,7 +304,7 @@ export function getStoreUrlDisplay(username: string): string {
     return `${mainDomain}/u/${username}`
   }
 
-  return `${username.toLowerCase()}.${mainDomain}`
+  return `${mainDomain}/${username.toLowerCase()}`
 }
 
 /**

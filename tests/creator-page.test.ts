@@ -461,9 +461,16 @@ function main() {
 
   // ── 5. One destination, and the old addresses still answer ─────────────
   {
+    /*
+      DASHBOARD-CLIENT IS NOT ON THIS LIST ANY MORE, and that is a removal
+      rather than a regression. Its only link here was a "Customize page"
+      button inside the Quick access popover, taken out on the owner's
+      instruction: that panel answers "what are my addresses?", and every row
+      in it is something to copy and hand to somebody else. The workspace is
+      still reached from the three below, which is what this check is for.
+    */
     const entries: Array<[string, string]> = [
       ["components/app/sidebar.tsx", '"/creator-page"'],
-      ["components/app/dashboard-client.tsx", '"/creator-page"'],
       ["components/storefront/owner-menu.tsx", '"/creator-page"'],
       ["components/app/settings-form-new.tsx", '"/creator-page"'],
     ]
@@ -524,6 +531,14 @@ function main() {
 
     /** All three surfaces, and the page is not listed twice under two names. */
     check("the creator page is no longer called Store in quick access", !/>Store<\/(p|div)>/.test(dash + settings))
+
+    /*
+      AND THE PANEL IS ADDRESSES ONLY. Two buttons sat above the rows, "View
+      page" and "Customize page"; they were removed on the owner's
+      instruction. Opening the page is what a row already does, and the editor
+      is in the nav, so the pair only made the three addresses harder to read.
+    */
+    check("no action buttons above the addresses", !/>\s*View page\s*</.test(dash) && !/>\s*Customize page\s*</.test(dash))
   }
 
   // ── 7. Editing in place: the CTA bar and a way to be contacted ─────────

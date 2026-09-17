@@ -29,6 +29,7 @@ import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { useLanguage, LANGUAGES } from "@/lib/i18n"
 import { BillingPageClient } from "@/components/app/billing/billing-page-client"
+import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 function ChainLinkIcon({ className = "w-3 h-3", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
   return (
@@ -2104,7 +2105,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   }}
                   className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
                 >
-                  <p className="text-[13px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" width={14} height={14} className="w-3.5 h-3.5" loading="eager" decoding="async" /></span>Creator page</p>
+                  <p className="text-[13px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src={STORELIB_LOGO} alt="" width={14} height={14} className="w-3.5 h-3.5" loading="eager" decoding="async" /></span>Creator page</p>
                   <p className="text-[11px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
                 </button>
                 {websiteUrl && (
@@ -2138,7 +2139,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               setIsQuickAccessOpen(false)
               openExternal(storeUrlWithDomain || navStoreUrlWithDomain)
             }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
-              <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" className="w-4 h-4" loading="eager" decoding="async" /></span>Creator page</p>
+              <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src={STORELIB_LOGO} alt="" className="w-4 h-4" loading="eager" decoding="async" /></span>Creator page</p>
               <p className="text-[12px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
             </button>
             {websiteUrl && (
