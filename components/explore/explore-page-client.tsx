@@ -11,6 +11,7 @@ import { ProductCardSkeleton } from "./product-card-skeleton"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ChevronDown, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Palette, Code, Lightbulb, FileText } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useLocale } from "@/components/locale-provider"
+import { EMPTY_INTERESTS, FOR_YOU_ID, buildPillRow, interestScore, type Interests } from "@/lib/explore/interests"
 
 // Safe body scroll lock/unlock helpers that prevent scroll bugs
 let scrollLockCount = 0
@@ -355,6 +356,11 @@ const PILL_IDS = [
  */
 const PILL_EMOJI: Record<string, string> = {
   all: "\u{1F30D}",
+  /* For you keeps the globe, per the owner: the pill in that position has
+     always been the world and swapping its face as well as its name would
+     make it read as a different control rather than the same one, named
+     for you. */
+  "for-you": "\u{1F30D}",
   design: "\u{1F3A8}",
   business: "\u{1F4BC}",
   marketing: "\u{1F4C8}",
@@ -363,11 +369,37 @@ const PILL_EMOJI: Record<string, string> = {
   development: "\u{1F4BB}",
   productivity: "\u{26A1}",
   video: "\u{1F3AC}",
+  /* The other six, because an interest pill can be any category and a pill
+     with no face next to eight that have one looks broken. */
+  "social-media": "\u{1F4AC}",
+  photography: "\u{1F4F7}",
+  "audio-music": "\u{1F3B5}",
+  ecommerce: "\u{1F6D2}",
+  freebies: "\u{1F381}",
+  other: "\u{1F4E6}",
 }
 const CATEGORY_PILLS = PILL_IDS
   .map((id) => CATEGORIES.find((c) => c.id === id))
   .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c))
 
+/**
+ * The row's shape is decided by lib/explore/interests, which is pure and
+ * tested. This turns its ids into the objects the pills are drawn from.
+ */
+function pillsFrom(interests: Interests) {
+  const row = buildPillRow(
+    interests,
+    PILL_IDS,
+    CATEGORIES.map((c) => c.id),
+  )
+  return {
+    first: { id: row.firstId, label: row.firstLabel },
+    pills: row.ids
+      .map((id) => CATEGORIES.find((c) => c.id === id))
+      .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c)),
+    personalised: row.personalised,
+  }
+}
 
 // Price filter options
 const PRICE_FILTERS = [
@@ -1080,12 +1112,15 @@ function smoothScrollToBrowseSection(ref: React.RefObject<HTMLElement | null>) {
 interface ExplorePageClientProps {
   initialProducts: any[]
   initialCategory: string
+  /** See lib/explore/interests. Empty and `enough: false` when signed out. */
+  interests?: Interests
   searchQuery: string
 }
 
 export function ExplorePageClient({
   initialProducts,
   initialCategory,
+  interests = EMPTY_INTERESTS,
   searchQuery: urlSearchQuery,
 }: ExplorePageClientProps) {
   const router = useRouter()
@@ -1093,7 +1128,16 @@ export function ExplorePageClient({
   const [isPending, startTransition] = useTransition()
 
   // Main category (for Recommended section)
-  const [mainCategory, setMainCategory] = useState(initialCategory.toLowerCase() || "all")
+  /*
+    FOR YOU IS THE DEFAULT, for an account that has shown us enough. Arriving
+    on /explore with no category in the address is "show me the front of the
+    shop", and for somebody we know something about the front of the shop is
+    their own. An address that names a category still wins.
+  */
+  const [mainCategory, setMainCategory] = useState(() => {
+    const fromUrl = initialCategory.toLowerCase() || "all"
+    return fromUrl === "all" && interests.enough ? FOR_YOU_ID : fromUrl
+  })
 
   // Selected subcategory from modal
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | null>(null)
@@ -1147,6 +1191,9 @@ export function ExplorePageClient({
     a marketing route can use.
   */
   const { language, setLanguage, languages: availableLanguages } = useLocale()
+
+  /* See buildPills: identical to everybody else's row below the threshold. */
+  const pillRow = useMemo(() => pillsFrom(interests), [interests])
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
@@ -1193,8 +1240,29 @@ export function ExplorePageClient({
   const recommendedProducts = useMemo(() => {
     let products = [...initialProducts]
 
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       FOR YOU IS AN ORDER, NOT A FILTER
+      ═══════════════════════════════════════════════════════════════════════
+      It could have been "only products in your categories", and that makes a
+      page that runs out. Ranking instead means the things this person is most
+      likely to want are at the top and the rest of the catalogue is still
+      underneath, so scrolling never hits a wall and the pagination still has
+      eight rows to fill.
+
+      What it does remove is what they already own. Being sold a thing you
+      have already bought is the one recommendation that is definitely wrong.
+    */
+    if (mainCategory === FOR_YOU_ID) {
+      const owned = new Set(interests.ownedProductIds)
+      products = products
+        .filter((p) => !owned.has(p.id))
+        .map((p) => ({ p, score: interestScore(p, interests) }))
+        .sort((a, b) => b.score - a.score)
+        .map(({ p }) => p)
+    }
     // Special handling for "freebies" category - show free products
-    if (mainCategory === "freebies") {
+    else if (mainCategory === "freebies") {
       products = products.filter(p => p.price_cents === 0)
     }
     // For all other categories (including "other"): strictly filter by normalized DB category
@@ -1343,7 +1411,7 @@ export function ExplorePageClient({
     }
 
     return products
-  }, [initialProducts, mainCategory, selectedSubcategoryId, recommendationFilter, priceFilter, sortBy, selectedSubcategories, localSearchQuery])
+  }, [initialProducts, mainCategory, selectedSubcategoryId, recommendationFilter, priceFilter, sortBy, selectedSubcategories, localSearchQuery, interests])
 
   // Paginated products
   const paginatedProducts = useMemo(() => {
@@ -1420,7 +1488,7 @@ export function ExplorePageClient({
   const exploreHref = useCallback(
     (categoryId: string, sort: string = sortBy) => {
       const params = new URLSearchParams()
-      if (categoryId && categoryId !== "all") params.set("c", categoryId)
+      if (categoryId && categoryId !== "all" && categoryId !== FOR_YOU_ID) params.set("c", categoryId)
       params.set("lang", language)
       params.set("srt", sort)
       return `/explore?${params.toString()}`
@@ -1654,7 +1722,10 @@ export function ExplorePageClient({
   }, [])
 
   useEffect(() => {
-    const normalizedCategory = initialCategory.toLowerCase() || "all"
+    const raw = initialCategory.toLowerCase() || "all"
+    /* The address has no word for For you: it is the absence of a category,
+       same as All. Which of the two that means depends on the account. */
+    const normalizedCategory = raw === "all" && interests.enough ? FOR_YOU_ID : raw
     /* A reply that has been overtaken. Ignore the category it carries; the
        rest of the effect still runs, because sub, srt and lang are not part
        of what was superseded. */
@@ -1686,7 +1757,7 @@ export function ExplorePageClient({
         }
       }
     }
-  }, [initialCategory, searchParams])
+  }, [initialCategory, searchParams, interests.enough])
 
   const showSkeletons = isPending || isLoadingCategory
 
@@ -1749,7 +1820,10 @@ export function ExplorePageClient({
                 data-category-pills-row
                 className="flex w-max mx-auto items-center gap-2 sm:w-full sm:flex-wrap sm:justify-center sm:gap-y-2"
               >
-                {CATEGORY_PILLS.map((cat) => {
+                {/* "All", or "For you" for an account we know something about.
+                    Same position, same globe, same behaviour: it is the pill
+                    that clears the category, and it is first. */}
+                {[{ id: pillRow.first.id, label: pillRow.first.label }, ...pillRow.pills].map((cat) => {
                   const isSelected = mainCategory === cat.id
                   return (
                     <button
