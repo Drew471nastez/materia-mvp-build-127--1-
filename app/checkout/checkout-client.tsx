@@ -85,6 +85,7 @@ import {
   Globe,
   Search,
 } from "lucide-react"
+import { ReturnLink } from "@/components/navigation/return-link"
 
 // ---------- Types ----------
 interface SelectedVariant {
@@ -1895,10 +1896,10 @@ export default function CheckoutPageClient({
       {/* Header */}
       <header className="border-b border-gray-200 bg-white pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-6 sm:px-10 lg:px-16">
-          <a href={productUrl} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 min-h-[44px] transition-colors">
+          <ReturnLink href={productUrl} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 min-h-[44px] transition-colors">
             <ArrowLeft className="h-4 w-4 shrink-0" />
             <span className="truncate">Back to product</span>
-          </a>
+          </ReturnLink>
           <Link href="/explore" className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
             Continue Shopping
           </Link>
@@ -2278,8 +2279,11 @@ function OrderSummaryContent({
               )}
             </div>
           )}
+          {/* "Remove" is the same journey as the arrow above it — back to the
+              product you came from — so it returns rather than pushing a second
+              copy of that page, and it stops being a full document load. */}
           {productUrl && (
-            <a href={productUrl} className="text-xs text-gray-400 hover:text-red-500 transition-colors mt-1.5 inline-block">Remove</a>
+            <ReturnLink href={productUrl} className="text-xs text-gray-400 hover:text-red-500 transition-colors mt-1.5 inline-block">Remove</ReturnLink>
           )}
         </div>
         <span className="text-sm font-semibold text-gray-900 whitespace-nowrap shrink-0">{subtotal === 0 ? "Free" : formatPrice(subtotal)}</span>

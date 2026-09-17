@@ -5,7 +5,6 @@ import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
-import { LanguageProvider } from "@/lib/i18n/context"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 
 /**
@@ -61,29 +60,7 @@ export default async function MarketingLayout({
   const initialWishlistCount = await readWishlistCount()
   const onPlatformDomain = await isPlatformDomain()
   return (
-    /*
-      ═══════════════════════════════════════════════════════════════════════
-       THE LANGUAGE CONTEXT BELONGS TO THIS TREE TOO
-      ═══════════════════════════════════════════════════════════════════════
-      It was mounted only in components/app/app-layout-wrapper, so it existed
-      under /app and nowhere else. Explore then started calling useLanguage —
-      it puts `?lang=` on the URLs it hands out and reads one back, so a link
-      opens in the language it was shared from — and threw on every render:
-
-          Error: useLanguage must be used within a LanguageProvider
-
-      which the route's error boundary caught, so storelib.com/explore served
-      "Something went wrong while loading the explore page" to everyone. Found
-      by driving the deployed page rather than by a build, because the build is
-      green either way: this is a runtime context, and nothing type-checks that
-      a hook's provider is above it.
-
-      The provider is safe to put here. It reads localStorage and
-      navigator.language and holds a string; there is no fetch in it, nothing
-      authenticated, and no server work.
-    */
-    <LanguageProvider>
-    <div className="flex min-h-svh flex-col marketing-flex-wrapper">
+        <div className="flex min-h-svh flex-col marketing-flex-wrapper">
       {/* Preconnect to image CDN — saves ~200-400ms on first image request */}
       <link rel="preconnect" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
@@ -100,6 +77,5 @@ export default async function MarketingLayout({
         <ConditionalFooter />
       </Suspense>
     </div>
-    </LanguageProvider>
   )
 }

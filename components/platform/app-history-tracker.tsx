@@ -17,6 +17,9 @@ import { noteClientNavigation, notePopNavigation } from "@/lib/navigation/in-app
 export function AppHistoryTracker() {
   const pathname = usePathname()
   const first = useRef(true)
+  /* The path we are about to leave, so the trail records what is BEHIND the
+     next entry rather than only how many entries there are. */
+  const lastPath = useRef(pathname)
   /* Set by popstate so the pathname change it causes is counted as a return
      rather than as another push. popstate runs before the router commits. */
   const returning = useRef(false)
@@ -30,14 +33,17 @@ export function AppHistoryTracker() {
   useEffect(() => {
     if (first.current) {
       first.current = false
+      lastPath.current = pathname
       return
     }
     if (returning.current) {
       returning.current = false
       notePopNavigation()
+      lastPath.current = pathname
       return
     }
-    noteClientNavigation()
+    noteClientNavigation(lastPath.current)
+    lastPath.current = pathname
   }, [pathname])
 
   return null

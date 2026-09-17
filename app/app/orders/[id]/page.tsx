@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowLeft, Check, Download, Mail, CreditCard, Package } from "lucide-react"
+import { ReturnLink } from "@/components/navigation/return-link"
 
 export const metadata = {
   title: "Order Details",
@@ -72,12 +73,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/app/orders">
+        <ReturnLink href="/app/orders">
           <Button variant="ghost" size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Orders
           </Button>
-        </Link>
+        </ReturnLink>
       </div>
 
       <div>

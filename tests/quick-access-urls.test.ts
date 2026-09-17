@@ -297,32 +297,16 @@ function main() {
     "a page too short for the search to scroll away would hide the header for ever",
   )
 
-  /* ---------------------------------------------------------------------
-     THE CONTEXT EXPLORE NEEDS IS ABOVE IT
-     --------------------------------------------------------------------- */
-  console.log("\n  the marketing tree has a LanguageProvider")
-
   /*
-    explore-page-client calls useLanguage — it puts `?lang=` on the URLs it
-    hands out and reads one back — and the provider was mounted only in
-    components/app/app-layout-wrapper, which is /app and nowhere else. So
-    storelib.com/explore threw on every render and its error boundary served
-    "Something went wrong while loading the explore page" to everyone.
-
-    A BUILD CANNOT CATCH THIS. React context is resolved at runtime, and
-    nothing type-checks that a hook's provider is above it in the tree; the
-    build was green through the whole outage. So it is asserted here instead:
-    every marketing surface that calls useLanguage must have the provider in
-    an ancestor layout.
+    THE LANGUAGE CONTEXT. This used to assert that the marketing layout
+    mounted a LanguageProvider, because /explore had gone down with
+    "useLanguage must be used within a LanguageProvider" and mounting one
+    fixed it. That was the wrong fix and it has been reverted: the page now
+    reads the ROOT-level locale instead, which is where a marketing surface's
+    language belongs, and LanguageProvider stays scoped to the /app workspace
+    it was written for. tests/provider-scope owns that rule and checks the
+    mount count, so nothing is asserted here.
   */
-  const marketingLayout = read("app/(marketing)/layout.tsx")
-  check("the layout imports it", /import \{ LanguageProvider \} from "@\/lib\/i18n\/context"/.test(marketingLayout))
-  check("and wraps the tree in it", /<LanguageProvider>[\s\S]*<\/LanguageProvider>/.test(marketingLayout))
-  check(
-    "which is what the page under it needs",
-    /useLanguage\(\)/.test(read("components/explore/explore-page-client.tsx")),
-    "if this ever stops being true the provider above can go too",
-  )
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
