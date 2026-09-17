@@ -224,7 +224,10 @@ async function main(width) {
       const t = (b.textContent || "").trim()
       return t.length > 0 && t.length < 24 && b.getBoundingClientRect().height < 56
     })
-    const withEmoji = pills.filter((b) => /\p{Extended_Pictographic}/u.test(b.textContent || "")).length
+    /* Doubled, because this whole block is a template literal: a single
+       backslash is eaten before the browser sees it, and /p{...}/u is a
+       SyntaxError that threw this entire reading away without a word. */
+    const withEmoji = pills.filter((b) => /\\p{Extended_Pictographic}/u.test(b.textContent || "")).length
     return {
       popularColumns,
       pillsWithEmoji: withEmoji,
@@ -431,6 +434,18 @@ for (const r of [desk, phone]) {
   }
   if (r.footer?.found && r.footer.offenderCount > 0) {
     problems.push(`${label}: ${r.footer.offenderCount} element(s) inside main overlap the footer — ${r.footer.offenders.join(", ")}. main has overflow-x: clip, which leaves vertical overflow visible, so anything taller than its box paints over the footer.`)
+  }
+  /*
+    A READING THAT CAME BACK EMPTY IS A CHECK THAT DID NOT RUN, and that has
+    now happened twice in this file: once a selector that matched the wrong
+    element and read 0 from both edges, once a regex the template literal ate
+    on the way out. Both reported nothing and both looked like a pass.
+  */
+  if (!r.layout) {
+    problems.push(`${label}: the page-shape reading came back empty, so Most popular, the pills and the category headings were not tested at all.`)
+  }
+  if (label === "phone" && !r.withSearchOpen?.sheet) {
+    problems.push(`${label}: the open search sheet was not found, so which end it comes from was not tested.`)
   }
   if (r.layout && r.layout.categoryHeadings.length > 1) {
     problems.push(`${label}: ${r.layout.categoryHeadings.length} headings announce categories (${r.layout.categoryHeadings.join(" / ")}). There should be one board, not two.`)
