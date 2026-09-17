@@ -735,10 +735,26 @@ check(
     const header = code("components/store-builder/unified-section-renderer.tsx")
     const missing: string[] = []
 
-    // The default delay, read out of the source rather than pattern-matched.
-    const delay = Number(avatar.match(/delayMs = (\d+)/)?.[1] ?? 0)
+    /*
+      The default delay, read out of the source rather than pattern-matched —
+      and followed through the constant it now lives in. The literal moved to
+      FALLBACK_DELAY_MS because a second thing depends on it: the avatar's
+      fade-in is played only when the picture arrived LATER than this, which
+      is the difference between a cross-fade that has something to fade out of
+      and one that replays on every back navigation. Two copies of 600 would
+      be two chances for those to disagree, so this resolves the name.
+    */
+    const delay = Number(
+      avatar.match(/delayMs = (\d+)/)?.[1] ??
+        (/delayMs = FALLBACK_DELAY_MS/.test(avatar) ? avatar.match(/const FALLBACK_DELAY_MS = (\d+)/)?.[1] : undefined) ??
+        0,
+    )
     if (!(delay > 0))
       missing.push(`AvatarFallback's default delayMs is ${delay || "unset"} — initials paint before every image`)
+
+    // And the fade must stay tied to that same number rather than a new literal.
+    if (/animate-in fade-in/.test(avatar) && !/initialsWereShown && "animate-in fade-in/.test(avatar))
+      missing.push("the avatar's fade is unconditional again — it replays on every back navigation")
 
     // The src only moves once the replacement has decoded.
     if (!/new window\.Image\(\)/.test(avatar) || !/setShown\(src\)/.test(avatar))

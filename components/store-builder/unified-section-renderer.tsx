@@ -2969,7 +2969,11 @@ export function UnifiedShopHeader({
                   <AvatarImage
                     src={avatarSrc}
                     alt={profile?.display_name || ""}
-                    className="animate-in fade-in duration-300 ease-sheet"
+                    /* The fade lives in the component now, and it plays only
+                       when the initials were actually on screen to fade out
+                       of. Hardcoding the class here replayed it on every back
+                       navigation; see the note in components/ui/avatar.tsx. */
+                    crossFadeFromFallback
                   />
                 ) : null}
                 <AvatarFallback
