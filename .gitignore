@@ -58,3 +58,4 @@ tsconfig.*.generated.json
 
 # Written by scripts/check-drawer-scrollbars.mjs while it bundles the probe.
 .scroll-probe/
+.card-probe/

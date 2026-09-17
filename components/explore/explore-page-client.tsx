@@ -1418,7 +1418,7 @@ export function ExplorePageClient({
 
       {/* Dynamic Category Section (Recommended) */}
       {!urlSearchQuery && (
-        <section ref={categorySectionRef} className="mt-10 scroll-mt-28">
+        <section ref={categorySectionRef} className="mt-2 scroll-mt-28">
           {/* Section Header */}
           <div className="flex flex-col gap-4 mb-6 relative">
             {/*
@@ -1432,7 +1432,15 @@ export function ExplorePageClient({
               same choice twice.
             */}
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1 py-0.5">
+              {/*
+                THE ROW SCROLLS AND SAYS SO. It was clipped dead at the
+                Filters button with a pill cut in half at the edge, which
+                reads as broken rather than as more-to-the-right. The mask
+                fades the last few pixels instead.
+              */}
+              <div
+                className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1 py-0.5 [mask-image:linear-gradient(to_right,transparent_0,black_8px,black_calc(100%-20px),transparent_100%)]"
+              >
                 {CATEGORY_PILLS.map((cat) => {
                   const Icon = cat.icon
                   const isSelected = mainCategory === cat.id
@@ -1472,10 +1480,17 @@ export function ExplorePageClient({
                     if (window.innerWidth >= 768) setFiltersOpen(!filtersOpen)
                     else setMobileFiltersOpen(true)
                   }}
-                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer select-none ${
+                  /*
+                    AN EDGE AND A SHADOW, because on a phone this collapses to
+                    the icon alone and a bare glyph on a light background does
+                    not read as something you can press. The pills beside it
+                    have a border; this has that and a little depth, so it sits
+                    one layer above the row rather than in it.
+                  */
+                  className={`inline-flex items-center justify-center gap-2 h-[38px] px-3.5 sm:px-4 rounded-[10px] text-sm font-medium border transition-all duration-150 cursor-pointer select-none ${
                     filtersOpen || activeFilterCount > 0
-                      ? "bg-neutral-900 text-white"
-                      : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                      ? "bg-neutral-900 text-white border-neutral-900 shadow-[0_1px_2px_rgba(15,23,42,0.18)]"
+                      : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_1px_1px_rgba(15,23,42,0.04)]"
                   }`}
                 >
                   <SlidersHorizontal className="w-4 h-4" />

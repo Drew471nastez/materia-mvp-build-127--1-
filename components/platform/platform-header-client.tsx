@@ -1057,6 +1057,29 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
    */
   const isExploreSurface = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
   const searchInHeader = useSearchHandoff(isExploreSurface)
+  /**
+   * HOW TALL THE STICKY BAR IS, so the phone's search strip can sit under it
+   * and stick too.
+   *
+   * The strip is a SIBLING of #platform-header-root, not a child, and it has
+   * to stay one: on native that element is `position: fixed` with an explicit
+   * height, so a child that appears and disappears would be clipped by it or
+   * would change a height three other rules depend on. Measured on the phone
+   * and confirmed: the header's search worked on a desktop, where the field
+   * is inside the bar, and did nothing on a phone, where the strip scrolled
+   * away with the page.
+   */
+  const headerRootRef = useRef<HTMLDivElement | null>(null)
+  const [headerH, setHeaderH] = useState(0)
+  useEffect(() => {
+    const el = headerRootRef.current
+    if (!el) return
+    const measure = () => setHeaderH(Math.round(el.getBoundingClientRect().height))
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   /* Both spellings of a product: `/p/<slug>` still resolves and redirects,
      and `/<handle>/<slug>` is what everything hands out now. */
   const isDiscoverProductContext = isProductPage(pathname) && isDiscoverMode(pathname, searchParams)
@@ -1194,7 +1217,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
 
   return (
     <>
-      <div id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black", isSellerOrProductPage ? "relative" : "sticky top-0")}>
+      <div ref={headerRootRef} id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black", isSellerOrProductPage ? "relative" : "sticky top-0")}>
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div
@@ -2401,36 +2424,39 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       </div>
 
       {/*
-        The concave lead-in from the black header into the white strip below
-        it. Both are the phone's search strip now, so both come and go with
-        it: an empty white band under the header on Explore is a bar with
-        nothing in it.
+        THE PHONE'S SEARCH STRIP, AND IT STICKS.
+
+        It sat in normal flow under the sticky header, so it scrolled away the
+        moment the page moved — which made the whole handoff pointless on a
+        phone: the field appeared and then left. Measured on production, the
+        desktop went 0 search controls at rest to 1 scrolled, and the phone
+        went 0 to 0.
+
+        A sticky element of its own, offset by the header's measured height
+        rather than by a number written here, because that height is 80px on a
+        desktop, about 63px on a phone and 65px plus the safe area on native.
+
+        The concave lead-in comes with it: they are one piece, and an empty
+        white band under the header on Explore is a bar with nothing in it.
       */}
       {searchInHeader && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage) && (
-        <div className="relative z-[35] bg-black h-[20px] md:hidden">
-          <div className="absolute inset-0 bg-white rounded-t-[20px]" />
-        </div>
-      )}
-
-      {/* The phone's search strip. It carried the category pills too, until
-          those went; see the note where isExploreSurface is declared. */}
-      {searchInHeader && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage) && (
-        <div className="relative z-[35] w-full bg-white border-b border-neutral-200 md:hidden">
-          <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-            {/* Mobile Search Bar Trigger */}
-            {true && (
-              <div className="md:hidden pt-1.5 pb-1.5">
+        <div className="sticky z-[35] md:hidden" style={{ top: headerH }}>
+          <div className="relative bg-black h-[20px]">
+            <div className="absolute inset-0 bg-white rounded-t-[20px]" />
+          </div>
+          <div className="relative w-full bg-white border-b border-neutral-200">
+            <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+              <div className="pt-1.5 pb-1.5">
                 <button
                   type="button"
                   onClick={() => setSearchModalOpen(true)}
-                  className={`w-full h-10 flex items-center gap-2 px-4 bg-neutral-100 border border-neutral-200 text-neutral-500 text-sm cursor-pointer overflow-hidden ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+                  className={`w-full h-10 flex items-center gap-2 px-4 bg-neutral-100 border border-neutral-200 text-neutral-500 text-sm cursor-pointer overflow-hidden ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-[10px]"}`}
                 >
                   <Search className="h-4 w-4 text-neutral-400 shrink-0" />
                   <span className="truncate">{t("search_placeholder")}</span>
                 </button>
               </div>
-            )}
-
+            </div>
           </div>
         </div>
       )}

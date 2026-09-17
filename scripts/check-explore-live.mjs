@@ -54,13 +54,26 @@ function reachabilityFlags() {
 const READ = `(() => {
   const header = document.getElementById("platform-header-root")
   const hero = document.querySelector("[data-explore-search-anchor]")
-  /* Any text input inside the header, whatever it is called. */
-  const headerFields = header ? [...header.querySelectorAll("input")].filter((i) => {
-    const r = i.getBoundingClientRect()
-    return r.width > 40 && r.height > 20
-  }) : []
-  /* The phone's trigger is a button, not an input. */
-  const headerTriggers = header ? [...header.querySelectorAll("button")].filter((b) => /search/i.test(b.textContent || "")) : []
+  /*
+    A SEARCH PINNED AT THE TOP OF THE SCREEN, which is the claim — not "a
+    search inside a particular element". The first version of this counted
+    only controls inside #platform-header-root and reported the phone as
+    broken when the strip was merely a sibling of it. That was the wrong
+    question twice over: it missed a working control, and it would have
+    missed the real fault, which is a strip that shows up and then scrolls
+    away.
+
+    So: any search control whose box is in the top 160px of the viewport, and
+    the hero's own field does not count.
+  */
+  const near = (el) => {
+    const r = el.getBoundingClientRect()
+    if (r.width < 40 || r.height < 20) return false
+    if (hero && hero.contains(el)) return false
+    return r.top >= -4 && r.top < 160
+  }
+  const headerFields = [...document.querySelectorAll("input")].filter((i) => /search/i.test(i.placeholder || "") && near(i))
+  const headerTriggers = [...document.querySelectorAll("button")].filter((b) => /search/i.test(b.textContent || "") && near(b))
   const heroRect = hero ? hero.getBoundingClientRect() : null
   return {
     headerHeight: header ? Math.round(header.getBoundingClientRect().height) : null,
@@ -139,6 +152,52 @@ async function main(width) {
   await sleep(1200)
   r.backAtTop = await ev(READ)
 
+  /*
+    THE FOOTER MUST BE BELOW THE PAGE, not behind it.
+
+    Reported as "the footer is intergalactic with the product listing": the
+    footer's links and the product titles appeared interleaved on a phone.
+    `main` carries `overflow-x: clip`, which leaves VERTICAL overflow visible,
+    so anything inside it that grows past its box paints straight over the
+    footer underneath. So this asks the page directly: does any element inside
+    main have a rectangle that intersects the footer's.
+  */
+  await ev("window.scrollTo(0, document.documentElement.scrollHeight); true")
+  await sleep(1500)
+  r.footer = await ev(`(() => {
+    const footer = document.querySelector("footer")
+    if (!footer) return { found: false }
+    const f = footer.getBoundingClientRect()
+    const main = document.querySelector("main")
+    if (!main) return { found: true, noMain: true }
+    const offenders = []
+    for (const el of main.querySelectorAll("*")) {
+      const r = el.getBoundingClientRect()
+      if (r.width < 8 || r.height < 8) continue
+      const cs = getComputedStyle(el)
+      /* Something that cannot be seen cannot be overlapping anything. */
+      if (cs.visibility === "hidden" || cs.display === "none" || parseFloat(cs.opacity) === 0) continue
+      /* Nor can something parked off the left edge of the world. */
+      if (r.right < 0 || r.left > window.innerWidth) continue
+      /* Overlapping the footer's band, not merely touching its top edge. */
+      if (r.bottom > f.top + 2 && r.top < f.bottom - 2) {
+        const tag = el.tagName.toLowerCase()
+        const cls = typeof el.className === "string" ? el.className.split(" ").slice(0, 2).join(".") : ""
+        offenders.push(tag + (cls ? "." + cls : "") + " " + Math.round(r.height) + "px")
+      }
+    }
+    return {
+      found: true,
+      footerTop: Math.round(f.top),
+      mainBottom: Math.round(main.getBoundingClientRect().bottom),
+      /* Deepest first is noise; the outermost few name the culprit. */
+      offenders: offenders.slice(0, 6),
+      offenderCount: offenders.length,
+    }
+  })()`)
+  await ev("window.scrollTo(0, 0); true")
+  await sleep(600)
+
   /* Paging: press page 2 from the bottom of the list and see where it lands. */
   r.paging = await ev(`(() => {
     const two = [...document.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === "2" && b.className.includes("rounded-full"))
@@ -171,6 +230,7 @@ for (const r of [desk, phone]) {
   console.log(`    at rest      hero search: ${r.atRest.heroSearchPresent}   searches in header: ${r.atRest.headerSearches}`)
   console.log(`    scrolled 900 hero top: ${r.scrolled.heroTop}   searches in header: ${r.scrolled.headerSearches}`)
   console.log(`    back at top  searches in header: ${r.backAtTop.headerSearches}`)
+  if (r.footer?.found) console.log(`    footer top ${r.footer.footerTop}, main bottom ${r.footer.mainBottom}, elements overlapping the footer: ${r.footer.offenderCount}${r.footer.offenders?.length ? ` (${r.footer.offenders.join(", ")})` : ""}`)
   if (r.paging.found) console.log(`    pressed page 2 at y=${r.paging.before} and landed at y=${r.afterPaging}`)
   else console.log(`    no page 2 control found`)
   console.log("")
@@ -180,6 +240,9 @@ for (const r of [desk, phone]) {
   if (r.atRest.headerSearches !== 0) problems.push(`${label}: the header carries ${r.atRest.headerSearches} search control(s) while the page's own field is on screen. That is the same control twice.`)
   if (r.scrolled.headerSearches < 1) problems.push(`${label}: scrolled past the hero field, the header still has no search. The handoff did not happen.`)
   if (r.backAtTop.headerSearches !== 0) problems.push(`${label}: back at the top, the header kept its search. It should hand it back.`)
+  if (r.footer?.found && r.footer.offenderCount > 0) {
+    problems.push(`${label}: ${r.footer.offenderCount} element(s) inside main overlap the footer — ${r.footer.offenders.join(", ")}. main has overflow-x: clip, which leaves vertical overflow visible, so anything taller than its box paints over the footer.`)
+  }
   if (r.paging.found && r.afterPaging >= r.paging.before) {
     problems.push(`${label}: pressing page 2 from y=${r.paging.before} left the visitor at y=${r.afterPaging}. Paging should return to the top of the list.`)
   }

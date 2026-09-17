@@ -23,7 +23,6 @@
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import Link from "next/link"
 import { Search, X } from "lucide-react"
 import { SEARCH_ANCHOR_ATTR } from "@/lib/explore/use-search-handoff"
 import { cn } from "@/lib/utils"
@@ -38,6 +37,16 @@ const ROLL_MS = 420
 const ROLL_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
 /** Breathing room above and below the word, inside the chip. */
 const CHIP_PAD_Y = 8
+/**
+ * And the horizontal padding, which has to be ADDED to the measured width.
+ *
+ * Everything in this project is `box-sizing: border-box`, so a width set on
+ * the chip is the OUTSIDE of it and the padding eats into the space the word
+ * has. The word was measured at its natural width, the chip was set to
+ * exactly that, and the last letter fell outside the content box and was
+ * clipped by the window: "resources" rendered as "resource".
+ */
+const CHIP_PAD_X = { base: 10, sm: 14 }
 
 /**
  * ===========================================================================
@@ -67,8 +76,9 @@ const CHIP_PAD_Y = 8
  */
 function useRollingNoun() {
   const [index, setIndex] = useState(0)
-  const [box, setBox] = useState<{ widths: number[]; height: number } | null>(null)
+  const [box, setBox] = useState<{ widths: number[]; height: number; padX: number } | null>(null)
   const measureRef = useRef<HTMLSpanElement>(null)
+  const chipRef = useRef<HTMLSpanElement>(null)
 
   /* Layout, not effect: the chip must have its width before the first paint,
      or it opens at zero and springs out to the first word on load. */
@@ -78,9 +88,15 @@ function useRollingNoun() {
       if (!el) return
       const kids = Array.from(el.children) as HTMLElement[]
       if (!kids.length) return
+      /* Read from the chip rather than assumed, because the class that sets
+         it changes at the sm breakpoint and this has to follow. */
+      const padX = chipRef.current
+        ? parseFloat(getComputedStyle(chipRef.current).paddingLeft) || CHIP_PAD_X.base
+        : CHIP_PAD_X.base
       setBox({
         widths: kids.map((k) => Math.ceil(k.getBoundingClientRect().width)),
         height: Math.ceil(kids[0].getBoundingClientRect().height),
+        padX,
       })
     }
     measure()
@@ -99,26 +115,22 @@ function useRollingNoun() {
     return () => window.clearInterval(id)
   }, [])
 
-  return { index, box, measureRef }
+  return { index, box, measureRef, chipRef }
 }
 
 export function ExploreHero({
   query,
   onQueryChange,
-  sellHref = "/signup",
 }: {
   query: string
   onQueryChange: (value: string) => void
-  /** Where "start selling" goes. A prop so an authed visitor can be sent to
-   *  their dashboard instead of asked to sign up again. */
-  sellHref?: string
 }) {
-  const { index, box, measureRef } = useRollingNoun()
+  const { index, box, measureRef, chipRef } = useRollingNoun()
 
   /* More air between the black header and the heading, per the owner: the two
      were stacked with nothing between them. */
   return (
-    <section className="pt-14 pb-6 sm:pt-24 sm:pb-10">
+    <section className="pt-14 pb-3 sm:pt-24 sm:pb-4">
       {/* The sentence, whole, for anything that reads rather than looks. */}
       <h1 className="sr-only">Discover {NOUNS.slice(0, -1).join(", ")} and {NOUNS[NOUNS.length - 1]} from creators</h1>
 
@@ -145,7 +157,11 @@ export function ExploreHero({
             /* `items-start`, or the column stretches every child to the width of the
                widest and all five words measure the same. They did: 187px each,
                and the chip never resized. */
-            className="pointer-events-none fixed -left-[9999px] top-0 flex flex-col items-start whitespace-nowrap"
+            /* `invisible` as well as off screen. It is `position: fixed`, so it is not
+               clipped by anything and could in principle paint anywhere; a probe
+               run on production counted it as overlapping the footer. Hidden
+               visibility still lays out, which is all the measuring needs. */
+            className="pointer-events-none invisible fixed -left-[9999px] top-0 flex flex-col items-start whitespace-nowrap"
           >
             {NOUNS.map((w) => (
               <span key={w} className="block">{w}</span>
@@ -153,9 +169,10 @@ export function ExploreHero({
           </span>
 
           <span
+            ref={chipRef}
             className="relative inline-flex flex-col justify-center rounded-xl bg-violet-50 px-2.5 sm:px-3.5 align-middle motion-safe:transition-[width] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
             style={{
-              width: box ? box.widths[index] : undefined,
+              width: box ? box.widths[index] + 2 * box.padX : undefined,
               height: box ? box.height + CHIP_PAD_Y * 2 : undefined,
               transitionDuration: `${ROLL_MS}ms`,
             }}
@@ -192,19 +209,13 @@ export function ExploreHero({
         <p className="mt-4 text-[15px] sm:text-[17px] text-neutral-600">
           Discover what creators are building across the internet.
         </p>
-        <p className="mt-1.5 text-[15px] sm:text-[17px] text-neutral-600">
-          or{" "}
-          <Link
-            href={sellHref}
-            className="font-semibold text-[#5b21b6] underline-offset-4 hover:underline"
-          >
-            start selling your own
-          </Link>
-        </p>
+        {/* "or start selling your own" was here. The owner took it off: this
+            page is for looking through what other people have made, and an
+            invitation to go and sell something is a different errand. */}
       </div>
 
       {/* The page's search. The header's appears only once this has gone. */}
-      <div className="mt-7 sm:mt-9 mx-auto w-full max-w-[720px]" {...{ [SEARCH_ANCHOR_ATTR]: "" }}>
+      <div className="mt-6 sm:mt-8 mx-auto w-full max-w-[720px]" {...{ [SEARCH_ANCHOR_ATTR]: "" }}>
         <div className="relative">
           <Search className="pointer-events-none absolute left-4 sm:left-5 top-1/2 h-[18px] w-[18px] sm:h-5 sm:w-5 -translate-y-1/2 text-neutral-400" />
           <input
@@ -213,7 +224,8 @@ export function ExploreHero({
             placeholder="Search products, creators, topics..."
             aria-label="Search products, creators and topics"
             className={cn(
-              "h-[52px] sm:h-[62px] w-full rounded-full bg-white",
+              /* 10px, per the owner. A pill reads as a chip; this is a field. */
+              "h-[52px] sm:h-[62px] w-full rounded-[10px] bg-white",
               "border border-neutral-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_10px_30px_-18px_rgba(15,23,42,0.35)]",
               "pl-12 sm:pl-14 pr-12 text-[15px] sm:text-[17px] text-neutral-900 placeholder:text-neutral-400",
               "outline-none transition-shadow focus:border-violet-300 focus:shadow-[0_1px_3px_rgba(15,23,42,0.05),0_12px_34px_-16px_rgba(91,33,182,0.45)]",

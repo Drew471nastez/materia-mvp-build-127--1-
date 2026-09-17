@@ -358,11 +358,30 @@ export const ProductCard = memo(function ProductCard({
         )}
 
         <SmartLink href={productUrl} useClientNav={clientNav} className="relative flex-1 flex flex-col transition-opacity duration-100 active:opacity-70">
+          {/*
+            ═══════════════════════════════════════════════════════════════
+             THE BADGE MAY NOT TAKE THE WHOLE ROW
+            ═══════════════════════════════════════════════════════════════
+            The title could shrink and the badge could not. On a phone, a card
+            about 200px wide with a category called "Lightroom Presets" left
+            the title roughly one character of room, and `break-words` did
+            exactly what it was told: it broke the title after every letter.
+            One word per line, fifty lines, a card two thousand pixels tall.
+
+            That is also the "footer is intergalactic" report. The title
+            overflowed its card and painted straight over the footer below it,
+            so the footer's links and the product titles appeared interleaved.
+            One cause, two bug reports.
+
+            So the title takes the row and the badge is capped at 40% of it
+            and ellipsises. A category nobody can read in full is a smaller
+            loss than a title nobody can read at all.
+          */}
           <div className="flex items-start justify-between gap-2">
-            <h3 className="text-[17px] font-medium leading-tight break-words min-w-0" style={surface?.textColor ? { color: surface.textColor } : undefined}>{product.title}</h3>
+            <h3 className="flex-1 min-w-0 text-[17px] font-medium leading-tight break-words" style={surface?.textColor ? { color: surface.textColor } : undefined}>{product.title}</h3>
             <Badge
               variant="secondary"
-              className="shrink-0 text-xs capitalize"
+              className="shrink min-w-0 max-w-[40%] overflow-hidden text-ellipsis whitespace-nowrap text-xs capitalize"
               style={
                 surface?.badgeBackgroundColor || surface?.badgeTextColor
                   ? { backgroundColor: surface.badgeBackgroundColor, color: surface.badgeTextColor }
