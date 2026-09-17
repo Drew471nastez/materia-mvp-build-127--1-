@@ -326,6 +326,7 @@ function MobileTopSheet({
     */
     <div
       data-mobile-bottom-sheet="true"
+      data-search-sheet="true"
       className="fixed inset-x-0 z-[100] md:hidden"
       style={{ top: "var(--vv-top, 0px)", height: "var(--vv-h, 100dvh)" }}
     >
@@ -340,6 +341,11 @@ function MobileTopSheet({
       {/* Bottom Sheet */}
       <div
         ref={sheetRef}
+        /* The panel itself, so a measurement can tell it from the full-height
+           layer it sits in. Two components in this file carried the same
+           data-mobile-bottom-sheet, and a check that asked for "the sheet"
+           got the wrapper and read 0px from both edges. */
+        data-search-sheet-panel="true"
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
         style={{
           // 'none' rather than translateY(0px) when fully open: a transform

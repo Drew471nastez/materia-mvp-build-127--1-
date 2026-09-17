@@ -199,6 +199,42 @@ async function main(width) {
     footer underneath. So this asks the page directly: does any element inside
     main have a rectangle that intersects the footer's.
   */
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE SHAPE OF THE PAGE, as this round was asked for
+    ═══════════════════════════════════════════════════════════════════════
+    One card per row in Most popular on a phone, emoji on the category pills,
+    and ONE board of categories rather than the two that were on the page.
+  */
+  r.layout = await ev(`(() => {
+    const headings = [...document.querySelectorAll("h1, h2, h3")]
+    const popular = headings.find((h) => /most popular/i.test(h.textContent || ""))
+    let popularColumns = null
+    if (popular) {
+      const section = popular.closest("section") || popular.parentElement
+      const grid = section && section.querySelector("[class*=grid]")
+      if (grid) {
+        const kids = [...grid.children].filter((c) => c.getBoundingClientRect().height > 40)
+        const firstTop = kids.length ? Math.round(kids[0].getBoundingClientRect().top) : null
+        popularColumns = kids.filter((c) => Math.abs(Math.round(c.getBoundingClientRect().top) - firstTop) < 12).length
+      }
+    }
+    /* Pills sit in their own row under the search; count the ones wearing an emoji. */
+    const pills = [...document.querySelectorAll("button")].filter((b) => {
+      const t = (b.textContent || "").trim()
+      return t.length > 0 && t.length < 24 && b.getBoundingClientRect().height < 56
+    })
+    const withEmoji = pills.filter((b) => /\p{Extended_Pictographic}/u.test(b.textContent || "")).length
+    return {
+      popularColumns,
+      pillsWithEmoji: withEmoji,
+      /* Two headings that both announce categories is the duplicate board. */
+      categoryHeadings: headings
+        .filter((h) => /categor/i.test(h.textContent || ""))
+        .map((h) => (h.textContent || "").trim().slice(0, 48)),
+    }
+  })()`)
+
   await ev("window.scrollTo(0, document.documentElement.scrollHeight); true")
   await sleep(1500)
   r.footer = await ev(`(() => {
@@ -289,6 +325,35 @@ async function main(width) {
       mainBottom: Math.round(main.getBoundingClientRect().bottom),
       offenderCount: offenders.length,
       offenders: offenders.slice(0, 6),
+      /*
+        AND WHICH END IT CAME FROM. Reported as "it shows the search model
+        mobile bottom sheet from the top I want it from the bottom". A sheet
+        anchored to the bottom has its own bottom edge on the bottom edge of
+        the viewport the keyboard is not covering, so that is what is read
+        rather than any class name.
+      */
+      sheet: (() => {
+        /*
+          THE PANEL, NOT THE LAYER IT SITS IN. Two components in the header
+          carry data-mobile-bottom-sheet, and the search sheet's own is a
+          full-height layer sized to the visual viewport — measuring that
+          reads 0px from the top and 0px from the bottom no matter which end
+          the sheet came from, which is a check that cannot fail.
+        */
+        const el = document.querySelector("[data-search-sheet-panel]")
+        if (!el) return null
+        const b = el.getBoundingClientRect()
+        const viewportBottom = window.visualViewport
+          ? window.visualViewport.offsetTop + window.visualViewport.height
+          : window.innerHeight
+        return {
+          top: Math.round(b.top),
+          bottom: Math.round(b.bottom),
+          gapBelow: Math.round(viewportBottom - b.bottom),
+          gapAbove: Math.round(b.top),
+          blurred: getComputedStyle(el.parentElement || el).backdropFilter !== "none",
+        }
+      })(),
     }
   })()`)
   /* Shut it again so the rest of the run is not measuring a page with a
@@ -338,6 +403,14 @@ for (const r of [desk, phone]) {
   } else {
     console.log(`    search open: the trigger was not found, so this was not tested`)
   }
+  if (r.layout) {
+    console.log(`    Most popular is ${r.layout.popularColumns} card(s) per row; ${r.layout.pillsWithEmoji} pill(s) carry an emoji`)
+    console.log(`    headings that announce categories: ${r.layout.categoryHeadings.length ? r.layout.categoryHeadings.map((h) => JSON.stringify(h)).join(", ") : "none"}`)
+  }
+  if (r.withSearchOpen?.sheet) {
+    const sh = r.withSearchOpen.sheet
+    console.log(`    the open sheet sits ${sh.gapAbove}px from the top and ${sh.gapBelow}px from the bottom of the visible viewport, backdrop-filter ${sh.blurred ? "on" : "off"}`)
+  }
   if (r.paging.found) console.log(`    pressed page 2 at y=${r.paging.before} and landed at y=${r.afterPaging}`)
   else console.log(`    no page 2 control found`)
   console.log("")
@@ -358,6 +431,20 @@ for (const r of [desk, phone]) {
   }
   if (r.footer?.found && r.footer.offenderCount > 0) {
     problems.push(`${label}: ${r.footer.offenderCount} element(s) inside main overlap the footer — ${r.footer.offenders.join(", ")}. main has overflow-x: clip, which leaves vertical overflow visible, so anything taller than its box paints over the footer.`)
+  }
+  if (r.layout && r.layout.categoryHeadings.length > 1) {
+    problems.push(`${label}: ${r.layout.categoryHeadings.length} headings announce categories (${r.layout.categoryHeadings.join(" / ")}). There should be one board, not two.`)
+  }
+  if (label === "phone" && r.layout && r.layout.popularColumns !== null && r.layout.popularColumns > 1) {
+    problems.push(`${label}: Most popular is ${r.layout.popularColumns} cards per row. On a phone it should be one.`)
+  }
+  if (r.layout && r.layout.pillsWithEmoji < 3) {
+    problems.push(`${label}: only ${r.layout.pillsWithEmoji} category pill(s) carry an emoji.`)
+  }
+  if (label === "phone" && r.withSearchOpen?.sheet) {
+    const sh = r.withSearchOpen.sheet
+    if (sh.gapBelow > 8) problems.push(`${label}: the open search sheet ends ${sh.gapBelow}px above the bottom of the visible viewport, so it is not anchored to the bottom.`)
+    if (sh.gapAbove <= sh.gapBelow) problems.push(`${label}: the open search sheet is closer to the top (${sh.gapAbove}px) than the bottom (${sh.gapBelow}px). It is still coming from the top.`)
   }
   if (r.paging.found && r.afterPaging >= r.paging.before) {
     problems.push(`${label}: pressing page 2 from y=${r.paging.before} left the visitor at y=${r.afterPaging}. Paging should return to the top of the list.`)
