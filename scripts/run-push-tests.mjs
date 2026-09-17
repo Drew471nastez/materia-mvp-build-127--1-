@@ -75,6 +75,7 @@ const SUITES = [
   "tests/quick-access-urls.test.ts",
   "tests/return-navigation.test.ts",
   "tests/keyboard-viewport.test.ts",
+  "tests/keyboard-scroll-loop.test.ts",
   "tests/product-page-cache.test.ts",
   "tests/purchase-verify.test.ts",
   "tests/policy-pages.test.ts",

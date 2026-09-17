@@ -120,6 +120,11 @@ export function KeyboardGuard() {
       })))
     }
 
+    /* Whether the keyboard was up on the previous reading. The difference
+       between this and `kbHeight > 0` is the whole fix: one is a transition,
+       the other is a state that holds for as long as somebody is typing. */
+    let keyboardWasOpen = false
+
     function onViewportChange() {
       // Ignore orientation changes — they are not keyboard events
       const currentWidth = window.innerWidth
@@ -129,6 +134,26 @@ export function KeyboardGuard() {
       }
 
       const kbHeight = Math.max(0, window.innerHeight - vv.offsetTop - vv.height)
+      /*
+        ═══════════════════════════════════════════════════════════════════════
+         OPENING IS AN EVENT. BEING OPEN IS NOT.
+        ═══════════════════════════════════════════════════════════════════════
+        This ran on every visualViewport change, and one of the things it did
+        was a SMOOTH scroll to centre the focused input. A smooth scroll moves
+        the visual viewport, which fires `scroll` on it, which arrives here,
+        which starts another smooth scroll. The page never settles.
+
+        Filmed on a phone with the search focused: the content drifted the
+        whole time the field was focused, moving more than 60px between
+        samples 835ms apart, from 2.4s to 9.8s without stopping. That is the
+        "it keeps slowly moving, like it is trying to pull out something".
+
+        So the work that MOVES the page is done on the transition into
+        keyboard-open, and the work that is merely bookkeeping — the class and
+        the height variable — carries on every change, because those are
+        idempotent and cost nothing.
+      */
+      const opening = kbHeight > 0 && !keyboardWasOpen
       if (kbHeight > 0) {
         root.classList.add("keyboard-open")
         // Expose the visual viewport height (visible area above the keyboard)
@@ -140,11 +165,15 @@ export function KeyboardGuard() {
         // no blank space is visible at the bottom while the keyboard is open.
         // Two frames: first for the browser to apply the new height via CSS,
         // second to read the updated clientHeight and clamp safely.
-        requestAnimationFrame(() => requestAnimationFrame(clampScrollContainers))
-        // After the container has resized, ensure the focused input is visible
-        scrollFocusedInputIntoView()
+        if (opening) {
+          keyboardWasOpen = true
+          requestAnimationFrame(() => requestAnimationFrame(clampScrollContainers))
+          // After the container has resized, ensure the focused input is visible
+          scrollFocusedInputIntoView()
+        }
       } else {
         const wasOpen = root.classList.contains("keyboard-open")
+        keyboardWasOpen = false
         root.classList.remove("keyboard-open")
         root.style.removeProperty("--vvh")
         if (wasOpen) {
@@ -170,10 +199,14 @@ export function KeyboardGuard() {
 
       // Clear any pending timers from a previous focus
       focusTimers.forEach(clearTimeout)
-      focusTimers = [
-        setTimeout(scrollFocusedInputIntoView, 300),
-        setTimeout(scrollFocusedInputIntoView, 600),
-      ]
+      /*
+        ONE PASS, NOT TWO. There were centrings at 300ms and 600ms, on top of
+        the one the keyboard-open transition fires — three scrolls for one tap,
+        each of them smooth and each interrupting the last. 500ms is after a
+        slow iOS keyboard has finished animating, and the transition handler
+        covers the fast case.
+      */
+      focusTimers = [setTimeout(scrollFocusedInputIntoView, 500)]
     }
 
     vv.addEventListener("resize", onViewportChange)
