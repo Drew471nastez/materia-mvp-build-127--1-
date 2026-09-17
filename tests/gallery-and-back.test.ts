@@ -202,10 +202,39 @@ console.log("\nThe back arrow\n")
     worse than showing none.
   */
   const delay = Number(bar.match(/const SPINNER_DELAY_MS = (\d+)/)?.[1])
+  /*
+    THE FLOOR MOVED FROM 110 TO 300. A history back lands in 78ms on
+    production, but a slower phone can pass 110, and then the arrow cross-fades
+    into a spinner for the last frames before the page leaves — a twitch in
+    the header on the one navigation that needs no explaining. The spinner is
+    for the cold push, which measures around two seconds; 300 is still well
+    inside that. The ceiling is what keeps it honest for the slow path.
+  */
   check(
-    "the spinner waits before it appears",
-    Number.isFinite(delay) && delay >= 60 && delay <= 200,
-    `SPINNER_DELAY_MS is ${delay}. Under 60 flashes on a fast back; over 200 and a slow one has no answer.`,
+    "the spinner waits before it appears, and past any ordinary back",
+    Number.isFinite(delay) && delay >= 250 && delay <= 400,
+    `SPINNER_DELAY_MS is ${delay}. Under 250 twitches on a slow phone's back; over 400 and a cold push sits unexplained.`,
+  )
+  /*
+    THE TARGET IS BIGGER THAN THE DISC. "I press back and nothing happens" was
+    a 36px button under the 44pt minimum, with a tap hook that only accepts a
+    release within 10px of the box. The box is 56 x 52 now and the disc is a
+    child; the negative margins hand the size back to the row.
+  */
+  check(
+    "the back target is a 56 x 52 box, not the 36px disc",
+    /className="relative -my-2 -ml-4 -mr-2 inline-flex h-\[52px\] w-\[56px\] shrink-0 items-center justify-center select-none outline-none"/.test(bar),
+  )
+  check(
+    "and the disc is centred inside it with its press classes intact",
+    /"relative inline-flex h-9 w-9 items-center justify-center rounded-full",\s*\n\s*pressed \? "bar-control-pressed" : "bar-control",/.test(bar),
+  )
+  /* The bar is #1a1a1a. A light grey avatar ground on it is a bright disc that
+     paints before the photo and vanishes under it: a flash in the header on
+     every arrival. */
+  check(
+    "the bar's avatar has a dark ground, not the shared light one",
+    /<Avatar className="h-8 w-8 shrink-0 bg-white\/10">/.test(bar) && /<AvatarFallback className="bg-white\/10 text-\[10px\]">/.test(bar),
   )
   check(
     "the two icons share a centre",
