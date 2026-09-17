@@ -999,7 +999,35 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     the search". Above it the bar is simply where it belongs; below it the bar
     is pinned and carries the search.
   */
-  const headerTuckedAway = isExploreSurface && pastHeader && !searchInHeader
+  /*
+    AND IT CAN ALWAYS BE REACHED AGAIN. Hiding on "past the bar but not past
+    the search" is right while there is a search left to scroll past; on a
+    short result — one product, or a filter that matched almost nothing — the
+    field may never leave the viewport at all, and the bar would then be
+    tucked away for as long as the visitor stayed on the page. Measured on
+    production at 1280x860 the whole document was 1315px, so there were 455px
+    of scroll and the search never went anywhere.
+
+    Reaching the bottom brings it back regardless. On a page short enough for
+    the first condition to fail, the bottom is where the visitor already is.
+  */
+  const [atBottom, setAtBottom] = useState(false)
+  useEffect(() => {
+    if (!isExploreSurface) return
+    const read = () => {
+      const doc = document.documentElement
+      setAtBottom(doc.scrollHeight - window.scrollY - window.innerHeight < 120)
+    }
+    read()
+    window.addEventListener("scroll", read, { passive: true })
+    window.addEventListener("resize", read)
+    return () => {
+      window.removeEventListener("scroll", read)
+      window.removeEventListener("resize", read)
+    }
+  }, [isExploreSurface])
+
+  const headerTuckedAway = isExploreSurface && pastHeader && !searchInHeader && !atBottom
 
   /* Both spellings of a product: `/p/<slug>` still resolves and redirects,
      and `/<handle>/<slug>` is what everything hands out now. */

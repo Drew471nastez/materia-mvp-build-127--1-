@@ -284,6 +284,45 @@ function main() {
   )
   check("and at the top of the page it is always there", /window\.scrollY > Math\.max\(headerH, 1\)/.test(header))
   check("only Explore behaves this way", /if \(!isExploreSurface\) return/.test(header))
+  /*
+    AND IT CAN ALWAYS BE REACHED AGAIN. On a short result the search may never
+    leave the viewport, and without this the bar would stay tucked away for as
+    long as the visitor stayed. Measured on production at 1280x860 the whole
+    document was 1315px — 455px of scroll, and the field went nowhere.
+  */
+  check(
+    "reaching the bottom brings the bar back regardless",
+    /!searchInHeader && !atBottom/.test(header) &&
+      /doc\.scrollHeight - window\.scrollY - window\.innerHeight < 120/.test(header),
+    "a page too short for the search to scroll away would hide the header for ever",
+  )
+
+  /* ---------------------------------------------------------------------
+     THE CONTEXT EXPLORE NEEDS IS ABOVE IT
+     --------------------------------------------------------------------- */
+  console.log("\n  the marketing tree has a LanguageProvider")
+
+  /*
+    explore-page-client calls useLanguage — it puts `?lang=` on the URLs it
+    hands out and reads one back — and the provider was mounted only in
+    components/app/app-layout-wrapper, which is /app and nowhere else. So
+    storelib.com/explore threw on every render and its error boundary served
+    "Something went wrong while loading the explore page" to everyone.
+
+    A BUILD CANNOT CATCH THIS. React context is resolved at runtime, and
+    nothing type-checks that a hook's provider is above it in the tree; the
+    build was green through the whole outage. So it is asserted here instead:
+    every marketing surface that calls useLanguage must have the provider in
+    an ancestor layout.
+  */
+  const marketingLayout = read("app/(marketing)/layout.tsx")
+  check("the layout imports it", /import \{ LanguageProvider \} from "@\/lib\/i18n\/context"/.test(marketingLayout))
+  check("and wraps the tree in it", /<LanguageProvider>[\s\S]*<\/LanguageProvider>/.test(marketingLayout))
+  check(
+    "which is what the page under it needs",
+    /useLanguage\(\)/.test(read("components/explore/explore-page-client.tsx")),
+    "if this ever stops being true the provider above can go too",
+  )
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
