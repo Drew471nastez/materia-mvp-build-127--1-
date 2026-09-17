@@ -123,21 +123,50 @@ function main() {
     So the comparison is row against row, which is the number the class
     actually sets.
   */
-  const WAS = 77
+  const ORIGINAL = 77
+  const AFTER_FIRST_CUT = 74.5
   const row = header.match(/platform-header-row flex md:h-\[([\d.]+)px\]/)?.[1]
   check("the row names its height", !!row, `matched: ${row}`)
   if (row) {
-    const cut = 1 - Number(row) / WAS
-    check(`the row is 74.5px, down from ${WAS}`, Number(row) === 74.5)
-    check("which is about three percent off", cut > 0.025 && cut < 0.04, `${(100 * cut).toFixed(1)}%`)
+    const n = Number(row)
+    check(`the row is 70.75px, down from ${ORIGINAL}`, n === 70.75)
+    /* Two cuts, asked for separately: 3% off the original, then 5% off that. */
+    check(
+      "which is five percent off the previous 74.5",
+      Math.abs(1 - n / AFTER_FIRST_CUT - 0.05) < 0.002,
+      `${(100 * (1 - n / AFTER_FIRST_CUT)).toFixed(1)}%`,
+    )
+    check("and about eight percent off where it started", Math.abs(1 - n / ORIGINAL - 0.081) < 0.005)
   }
   check("the padding rails are untouched", /md:pb-\[3px\]/.test(header) && /padding-top: 3px/.test(read("app/globals.css")))
   /* The SSR placeholder holds the header's space before hydration; if it
      disagrees the page shifts by the difference on every load. */
   check(
-    "the SSR placeholder's note matches the measured number",
-    /74\.5px row \(border-box, padding included\) \+ 1px = 75\.5px measured/.test(read("components/marketing/conditional-header.tsx")),
+    "the SSR placeholder's note names the row's real height",
+    /70\.75px row \(border-box, padding included\)/.test(read("components/marketing/conditional-header.tsx")),
+    "a placeholder that disagrees shifts the page by the difference on every load",
   )
+
+  /*
+    A LITTLE DEPTH, AND IT IS THE SHARED VALUE. The creator page's bar and the
+    product page's bar already point at --bar-depth-dark; a fourth copy of a
+    shadow is how three bars a visitor moves between end up at three different
+    heights. Black rather than slate, because slate under a black bar is
+    lighter than the bar and reads as a halo at the seam.
+  */
+  const css = read("app/globals.css")
+  check("the header has depth", /platform-header-depth/.test(header))
+  check("drawn from the shared token", /\.platform-header-depth \{\s*\n\s*box-shadow: var\(--bar-depth-dark\);/.test(css))
+  check("and not a fourth copy of a shadow", !/\.platform-header-depth \{[^}]*rgba\(/.test(css))
+
+  /*
+    AND THE AIR UNDER IT CAME BACK DOWN. 8px off each breakpoint, and the two
+    stay in the same notation so it is visible that they move together.
+  */
+  const hero = read("components/explore/explore-hero.tsx")
+  /* The bottom padding was trimmed separately on main while this trimmed the
+     top; both are deliberate, so the merge kept both rather than picking one. */
+  check("the hero's top spacing is 48 / 88", /className="pt-\[48px\] pb-3 sm:pt-\[88px\] sm:pb-4"/.test(hero))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

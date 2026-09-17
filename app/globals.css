@@ -2628,6 +2628,19 @@ html.capacitor {
    env(safe-area-inset-top) = 0px on web browsers → no visual change there.
    Mobile:  max(0px, 14px) = 14px  (same as old pt-[14px] class)
    Desktop: 3px media-query override (matches old md:pt-[3px]) */
+/*
+  THE PLATFORM HEADER'S DEPTH, and it is the SHARED value rather than a fourth
+  copy of a shadow. --bar-depth-dark is what the creator page's bar and the
+  product page's bar already use; a black bar needs the black one, because the
+  slate value is lighter than the bar and reads as a halo at the seam.
+
+  Barely there on purpose. The bar should look like it sits over the page, not
+  like it is casting a shadow.
+*/
+.platform-header-depth {
+  box-shadow: var(--bar-depth-dark);
+}
+
 .platform-header-row {
   padding-top: max(env(safe-area-inset-top, 0px), 13px);
 }

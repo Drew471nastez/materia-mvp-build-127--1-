@@ -128,10 +128,18 @@ export function ExploreHero({
 }) {
   const { index, box, measureRef, chipRef } = useRollingNoun()
 
-  /* More air between the black header and the heading, per the owner: the two
-     were stacked with nothing between them. */
+  /*
+    THE AIR BETWEEN THE HEADER AND THE HEADING, TRIMMED BACK A LITTLE.
+
+    It was opened up because the two were stacked with nothing between them;
+    the owner has since asked for a little of it back, so this is 8px off each
+    breakpoint — 56 -> 48 on a phone, 96 -> 88 on a desktop. Written in pixels
+    rather than on the spacing scale because 88 is not a step on it, and
+    splitting the pair across two notations would hide that they move
+    together.
+  */
   return (
-    <section className="pt-14 pb-3 sm:pt-24 sm:pb-4">
+    <section className="pt-[48px] pb-3 sm:pt-[88px] sm:pb-4">
       {/* The sentence, whole, for anything that reads rather than looks. */}
       <h1 className="sr-only">Discover {NOUNS.slice(0, -1).join(", ")} and {NOUNS[NOUNS.length - 1]} from creators</h1>
 
