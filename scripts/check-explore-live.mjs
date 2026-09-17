@@ -153,6 +153,43 @@ async function main(width) {
   r.backAtTop = await ev(READ)
 
   /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE PAGE MAY NOT MOVE UNDER THE FINGER WHILE IT IS BEING SCROLLED
+    ═══════════════════════════════════════════════════════════════════════
+    The search strip appears once the hero's field has gone. While it was
+    `sticky` it was IN FLOW, so appearing added its height to the document and
+    pushed everything below it down, and scrolling back up took it away again.
+    Near the threshold that is a page that jumps under the finger.
+
+    So: crawl across the threshold a few pixels at a time and watch two
+    things — the document's height, and where a landmark well below the fold
+    sits relative to the scroll position. Either one moving means the strip is
+    still shifting the page.
+  */
+  r.shift = await ev(`(async () => {
+    const mark = document.querySelector("[data-gallery-index], main section, main div")
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+    const readings = []
+    for (let y = 300; y <= 900; y += 40) {
+      window.scrollTo(0, y)
+      await sleep(120)
+      readings.push({
+        y,
+        docHeight: Math.round(document.documentElement.scrollHeight),
+        /* The landmark's position in DOCUMENT space. Scrolling must not
+           change it; only a reflow can. */
+        markTop: mark ? Math.round(mark.getBoundingClientRect().top + window.scrollY) : null,
+      })
+    }
+    return {
+      heights: [...new Set(readings.map((x) => x.docHeight))],
+      markTops: [...new Set(readings.map((x) => x.markTop))],
+    }
+  })()`)
+  await ev("window.scrollTo(0, 0); true")
+  await sleep(600)
+
+  /*
     THE FOOTER MUST BE BELOW THE PAGE, not behind it.
 
     Reported as "the footer is intergalactic with the product listing": the
@@ -230,6 +267,7 @@ for (const r of [desk, phone]) {
   console.log(`    at rest      hero search: ${r.atRest.heroSearchPresent}   searches in header: ${r.atRest.headerSearches}`)
   console.log(`    scrolled 900 hero top: ${r.scrolled.heroTop}   searches in header: ${r.scrolled.headerSearches}`)
   console.log(`    back at top  searches in header: ${r.backAtTop.headerSearches}`)
+  console.log(`    scrolling across the threshold: ${r.shift.heights.length} document height(s) ${r.shift.heights.join("/")}, ${r.shift.markTops.length} position(s) for the landmark`)
   if (r.footer?.found) console.log(`    footer top ${r.footer.footerTop}, main bottom ${r.footer.mainBottom}, elements overlapping the footer: ${r.footer.offenderCount}${r.footer.offenders?.length ? ` (${r.footer.offenders.join(", ")})` : ""}`)
   if (r.paging.found) console.log(`    pressed page 2 at y=${r.paging.before} and landed at y=${r.afterPaging}`)
   else console.log(`    no page 2 control found`)
@@ -240,6 +278,12 @@ for (const r of [desk, phone]) {
   if (r.atRest.headerSearches !== 0) problems.push(`${label}: the header carries ${r.atRest.headerSearches} search control(s) while the page's own field is on screen. That is the same control twice.`)
   if (r.scrolled.headerSearches < 1) problems.push(`${label}: scrolled past the hero field, the header still has no search. The handoff did not happen.`)
   if (r.backAtTop.headerSearches !== 0) problems.push(`${label}: back at the top, the header kept its search. It should hand it back.`)
+  if (r.shift && r.shift.heights.length > 1) {
+    problems.push(`${label}: the document was ${r.shift.heights.join(" and ")}px tall at different scroll positions. Something is entering and leaving the flow as the page scrolls, which is the page jumping under the finger.`)
+  }
+  if (r.shift && r.shift.markTops.length > 1) {
+    problems.push(`${label}: a landmark below the fold sat at ${r.shift.markTops.join(", ")} in document space while only the scroll changed. The page is reflowing as it scrolls.`)
+  }
   if (r.footer?.found && r.footer.offenderCount > 0) {
     problems.push(`${label}: ${r.footer.offenderCount} element(s) inside main overlap the footer — ${r.footer.offenders.join(", ")}. main has overflow-x: clip, which leaves vertical overflow visible, so anything taller than its box paints over the footer.`)
   }

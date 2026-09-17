@@ -63,6 +63,23 @@ export function useSearchHandoff(enabled: boolean): boolean {
     }
     if (typeof window === "undefined") return
 
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     *  RESET ON ARRIVAL, WHICH IS THE FLASH IN THE HEADER ON THE WAY BACK
+     * ═══════════════════════════════════════════════════════════════════════
+     * The initial state is only initial ONCE. Going Explore → product →
+     * Explore is one document: on the product page `enabled` is false and
+     * this is left true, and coming back the header rendered WITH a search,
+     * held it until the observer found the anchor, and then took it away.
+     * A field appearing and vanishing on every return, which is what "the
+     * flash in the header" was.
+     *
+     * An Explore surface always has a hero with a field in it, so arriving on
+     * one means the page has the search. Said here rather than only in
+     * useState, because arriving is not always a mount.
+     */
+    setInHeader(false)
+
     let io: IntersectionObserver | null = null
     let watched: Element | null = null
 

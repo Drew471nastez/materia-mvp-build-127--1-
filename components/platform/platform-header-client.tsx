@@ -2424,38 +2424,41 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       </div>
 
       {/*
-        THE PHONE'S SEARCH STRIP, AND IT STICKS.
+        ═══════════════════════════════════════════════════════════════════════
+         THE PHONE'S SEARCH STRIP: FIXED, SQUARE, AND OUT OF THE WAY
+        ═══════════════════════════════════════════════════════════════════════
+        Three faults in one element, all reported together.
 
-        It sat in normal flow under the sticky header, so it scrolled away the
-        moment the page moved — which made the whole handoff pointless on a
-        phone: the field appeared and then left. Measured on production, the
-        desktop went 0 search controls at rest to 1 scrolled, and the phone
-        went 0 to 0.
+        IT WAS `sticky`, SO IT WAS IN FLOW. Appearing added about seventy
+        pixels to the document and pushed everything below it down; scrolling
+        back up took them away again. Near the threshold that is a page that
+        jumps under the finger, which is "the page glitches when I scroll".
+        `fixed` takes it out of flow entirely: it overlays the top of the
+        content the way a bar that appears on scroll is supposed to, and the
+        page underneath never moves.
 
-        A sticky element of its own, offset by the header's measured height
-        rather than by a number written here, because that height is 80px on a
-        desktop, about 63px on a phone and 65px plus the safe area on native.
+        IT HAD ROUNDED TOP CORNERS. A concave lead-in belongs between a black
+        header and a white PAGE, where it softens the join. This is a bar that
+        arrives over content, and the owner asked for the corners gone.
 
-        The concave lead-in comes with it: they are one piece, and an empty
-        white band under the header on Explore is a bar with nothing in it.
+        AND IT SAT TOO LOW, because that lead-in was twenty pixels of black
+        above it. Without it the field starts directly under the header.
       */}
       {searchInHeader && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage) && (
-        <div className="sticky z-[35] md:hidden" style={{ top: headerH }}>
-          <div className="relative bg-black h-[20px]">
-            <div className="absolute inset-0 bg-white rounded-t-[20px]" />
-          </div>
-          <div className="relative w-full bg-white border-b border-neutral-200">
-            <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-              <div className="pt-1.5 pb-1.5">
-                <button
-                  type="button"
-                  onClick={() => setSearchModalOpen(true)}
-                  className={`w-full h-10 flex items-center gap-2 px-4 bg-neutral-100 border border-neutral-200 text-neutral-500 text-sm cursor-pointer overflow-hidden ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-[10px]"}`}
-                >
-                  <Search className="h-4 w-4 text-neutral-400 shrink-0" />
-                  <span className="truncate">{t("search_placeholder")}</span>
-                </button>
-              </div>
+        <div
+          className="fixed inset-x-0 z-[35] md:hidden bg-white border-b border-neutral-200 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150"
+          style={{ top: headerH }}
+        >
+          <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+            <div className="py-2">
+              <button
+                type="button"
+                onClick={() => setSearchModalOpen(true)}
+                className="w-full h-10 flex items-center gap-2 px-4 bg-neutral-100 border border-neutral-200 text-neutral-500 text-sm cursor-pointer overflow-hidden rounded-[10px]"
+              >
+                <Search className="h-4 w-4 text-neutral-400 shrink-0" />
+                <span className="truncate">{t("search_placeholder")}</span>
+              </button>
             </div>
           </div>
         </div>
