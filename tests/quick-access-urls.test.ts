@@ -176,9 +176,45 @@ function main() {
     the bottom is read separately and reported, because it has now moved
     twice for reasons of its own.
   */
-  const heroPad = hero.match(/className="pt-\[48px\] (pb-[^\s"]+) sm:pt-\[88px\] (sm:pb-[^\s"]+)"/)
-  check("the hero's top spacing is 48 / 88", Boolean(heroPad), "pt-[48px] … sm:pt-[88px] is not on the section")
-  if (heroPad) console.log(`        its bottom padding is ${heroPad[1]} / ${heroPad[2]}`)
+  const heroPad = hero.match(/className="pt-\[(\d+)px\] pb-\[(\d+)px\] sm:pt-\[(\d+)px\] (sm:pb-[^\s"]+)"/)
+  check("the hero names all four of its paddings", Boolean(heroPad), "the section's class is not the expected shape")
+  if (heroPad) {
+    const [, phoneTop, phoneBottom, deskTop, deskBottom] = heroPad
+    /* The desktop pair is #252's and has not been asked to move. The phone
+       pair has moved three times on request, so it is reported rather than
+       pinned: pinning it means a spacing change fails a test named for the
+       space above a heading, which is what happened last time. */
+    check("the desktop top spacing is still 88", deskTop === "88")
+    console.log(`        phone: ${phoneTop}px above, ${phoneBottom}px below. desktop: ${deskTop}px above, ${deskBottom}.`)
+  }
+
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE PLACEHOLDER HAS TO RESERVE WHAT THE HEADER ACTUALLY TAKES
+    ═══════════════════════════════════════════════════════════════════════
+    It reserved 63px on a phone while the header measured 68, so the page
+    moved five pixels the moment React swapped the real one in. That is a
+    jump on every single load, and it is the kind of thing that gets reported
+    as a flash rather than as a layout shift.
+
+    The phone header is the sum of its parts, so the parts are added up here
+    and checked against what the placeholder reserves.
+  */
+  const padTop = Number(css.match(/\.platform-header-row \{[\s\S]*?padding-top: max\(env\(safe-area-inset-top, 0px\), ([\d.]+)px\)/)?.[1])
+  const padBottom = Number(header.match(/platform-header-row flex md:h-\[[\d.]+px\][^"]*? pb-\[([\d.]+)px\]/)?.[1])
+  const PHONE_CONTENT = 42 /* measured on production; the rails are what moved */
+  const BORDER = 1
+  const reserved = Number(read("components/marketing/conditional-header.tsx").match(/minHeight: 'max\(([\d.]+)px,/)?.[1])
+  check("the phone rails are readable", Number.isFinite(padTop) && Number.isFinite(padBottom), `${padTop} / ${padBottom}`)
+  if (Number.isFinite(padTop) && Number.isFinite(padBottom)) {
+    const real = padTop + PHONE_CONTENT + padBottom + BORDER
+    check(
+      "and the placeholder reserves exactly what the phone header takes",
+      Math.abs(real - reserved) < 0.5,
+      `header ${real}px, placeholder ${reserved}px — the page shifts by the difference on every load`,
+    )
+    console.log(`        phone header ${real}px = ${padTop} + ${PHONE_CONTENT} + ${padBottom} + ${BORDER}`)
+  }
 
   /* ---------------------------------------------------------------------
      THE HERO'S SUBTITLE

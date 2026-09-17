@@ -2642,7 +2642,25 @@ html.capacitor {
 }
 
 .platform-header-row {
-  padding-top: max(env(safe-area-inset-top, 0px), 13px);
+  /*
+    A FURTHER 5% OFF, ON THE PHONE ONLY.
+
+    The desktop row names its own height; the phone row has none and is the
+    sum of its parts, so the 5% comes out of the two rails rather than out of
+    a number. Measured on production the phone header was 68px:
+
+        13px   padding-top (this)
+        42px   the row's contents
+        12px   padding-bottom (pb-3 on the row)
+         1px   the header's own border
+        ----
+        68px
+
+    68 * 0.95 is 64.6, so 3.4px comes off, split evenly between the two
+    rails: 13 -> 11.3 here and 12 -> 10.3 on the row. Splitting it keeps the
+    contents centred in the bar rather than sliding them up.
+  */
+  padding-top: max(env(safe-area-inset-top, 0px), 11.3px);
 }
 @media (min-width: 768px) {
   .platform-header-row {
