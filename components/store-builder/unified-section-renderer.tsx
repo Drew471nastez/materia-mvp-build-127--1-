@@ -818,7 +818,7 @@ function UnifiedAboutSection({
                           className="relative w-full h-full flex-shrink-0"
                           style={{ minWidth: '100%' }}
                         >
-                          /*
+                          {/*
                             ═══════════════════════════════════════════════
                              `=== true`, NOT `!== false`, AND THAT IS THE
                              WHOLE OF THE FLASH ON THE WAY BACK
@@ -844,7 +844,7 @@ function UnifiedAboutSection({
                             be fetched still fires onLoadStart and still gets
                             its skeleton; one that is already decoded is
                             simply there.
-                          */
+                          */}
                           {mediaLoading[item.id] === true && item.type === "image" && (
                             <div className="absolute inset-0 z-10">
                               <MediaSkeleton className="w-full h-full rounded-lg" />

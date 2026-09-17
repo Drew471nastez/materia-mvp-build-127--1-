@@ -56,6 +56,7 @@ const SUITES = [
   "tests/icon-weight.test.ts",
   "tests/reserved-segments.test.ts",
   "tests/import-shadowing.test.ts",
+  "tests/jsx-comments.test.ts",
   "tests/admin-dashboard.test.ts",
   "tests/cron-reachable.test.ts",
   "tests/theme-presets.test.ts",
