@@ -103,10 +103,13 @@ export function ExploreHero({
             <span
               className={cn(
                 "col-start-1 row-start-1 whitespace-nowrap text-[#5b21b6]",
-                /* `translate`, not `transform`. Tailwind v4 builds `-translate-y-1.5` out of
-                   the standalone `translate` property, which is not part of `transform` and
-                   is animatable in its own right — so naming `transform` here animated the
-                   opacity and let the word JUMP. See tests/motion-properties. */
+                /*
+                  `translate`, NOT `transform`. Tailwind v4 moves things with
+                  the standalone `translate` property, so naming `transform`
+                  here would have animated the fade and let the word JUMP to
+                  its new position — which is the fault tests/motion-properties
+                  exists to catch, and did.
+                */
                 "motion-safe:transition-[opacity,translate] motion-safe:duration-[260ms] motion-safe:ease-out",
                 swapping ? "motion-safe:opacity-0 motion-safe:-translate-y-1.5" : "opacity-100 translate-y-0",
               )}
