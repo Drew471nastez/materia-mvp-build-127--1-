@@ -15,7 +15,7 @@ function HeaderPlaceholder() {
   // doesn't shift when React hydrates and swaps the fallback.
   // mobile:  .platform-header-row padding = max(env(safe-area-inset-top,0px), 13px)
   //          + ~50px content+bottom = max(63px, safe-area + 50px)
-  // desktop: a 74.5px row (border-box, padding included) + 1px = 75.5px measured
+  // desktop: a 70.75px row (border-box, padding included) + 1px measured
   return (
     <div
       id="platform-header-root"

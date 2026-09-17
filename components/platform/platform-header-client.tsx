@@ -1194,7 +1194,18 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
 
   return (
     <>
-      <div id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black", isSellerOrProductPage ? "relative" : "sticky top-0")}>
+      <div id="platform-header-root" className={cn(
+        /*
+          A LITTLE DEPTH, SO THE BAR SITS OVER THE PAGE RATHER THAN ABUTTING
+          IT. `platform-header-depth` is the shared --bar-depth-dark, the same
+          value the creator page's and the product page's bars use, so the
+          three strips a visitor moves between sit at the same height. Black
+          rather than slate because a slate shadow under a black bar is
+          lighter than the bar and reads as a halo at the seam.
+        */
+        "platform-header-depth z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black",
+        isSellerOrProductPage ? "relative" : "sticky top-0",
+      )}>
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div
@@ -1208,15 +1219,16 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             Measured on production the row is the height named here and the
             root is one pixel more:
 
-                before   row 77px     header 78px
-                after    row 74.5px   header 75.5px
+                77px     the original
+                74.5px   3.2% off
+                70.75px  another 5% off that
 
-            which is 3.2% off both. The padding is left alone on purpose —
-            it holds the contents clear of the window edge, and taking the
-            height out of it would have moved them rather than shortened
-            the bar.
+            and the measured root is one pixel more than whichever of those
+            the row is set to. The padding is left alone on purpose — it holds
+            the contents clear of the window edge, and taking the height out
+            of it would have moved them rather than shortened the bar.
           */
-          className="platform-header-row flex md:h-[74.5px] items-center justify-between gap-4 pb-3 md:pb-[3px]"
+          className="platform-header-row flex md:h-[70.75px] items-center justify-between gap-4 pb-3 md:pb-[3px]"
         >
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
           {isMarketingNavRoute ? (
