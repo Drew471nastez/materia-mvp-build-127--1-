@@ -28,7 +28,7 @@ import { SEARCH_ANCHOR_ATTR } from "@/lib/explore/use-search-handoff"
 import { cn } from "@/lib/utils"
 
 /** What the catalogue is made of, in the order it reads best out loud. */
-const NOUNS = ["templates", "courses", "ebooks", "tools", "resources"] as const
+const NOUNS = ["templates", "courses", "ebooks", "tools", "software", "resources"] as const
 
 /** Long enough to read the word and sit with it. The owner asked for a
  *  second more than the 2.6s it was. */
@@ -182,7 +182,7 @@ export function ExploreHero({
             /* More depth, per the owner: an inset hairline so the chip has an edge,
                and a soft violet cast under it so it sits on the page rather than
                being a flat wash of colour. No gradient. */
-            className="relative inline-flex flex-col justify-center rounded-xl bg-violet-50 px-2.5 sm:px-3.5 align-middle shadow-[inset_0_0_0_1px_rgba(91,33,182,0.10),0_1px_2px_rgba(91,33,182,0.10),0_8px_20px_-12px_rgba(91,33,182,0.45)] motion-safe:transition-[width] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
+            className="relative inline-flex flex-col justify-center rounded-xl bg-violet-50 px-2.5 sm:px-3.5 align-middle shadow-[inset_0_0_0_1px_rgba(91,33,182,0.06),0_1px_2px_rgba(91,33,182,0.05),0_6px_18px_-14px_rgba(91,33,182,0.30)] motion-safe:transition-[width] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
             style={{
               width: box ? box.widths[index] + 2 * box.padX : undefined,
               height: box ? box.height + CHIP_PAD_Y * 2 : undefined,
@@ -248,7 +248,16 @@ export function ExploreHero({
               "h-[52px] sm:h-[62px] w-full rounded-[10px] bg-white",
               "border border-neutral-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_10px_30px_-18px_rgba(15,23,42,0.35)]",
               "pl-12 sm:pl-14 pr-12 text-[15px] sm:text-[17px] text-neutral-900 placeholder:text-neutral-400",
-              "outline-none transition-shadow focus:border-violet-300 focus:shadow-[0_1px_3px_rgba(15,23,42,0.05),0_12px_34px_-16px_rgba(91,33,182,0.45)]",
+              /*
+                NO VIOLET HALO ON FOCUS. It bloomed a purple glow around the
+                whole field the moment it was tapped, which on a phone is the
+                first thing that happens and the loudest thing on the screen.
+                Focus darkens the border and lifts the same neutral shadow the
+                field already wears, so it is still plainly the focused thing
+                without changing colour.
+              */
+              "outline-none transition-shadow focus:border-neutral-300",
+              "focus:shadow-[0_1px_3px_rgba(15,23,42,0.06),0_12px_30px_-18px_rgba(15,23,42,0.40)]",
             )}
           />
           {query && (

@@ -208,172 +208,6 @@ type Profile = {
   is_creator?: boolean | null
 }
 
-// Mobile Top Sheet Component for Search - slides down from top
-function MobileTopSheet({
-  isOpen,
-  onClose,
-  children,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  children: React.ReactNode
-}) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startY = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
-  const [isMounted, setIsMounted] = useState(false)
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      // Prevent pull-to-refresh while sheet is open
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
-      })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setDragY(0)
-        // Restore pull-to-refresh after sheet fully closes
-        document.documentElement.style.overscrollBehavior = ''
-        document.body.style.overscrollBehavior = ''
-      }, 400)
-      return () => clearTimeout(timer)
-    }
-  }, [isOpen, isVisible])
-
-  const handleClose = () => {
-    setIsAnimating(false)
-    setDragY(0)
-    setTimeout(() => {
-      onClose()
-      // Restore pull-to-refresh
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-    }, 400)
-  }
-
-  // ── Handle-bar-only drag handlers (MobileTopSheet) ─────────────────────
-  // Touch handlers are ONLY on the handle bar at the bottom, NOT on the full
-  // sheet. This guarantees that touches on search inputs, category pills, and
-  // product result links inside the sheet are NEVER intercepted by drag logic.
-  const handleHandleTouchStart = (e: React.TouchEvent) => {
-    startY.current = e.touches[0].clientY
-    setIsDragging(true)
-  }
-
-  const handleHandleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    /* Positive = dragging DOWN, which is the way out of a sheet that came up
-       from the bottom. Dragging the other way does nothing rather than
-       stretching it off the top of the screen. */
-    const diff = currentY - startY.current
-    if (diff > 0) {
-      e.preventDefault()
-      setDragY(diff * 0.8)
-    }
-  }
-
-  const handleHandleTouchEnd = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    /* Down, not up: the sheet comes from the bottom now. */
-    if (dragY > 80) {
-      handleClose()
-    } else {
-      setDragY(0)
-    }
-  }
-
-  if (!isVisible || !isMounted) return null
-
-  return createPortal(
-    /*
-      ═══════════════════════════════════════════════════════════════════════
-       IT COMES UP FROM THE BOTTOM, AND IT SITS ON TOP OF THE KEYBOARD
-      ═══════════════════════════════════════════════════════════════════════
-      It dropped from the top, which puts the field a thumb cannot reach at
-      the far end of the screen and then hides it behind the keyboard the
-      moment it is tapped. Every search sheet on a phone comes from the
-      bottom, where the thumb already is.
-
-      THE OVERLAY IS THE VISUAL VIEWPORT, not the layout viewport. `--vv-h`
-      and `--vv-top` are maintained by components/viewport-vars from
-      window.visualViewport, which is the part of the page the keyboard is not
-      covering. Sizing the overlay to that is what keeps the sheet and its
-      field above the keyboard instead of under it, with no user-agent
-      sniffing and nothing to guess.
-
-      AND NO `backdrop-filter`. The scrim used `backdrop-blur-[2px]`, and a
-      full-screen blurring layer over a twelve-thousand pixel page is one of
-      the reliable ways to make a phone browser paint the wrong tiles: the
-      reported footer showing through the product listing appeared on tapping
-      this field and nowhere else. A plain translucent black does the same job
-      and asks nothing of the compositor.
-    */
-    <div
-      data-mobile-bottom-sheet="true"
-      className="fixed inset-x-0 z-[100] md:hidden"
-      style={{ top: "var(--vv-top, 0px)", height: "var(--vv-h, 100dvh)" }}
-    >
-      {/* Backdrop */}
-      <div
-        className={`absolute inset-0 bg-black/50 transition-opacity ease-out ${
-          isAnimating ? "opacity-100" : "opacity-0"
-        }`}
-        style={{ transitionDuration: '400ms' }}
-        onClick={handleClose}
-      />
-      {/* Bottom Sheet */}
-      <div
-        ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
-        style={{
-          // 'none' rather than translateY(0px) when fully open: a transform
-          // makes a new containing block on iOS and can offset touch
-          // coordinates, so taps land on the wrong row.
-          transform: isAnimating ? (dragY !== 0 ? `translateY(${dragY}px)` : 'none') : "translateY(100%)",
-          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          maxHeight: '85%',
-        }}
-      >
-        {/* Handle bar at the TOP now, which is the edge it is dragged from. */}
-        <div
-          className="pt-3 pb-1 touch-none shrink-0"
-          onTouchStart={handleHandleTouchStart}
-          onTouchMove={handleHandleTouchMove}
-          onTouchEnd={handleHandleTouchEnd}
-        >
-          <button
-            onClick={handleClose}
-            className="w-full flex justify-center py-2 cursor-pointer"
-            aria-label="Close search"
-          >
-            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-          </button>
-        </div>
-        <div className="mobile-top-sheet-scroll flex-1 overflow-y-auto overscroll-contain pb-[max(env(safe-area-inset-bottom,0px),12px)]">
-          {children}
-        </div>
-      </div>
-    </div>,
-    document.body,
-  )
-}
-
 // Mobile Bottom Sheet Component with swipe-to-close
 function MobileBottomSheet({
   isOpen,
@@ -2041,140 +1875,6 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
 
         {/* Mobile Search Bar Trigger is now rendered below in white UI section */}
 
-        {/* Mobile Search Top Sheet Modal */}
-        <MobileTopSheet
-          isOpen={searchModalOpen}
-          onClose={() => setSearchModalOpen(false)}
-        >
-          <div className="px-4 pt-4 pb-2">
-            {/* Search Input inside modal */}
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
-              <Input
-                value={query}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder={t("search_placeholder")}
-                className={`h-[42px] w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 text-sm ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
-                autoFocus
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuery("")
-                    setSearchResults([])
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer z-10"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Categories */}
-            {!query && (
-              <div className="pb-4 border-b border-gray-100">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Categories</h3>
-                <div className="flex flex-wrap gap-2">
-                  {SEARCH_CATEGORIES.map((cat) => (
-                    <button
-                      key={cat.label}
-                      type="button"
-                      onClick={() => {
-                        navigateToExploreCategory(cat.href + '&scroll=recommended')
-                        setSearchModalOpen(false)
-                      }}
-                      className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer touch-manipulation"
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Loading */}
-            {searchLoading && (
-              <div className="py-8 flex items-center justify-center">
-                <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
-                <span className="ml-2 text-sm text-gray-500">Searching...</span>
-              </div>
-            )}
-
-            {/* Search Results */}
-            {!searchLoading && searchResults.length > 0 && (
-              <div className="pt-2">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Products</h3>
-                <div className="space-y-0.5">
-                  {searchResults.map((product) => (
-                    <button
-                      key={product.id}
-                      type="button"
-                      onClick={() => {
-                        navigateReliably(productPath(product))
-                        setSearchModalOpen(false)
-                      }}
-                      className="flex w-full items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation text-left"
-                    >
-                      {product.thumbnail_url ? (
-                        <Image
-                          src={product.thumbnail_url}
-                          alt={product.title}
-                          width={46}
-                          height={44}
-                          className="w-12 h-12 rounded-lg object-cover border border-gray-200"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                          <Search className="w-5 h-5 text-gray-400" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
-                        {product.creator?.display_name && (
-                          <p className="text-xs text-gray-500 truncate">by {product.creator.display_name}</p>
-                        )}
-                      </div>
-                      <div className="text-sm font-semibold text-gray-900">
-                        {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* No results */}
-            {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
-              <div className="py-8 text-center">
-                <p className="text-sm text-gray-500">No products found for "{query}"</p>
-              </div>
-            )}
-
-            {/* Hint text */}
-            {!query && !searchLoading && (
-              <div className="py-4 text-center">
-                <p className="text-xs text-gray-500">Start typing to search products</p>
-              </div>
-            )}
-
-            {/* View all results button */}
-            {query.trim() && (
-              <div className="pt-3 mt-2 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigateReliably(`/explore?q=${encodeURIComponent(query)}`)
-                    setSearchModalOpen(false)
-                  }}
-                  className="w-full py-3 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 transition-colors cursor-pointer"
-                >
-                  View all results for "{query}"
-                </button>
-              </div>
-            )}
-          </div>
-        </MobileTopSheet>
 
         {/* Mobile & Desktop Categories are now rendered below in white UI section */}
       </div>
@@ -2300,17 +2000,19 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
 
           {isDiscoverProductContext && !isMarketingNavRoute && (
             <div className="mb-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false)
-                  setSearchModalOpen(true)
-                }}
+              {/*
+                This opened the sheet that no longer exists. It goes to the
+                page whose whole top half is a search field instead, which is
+                where somebody who taps "search products" wanted to end up.
+              */}
+              <Link
+                href="/explore"
+                onClick={() => setMobileMenuOpen(false)}
                 className="w-full h-[42px] flex items-center gap-2 px-3 bg-gray-100 border border-gray-200 text-gray-600 rounded-xl text-sm cursor-pointer overflow-hidden"
               >
                 <Search className="h-4 w-4 text-gray-400 shrink-0" />
                 <span className="truncate">{t("search_placeholder")}</span>
-              </button>
+              </Link>
             </div>
           )}
 
@@ -2587,18 +2289,176 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
           className="fixed inset-x-0 z-[35] md:hidden bg-white border-b border-neutral-200 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150"
           style={{ top: headerH }}
         >
+          {/*
+            ═══════════════════════════════════════════════════════════════
+             A FIELD, NOT A DOOR TO A FIELD
+            ═══════════════════════════════════════════════════════════════
+            This was a button that looked like a search box, and tapping it
+            threw a sheet over the whole page containing the real one. Two
+            taps and a full-screen animation to type a word, and the sheet is
+            what the owner asked to be rid of.
+
+            So this IS the field. Tapping it puts a cursor in it, the
+            keyboard comes up, and the results open underneath in the space
+            that is left. Nothing covers the page and nothing slides.
+          */}
           <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-            <div className="py-2">
-              <button
-                type="button"
-                onClick={() => setSearchModalOpen(true)}
-                className="w-full h-10 flex items-center gap-2 px-4 bg-neutral-100 border border-neutral-200 text-neutral-500 text-sm cursor-pointer overflow-hidden rounded-[10px]"
-              >
-                <Search className="h-4 w-4 text-neutral-400 shrink-0" />
-                <span className="truncate">{t("search_placeholder")}</span>
-              </button>
+            <div className="py-2 flex items-center gap-2">
+              <div className="relative flex-1 min-w-0">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                <Input
+                  value={query}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  onFocus={() => setSearchModalOpen(true)}
+                  placeholder={t("search_placeholder")}
+                  aria-label={t("search_placeholder")}
+                  className="h-10 w-full rounded-[10px] border-neutral-200 bg-neutral-100 pl-9 pr-9 text-sm text-neutral-900 placeholder:text-neutral-500 focus-visible:ring-0 focus-visible:border-neutral-300"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery("")
+                      setSearchResults([])
+                    }}
+                    aria-label="Clear search"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              {/* The way out, since there is no scrim to tap any more. */}
+              {searchModalOpen && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchModalOpen(false)
+                    setQuery("")
+                    setSearchResults([])
+                  }}
+                  className="shrink-0 text-sm font-medium text-neutral-600 cursor-pointer px-1"
+                >
+                  Cancel
+                </button>
+              )}
             </div>
           </div>
+
+          {/*
+            The results, in the room the keyboard leaves. --vv-h is the
+            visible viewport from components/viewport-vars, so this stops
+            above the keyboard rather than running underneath it.
+          */}
+          {searchModalOpen && (
+            <div
+              className="absolute inset-x-0 top-full overflow-y-auto overscroll-contain border-b border-neutral-200 bg-white px-4 pb-4 pt-3 shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)]"
+              style={{ maxHeight: `calc(var(--vv-h, 100dvh) - ${headerH + 56}px)` }}
+            >
+          {/* Categories */}
+          {!query && (
+            <div className="pb-4 border-b border-gray-100">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Categories</h3>
+              <div className="flex flex-wrap gap-2">
+                {SEARCH_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.label}
+                    type="button"
+                    onClick={() => {
+                      navigateToExploreCategory(cat.href + '&scroll=recommended')
+                      setSearchModalOpen(false)
+                    }}
+                    className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer touch-manipulation"
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Loading */}
+          {searchLoading && (
+            <div className="py-8 flex items-center justify-center">
+              <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+              <span className="ml-2 text-sm text-gray-500">Searching...</span>
+            </div>
+          )}
+
+          {/* Search Results */}
+          {!searchLoading && searchResults.length > 0 && (
+            <div className="pt-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Products</h3>
+              <div className="space-y-0.5">
+                {searchResults.map((product) => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() => {
+                      navigateReliably(productPath(product))
+                      setSearchModalOpen(false)
+                    }}
+                    className="flex w-full items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation text-left"
+                  >
+                    {product.thumbnail_url ? (
+                      <Image
+                        src={product.thumbnail_url}
+                        alt={product.title}
+                        width={46}
+                        height={44}
+                        className="w-12 h-12 rounded-lg object-cover border border-gray-200"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                        <Search className="w-5 h-5 text-gray-400" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
+                      {product.creator?.display_name && (
+                        <p className="text-xs text-gray-500 truncate">by {product.creator.display_name}</p>
+                      )}
+                    </div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* No results */}
+          {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
+            <div className="py-8 text-center">
+              <p className="text-sm text-gray-500">No products found for "{query}"</p>
+            </div>
+          )}
+
+          {/* Hint text */}
+          {!query && !searchLoading && (
+            <div className="py-4 text-center">
+              <p className="text-xs text-gray-500">Start typing to search products</p>
+            </div>
+          )}
+
+          {/* View all results button */}
+          {query.trim() && (
+            <div className="pt-3 mt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => {
+                  navigateReliably(`/explore?q=${encodeURIComponent(query)}`)
+                  setSearchModalOpen(false)
+                }}
+                className="w-full py-3 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 transition-colors cursor-pointer"
+              >
+                View all results for "{query}"
+              </button>
+            </div>
+          )}
+            </div>
+          )}
         </div>
       )}
 
