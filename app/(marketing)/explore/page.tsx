@@ -156,7 +156,7 @@ export default async function ExplorePage({
   const filteredProducts = productsWithCreators
 
   return (
-    <main className="min-h-screen bg-[#f5f5f5]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+    <main className="explore-ground min-h-screen bg-[#f5f5f5]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
