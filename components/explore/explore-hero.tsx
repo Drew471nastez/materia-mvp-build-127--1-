@@ -30,8 +30,9 @@ import { cn } from "@/lib/utils"
 /** What the catalogue is made of, in the order it reads best out loud. */
 const NOUNS = ["templates", "courses", "ebooks", "tools", "resources"] as const
 
-/** Long enough to read the word, short enough to see it change. */
-const HOLD_MS = 2600
+/** Long enough to read the word and sit with it. The owner asked for a
+ *  second more than the 2.6s it was. */
+const HOLD_MS = 3600
 /** The roll itself. One movement, on the curve the rest of the product uses. */
 const ROLL_MS = 420
 const ROLL_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
@@ -170,7 +171,10 @@ export function ExploreHero({
 
           <span
             ref={chipRef}
-            className="relative inline-flex flex-col justify-center rounded-xl bg-violet-50 px-2.5 sm:px-3.5 align-middle motion-safe:transition-[width] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
+            /* More depth, per the owner: an inset hairline so the chip has an edge,
+               and a soft violet cast under it so it sits on the page rather than
+               being a flat wash of colour. No gradient. */
+            className="relative inline-flex flex-col justify-center rounded-xl bg-violet-50 px-2.5 sm:px-3.5 align-middle shadow-[inset_0_0_0_1px_rgba(91,33,182,0.10),0_1px_2px_rgba(91,33,182,0.10),0_8px_20px_-12px_rgba(91,33,182,0.45)] motion-safe:transition-[width] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
             style={{
               width: box ? box.widths[index] + 2 * box.padX : undefined,
               height: box ? box.height + CHIP_PAD_Y * 2 : undefined,
@@ -206,7 +210,10 @@ export function ExploreHero({
           </span>
         </p>
 
-        <p className="mt-4 text-[15px] sm:text-[17px] text-neutral-600">
+        {/* 420 rather than 400: about five per cent more weight, which is what
+            the owner asked for. Inter is a variable font, so this is a real
+            weight rather than a synthesised bold. */}
+        <p className="mt-4 text-[15px] sm:text-[17px] font-[420] text-neutral-600">
           Discover what creators are building across the internet.
         </p>
         {/* "or start selling your own" was here. The owner took it off: this

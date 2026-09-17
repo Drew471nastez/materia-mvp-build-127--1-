@@ -227,10 +227,43 @@ check(
 console.log("\nControls a thumb can actually hit\n")
 
 const header = code("components/platform/platform-header-client.tsx")
+/*
+  WHAT MATTERS IS THE SIZE OF THE TARGET, NOT THE CLASS THAT MADE IT.
+
+  This used to look for `before:-inset-2` twice. That is one way to write
+  slack, and it stopped being the right one for the menu button: the logo link
+  sits immediately to its right, so an even ring around it put the two targets
+  on top of each other and the logo won the hit test. Its slack is asymmetric
+  now, wide on the side with nothing next to it.
+
+  So this measures the button plus its pseudo element on each side and checks
+  the result against 44px, which is the number the ring was standing in for.
+*/
+const SIDES = ["top", "right", "bottom", "left"] as const
+/** Tailwind spacing to pixels: the scale is 4px a step. */
+const px = (step: string) => Number(step.replace("-", ".")) * 4
+
+function hitArea(className: string) {
+  const pad: Record<string, number> = { top: 0, right: 0, bottom: 0, left: 0 }
+  const ring = className.match(/before:-inset-(\d+(?:[.-]\d+)?)/)
+  if (ring) for (const side of SIDES) pad[side] = px(ring[1])
+  for (const side of SIDES) {
+    const one = className.match(new RegExp(`before:-${side}-(\\d+(?:[.-]\\d+)?)`))
+    if (one) pad[side] = px(one[1])
+  }
+  const w = className.match(/\bw-(\d+(?:[.-]\d+)?)/)
+  const h = className.match(/\bh-(\d+(?:[.-]\d+)?)/)
+  return {
+    width: (w ? px(w[1]) : 0) + pad.left + pad.right,
+    height: (h ? px(h[1]) : 0) + pad.top + pad.bottom,
+  }
+}
+
+const slackedControls = (header.match(/className="[^"]*before:absolute[^"]*"/g) || []).map(hitArea)
 check(
   "the menu button has slack around it",
-  (header.match(/before:-inset-2/g) || []).length >= 2,
-  "40px in the corner of a screen is under what a thumb reliably hits",
+  slackedControls.length >= 2 && slackedControls.every((a) => a.width >= 44 && a.height >= 44),
+  `40px in the corner of a screen is under what a thumb reliably hits: ${JSON.stringify(slackedControls)}`,
 )
 check(
   "and it does not wait to see if it was a double tap",

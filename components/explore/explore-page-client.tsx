@@ -323,6 +323,24 @@ function normalizeCategoryToId(dbCategory: string): string {
  * from CATEGORIES so a label or an icon is edited in one place.
  */
 const PILL_IDS = ["all", "design", "business", "marketing", "ai", "education", "development"] as const
+/**
+ * REAL EMOJI, NOT LINE ICONS. The owner asked for the platform's own emoji,
+ * which is what every marketplace with a category row uses: they carry colour
+ * and read at 14px where a one-pixel stroke does not, and they are the same
+ * glyphs a visitor sees everywhere else on their phone.
+ *
+ * Kept here rather than on CATEGORIES because the label and the id are shared
+ * with the picker and the URL, and only the pills want a face on them.
+ */
+const PILL_EMOJI: Record<string, string> = {
+  all: "\u{1F30D}",
+  design: "\u{1F3A8}",
+  business: "\u{1F4BC}",
+  marketing: "\u{1F4C8}",
+  ai: "\u{2728}",
+  education: "\u{1F393}",
+  development: "\u{1F4BB}",
+}
 const CATEGORY_PILLS = PILL_IDS
   .map((id) => CATEGORIES.find((c) => c.id === id))
   .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c))
@@ -1442,7 +1460,6 @@ export function ExplorePageClient({
                 className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1 py-0.5 [mask-image:linear-gradient(to_right,transparent_0,black_8px,black_calc(100%-20px),transparent_100%)]"
               >
                 {CATEGORY_PILLS.map((cat) => {
-                  const Icon = cat.icon
                   const isSelected = mainCategory === cat.id
                   return (
                     <button
@@ -1459,7 +1476,7 @@ export function ExplorePageClient({
                           : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900"
                       }`}
                     >
-                      <Icon className="w-4 h-4" />
+                      <span aria-hidden className="text-[15px] leading-none">{PILL_EMOJI[cat.id]}</span>
                       {cat.label}
                     </button>
                   )
@@ -1807,93 +1824,16 @@ export function ExplorePageClient({
         </section>
       )}
 
-      {/* Browse by Category Section */}
-      <section ref={browseSectionRef} className="mt-12 pt-8 border-t border-neutral-200 scroll-mt-28">
-        {/* Section Header */}
-        <div className="flex flex-col gap-4 mb-4">
-          {/* Mobile: By Category button above pills, right-aligned */}
-          <div className="flex md:hidden justify-end">
-            <button
-              onClick={() => { setCategorySelectorSource('browse'); setCategorySelectorOpen(true) }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors cursor-pointer"
-            >
-              <span>By Category</span>
-              <ChevronDown className="w-4 h-4" />
-            </button>
-          </div>
+      {/*
+        THE SECOND CATEGORY BOARD IS GONE.
 
-          {/* Desktop: Title and By Category button on same row */}
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-neutral-900">
-              {browseCategory === "all" ? "Browse by Category" : browseCategoryLabel}
-            </h3>
-
-            {/* Desktop: By Category button */}
-            <button
-              onClick={() => { setCategorySelectorSource('browse'); setCategorySelectorOpen(true) }}
-              className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors cursor-pointer"
-            >
-              <span>By Category</span>
-              <ChevronDown className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Category Pills */}
-          <nav aria-label="Browse categories" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {CATEGORIES.slice(0, 8).map((category) => {
-              const isSelected = browseCategory === category.id
-              const Icon = category.icon
-              return (
-                <button
-                  key={category.id}
-                  onClick={() => handleBrowseOnlyChange(category.id)}
-                  className={`relative inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
-                    isSelected
-                      ? "bg-neutral-900 text-white shadow-sm"
-                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
-                  }`}
-                  aria-pressed={isSelected}
-                >
-                  <Icon className="w-4 h-4" />
-                  {category.label}
-                </button>
-              )
-            })}
-          </nav>
-        </div>
-
-        {/* Products Grid - 2 rows x 3 products on desktop */}
-        {browseSectionProducts.length > 0 ? (
-          <div className={`grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${browseGridEntrance}`}>
-            {browseSectionProducts.map((product, index) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                srcParam="?src=platform"
-                priority={index < 3}
-                clientNav
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-neutral-300 p-8 text-center">
-            <p className="text-neutral-500">No products found in this category.</p>
-          </div>
-        )}
-
-        {/* Show All Button */}
-        {browseSectionProducts.length > 0 && (
-          <div className="flex justify-center mt-6">
-            <Link
-              href={browseCategory === "all" ? "/explore" : `/explore/${browseCategory}`}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
-            >
-              <span>Show All {browseCategory !== "all" ? browseCategoryLabel : ""} Products</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        )}
-      </section>
+        "Browse by Category" sat between the product list and
+        FeaturedCategoriesSection — which is "Explore categories you can build
+        with" — so the page offered two category boards, one under the other,
+        with the same categories in both. The owner asked for the upper one
+        off. The pills at the top of the list are the third way to choose one
+        and the one that does not send you anywhere.
+      */}
 
       {/* Search Results Section */}
       {urlSearchQuery && (

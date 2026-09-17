@@ -1,8 +1,7 @@
 import type React from "react"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
-import { createClient } from "@/lib/supabase/server"
-import { readCurrentUser } from "@/lib/auth/current-user"
+import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { NativeAuthGate } from "@/components/native-auth-gate"
@@ -26,11 +25,16 @@ export default async function LibraryLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const isNative = await isCapacitorWebView()
-
-  /** A blip is not a sign-out. See lib/auth/current-user.ts. */
-  const current = await readCurrentUser(supabase)
+  /**
+   * Reading a header and asking Supabase who this is are unrelated, and the
+   * second can take up to three seconds. They were awaited one after the
+   * other; now the header read happens while the auth request is in flight.
+   */
+  const [isNative, current] = await Promise.all([
+    isCapacitorWebView(),
+    /** A blip is not a sign-out. See lib/auth/current-user.ts. */
+    currentUserForRequest(),
+  ])
   const user = current.user
 
   if (!user) {
@@ -50,11 +54,11 @@ export default async function LibraryLayout({
   }
 
   // ── Access gates ───────────────────────────────────────────────────────
-  const { data: gateCheck } = await supabase
-    .from("profiles")
-    .select("email_verified, is_creator, welcome_completed")
-    .eq("id", user.id)
-    .maybeSingle()
+  /**
+   * The page inside this layout needs the display name and avatar off the
+   * same row, so both come back in one select. See lib/auth/request-scope.ts.
+   */
+  const gateCheck = await profileForRequest(user.id)
 
   // Gate 1: email must be verified
   if (!gateCheck?.email_verified) {
