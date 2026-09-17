@@ -240,9 +240,14 @@ async function main(width) {
       const track = row.parentElement.getBoundingClientRect()
       const left = Math.round(r.left - track.left)
       const right = Math.round(track.right - r.right)
+      /* ONE ROW. Nine pills and a Filters button used to wrap on a desktop,
+         leaving "More..." alone on a second line, which reads as a mistake
+         rather than as a row that continues. Distinct tops is the measure. */
+      const tops = [...row.children].map((c) => Math.round(c.getBoundingClientRect().top))
       pillBox = {
         left,
         right,
+        rows: new Set(tops).size,
         count: row.children.length,
         /* Either centred within a few pixels, or wider than its track and
            therefore scrolling, which has no centre to be off. */
@@ -265,7 +270,7 @@ async function main(width) {
     focus on the search input make sure no purple glow thing", so this reads
     the computed shadow off the focused element rather than the class list.
   */
-  r.focusGlow = await ev(`(() => {
+  r.focusGlow = await ev(`(async () => {
     const anchor = document.querySelector("[data-explore-search-anchor]")
     const field = anchor && anchor.querySelector("input")
     if (!field) return null
@@ -276,7 +281,25 @@ async function main(width) {
     const resting = restingCs.boxShadow || "none"
     const restingBorder = restingCs.borderColor || ""
     field.focus()
-    const focused = document.activeElement === field
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       WAIT FOR THE TRANSITION, OR READ THE VALUE IT STARTED FROM
+      ═══════════════════════════════════════════════════════════════════════
+      getComputedStyle DURING a transition returns the current interpolated
+      value, not the target. Reading a frame after focus() therefore reports
+      whatever the property was before focus, which is indistinguishable from
+      a focus rule that does nothing.
+
+      That mistake is already in this session's history: the field's focus
+      shadow was called dead on exactly this reading, while transition-shadow
+      was animating it. (And the backticks that used to be around that class
+      name closed this template literal. No backticks in here.) So this waits
+      longer than any transition on the
+      element before it looks, and it asks the element whether it matches
+      :focus rather than only whether it is the active one.
+    */
+    await new Promise((r) => setTimeout(r, 600))
+    const focused = document.activeElement === field && field.matches(":focus")
     const cs = getComputedStyle(field)
     const shadow = cs.boxShadow || "none"
     const border = cs.borderColor || ""
@@ -532,7 +555,7 @@ for (const r of [desk, phone]) {
   }
   if (r.layout?.pills) {
     const pb = r.layout.pills
-    console.log(`    the pill row leaves ${pb.left}px on the left and ${pb.right}px on the right of its track (${pb.centred ? "centred" : "NOT centred"})`)
+    console.log(`    the pill row: ${pb.count} pills on ${pb.rows} row(s), ${pb.left}px left and ${pb.right}px right of its track (${pb.centred ? "centred" : "NOT centred"})`)
   }
   if (r.focusGlow) {
     console.log(`    the search field at rest:  ${r.focusGlow.resting} / border ${r.focusGlow.restingBorder}`)
@@ -573,6 +596,9 @@ for (const r of [desk, phone]) {
   }
   if (r.withSearchOpen?.covering?.length) {
     problems.push(`${label}: with the search open, ${r.withSearchOpen.covering.length} element(s) cover half the screen or more (${r.withSearchOpen.covering.join(", ")}). The sheet was meant to be gone.`)
+  }
+  if (r.layout?.pills && r.layout.pills.rows > 1) {
+    problems.push(`${label}: the category pills are on ${r.layout.pills.rows} rows. They should be one row that scrolls sideways.`)
   }
   if (r.layout?.pills && !r.layout.pills.centred) {
     problems.push(`${label}: the pill row leaves ${r.layout.pills.left}px on the left and ${r.layout.pills.right}px on the right of its track, so it is packed against one edge rather than centred.`)
