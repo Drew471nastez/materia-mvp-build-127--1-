@@ -4,6 +4,7 @@ import { useState, useCallback, useTransition, useMemo, useEffect, useRef } from
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { FeaturedBannerCarousel } from "./featured-banner-carousel"
+import { ExploreHero } from "./explore-hero"
 import { ProductCard } from "./product-card"
 import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 import { ProductCardSkeleton } from "./product-card-skeleton"
@@ -336,7 +337,14 @@ const SORT_OPTIONS = [
   { id: "price-high", label: "Price: High to Low" },
 ] as const
 
-const PRODUCTS_PER_PAGE = 9 // 3 per row x 3 rows
+/**
+ * SEVEN ROWS, which at three across is twenty-one. The owner asked for seven
+ * and the grid is three wide at its widest, so the number is derived from the
+ * two rather than written twice: change the columns and this follows.
+ */
+const PRODUCTS_PER_ROW = 3
+const ROWS_PER_PAGE = 7
+const PRODUCTS_PER_PAGE = PRODUCTS_PER_ROW * ROWS_PER_PAGE
 
 // Mobile Filter Bottom Sheet Component
 function MobileFilterSheet({
@@ -833,55 +841,6 @@ function CategorySelectorModal({
 }
 
 // Search Input Component
-function SearchInput({
-  isOpen,
-  onClose,
-  searchQuery,
-  setSearchQuery,
-  categoryName,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  searchQuery: string
-  setSearchQuery: (value: string) => void
-  categoryName: string
-}) {
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 100)
-    }
-  }, [isOpen])
-
-  if (!isOpen) return null
-
-  return (
-    <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 pointer-events-none" />
-        <Input
-          ref={inputRef}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={`Search in ${categoryName}...`}
-          className="h-11 w-full pl-10 pr-10 bg-neutral-100 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 rounded-full text-sm"
-        />
-        <button
-          onClick={() => {
-            setSearchQuery("")
-            onClose()
-          }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  )
-}
-
-
 function smoothScrollToRecommendedSection(ref: React.RefObject<HTMLElement | null>) {
   if (!ref.current) return
 
@@ -966,7 +925,6 @@ export function ExplorePageClient({
   }, [])
 
   // Search states
-  const [searchOpen, setSearchOpen] = useState(false)
   const [localSearchQuery, setLocalSearchQuery] = useState("")
 
   // Pagination
@@ -1185,6 +1143,28 @@ export function ExplorePageClient({
   const searchGridEntrance = useEntranceOnChange(urlSearchQuery || "", "animate-in fade-in-0 duration-200")
 
   const totalPages = Math.ceil(recommendedProducts.length / PRODUCTS_PER_PAGE)
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  CHANGING PAGE PUTS YOU AT THE TOP OF THE NEW ONE
+   * ═════════════════════════════════════════════════════════════════════════
+   * The controls set the page and nothing else, so pressing 2 left the
+   * visitor exactly where they were — at the BOTTOM of the list, looking at
+   * the last row of a page they had already read, with twenty-one new
+   * products above them and no sign anything had happened. Every catalogue
+   * that pages returns you to the start of the list, because that is where
+   * the thing you asked for is.
+   *
+   * The section's own top rather than the document's: the heading, the pills
+   * and the filters stay in view, so the list changes under controls that do
+   * not move.
+   */
+  const goToPage = useCallback((page: number) => {
+    const next = Math.max(1, Math.min(totalPages, page))
+    if (next === currentPage) return
+    setCurrentPage(next)
+    smoothScrollToRecommendedSection(categorySectionRef)
+  }, [currentPage, totalPages])
 
   // Get products for the Browse by Category section - 2 rows x 3 = 6 products
   const browseSectionProducts = useMemo(() => {
@@ -1418,6 +1398,8 @@ export function ExplorePageClient({
 
   return (
     <div className="space-y-8">
+      <ExploreHero query={localSearchQuery} onQueryChange={setLocalSearchQuery} />
+
       {/* Featured Banner Carousel */}
       {!urlSearchQuery && featuredProducts.length > 0 && (
         <FeaturedBannerCarousel products={featuredProducts} />
@@ -1584,14 +1566,13 @@ export function ExplorePageClient({
               </div>
             </div>
 
-            {/* Search Input */}
-            <SearchInput
-              isOpen={searchOpen}
-              onClose={() => setSearchOpen(false)}
-              searchQuery={localSearchQuery}
-              setSearchQuery={setLocalSearchQuery}
-              categoryName={sectionTitle}
-            />
+            {/*
+              THE SEARCH MOVED UP INTO THE HERO, where a visitor arriving to
+              browse is already looking, and where it is wide enough to read.
+              It was a collapsed field here behind a toggle that nothing
+              opened any more. components/explore/explore-hero has it, and the
+              header borrows it once it scrolls away.
+            */}
 
             {/* Filter Pills Row */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -1718,7 +1699,7 @@ export function ExplorePageClient({
               {totalPages > 1 && (
                 <div className="flex items-center justify-center gap-2 mt-8">
                   <button
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    onClick={() => goToPage(currentPage - 1)}
                     disabled={currentPage === 1}
                     className="flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                   >
@@ -1739,7 +1720,7 @@ export function ExplorePageClient({
                     return (
                       <button
                         key={page}
-                        onClick={() => setCurrentPage(page)}
+                        onClick={() => goToPage(page)}
                         className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-medium transition-colors cursor-pointer ${
                           currentPage === page
                             ? "bg-neutral-900 text-white"
@@ -1752,7 +1733,7 @@ export function ExplorePageClient({
                   })}
 
                   <button
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    onClick={() => goToPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     className="flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                   >

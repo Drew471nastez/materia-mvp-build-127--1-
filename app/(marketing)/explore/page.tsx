@@ -175,13 +175,21 @@ export default async function ExplorePage({
           searchQuery={searchQuery}
         />
 
-        {/* Below-the-fold sections wrapped in Suspense for streaming SSR */}
+        {/*
+          Below-the-fold sections, wrapped in Suspense for streaming SSR.
+
+          MOST POPULAR COMES FIRST, directly under the list and its
+          pagination, because that is where somebody who has read to the
+          bottom of page one is. The categories board was in between and it is
+          a change of subject: it sends you somewhere else rather than showing
+          you more of what you were looking at.
+        */}
         <Suspense fallback={null}>
-          <FeaturedCategoriesSection products={productsWithCreators} />
+          <MostPopularSection products={productsWithCreators} />
         </Suspense>
 
         <Suspense fallback={null}>
-          <MostPopularSection products={productsWithCreators} />
+          <FeaturedCategoriesSection products={productsWithCreators} />
         </Suspense>
       </div>
     </main>
