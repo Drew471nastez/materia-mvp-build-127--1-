@@ -314,11 +314,19 @@ function normalizeCategoryToId(dbCategory: string): string {
 }
 
 // Filter types for Recommended section
-const RECOMMENDATION_FILTERS = [
-  { id: "curated", label: "Curated" },
-  { id: "trending", label: "Trending" },
-  { id: "hot-new", label: "Hot & New" },
-] as const
+/**
+ * THE PILLS, WHICH ARE A SUBSET AND SAY SO.
+ *
+ * Seven of the fifteen categories, chosen because they are the ones with
+ * products in them, plus "More..." for the rest — which opens the picker that
+ * already existed rather than being a second list to keep in step. Derived
+ * from CATEGORIES so a label or an icon is edited in one place.
+ */
+const PILL_IDS = ["all", "design", "business", "marketing", "ai", "education", "development"] as const
+const CATEGORY_PILLS = PILL_IDS
+  .map((id) => CATEGORIES.find((c) => c.id === id))
+  .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c))
+
 
 // Price filter options
 const PRICE_FILTERS = [
@@ -338,12 +346,12 @@ const SORT_OPTIONS = [
 ] as const
 
 /**
- * SEVEN ROWS, which at three across is twenty-one. The owner asked for seven
- * and the grid is three wide at its widest, so the number is derived from the
- * two rather than written twice: change the columns and this follows.
+ * EIGHT ROWS, which at three across is twenty-four. The number is derived
+ * from the rows and the columns rather than written out, so changing either
+ * one keeps the other honest. It was seven for a day; the owner said eight.
  */
 const PRODUCTS_PER_ROW = 3
-const ROWS_PER_PAGE = 7
+const ROWS_PER_PAGE = 8
 const PRODUCTS_PER_PAGE = PRODUCTS_PER_ROW * ROWS_PER_PAGE
 
 // Mobile Filter Bottom Sheet Component
@@ -1400,57 +1408,64 @@ export function ExplorePageClient({
     <div className="space-y-8">
       <ExploreHero query={localSearchQuery} onQueryChange={setLocalSearchQuery} />
 
-      {/* Featured Banner Carousel */}
-      {!urlSearchQuery && featuredProducts.length > 0 && (
-        <FeaturedBannerCarousel products={featuredProducts} />
-      )}
+      {/*
+        THE BANNER SLIDER IS GONE. A full-width carousel of one product at a
+        time, with dots, sat between the heading and the list — so the first
+        thing under "Discover" was a single product chosen for you rather than
+        the catalogue you came to look through. The owner asked for no sliders
+        here, and the list starts immediately now.
+      */}
 
       {/* Dynamic Category Section (Recommended) */}
       {!urlSearchQuery && (
         <section ref={categorySectionRef} className="mt-10 scroll-mt-28">
           {/* Section Header */}
           <div className="flex flex-col gap-4 mb-6 relative">
-            {/* Title Row with Search and Filters */}
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900">
-                  {sectionTitle}
-                </h2>
-                {/* Desktop: Only show Clear when subcategory selected (clears to parent category) */}
-                {selectedSubcategoryId && (
-                  <button
-                    onClick={() => {
-                      setSelectedSubcategoryId(null)
-                      setSelectedSubcategoryLabel(null)
-                      router.push(`/explore?category=${mainCategory}`, { scroll: false })
-                    }}
-                    className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                    Clear
-                  </button>
-                )}
+            {/*
+              NO SECTION TITLE. It said "Recommended", above a list that is
+              the whole page — a heading for the only thing on the screen. The
+              row is the categories and a way to filter them, which is what
+              somebody standing in front of a catalogue actually reaches for.
+
+              The By Category button went with it: the pills ARE the
+              categories now, so a button that opens a list of them is the
+              same choice twice.
+            */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1 py-0.5">
+                {CATEGORY_PILLS.map((cat) => {
+                  const Icon = cat.icon
+                  const isSelected = mainCategory === cat.id
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => {
+                        setMainCategory(cat.id)
+                        setSelectedSubcategoryId(null)
+                        setSelectedSubcategoryLabel(null)
+                        router.push(cat.id === "all" ? "/explore" : `/explore?category=${cat.id}`, { scroll: false })
+                      }}
+                      className={`inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border transition-colors duration-150 ${
+                        isSelected
+                          ? "bg-neutral-900 text-white border-neutral-900"
+                          : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {cat.label}
+                    </button>
+                  )
+                })}
+                {/* Everything that did not fit, in the picker that already exists. */}
+                <button
+                  onClick={() => { setCategorySelectorSource('recommended'); setCategorySelectorOpen(true) }}
+                  className="inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border bg-white text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900 transition-colors duration-150"
+                >
+                  More...
+                </button>
               </div>
 
-              <div className="flex items-center gap-2">
-                {/* Mobile: Category Icon Button */}
-                <button
-                  onClick={() => { setCategorySelectorSource('recommended'); setCategorySelectorOpen(true) }}
-                  className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
-                >
-                  <Layers className="w-4 h-4" />
-                </button>
-
-                {/* Desktop: By Category Pill Button */}
-                <button
-                  onClick={() => { setCategorySelectorSource('recommended'); setCategorySelectorOpen(true) }}
-                  className="hidden md:inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
-                >
-                  <Layers className="w-4 h-4" />
-                  <span>By Category</span>
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-
+              <div className="flex items-center gap-2 shrink-0 relative">
                 {/* Filters Button */}
                 <button
                   onClick={() => {
@@ -1574,25 +1589,13 @@ export function ExplorePageClient({
               header borrows it once it scrolls away.
             */}
 
-            {/* Filter Pills Row */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              {RECOMMENDATION_FILTERS.map((filter) => {
-                const isSelected = recommendationFilter === filter.id
-                return (
-                  <button
-                    key={filter.id}
-                    onClick={() => setRecommendationFilter(filter.id as typeof recommendationFilter)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap transition-all duration-150 ease-out active:scale-[0.98] ${
-                      isSelected
-                        ? "bg-neutral-900 text-white shadow-sm"
-                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
-                )
-              })}
-            </div>
+            {/*
+              THE CURATED / TRENDING / HOT & NEW ROW IS GONE. It was a second
+              row of pills under the first, sorting the same list a different
+              way, and two rows of pills for one grid is the clutter the owner
+              pointed at. What it did lives in the Filters panel, which
+              already had a sort with the same options in it.
+            */}
 
             {/* Mobile: Clear Badge and Category Badge - shown below pills on mobile when category selected */}
             {(mainCategory !== "all" || selectedSubcategoryId) && (
