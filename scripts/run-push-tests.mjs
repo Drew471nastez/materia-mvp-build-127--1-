@@ -63,6 +63,7 @@ const SUITES = [
   "tests/featured-order.test.ts",
   "tests/product-bars.test.ts",
   "tests/product-page-load.test.ts",
+  "tests/back-no-replay.test.ts",
   "tests/product-page-cache.test.ts",
   "tests/purchase-verify.test.ts",
   "tests/policy-pages.test.ts",
