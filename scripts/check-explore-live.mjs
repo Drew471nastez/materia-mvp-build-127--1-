@@ -240,9 +240,14 @@ async function main(width) {
       const track = row.parentElement.getBoundingClientRect()
       const left = Math.round(r.left - track.left)
       const right = Math.round(track.right - r.right)
+      /* ONE ROW. Nine pills and a Filters button used to wrap on a desktop,
+         leaving "More..." alone on a second line, which reads as a mistake
+         rather than as a row that continues. Distinct tops is the measure. */
+      const tops = [...row.children].map((c) => Math.round(c.getBoundingClientRect().top))
       pillBox = {
         left,
         right,
+        rows: new Set(tops).size,
         count: row.children.length,
         /* Either centred within a few pixels, or wider than its track and
            therefore scrolling, which has no centre to be off. */
@@ -532,7 +537,7 @@ for (const r of [desk, phone]) {
   }
   if (r.layout?.pills) {
     const pb = r.layout.pills
-    console.log(`    the pill row leaves ${pb.left}px on the left and ${pb.right}px on the right of its track (${pb.centred ? "centred" : "NOT centred"})`)
+    console.log(`    the pill row: ${pb.count} pills on ${pb.rows} row(s), ${pb.left}px left and ${pb.right}px right of its track (${pb.centred ? "centred" : "NOT centred"})`)
   }
   if (r.focusGlow) {
     console.log(`    the search field at rest:  ${r.focusGlow.resting} / border ${r.focusGlow.restingBorder}`)
@@ -573,6 +578,9 @@ for (const r of [desk, phone]) {
   }
   if (r.withSearchOpen?.covering?.length) {
     problems.push(`${label}: with the search open, ${r.withSearchOpen.covering.length} element(s) cover half the screen or more (${r.withSearchOpen.covering.join(", ")}). The sheet was meant to be gone.`)
+  }
+  if (r.layout?.pills && r.layout.pills.rows > 1) {
+    problems.push(`${label}: the category pills are on ${r.layout.pills.rows} rows. They should be one row that scrolls sideways.`)
   }
   if (r.layout?.pills && !r.layout.pills.centred) {
     problems.push(`${label}: the pill row leaves ${r.layout.pills.left}px on the left and ${r.layout.pills.right}px on the right of its track, so it is packed against one edge rather than centred.`)

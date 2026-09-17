@@ -1813,12 +1813,29 @@ export function ExplorePageClient({
                 Wide enough to hold them all, it wraps and centres each line
                 instead of scrolling at all.
               */}
+              {/*
+                ONE ROW, AT EVERY WIDTH.
+
+                It used to wrap on a desktop, and with nine pills and a
+                Filters button that meant "More..." sitting alone on a second
+                line under a centred row — which reads as a mistake rather
+                than as a row that continues. The owner asked for one row and
+                sideways scrolling when it does not fit.
+
+                So the wrap is gone and the scroller is the scroller at every
+                width. `w-max mx-auto` still centres the row while it fits and
+                does nothing once it is wider than its track, which is
+                scrolling from the left with the first pill reachable. The
+                mask fades the right edge at every width now, so a pill that
+                continues past the edge looks like more rather than like a
+                pill cut in half.
+              */}
               <div
-                className="flex-1 min-w-0 overflow-x-auto sm:overflow-visible scrollbar-hide -mx-1 px-1 py-0.5 [mask-image:linear-gradient(to_right,transparent_0,black_8px,black_calc(100%-20px),transparent_100%)] sm:[mask-image:none]"
+                className="flex-1 min-w-0 overflow-x-auto scrollbar-hide -mx-1 px-1 py-0.5 [mask-image:linear-gradient(to_right,transparent_0,black_8px,black_calc(100%-20px),transparent_100%)]"
               >
               <div
                 data-category-pills-row
-                className="flex w-max mx-auto items-center gap-2 sm:w-full sm:flex-wrap sm:justify-center sm:gap-y-2"
+                className="flex w-max mx-auto items-center gap-2"
               >
                 {/* "All", or "For you" for an account we know something about.
                     Same position, same globe, same behaviour: it is the pill
@@ -1850,7 +1867,7 @@ export function ExplorePageClient({
                       className={`inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border transition-colors duration-150 ${
                         isSelected
                           ? "bg-neutral-900 text-white border-neutral-900"
-                          : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900"
+                          : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
                       }`}
                     >
                       <span aria-hidden className="text-[15px] leading-none">{PILL_EMOJI[cat.id]}</span>
@@ -1861,7 +1878,7 @@ export function ExplorePageClient({
                 {/* Everything that did not fit, in the picker that already exists. */}
                 <button
                   onClick={() => { setCategorySelectorSource('recommended'); setCategorySelectorOpen(true) }}
-                  className="inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border bg-white text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900 transition-colors duration-150"
+                  className="inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800 transition-colors duration-150"
                 >
                   More...
                 </button>
@@ -1885,7 +1902,7 @@ export function ExplorePageClient({
                   className={`inline-flex items-center justify-center gap-2 h-[38px] px-3.5 sm:px-4 rounded-[10px] text-sm font-medium border transition-all duration-150 cursor-pointer select-none ${
                     filtersOpen || activeFilterCount > 0
                       ? "bg-neutral-900 text-white border-neutral-900 shadow-[0_1px_2px_rgba(15,23,42,0.18)]"
-                      : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_1px_1px_rgba(15,23,42,0.04)]"
+                      : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_1px_1px_rgba(15,23,42,0.04)]"
                   }`}
                 >
                   <SlidersHorizontal className="w-4 h-4" />
