@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { cn } from "@/lib/utils"
 import { isNativeApp } from "@/lib/platform-utils"
 import { useRevealOnScrollUp } from "@/lib/store-builder/use-reveal-on-scroll-up"
@@ -267,27 +268,56 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
   )
 
   // Memoize avatar elements to prevent re-renders when email changes
+  /*
+    ═══════════════════════════════════════════════════════════════════════════
+     THE CIRCLE THAT FLASHED EMPTY AND THEN POPPED
+    ═══════════════════════════════════════════════════════════════════════════
+    Measured on the live bar, the small avatar reported two faults at once:
+
+        ground      rgb(233, 233, 234)      a near-WHITE disc
+        src         ...1788786737198.webp   the raw upload, not /_next/image
+        natural     384 x 512               decoded to fill 24 CSS pixels
+
+    Both are the report. The ground is Avatar's shared `bg-muted`, which is
+    light because it exists so a circle is never a hole on a WHITE page; on
+    this bar, which the creator usually makes near-black, it is a bright disc
+    that paints first — that is the flash and the "emptiness", because Radix
+    holds the initials back for 600ms and the ground is all there is until the
+    photo decodes. And the photo took its time because it was the original:
+    a 384x512 file fetched and decoded whole to fill a 24px circle, which is
+    the pop at the end.
+
+    So the ground follows the bar instead of assuming a white page, and the
+    picture is asked for at the size it is shown at — roughly twenty kilobytes
+    of AVIF, which lands inside a frame or two, so the fallback's 600ms means
+    the initials never appear at all and there is nothing left to flash.
+
+    The big profile avatar further down the page was already doing both; only
+    the bar was not.
+  */
+  const avatarGround = isDarkBackground ? "bg-white/10" : "bg-black/[0.06]"
+
   const mobileAvatar = useMemo(() => (
     settings.showAvatar ? (
-      <Avatar className="h-6 w-6 shrink-0">
+      <Avatar className={cn("h-6 w-6 shrink-0", avatarGround)}>
         {settings.avatarUrl ? (
-          <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
+          <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 24)} alt={settings.creatorName || ""} />
         ) : null}
-        <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+        <AvatarFallback className={cn("text-[10px]", avatarGround)}>{initials}</AvatarFallback>
       </Avatar>
     ) : null
-  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials])
+  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials, avatarGround])
 
   const desktopAvatar = useMemo(() => (
     settings.showAvatar ? (
-      <Avatar className="h-8 w-8 shrink-0">
+      <Avatar className={cn("h-8 w-8 shrink-0", avatarGround)}>
         {settings.avatarUrl ? (
-          <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
+          <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 32)} alt={settings.creatorName || ""} />
         ) : null}
-        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+        <AvatarFallback className={cn("text-xs", avatarGround)}>{initials}</AvatarFallback>
       </Avatar>
     ) : null
-  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials])
+  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials, avatarGround])
 
   /*
     `isSticky` is only READ below the early return, but the height effect
@@ -627,6 +657,10 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
   const inputStyle = useMemo(() => getInputStyle(settings), [settings.inputBorderColor, settings.inputTextColor, settings.inputBackgroundColor])
   const placeholderStyleCSS = useMemo(() => getPlaceholderStyle(settings.inputPlaceholderColor), [settings.inputPlaceholderColor])
 
+  /* The editor preview draws the same bar, so it needs the same ground — see
+     the note on avatarGround in the live component above. */
+  const avatarGround = isDarkBackground ? "bg-white/10" : "bg-black/[0.06]"
+
   // Scroll up sticky behavior for editor preview
   useEffect(() => {
     if (!settings.enableStickyBar || !settings.enableStickyOnScrollUp) {
@@ -706,11 +740,11 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
 
       <div className="flex items-center gap-2 justify-center">
         {settings.showAvatar && (
-          <Avatar className="h-6 w-6 shrink-0">
+          <Avatar className={cn("h-6 w-6 shrink-0", avatarGround)}>
             {settings.avatarUrl ? (
-              <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
+              <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 24)} alt={settings.creatorName || ""} />
             ) : null}
-            <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+            <AvatarFallback className={cn("text-[10px]", avatarGround)}>{initials}</AvatarFallback>
           </Avatar>
         )}
         <p className="text-xs font-medium text-center">{displayText}</p>
@@ -751,11 +785,11 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
       <div className="flex sm:hidden flex-col items-center gap-2">
         <div className="flex items-center gap-2 justify-center">
           {settings.showAvatar && (
-            <Avatar className="h-6 w-6 shrink-0">
+            <Avatar className={cn("h-6 w-6 shrink-0", avatarGround)}>
               {settings.avatarUrl ? (
-                <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
+                <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 24)} alt={settings.creatorName || ""} />
               ) : null}
-              <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+              <AvatarFallback className={cn("text-[10px]", avatarGround)}>{initials}</AvatarFallback>
             </Avatar>
           )}
           <p className="text-xs font-medium text-center">{displayText}</p>
@@ -789,11 +823,11 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
       <div className="hidden sm:flex items-center justify-between gap-4 max-w-4xl mx-auto">
         <div className="flex items-center gap-2 shrink-0">
           {settings.showAvatar && (
-            <Avatar className="h-8 w-8 shrink-0">
+            <Avatar className={cn("h-8 w-8 shrink-0", avatarGround)}>
               {settings.avatarUrl ? (
-                <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
+                <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 32)} alt={settings.creatorName || ""} />
               ) : null}
-              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+              <AvatarFallback className={cn("text-xs", avatarGround)}>{initials}</AvatarFallback>
             </Avatar>
           )}
           <p className="text-sm font-medium">{displayText}</p>
