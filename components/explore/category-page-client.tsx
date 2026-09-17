@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ProductCard } from "./product-card"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ArrowLeft, Music, Camera, Video, ShoppingBag, GraduationCap, Code, Grid3X3, LayoutGrid, ChevronDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 
 // Categories with icons and subcategories
 const CATEGORIES = [
@@ -902,6 +903,15 @@ export function CategoryPageClient({
 
   const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE)
 
+  /* The grid's entrance is for a filter the visitor changed, not for arriving
+     on the page — and arriving includes coming back from a product. The token
+     is the same string the element already uses as its key. */
+  const categoryGridToken = `products-${category}-${selectedSubcategories.join("-")}-${priceFilter}-${sortBy}-${currentPage}-${viewMode}`
+  const categoryGridEntrance = useEntranceOnChange(
+    categoryGridToken,
+    "animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
+  )
+
   // Active filter count
   const activeFilterCount = useMemo(() => {
     let count = 0
@@ -1246,8 +1256,12 @@ export function CategoryPageClient({
       {paginatedProducts.length > 0 ? (
         <>
           <div
-            key={`products-${category}-${selectedSubcategories.join("-")}-${priceFilter}-${sortBy}-${currentPage}-${viewMode}`}
-            className={`${gridClass} animate-in fade-in-0 slide-in-from-bottom-2 duration-300`}
+            key={categoryGridToken}
+            /* Fades when the visitor changes a filter, not when they arrive —
+               the same grid on /explore took the page to 90.3% white for a
+               quarter of a second on every back navigation. See
+               lib/ui/use-entrance-on-change.ts. */
+            className={`${gridClass} ${categoryGridEntrance}`}
           >
             {paginatedProducts.map((product, index) => (
               <ProductCard
