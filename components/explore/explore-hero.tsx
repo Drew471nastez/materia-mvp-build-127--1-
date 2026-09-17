@@ -138,8 +138,14 @@ export function ExploreHero({
     splitting the pair across two notations would hide that they move
     together.
   */
+  /*
+    AND pb-[10px] RATHER THAN pb-3 ON A PHONE. With the section below opening
+    on mt-2, the gap between this field and the category pills was 20px and
+    the owner asked for ten per cent off it, on mobile only: 12 + 8 becomes
+    10 + 8. The sm: side is untouched.
+  */
   return (
-    <section className="pt-[48px] pb-3 sm:pt-[88px] sm:pb-4">
+    <section className="pt-[48px] pb-[10px] sm:pt-[88px] sm:pb-4">
       {/* The sentence, whole, for anything that reads rather than looks. */}
       <h1 className="sr-only">Discover {NOUNS.slice(0, -1).join(", ")} and {NOUNS[NOUNS.length - 1]} from creators</h1>
 
@@ -246,7 +252,11 @@ export function ExploreHero({
             className={cn(
               /* 10px, per the owner. A pill reads as a chip; this is a field. */
               "h-[52px] sm:h-[62px] w-full rounded-[10px] bg-white",
-              "border border-neutral-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_10px_30px_-18px_rgba(15,23,42,0.35)]",
+              /* Ten per cent shallower than it was: offsets, blurs and both
+                 alphas scaled by 0.9. It stays level with the chip above,
+                 which sits at 0.05 and 0.30 against this field's 0.045 and
+                 0.315, so the two still read as the same depth. */
+              "border border-neutral-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.045),0_9px_27px_-16px_rgba(15,23,42,0.315)]",
               "pl-12 sm:pl-14 pr-12 text-[15px] sm:text-[17px] text-neutral-900 placeholder:text-neutral-400",
               /*
                 NO VIOLET HALO ON FOCUS. It bloomed a purple glow around the
@@ -257,7 +267,7 @@ export function ExploreHero({
                 without changing colour.
               */
               "outline-none transition-shadow focus:border-neutral-300",
-              "focus:shadow-[0_1px_3px_rgba(15,23,42,0.06),0_12px_30px_-18px_rgba(15,23,42,0.40)]",
+              "focus:shadow-[0_1px_3px_rgba(15,23,42,0.054),0_11px_27px_-16px_rgba(15,23,42,0.36)]",
             )}
           />
           {query && (

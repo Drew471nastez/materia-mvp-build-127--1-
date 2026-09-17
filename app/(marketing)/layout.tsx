@@ -94,11 +94,41 @@ export default async function MarketingLayout({
       <RouteLoadingBar />
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />
 
-      <main className="flex-1 [overflow-x:clip]">{children}</main>
+      {/*
+        ═══════════════════════════════════════════════════════════════════
+         NO PAINT CONTAINMENT AROUND ELEVEN THOUSAND PIXELS
+        ═══════════════════════════════════════════════════════════════════
+        This carried `overflow-x: clip`, which is redundant: <html> already
+        sets `overflow-x: hidden`, so anything too wide is clipped at the
+        window and cannot produce a sideways scrollbar. What the extra rule
+        did add was a containment box wrapped around the entire page, and on
+        /explore that page is about eleven thousand pixels tall on a phone.
 
-      <Suspense fallback={null}>
-        <ConditionalFooter />
-      </Suspense>
+        The reported symptom is footer links, a category pill and product
+        cards all painted into the same band of screen, which is not a
+        layout overlap — every measurement of this page says main's bottom
+        edge and the footer's top edge are the same number to the pixel.
+        Three parts of a very tall document drawn on top of each other is
+        iOS reusing the wrong tiles, and a containment box that size is one
+        of the things that provokes it.
+
+        `overflow-x: clip` also leaves VERTICAL overflow visible, so it was
+        the one mechanism by which anything inside main could paint over the
+        footer at all. Both reasons point the same way.
+      */}
+      <main className="flex-1">{children}</main>
+
+      {/*
+        And the footer gets its own stacking context, so it is composited as
+        itself rather than as part of whatever is above it. It also arrives
+        after hydration — see conditional-footer — which means it is inserted
+        into a document the browser has already painted.
+      */}
+      <div className="relative isolate">
+        <Suspense fallback={null}>
+          <ConditionalFooter />
+        </Suspense>
+      </div>
     </div>
     </LanguageProvider>
   )

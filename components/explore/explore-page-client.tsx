@@ -1320,26 +1320,37 @@ export function ExplorePageClient({
     setSelectedSubcategoryId(subcategoryId || null)
     setSelectedSubcategoryLabel(subcategoryLabel || null)
     setSelectedSubcategories([])
-    setIsLoadingCategory(true)
+    setCurrentPage(1)
     pendingCategoryAutoScrollRef.current = shouldAutoScrollToRecommended
 
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       THE FLASHING WAS A LOADING STATE FOR SOMETHING THAT NEVER LOADED
+      ═══════════════════════════════════════════════════════════════════════
+      This used to raise isLoadingCategory, wait 100ms on a timer, push the
+      URL inside a transition, and lower it again. Every one of those steps
+      puts skeletons on screen: the flag directly, the transition through
+      isPending. The filtering itself is a useMemo over products that are
+      already in memory, so there was nothing to wait for. Tapping through
+      the pills quickly meant skeletons in, cards back, skeletons in again,
+      which is the popping and flashing that was reported.
+
+      The state changes now and the list is simply correct on the next frame.
+
+      THE URL FOLLOWS, DEBOUNCED AND WITHOUT A HISTORY ENTRY. Each push was
+      also a server round trip and a new entry in history, so five taps left
+      five pages to walk back through. `replace` after a short pause means
+      the address ends up describing what you are looking at, and Back still
+      goes where you came from.
+    */
     if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
-
     categoryChangeTimeoutRef.current = setTimeout(() => {
-      startTransition(() => {
-        let newUrl = `/explore?category=${categoryId}`
-        if (subcategoryId) {
-          newUrl += `&sub=${subcategoryId}`
-        }
-        if (urlSearchQuery) {
-          newUrl += `&q=${urlSearchQuery}`
-        }
-        router.push(newUrl, { scroll: false })
-      })
-      setIsLoadingCategory(false)
-
-    }, 100)
-  }, [router, urlSearchQuery])
+      let newUrl = exploreHref(categoryId)
+      if (subcategoryId) newUrl += `&sub=${subcategoryId}`
+      if (urlSearchQuery) newUrl += `&q=${urlSearchQuery}`
+      router.replace(newUrl, { scroll: false })
+    }, 250)
+  }, [router, urlSearchQuery, exploreHref])
 
   // Handle subcategory selection from modal
   const handleSubcategorySelect = useCallback((categoryId: string, subcategoryId: string, subcategoryLabel: string) => {
@@ -1552,7 +1563,12 @@ export function ExplorePageClient({
                         setSelectedSubcategoryId(null)
                         setSelectedSubcategoryLabel(null)
                         setCurrentPage(1)
-                        router.push(exploreHref(cat.id), { scroll: false })
+                        /* Debounced and replacing, for the reason in
+                           handleCategorySelect: a tap is not a page. */
+                        if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
+                        categoryChangeTimeoutRef.current = setTimeout(() => {
+                          router.replace(exploreHref(cat.id), { scroll: false })
+                        }, 250)
                         /* Switching a category changes what the list is, so
                            the list starts again from its top rather than
                            leaving somebody in the middle of a page of

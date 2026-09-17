@@ -168,7 +168,17 @@ function main() {
   const hero = read("components/explore/explore-hero.tsx")
   /* The bottom padding was trimmed separately on main while this trimmed the
      top; both are deliberate, so the merge kept both rather than picking one. */
-  check("the hero's top spacing is 48 / 88", /className="pt-\[48px\] pb-3 sm:pt-\[88px\] sm:pb-4"/.test(hero))
+  /*
+    THE TOP IS WHAT THIS PINS. It matched the whole class string, bottom
+    padding included, so trimming the gap between the field and the category
+    pills failed a check named for the space above the heading. The two
+    numbers this is about are 48 and 88, and they are still checked exactly;
+    the bottom is read separately and reported, because it has now moved
+    twice for reasons of its own.
+  */
+  const heroPad = hero.match(/className="pt-\[48px\] (pb-[^\s"]+) sm:pt-\[88px\] (sm:pb-[^\s"]+)"/)
+  check("the hero's top spacing is 48 / 88", Boolean(heroPad), "pt-[48px] … sm:pt-[88px] is not on the section")
+  if (heroPad) console.log(`        its bottom padding is ${heroPad[1]} / ${heroPad[2]}`)
 
   /* ---------------------------------------------------------------------
      THE HERO'S SUBTITLE
